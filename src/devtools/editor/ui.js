@@ -1,4 +1,5 @@
 // Hàm dựng giao diện nhỏ gọn cho công cụ nội dung (không dùng framework)
+import { searchEmoji } from './emoji.js';
 
 export function el(tag, attrs = {}, ...children) {
   const e = document.createElement(tag);
@@ -49,6 +50,52 @@ export function numInput(value, onInput, { step = 'any', min, max, scale = 1, di
       onInput(Number.isFinite(v) ? +v.toFixed(6) : NaN);
     },
   });
+}
+
+// Ô biểu tượng: gõ/dán emoji, hoặc bấm 😀 để chọn trong bảng (có ô tìm tiếng Việt)
+export function emojiInput(value, onInput, attrs = {}) {
+  const input = textInput(value, onInput, { ...attrs, class: 'emoji' });
+  const wrap = el('span', { class: 'emoji-in' }, input);
+  let pop = null;
+  const close = () => {
+    if (!pop) return;
+    pop.remove();
+    pop = null;
+    removeEventListener('pointerdown', outside, true);
+    removeEventListener('keydown', esc, true);
+  };
+  const outside = (e) => { if (!wrap.contains(e.target)) close(); };
+  const esc = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+  const choose = (em) => {
+    input.value = em;
+    onInput(em);
+    close();
+    input.focus();
+  };
+  const open = () => {
+    document.querySelectorAll('.emoji-pop').forEach((x) => x.dispatchEvent(new Event('close')));
+    const search = el('input', { type: 'search', placeholder: 'Tìm: phở, sách, karaoke, xăng…' });
+    const grid = el('div', { class: 'emoji-grid' });
+    const draw = () => {
+      grid.innerHTML = '';
+      const groups = searchEmoji(search.value);
+      if (!groups.length) grid.append(el('small', { class: 'muted' }, 'Không thấy. Thử từ khác, hoặc nhấn phím Windows + . để mở bảng emoji của Windows.'));
+      for (const [name, list] of groups) {
+        grid.append(el('b', {}, name), el('div', { class: 'emoji-row' }, list.map(([em, kw]) => el('button', { type: 'button', class: `emoji-btn${em === input.value ? ' on' : ''}`, title: kw, onclick: () => choose(em) }, em))));
+      }
+    };
+    search.addEventListener('input', draw);
+    search.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); const first = grid.querySelector('.emoji-btn'); if (first) first.click(); } });
+    pop = el('div', { class: 'emoji-pop' }, search, grid, el('small', { class: 'muted' }, 'Bấm để chọn · Enter chọn kết quả đầu · Esc đóng'));
+    pop.addEventListener('close', close);
+    draw();
+    wrap.append(pop);
+    addEventListener('pointerdown', outside, true);
+    addEventListener('keydown', esc, true);
+    search.focus();
+  };
+  wrap.append(el('button', { type: 'button', class: 'btn small emoji-open', title: 'Chọn biểu tượng', onclick: () => (pop ? close() : open()) }, '😀 Chọn'));
+  return wrap;
 }
 
 export function colorInput(value, onInput) {

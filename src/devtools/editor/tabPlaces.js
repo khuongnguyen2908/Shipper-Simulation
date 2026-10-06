@@ -3,7 +3,7 @@
 import { CITY, HALF, blockBounds, lotInfo } from '../../sim/cityLayout.js';
 import { PROTECTED, ID_RE, LOTS, lotCells } from '../../data/validate.js';
 import { moveInArray } from './order.js';
-import { el, field, textInput, numInput, colorInput, selectInput, checkInput, button, sideList, areaInput, dragHandle, makeSortable } from './ui.js';
+import { el, field, textInput, numInput, colorInput, selectInput, checkInput, button, sideList, areaInput, dragHandle, makeSortable, emojiInput } from './ui.js';
 
 const KIND = { home: '🏠 Nhà trọ', restaurant: '🍴 Quán ăn', gas: '⛽ Cây xăng', shop: '🎒 Tiệm đồ nghề', garage: '🔧 Tiệm xe', cafe: '☕ Quán cà phê', taphoa: '🛒 Tạp hóa', gate: '🟩 Nhà cổng xanh', apartment: '🏢 Chung cư', market: '🧺 Chợ', service: '⭐ Dịch vụ' };
 const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', service: '⭐' };
@@ -69,7 +69,7 @@ export function render(root, ctx) {
         field('Mã (không dấu)', idInput, opt('id', { hint: locked ? 'Code dùng trực tiếp mã này' : 'Đổi mã sẽ đổi cả khóa lời thoại npc.<mã>.*' })),
         field('Tên đầy đủ', textInput(p.name, (v) => { p.name = v; changedP(); }), opt('name')),
         field('Tên ngắn (bản đồ)', textInput(p.short, (v) => { p.short = v; changedP(); }), opt('short')),
-        field('Biểu tượng bản đồ', textInput(p.icon ?? '', (v) => { if (v) p.icon = v; else delete p.icon; changedP(); }, { class: 'emoji', placeholder: ICON[p.kind] || '📍' }), opt('icon', { hint: 'Emoji; để trống = theo loại' })),
+        field('Biểu tượng bản đồ', emojiInput(p.icon ?? '', (v) => { if (v) p.icon = v; else delete p.icon; changedP(); }, { placeholder: ICON[p.kind] || '📍' }), opt('icon', { hint: 'Emoji; để trống = theo loại' })),
         p.kind !== 'gate' ? field('Chữ trên biển hiệu', textInput(p.sign, (v) => { p.sign = v; changedP(); }), opt('sign')) : null,
         p.signBg != null || p.kind !== 'gate' ? field('Màu biển hiệu', colorInput(p.signBg, (v) => { p.signBg = v; changedP(); }), opt('signBg')) : null,
         field('Màu tường', colorInput(p.color, (v) => { p.color = v; changedP(); }), opt('color')),
@@ -92,7 +92,7 @@ export function render(root, ctx) {
         'div',
         { class: 'grid' },
         field('Tên NPC', textInput(n.name, (v) => { n.name = v; changedP(); }), opt('npc.name')),
-        field('Chân dung (emoji)', textInput(n.portrait, (v) => { n.portrait = v; changedP(); }, { class: 'emoji' }), opt('npc.portrait')),
+        field('Chân dung (emoji)', emojiInput(n.portrait, (v) => { n.portrait = v; changedP(); }), opt('npc.portrait')),
         field('Màu áo', colorInput(n.shirt, (v) => { n.shirt = v; changedP(); }), opt('npc.shirt')),
         field('Màu quần', colorInput(n.pants, (v) => { n.pants = v; changedP(); }), opt('npc.pants')),
         field('Đội mũ', selectInput(n.hat || '', [['', 'Không'], ['nonla', 'Nón lá'], ['helmet', 'Mũ bảo hiểm'], ['police', 'Mũ CSGT']], (v) => { n.hat = v || null; changedP(); }), opt('npc.hat')),

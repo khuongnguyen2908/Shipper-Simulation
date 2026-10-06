@@ -379,6 +379,35 @@ console.log('Kéo thả đổi thứ tự (công cụ ?editor)');
   });
 }
 
+console.log('Bảng chọn emoji (công cụ ?editor)');
+{
+  const { EMOJI_GROUPS, searchEmoji } = await import('../src/devtools/editor/emoji.js');
+  const all = EMOJI_GROUPS.flatMap(([, list]) => list);
+  const found = (q) => searchEmoji(q).flatMap(([, list]) => list.map(([e]) => e));
+  test('Mỗi emoji chỉ có một lần và đều có từ khóa', () => {
+    const seen = new Set();
+    for (const [e, kw] of all) {
+      assert.ok(!seen.has(e), `trùng ${e}`);
+      seen.add(e);
+      assert.ok(kw && kw.trim(), `${e} chưa có từ khóa`);
+    }
+    assert.ok(all.length >= 100, `chỉ có ${all.length} emoji`);
+  });
+  test('Tìm bằng tiếng Việt, có dấu hay không dấu đều ra', () => {
+    assert.ok(found('phở').includes('🍜') && found('pho').includes('🍜'));
+    assert.ok(found('ca phe').includes('☕'));
+    assert.ok(found('Karaoke').includes('🎤'));
+    assert.ok(found('nhà sách').includes('📚'));
+    assert.ok(found('đầu bếp').includes('🧑‍🍳'));
+    // gõ có dấu thì đúng dấu; chỉ khớp đầu từ, không lấy tên nhóm
+    assert.deepEqual(found('dù'), ['☂️', '🌂']);
+    assert.ok(found('du').includes('☂️') && found('du').includes('🍉') && !found('du').includes('📘'));
+    assert.ok(!found('an').includes('🥖'), '"an" không được khớp giữa chữ "bánh"');
+    assert.equal(found('xyzabc').length, 0);
+    assert.equal(found('').length, all.length);
+  });
+}
+
 console.log('Dữ liệu & kho chữ (sửa bằng công cụ ?editor)');
 {
   const fs = await import('node:fs');

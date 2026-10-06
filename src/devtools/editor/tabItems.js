@@ -3,7 +3,7 @@
 import { DeliveryItem } from '../../sim/ItemPhysics.js';
 import { fmt } from '../../content/index.js';
 import { TRAIT_IDS, PROTECTED, ID_RE } from '../../data/validate.js';
-import { el, field, textInput, numInput, checkInput, button, sideList, selectInput } from './ui.js';
+import { el, field, textInput, numInput, checkInput, button, sideList, selectInput, emojiInput } from './ui.js';
 import { moveKey } from './order.js';
 
 const TRAIT_INFO = {
@@ -58,7 +58,7 @@ export function render(root, ctx) {
       { class: 'grid' },
       field('Mã (không dấu)', idInput, { ref, fieldKey: 'id', hint: protectedId ? 'Code dùng trực tiếp mã này' : 'Đổi mã sẽ tự cập nhật thực đơn các quán' }),
       field('Tên hiển thị', textInput(it.name, (v) => { it.name = v; changed(); }), { ref, fieldKey: 'name' }),
-      field('Biểu tượng (emoji)', textInput(it.icon, (v) => { it.icon = v; changed(); }, { class: 'emoji' }), { ref, fieldKey: 'icon' }),
+      field('Biểu tượng (emoji)', emojiInput(it.icon, (v) => { it.icon = v; changed(); }), { ref, fieldKey: 'icon' }),
       field('Giá cước (k)', numInput(it.base, (v) => { it.base = v; changed(); }, { step: 1, min: 1 }), { ref, fieldKey: 'base', hint: 'Đơn nhiều món: lấy giá cao nhất + 6k mỗi món thêm' }),
     ),
   );

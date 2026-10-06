@@ -2,7 +2,7 @@
 import { PROTECTED, ID_RE } from '../../data/validate.js';
 import { moveKey } from './order.js';
 import { EFFECTS, CONSUMABLE_FIELDS } from '../../data/goods.js';
-import { el, field, textInput, numInput, colorInput, button, sideList, areaInput, selectInput, checkInput } from './ui.js';
+import { el, field, textInput, numInput, colorInput, button, sideList, areaInput, selectInput, checkInput, emojiInput } from './ui.js';
 
 const CATS = [
   ['vehicles', '🛵 Xe'],
@@ -82,7 +82,7 @@ export function render(root, ctx) {
       field('Mã (không dấu)', idInput, opt('id', { hint: 'Đổi mã sẽ tự cập nhật danh sách hàng của các địa điểm' })),
       field('Tên', textInput(s.name, (v) => { s.name = v; changed(); }), opt('name')),
       cat === 'goods'
-        ? field('Biểu tượng (emoji)', textInput(s.icon, (v) => { s.icon = v; changed(); }, { class: 'emoji' }), opt('icon'))
+        ? field('Biểu tượng (emoji)', emojiInput(s.icon, (v) => { s.icon = v; changed(); }), opt('icon'))
         : field('Màu', colorInput(s.color, (v) => { s.color = v; changed(); }), opt('color', { hint: cat === 'vehicles' ? 'Màu thân xe' : 'Màu túi trên baga' })),
       cat === 'goods' ? field('Giá (k)', numInput(s.price, (v) => { s.price = v; changed(); }, { step: 5, min: 0 }), opt('price')) : null,
       ...(FIELDS[cat] || []).map(([k, label, o, hint]) => field(label, numInput(s[k], (v) => { s[k] = v; changed(); }, o), opt(k, { hint }))),
