@@ -4,7 +4,7 @@
 //  - error: game sẽ chạy sai → công cụ không cho lưu
 //  - warn : chạy được nhưng nên xem lại
 // =============================================================
-import { CITY, LOT_IDS, MULTI_LOTS, lotParts } from '../sim/cityLayout.js';
+import { CITY, LOT_IDS, MULTI_LOTS, lotParts, lotFaces } from '../sim/cityLayout.js';
 import { EFFECTS, CONSUMABLE_FIELDS } from './goods.js';
 import { GENDERS, HAIR_STYLES } from '../sim/people.js';
 
@@ -119,6 +119,7 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null) {
     else {
       if (p.lot === 'C' && p.kind !== 'gate') add('error', p.id, 'lot', 'Lô C (sân trong hẻm) chỉ dành cho nhà cổng xanh.');
       if (p.kind === 'gate' && (p.lot !== 'C' || bx !== pd.alley.block[0] || bz !== pd.alley.block[1])) add('error', p.id, 'lot', 'Nhà cổng xanh phải ở lô C của khối có hẻm 42.');
+      if (p.face != null && !lotFaces(p.lot).includes(p.face)) add('error', p.id, 'face', `Lô ${p.lot} không có mặt tiền hướng "${p.face}" ra đường — chọn: ${lotFaces(p.lot).join(', ')}.`);
       for (const c of lotCells(p)) {
         if (c === alleyKey) add('error', p.id, 'lot', 'Lô này là lối vào hẻm 42.');
         if (occupied.has(c)) add('error', p.id, 'lot', `Trùng lô với "${occupied.get(c)}".`);

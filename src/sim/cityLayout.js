@@ -24,6 +24,16 @@ export const lotParts = (lot) => MULTI_LOTS[lot] || [lot];
 export const lotSize = (lot) => Object.keys(LOT_SIZES).find((k) => LOT_SIZES[k].includes(lot)) || null;
 const CELL = { N0: [0, 0], N1: [1, 0], N2: [2, 0], W1: [0, 1], E1: [2, 1], S0: [0, 2], S1: [1, 2], S2: [2, 2] };
 
+// Các hướng mặt tiền chọn được: những cạnh của lô chạm ra đường. Hướng mặc định (theo lô) đứng đầu.
+export function lotFaces(lot) {
+  const cells = lotParts(lot).map((id) => CELL[id]);
+  if (lot === 'C' || !cells.length || !cells.every(Boolean)) return ['E'];
+  const out = [lot[0]];
+  const touch = { N: cells.some((c) => c[1] === 0), E: cells.some((c) => c[0] === 2), S: cells.some((c) => c[1] === 2), W: cells.some((c) => c[0] === 0) };
+  for (const f of ['N', 'E', 'S', 'W']) if (touch[f] && !out.includes(f)) out.push(f);
+  return out;
+}
+
 export const roadPos = (i) => CITY.ORIGIN + i * CITY.PITCH;
 
 export function blockBounds(bx, bz) {
@@ -44,7 +54,8 @@ export function blockAt(x, z) {
   return [bx, bz];
 }
 
-export function lotInfo(bx, bz, lot) {
+// face: hướng mặt tiền người dùng chọn (không hợp lệ hoặc bỏ trống → theo lô)
+export function lotInfo(bx, bz, lot, wantFace = null) {
   const b = blockBounds(bx, bz);
   const ax = b.x0 + CITY.SW, az = b.z0 + CITY.SW, W = LOT_W;
   let r, face = lot[0];
@@ -53,6 +64,7 @@ export function lotInfo(bx, bz, lot) {
     // khung bao các ô của lô (1 ô, 2 ô ngang, cả dãy, cả cột)
     const cs = cells.map((c) => c[0]), rs = cells.map((c) => c[1]);
     r = { x0: ax + Math.min(...cs) * W, x1: ax + (Math.max(...cs) + 1) * W, z0: az + Math.min(...rs) * W, z1: az + (Math.max(...rs) + 1) * W };
+    if (wantFace && lotFaces(lot).includes(wantFace)) face = wantFace;
   } else { r = { x0: ax + W, x1: ax + 1.5 * W, z0: az + W + 1, z1: az + 2 * W - 1 }; face = 'E'; } // 'C' sân giữa
   const cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2;
   let door;
@@ -77,7 +89,7 @@ const key = (bx, bz, lot) => `${bx},${bz},${lot}`;
 
 // Dựng danh sách địa điểm đặc biệt + các lô nhà dân (khách hàng)
 export function buildLayout() {
-  const places = PLACES.map((p) => ({ ...p, ...lotInfo(p.block[0], p.block[1], p.lot) }));
+  const places = PLACES.map((p) => ({ ...p, ...lotInfo(p.block[0], p.block[1], p.lot, p.face) }));
   const taken = new Set();
   for (const p of places) {
     const [bx, bz] = p.block;

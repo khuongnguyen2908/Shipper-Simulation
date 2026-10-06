@@ -1,6 +1,6 @@
 // Thẻ ĐỊA ĐIỂM & NPC: tên, biển hiệu, màu, vị trí trên bản đồ (bấm ô để dời), NPC,
 // thực đơn quán, lời thoại riêng; mục "Tên đường & khách" cho tên phố, tên khách, người đi đường.
-import { CITY, HALF, blockBounds, lotInfo, LOT_SIZES, lotParts, lotSize } from '../../sim/cityLayout.js';
+import { CITY, HALF, blockBounds, lotInfo, LOT_SIZES, lotParts, lotSize, lotFaces } from '../../sim/cityLayout.js';
 import { PROTECTED, ID_RE, LOTS, lotCells } from '../../data/validate.js';
 import { moveInArray } from './order.js';
 import { personPreview } from './personPreview.js';
@@ -16,6 +16,7 @@ const LOT_LABEL = {
   W01: 'N0+W1 · cột tây, phía trên', W12: 'W1+S0 · cột tây, phía dưới', E01: 'N2+E1 · cột đông, phía trên', E12: 'E1+S2 · cột đông, phía dưới',
   N: 'N · cả dãy bắc', S: 'S · cả dãy nam', W: 'W · cả cột tây (N0+W1+S0)', E: 'E · cả cột đông (N2+E1+S2)', C: 'C · sân trong hẻm',
 };
+const DIR = { N: 'Bắc', S: 'Nam', E: 'Đông', W: 'Tây' };
 const SIZE_LABEL = { one: '1 lô', two: '2 lô ngang', vtwo: '2 lô dọc', row: 'Cả dãy (3 lô ngang)', col: 'Cả cột (3 lô dọc)' };
 // Lô cùng cỡ có chứa ô vừa bấm (ưu tiên lô bắt đầu từ ô đó)
 const lotForCell = (size, cell) => {
@@ -95,10 +96,12 @@ export function render(root, ctx) {
         p.kind !== 'gate' ? field('Kích thước', selectInput(size, Object.entries(SIZE_LABEL), (v) => {
           // giữ chỗ cũ nếu được: lấy lô cỡ mới chứa ô đầu của lô hiện tại
           p.lot = lotForCell(v, lotParts(p.lot)[0]) || lotParts(p.lot).map((c) => lotForCell(v, c)).find(Boolean) || LOT_SIZES[v][0];
+          fixFace();
           changedP();
           ctx.rerender();
         }), opt('lotSize', { hint: 'Tòa nhà lớn chiếm nhiều lô (mỗi lô bớt 1 nhà khách). Mặt tiền: lô ngang quay ra đường phía bắc/nam; lô dọc quay ra đường phía tây/đông.' })) : null,
-        field('Lô trong khối', selectInput(p.lot, lotOptions.map((l) => [l, LOT_LABEL[l] || l]), (v) => { p.lot = v; changedP(); drawMap(); }), opt('lot', { hint: 'Hoặc bấm vào ô trên bản đồ (giữ nguyên kích thước)' })),
+        field('Lô trong khối', selectInput(p.lot, lotOptions.map((l) => [l, LOT_LABEL[l] || l]), (v) => { p.lot = v; fixFace(); changedP(); ctx.rerender(); }), opt('lot', { hint: 'Hoặc bấm vào ô trên bản đồ (giữ nguyên kích thước)' })),
+        p.kind !== 'gate' ? faceField() : null,
       ),
       mapBox,
     ),
@@ -307,7 +310,17 @@ export function render(root, ctx) {
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     for (const q of places) {
-      const r = lotInfo(q.block[0], q.block[1], q.lot);
+      const r = lotInfo(q.block[0], q.block[1], q.lot, q.face);
+      // vạch mặt tiền (cạnh có cửa)
+      const edge = { N: [r.x0, r.z0, r.x1, r.z0], S: [r.x0, r.z1, r.x1, r.z1], W: [r.x0, r.z0, r.x0, r.z1], E: [r.x1, r.z0, r.x1, r.z1] }[r.face];
+      if (edge && q.lot !== 'C') {
+        g.strokeStyle = q.id === p.id ? '#f4d03f' : 'rgba(255,255,255,0.75)';
+        g.lineWidth = q.id === p.id ? 6 : 3;
+        g.beginPath();
+        g.moveTo(X(edge[0]), Z(edge[1]));
+        g.lineTo(X(edge[2]), Z(edge[3]));
+        g.stroke();
+      }
       const w = (r.x1 - r.x0) * k - 4;
       g.font = `${q.id === p.id ? 800 : 600} 13px "Segoe UI", sans-serif`;
       let label = q.short || q.id;
@@ -330,10 +343,30 @@ export function render(root, ctx) {
       if (!lot) return alert(`Ô ${hit.lot} không vừa kích thước "${SIZE_LABEL[lotSize(p.lot)]}". ${['col', 'vtwo'].includes(lotSize(p.lot)) ? 'Lô dọc chỉ đặt ở cột trái (N0, W1, S0) hoặc cột phải (N2, E1, S2).' : 'Chọn ô ở dãy bắc (N…) hoặc dãy nam (S…).'}`);
       p.block = [hit.bx, hit.bz];
       p.lot = lot;
+      fixFace();
       changedP();
       ctx.rerender();
     });
-    mapBox.append(c, el('small', { class: 'muted' }, 'Vàng = đang chọn · đỏ = trùng lô · nâu = lối vào hẻm 42 · bấm ô để dời'));
+    mapBox.append(c, el('small', { class: 'muted' }, 'Vàng = đang chọn · vạch = mặt tiền (cửa) · đỏ = trùng lô · nâu = lối vào hẻm 42 · bấm ô để dời'));
+  }
+
+  // ---------- mặt tiền ----------
+  // Bỏ hướng đã chọn nếu lô mới không còn chạm đường hướng đó
+  function fixFace() {
+    if (p.face && !lotFaces(p.lot).includes(p.face)) delete p.face;
+  }
+  function faceField() {
+    const [bx, bz] = p.block;
+    const street = (f) => ({ N: pd.streetsZ[bz], S: pd.streetsZ[bz + 1], W: pd.streetsX[bx], E: pd.streetsX[bx + 1] })[f] || '?';
+    const faces = lotFaces(p.lot);
+    const sel = selectInput(p.face || '', [
+      ['', `Theo lô — ${DIR[faces[0]]} (đường ${street(faces[0])})`],
+      ...faces.slice(1).map((f) => [f, `${DIR[f]} — đường ${street(f)}`]),
+    ], (v) => { if (v) p.face = v; else delete p.face; changedP(); drawMap(); });
+    sel.disabled = faces.length < 2;
+    return field('Mặt tiền (cửa quay ra)', sel, opt('face', { hint: faces.length < 2
+      ? 'Lô này chỉ chạm 1 con đường nên chỉ có 1 hướng. Lô góc, 2 lô, cả dãy, cả cột mới chọn được hướng khác.'
+      : 'Vạch vàng trên bản đồ = mặt tiền. Cửa, biển hiệu, mái hiên, NPC và địa chỉ đổi theo.' }));
   }
 
   // ---------- thao tác ----------

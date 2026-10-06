@@ -428,7 +428,7 @@ console.log('Đồ mang tới địa điểm dùng (vd nhang → chùa)');
 
 console.log('Tòa nhà nhiều lô');
 {
-  const { lotInfo, LOT_W, lotParts, LOT_SIZES, lotSize } = await import('../src/sim/cityLayout.js');
+  const { lotInfo, LOT_W, lotParts, LOT_SIZES, lotSize, lotFaces } = await import('../src/sim/cityLayout.js');
   const { lotCells } = await import('../src/data/validate.js');
   const W = LOT_W, near = (a, b) => Math.abs(a - b) < 1e-9;
   test('Khung lô đúng cỡ và mặt tiền đúng hướng', () => {
@@ -441,6 +441,23 @@ console.log('Tòa nhà nhiều lô');
     // cả cột tây trùng khít 3 lô đơn N0, W1, S0
     const col = lotInfo(2, 2, 'W'), n0 = lotInfo(2, 2, 'N0'), s0 = lotInfo(2, 2, 'S0');
     assert.ok(near(col.z0, n0.z0) && near(col.z1, s0.z1) && near(col.x0, n0.x0));
+  });
+  test('Mặt tiền chọn được: chỉ các cạnh chạm đường, hướng theo lô đứng đầu', () => {
+    assert.deepEqual(lotFaces('N1'), ['N']);
+    assert.deepEqual(lotFaces('W1'), ['W']);
+    assert.deepEqual(lotFaces('N0'), ['N', 'W']);
+    assert.deepEqual(lotFaces('S2'), ['S', 'E']);
+    assert.deepEqual(lotFaces('N12'), ['N', 'E']);
+    assert.deepEqual(lotFaces('W12'), ['W', 'S']);
+    assert.deepEqual(lotFaces('N'), ['N', 'E', 'W']);
+    assert.deepEqual(lotFaces('E'), ['E', 'N', 'S']);
+  });
+  test('Đổi mặt tiền: cửa và tên đường đổi theo; hướng không hợp lệ thì giữ theo lô', () => {
+    const def = lotInfo(1, 1, 'N0'), west = lotInfo(1, 1, 'N0', 'W'), bad = lotInfo(1, 1, 'N1', 'W');
+    assert.equal(def.face, 'N');
+    assert.equal(west.face, 'W');
+    assert.ok(west.door.x < def.door.x && west.street !== def.street, 'cửa phải dời sang vỉa hè phía tây');
+    assert.equal(bad.face, 'N');
   });
   test('Mỗi kích thước có đủ lô, tên lô ↔ kích thước khớp nhau', () => {
     for (const [size, lots] of Object.entries(LOT_SIZES)) for (const l of lots) assert.equal(lotSize(l), size);

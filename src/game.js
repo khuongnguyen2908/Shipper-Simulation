@@ -120,7 +120,8 @@ export class Game {
     };
     for (const p of this.layout.places) if (p.npc) add(p.id, p.npc, p.door, p.face, p.npc.name);
     const cafe = this.layout.placeById.cafe;
-    const minh = add('minh', { shirt: 0x34495e, pants: 0x1c2833, gender: 'm' }, { x: cafe.door.x + 1.6, z: cafe.door.z }, cafe.face, fmt('npc.minh.name'), 0.4);
+    const [cnx, cnz] = NORMAL[cafe.face]; // đứng lệch 1,6 m dọc theo mặt tiền (hướng nào cũng nằm trên vỉa hè)
+    const minh = add('minh', { shirt: 0x34495e, pants: 0x1c2833, gender: 'm' }, { x: cafe.door.x + (cnz ? 1.6 : 0), z: cafe.door.z + (cnx ? 1.6 : 0) }, cafe.face, fmt('npc.minh.name'), 0.4);
     minh.visible = false;
     return out;
   }
