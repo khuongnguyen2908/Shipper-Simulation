@@ -3,7 +3,9 @@
 // (lấy hàng, xếp túi, giao hàng, sự cố, cửa hàng, nhiệm vụ chiếc ví, CSGT…)
 // Mọi chữ lấy từ kho chữ qua fmt() — sửa bằng công cụ ?editor.
 // =============================================================
-import { ECONOMY, ENERGY, ORDER, VEHICLES, BAGS, GEAR, WALLET_QUEST } from './data/balance.js';
+import { ECONOMY, ENERGY, ORDER, VEHICLES, BAGS, WALLET_QUEST } from './data/balance.js';
+import { GOODS } from './data/goods.js';
+import { isOpen, fmtHours } from './sim/placeRules.js';
 import { ITEMS } from './data/items.js';
 import { S } from './sim/OrderManager.js';
 import { fmtK } from './sim/economy.js';
@@ -287,7 +289,7 @@ function stairs(g) {
   const { om, gs } = g;
   const o = om.order;
   const f = o.dropoff.floor;
-  const cost = f * ENERGY.phys.stairFloor;
+  const cost = f * ENERGY.phys.stairFloor * Math.max(0, 1 + gs.effect('stairsPct') / 100);
   const n = npc(g, 'apartment');
   say(g, n.name, n.portrait, fmt('dlg.stairs', { floor: f, fee: ECONOMY.parkingFee }), [
     {
@@ -385,29 +387,192 @@ export function viewWallet(g) {
 }
 
 // ======================== ĐỊA ĐIỂM ========================
+// Mọi địa điểm dùng chung: lời chào + việc riêng (nếu có) + hoạt động + xem hàng.
+// Hoạt động, hàng bán, giờ mở cửa đều lấy từ places.json (sửa bằng ?editor).
 export function placeAction(g, pl) {
   const { gs } = g;
   const p = { place: pl.name, npc: pl.npc ? pl.npc.name : '' };
+  const open = isOpen(pl, g.clockMin);
+  const closed = open ? '' : fmt('act.closed', { hours: fmtHours(pl.hours) });
+  const generic = (key, extra = {}) => ({ label: fmt(key, p) + closed, needFoot: true, run: () => openPlace(g, pl), ...extra });
   switch (pl.kind) {
-    case 'home': return { label: fmt('act.home', p), run: () => landlord(g) };
-    case 'restaurant': return { label: fmt('act.restaurant', p), needFoot: true, run: () => restaurant(g, pl) };
-    case 'gas': return { label: fmt('act.gas', p), run: () => gas(g, pl) };
-    case 'shop': return { label: fmt('act.shop', p), needFoot: true, run: () => gearShop(g) };
-    case 'garage': return { label: fmt('act.garage', p), needFoot: true, run: () => garage(g) };
-    case 'cafe': return { label: gs.flags.wallet === 4 ? fmt('act.cafeMinh', p) : fmt('act.cafe', p), needFoot: true, run: () => cafe(g, pl) };
-    case 'taphoa': return { label: fmt('act.taphoa', p), needFoot: true, run: () => taphoa(g) };
+    case 'home': return { label: fmt('act.home', p), run: () => landlord(g, pl) };
+    case 'restaurant': return generic('act.restaurant');
+    case 'gas': return { label: fmt('act.gas', p) + closed, run: () => openPlace(g, pl, gasChoices(g, pl)) };
+    case 'shop': return generic('act.shop', { run: () => (open ? shopDialog(g, pl) : openPlace(g, pl)) });
+    case 'garage': return generic('act.garage', { run: () => (open ? shopDialog(g, pl) : openPlace(g, pl)) });
+    case 'cafe': return gs.flags.wallet === 4 ? { label: fmt('act.cafeMinh', p), needFoot: true, run: () => minhReturn(g) } : generic('act.cafe');
+    case 'taphoa': return { label: fmt('act.taphoa', p) + closed, needFoot: true, run: () => taphoa(g, pl) };
     case 'gate': return { label: fmt('act.gate', p), needFoot: true, run: () => gate(g) };
-    case 'apartment': return { label: fmt('act.apartment', p), run: () => say(g, pl.npc.name, pl.npc.portrait, placeLine('apartment', 'greet')) };
-    default: return null;
+    case 'apartment': return { label: fmt('act.apartment', p), run: () => openPlace(g, pl) };
+    case 'market': return (pl.activities || []).length || hasStock(pl) ? generic('act.market') : null;
+    default: return generic('act.service'); // 'service' và mọi loại mới tạo trong công cụ
   }
 }
 
-function landlord(g) {
+const hasStock = (pl) => !!pl.sells && ['goods', 'bags', 'vehicles'].some((k) => (pl.sells[k] || []).length);
+
+// Hộp thoại chung của một địa điểm. extra = lựa chọn riêng đặt lên đầu.
+function openPlace(g, pl, extra = [], text = null) {
+  const n = npc(g, pl.id);
+  if (!isOpen(pl, g.clockMin)) return say(g, n.name, n.portrait, fmt('dlg.closed', { hours: fmtHours(pl.hours) }));
+  const choices = [...extra, ...activityChoices(g, pl)];
+  if (hasStock(pl)) choices.push({ label: fmt('dlg.browseShop'), onSelect: () => shopDialog(g, pl) });
+  choices.push({ label: fmt('dlg.leave') });
+  say(g, n.name, n.portrait, text ?? placeLine(pl.id, 'greet'), choices);
+}
+
+// "+20 tinh thần · +5 thể lực"
+function gainText(o) {
+  const parts = [];
+  const sign = (v) => (v > 0 ? `+${v}` : `${v}`);
+  if (o.phys) parts.push(fmt('dlg.gainPhys', { n: sign(o.phys) }));
+  if (o.mental) parts.push(fmt('dlg.gainMental', { n: sign(o.mental) }));
+  if (o.fuel) parts.push(fmt('dlg.gainFuel', { n: o.fuel }));
+  if (o.bikeHp) parts.push(fmt('dlg.gainHp', { n: o.bikeHp }));
+  return parts.join(' · ');
+}
+
+function activityChoices(g, pl) {
   const { gs } = g;
-  const n = npc(g, 'home');
+  return (pl.activities || []).map((act) => {
+    const st = gs.activityStatus(pl, act, g.clockMin);
+    const used = gs.activityUses[`${pl.id}.${act.id}`] || 0;
+    const label = fmt(act.cost ? 'dlg.activity' : 'dlg.activityFree', { label: act.label, cost: act.cost, min: act.minutes });
+    let hint = gainText(act);
+    if (act.perDay > 0) hint += ` · ${fmt('dlg.usesLeft', { n: Math.max(0, act.perDay - used), max: act.perDay })}`;
+    if (st === 'usedUp') hint = fmt('dlg.usedUp', { n: act.perDay });
+    if (st === 'money') hint = fmt('dlg.noMoney');
+    return {
+      label,
+      hint,
+      disabled: st !== 'ok',
+      onSelect: () => {
+        const r = gs.doActivity(pl, act, g.clockMin);
+        if (!r.ok) return;
+        if (r.minutes) g.advance(r.minutes, 'idle', { indoor: true, waiting: false });
+        sfx.cash();
+        g.hud.toast(fmt('toast.activity', { label: act.label, gains: gainText(act) }), 'good');
+      },
+    };
+  });
+}
+
+function gasChoices(g, pl) {
+  const { gs } = g;
+  const n = npc(g, pl.id);
+  return [{
+    label: fmt('dlg.refuelChoice'),
+    primary: true,
+    onSelect: () => {
+      if (dist(g.bike.pos, pl.door) > 9) return say(g, n.name, n.portrait, fmt('dlg.gasTooFar'));
+      const r = gs.refuel();
+      if (r.ok) {
+        g.advance(2, 'idle', { waiting: false });
+        sfx.cash();
+        g.hud.toast(fmt('toast.refuel', { msg: r.msg }), 'good');
+      } else say(g, n.name, n.portrait, `"${r.msg}"`);
+    },
+  }];
+}
+
+// Cửa hàng chung: đồ dùng, túi, xe mà địa điểm này bán (places.json → sells)
+function shopDialog(g, pl) {
+  const { gs } = g;
+  const n = npc(g, pl.id);
+  const sells = pl.sells || {};
+  const reopen = () => shopDialog(g, pl);
+  const choices = [];
+  for (const id of sells.goods || []) {
+    const s = GOODS[id];
+    if (!s) continue;
+    const consumable = s.type === 'consumable';
+    const owned = !consumable && gs.has(id);
+    choices.push({
+      label: `${owned ? '✔ ' : ''}${s.icon || ''} ${s.name} – ${s.price}k`,
+      hint: owned ? fmt('dlg.shopOwned') : consumable ? fmt('dlg.goodsCount', { n: gs.countOf(id), desc: s.desc || '', gains: gainText(s.use || {}) }) : s.desc,
+      disabled: owned || gs.money < s.price,
+      keepOpen: true,
+      onSelect: () => {
+        const r = gs.buy('goods', id);
+        g.hud.toast(r.ok ? fmt('toast.bought', { msg: r.msg }) : r.msg, r.ok ? 'good' : 'bad');
+        if (r.ok) sfx.cash();
+        reopen();
+      },
+    });
+  }
+  for (const id of sells.bags || []) {
+    const s = BAGS[id];
+    if (!s) continue;
+    const owned = gs.owned.bags.includes(id);
+    const swap = owned && gs.bag !== id;
+    choices.push({
+      label: `${owned ? '✔ ' : ''}👜 ${s.name} – ${s.price}k`,
+      hint: owned ? fmt(swap ? 'dlg.shopUseBag' : 'dlg.shopOwned') : s.desc,
+      disabled: (owned && !swap) || (!owned && gs.money < s.price),
+      keepOpen: true,
+      onSelect: () => {
+        if (owned) gs.bag = id;
+        else {
+          const r = gs.buy('bags', id);
+          g.hud.toast(r.ok ? fmt('toast.bought', { msg: r.msg }) : r.msg, r.ok ? 'good' : 'bad');
+          if (r.ok) sfx.cash();
+        }
+        g.bike.setBag(gs.bagSpec);
+        reopen();
+      },
+    });
+  }
+  if ((sells.bags || []).length) {
+    const free = Object.values(BAGS).find((b) => b.price === 0);
+    if (free && gs.bag !== free.id && gs.owned.bags.includes(free.id)) choices.push({ label: fmt('dlg.shopUseNylon'), keepOpen: true, onSelect: () => { gs.bag = free.id; g.bike.setBag(gs.bagSpec); reopen(); } });
+  }
+  for (const id of sells.vehicles || []) {
+    const v = VEHICLES[id];
+    if (!v) continue;
+    const owned = gs.owned.vehicles.includes(id);
+    const using = gs.vehicle === id;
+    choices.push({
+      label: `${using ? '🛵 ' : owned ? '✔ ' : ''}${v.name}${owned ? '' : ` – ${v.price}k`}`,
+      hint: fmt('dlg.garageSpec', { kmh: Math.round(v.maxSpeed * 3.6), susp: Math.round(v.suspension * 100), fuel: v.fuelPer100km, desc: v.desc }),
+      disabled: using || (!owned && gs.money < v.price),
+      keepOpen: true,
+      onSelect: () => {
+        if (owned) {
+          gs.vehicle = id;
+          gs.fuel = Math.min(gs.fuel, v.tank);
+        } else {
+          const r = gs.buy('vehicles', id);
+          g.hud.toast(r.ok ? fmt('toast.boughtVehicle', { msg: r.msg }) : r.msg, r.ok ? 'good' : 'bad');
+          if (r.ok) sfx.win();
+        }
+        g.bike.setSpec(gs.vehicleSpec);
+        reopen();
+      },
+    });
+  }
+  if (pl.kind === 'garage') {
+    choices.push({
+      label: fmt('dlg.repair', { cost: ECONOMY.repairCost }),
+      hint: fmt('dlg.repairHint', { hp: gs.bikeHp.toFixed(0) }),
+      disabled: gs.bikeHp >= 99 || gs.money < ECONOMY.repairCost || dist(g.bike.pos, pl.door) > 10,
+      keepOpen: true,
+      onSelect: () => { const r = gs.repair(); g.hud.toast(r.msg, r.ok ? 'good' : 'bad'); reopen(); },
+    });
+  }
+  choices.push(...activityChoices(g, pl).map((c) => ({ ...c, onSelect: () => { c.onSelect(); } })));
+  choices.push({ label: fmt('dlg.shopExit') });
+  const intro = pl.kind === 'shop' ? fmt('dlg.shopIntro', { money: fmtK(gs.money), bag: gs.bagSpec.name })
+    : pl.kind === 'garage' ? fmt('dlg.garageIntro', { money: fmtK(gs.money) })
+    : fmt('dlg.shopTitle', { money: fmtK(gs.money) });
+  g.modal.show({ speaker: n.name, portrait: n.portrait, text: intro, choices, wide: true });
+}
+
+function landlord(g, pl) {
+  const { gs } = g;
   const busy = !!g.om.order;
   const can = gs.money >= gs.rent && !busy;
-  say(g, n.name, n.portrait, can ? fmt('npc.home.greetCan', { rent: gs.rent }) : fmt('npc.home.greet', { rent: gs.rent, money: fmtK(gs.money) }), [
+  const extra = [
     {
       label: fmt('dlg.payRent', { rent: gs.rent }),
       disabled: !can,
@@ -424,134 +589,35 @@ function landlord(g) {
       disabled: !!g.om.hasCargo,
       onSelect: () => { g.advance(ENERGY.nap.minutes, 'idle', { indoor: true, waiting: false }); gs.addEnergy(ENERGY.nap.phys + ENERGY.nap.minutes * 0.02, ENERGY.nap.mental); },
     },
-    { label: fmt('dlg.backToWork') },
-  ]);
+  ];
+  const text = can ? fmt('npc.home.greetCan', { rent: gs.rent }) : fmt('npc.home.greet', { rent: gs.rent, money: fmtK(gs.money) });
+  openPlace(g, pl, extra, text);
 }
 
-// Lựa chọn ăn / uống theo trường "serves" của địa điểm (sửa trong công cụ)
-function serviceChoices(g, pl) {
+function minhReturn(g) {
   const { gs } = g;
-  const out = [];
-  if (pl.serves === 'meal') out.push({ label: fmt('dlg.meal', { cost: ENERGY.meal.cost }), hint: fmt('dlg.mealHint', { phys: ENERGY.meal.phys }), disabled: gs.money < ENERGY.meal.cost, onSelect: () => { gs.spend(ENERGY.meal.cost, 'meal'); g.advance(15, 'idle', { waiting: false }); gs.addEnergy(ENERGY.meal.phys, ENERGY.meal.mental); g.hud.toast(fmt('toast.meal'), 'good'); } });
-  if (pl.serves === 'drink') out.push({ label: fmt('dlg.drink', { cost: ENERGY.drink.cost }), hint: fmt('dlg.drinkHint', { mental: ENERGY.drink.mental }), disabled: gs.money < ENERGY.drink.cost, onSelect: () => { gs.spend(ENERGY.drink.cost, 'meal'); g.advance(10, 'idle', { waiting: false }); gs.addEnergy(ENERGY.drink.phys, ENERGY.drink.mental); g.hud.toast(fmt('toast.drink'), 'good'); } });
-  return out;
-}
-
-function restaurant(g, pl) {
-  const n = npc(g, pl.id);
-  say(g, n.name, n.portrait, placeLine(pl.id, 'greet'), [...serviceChoices(g, pl), { label: fmt('dlg.leave') }]);
-}
-
-function gas(g, pl) {
-  const { gs } = g;
-  const n = npc(g, pl.id);
-  if (dist(g.bike.pos, pl.door) > 9) return say(g, n.name, n.portrait, fmt('dlg.gasTooFar'));
-  const r = gs.refuel();
-  if (r.ok) {
-    g.advance(2, 'idle', { waiting: false });
-    sfx.cash();
-    g.hud.toast(fmt('toast.refuel', { msg: r.msg }), 'good');
-  } else say(g, n.name, n.portrait, `"${r.msg}"`);
-}
-
-function gearShop(g) {
-  const { gs } = g;
-  const n = npc(g, 'gear');
-  // mọi túi (trừ túi nylon miễn phí) + mọi đồ nghề trong gear.json
-  const items = [...Object.values(BAGS).filter((b) => b.price > 0).map((b) => ['bags', b]), ...Object.values(GEAR).map((x) => ['gear', x])];
-  const choices = items.map(([cat, s]) => {
-    const owned = gs.owned[cat].includes(s.id);
-    const swap = cat === 'bags' && owned && gs.bag !== s.id;
-    return {
-      label: `${owned ? '✔ ' : ''}${s.name} – ${s.price}k`,
-      hint: owned ? fmt(swap ? 'dlg.shopUseBag' : 'dlg.shopOwned') : s.desc,
-      disabled: (owned && !swap) || (!owned && gs.money < s.price),
-      keepOpen: true,
+  say(g, fmt('npc.minh.name'), '🙋‍♂️', fmt('dlg.minhGreet'), [
+    {
+      label: fmt('dlg.minhReturn'),
+      primary: true,
       onSelect: () => {
-        if (owned) gs.bag = s.id;
-        else {
-          const r = gs.buy(cat, s.id);
-          g.hud.toast(r.ok ? fmt('toast.bought', { msg: r.msg }) : r.msg, r.ok ? 'good' : 'bad');
-          if (r.ok) sfx.cash();
-        }
-        g.bike.setBag(gs.bagSpec);
-        gearShop(g);
+        gs.returnWallet();
+        sfx.win();
+        g.addChat(fmt('npc.minh.name'), fmt('chat.minhThanks'));
+        g.hud.toast(fmt('toast.walletReturned', { k: WALLET_QUEST.reward }), 'good', 5000);
       },
-    };
-  });
-  const free = Object.values(BAGS).find((b) => b.price === 0);
-  if (free && gs.bag !== free.id) choices.push({ label: fmt('dlg.shopUseNylon'), keepOpen: true, onSelect: () => { gs.bag = free.id; g.bike.setBag(gs.bagSpec); gearShop(g); } });
-  choices.push({ label: fmt('dlg.shopExit') });
-  g.modal.show({ speaker: n.name, portrait: n.portrait, text: fmt('dlg.shopIntro', { money: fmtK(gs.money), bag: gs.bagSpec.name }), choices, wide: true });
+    },
+  ], { dismissible: false });
 }
 
-function garage(g) {
-  const { gs } = g;
-  const n = npc(g, 'garage');
-  const choices = Object.values(VEHICLES).map((v) => {
-    const owned = gs.owned.vehicles.includes(v.id);
-    const using = gs.vehicle === v.id;
-    return {
-      label: `${using ? '🛵 ' : owned ? '✔ ' : ''}${v.name}${owned ? '' : ` – ${v.price}k`}`,
-      hint: fmt('dlg.garageSpec', { kmh: Math.round(v.maxSpeed * 3.6), susp: Math.round(v.suspension * 100), fuel: v.fuelPer100km, desc: v.desc }),
-      disabled: using || (!owned && gs.money < v.price),
-      keepOpen: true,
-      onSelect: () => {
-        if (owned) {
-          gs.vehicle = v.id;
-          gs.fuel = Math.min(gs.fuel, v.tank);
-        } else {
-          const r = gs.buy('vehicles', v.id);
-          g.hud.toast(r.ok ? fmt('toast.boughtVehicle', { msg: r.msg }) : r.msg, r.ok ? 'good' : 'bad');
-          if (r.ok) sfx.win();
-        }
-        g.bike.setSpec(gs.vehicleSpec);
-        garage(g);
-      },
-    };
-  });
-  choices.push({
-    label: fmt('dlg.repair', { cost: ECONOMY.repairCost }),
-    hint: fmt('dlg.repairHint', { hp: gs.bikeHp.toFixed(0) }),
-    disabled: gs.bikeHp >= 99 || gs.money < ECONOMY.repairCost || dist(g.bike.pos, g.layout.placeById.garage.door) > 10,
-    keepOpen: true,
-    onSelect: () => { const r = gs.repair(); g.hud.toast(r.msg, r.ok ? 'good' : 'bad'); garage(g); },
-  });
-  choices.push({ label: fmt('dlg.shopExit') });
-  g.modal.show({ speaker: n.name, portrait: n.portrait, text: fmt('dlg.garageIntro', { money: fmtK(gs.money) }), choices, wide: true });
-}
-
-function cafe(g, pl) {
-  const { gs } = g;
-  if (gs.flags.wallet === 4) {
-    return say(g, fmt('npc.minh.name'), '🙋‍♂️', fmt('dlg.minhGreet'), [
-      {
-        label: fmt('dlg.minhReturn'),
-        primary: true,
-        onSelect: () => {
-          gs.returnWallet();
-          sfx.win();
-          g.addChat(fmt('npc.minh.name'), fmt('chat.minhThanks'));
-          g.hud.toast(fmt('toast.walletReturned', { k: WALLET_QUEST.reward }), 'good', 5000);
-        },
-      },
-    ], { dismissible: false });
-  }
-  const n = npc(g, pl.id);
-  say(g, n.name, n.portrait, placeLine(pl.id, 'greet'), [...serviceChoices(g, pl), { label: fmt('dlg.leave') }]);
-}
-
-function taphoa(g) {
+function taphoa(g, pl) {
   const { gs } = g;
   const n = npc(g, 'taphoa');
   if (gs.flags.wallet === 1 || gs.flags.wallet === 2) {
     gs.flags.wallet = 3;
     return say(g, n.name, n.portrait, fmt('npc.taphoa.clue'), [{ label: fmt('npc.taphoa.clueThanks') }]);
   }
-  say(g, n.name, n.portrait, fmt('npc.taphoa.greet'), [
-    { label: fmt('npc.taphoa.water'), hint: fmt('npc.taphoa.waterHint'), disabled: gs.money < 10, onSelect: () => { gs.spend(10, 'meal'); gs.addEnergy(8, 3); } },
-    { label: fmt('dlg.leave') },
-  ]);
+  openPlace(g, pl);
 }
 
 function gate(g) {
@@ -614,17 +680,36 @@ export function policeStop(g, p, speed) {
 export function openInventory(g) {
   const { gs } = g;
   const v = gs.vehicleSpec, b = gs.bagSpec;
-  const gear = Object.values(GEAR).filter((x) => gs.has(x.id)).map((x) => x.name).join(', ') || fmt('dlg.invNoGear');
+  const gear = Object.values(GOODS).filter((x) => x.type === 'equipment' && gs.has(x.id)).map((x) => `${x.icon || ''} ${x.name}`).join(', ') || fmt('dlg.invNoGear');
   const choices = [];
+  // đồ dùng 1 lần: bấm để dùng
+  for (const [id, n] of Object.entries(gs.consumables)) {
+    const s = GOODS[id];
+    if (!s || n <= 0) continue;
+    choices.push({
+      label: fmt('dlg.invUse', { icon: s.icon || '', name: s.name, n, min: s.use?.minutes || 0 }),
+      hint: gainText(s.use || {}),
+      onSelect: () => {
+        const r = gs.useConsumable(id);
+        if (!r.ok) return;
+        if (r.minutes) g.advance(r.minutes, 'idle', { waiting: false });
+        sfx.click();
+        g.hud.toast(fmt('toast.used', { name: s.name, gains: gainText(s.use || {}) }), 'good');
+        if (g.state === 'play') openInventory(g);
+      },
+    });
+  }
   if (gs.hasItem('wallet')) choices.push({ label: fmt('dlg.invWallet'), onSelect: () => viewWallet(g) });
   choices.push({ label: fmt('dlg.invClose') });
   const row = (l, val) => `<div class="kv"><span>${l}</span><b>${val}</b></div>`;
+  const cons = Object.entries(gs.consumables).filter(([id, n]) => GOODS[id] && n > 0).map(([id, n]) => `${GOODS[id].icon || ''} ${GOODS[id].name} ×${n}`).join(', ');
   g.modal.show({
     title: fmt('dlg.invTitle'),
     html: row(fmt('dlg.invVehicle'), `${v.name} · ${gs.bikeHp.toFixed(0)}%`) +
       row(fmt('dlg.invFuel'), `${gs.fuel.toFixed(2)} / ${v.tank} L`) +
       row(fmt('dlg.invBag'), b.name) +
       row(fmt('dlg.invGear'), gear) +
+      row(fmt('dlg.invConsumables'), cons || fmt('dlg.invNone')) +
       row(fmt('dlg.invItems'), gs.inventory.length ? fmt('dlg.invWalletItem') : fmt('dlg.invNone')),
     choices,
   });

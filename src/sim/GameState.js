@@ -3,7 +3,9 @@
 // Tiền, điểm đánh giá, thể lực, tinh thần, xăng, đồ đã mua, cờ nhiệm vụ,
 // điều kiện thắng/thua.
 // =============================================================
-import { ECONOMY, RATING, ENERGY, VEHICLES, BAGS, GEAR, TIME, WALLET_QUEST } from '../data/balance.js';
+import { ECONOMY, RATING, ENERGY, VEHICLES, BAGS, TIME, WALLET_QUEST } from '../data/balance.js';
+import { GOODS, EFFECTS } from '../data/goods.js';
+import { isOpen } from './placeRules.js';
 import { RatingBook } from './economy.js';
 import { fmt } from '../content/index.js';
 
@@ -20,7 +22,9 @@ export class GameState {
     this.bag = c.bag ?? 'nylon';
     this.fuel = c.fuel ?? 0.35; // lít — xe gần cạn để người chơi phải đổ xăng
     this.bikeHp = c.bikeHp ?? 100;
-    this.inventory = c.inventory ?? [];
+    this.inventory = c.inventory ?? []; // vật phẩm nhiệm vụ (ví…)
+    this.consumables = { ...(c.consumables || {}) }; // đồ dùng 1 lần: mã → số lượng
+    this.activityUses = {}; // số lần làm hoạt động hôm nay: 'địaĐiểm.hoạtĐộng' → lần
     const tutorialDone = day > 1;
     this.flags = {
       mounted: tutorialDone,
@@ -40,14 +44,37 @@ export class GameState {
   get rating() {
     return this.ratingBook.value;
   }
+  // (dữ liệu có thể bị xóa trong ?editor → rơi về đồ khởi đầu)
   get vehicleSpec() {
-    return VEHICLES[this.vehicle];
+    return VEHICLES[this.vehicle] || VEHICLES.cub;
   }
   get bagSpec() {
-    return BAGS[this.bag];
+    return BAGS[this.bag] || BAGS.nylon;
   }
-  has(gearId) {
-    return this.owned.gear.includes(gearId);
+  // Túi khi chở hàng: cộng thêm đệm từ trang bị (tối đa 90%)
+  get cargoBag() {
+    const b = this.bagSpec;
+    const extra = this.effect('paddingPct') / 100;
+    return extra ? { ...b, padding: Math.min(0.9, b.padding + extra) } : b;
+  }
+  // Đã sở hữu trang bị (owned.gear giữ tên cũ để bản lưu cũ vẫn đọc được)
+  has(goodsId) {
+    return this.owned.gear.includes(goodsId);
+  }
+  // Tổng tác dụng của mọi trang bị đang có (bool → true/false, số → cộng dồn)
+  effect(name) {
+    const kind = EFFECTS[name]?.kind;
+    let sum = 0;
+    for (const id of this.owned.gear) {
+      const v = GOODS[id]?.type === 'equipment' ? GOODS[id].effects?.[name] : undefined;
+      if (v === undefined || v === false) continue;
+      if (kind === 'bool') return true;
+      sum += Number(v) || 0;
+    }
+    return kind === 'bool' ? false : sum;
+  }
+  countOf(goodsId) {
+    return this.consumables[goodsId] || 0;
   }
   hasItem(id) {
     return this.inventory.includes(id);
@@ -78,24 +105,34 @@ export class GameState {
     const P = ENERGY.phys, M = ENERGY.mental;
     let p = P[activity] ?? P.idle;
     let m = M.base;
-    if (env.harshSun && env.outdoor && !this.has('jacket')) p += P.sun;
-    if (env.raining && env.outdoor && !this.has('raincoat')) {
+    if (env.harshSun && env.outdoor && !this.effect('sunProtect')) p += P.sun;
+    if (env.raining && env.outdoor && !this.effect('rainProtect')) {
       p += P.rain;
       m += M.rain;
     }
     if (env.inJam) m += M.jam;
     if (env.waiting) m += M.wait;
+    p *= Math.max(0, 1 + this.effect('physDrainPct') / 100);
+    m *= Math.max(0, 1 + this.effect('mentalDrainPct') / 100);
     this.addEnergy(-p * dt, -m * dt);
   }
 
   // ---------- mua bán ----------
+  // category: 'vehicles' | 'bags' | 'goods' ('gear' = tên cũ của 'goods')
   buy(category, id) {
-    const table = { vehicles: VEHICLES, bags: BAGS, gear: GEAR }[category];
-    const spec = table[id];
+    if (category === 'gear') category = 'goods';
+    const table = { vehicles: VEHICLES, bags: BAGS, goods: GOODS }[category];
+    const spec = table && table[id];
     if (!spec) return { ok: false, msg: fmt('gs.noSuchItem') };
-    if (this.owned[category].includes(id)) return { ok: false, msg: fmt('gs.alreadyOwned') };
+    const consumable = category === 'goods' && spec.type === 'consumable';
+    const ownList = category === 'goods' ? this.owned.gear : this.owned[category];
+    if (!consumable && ownList.includes(id)) return { ok: false, msg: fmt('gs.alreadyOwned') };
     if (!this.spend(spec.price, 'purchase')) return { ok: false, msg: fmt('gs.short', { k: Math.ceil(spec.price - this.money) }) };
-    this.owned[category].push(id);
+    if (consumable) {
+      this.consumables[id] = this.countOf(id) + 1;
+      return { ok: true, msg: fmt('gs.bought', { name: spec.name }) };
+    }
+    ownList.push(id);
     if (category === 'vehicles') {
       this.vehicle = id;
       this.fuel = Math.min(this.fuel, VEHICLES[id].tank);
@@ -124,6 +161,36 @@ export class GameState {
     if (!this.spend(ECONOMY.repairCost, 'repair')) return { ok: false, msg: fmt('gs.noRepairMoney') };
     this.bikeHp = 100;
     return { ok: true, msg: fmt('gs.repaired') };
+  }
+
+  // Dùng 1 đồ dùng trong túi → trả về số phút mất
+  useConsumable(id) {
+    const g = GOODS[id];
+    if (!g || g.type !== 'consumable' || this.countOf(id) <= 0) return { ok: false, minutes: 0 };
+    const u = g.use || {};
+    this.consumables[id] -= 1;
+    if (!this.consumables[id]) delete this.consumables[id];
+    this.addEnergy(u.phys || 0, u.mental || 0);
+    if (u.fuel) this.fuel = Math.min(this.vehicleSpec.tank, this.fuel + u.fuel);
+    if (u.bikeHp) this.bikeHp = Math.min(100, this.bikeHp + u.bikeHp);
+    return { ok: true, minutes: u.minutes || 0, name: g.name };
+  }
+
+  // Hoạt động tại địa điểm (đọc sách, hát karaoke…). Trả về lý do nếu không làm được.
+  activityStatus(place, act, now) {
+    if (!isOpen(place, now)) return 'closed';
+    if (act.perDay > 0 && (this.activityUses[`${place.id}.${act.id}`] || 0) >= act.perDay) return 'usedUp';
+    if (this.money < (act.cost || 0)) return 'money';
+    return 'ok';
+  }
+  doActivity(place, act, now) {
+    const st = this.activityStatus(place, act, now);
+    if (st !== 'ok') return { ok: false, reason: st };
+    if (act.cost) this.spend(act.cost, 'activity');
+    const k = `${place.id}.${act.id}`;
+    this.activityUses[k] = (this.activityUses[k] || 0) + 1;
+    this.addEnergy(act.phys || 0, act.mental || 0);
+    return { ok: true, minutes: act.minutes || 0 };
   }
 
   // ---------- kết quả đơn ----------
@@ -201,6 +268,7 @@ export class GameState {
       fuel: this.fuel,
       bikeHp: this.bikeHp,
       inventory: this.inventory,
+      consumables: this.consumables,
       flags: { wallet: this.flags.wallet, walletDay: this.flags.walletDay },
     };
   }

@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 // Chỉ những file dữ liệu này được công cụ ?editor ghi đè
-const EDITABLE = ['src/data/items.json', 'src/data/gear.json', 'src/data/places.json', 'src/content/vi.json'];
+const EDITABLE = ['src/data/items.json', 'src/data/gear.json', 'src/data/goods.json', 'src/data/places.json', 'src/content/vi.json'];
 
 // Plugin cho công cụ nội dung: POST /__editor/save ghi file JSON (chỉ khi chạy npm run dev)
 function editorSavePlugin() {

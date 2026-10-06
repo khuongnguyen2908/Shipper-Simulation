@@ -98,7 +98,17 @@
         "hat": "nonla",
         "portrait": "🧑‍🍳"
       },
-      "serves": "meal"
+      "activities": [
+        {
+          "id": "meal",
+          "label": "Ăn một tô phở",
+          "cost": 35,
+          "minutes": 15,
+          "phys": 45,
+          "mental": 5,
+          "perDay": 0
+        }
+      ]
     },
     {
       "id": "comtam",
@@ -126,7 +136,17 @@
         "hat": null,
         "portrait": "🧑‍🍳"
       },
-      "serves": "meal"
+      "activities": [
+        {
+          "id": "meal",
+          "label": "Ăn một đĩa cơm tấm",
+          "cost": 35,
+          "minutes": 15,
+          "phys": 45,
+          "mental": 5,
+          "perDay": 0
+        }
+      ]
     },
     {
       "id": "trasua",
@@ -153,7 +173,17 @@
         "hat": null,
         "portrait": "🧑‍🍳"
       },
-      "serves": "drink"
+      "activities": [
+        {
+          "id": "drink",
+          "label": "Mua ly trà sữa",
+          "cost": 20,
+          "minutes": 5,
+          "phys": 5,
+          "mental": 30,
+          "perDay": 0
+        }
+      ]
     },
     {
       "id": "banh",
@@ -199,6 +229,11 @@
         "pants": "#1c2833",
         "hat": null,
         "portrait": "⛽"
+      },
+      "sells": {
+        "goods": [
+          "energyDrink"
+        ]
       }
     },
     {
@@ -221,6 +256,18 @@
         "pants": "#2c3e50",
         "hat": null,
         "portrait": "🎒"
+      },
+      "sells": {
+        "goods": [
+          "raincoat",
+          "spareHelmet",
+          "jacket",
+          "comfyShoes"
+        ],
+        "bags": [
+          "thermal",
+          "box"
+        ]
       }
     },
     {
@@ -244,6 +291,16 @@
         "hat": null,
         "scale": 0.85,
         "portrait": "🔧"
+      },
+      "sells": {
+        "vehicles": [
+          "cub",
+          "scooter",
+          "sport",
+          "exciter",
+          "wave",
+          "SH"
+        ]
       }
     },
     {
@@ -267,7 +324,17 @@
         "hat": null,
         "portrait": "☕"
       },
-      "serves": "drink"
+      "activities": [
+        {
+          "id": "drink",
+          "label": "Uống cà phê sữa đá",
+          "cost": 20,
+          "minutes": 10,
+          "phys": 5,
+          "mental": 30,
+          "perDay": 0
+        }
+      ]
     },
     {
       "id": "taphoa",
@@ -290,6 +357,22 @@
         "pants": "#222222",
         "hat": null,
         "portrait": "👩"
+      },
+      "activities": [
+        {
+          "id": "water",
+          "label": "Mua chai nước suối",
+          "cost": 10,
+          "minutes": 1,
+          "phys": 8,
+          "mental": 3,
+          "perDay": 0
+        }
+      ],
+      "sells": {
+        "goods": [
+          "energyDrink"
+        ]
       }
     },
     {
@@ -333,6 +416,10 @@
         "pants": "#1c2833",
         "hat": null,
         "portrait": "💂"
+      },
+      "orders": {
+        "rideWeight": 1,
+        "foodWeight": 0
       }
     },
     {
@@ -349,7 +436,123 @@
       "color": "#e59866",
       "sign": "CHỢ MINI",
       "signBg": "#922b21",
-      "npc": null
+      "npc": null,
+      "orders": {
+        "rideWeight": 3,
+        "foodWeight": 0
+      }
+    },
+    {
+      "id": "nhasach",
+      "name": "Nhà Sách Gió",
+      "short": "Nhà sách",
+      "kind": "service",
+      "icon": "📚",
+      "block": [
+        2,
+        2
+      ],
+      "lot": "S1",
+      "floors": 3,
+      "color": "#e8f0d8",
+      "sign": "NHÀ SÁCH GIÓ",
+      "signBg": "#1f6f5c",
+      "npc": {
+        "name": "Chị Thủy thủ thư",
+        "shirt": "#f0e6d2",
+        "pants": "#3b4a5a",
+        "hat": null,
+        "portrait": "📚"
+      },
+      "hours": [
+        8,
+        21
+      ],
+      "activities": [
+        {
+          "id": "read",
+          "label": "Ngồi đọc sách tại chỗ",
+          "cost": 5,
+          "minutes": 30,
+          "phys": 5,
+          "mental": 20,
+          "perDay": 3
+        },
+        {
+          "id": "browse",
+          "label": "Dạo xem sách cho đỡ chán",
+          "cost": 0,
+          "minutes": 10,
+          "phys": 0,
+          "mental": 6,
+          "perDay": 0
+        }
+      ],
+      "sells": {
+        "goods": [
+          "novel",
+          "skillBook"
+        ]
+      },
+      "orders": {
+        "rideWeight": 2,
+        "foodWeight": 1
+      }
+    },
+    {
+      "id": "karaoke",
+      "name": "Karaoke Nice",
+      "short": "Karaoke",
+      "kind": "service",
+      "icon": "🎤",
+      "block": [
+        2,
+        2
+      ],
+      "lot": "N1",
+      "floors": 4,
+      "color": "#3d2b56",
+      "sign": "KARAOKE NICE",
+      "signBg": "#c2185b",
+      "npc": {
+        "name": "Anh Tú lễ tân",
+        "shirt": "#212121",
+        "pants": "#212121",
+        "hat": null,
+        "portrait": "🎤"
+      },
+      "hours": [
+        16,
+        23
+      ],
+      "activities": [
+        {
+          "id": "sing",
+          "label": "Hát một tiếng xả stress",
+          "cost": 80,
+          "minutes": 60,
+          "phys": -5,
+          "mental": 40,
+          "perDay": 1
+        },
+        {
+          "id": "listen",
+          "label": "Ngồi nghe ké ở sảnh",
+          "cost": 0,
+          "minutes": 20,
+          "phys": 3,
+          "mental": 8,
+          "perDay": 2
+        }
+      ],
+      "orders": {
+        "rideWeight": 6,
+        "foodWeight": 3,
+        "hours": [
+          17,
+          22
+        ]
+      }
     }
   ]
 }

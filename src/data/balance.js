@@ -62,10 +62,9 @@ export const ENERGY = {
   nap: { minutes: 45, phys: 20, mental: 15 },
 };
 
-// Xe, túi, đồ nghề — dữ liệu ở gear.json (sửa bằng công cụ ?editor, thẻ Xe · Túi · Đồ nghề)
+// Xe, túi — dữ liệu ở gear.json; đồ dùng/trang bị ở goods.json (xem goods.js)
 export const VEHICLES = colorsToNumbers(gearData.vehicles);
 export const BAGS = colorsToNumbers(gearData.bags);
-export const GEAR = gearData.gear;
 
 export const ORDER = {
   pingGap: [3, 9],          // phút chờ giữa 2 lần có đơn (giờ cao điểm × 0,6)
@@ -91,6 +90,7 @@ export const ORDER = {
   callDownWait: 8,
   liftMin: 3,
   driverCancelStars: 2,     // tài xế tự hủy đơn = coi như 1 đánh giá 2 sao
+  placeDestBase: 12,        // điểm đến là địa điểm (karaoke…): xác suất = tổng trọng số / (tổng + số này)
 };
 
 export const HAZARD = {

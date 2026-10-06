@@ -19,6 +19,7 @@ import { evaluateOrder } from './OrderCondition.js';
 import { computePayout, estimatePay } from './economy.js';
 import { manhattan } from './cityLayout.js';
 import { fmt } from '../content/index.js';
+import { isOpen, orderWeight } from './placeRules.js';
 
 export const S = Object.freeze({
   OFFLINE: 'OFFLINE',
@@ -136,18 +137,20 @@ export class OrderManager {
   // ---------- tạo đơn ----------
   canCarry(def) {
     if (def.traits.includes('cold')) return this.gs.bagSpec.insulation >= 0.5;
-    if (def.traits.includes('passenger')) return this.gs.has('spareHelmet');
+    if (def.traits.includes('passenger')) return this.gs.effect('passengerSeat');
     return true;
   }
 
   makeOffer(now, pos = { x: 0, z: 0 }) {
     const gs = this.gs;
     // Đơn cốt truyện: lần đầu có mũ cho khách → đơn chở anh Minh
-    if (gs.flags.wallet === 0 && gs.has('spareHelmet')) return this.makeRide(pos, true);
-    if (gs.has('spareHelmet') && this.rng.chance(ORDER.rideChance)) return this.makeRide(pos, false);
+    const canRide = gs.effect('passengerSeat');
+    if (gs.flags.wallet === 0 && canRide) return this.makeRide(pos, true, now);
+    if (canRide && this.rng.chance(ORDER.rideChance)) return this.makeRide(pos, false, now);
 
+    // chỉ quán đang mở cửa mới có đơn
     const options = this.layout.places
-      .filter((p) => p.kind === 'restaurant')
+      .filter((p) => p.kind === 'restaurant' && isOpen(p, now) && (p.menu || []).length)
       .map((r) => ({ r, menu: r.menu.filter((id) => this.canCarry(ITEMS[id])) }))
       .filter((o) => o.menu.length);
     if (!options.length) return null;
@@ -155,16 +158,28 @@ export class OrderManager {
     const { r, menu } = this.rng.weighted(options, weights);
     const n = this.rng.chance(ORDER.twoItemChance) ? 2 : 1;
     const itemIds = Array.from({ length: n }, () => this.rng.pick(menu));
-    const dropoff = this.pickDropoff(r.door);
+    const dropoff = this.pickDropoff(r.door, true, now, 'foodWeight', r.id);
     const pickup = { placeId: r.id, name: r.name, address: r.address, door: r.door };
     return this.buildOrder('food', pickup, dropoff, itemIds, pos);
   }
 
-  makeRide(pos, story) {
+  // Địa điểm (karaoke, nhà sách…) được đánh dấu làm điểm đến của đơn, theo trọng số + khung giờ.
+  // Trả về null nếu lần này không chọn địa điểm nào.
+  placeDestination(key, now, excludeId = null, scale = 1) {
+    const cands = this.layout.places.filter((p) => p.id !== excludeId).map((p) => ({ p, w: orderWeight(p, key, now) })).filter((c) => c.w > 0);
+    const W = cands.reduce((s, c) => s + c.w, 0);
+    if (!W || !this.rng.chance((W / (W + ORDER.placeDestBase)) * scale)) return null;
+    const { p } = this.rng.weighted(cands, cands.map((c) => c.w));
+    return { placeId: p.id, name: p.name, address: p.name, door: p.door, apartment: false };
+  }
+
+  makeRide(pos, story, now = 0) {
     const market = this.layout.placeById.market;
     let pickup;
     if (story) pickup = { placeId: 'market', name: market.name, address: market.address, door: market.door };
-    else {
+    else if ((pickup = this.placeDestination('rideWeight', now, null, 0.5))) {
+      // khách xuất phát từ một địa điểm (vd. hát karaoke xong về nhà)
+    } else {
       const near = this.layout.lots.filter((l) => {
         const d = manhattan(pos, l.door);
         return d > 40 && d < 180;
@@ -172,7 +187,7 @@ export class OrderManager {
       const l = this.rng.pick(near.length ? near : this.layout.lots);
       pickup = { name: l.address, address: l.address, door: l.door, lotKey: l.key };
     }
-    const dropoff = this.pickDropoff(pickup.door, false);
+    const dropoff = this.pickDropoff(pickup.door, false, now, pickup.placeId ? null : 'rideWeight', pickup.placeId);
     const o = this.buildOrder('ride', pickup, dropoff, ['passenger'], pos);
     o.flags.vague = false;
     o.flags.noAnswer = false;
@@ -185,7 +200,12 @@ export class OrderManager {
     return o;
   }
 
-  pickDropoff(from, allowApartment = true) {
+  // destKey: 'foodWeight' | 'rideWeight' | null — cho phép giao tới địa điểm được đánh dấu
+  pickDropoff(from, allowApartment = true, now = 0, destKey = null, excludeId = null) {
+    if (destKey) {
+      const place = this.placeDestination(destKey, now, excludeId);
+      if (place) return place;
+    }
     const apt = this.layout.placeById.apartment;
     if (allowApartment && this.rng.chance(ORDER.apartmentChance)) {
       return { name: apt.name, address: fmt('addr.apartment', { name: apt.name, address: apt.address }), door: apt.door, apartment: true, floor: this.rng.int(3, 11) };
@@ -207,7 +227,8 @@ export class OrderManager {
     const d2 = manhattan(pickup.door, dropoff.door);
     const distanceKm = Math.round((d2 * DIST.displayPerUnit) / 100) / 10;
     const baseFare = Math.max(...defs.map((d) => d.base)) + (defs.length - 1) * ECONOMY.extraItemFare;
-    const vague = kind === 'food' && !dropoff.apartment && rng.chance(ORDER.vagueChance);
+    const named = !!dropoff.placeId; // giao tới địa điểm có tên → không mơ hồ, khách có mặt
+    const vague = kind === 'food' && !dropoff.apartment && !named && rng.chance(ORDER.vagueChance);
     const o = {
       id: ++this.orderSeq,
       kind,
@@ -224,7 +245,7 @@ export class OrderManager {
       estPay: estimatePay(baseFare, distanceKm),
       flags: {
         vague,
-        noAnswer: kind === 'food' && !dropoff.apartment && rng.chance(ORDER.noAnswerChance),
+        noAnswer: kind === 'food' && !dropoff.apartment && !named && rng.chance(ORDER.noAnswerChance),
         picky: rng.chance(ORDER.pickyChance),
         outOfStock: kind === 'food' && rng.chance(ORDER.outOfStockChance),
         liftBroken: !!dropoff.apartment && rng.chance(ORDER.liftBrokenChance),
@@ -468,6 +489,14 @@ export class OrderManager {
     const elapsed = now - o.acceptedAt;
     const ev = evaluateOrder({ items: o.items, elapsedMin: elapsed, allowedMin: o.allowedMin, picky: o.flags.picky, extraPenalty: o.extraPenalty });
     const pay = computePayout({ baseFare: o.baseFare, distanceKm: o.distanceKm, litersUsed: o.liters, stars: ev.stars, refused: ev.refused });
+    // trang bị "boa thêm" (vd. sách giao tiếp) cho đơn 4–5 sao
+    const bonus = !ev.refused && ev.stars >= 4 ? this.gs.effect('tipBonus') : 0;
+    if (bonus) {
+      pay.tip += bonus;
+      pay.walletCredit = Math.round((pay.walletCredit + bonus) * 10) / 10;
+      pay.net = Math.round((pay.net + bonus) * 10) / 10;
+      pay.tipBonus = bonus;
+    }
     const receipt = { order: o, ev, pay, elapsed, at: now };
     this.history.push(receipt);
     this.order = null;

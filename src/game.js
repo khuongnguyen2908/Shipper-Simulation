@@ -2,7 +2,8 @@
 // GAME — điều phối: vòng lặp, nối mô phỏng (src/sim) với thế giới 3D (src/world) và giao diện (src/ui)
 // =============================================================
 import * as THREE from 'three';
-import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, BAGS, GEAR } from './data/balance.js';
+import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, BAGS } from './data/balance.js';
+import { GOODS } from './data/goods.js';
 import { ITEMS } from './data/items.js';
 import { buildLayout, segmentRect, roadPos } from './sim/cityLayout.js';
 import { makeRng } from './sim/rng.js';
@@ -33,6 +34,8 @@ const dist2 = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const inRect = (r, p) => p.x > r.x0 && p.x < r.x1 && p.z > r.z0 && p.z < r.z1;
 // Túi giữ nhiệt rẻ nhất (mở khóa đơn lạnh) — dùng cho gợi ý mục tiêu
 const cheapestInsulatedBag = () => Object.values(BAGS).filter((b) => b.insulation >= 0.5).sort((a, b) => a.price - b.price)[0];
+// Trang bị chở khách rẻ nhất (mở khóa đơn xe ôm)
+const cheapestSeatGoods = () => Object.values(GOODS).filter((x) => x.type === 'equipment' && x.effects?.passengerSeat).sort((a, b) => a.price - b.price)[0];
 
 export class Game {
   constructor(canvas, uiRoot) {
@@ -323,10 +326,10 @@ export class Game {
       raining: this.hz.isRaining(now),
       exposed: !indoor,
       speed,
-      comfortSpeed: ECONOMY.speedLimit,
+      comfortSpeed: ECONOMY.speedLimit + this.gs.effect('comfortKmh') / 3.6,
       suspension: this.gs.vehicleSpec.suspension,
-      bag: this.gs.bagSpec,
-      passengerRaincoat: this.gs.has('raincoat'),
+      bag: this.gs.cargoBag,
+      passengerRaincoat: this.gs.effect('rainProtect'),
     };
   }
 
@@ -353,7 +356,7 @@ export class Game {
     const moved = bike.update(dt, mounted ? inp.state : {}, { mounted, fuel: gs.fuel, hp: gs.bikeHp, wet: !!rain, speedCap: this.inJam ? HAZARD.jamSpeedCap : 0, grid: this.city.grid, potholes: this.potholes, emit });
     if (mounted) {
       if (gs.fuel > 0) {
-        const liters = ((moved * DIST.displayPerUnit) / 1000) * (gs.vehicleSpec.fuelPer100km / 100);
+        const liters = ((moved * DIST.displayPerUnit) / 1000) * (gs.vehicleSpec.fuelPer100km / 100) * Math.max(0.1, 1 + gs.effect('fuelUsePct') / 100);
         gs.fuel = Math.max(0, gs.fuel - liters);
         om.addFuel(liters);
         if (gs.fuel <= 0) this.toastOnce('nofuel', fmt('toast.noFuel'), 'bad', 30);
@@ -504,7 +507,7 @@ export class Game {
   onHazard(e) {
     const t = fmtTime(this.clockMin);
     if (e.type === 'rainStart') {
-      const coat = this.gs.has('raincoat');
+      const coat = this.gs.effect('rainProtect');
       this.hud.toast(fmt(e.heavy ? 'toast.rainHeavy' : 'toast.rainLight') + fmt(coat ? 'toast.rainCoat' : 'toast.rainNoCoat'), 'warn', 5000);
       this.addChat(fmt('chat.group'), fmt('chat.rain', { time: t }));
     } else if (e.type === 'rainEnd') this.hud.toast(fmt('toast.rainEnd'), 'info');
@@ -574,7 +577,8 @@ export class Game {
       if (ob.id === 'online') return { text: fmt('goal.online'), sub: '' };
       const thermal = cheapestInsulatedBag();
       if (ob.id === 'thermal' && thermal && gs.money >= thermal.price && om.state !== S.OFFERED) return { ...P.gear.door, text: fmt('goal.thermal', { price: thermal.price }), sub: fmt('goal.thermalHint'), color: '#5dade2' };
-      if (ob.id === 'helmet' && gs.money >= GEAR.spareHelmet.price && gs.bagSpec.insulation >= 0.5 && om.state !== S.OFFERED) return { ...P.gear.door, text: fmt('goal.helmet', { price: GEAR.spareHelmet.price }), sub: fmt('goal.helmetHint'), color: '#5dade2' };
+      const seat = cheapestSeatGoods();
+      if (ob.id === 'helmet' && seat && gs.money >= seat.price && gs.bagSpec.insulation >= 0.5 && om.state !== S.OFFERED) return { ...P.gear.door, text: fmt('goal.helmet', { price: seat.price }), sub: fmt('goal.helmetHint'), color: '#5dade2' };
       if (ob.id === 'wallet' && ob.target) return { ...P[ob.target].door, text: fmt('goal.wallet', { text: ob.text }), sub: fmt('goal.walletHint'), color: '#bb8fce' };
       if (ob.id === 'wallet') return { text: fmt('goal.wallet', { text: ob.text }), sub: fmt('goal.walletHint') };
       if (ob.id === 'rent' && gs.money >= gs.rent) return { ...P.home.door, text: fmt('goal.rent', { rent: gs.rent }), sub: fmt('goal.rentHint'), color: '#e74c3c' };
@@ -752,7 +756,7 @@ export class Game {
     const gs = this.gs;
     const locked = [];
     if (gs.bagSpec.insulation < 0.5) locked.push(fmt('phone.lockCold'));
-    if (!gs.has('spareHelmet')) locked.push(fmt('phone.lockRide'));
+    if (!gs.effect('passengerSeat')) locked.push(fmt('phone.lockRide'));
     this.phone.render({
       now: this.clockMin,
       timeStr: fmtTime(this.clockMin),

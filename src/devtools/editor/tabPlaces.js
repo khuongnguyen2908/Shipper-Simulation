@@ -4,8 +4,8 @@ import { CITY, HALF, blockBounds, lotInfo } from '../../sim/cityLayout.js';
 import { PROTECTED, ID_RE, LOTS, lotCells } from '../../data/validate.js';
 import { el, field, textInput, numInput, colorInput, selectInput, checkInput, button, sideList, areaInput } from './ui.js';
 
-const KIND = { home: '🏠 Nhà trọ', restaurant: '🍴 Quán ăn', gas: '⛽ Cây xăng', shop: '🎒 Tiệm đồ nghề', garage: '🔧 Tiệm xe', cafe: '☕ Quán cà phê', taphoa: '🛒 Tạp hóa', gate: '🟩 Nhà cổng xanh', apartment: '🏢 Chung cư', market: '🧺 Chợ' };
-const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺' };
+const KIND = { home: '🏠 Nhà trọ', restaurant: '🍴 Quán ăn', gas: '⛽ Cây xăng', shop: '🎒 Tiệm đồ nghề', garage: '🔧 Tiệm xe', cafe: '☕ Quán cà phê', taphoa: '🛒 Tạp hóa', gate: '🟩 Nhà cổng xanh', apartment: '🏢 Chung cư', market: '🧺 Chợ', service: '⭐ Dịch vụ' };
+const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', service: '⭐' };
 const LOT_LABEL = { N0: 'N0 · bắc trái', N1: 'N1 · bắc giữa', N2: 'N2 · bắc phải', S0: 'S0 · nam trái', S1: 'S1 · nam giữa', S2: 'S2 · nam phải', E1: 'E1 · đông', W1: 'W1 · tây', N: 'N · cả dãy bắc', S: 'S · cả dãy nam', C: 'C · sân trong hẻm' };
 const SINGLE_LOTS = ['N0', 'N1', 'N2', 'S0', 'S1', 'S2', 'E1', 'W1'];
 
@@ -20,9 +20,9 @@ export function render(root, ctx) {
   const drawSide = () => {
     side.innerHTML = '';
     side.append(
-      el('div', { class: 'side-head' }, el('b', {}, `Địa điểm (${places.length})`), button('＋ Thêm quán', addRestaurant, 'small primary')),
+      el('div', { class: 'side-head' }, el('b', {}, `Địa điểm (${places.length})`), el('span', { class: 'inline' }, button('＋ Quán ăn', () => addPlace('restaurant'), 'small primary'), button('＋ Dịch vụ', () => addPlace('service'), 'small primary'))),
       sideList(
-        [{ id: '__streets', icon: '🛣️', title: 'Tên đường & khách', sub: 'phố, khách hàng, người đi đường' }, ...places.map((p) => ({ id: p.id, icon: ICON[p.kind] || '•', title: p.name, sub: `${p.id} · khối ${p.block.join(',')} lô ${p.lot}` }))],
+        [{ id: '__streets', icon: '🛣️', title: 'Tên đường & khách', sub: 'phố, khách hàng, người đi đường' }, ...places.map((p) => ({ id: p.id, icon: p.icon || ICON[p.kind] || '•', title: p.name, sub: `${p.id} · khối ${p.block.join(',')} lô ${p.lot}` }))],
         sel.id,
         (id) => ctx.select('places', { id }),
         { issuesFor: (id) => (id === '__streets' ? ctx.issuesFor('places', '') : ctx.issuesFor('places', id)) },
@@ -46,10 +46,10 @@ export function render(root, ctx) {
     el(
       'div',
       { class: 'body-head' },
-      el('h2', {}, `${ICON[p.kind] || ''} ${p.name}`),
+      el('h2', {}, `${p.icon || ICON[p.kind] || ''} ${p.name}`),
       el('span', { class: 'pill' }, KIND[p.kind] || p.kind),
       p.hidden ? el('span', { class: 'pill' }, '👁 Ẩn trên bản đồ tới khi nhiệm vụ tiết lộ') : null,
-      !locked && p.kind === 'restaurant' ? button('🗑 Xóa quán', () => removePlace(p), 'danger small') : null,
+      !locked ? button('🗑 Xóa địa điểm', () => removePlace(p), 'danger small') : null,
     ),
   );
 
@@ -68,6 +68,7 @@ export function render(root, ctx) {
         field('Mã (không dấu)', idInput, opt('id', { hint: locked ? 'Code dùng trực tiếp mã này' : 'Đổi mã sẽ đổi cả khóa lời thoại npc.<mã>.*' })),
         field('Tên đầy đủ', textInput(p.name, (v) => { p.name = v; changedP(); }), opt('name')),
         field('Tên ngắn (bản đồ)', textInput(p.short, (v) => { p.short = v; changedP(); }), opt('short')),
+        field('Biểu tượng bản đồ', textInput(p.icon ?? '', (v) => { if (v) p.icon = v; else delete p.icon; changedP(); }, { class: 'emoji', placeholder: ICON[p.kind] || '📍' }), opt('icon', { hint: 'Emoji; để trống = theo loại' })),
         p.kind !== 'gate' ? field('Chữ trên biển hiệu', textInput(p.sign, (v) => { p.sign = v; changedP(); }), opt('sign')) : null,
         p.signBg != null || p.kind !== 'gate' ? field('Màu biển hiệu', colorInput(p.signBg, (v) => { p.signBg = v; changedP(); }), opt('signBg')) : null,
         field('Màu tường', colorInput(p.color, (v) => { p.color = v; changedP(); }), opt('color')),
@@ -99,23 +100,105 @@ export function render(root, ctx) {
     );
   }
 
-  // --- quán ăn: thực đơn + phục vụ ---
-  if (p.kind === 'restaurant' || p.kind === 'cafe') {
+  // --- thực đơn (quán ăn) ---
+  if (p.kind === 'restaurant') {
+    const items = Object.values(ctx.data.items).filter((it) => !it.traits.includes('passenger'));
     body.append(
-      el('h3', {}, p.kind === 'restaurant' ? 'Thực đơn & phục vụ' : 'Phục vụ'),
-      field('Người chơi mua được', selectInput(p.serves || '', [['', 'Không bán cho người chơi'], ['meal', 'Bữa ăn (+thể lực)'], ['drink', 'Đồ uống (+tinh thần)']], (v) => { if (v) p.serves = v; else delete p.serves; changedP(); }), opt('serves')),
+      el('h3', {}, 'Thực đơn giao hàng'),
+      field(
+        'Món có đơn giao từ quán này',
+        el('div', { class: 'chips' }, items.map((it) => checkInput((p.menu || []).includes(it.id), (on) => { p.menu = on ? [...(p.menu || []), it.id] : (p.menu || []).filter((m) => m !== it.id); changedP(); }, `${it.icon} ${it.name}`))),
+        opt('menu', { wide: true, hint: 'Món lạnh chỉ có đơn khi người chơi đã có túi giữ nhiệt. Ngoài giờ mở cửa quán không có đơn.' }),
+      ),
     );
-    if (p.kind === 'restaurant') {
-      const items = Object.values(ctx.data.items).filter((it) => !it.traits.includes('passenger'));
-      body.append(
-        field(
-          'Món có đơn giao từ quán này',
-          el('div', { class: 'chips' }, items.map((it) => checkInput((p.menu || []).includes(it.id), (on) => { p.menu = on ? [...(p.menu || []), it.id] : (p.menu || []).filter((m) => m !== it.id); changedP(); }, `${it.icon} ${it.name}`))),
-          opt('menu', { wide: true, hint: 'Món lạnh chỉ có đơn khi người chơi đã có túi giữ nhiệt' }),
-        ),
-      );
-    }
   }
+
+  // --- giờ mở cửa ---
+  // read(): đọc (có thể không tồn tại) · write(): lấy object để ghi (tạo nếu chưa có)
+  const hoursRow = (read, write, fieldKey, label, hint, onClear) => {
+    const cur = read();
+    const on = Array.isArray(cur);
+    return field(label, el('span', { class: 'inline' },
+      checkInput(!on, (v) => { const o = write(); if (v) delete o.hours; else o.hours = [8, 21]; if (onClear) onClear(); changedP(); ctx.rerender(); }, 'Cả ngày'),
+      on ? numInput(cur[0], (v) => { write().hours[0] = v; changedP(); }, { step: 1, min: 0, max: 24 }) : null,
+      on ? el('span', {}, '→') : null,
+      on ? numInput(cur[1], (v) => { write().hours[1] = v; changedP(); }, { step: 1, min: 0, max: 24 }) : null), opt(fieldKey, { hint }));
+  };
+  body.append(el('h3', {}, 'Giờ mở cửa'), el('div', { class: 'grid' }, hoursRow(() => p.hours, () => p, 'hours', 'Giờ mở cửa (giờ)', 'Ngoài giờ: không vào được, không có đơn từ quán, không làm hoạt động. Ngày chơi 6h → 22h.')));
+
+  // --- hoạt động ---
+  const acts = () => p.activities || [];
+  const actBox = el('div', { class: 'acts' });
+  const drawActs = () => {
+    actBox.innerHTML = '';
+    acts().forEach((act, i) => {
+      const num = (k, label, o = {}) => field(label, numInput(act[k], (v) => { act[k] = v; changedP(); }, { step: 1, ...o }));
+      const idIn = textInput(act.id, () => {}, { class: 'mono' });
+      idIn.addEventListener('change', () => {
+        const v = idIn.value.trim();
+        if (!ID_RE.test(v) || acts().some((a, j) => j !== i && a.id === v)) { idIn.value = act.id; return alert('Mã không hợp lệ hoặc bị trùng.'); }
+        act.id = v;
+        changedP();
+        ctx.rerender();
+      });
+      actBox.append(el('div', { class: 'act-card' },
+        field('', el('div', { class: 'grid tight' },
+          field('Tên hoạt động', textInput(act.label, (v) => { act.label = v; changedP(); })),
+          field('Mã', idIn),
+          num('cost', 'Giá (k)', { min: 0 }),
+          num('minutes', 'Mất bao nhiêu phút', { min: 0, max: 480 }),
+          num('phys', 'Thể lực +/−', { min: -100, max: 100 }),
+          num('mental', 'Tinh thần +/−', { min: -100, max: 100 }),
+          num('perDay', 'Tối đa mỗi ngày (0 = không giới hạn)', { min: 0, max: 20 })), { ref, fieldKey: `activities.${act.id}`, wide: true }),
+        button('🗑 Xóa hoạt động', () => { p.activities.splice(i, 1); if (!p.activities.length) delete p.activities; changedP(); drawActs(); ctx.applyFieldIssues(); }, 'danger small')));
+    });
+    actBox.append(button('＋ Thêm hoạt động', () => {
+      let n = 1;
+      while (acts().some((a) => a.id === `hd${n}`)) n++;
+      (p.activities = p.activities || []).push({ id: `hd${n}`, label: 'Hoạt động mới', cost: 10, minutes: 15, phys: 0, mental: 10, perDay: 0 });
+      changedP();
+      drawActs();
+      ctx.applyFieldIssues();
+    }, 'small primary'));
+  };
+  drawActs();
+  body.append(el('h3', {}, 'Hoạt động tại đây'), el('p', { class: 'muted' }, 'Người chơi chọn trong hộp thoại khi bấm E ở cửa. Thời gian trôi đúng số phút; thể lực/tinh thần cộng ngay.'), actBox);
+
+  // --- hàng bán ---
+  const gear = ctx.data.gear, goods = ctx.data.goods;
+  const sellRow = (cat, label, table, iconOf) => {
+    const list = p.sells?.[cat] || [];
+    return field(label, el('div', { class: 'chips' }, Object.values(table).map((x) =>
+      checkInput(list.includes(x.id), (on) => {
+        p.sells = p.sells || {};
+        const cur = p.sells[cat] || [];
+        p.sells[cat] = on ? [...cur, x.id] : cur.filter((y) => y !== x.id);
+        if (!p.sells[cat].length) delete p.sells[cat];
+        if (!Object.keys(p.sells).length) delete p.sells;
+        changedP();
+      }, `${iconOf(x)} ${x.name} (${x.price}k)`))), opt(`sells.${cat}`, { wide: true }));
+  };
+  body.append(
+    el('h3', {}, 'Bán gì'),
+    el('p', { class: 'muted' }, 'Có hàng thì hộp thoại hiện nút "Xem hàng". Tạo đồ dùng mới ở thẻ Xe · Túi · Đồ dùng.'),
+    sellRow('goods', 'Đồ dùng', goods, (x) => x.icon || '🎁'),
+    sellRow('bags', 'Túi giao hàng', gear.bags, () => '👜'),
+    sellRow('vehicles', 'Xe', gear.vehicles, () => '🛵'),
+  );
+
+  // --- điểm đến của đơn ---
+  const ord = () => p.orders || {};
+  const ordW = () => (p.orders = p.orders || {});
+  const cleanup = () => { if (p.orders && !p.orders.rideWeight && !p.orders.foodWeight && !p.orders.hours) delete p.orders; };
+  body.append(
+    el('h3', {}, 'Điểm đến của đơn hàng'),
+    el('p', { class: 'muted' }, 'Mức 0 = không bao giờ, 10 = rất thường xuyên. Ví dụ karaoke: khách xe ôm mức 6, khung giờ 17→22.'),
+    el('div', { class: 'grid' },
+      field('Khách xe ôm đi tới / từ đây', numInput(ord().rideWeight ?? 0, (v) => { ordW().rideWeight = v; cleanup(); changedP(); }, { step: 1, min: 0, max: 10 }), opt('orders.rideWeight')),
+      p.kind !== 'restaurant' ? field('Đặt đồ ăn giao tới đây', numInput(ord().foodWeight ?? 0, (v) => { ordW().foodWeight = v; cleanup(); changedP(); }, { step: 1, min: 0, max: 10 }), opt('orders.foodWeight')) : null,
+      hoursRow(() => ord().hours, ordW, 'orders.hours', 'Khung giờ có đơn', 'Bỏ trống ("Cả ngày") = theo giờ mở cửa', cleanup),
+    ),
+  );
 
   // --- lời thoại riêng (kho chữ npc.<id>.*) ---
   const content = ctx.data.content;
@@ -124,7 +207,7 @@ export function render(root, ctx) {
   for (const k of keys) {
     body.append(field(k, areaInput(content[k], (v) => { content[k] = v; ctx.changed('content'); }, 2), { ref: k, fieldKey: 'text', wide: true }));
   }
-  if (!content[`npc.${p.id}.greet`] && p.kind === 'restaurant') {
+  if (!content[`npc.${p.id}.greet`]) {
     body.append(button('＋ Thêm lời chào riêng', () => { content[`npc.${p.id}.greet`] = '"Chào em!"'; ctx.changed('content'); ctx.rerender(); }, 'small'));
   }
 
@@ -203,25 +286,31 @@ export function render(root, ctx) {
   }
 
   // ---------- thao tác ----------
-  function addRestaurant() {
+  function addPlace(kind) {
     const taken = new Set(places.flatMap(lotCells));
     taken.add(`${pd.alley.block[0]},${pd.alley.block[1]},${pd.alley.lot}`);
     let spot = null;
     for (let bz = 0; bz < CITY.N && !spot; bz++) for (let bx = 0; bx < CITY.N && !spot; bx++) for (const lot of SINGLE_LOTS) if (!spot && !taken.has(`${bx},${bz},${lot}`)) spot = { block: [bx, bz], lot };
     if (!spot) return alert('Hết lô trống.');
+    const prefix = kind === 'restaurant' ? 'quan' : 'dichvu';
     let n = 1;
-    while (places.some((x) => x.id === `quan${n}`)) n++;
-    const id = `quan${n}`;
+    while (places.some((x) => x.id === `${prefix}${n}`)) n++;
+    const id = `${prefix}${n}`;
     const firstItem = Object.values(ctx.data.items).find((it) => !it.traits.includes('passenger'));
-    places.push({ id, name: 'Quán mới', short: 'Quán', kind: 'restaurant', ...spot, floors: 2, color: '#f4c095', sign: 'QUÁN MỚI', signBg: '#b03a2e', menu: firstItem ? [firstItem.id] : [], npc: { name: 'Chủ quán', shirt: '#ffffff', pants: '#333344', hat: null, portrait: '🧑‍🍳' } });
-    ctx.data.content[`npc.${id}.greet`] = '"Chào em! Đơn của em đây."';
+    if (kind === 'restaurant') {
+      places.push({ id, name: 'Quán mới', short: 'Quán', kind, ...spot, floors: 2, color: '#f4c095', sign: 'QUÁN MỚI', signBg: '#b03a2e', menu: firstItem ? [firstItem.id] : [], npc: { name: 'Chủ quán', shirt: '#ffffff', pants: '#333344', hat: null, portrait: '🧑‍🍳' } });
+      ctx.data.content[`npc.${id}.greet`] = '"Chào em! Đơn của em đây."';
+    } else {
+      places.push({ id, name: 'Địa điểm mới', short: 'Mới', kind, icon: '⭐', ...spot, floors: 2, color: '#d6eaf8', sign: 'ĐỊA ĐIỂM MỚI', signBg: '#2e86c1', npc: { name: 'Nhân viên', shirt: '#2e86c1', pants: '#333344', hat: null, portrait: '🙂' }, hours: [8, 21], activities: [{ id: 'nghi', label: 'Ngồi nghỉ', cost: 0, minutes: 15, phys: 5, mental: 5, perDay: 0 }] });
+      ctx.data.content[`npc.${id}.greet`] = '"Chào bạn! Vào chơi nha."';
+    }
     ctx.changed('content');
     changedP();
     ctx.select('places', { id });
   }
 
   function removePlace(q) {
-    if (places.filter((x) => x.kind === 'restaurant').length <= 1) return alert('Cần giữ ít nhất 1 quán ăn.');
+    if (q.kind === 'restaurant' && places.filter((x) => x.kind === 'restaurant').length <= 1) return alert('Cần giữ ít nhất 1 quán ăn.');
     if (!confirm(`Xóa "${q.name}"?`)) return;
     pd.places = places.filter((x) => x !== q);
     for (const k of Object.keys(ctx.data.content)) if (k.startsWith(`npc.${q.id}.`) && !(k in ctx.base.content)) delete ctx.data.content[k];

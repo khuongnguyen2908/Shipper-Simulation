@@ -13,7 +13,7 @@ export function objectives(gs) {
   }
   list.push({ id: 'first', text: fmt('obj.first'), done: gs.stats.completed >= 1 });
   list.push({ id: 'thermal', text: fmt('obj.thermal'), done: gs.bagSpec.insulation >= 0.5, target: 'gear' });
-  list.push({ id: 'helmet', text: fmt('obj.helmet'), done: gs.has('spareHelmet'), target: 'gear' });
+  list.push({ id: 'helmet', text: fmt('obj.helmet'), done: gs.effect('passengerSeat'), target: 'gear' });
   list.push({ id: 'orders', text: fmt('obj.orders', { goal: ORDERS_GOAL, n: Math.min(gs.stats.completed, ORDERS_GOAL) }), done: gs.stats.completed >= ORDERS_GOAL });
   const w = walletObjective(gs);
   if (w) list.push(w);

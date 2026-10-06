@@ -122,25 +122,5 @@
       "color": "#e67e22",
       "desc": "Giữ nhiệt tốt, chống nước, có đệm chống sốc."
     }
-  },
-  "gear": {
-    "raincoat": {
-      "id": "raincoat",
-      "name": "Áo mưa",
-      "price": 40,
-      "desc": "Mưa không còn trừ thể lực, tinh thần; khách xe ôm không bị ướt."
-    },
-    "jacket": {
-      "id": "jacket",
-      "name": "Áo khoác chống nắng",
-      "price": 60,
-      "desc": "Không mệt thêm khi nắng gắt 11h–15h."
-    },
-    "spareHelmet": {
-      "id": "spareHelmet",
-      "name": "Mũ bảo hiểm cho khách",
-      "price": 50,
-      "desc": "Mở khóa đơn chở khách (xe ôm)."
-    }
   }
 }

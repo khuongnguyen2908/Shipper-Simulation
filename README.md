@@ -48,8 +48,8 @@ Chạy `npm run dev` rồi mở `http://localhost:5173/?editor`.
 | Thẻ | Sửa được | File |
 |---|---|---|
 | 🍜 Vật phẩm | thêm/xóa/đổi mã món, tên, biểu tượng, đặc tính (nóng, lạnh, nước, dễ vỡ, hộp giấy), giá cước, nhiệt độ, quán nào bán; biểu đồ món hư trong 30 phút theo từng túi | `src/data/items.json` |
-| 🛵 Xe · Túi · Đồ nghề | chỉ số, giá, màu, mô tả; thêm/xóa xe và túi; bảng so sánh | `src/data/gear.json` |
-| 🏪 Địa điểm & NPC | tên, biển hiệu, màu, số tầng, vị trí (bấm ô trên bản đồ), NPC, thực đơn, bán đồ ăn/uống, lời thoại riêng; thêm/xóa quán; tên đường, tên khách, tên người đi đường | `src/data/places.json` |
+| 🛵 Xe · Túi · Đồ dùng | xe, túi (chỉ số, giá, màu); **đồ dùng**: loại *dùng 1 lần* (dùng bằng phím I: +thể lực/tinh thần/xăng/độ bền xe, mất N phút) hoặc *trang bị* (chọn tác dụng: chống mưa, chống nắng, chở được khách, giảm % mệt/căng thẳng/hao xăng/mệt leo thang, thêm đệm, khách chịu tốc độ, boa thêm); chọn nơi bán | `src/data/gear.json`, `src/data/goods.json` |
+| 🏪 Địa điểm & NPC | thêm **Quán ăn** hoặc **Dịch vụ** (nhà sách, karaoke…); tên, biểu tượng bản đồ, biển hiệu, màu, vị trí (bấm ô trên bản đồ), NPC, **giờ mở cửa**, **hoạt động** (giá, số phút, ±thể lực, ±tinh thần, số lần/ngày), **hàng bán**, **điểm đến của đơn** (khách xe ôm / đặt đồ ăn tới, mức 0–10, khung giờ), thực đơn quán, lời thoại riêng; tên đường, tên khách | `src/data/places.json` |
 | 💬 Chữ & hội thoại | toàn bộ chữ trong game (475 khóa), tìm kiếm, lọc theo nhóm, xem trước với tham số mẫu | `src/content/vi.json` |
 
 - **Lưu (Ctrl+S)** ghi thẳng vào file JSON; game đang mở tự tải lại. Còn lỗi ⛔ thì không lưu được.

@@ -8,6 +8,7 @@
 import './editor.css';
 import itemsJson from '../../data/items.json' with { type: 'json' };
 import gearJson from '../../data/gear.json' with { type: 'json' };
+import goodsJson from '../../data/goods.json' with { type: 'json' };
 import placesJson from '../../data/places.json' with { type: 'json' };
 import contentJson from '../../content/vi.json' with { type: 'json' };
 import { validateAll } from '../../data/validate.js';
@@ -20,13 +21,14 @@ import * as tabText from './tabText.js';
 
 const FILES = {
   items: { path: 'src/data/items.json', label: 'Vật phẩm', src: itemsJson },
-  gear: { path: 'src/data/gear.json', label: 'Xe · Túi · Đồ nghề', src: gearJson },
+  gear: { path: 'src/data/gear.json', label: 'Xe & Túi', src: gearJson },
+  goods: { path: 'src/data/goods.json', label: 'Đồ dùng', src: goodsJson },
   places: { path: 'src/data/places.json', label: 'Địa điểm & NPC', src: placesJson },
   content: { path: 'src/content/vi.json', label: 'Chữ & hội thoại', src: contentJson },
 };
 const TABS = [
   { id: 'items', icon: '🍜', label: 'Vật phẩm', mod: tabItems },
-  { id: 'gear', icon: '🛵', label: 'Xe · Túi · Đồ nghề', mod: tabGear },
+  { id: 'gear', icon: '🛵', label: 'Xe · Túi · Đồ dùng', mod: tabGear },
   { id: 'places', icon: '🏪', label: 'Địa điểm & NPC', mod: tabPlaces },
   { id: 'text', icon: '💬', label: 'Chữ & hội thoại', mod: tabText },
 ];
@@ -106,7 +108,7 @@ export async function startEditor(root) {
   ctx.issuesFor = (tab, ref, extra = {}) => ctx.issues.filter((i) => i.tab === tab && i.ref === ref && (!extra.cat || i.cat === extra.cat));
 
   function validate() {
-    ctx.issues = validateAll({ items: ctx.data.items, gear: ctx.data.gear, places: ctx.data.places, content: ctx.data.content, baseContent: ctx.base.content });
+    ctx.issues = validateAll({ items: ctx.data.items, gear: ctx.data.gear, goods: ctx.data.goods, places: ctx.data.places, content: ctx.data.content, baseContent: ctx.base.content });
   }
 
   // Gắn lỗi vào đúng ô nhập (theo data-ref / data-field / data-cat)
@@ -114,7 +116,7 @@ export async function startEditor(root) {
     const tabIssues = ctx.issues.filter((i) => i.tab === ctx.tab);
     main.querySelectorAll('.fld').forEach((f) => {
       const ref = f.dataset.ref, field = f.dataset.field, cat = f.dataset.cat;
-      const msg = f.querySelector('.fld-msg');
+      const msg = f.querySelector(':scope > .fld-msg'); // khung lỗi của chính ô này (không lấy của ô con)
       if (!field) return;
       const mine = tabIssues.filter((i) => i.ref === ref && (i.field === field || i.field.startsWith(field + '.')) && (!cat || !i.cat || i.cat === cat));
       msg.innerHTML = mine.map((i) => `<div class="${i.level}">${i.level === 'error' ? '⛔' : '⚠️'} ${escapeHtml(i.msg)}</div>`).join('');
@@ -137,12 +139,12 @@ export async function startEditor(root) {
         { class: 'ed-tabs' },
         TABS.map((t) => {
           const n = ctx.issues.filter((i) => i.tab === t.id && i.level === 'error').length;
-          const fileKey = t.id === 'text' ? 'content' : t.id;
+          const fileKeys = t.id === 'text' ? ['content'] : t.id === 'gear' ? ['gear', 'goods'] : [t.id];
           return el(
             'button',
             { class: `ed-tab${ctx.tab === t.id ? ' on' : ''}`, type: 'button', onclick: () => ctx.select(t.id) },
             `${t.icon} ${t.label}`,
-            dirty.includes(fileKey) ? el('i', { class: 'dirty', title: 'Có thay đổi chưa lưu' }, '●') : null,
+            fileKeys.some((k) => dirty.includes(k)) ? el('i', { class: 'dirty', title: 'Có thay đổi chưa lưu' }, '●') : null,
             n ? el('span', { class: 'cnt err' }, n) : null,
           );
         }),
@@ -249,7 +251,8 @@ export async function startEditor(root) {
       for (const f of inp.files) {
         try {
           const j = JSON.parse(await f.text());
-          const k = j.vehicles ? 'gear' : j.places ? 'places' : Object.keys(j).some((x) => x.includes('.')) ? 'content' : 'items';
+          const first = Object.values(j)[0] || {};
+          const k = j.vehicles ? 'gear' : j.places ? 'places' : Object.keys(j).some((x) => x.includes('.')) ? 'content' : first.type === 'consumable' || first.type === 'equipment' ? 'goods' : 'items';
           ctx.data[k] = j;
           done.push(`${f.name} → ${FILES[k].label}`);
         } catch (e) {

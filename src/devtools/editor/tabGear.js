@@ -1,11 +1,12 @@
-// Thẻ XE · TÚI · ĐỒ NGHỀ: chỉ số, giá, mô tả + bảng so sánh cả nhóm.
+// Thẻ XE · TÚI · ĐỒ DÙNG: chỉ số, giá, mô tả, tác dụng + nơi bán + bảng so sánh.
 import { PROTECTED, ID_RE } from '../../data/validate.js';
-import { el, field, textInput, numInput, colorInput, button, sideList, areaInput } from './ui.js';
+import { EFFECTS, CONSUMABLE_FIELDS } from '../../data/goods.js';
+import { el, field, textInput, numInput, colorInput, button, sideList, areaInput, selectInput, checkInput } from './ui.js';
 
 const CATS = [
   ['vehicles', '🛵 Xe'],
-  ['bags', '👜 Túi giao hàng'],
-  ['gear', '🦺 Đồ nghề'],
+  ['bags', '👜 Túi'],
+  ['goods', '🎁 Đồ dùng'],
 ];
 
 // Các trường của từng nhóm: [khóa, nhãn, tùy chọn ô số, gợi ý]
@@ -28,27 +29,34 @@ const FIELDS = {
     ['rows', 'Số hàng ô', { step: 1, min: 1, max: 4 }, ''],
     ['price', 'Giá (k)', { step: 10 }, 'Túi giá 0 = túi miễn phí lúc đầu'],
   ],
-  gear: [['price', 'Giá (k)', { step: 5 }, '']],
 };
 
 export function render(root, ctx) {
   const sel = ctx.sel.gear;
   sel.cat = sel.cat || 'vehicles';
-  const table = ctx.data.gear[sel.cat];
+  const cat = sel.cat;
+  const fileKey = cat === 'goods' ? 'goods' : 'gear';
+  const table = cat === 'goods' ? ctx.data.goods : ctx.data.gear[cat];
   if (!sel.id || !table[sel.id]) sel.id = Object.keys(table)[0];
-  const changed = () => ctx.changed('gear');
+  const changed = () => ctx.changed(fileKey);
+  const places = ctx.data.places.places;
 
   const side = el('aside', { class: 'ed-side' });
   const drawSide = () => {
     side.innerHTML = '';
     side.append(
-      el('div', { class: 'seg' }, CATS.map(([c, label]) => button(label, () => ctx.select('gear', { cat: c, id: null }), sel.cat === c ? 'on' : ''))),
-      el('div', { class: 'side-head' }, el('b', {}, `${Object.keys(table).length} mục`), sel.cat !== 'gear' ? button('＋ Thêm', add, 'small primary') : el('small', { class: 'muted' }, 'Đồ nghề gắn với luật game, không thêm/xóa')),
+      el('div', { class: 'seg' }, CATS.map(([c, label]) => button(label, () => ctx.select('gear', { cat: c, id: null }), cat === c ? 'on' : ''))),
+      el('div', { class: 'side-head' }, el('b', {}, `${Object.keys(table).length} mục`), button('＋ Thêm', add, 'small primary')),
       sideList(
-        Object.values(table).map((s) => ({ id: s.id, icon: sel.cat === 'vehicles' ? '🛵' : sel.cat === 'bags' ? '👜' : '🦺', title: s.name, sub: `${s.id} · ${s.price}k` })),
+        Object.values(table).map((s) => ({
+          id: s.id,
+          icon: cat === 'vehicles' ? '🛵' : cat === 'bags' ? '👜' : s.icon || '🎁',
+          title: s.name,
+          sub: `${s.id} · ${s.price}k${cat === 'goods' ? ` · ${s.type === 'consumable' ? 'dùng 1 lần' : 'trang bị'}` : ''}`,
+        })),
         sel.id,
         (id) => ctx.select('gear', { id }),
-        { issuesFor: (id) => ctx.issuesFor('gear', id, { cat: sel.cat }) },
+        { issuesFor: (id) => ctx.issuesFor('gear', id, { cat }) },
       ),
     );
   };
@@ -59,64 +67,68 @@ export function render(root, ctx) {
   const body = el('section', { class: 'ed-body' });
   root.append(el('div', { class: 'ed-split' }, side, body));
   if (!s) return;
-  const ref = s.id, cat = sel.cat;
-  const locked = PROTECTED[cat].includes(ref);
+  const ref = s.id;
+  const locked = (PROTECTED[cat] || []).includes(ref);
   const opt = (k, extra = {}) => ({ ref, fieldKey: k, cat, ...extra });
 
-  const idInput = textInput(s.id, () => {}, { class: 'mono', disabled: locked || cat === 'gear' });
+  const idInput = textInput(s.id, () => {}, { class: 'mono', disabled: locked });
   idInput.addEventListener('change', () => rename(s.id, idInput.value.trim()));
   body.append(
-    el('div', { class: 'body-head' }, el('h2', {}, s.name), locked ? el('span', { class: 'pill' }, cat === 'gear' ? '🔒 Gắn với luật game' : '🔒 Đồ khởi đầu') : button('🗑 Xóa', remove, 'danger small')),
+    el('div', { class: 'body-head' }, el('h2', {}, `${cat === 'goods' ? s.icon || '' : ''} ${s.name}`), locked ? el('span', { class: 'pill' }, '🔒 Đồ khởi đầu') : button('🗑 Xóa', remove, 'danger small')),
     el(
       'div',
       { class: 'grid' },
-      field('Mã (không dấu)', idInput, opt('id')),
+      field('Mã (không dấu)', idInput, opt('id', { hint: 'Đổi mã sẽ tự cập nhật danh sách hàng của các địa điểm' })),
       field('Tên', textInput(s.name, (v) => { s.name = v; changed(); }), opt('name')),
-      cat !== 'gear' ? field('Màu', colorInput(s.color, (v) => { s.color = v; changed(); }), opt('color', { hint: cat === 'vehicles' ? 'Màu thân xe' : 'Màu túi trên baga' })) : null,
-      ...FIELDS[cat].map(([k, label, o, hint]) => field(label, numInput(s[k], (v) => { s[k] = v; changed(); }, o), opt(k, { hint }))),
+      cat === 'goods'
+        ? field('Biểu tượng (emoji)', textInput(s.icon, (v) => { s.icon = v; changed(); }, { class: 'emoji' }), opt('icon'))
+        : field('Màu', colorInput(s.color, (v) => { s.color = v; changed(); }), opt('color', { hint: cat === 'vehicles' ? 'Màu thân xe' : 'Màu túi trên baga' })),
+      cat === 'goods' ? field('Giá (k)', numInput(s.price, (v) => { s.price = v; changed(); }, { step: 5, min: 0 }), opt('price')) : null,
+      ...(FIELDS[cat] || []).map(([k, label, o, hint]) => field(label, numInput(s[k], (v) => { s[k] = v; changed(); }, o), opt(k, { hint }))),
     ),
     field('Mô tả (hiện trong cửa hàng)', areaInput(s.desc, (v) => { s.desc = v; changed(); }, 2), opt('desc', { wide: true })),
   );
-  if (cat === 'gear') body.append(el('p', { class: 'muted' }, gearRule(ref)));
 
-  // bảng so sánh
-  const cols = FIELDS[cat];
-  body.append(
-    el('h3', {}, 'So sánh cả nhóm'),
-    el(
-      'table',
-      { class: 'cmp' },
-      el('thead', {}, el('tr', {}, el('th', {}, 'Tên'), cols.map(([, label]) => el('th', {}, label)))),
+  if (cat === 'goods') renderGoods(body, s, ctx, opt, changed);
+  body.append(sellsBox(s, cat, ctx));
+
+  // bảng so sánh (xe, túi)
+  if (FIELDS[cat]) {
+    const cols = FIELDS[cat];
+    body.append(
+      el('h3', {}, 'So sánh cả nhóm'),
       el(
-        'tbody',
-        {},
-        Object.values(table).map((x) =>
-          el(
-            'tr',
-            { class: x.id === ref ? 'on' : '', onclick: () => ctx.select('gear', { id: x.id }) },
+        'table',
+        { class: 'cmp' },
+        el('thead', {}, el('tr', {}, el('th', {}, 'Tên'), cols.map(([, label]) => el('th', {}, label)))),
+        el('tbody', {}, Object.values(table).map((x) =>
+          el('tr', { class: x.id === ref ? 'on' : '', onclick: () => ctx.select('gear', { id: x.id }) },
             el('td', {}, x.name),
-            cols.map(([k, , o]) => el('td', {}, typeof x[k] === 'number' ? +(x[k] * (o.scale || 1)).toFixed(o.digits ?? 2) : '—')),
-          ),
-        ),
+            cols.map(([k, , o]) => el('td', {}, typeof x[k] === 'number' ? +(x[k] * (o.scale || 1)).toFixed(o.digits ?? 2) : '—'))))),
       ),
-    ),
-  );
+    );
+  }
 
   function add() {
-    const prefix = cat === 'vehicles' ? 'xe' : 'tui';
+    const prefix = { vehicles: 'xe', bags: 'tui', goods: 'do' }[cat];
     let n = 1;
     while (table[`${prefix}${n}`]) n++;
     const id = `${prefix}${n}`;
-    table[id] = cat === 'vehicles'
-      ? { id, name: 'Xe mới', maxSpeed: 15, accel: 5, brake: 10, steer: 2.3, suspension: 0.4, fuelPer100km: 3, tank: 4, price: 2000, color: '#2e86c1', desc: '' }
-      : { id, name: 'Túi mới', insulation: 0.3, waterproof: 0.3, padding: 0.2, cols: 2, rows: 2, price: 80, color: '#8e44ad', desc: '' };
+    table[id] = {
+      vehicles: { id, name: 'Xe mới', maxSpeed: 15, accel: 5, brake: 10, steer: 2.3, suspension: 0.4, fuelPer100km: 3, tank: 4, price: 2000, color: '#2e86c1', desc: '' },
+      bags: { id, name: 'Túi mới', insulation: 0.3, waterproof: 0.3, padding: 0.2, cols: 2, rows: 2, price: 80, color: '#8e44ad', desc: '' },
+      goods: { id, name: 'Đồ dùng mới', icon: '🎁', price: 20, desc: '', type: 'consumable', use: { minutes: 5, phys: 10, mental: 10, fuel: 0, bikeHp: 0 } },
+    }[cat];
     changed();
     ctx.select('gear', { id });
   }
 
   function remove() {
-    if (!confirm(`Xóa "${s.name}"? Bản lưu của người chơi đã mua món này sẽ không dùng được nó nữa.`)) return;
+    const users = places.filter((p) => (p.sells?.[cat] || []).includes(ref));
+    if (!confirm(`Xóa "${s.name}"?${users.length ? `\nSẽ gỡ khỏi hàng của: ${users.map((p) => p.name).join(', ')}.` : ''}\nNgười chơi đã mua sẽ không còn tác dụng của món này.`)) return;
     delete table[ref];
+    for (const p of users) p.sells[cat] = p.sells[cat].filter((x) => x !== ref);
+    if (users.length) ctx.changed('places');
     changed();
     ctx.select('gear', { id: null });
   }
@@ -128,15 +140,65 @@ export function render(root, ctx) {
     const entries = Object.entries(table).map(([k, v]) => (k === oldId ? [newId, { ...v, id: newId }] : [k, v]));
     for (const k of Object.keys(table)) delete table[k];
     for (const [k, v] of entries) table[k] = v;
+    for (const p of places) if (p.sells?.[cat]) p.sells[cat] = p.sells[cat].map((x) => (x === oldId ? newId : x));
+    ctx.changed('places');
     changed();
     ctx.select('gear', { id: newId });
   }
 }
 
-function gearRule(id) {
-  return {
-    raincoat: 'Luật: khi mưa, không trừ thêm thể lực/tinh thần; khách xe ôm không bị ướt.',
-    jacket: 'Luật: không mệt thêm khi nắng gắt 11h–15h.',
-    spareHelmet: 'Luật: mở khóa đơn chở khách (và nhiệm vụ chiếc ví).',
-  }[id] || '';
+// Phần riêng của đồ dùng: loại + tác dụng
+function renderGoods(body, s, ctx, opt, changed) {
+  body.append(
+    el('h3', {}, 'Loại & tác dụng'),
+    field('Loại', selectInput(s.type, [['consumable', 'Đồ dùng 1 lần (dùng từ túi đồ, phím I)'], ['equipment', 'Trang bị (mua 1 lần, tác dụng mãi)']], (v) => {
+      s.type = v;
+      if (v === 'consumable') { delete s.effects; s.use = s.use || { minutes: 5, phys: 10, mental: 10, fuel: 0, bikeHp: 0 }; }
+      else { delete s.use; s.effects = s.effects || {}; }
+      changed();
+      ctx.rerender();
+    }), opt('type')),
+  );
+  if (s.type === 'consumable') {
+    s.use = s.use || {};
+    body.append(el('div', { class: 'grid' }, Object.entries(CONSUMABLE_FIELDS).map(([k, r]) =>
+      field(r.label, numInput(s.use[k] ?? 0, (v) => { s.use[k] = v; changed(); }, { step: k === 'fuel' ? 0.1 : 1, min: r.min, max: r.max }), opt(`use.${k}`)))));
+    return;
+  }
+  s.effects = s.effects || {};
+  const rows = Object.entries(EFFECTS).map(([k, def]) => {
+    const on = s.effects[k] !== undefined && s.effects[k] !== false;
+    const head = checkInput(on, (v) => {
+      if (v) s.effects[k] = def.kind === 'bool' ? true : def.kind === 'pct' ? (def.min < 0 ? -10 : 10) : 2;
+      else delete s.effects[k];
+      changed();
+      ctx.rerender();
+    }, def.label);
+    const val = on && def.kind !== 'bool' ? numInput(s.effects[k], (v) => { s.effects[k] = v; changed(); }, { step: 1, min: def.min, max: def.max }) : null;
+    return el('div', { class: 'trait' }, head, val, el('small', {}, def.hint));
+  });
+  body.append(field('', el('div', { class: 'traits' }, rows), opt('effects', { wide: true, hint: 'Nhiều trang bị cùng tác dụng thì cộng dồn. Muốn kiểu tác dụng mới hoàn toàn thì cần thêm vào code.' })));
+}
+
+// Nơi bán: tích chọn địa điểm bán món này (ghi vào places.json → sells)
+function sellsBox(s, cat, ctx) {
+  const places = ctx.data.places.places;
+  return el(
+    'div',
+    {},
+    el('h3', {}, 'Bán ở đâu'),
+    field(
+      '',
+      el('div', { class: 'chips' }, places.map((p) =>
+        checkInput((p.sells?.[cat] || []).includes(s.id), (on) => {
+          p.sells = p.sells || {};
+          const list = p.sells[cat] || [];
+          p.sells[cat] = on ? [...list, s.id] : list.filter((x) => x !== s.id);
+          if (!p.sells[cat].length) delete p.sells[cat];
+          if (!Object.keys(p.sells).length) delete p.sells;
+          ctx.changed('places');
+        }, `${p.icon || ''} ${p.name}`))),
+      { ref: s.id, fieldKey: 'sells', cat, wide: true, hint: 'Thay đổi này nằm trong file địa điểm (places.json)' },
+    ),
+  );
 }

@@ -5,16 +5,17 @@
 //  - warn : chạy được nhưng nên xem lại
 // =============================================================
 import { CITY } from '../sim/cityLayout.js';
+import { EFFECTS, CONSUMABLE_FIELDS } from './goods.js';
 
 export const TRAIT_IDS = ['hot', 'cold', 'liquid', 'fragile', 'paper', 'passenger'];
 export const PROTECTED = {
   items: ['passenger'],
   vehicles: ['cub'],
   bags: ['nylon'],
-  gear: ['raincoat', 'jacket', 'spareHelmet'],
   places: ['home', 'gas', 'gear', 'garage', 'cafe', 'taphoa', 'gate', 'apartment', 'market'],
 };
 export const LOTS = ['N0', 'N1', 'N2', 'S0', 'S1', 'S2', 'E1', 'W1', 'N', 'S', 'C'];
+export const PLACE_KINDS = ['home', 'restaurant', 'gas', 'shop', 'garage', 'cafe', 'taphoa', 'gate', 'apartment', 'market', 'service'];
 export const ID_RE = /^[a-zA-Z][a-zA-Z0-9_]*$/;
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
@@ -59,12 +60,11 @@ export function validateItems(items, placesData) {
 const RANGES = {
   vehicles: { maxSpeed: [5, 40], accel: [1, 15], brake: [3, 20], steer: [1, 4], suspension: [0, 1], fuelPer100km: [0.5, 10], tank: [0.5, 20], price: [0, 100000] },
   bags: { insulation: [0, 1], waterproof: [0, 1], padding: [0, 1], cols: [1, 5], rows: [1, 4], price: [0, 100000] },
-  gear: { price: [0, 100000] },
 };
 
 export function validateGear(gear) {
   const out = [];
-  for (const cat of ['vehicles', 'bags', 'gear']) {
+  for (const cat of ['vehicles', 'bags']) {
     const table = gear[cat] || {};
     const add = (level, ref, field, msg) => out.push({ level, tab: 'gear', cat, ref, field, msg });
     for (const id of PROTECTED[cat]) if (!table[id]) add('error', id, 'id', `Thiếu "${id}" (code dùng trực tiếp).`);
@@ -78,7 +78,7 @@ export function validateGear(gear) {
       }
       if (cat === 'bags' && (!Number.isInteger(s.cols) || !Number.isInteger(s.rows))) add('error', key, 'cols', 'Số ô phải là số nguyên.');
       if (cat === 'bags' && s.cols * s.rows < 2) add('warn', key, 'cols', 'Túi chỉ có 1 ô → không chở được đơn 2 món.');
-      if (cat !== 'gear' && !COLOR_RE.test(s.color || '')) add('error', key, 'color', 'Màu phải dạng #rrggbb.');
+      if (!COLOR_RE.test(s.color || '')) add('error', key, 'color', 'Màu phải dạng #rrggbb.');
     }
     if (cat === 'bags' && table.nylon && table.nylon.price !== 0) add('warn', 'nylon', 'price', 'Túi nylon là túi khởi đầu, nên để giá 0.');
     if (cat === 'vehicles' && table.cub && table.cub.price !== 0) add('warn', 'cub', 'price', 'Xe Cub là xe khởi đầu, nên để giá 0.');
@@ -87,7 +87,7 @@ export function validateGear(gear) {
   return out;
 }
 
-export function validatePlaces(pd, items) {
+export function validatePlaces(pd, items, goodsTable = null, gearTable = null) {
   const out = [];
   const add = (level, ref, field, msg) => out.push({ level, tab: 'places', ref, field, msg });
   const places = pd.places || [];
@@ -129,7 +129,36 @@ export function validatePlaces(pd, items) {
         else if (items[m].traits.includes('passenger')) add('error', p.id, 'menu', 'Quán không bán "khách xe ôm".');
       }
     }
-    if (p.serves && !['meal', 'drink'].includes(p.serves)) add('error', p.id, 'serves', 'Phục vụ chỉ là meal hoặc drink.');
+    if (!PLACE_KINDS.includes(p.kind)) add('error', p.id, 'kind', `Loại địa điểm lạ: ${p.kind}.`);
+    // giờ mở cửa
+    if (p.hours != null) {
+      const [a, b] = Array.isArray(p.hours) ? p.hours : [];
+      if (!num(a) || !num(b) || a < 0 || b > 24 || a >= b) add('error', p.id, 'hours', 'Giờ mở cửa: 2 số từ 0 đến 24, giờ mở < giờ đóng.');
+      else if (b - a < 1) add('warn', p.id, 'hours', 'Mở cửa chưa tới 1 tiếng.');
+    }
+    // hoạt động
+    const actIds = new Set();
+    for (const act of p.activities || []) {
+      const f = `activities.${act.id}`;
+      if (!ID_RE.test(act.id || '')) add('error', p.id, f, 'Mã hoạt động chỉ gồm chữ không dấu, số, gạch dưới.');
+      if (actIds.has(act.id)) add('error', p.id, f, 'Trùng mã hoạt động.');
+      actIds.add(act.id);
+      if (!act.label || !String(act.label).trim()) add('error', p.id, f, 'Hoạt động chưa có tên.');
+      for (const [k, name, lo, hi] of [['cost', 'Giá', 0, 10000], ['minutes', 'Số phút', 0, 480], ['phys', 'Thể lực', -100, 100], ['mental', 'Tinh thần', -100, 100], ['perDay', 'Tối đa mỗi ngày', 0, 20]]) {
+        if (!num(act[k]) || act[k] < lo || act[k] > hi) add('error', p.id, f, `"${act.label || act.id}": ${name} phải là số từ ${lo} đến ${hi}.`);
+      }
+      if (num(act.minutes) && act.minutes > 120) add('warn', p.id, f, 'Hoạt động hơn 2 tiếng — tốn nhiều thời gian trong ngày.');
+    }
+    // hàng bán
+    for (const [k, table] of [['goods', goodsTable], ['bags', gearTable?.bags], ['vehicles', gearTable?.vehicles]]) {
+      for (const id of p.sells?.[k] || []) if (table && !table[id]) add('error', p.id, `sells.${k}`, `Bán "${id}" nhưng không có trong danh mục.`);
+    }
+    // điểm đến của đơn
+    if (p.orders) {
+      for (const k of ['rideWeight', 'foodWeight']) if (p.orders[k] != null && (!num(p.orders[k]) || p.orders[k] < 0 || p.orders[k] > 10)) add('error', p.id, `orders.${k}`, 'Mức độ thường xuyên từ 0 đến 10.');
+      const h = p.orders.hours;
+      if (h != null && (!Array.isArray(h) || !num(h[0]) || !num(h[1]) || h[0] < 0 || h[1] > 24 || h[0] >= h[1])) add('error', p.id, 'orders.hours', 'Khung giờ đơn: giờ đầu < giờ cuối, trong 0–24.');
+    }
   }
   for (const [k, arr] of [['streetsX', pd.streetsX], ['streetsZ', pd.streetsZ]]) {
     if (!Array.isArray(arr) || arr.length !== CITY.N + 1) add('error', '', k, `Cần đúng ${CITY.N + 1} tên đường.`);
@@ -184,6 +213,43 @@ export function validateContent(content, base) {
   return out;
 }
 
-export function validateAll({ items, gear, places, content, baseContent }) {
-  return [...validateItems(items, places), ...validateGear(gear), ...validatePlaces(places, items), ...validateContent(content, baseContent || content)];
+// Đồ dùng (goods.json): tiêu hao + trang bị
+export function validateGoods(goods, placesData) {
+  const out = [];
+  const add = (level, ref, field, msg) => out.push({ level, tab: 'gear', cat: 'goods', ref, field, msg });
+  const sold = new Set((placesData?.places || []).flatMap((p) => p.sells?.goods || []));
+  for (const [key, s] of Object.entries(goods)) {
+    if (!ID_RE.test(key)) add('error', key, 'id', 'Mã chỉ gồm chữ không dấu, số, gạch dưới.');
+    if (s.id !== key) add('error', key, 'id', `Mã bên trong (${s.id}) khác khóa (${key}).`);
+    if (!s.name || !String(s.name).trim()) add('error', key, 'name', 'Chưa có tên.');
+    if (!num(s.price) || s.price < 0 || s.price > 100000) add('error', key, 'price', 'Giá phải từ 0 đến 100000.');
+    if (s.type === 'consumable') {
+      const u = s.use || {};
+      for (const [k, r] of Object.entries(CONSUMABLE_FIELDS)) if (u[k] != null && (!num(u[k]) || u[k] < r.min || u[k] > r.max)) add('error', key, `use.${k}`, `Phải từ ${r.min} đến ${r.max}.`);
+      if (!u.phys && !u.mental && !u.fuel && !u.bikeHp) add('warn', key, 'use', 'Dùng xong không có tác dụng gì.');
+    } else if (s.type === 'equipment') {
+      const e = s.effects || {};
+      for (const [k, v] of Object.entries(e)) {
+        const def = EFFECTS[k];
+        if (!def) add('error', key, `effects.${k}`, `Tác dụng lạ: ${k}.`);
+        else if (def.kind !== 'bool' && (!num(v) || v < def.min || v > def.max)) add('error', key, `effects.${k}`, `Phải từ ${def.min} đến ${def.max}.`);
+      }
+      if (!Object.values(e).some((v) => v)) add('warn', key, 'effects', 'Trang bị chưa có tác dụng nào.');
+    } else add('error', key, 'type', 'Loại phải là "đồ dùng 1 lần" hoặc "trang bị".');
+    if (placesData && !sold.has(key)) add('warn', key, 'sells', 'Chưa địa điểm nào bán món này.');
+  }
+  const has = (eff) => Object.values(goods).some((g) => g.type === 'equipment' && g.effects?.[eff] && sold.has(g.id));
+  if (placesData && !has('passengerSeat')) out.push({ level: 'warn', tab: 'gear', cat: 'goods', ref: '', field: 'effects', msg: 'Không nơi nào bán trang bị "Chở được khách" → đơn xe ôm (và nhiệm vụ chiếc ví) không bao giờ mở.' });
+  if (placesData && !has('rainProtect')) out.push({ level: 'warn', tab: 'gear', cat: 'goods', ref: '', field: 'effects', msg: 'Không nơi nào bán trang bị "Chống mưa".' });
+  return out;
+}
+
+export function validateAll({ items, gear, goods, places, content, baseContent }) {
+  return [
+    ...validateItems(items, places),
+    ...validateGear(gear),
+    ...(goods ? validateGoods(goods, places) : []),
+    ...validatePlaces(places, items, goods, gear),
+    ...validateContent(content, baseContent || content),
+  ];
 }

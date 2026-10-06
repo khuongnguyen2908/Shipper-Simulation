@@ -1,0 +1,88 @@
+{
+  "raincoat": {
+    "id": "raincoat",
+    "name": "Áo mưa",
+    "icon": "🧥",
+    "price": 40,
+    "desc": "Mưa không còn trừ thể lực, tinh thần; khách xe ôm không bị ướt.",
+    "type": "equipment",
+    "effects": {
+      "rainProtect": true
+    }
+  },
+  "jacket": {
+    "id": "jacket",
+    "name": "Áo khoác chống nắng",
+    "icon": "🧢",
+    "price": 60,
+    "desc": "Không mệt thêm khi nắng gắt 11h–15h.",
+    "type": "equipment",
+    "effects": {
+      "sunProtect": true
+    }
+  },
+  "spareHelmet": {
+    "id": "spareHelmet",
+    "name": "Mũ bảo hiểm cho khách",
+    "icon": "⛑️",
+    "price": 50,
+    "desc": "Mở khóa đơn chở khách (xe ôm).",
+    "type": "equipment",
+    "effects": {
+      "passengerSeat": true
+    }
+  },
+  "comfyShoes": {
+    "id": "comfyShoes",
+    "name": "Giày êm chân",
+    "icon": "👟",
+    "price": 150,
+    "desc": "Leo cầu thang đỡ mệt hơn, đi lại cả ngày bớt mỏi.",
+    "type": "equipment",
+    "effects": {
+      "stairsPct": -30,
+      "physDrainPct": -10
+    }
+  },
+  "skillBook": {
+    "id": "skillBook",
+    "name": "Sách \"Nói sao cho khách vui\"",
+    "icon": "📘",
+    "price": 120,
+    "desc": "Giao tiếp khéo hơn → đơn 4–5 sao được boa thêm.",
+    "type": "equipment",
+    "effects": {
+      "tipBonus": 2
+    }
+  },
+  "novel": {
+    "id": "novel",
+    "name": "Tiểu thuyết bỏ túi",
+    "icon": "📖",
+    "price": 35,
+    "desc": "Đọc lúc rảnh hoặc lúc chờ quán làm món.",
+    "type": "consumable",
+    "use": {
+      "minutes": 20,
+      "phys": 0,
+      "mental": 15,
+      "fuel": 0,
+      "bikeHp": 0
+    }
+  },
+  "energyDrink": {
+    "id": "energyDrink",
+    "name": "Nước tăng lực",
+    "icon": "🥤",
+    "price": 15,
+    "desc": "Tỉnh người tức thì.",
+    "type": "consumable",
+    "use": {
+      "minutes": 1,
+      "phys": 25,
+      "mental": 5,
+      "fuel": 0,
+      "bikeHp": 0
+    }
+  }
+}

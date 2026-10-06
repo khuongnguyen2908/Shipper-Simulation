@@ -10,7 +10,8 @@ Bạn là lập trình viên game web cho dự án **Shipper Simulation**: game 
 ## 2. Kiến trúc
 ```
 src/
-  data/      balance.js (mọi con số cân bằng) · items.json · gear.json · places.json · validate.js
+  data/      balance.js (mọi con số cân bằng) · items.json · gear.json (xe, túi) · goods.json + goods.js (đồ dùng, danh sách tác dụng EFFECTS)
+             places.json (địa điểm: giờ mở cửa, hoạt động, hàng bán, điểm đến đơn) · validate.js
   content/   vi.json — MỌI chữ hiển thị; code gọi fmt(khóa, tham số) / pick / list
   sim/       mô phỏng thuần (không Three.js, không DOM): OrderManager (máy trạng thái), ItemPhysics,
              OrderCondition, economy, hazards, GameState, objectives, cityLayout, rng
@@ -25,6 +26,7 @@ Nguyên tắc:
 - Mọi chữ hiển thị đi qua `fmt()` với khóa trong `src/content/vi.json`; không viết chữ cứng trong code.
 - Dữ liệu vật phẩm, xe/túi/đồ nghề, địa điểm & NPC nằm trong JSON và sửa được bằng `?editor`; code chỉ gọi trực tiếp các mã bị khóa (xem `PROTECTED` trong `src/data/validate.js`).
 - Thêm khóa chữ / trường dữ liệu mới thì cập nhật luôn công cụ `?editor` và `validate.js` nếu cần.
+- Luật bằng dữ liệu: hoạt động/hàng bán/giờ mở cửa/điểm đến đơn đọc từ places.json (`src/sim/placeRules.js`); tác dụng trang bị đọc qua `GameState.effect(mã)`. Thêm kiểu tác dụng mới = thêm vào `EFFECTS` + chỗ dùng + công cụ.
 - Mọi thao tác người chơi đi qua `interactions.js`; chuyển trạng thái đơn chỉ qua `OrderManager` (bảng `TRANSITIONS`).
 
 ## 3. Công cụ qua tham số địa chỉ

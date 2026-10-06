@@ -2,7 +2,8 @@
 // Thẻ: Đơn · Bản đồ · Nhóm · Ví · Túi đồ. Chữ lấy từ kho chữ phone.*
 import { stateLabel, S } from '../sim/OrderManager.js';
 import { traitLabel } from '../data/items.js';
-import { VEHICLES, BAGS, GEAR, ORDER } from '../data/balance.js';
+import { VEHICLES, BAGS, ORDER } from '../data/balance.js';
+import { GOODS } from '../data/goods.js';
 import { fmtK } from '../sim/economy.js';
 import { fmt, list } from '../content/index.js';
 import { MiniMap } from './minimap.js';
@@ -172,8 +173,9 @@ export class Phone {
 
   bagTab(d) {
     const gs = d.gs;
-    const v = VEHICLES[gs.vehicle], b = BAGS[gs.bag];
-    const gear = Object.values(GEAR).map((g) => `<div class="kv"><span>${gs.has(g.id) ? '✔' : '✕'} ${g.name}</span><small>${g.desc}</small></div>`).join('');
+    const v = gs.vehicleSpec, b = gs.bagSpec;
+    const gear = Object.values(GOODS).filter((g) => g.type === 'equipment').map((g) => `<div class="kv"><span>${gs.has(g.id) ? '✔' : '✕'} ${g.icon || ''} ${g.name}</span><small>${g.desc || ''}</small></div>`).join('');
+    const cons = Object.entries(gs.consumables).filter(([id, n]) => GOODS[id] && n > 0).map(([id, n]) => `<div class="kv"><span>${GOODS[id].icon || ''} ${GOODS[id].name}</span><b>×${n}</b></div>`).join('');
     const inv = gs.inventory.length
       ? gs.inventory.map((id) => (id === 'wallet' ? `<div class="kv"><span>${fmt('phone.walletItem')}</span><button class="btn small" data-act="wallet">${fmt('phone.view')}</button></div>` : '')).join('')
       : `<small>${fmt('phone.nothing')}</small>`;
@@ -186,7 +188,8 @@ export class Phone {
       <div class="card"><b>👜 ${b.name}</b><small>${b.desc}</small>
       ${kv(fmt('phone.bagStats'), `${Math.round(b.insulation * 100)}% · ${Math.round(b.waterproof * 100)}% · ${Math.round(b.padding * 100)}%`)}
       ${kv(fmt('phone.slots'), `${b.cols}×${b.rows}`)}</div>
-      <div class="card"><b>${fmt('phone.gear')}</b>${gear}</div>
+      <div class="card"><b>${fmt('phone.equipment')}</b>${gear}</div>
+      <div class="card"><b>${fmt('phone.consumables')}</b>${cons || `<small>${fmt('phone.nothing')}</small>`}</div>
       <div class="card"><b>${fmt('phone.items')}</b>${inv}</div>`;
   }
 }

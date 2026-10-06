@@ -39,7 +39,7 @@ export function playDay(seed, strat, day = 1) {
 
   const envAt = (speed) => ({
     ambient: hz.ambient(now), sun: hz.sun(now), raining: hz.isRaining(now), exposed: true,
-    speed, comfortSpeed: 11, suspension: gs.vehicleSpec.suspension, bag: gs.bagSpec, passengerRaincoat: gs.has('raincoat'),
+    speed, comfortSpeed: 11, suspension: gs.vehicleSpec.suspension, bag: gs.bagSpec, passengerRaincoat: gs.effect('rainProtect'),
   });
   const pass = (min, activity, speed = 0) => {
     for (let i = 0; i < min && !gs.checkEnd(now); i++) {
@@ -69,9 +69,9 @@ export function playDay(seed, strat, day = 1) {
     if (gs.phys < 40 && gs.money > 60) { drive(P.comtam.door); gs.spend(ENERGY.meal.cost, 'meal'); gs.addEnergy(ENERGY.meal.phys, ENERGY.meal.mental); pass(15, 'idle'); }
     if (gs.mental < 40 && gs.money > 40) { drive(P.cafe.door); gs.spend(ENERGY.drink.cost, 'meal'); gs.addEnergy(ENERGY.drink.phys, ENERGY.drink.mental); pass(10, 'idle'); }
     if (!st.buyGear) return;
-    const want = [['bags', 'thermal', 60], ['gear', 'spareHelmet', 60], ['gear', 'raincoat', 40]];
+    const want = [['bags', 'thermal', 60], ['goods', 'spareHelmet', 60], ['goods', 'raincoat', 40]];
     for (const [cat, id, reserve] of want) {
-      if (gs.owned[cat].includes(id)) continue;
+      if (cat === 'goods' ? gs.has(id) : gs.owned[cat].includes(id)) continue;
       const price = { thermal: 120, spareHelmet: 50, raincoat: 40 }[id];
       if (gs.money >= price + reserve + gs.rent * Math.max(0, (now - 17 * 60) / 300)) {
         drive(P.gear.door);

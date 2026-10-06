@@ -197,7 +197,7 @@ test('Đơn kem/trà sữa chỉ xuất hiện khi có túi giữ nhiệt', () =
 });
 test('Có mũ cho khách → đơn chở anh Minh (nhiệm vụ ví)', () => {
   const { om, gs } = mkOM(9, { carry: { money: 500 } });
-  gs.buy('gear', 'spareHelmet');
+  gs.buy('goods', 'spareHelmet');
   const o = om.makeOffer(480, { x: 0, z: 0 });
   assert.equal(o.kind, 'ride');
   assert.equal(o.story, 'wallet');
@@ -258,12 +258,114 @@ test('Lịch chướng ngại lặp lại theo seed, luôn có mưa chiều', ()
   for (const p of a.potholes) assert.ok(!blockAt(p.x, p.z), 'ổ gà nằm trên vỉa hè');
 });
 
+console.log('Đồ dùng, hoạt động, điểm đến (luật bằng dữ liệu)');
+{
+  const { GOODS } = await import('../src/data/goods.js');
+  const { isOpen } = await import('../src/sim/placeRules.js');
+  test('Trang bị cộng dồn tác dụng; bản lưu cũ (owned.gear) vẫn có tác dụng', () => {
+    const gs = new GameState({ carry: { money: 1000, owned: { vehicles: ['cub'], bags: ['nylon'], gear: ['raincoat'] } } });
+    assert.equal(gs.effect('rainProtect'), true);
+    assert.equal(gs.effect('passengerSeat'), false);
+    GOODS.__t1 = { id: '__t1', name: 'a', price: 1, type: 'equipment', effects: { physDrainPct: -10 } };
+    GOODS.__t2 = { id: '__t2', name: 'b', price: 1, type: 'equipment', effects: { physDrainPct: -20, paddingPct: 30 } };
+    gs.buy('goods', '__t1');
+    gs.buy('goods', '__t2');
+    assert.equal(gs.effect('physDrainPct'), -30);
+    assert.ok(Math.abs(gs.cargoBag.padding - 0.3) < 1e-9);
+    const a = new GameState();
+    a.drain('drive', 60, { outdoor: true });
+    gs.drain('drive', 60, { outdoor: true });
+    assert.ok(100 - gs.phys < 100 - a.phys);
+    delete GOODS.__t1;
+    delete GOODS.__t2;
+  });
+  test('Đồ dùng 1 lần: mua cộng dồn, dùng thì trừ và có tác dụng', () => {
+    GOODS.__c = { id: '__c', name: 'Nước', price: 10, type: 'consumable', use: { minutes: 3, phys: 20, mental: 0, fuel: 0.5, bikeHp: 0 } };
+    const gs = new GameState({ carry: { money: 100 } });
+    gs.buy('goods', '__c');
+    gs.buy('goods', '__c');
+    assert.equal(gs.countOf('__c'), 2);
+    gs.phys = 50;
+    const f = gs.fuel;
+    const r = gs.useConsumable('__c');
+    assert.ok(r.ok && r.minutes === 3);
+    assert.equal(gs.phys, 70);
+    assert.ok(gs.fuel > f);
+    assert.equal(gs.countOf('__c'), 1);
+    assert.equal(new GameState({ carry: gs.carryOver() }).countOf('__c'), 1);
+    delete GOODS.__c;
+  });
+  test('Hoạt động: đóng cửa, hết lượt trong ngày, thiếu tiền', () => {
+    const place = { id: 'p', hours: [16, 23] };
+    const act = { id: 'sing', cost: 80, minutes: 60, phys: -5, mental: 40, perDay: 1 };
+    const gs = new GameState({ carry: { money: 100 } });
+    gs.mental = 50;
+    assert.equal(gs.activityStatus(place, act, 10 * 60), 'closed');
+    assert.ok(gs.doActivity(place, act, 18 * 60).ok);
+    assert.equal(gs.mental, 90);
+    assert.equal(gs.money, 20);
+    assert.equal(gs.activityStatus(place, act, 19 * 60), 'usedUp');
+    assert.equal(gs.activityStatus(place, { ...act, id: 'x' }, 19 * 60), 'money');
+    assert.ok(isOpen({}, 3 * 60));
+  });
+  test('Quán đóng cửa thì không có đơn từ quán đó', () => {
+    const { om, gs } = mkOM(5);
+    const pho = layout.placeById.pho;
+    const old = pho.hours;
+    pho.hours = [6, 7];
+    for (let i = 0; i < 60; i++) assert.notEqual(om.makeOffer(9 * 60, { x: 0, z: 0 })?.pickup.placeId, 'pho');
+    pho.hours = old;
+  });
+  test('Karaoke buổi tối là điểm đến của khách xe ôm; buổi sáng thì không', () => {
+    const k = layout.placeById.karaoke;
+    assert.ok(k, 'thiếu địa điểm mẫu karaoke');
+    const { om, gs } = mkOM(11, { carry: { money: 500, flags: { wallet: 5 } } });
+    gs.buy('goods', 'spareHelmet');
+    let night = 0, morning = 0;
+    for (let i = 0; i < 300; i++) {
+      if (om.makeRide({ x: 0, z: 0 }, false, 20 * 60).dropoff.placeId === 'karaoke') night++;
+      if (om.makeRide({ x: 0, z: 0 }, false, 9 * 60).dropoff.placeId === 'karaoke') morning++;
+    }
+    assert.ok(night > 20, `buổi tối chỉ ${night}/300`);
+    assert.equal(morning, 0);
+  });
+  test('Trang bị boa thêm được cộng vào đơn 5 sao', () => {
+    GOODS.__tip = { id: '__tip', name: 't', price: 1, type: 'equipment', effects: { tipBonus: 4 } };
+    for (let seed = 1; seed < 40; seed++) {
+      const { om, gs } = mkOM(seed, { carry: { money: 100 } });
+      gs.buy('goods', '__tip');
+      const offer = getOffer(om);
+      if (offer.kind !== 'food' || offer.flags.outOfStock || offer.flags.noAnswer || offer.dropoff.apartment) continue;
+      om.accept(480);
+      om.arriveAtPickup(480);
+      om.finishPacking(om.collectFood(om.order.readyAt + 0.1).map(() => ({ upright: true })), 490);
+      om.reveal();
+      om.arriveAtDropoff(495);
+      const r = om.handOver(495);
+      assert.equal(r.ev.stars, 5);
+      assert.equal(r.pay.tip, 8 + 4);
+      delete GOODS.__tip;
+      return;
+    }
+    assert.fail('không tìm được đơn phù hợp');
+  });
+}
+
+console.log('Bot mô phỏng (chạy thử 1 ngày)');
+{
+  const { playDay } = await import('./economy-sim.js');
+  test('Bot chơi trọn 1 ngày không lỗi, có giao đơn', () => {
+    const { log, outcome } = playDay(1, 'normal');
+    assert.ok(outcome && log.orders > 3, `chỉ ${log.orders} đơn`);
+  });
+}
+
 console.log('Dữ liệu & kho chữ (sửa bằng công cụ ?editor)');
 {
   const fs = await import('node:fs');
   const path = await import('node:path');
   const read = (p) => JSON.parse(fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8'));
-  const data = { items: read('src/data/items.json'), gear: read('src/data/gear.json'), places: read('src/data/places.json'), content: read('src/content/vi.json') };
+  const data = { items: read('src/data/items.json'), gear: read('src/data/gear.json'), goods: read('src/data/goods.json'), places: read('src/data/places.json'), content: read('src/content/vi.json') };
   const { validateAll, validateItems, validatePlaces, validateContent } = await import('../src/data/validate.js');
   test('Dữ liệu hiện tại không có lỗi', () => {
     const errs = validateAll({ ...data, baseContent: data.content }).filter((i) => i.level === 'error');
