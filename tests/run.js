@@ -383,6 +383,41 @@ console.log('Kéo thả đổi thứ tự (công cụ ?editor)');
   });
 }
 
+console.log('Tòa nhà nhiều lô');
+{
+  const { lotInfo, LOT_W, lotParts, LOT_SIZES, lotSize } = await import('../src/sim/cityLayout.js');
+  const { lotCells } = await import('../src/data/validate.js');
+  const W = LOT_W, near = (a, b) => Math.abs(a - b) < 1e-9;
+  test('Khung lô đúng cỡ và mặt tiền đúng hướng', () => {
+    const cases = { N1: [1, 1, 'N'], N01: [2, 1, 'N'], S12: [2, 1, 'S'], N: [3, 1, 'N'], S: [3, 1, 'S'], W: [1, 3, 'W'], E: [1, 3, 'E'], E1: [1, 1, 'E'] };
+    for (const [lot, [w, d, face]] of Object.entries(cases)) {
+      const r = lotInfo(2, 2, lot);
+      assert.ok(near(r.x1 - r.x0, w * W) && near(r.z1 - r.z0, d * W), `${lot}: ${(r.x1 - r.x0) / W}×${(r.z1 - r.z0) / W}`);
+      assert.equal(r.face, face, lot);
+    }
+    // cả cột tây trùng khít 3 lô đơn N0, W1, S0
+    const col = lotInfo(2, 2, 'W'), n0 = lotInfo(2, 2, 'N0'), s0 = lotInfo(2, 2, 'S0');
+    assert.ok(near(col.z0, n0.z0) && near(col.z1, s0.z1) && near(col.x0, n0.x0));
+  });
+  test('Mỗi kích thước có đủ lô, tên lô ↔ kích thước khớp nhau', () => {
+    for (const [size, lots] of Object.entries(LOT_SIZES)) for (const l of lots) assert.equal(lotSize(l), size);
+    assert.deepEqual(lotParts('E'), ['N2', 'E1', 'S2']);
+    assert.deepEqual(lotCells({ block: [1, 2], lot: 'N12' }), ['1,2,N1', '1,2,N2']);
+  });
+  const fs = await import('node:fs');
+  const { validatePlaces } = await import('../src/data/validate.js');
+  const read = (p) => JSON.parse(fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8'));
+  test('Tòa nhà lớn: không còn nhà khách trên lô bị chiếm; bộ kiểm tra bắt đè lối hẻm', () => {
+    const layout = buildLayout();
+    const placeCells = new Set(layout.places.flatMap((p) => lotCells(p)));
+    assert.ok(!layout.lots.some((l) => placeCells.has(l.key)), 'có nhà khách nằm trên lô của địa điểm');
+    const pd = read('src/data/places.json'), items = read('src/data/items.json');
+    const pho = pd.places.find((p) => p.id === 'pho');
+    Object.assign(pho, { block: [...pd.alley.block], lot: 'E' }); // cả cột đông ở khối có hẻm 42
+    assert.ok(validatePlaces(pd, items).some((i) => i.ref === 'pho' && i.field === 'lot' && /hẻm/.test(i.msg)));
+  });
+}
+
 console.log('Ngoại hình nam/nữ');
 {
   const { guessGender } = await import('../src/sim/people.js');

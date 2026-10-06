@@ -1,6 +1,6 @@
 // Thẻ ĐỊA ĐIỂM & NPC: tên, biển hiệu, màu, vị trí trên bản đồ (bấm ô để dời), NPC,
 // thực đơn quán, lời thoại riêng; mục "Tên đường & khách" cho tên phố, tên khách, người đi đường.
-import { CITY, HALF, blockBounds, lotInfo } from '../../sim/cityLayout.js';
+import { CITY, HALF, blockBounds, lotInfo, LOT_SIZES, lotParts, lotSize } from '../../sim/cityLayout.js';
 import { PROTECTED, ID_RE, LOTS, lotCells } from '../../data/validate.js';
 import { moveInArray } from './order.js';
 import { personPreview } from './personPreview.js';
@@ -10,7 +10,17 @@ import { HINT, EXPLAIN } from './help.js';
 
 const KIND = { home: '🏠 Nhà trọ', restaurant: '🍴 Quán ăn', gas: '⛽ Cây xăng', shop: '🎒 Tiệm đồ nghề', garage: '🔧 Tiệm xe', cafe: '☕ Quán cà phê', taphoa: '🛒 Tạp hóa', gate: '🟩 Nhà cổng xanh', apartment: '🏢 Chung cư', market: '🧺 Chợ', service: '⭐ Dịch vụ' };
 const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', service: '⭐' };
-const LOT_LABEL = { N0: 'N0 · bắc trái', N1: 'N1 · bắc giữa', N2: 'N2 · bắc phải', S0: 'S0 · nam trái', S1: 'S1 · nam giữa', S2: 'S2 · nam phải', E1: 'E1 · đông', W1: 'W1 · tây', N: 'N · cả dãy bắc', S: 'S · cả dãy nam', C: 'C · sân trong hẻm' };
+const LOT_LABEL = {
+  N0: 'N0 · bắc trái', N1: 'N1 · bắc giữa', N2: 'N2 · bắc phải', S0: 'S0 · nam trái', S1: 'S1 · nam giữa', S2: 'S2 · nam phải', E1: 'E1 · đông', W1: 'W1 · tây',
+  N01: 'N0+N1 · bắc, bên trái', N12: 'N1+N2 · bắc, bên phải', S01: 'S0+S1 · nam, bên trái', S12: 'S1+S2 · nam, bên phải',
+  N: 'N · cả dãy bắc', S: 'S · cả dãy nam', W: 'W · cả cột tây (N0+W1+S0)', E: 'E · cả cột đông (N2+E1+S2)', C: 'C · sân trong hẻm',
+};
+const SIZE_LABEL = { one: '1 lô', two: '2 lô ngang', row: 'Cả dãy (3 lô ngang)', col: 'Cả cột (3 lô dọc)' };
+// Lô cùng cỡ có chứa ô vừa bấm (ưu tiên lô bắt đầu từ ô đó)
+const lotForCell = (size, cell) => {
+  const fits = LOT_SIZES[size].filter((l) => lotParts(l).includes(cell));
+  return fits.find((l) => lotParts(l)[0] === cell) || fits[0] || null;
+};
 const SINGLE_LOTS = ['N0', 'N1', 'N2', 'S0', 'S1', 'S2', 'E1', 'W1'];
 
 export function render(root, ctx) {
@@ -60,7 +70,8 @@ export function render(root, ctx) {
   // --- bản đồ + vị trí ---
   const idInput = textInput(p.id, () => {}, { class: 'mono', disabled: locked });
   idInput.addEventListener('change', () => renamePlace(p, idInput.value.trim()));
-  const lotOptions = p.kind === 'gate' ? ['C'] : p.lot === 'N' || p.lot === 'S' ? ['N', 'S'] : SINGLE_LOTS;
+  const size = lotSize(p.lot) || 'one';
+  const lotOptions = p.kind === 'gate' ? ['C'] : LOT_SIZES[size];
   const mapBox = el('div', { class: 'mapbox' });
   body.append(
     el(
@@ -80,7 +91,13 @@ export function render(root, ctx) {
         field('Khối (cột x, hàng z)', el('span', { class: 'inline' },
           numInput(p.block[0], (v) => { p.block[0] = Math.round(v); changedP(); drawMap(); }, { step: 1, min: 0, max: CITY.N - 1 }),
           numInput(p.block[1], (v) => { p.block[1] = Math.round(v); changedP(); drawMap(); }, { step: 1, min: 0, max: CITY.N - 1 })), opt('block', { hint: `0–${CITY.N - 1}, từ tây-bắc` })),
-        field('Lô trong khối', selectInput(p.lot, lotOptions.map((l) => [l, LOT_LABEL[l]]), (v) => { p.lot = v; changedP(); drawMap(); }), opt('lot', { hint: 'Hoặc bấm vào ô trên bản đồ' })),
+        p.kind !== 'gate' ? field('Kích thước', selectInput(size, Object.entries(SIZE_LABEL), (v) => {
+          // giữ chỗ cũ nếu được: lấy lô cỡ mới chứa ô đầu của lô hiện tại
+          p.lot = lotForCell(v, lotParts(p.lot)[0]) || lotParts(p.lot).map((c) => lotForCell(v, c)).find(Boolean) || LOT_SIZES[v][0];
+          changedP();
+          ctx.rerender();
+        }), opt('lotSize', { hint: 'Tòa nhà lớn chiếm nhiều lô (mỗi lô bớt 1 nhà khách). Mặt tiền quay ra đường phía bắc/nam (dãy) hoặc tây/đông (cột).' })) : null,
+        field('Lô trong khối', selectInput(p.lot, lotOptions.map((l) => [l, LOT_LABEL[l] || l]), (v) => { p.lot = v; changedP(); drawMap(); }), opt('lot', { hint: 'Hoặc bấm vào ô trên bản đồ (giữ nguyên kích thước)' })),
       ),
       mapBox,
     ),
@@ -299,11 +316,8 @@ export function render(root, ctx) {
       if (!hit) return;
       if (p.kind === 'gate') return alert('Nhà cổng xanh gắn với hẻm 42, không dời được.');
       if (hit.lot === 'C') return alert('Lô C (sân trong hẻm) chỉ dành cho nhà cổng xanh.');
-      let lot = hit.lot;
-      if (p.lot === 'N' || p.lot === 'S') {
-        if (!/^[NS]/.test(lot)) return alert('Tòa nhà lớn chỉ đặt được ở cả dãy bắc (N) hoặc nam (S).');
-        lot = lot[0];
-      }
+      const lot = lotForCell(lotSize(p.lot) || 'one', hit.lot);
+      if (!lot) return alert(`Ô ${hit.lot} không vừa kích thước "${SIZE_LABEL[lotSize(p.lot)]}". ${lotSize(p.lot) === 'col' ? 'Cả cột chỉ đặt ở cột trái (N0, W1, S0) hoặc cột phải (N2, E1, S2).' : 'Chọn ô ở dãy bắc (N…) hoặc dãy nam (S…).'}`);
       p.block = [hit.bx, hit.bz];
       p.lot = lot;
       changedP();

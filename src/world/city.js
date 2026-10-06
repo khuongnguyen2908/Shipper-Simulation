@@ -267,7 +267,8 @@ export function buildCity(scene, layout, potholes, seed = 7) {
       addBuilding(r, 2, p.color, 9);
       addSign(p.sign, p.signBg, f, SW_H + 4.6, 12);
       for (let k = 0; k < 6; k++) {
-        const ff = { ...f, width: (r.x1 - r.x0) / 6, x: r.x0 + ((k + 0.5) * (r.x1 - r.x0)) / 6 };
+        // chia mặt tiền thành 6 sạp (mặt tiền quay bắc/nam thì chia theo x, quay đông/tây thì theo z)
+        const ff = f.nx ? { ...f, width: f.width / 6, z: r.z0 + ((k + 0.5) * f.width) / 6 } : { ...f, width: f.width / 6, x: r.x0 + ((k + 0.5) * f.width) / 6 };
         addAwning(ff, AWNING_COLORS[k % AWNING_COLORS.length], 2.4);
       }
       continue;

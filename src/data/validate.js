@@ -4,7 +4,7 @@
 //  - error: game sẽ chạy sai → công cụ không cho lưu
 //  - warn : chạy được nhưng nên xem lại
 // =============================================================
-import { CITY } from '../sim/cityLayout.js';
+import { CITY, LOT_IDS, MULTI_LOTS, lotParts } from '../sim/cityLayout.js';
 import { EFFECTS, CONSUMABLE_FIELDS } from './goods.js';
 import { GENDERS, HAIR_STYLES } from '../sim/people.js';
 
@@ -15,7 +15,7 @@ export const PROTECTED = {
   bags: ['nylon'],
   places: ['home', 'gas', 'gear', 'garage', 'cafe', 'taphoa', 'gate', 'apartment', 'market'],
 };
-export const LOTS = ['N0', 'N1', 'N2', 'S0', 'S1', 'S2', 'E1', 'W1', 'N', 'S', 'C'];
+export const LOTS = [...LOT_IDS, ...Object.keys(MULTI_LOTS), 'C'];
 export const PLACE_KINDS = ['home', 'restaurant', 'gas', 'shop', 'garage', 'cafe', 'taphoa', 'gate', 'apartment', 'market', 'service'];
 export const ID_RE = /^[a-zA-Z][a-zA-Z0-9_]*$/;
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
@@ -31,11 +31,10 @@ function drainWarn(add, ref, field, phys, mental, who) {
 
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
 
-// Các ô lô mà một địa điểm chiếm (lô 'N'/'S' = cả dãy 3 ô)
+// Các ô lô mà một địa điểm chiếm (tòa nhà lớn chiếm nhiều lô — xem MULTI_LOTS)
 export function lotCells(p) {
   const [bx, bz] = p.block;
-  if (p.lot === 'N' || p.lot === 'S') return [0, 1, 2].map((k) => `${bx},${bz},${p.lot}${k}`);
-  return [`${bx},${bz},${p.lot}`];
+  return lotParts(p.lot).map((id) => `${bx},${bz},${id}`);
 }
 
 export function validateItems(items, placesData) {
@@ -182,6 +181,9 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null) {
     else arr.forEach((s, i) => !String(s).trim() && add('error', '', k, `Tên đường số ${i + 1} đang trống.`));
   }
   if (!pd.customerNames || !pd.customerNames.filter((s) => String(s).trim()).length) add('error', '', 'customerNames', 'Cần ít nhất 1 tên khách.');
+  // nhà dân còn lại làm điểm giao hàng (tòa nhà lớn chiếm bớt)
+  const homes = CITY.N * CITY.N * LOT_IDS.length - [...occupied.keys()].filter((c) => LOT_IDS.includes(c.split(',')[2])).length - 1;
+  if (homes < 120) add('warn', '', 'lot', `Chỉ còn ${homes} nhà khách làm điểm giao (nên ≥ 120) — tòa nhà lớn đang chiếm nhiều lô.`);
   return out;
 }
 

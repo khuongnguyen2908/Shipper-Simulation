@@ -8,6 +8,21 @@ export const LOT_W = (CITY.BLOCK - 2 * CITY.SW) / 3;
 export const HALF = -CITY.ORIGIN + CITY.ROAD / 2; // biên bản đồ: |x|,|z| ≤ 136
 export const LOT_IDS = ['N0', 'N1', 'N2', 'S0', 'S1', 'S2', 'E1', 'W1'];
 
+// Mỗi khối chia 3×3 ô:   N0 | N1 | N2   ← dãy bắc
+//                         W1 | C  | E1   ← giữa (C = sân trong hẻm)
+//                         S0 | S1 | S2   ← dãy nam
+// Lô nhiều ô (tòa nhà lớn) = danh sách các lô đơn bên trong. Mặt tiền = chữ cái đầu (N/S/W/E).
+export const MULTI_LOTS = {
+  N01: ['N0', 'N1'], N12: ['N1', 'N2'], S01: ['S0', 'S1'], S12: ['S1', 'S2'], // 2 lô ngang
+  N: ['N0', 'N1', 'N2'], S: ['S0', 'S1', 'S2'], // cả dãy
+  W: ['N0', 'W1', 'S0'], E: ['N2', 'E1', 'S2'], // cả cột
+};
+// Kích thước → các lô cùng cỡ
+export const LOT_SIZES = { one: LOT_IDS, two: ['N01', 'N12', 'S01', 'S12'], row: ['N', 'S'], col: ['W', 'E'] };
+export const lotParts = (lot) => MULTI_LOTS[lot] || [lot];
+export const lotSize = (lot) => Object.keys(LOT_SIZES).find((k) => LOT_SIZES[k].includes(lot)) || null;
+const CELL = { N0: [0, 0], N1: [1, 0], N2: [2, 0], W1: [0, 1], E1: [2, 1], S0: [0, 2], S1: [1, 2], S2: [2, 2] };
+
 export const roadPos = (i) => CITY.ORIGIN + i * CITY.PITCH;
 
 export function blockBounds(bx, bz) {
@@ -31,14 +46,13 @@ export function blockAt(x, z) {
 export function lotInfo(bx, bz, lot) {
   const b = blockBounds(bx, bz);
   const ax = b.x0 + CITY.SW, az = b.z0 + CITY.SW, W = LOT_W;
-  const side = lot[0];
-  const k = lot.length > 1 ? Number(lot[1]) : -1;
-  let r, face = side;
-  if (side === 'N') r = k < 0 ? { x0: ax, x1: ax + 3 * W, z0: az, z1: az + W } : { x0: ax + k * W, x1: ax + (k + 1) * W, z0: az, z1: az + W };
-  else if (side === 'S') r = k < 0 ? { x0: ax, x1: ax + 3 * W, z0: az + 2 * W, z1: az + 3 * W } : { x0: ax + k * W, x1: ax + (k + 1) * W, z0: az + 2 * W, z1: az + 3 * W };
-  else if (side === 'E') r = { x0: ax + 2 * W, x1: ax + 3 * W, z0: az + W, z1: az + 2 * W };
-  else if (side === 'W') r = { x0: ax, x1: ax + W, z0: az + W, z1: az + 2 * W };
-  else { r = { x0: ax + W, x1: ax + 1.5 * W, z0: az + W + 1, z1: az + 2 * W - 1 }; face = 'E'; } // 'C' sân giữa
+  let r, face = lot[0];
+  const cells = lotParts(lot).map((id) => CELL[id]);
+  if (lot !== 'C' && cells.length && cells.every(Boolean)) {
+    // khung bao các ô của lô (1 ô, 2 ô ngang, cả dãy, cả cột)
+    const cs = cells.map((c) => c[0]), rs = cells.map((c) => c[1]);
+    r = { x0: ax + Math.min(...cs) * W, x1: ax + (Math.max(...cs) + 1) * W, z0: az + Math.min(...rs) * W, z1: az + (Math.max(...rs) + 1) * W };
+  } else { r = { x0: ax + W, x1: ax + 1.5 * W, z0: az + W + 1, z1: az + 2 * W - 1 }; face = 'E'; } // 'C' sân giữa
   const cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2;
   let door;
   if (lot === 'C') door = { x: r.x1 + 1.6, z: cz };
@@ -66,8 +80,7 @@ export function buildLayout() {
   const taken = new Set();
   for (const p of places) {
     const [bx, bz] = p.block;
-    if (p.lot.length === 1 && p.lot !== 'C') for (let k = 0; k < 3; k++) taken.add(key(bx, bz, p.lot + k));
-    else taken.add(key(bx, bz, p.lot));
+    for (const id of lotParts(p.lot)) taken.add(key(bx, bz, id));
   }
   taken.add(key(ALLEY.block[0], ALLEY.block[1], ALLEY.lot));
   const lots = [];
