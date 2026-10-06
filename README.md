@@ -29,6 +29,18 @@ npm run build      # thử + build ra MỘT file dist/index.html (bấm đúp l�
 
 `?debug` trên địa chỉ: `T` tua 30 phút, `K` +100k, `L` đầy xăng; `window.game.step()` và `window.autopilot` dùng để kiểm thử.
 
+## Đăng game cho bạn bè chơi (GitHub Pages)
+
+Mỗi lần sửa xong (trong `?editor` đã bấm Lưu):
+
+```bash
+npm run dang -- "ghi chú ngắn, vd: thêm 2 món cơm tấm"
+```
+
+Lệnh này chạy bộ thử → gom thay đổi thành 1 commit → đẩy lên GitHub. GitHub Actions (`.github/workflows/deploy.yml`) tự build và cập nhật link `https://<tên>.github.io/<repo>/` sau 1–2 phút. Bộ thử lỗi thì không đăng.
+
+Lần đầu: tạo repo **Public** trống trên GitHub, vào **Settings → Pages → Source: GitHub Actions**, rồi `git remote add origin <link repo>.git`.
+
 ## Công cụ nội dung `?editor`
 
 Chạy `npm run dev` rồi mở `http://localhost:5173/?editor`.
