@@ -7,6 +7,7 @@ import { personPreview } from './personPreview.js';
 import { guessGender } from '../../sim/people.js';
 import { el, field, textInput, numInput, colorInput, selectInput, checkInput, button, sideList, areaInput, dragHandle, makeSortable, emojiInput, explain } from './ui.js';
 import { HINT, EXPLAIN } from './help.js';
+import { CHANGEABLE_KINDS, canChangeKind, applyKind } from './placeKind.js';
 
 const KIND = { home: '🏠 Nhà trọ', restaurant: '🍴 Quán ăn', gas: '⛽ Cây xăng', shop: '🎒 Tiệm đồ nghề', garage: '🔧 Tiệm xe', cafe: '☕ Quán cà phê', taphoa: '🛒 Tạp hóa', gate: '🟩 Nhà cổng xanh', apartment: '🏢 Chung cư', market: '🧺 Chợ', service: '⭐ Dịch vụ' };
 const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', service: '⭐' };
@@ -93,6 +94,7 @@ export function render(root, ctx) {
         field('Mã (không dấu)', idInput, opt('id', { hint: locked ? 'Code dùng trực tiếp mã này' : 'Đổi mã sẽ đổi cả khóa lời thoại npc.<mã>.*' })),
         field('Tên đầy đủ', textInput(p.name, (v) => { p.name = v; changedP(); }), opt('name', { hint: HINT.place.name })),
         field('Tên ngắn (bản đồ)', textInput(p.short, (v) => { p.short = v; changedP(); }), opt('short', { hint: HINT.place.short })),
+        kindField(),
         field('Biểu tượng bản đồ', emojiInput(p.icon ?? '', (v) => { if (v) p.icon = v; else delete p.icon; changedP(); }, { placeholder: ICON[p.kind] || '📍' }), opt('icon', { hint: 'Emoji; để trống = theo loại' })),
         p.kind !== 'gate' ? field('Chữ trên biển hiệu', textInput(p.sign, (v) => { p.sign = v; changedP(); }), opt('sign', { hint: HINT.place.sign })) : null,
         p.signBg != null || p.kind !== 'gate' ? field('Màu biển hiệu', colorInput(p.signBg, (v) => { p.signBg = v; changedP(); }), opt('signBg')) : null,
@@ -386,6 +388,22 @@ export function render(root, ctx) {
       ctx.rerender();
     });
     mapBox.append(c, el('small', { class: 'muted' }, 'Vàng = đang chọn · vạch = mặt tiền (cửa) · đỏ = trùng lô · nâu = lối vào hẻm 42 · khối có hẻm: bấm vào một nhà (xanh rêu = nhà trong hẻm) · bấm ô để dời'));
+  }
+
+  // ---------- loại địa điểm ----------
+  function kindField() {
+    const can = canChangeKind(p, locked);
+    const options = can ? CHANGEABLE_KINDS.map((k) => [k, KIND[k]]) : [[p.kind, KIND[p.kind] || p.kind]];
+    const s = selectInput(p.kind, options, (v) => {
+      if (p.kind === 'restaurant' && (p.menu || []).length && !confirm(`Đổi "${p.name}" khỏi loại Quán ăn sẽ bỏ thực đơn (${p.menu.length} món) — chỉ quán ăn mới có đơn đồ ăn. Tiếp tục?`)) return ctx.rerender();
+      applyKind(p, v, ctx.data.items);
+      changedP();
+      ctx.rerender();
+    });
+    s.disabled = !can;
+    return field('Loại địa điểm', s, opt('kind', { hint: can ? HINT.place.kind
+      : locked ? 'Địa điểm có khóa 🔒 (code gọi thẳng) — không đổi loại được.'
+      : 'Loại này gắn với cốt truyện (quán cà phê, tạp hóa: nhiệm vụ chiếc ví) hoặc chỉ có một (nhà trọ, nhà cổng xanh, chung cư) — không đổi được.' }));
   }
 
   // ---------- mặt tiền ----------

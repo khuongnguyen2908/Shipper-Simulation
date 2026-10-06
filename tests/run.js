@@ -699,6 +699,31 @@ console.log('Bản đồ 8×8, hẻm trong khối (map.json)');
   });
 }
 
+console.log('Đổi loại địa điểm (công cụ ?editor)');
+{
+  const { CHANGEABLE_KINDS, canChangeKind, applyKind } = await import('../src/devtools/editor/placeKind.js');
+  const { validatePlaces } = VALIDATE;
+  test('Dịch vụ → cây xăng hợp lệ (đổ xăng được); quán ăn mới có sẵn món; địa điểm khóa / cốt truyện không đổi được', () => {
+    const pd = JSON.parse(JSON.stringify(DATA.places));
+    const svc = pd.places.find((p) => p.kind === 'service' && !VALIDATE.PROTECTED.places.includes(p.id));
+    assert.ok(svc && canChangeKind(svc, false));
+    applyKind(svc, 'gas', DATA.items);
+    assert.equal(svc.kind, 'gas');
+    assert.equal(validatePlaces(pd, DATA.items).filter((i) => i.level === 'error' && i.ref === svc.id).length, 0);
+    applyKind(svc, 'restaurant', DATA.items);
+    assert.ok(svc.menu.length === 1 && !DATA.items[svc.menu[0]].parcel, 'quán ăn mới phải có 1 món đồ ăn');
+    assert.equal(validatePlaces(pd, DATA.items).filter((i) => i.level === 'error' && i.ref === svc.id).length, 0);
+    applyKind(svc, 'service', DATA.items);
+    assert.ok(!svc.menu, 'bỏ quán ăn thì bỏ thực đơn');
+    const cafe = pd.places.find((p) => p.id === 'cafe');
+    assert.ok(!canChangeKind(cafe, true) && !canChangeKind({ kind: 'taphoa' }, false) && !canChangeKind({ kind: 'gate' }, false));
+    assert.ok(!CHANGEABLE_KINDS.includes('cafe') && !CHANGEABLE_KINDS.includes('home'));
+    const before = svc.kind;
+    applyKind(svc, 'cafe', DATA.items);
+    assert.equal(svc.kind, before, 'không đổi sang loại cốt truyện');
+  });
+}
+
 console.log('Sông, cầu, quãng đường thật (map.json → rivers)');
 {
   const { roadPos, routeDist, manhattan, neighbors, isWaterSeg, roadGraph, CITY } = await import('../src/sim/cityLayout.js');

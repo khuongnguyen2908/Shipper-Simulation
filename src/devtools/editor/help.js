@@ -56,6 +56,7 @@ export const HINT = {
     short: 'Hiện trên bản đồ nhỏ — nên ngắn (1–2 chữ).',
     sign: 'Chữ in trên biển trước cửa; nên VIẾT HOA, ngắn.',
     floors: '1–15 tầng (chỉ là hình dáng nhà).',
+    kind: 'Quyết định địa điểm làm được gì: Quán ăn (có đơn đồ ăn, cần thực đơn) · Cây xăng (đổ xăng; hình mái che + trụ bơm, xe phải đậu gần) · Tiệm đồ nghề / Tiệm xe / Chợ / Dịch vụ (bán hàng, hoạt động; tiệm xe sửa được xe). Giờ mở cửa, hoạt động, hàng bán, NPC giữ nguyên khi đổi.',
   },
   act: {
     label: 'Chữ trên nút trong hộp thoại, vd "Ăn một tô phở".',

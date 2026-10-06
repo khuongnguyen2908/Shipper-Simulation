@@ -224,6 +224,8 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null, m
       if (p.kind === 'gate') add('error', p.id, 'lot', 'Nhà cổng xanh phải ở khối không hẻm (lô C của hẻm 42).');
       else if (!l) add('error', p.id, 'lot', `Khối ${bx},${bz} có hẻm — chọn một lô của hẻm (bấm vào nhà trên bản đồ). Lô "${p.lot}" không có trong khối này.`);
       else if (p.face != null && p.face !== l.face) add('error', p.id, 'face', 'Lô trong khối có hẻm có mặt tiền cố định — bỏ chọn hướng mặt tiền.');
+      // đổ xăng / sửa xe cần dắt xe tới cửa — hẻm đi bộ có cột chắn, xe không vào được
+      if (l && !l.front && plan.walk && (p.kind === 'gas' || p.kind === 'garage')) add('warn', p.id, 'lot', `${p.kind === 'gas' ? 'Cây xăng' : 'Tiệm xe'} nằm trong hẻm đi bộ — xe máy không vào được nên không ${p.kind === 'gas' ? 'đổ xăng' : 'sửa xe'} được. Chọn nhà mặt phố hoặc khối hẻm xe máy.`);
       for (const c of lotCells(p)) {
         if (occupied.has(c)) add('error', p.id, 'lot', `Trùng lô với "${occupied.get(c)}".`);
         else occupied.set(c, p.id);
