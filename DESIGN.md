@@ -42,6 +42,10 @@ stateDiagram-v2
   NO_ANSWER --> AT_DROPOFF: gọi được / khách ra
   NO_ANSWER --> DELIVERING: hàng xóm chỉ chỗ khác
   STAIRS --> AT_DROPOFF: leo bộ / gọi khách xuống
+  TO_PICKUP --> PACKING: giao hàng / hỏa tốc: nhận hàng ở shop (COD ứng tiền)
+  AT_DROPOFF --> RETURNING: khách bom hàng COD
+  RETURNING --> IDLE: trả hàng cho shop (hoàn tiền ứng + phí hoàn)
+  DELIVERING --> IDLE: khách xe ôm đòi xuống giữa đường
   AT_DROPOFF --> IDLE: trao hàng (chấm sao + trả tiền)
   TO_PICKUP --> IDLE: hủy
   WAITING_FOOD --> IDLE: hủy
@@ -85,9 +89,34 @@ Bộ điều khiển xe (`src/world/controllers.js`) phát sự kiện: **bump**
 
 Chuyến **chở khách** dùng cùng bảng nhưng "hàng còn" là **mức thoải mái** của khách; dưới 25% thì khách hoảng sợ: vẫn tới nơi, 1★ và chỉ trả `ECONOMY.scaredFarePct` (50%) cước. Hóa đơn, lời nhận xét dùng bộ chữ riêng (`receipt.titleRide`, `comment.ride.*`, `pen.comfort`…).
 
-## 4. Kinh tế (`src/sim/economy.js`)
+## 4. Kinh tế (`src/sim/economy.js`, số liệu ở `src/data/apps.json`)
 
-**Lãi thực = (Giá cước + Thưởng quãng đường) − Phí nền tảng 20% − Thuế 1,5% − Tiền xăng**, cộng tiền boa (4★: 3k, 5★: 8k). Tiền xăng đã trả ở cây xăng nên ví chỉ được cộng `cước − phí − thuế + boa`; hóa đơn vẫn hiện đủ công thức.
+**Lãi thực = (Giá cước + Thưởng quãng đường + Phụ phí) − Phí nền tảng 20% − Thuế 1,5% − Tiền xăng**, cộng tiền boa (4★: 3k, 5★: 8k). Tiền xăng đã trả ở cây xăng nên ví chỉ được cộng `cước − phí − thuế + boa`; hóa đơn vẫn hiện đủ công thức. Phụ phí: mưa +4k, giờ cao điểm +3k (lúc nhận đơn). Mọi số này sửa ở `?editor` → thẻ 📱 App & Đơn.
+
+### Loại đơn (`apps.json → orderTypes`)
+
+| Loại | Kiểu xử lý | Mức | Giờ | Cước | Hạn | Ghi chú |
+|---|---|---|---|---|---|---|
+| Đồ ăn | food | 6 | cả ngày | ×1 | ×1 | quán nấu, có thể hết món |
+| Chở khách | ride | 2 | cả ngày | ×1 | ×1 | cần mũ cho khách; loại khách bên dưới |
+| Giao hàng | parcel | 2 | 7–20h | ×1 | ×1,3 | lấy ở shop "gửi hàng từ đây"; 60% thu hộ (ứng tiền trước), 12% bị bom |
+| Hỏa tốc | parcel | 1,2 | 7–21h | ×1,6 | ×0,8 | không thu hộ; chạy nhanh mới kịp |
+
+**Bom hàng:** năn nỉ 1 lần (30% đổi ý) hoặc mang trả shop → hoàn tiền ứng + phí hoàn 50% cước. Hàng hỏng bị từ chối thì mất tiền đã ứng.
+
+### Loại khách xe ôm (`apps.json → riderTypes`)
+
+| Loại | Đặc điểm |
+|---|---|
+| Khách app | chịu 40 km/h, sợ quá (thoải mái < 10%) đòi xuống giữa đường — trả theo quãng đã đi, 1★ |
+| Khách quen | sau 3 chuyến; gọi thẳng: không phí app, không thuế, không chấm sao |
+| Khách say | 19–22h từ karaoke; 50% quên địa chỉ, ói ra xe (−8 tinh thần, −10k), 15% quỵt, 25% boa đậm 15k; không bao giờ đòi xuống |
+| Đặt xe dùm | người đi là cụ già / em bé, chỉ chịu 30 km/h |
+| Khách vội | hạn ×0,85, cước ×1,2, chịu 55 km/h, tới trong 80% thời hạn boa 10k |
+
+### Tài khoản tài xế (`apps.json → apps.goship.account`)
+
+Điểm dưới 4,0 → khóa tài khoản (thua). Mỗi lần tự hủy tính 2★; tự hủy quá 3 đơn/ngày → khóa nhận đơn 60 phút. Tỉ lệ nhận đơn (10 lần mời gần nhất) dưới 50% → đơn tới thưa hơn ×1,6. Số đơn, số chuyến, số lần bom… giữ qua các ngày (thẻ 👤 Tài khoản trên điện thoại).
 
 ### Bảng xe
 
@@ -117,11 +146,13 @@ Mỗi xe có **kiểu dáng** (`gear.json → model`): `cub` (xe số cổ), `un
 
 | Chiến thuật | Thắng | Giờ thắng TB | Đơn/ngày | Sao TB | Lãi/đơn | Điểm cuối |
 |---|---|---|---|---|---|---|
-| Cẩn thận (chạy chậm) | 51% | 20:41 | 12,2 | 4,39 | 36,6k | 4,58 |
-| Ẩu (max ga) | 99% | 17:58 | 13,2 | 4,06 | 35,1k | 4,38 |
-| Kén đơn gần | 15% | 17:05 | 5,2 | 4,47 | 38,3k | 4,70 |
-| Bình thường (trả ví) | 81% | 19:59 | 12,5 | 4,49 | 36,8k | 4,63 |
-| Tham (giữ tiền ví) | 86% | 19:03 | 11,1 | 4,48 | 36,8k | 4,18 |
+| Cẩn thận (chạy chậm) | 45% | 20:42 | 11,8 | 4,34 | 36,8k | 4,55 |
+| Ẩu (max ga) | 100% | 18:05 | 13,1 | 4,03 | 35,5k | 4,36 |
+| Kén đơn gần | 69% | 17:59 | 8,9 | 4,43 | 38,7k | 4,63 |
+| Bình thường (trả ví) | 74% | 20:13 | 12,3 | 4,39 | 37,0k | 4,58 |
+| Tham (giữ tiền ví) | 74% | 19:15 | 10,6 | 4,39 | 36,9k | 4,13 |
+
+Tỉ lệ loại đơn bot nhận được: đồ ăn 60% · chở khách 15% · giao hàng 15% · hỏa tốc 10%. Ngày 1 tiền ít nên hầu như chưa có đơn thu hộ (bom ~0,01/ngày); các ngày sau ví nhiều tiền thì đơn COD và bom hàng xuất hiện nhiều hơn.
 
 Bot không mô phỏng va chạm, đi bộ, xếp túi sai nên người chơi thật sẽ chậm hơn bot. Giữ tiền trong ví nhanh hơn một chút nhưng điểm sát ngưỡng bị khóa: đó là một canh bạc.
 

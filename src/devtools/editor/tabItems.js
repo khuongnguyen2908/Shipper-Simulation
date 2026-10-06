@@ -102,8 +102,39 @@ export function render(root, ctx) {
     body.append(temps);
   }
 
-  // --- quán bán ---
+  // --- hàng giao (không phải đồ ăn): thu hộ + loại đơn chở ---
   if (!tr.includes('passenger')) {
+    const parcelTypes = Object.values(ctx.data.apps.orderTypes).filter((t) => t.kind === 'parcel');
+    body.append(
+      el('h3', {}, 'Hàng giao'),
+      el('div', { class: 'grid' },
+        field('Loại món', checkInput(!!it.parcel, (on) => {
+          if (on) {
+            it.parcel = true;
+            it.cod = it.cod ?? 0;
+            for (const p of restaurants) if ((p.menu || []).includes(it.id)) p.menu = p.menu.filter((m) => m !== it.id);
+            ctx.changed('places');
+          } else {
+            delete it.parcel;
+            delete it.cod;
+            for (const t of parcelTypes) if ((t.items || []).includes(it.id)) t.items = t.items.filter((x) => x !== it.id);
+            ctx.changed('apps');
+          }
+          changed();
+          ctx.rerender();
+        }, '📦 Hàng giao (quần áo, giày, giấy tờ… — không bán ở quán ăn)'), { ref, fieldKey: 'parcel', hint: 'Hàng giao được chở bằng đơn giao hàng / hỏa tốc (lấy ở shop), không có trong thực đơn quán.' }),
+        it.parcel ? field('Giá trị thu hộ COD (k)', numInput(it.cod ?? 0, (v) => { it.cod = v; changed(); }, { step: 10, min: 0 }), { ref, fieldKey: 'cod', hint: '0 = không thu hộ. Đơn thu hộ: tài xế ứng trước số tiền này lúc lấy hàng, giao xong khách trả lại; app chỉ giao đơn COD khi ví đủ tiền. Mẫu: quần áo 180 · giày 450 · điện thoại 900.' }) : null,
+      ),
+      it.parcel ? field('Loại đơn chở món này', el('div', { class: 'chips' }, parcelTypes.map((t) => checkInput((t.items || []).includes(it.id), (on) => {
+        t.items = on ? [...(t.items || []), it.id] : (t.items || []).filter((x) => x !== it.id);
+        ctx.changed('apps');
+        changed();
+      }, `${t.icon || ''} ${t.name}`))), { ref, fieldKey: 'orderTypes', wide: true, hint: 'Thay đổi này nằm trong file app (apps.json)' }) : null,
+    );
+  }
+
+  // --- quán bán ---
+  if (!tr.includes('passenger') && !it.parcel) {
     body.append(
       el('h3', {}, 'Quán nào bán món này'),
       field(
@@ -142,6 +173,8 @@ export function render(root, ctx) {
     if (!confirm(`Xóa món "${items[id].name}"?${using.length ? `\nMón này sẽ bị gỡ khỏi thực đơn: ${using.map((p) => p.name).join(', ')}.` : ''}`)) return;
     delete items[id];
     for (const p of using) p.menu = p.menu.filter((m) => m !== id);
+    for (const t of Object.values(ctx.data.apps.orderTypes)) if ((t.items || []).includes(id)) t.items = t.items.filter((x) => x !== id);
+    ctx.changed('apps');
     ctx.changed('places');
     ctx.changed('items');
     ctx.select('items', { id: Object.keys(items)[0] });
@@ -156,6 +189,8 @@ export function render(root, ctx) {
     for (const k of Object.keys(items)) delete items[k];
     for (const [k, v] of entries) items[k] = v;
     for (const p of restaurants) p.menu = (p.menu || []).map((m) => (m === oldId ? newId : m));
+    for (const t of Object.values(ctx.data.apps.orderTypes)) if (t.items) t.items = t.items.map((x) => (x === oldId ? newId : x));
+    ctx.changed('apps');
     ctx.changed('places');
     ctx.changed('items');
     ctx.select('items', { id: newId });

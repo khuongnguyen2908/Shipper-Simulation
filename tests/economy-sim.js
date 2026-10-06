@@ -10,6 +10,7 @@ import { HazardManager } from '../src/sim/hazards.js';
 import { makeRng } from '../src/sim/rng.js';
 import { buildLayout, manhattan } from '../src/sim/cityLayout.js';
 import { TIME, ENERGY, DIST, ORDER } from '../src/data/balance.js';
+import { ORDER_TYPES, RIDER_TYPES } from '../src/data/apps.js';
 
 const layout = buildLayout();
 const P = layout.placeById;
@@ -31,11 +32,12 @@ export function playDay(seed, strat, day = 1) {
   const rng = makeRng(seed);
   const gs = new GameState({ day });
   const hz = new HazardManager(makeRng(seed * 7 + 1));
-  const om = new OrderManager({ rng: makeRng(seed * 13 + 5), layout, gs });
+  const om = new OrderManager({ rng: makeRng(seed * 13 + 5), layout, gs, isRaining: (m) => hz.isRaining(m) });
   const st = STRATEGIES[strat];
   let now = TIME.dayStart;
   let pos = { ...P.home.door };
-  const log = { idleMin: 0, orders: 0, winAt: null, purchases: [] };
+  const log = { idleMin: 0, orders: 0, winAt: null, purchases: [], byType: {}, quits: 0 };
+  om.on((e) => { if (e.type === 'cancelled') gs.applyCancel(e, now); });
 
   const envAt = (speed) => ({
     ambient: hz.ambient(now), sun: hz.sun(now), raining: hz.isRaining(now), exposed: true,
@@ -109,23 +111,47 @@ export function playDay(seed, strat, day = 1) {
       om.accept(now, pos);
     }
     const o = om.order;
+    log.byType[o.type] = (log.byType[o.type] || 0) + 1;
     drive(o.pickup.door);
     if (o.kind === 'food') {
       const r = om.arriveAtPickup(now);
       if (r.outOfStock) {
         const res = om.resolveOutOfStock('call', now);
-        if (res.cancelled) { gs.applyCancel({ byDriver: false, comp: 5 }); continue; }
+        if (res.cancelled) continue;
       }
       pass(Math.ceil(om.minutesUntilReady(now)), 'idle');
       const items = om.collectFood(now);
       if (!items) break; // hết ngày khi đang chờ quán làm món
       om.finishPacking(items.map(() => ({ upright: true })), now);
+    } else if (o.kind === 'parcel') {
+      const r = om.collectParcel(now);
+      if (r.noMoney) { om.cancel('noMoney', now, { byDriver: true }); continue; }
+      om.finishPacking(r.items.map(() => ({ upright: true })), now);
     } else om.boardPassenger(now);
     if (!o.revealed) { om.callCustomer(now); pass(1, 'idle'); }
+    const from = { ...pos };
     drive(o.dropoff.door);
+    // khách xe ôm sợ quá đòi xuống (bot coi như xuống ở giữa đường)
+    const rider = o.rider && RIDER_TYPES[o.rider];
+    if (o.kind === 'ride' && rider && o.items[0].condition < (rider.quitBelow || 0)) {
+      gs.applyReceipt(om.quitRide(now, { x: (from.x + pos.x) / 2, z: (from.z + pos.z) / 2 }));
+      log.quits++;
+      continue;
+    }
     let res = om.arriveAtDropoff(now);
     let guard = 0;
+    let returned = false;
     while (res !== 'ready' && guard++ < 10) {
+      if (res === 'bom') {
+        const p = om.persuadeBom(now);
+        pass(3, 'idle');
+        if (p && p.accepted) { res = 'ready'; continue; }
+        om.startReturn(now);
+        drive(o.pickup.door);
+        om.returnToShop(now);
+        returned = true;
+        break;
+      }
       if (res === 'noAnswer') {
         const c = om.callCustomer(now);
         pass(c.waitMin, 'idle');
@@ -138,6 +164,7 @@ export function playDay(seed, strat, day = 1) {
         res = 'ready';
       } else if (res === 'lift') { pass(ORDER.liftMin, 'walk'); res = 'ready'; }
     }
+    if (returned) continue;
     const receipt = om.handOver(now);
     gs.applyReceipt(receipt);
     log.orders++;
@@ -153,10 +180,11 @@ if (isMain) {
   const N = Number(process.argv[2]) || 300;
   const fmtT = (m) => (m == null ? '—' : `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.round(m % 60)).padStart(2, '0')}`);
   console.log(`Mô phỏng ${N} ngày cho mỗi chiến thuật (ngày 1, tiền nhà 400k)\n`);
-  console.log('Chiến thuật | Thắng | Giờ thắng TB | Đơn/ngày | Sao TB | Lãi/đơn | Điểm cuối | Phút rảnh | Lý do thua chính');
+  const typeIds = Object.keys(ORDER_TYPES);
+  console.log(`Chiến thuật | Thắng | Giờ thắng TB | Đơn/ngày | Sao TB | Lãi/đơn | Điểm cuối | Phút rảnh | Bom/ngày | Tỉ lệ loại đơn (${typeIds.join('/')}) | Lý do thua chính`);
   for (const strat of Object.keys(STRATEGIES)) {
-    let wins = 0, winT = 0, orders = 0, stars = 0, starN = 0, rating = 0, idle = 0, earned = 0;
-    const reasons = {};
+    let wins = 0, winT = 0, orders = 0, stars = 0, starN = 0, rating = 0, idle = 0, earned = 0, bom = 0;
+    const reasons = {}, byType = {};
     for (let s = 1; s <= N; s++) {
       const { gs, log, outcome } = playDay(s, strat);
       if (outcome.type === 'win') { wins++; winT += log.winAt; }
@@ -166,11 +194,15 @@ if (isMain) {
       starN += gs.stats.stars.length;
       rating += gs.rating;
       idle += log.idleMin;
-      earned += (gs.stats.income.food || 0) + (gs.stats.income.ride || 0);
+      bom += gs.stats.bom;
+      for (const t of typeIds) earned += gs.stats.income[t] || 0;
+      for (const [t, n] of Object.entries(log.byType)) byType[t] = (byType[t] || 0) + n;
     }
     const top = Object.entries(reasons).sort((a, b) => b[1] - a[1])[0];
+    const total = Object.values(byType).reduce((a, b) => a + b, 0) || 1;
+    const mix = typeIds.map((t) => Math.round(((byType[t] || 0) / total) * 100)).join('/');
     console.log(
-      `${strat.padEnd(11)} | ${String(Math.round((wins / N) * 100)).padStart(4)}% | ${fmtT(wins ? winT / wins : null).padStart(12)} | ${(orders / N).toFixed(1).padStart(8)} | ${(stars / starN).toFixed(2).padStart(6)} | ${(earned / Math.max(1, orders)).toFixed(1).padStart(7)}k | ${(rating / N).toFixed(2).padStart(9)} | ${(idle / N).toFixed(0).padStart(9)} | ${top ? `${top[0]}… (${top[1]})` : '—'}`,
+      `${strat.padEnd(11)} | ${String(Math.round((wins / N) * 100)).padStart(4)}% | ${fmtT(wins ? winT / wins : null).padStart(12)} | ${(orders / N).toFixed(1).padStart(8)} | ${(stars / starN).toFixed(2).padStart(6)} | ${(earned / Math.max(1, orders)).toFixed(1).padStart(7)}k | ${(rating / N).toFixed(2).padStart(9)} | ${(idle / N).toFixed(0).padStart(9)} | ${(bom / N).toFixed(2).padStart(8)} | ${mix.padStart(13)} | ${top ? `${top[0]}… (${top[1]})` : '—'}`,
     );
   }
 }

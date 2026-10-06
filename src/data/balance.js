@@ -25,17 +25,12 @@ export const TIME = {
 // 1 m trong game hiển thị thành 10 m ngoài đời (để quãng đường giống thật)
 export const DIST = { displayPerUnit: 10 };
 
+// Phí nền tảng, thuế, thưởng km, boa, bù hủy đơn, luật khóa tài khoản: xem apps.json (thẻ 📱 App & Đơn)
 export const ECONOMY = {
   startMoney: 80,
-  platformFee: 0.2,        // phí nền tảng 20%
-  taxRate: 0.015,          // thuế 1,5% trên tổng cước
   fuelPrice: 23,           // k / lít
-  distBonusPerKm: 4,       // thưởng quãng đường
-  extraItemFare: 6,        // mỗi món thêm trong đơn
-  tipByStars: [0, 0, 0, 0, 3, 8], // tiền boa theo số sao (chỉ số = số sao)
   refuseBelow: 25,         // hàng còn dưới 25% → khách từ chối nhận (khách xe ôm: hoảng sợ)
   scaredFarePct: 0.5,      // khách xe ôm hoảng sợ (thoải mái dưới refuseBelow) → chỉ trả 50% cước, 1 sao
-  cancelComp: 5,           // app bù khi đơn bị hủy không do tài xế
   rentBase: 400,           // tiền nhà ngày 1
   rentPerDay: 150,         // mỗi ngày sau tăng thêm
   policeFine: 150,         // phạt chạy quá tốc độ qua chốt
@@ -46,8 +41,7 @@ export const ECONOMY = {
 
 export const RATING = {
   startCount: 10,          // coi như đã có 10 đánh giá trước đó
-  startAvg: 4.8,
-  lockBelow: 4.0,          // dưới mức này app khóa tài khoản → thua
+  startAvg: 4.8,           // (ngưỡng khóa tài khoản: apps.json → account.lockBelow)
 };
 
 // Mức tiêu hao mỗi phút game, và các cú sốc tức thời
@@ -81,8 +75,7 @@ export const ORDER = {
   apartmentChance: 0.15,
   liftBrokenChance: 0.6,
   pickyChance: 0.2,
-  twoItemChance: 0.3,
-  rideChance: 0.25,
+  twoItemChance: 0.3,      // (tỉ lệ từng loại đơn: apps.json → orderTypes.weight)
   callAnswerChance: 0.45,
   waitComeChance: 0.6,
   substituteAcceptChance: 0.7,
@@ -90,8 +83,7 @@ export const ORDER = {
   stairMinPerFloor: 1.5,
   callDownWait: 8,
   liftMin: 3,
-  driverCancelStars: 2,     // tài xế tự hủy đơn = coi như 1 đánh giá 2 sao
-  placeDestBase: 12,        // điểm đến là địa điểm (karaoke…): xác suất = tổng trọng số / (tổng + số này)
+  placeDestBase: 12,       // điểm đến là địa điểm (karaoke…): xác suất = tổng trọng số / (tổng + số này)
 };
 
 export const HAZARD = {

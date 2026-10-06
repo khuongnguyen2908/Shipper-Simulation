@@ -102,10 +102,11 @@ export class PaperTrait extends Trait {
 }
 
 // 🧍 Khách xe ôm: "tình trạng" = mức thoải mái. Chạy quá nhanh, phanh gấp,
-// ôm cua gắt, xóc, đâm xe đều làm khách hoảng.
+// ôm cua gắt, xóc, đâm xe đều làm khách hoảng. item.comfortDelta (m/s): loại khách chịu nhanh/chậm hơn bình thường.
 export class PassengerTrait extends Trait {
   tick(env, dt) {
-    if (env.speed > env.comfortSpeed) this.item.damage((env.speed - env.comfortSpeed) * 0.6 * dt, 'scaredSpeed');
+    const comfort = env.comfortSpeed + (this.item.comfortDelta || 0);
+    if (env.speed > comfort) this.item.damage((env.speed - comfort) * 0.6 * dt, 'scaredSpeed');
     if (env.raining && env.exposed && !env.passengerRaincoat) this.item.damage(0.3 * dt, 'passengerWet');
   }
   onBrake(mag) {

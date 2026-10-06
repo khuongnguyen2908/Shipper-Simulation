@@ -401,6 +401,9 @@
           "thermal",
           "box"
         ]
+      },
+      "orders": {
+        "parcelWeight": 1
       }
     },
     {
@@ -516,6 +519,9 @@
         "goods": [
           "energyDrink"
         ]
+      },
+      "orders": {
+        "parcelWeight": 3
       }
     },
     {
@@ -582,7 +588,8 @@
       "npc": null,
       "orders": {
         "rideWeight": 3,
-        "foodWeight": 0
+        "foodWeight": 0,
+        "parcelWeight": 3
       },
       "sells": {
         "goods": [
@@ -662,7 +669,8 @@
         "hours": [
           10,
           20
-        ]
+        ],
+        "parcelWeight": 2
       }
     },
     {

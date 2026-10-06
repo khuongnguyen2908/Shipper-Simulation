@@ -1,0 +1,189 @@
+{
+  "apps": {
+    "goship": {
+      "id": "goship",
+      "name": "GoShip",
+      "platformFee": 0.2,
+      "taxRate": 0.015,
+      "distBonusPerKm": 4,
+      "extraItemFare": 6,
+      "tipByStars": [
+        0,
+        0,
+        0,
+        0,
+        3,
+        8
+      ],
+      "cancelComp": 5,
+      "rainSurcharge": 4,
+      "peakSurcharge": 3,
+      "peakHours": [
+        [
+          11,
+          13
+        ],
+        [
+          17,
+          19.5
+        ]
+      ],
+      "account": {
+        "lockBelow": 4,
+        "cancelStars": 2,
+        "cancelLimitPerDay": 3,
+        "cancelLockMin": 60,
+        "acceptWindow": 10,
+        "lowAcceptBelow": 0.5,
+        "lowAcceptPingMult": 1.6
+      }
+    }
+  },
+  "orderTypes": {
+    "food": {
+      "id": "food",
+      "name": "Đồ ăn",
+      "icon": "🍜",
+      "kind": "food",
+      "weight": 6,
+      "fareMult": 1,
+      "deadlineMult": 1
+    },
+    "ride": {
+      "id": "ride",
+      "name": "Chở khách",
+      "icon": "🛵",
+      "kind": "ride",
+      "weight": 2,
+      "fareMult": 1,
+      "deadlineMult": 1,
+      "requires": "passengerSeat"
+    },
+    "parcel": {
+      "id": "parcel",
+      "name": "Giao hàng",
+      "icon": "📦",
+      "kind": "parcel",
+      "weight": 2,
+      "hours": [
+        7,
+        20
+      ],
+      "fareMult": 1,
+      "deadlineMult": 1.3,
+      "items": [
+        "aoQuan",
+        "hopGiay",
+        "dienThoai"
+      ],
+      "codChance": 0.6,
+      "bomChance": 0.12,
+      "persuadeChance": 0.3,
+      "returnFeePct": 0.5
+    },
+    "express": {
+      "id": "express",
+      "name": "Hỏa tốc",
+      "icon": "⚡",
+      "kind": "parcel",
+      "weight": 1.2,
+      "hours": [
+        7,
+        21
+      ],
+      "fareMult": 1.6,
+      "deadlineMult": 0.8,
+      "items": [
+        "taiLieu",
+        "dienThoai"
+      ],
+      "codChance": 0,
+      "bomChance": 0,
+      "persuadeChance": 0,
+      "returnFeePct": 0
+    }
+  },
+  "riderTypes": {
+    "app": {
+      "id": "app",
+      "name": "Khách app",
+      "icon": "🙂",
+      "weight": 6,
+      "viaApp": true,
+      "comfortKmh": 40,
+      "fareMult": 1,
+      "deadlineMult": 1,
+      "quitBelow": 10
+    },
+    "regular": {
+      "id": "regular",
+      "name": "Khách quen",
+      "icon": "📞",
+      "weight": 2,
+      "viaApp": false,
+      "minRides": 3,
+      "comfortKmh": 40,
+      "fareMult": 1,
+      "deadlineMult": 1,
+      "quitBelow": 10
+    },
+    "drunk": {
+      "id": "drunk",
+      "name": "Khách say",
+      "icon": "🍺",
+      "weight": 4,
+      "hours": [
+        19,
+        22
+      ],
+      "from": [
+        "karaoke"
+      ],
+      "viaApp": true,
+      "comfortKmh": 35,
+      "fareMult": 1,
+      "deadlineMult": 1.2,
+      "quitBelow": 0,
+      "vagueChance": 0.5,
+      "vomitChance": 0.25,
+      "vomitMental": 8,
+      "vomitCost": 10,
+      "noPayChance": 0.15,
+      "bigTipChance": 0.25,
+      "bigTip": 15
+    },
+    "booked": {
+      "id": "booked",
+      "name": "Đặt xe dùm",
+      "icon": "👵",
+      "weight": 2,
+      "viaApp": true,
+      "comfortKmh": 30,
+      "fareMult": 1,
+      "deadlineMult": 1.2,
+      "quitBelow": 10,
+      "riderNames": [
+        "Bà Năm",
+        "Ông Sáu",
+        "Bé Na",
+        "Bé Bin"
+      ]
+    },
+    "hurry": {
+      "id": "hurry",
+      "name": "Khách vội",
+      "icon": "⏱️",
+      "weight": 2,
+      "hours": [
+        6,
+        21
+      ],
+      "viaApp": true,
+      "comfortKmh": 55,
+      "fareMult": 1.2,
+      "deadlineMult": 0.85,
+      "quitBelow": 10,
+      "earlyTip": 10
+    }
+  }
+}

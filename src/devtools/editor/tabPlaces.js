@@ -245,7 +245,7 @@ export function render(root, ctx) {
   // --- điểm đến của đơn ---
   const ord = () => p.orders || {};
   const ordW = () => (p.orders = p.orders || {});
-  const cleanup = () => { if (p.orders && !p.orders.rideWeight && !p.orders.foodWeight && !p.orders.hours) delete p.orders; };
+  const cleanup = () => { if (p.orders && !p.orders.rideWeight && !p.orders.foodWeight && !p.orders.parcelWeight && !p.orders.hours) delete p.orders; };
   body.append(
     el('h3', {}, 'Điểm đến của đơn hàng'),
     el('p', { class: 'muted' }, 'Mức 0 = không bao giờ, 10 = rất thường xuyên. Ví dụ karaoke: khách xe ôm mức 6, khung giờ 17→22.'),
@@ -253,6 +253,7 @@ export function render(root, ctx) {
     el('div', { class: 'grid' },
       field('Khách xe ôm đi tới / từ đây', numInput(ord().rideWeight ?? 0, (v) => { ordW().rideWeight = v; cleanup(); changedP(); }, { step: 1, min: 0, max: 10 }), opt('orders.rideWeight', { hint: HINT.orders.rideWeight })),
       p.kind !== 'restaurant' ? field('Đặt đồ ăn giao tới đây', numInput(ord().foodWeight ?? 0, (v) => { ordW().foodWeight = v; cleanup(); changedP(); }, { step: 1, min: 0, max: 10 }), opt('orders.foodWeight', { hint: HINT.orders.foodWeight })) : null,
+      p.kind !== 'restaurant' ? field('Gửi hàng từ đây (đơn giao hàng)', numInput(ord().parcelWeight ?? 0, (v) => { ordW().parcelWeight = v; cleanup(); changedP(); }, { step: 1, min: 0, max: 10 }), opt('orders.parcelWeight', { hint: HINT.orders.parcelWeight })) : null,
       hoursRow(() => ord().hours, ordW, 'orders.hours', 'Khung giờ có đơn', 'Bỏ trống ("Cả ngày") = theo giờ mở cửa', cleanup),
     ),
   );

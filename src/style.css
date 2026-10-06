@@ -85,7 +85,7 @@ kbd { display: inline-block; min-width: 1.6em; padding: 1px 6px; border-radius: 
 .ph-top { display: flex; justify-content: space-between; padding: 6px 18px 6px; font-size: 12px; background: var(--accent); color: #fff; font-weight: 600; }
 .ph-app { font-weight: 800; letter-spacing: 0.5px; }
 .ph-body { flex: 1; overflow-y: auto; padding: 10px; font-size: 13px; }
-.ph-tabs { display: grid; grid-template-columns: repeat(5, 1fr); border-top: 1px solid var(--line); background: #171c25; }
+.ph-tabs { display: grid; grid-template-columns: repeat(6, 1fr); border-top: 1px solid var(--line); background: #171c25; }
 .ph-tabs button { position: relative; background: none; border: 0; color: var(--muted); padding: 7px 0 6px; cursor: pointer; font: 12px var(--font); display: flex; flex-direction: column; align-items: center; gap: 1px; }
 .ph-tabs button span { font-size: 18px; }
 .ph-tabs button small { font-size: 10px; }
@@ -112,7 +112,7 @@ kbd { display: inline-block; min-width: 1.6em; padding: 1px 6px; border-radius: 
 .tags { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
 .tag { font-size: 11px; background: rgba(255, 255, 255, 0.08); padding: 2px 7px; border-radius: 10px; }
 .tag.warn { background: rgba(231, 76, 60, 0.2); }
-.tag.ok { background: rgba(46, 204, 113, 0.2); }
+.tag.ok, .tag.good { background: rgba(46, 204, 113, 0.2); }
 .timer { height: 5px; background: rgba(255, 255, 255, 0.08); border-radius: 3px; overflow: hidden; margin: 8px 0; }
 .timer div { height: 100%; background: var(--accent); transition: width 0.25s linear; }
 .row { display: flex; gap: 8px; margin-top: 8px; }

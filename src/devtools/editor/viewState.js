@@ -25,7 +25,8 @@ export function selToSave(sel) {
     if (!s || typeof s !== 'object') continue;
     const keep = {};
     for (const k of ['id', 'cat', 'group', 'search']) if (typeof s[k] === 'string') keep[k] = s[k];
-    out[tab] = keep;
+    // mục không có gì để nhớ (vd tùy chọn biểu đồ xem trước itemsPreview) → bỏ, để công cụ tự tạo lại mặc định
+    if (Object.keys(keep).length) out[tab] = keep;
   }
   return out;
 }

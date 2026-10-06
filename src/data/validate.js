@@ -6,6 +6,7 @@
 // =============================================================
 import { CITY, LOT_IDS, MULTI_LOTS, lotParts, lotFaces } from '../sim/cityLayout.js';
 import { EFFECTS, CONSUMABLE_FIELDS, OUTFIT_SLOTS } from './goods.js';
+import { ORDER_KINDS } from './apps.js';
 import { GENDERS, HAIR_STYLES } from '../sim/people.js';
 
 export const TRAIT_IDS = ['hot', 'cold', 'liquid', 'fragile', 'paper', 'passenger'];
@@ -39,10 +40,11 @@ export function lotCells(p) {
   return lotParts(p.lot).map((id) => `${bx},${bz},${id}`);
 }
 
-export function validateItems(items, placesData) {
+export function validateItems(items, placesData, appsData = null) {
   const out = [];
   const add = (level, ref, field, msg) => out.push({ level, tab: 'items', ref, field, msg });
   const menus = (placesData?.places || []).filter((p) => p.kind === 'restaurant').flatMap((p) => p.menu || []);
+  const parcelUse = new Set(Object.values(appsData?.orderTypes || {}).filter((t) => t.kind === 'parcel').flatMap((t) => t.items || []));
   for (const id of PROTECTED.items) if (!items[id]) add('error', id, 'id', `Thiếu món bắt buộc "${id}" (code dùng trực tiếp).`);
   for (const [key, it] of Object.entries(items)) {
     if (!ID_RE.test(key)) add('error', key, 'id', 'Mã chỉ gồm chữ không dấu, số, gạch dưới; bắt đầu bằng chữ.');
@@ -64,8 +66,101 @@ export function validateItems(items, placesData) {
       else if (num(it.startTemp) && it.meltAt <= it.startTemp) add('warn', key, 'meltAt', 'Ngưỡng tan ≤ nhiệt độ ban đầu → món tan ngay khi nhận.');
       if (!num(it.meltRate) || it.meltRate <= 0 || it.meltRate > 2) add('error', key, 'meltRate', 'Tốc độ tan phải trong khoảng 0–2.');
     }
-    if (!tr.includes('passenger') && placesData && !menus.includes(key)) add('warn', key, 'menu', 'Chưa quán nào bán món này → không bao giờ có đơn.');
+    if (it.parcel) {
+      // hàng giao (không phải đồ ăn): giá trị thu hộ COD
+      if (tr.includes('passenger')) add('error', key, 'parcel', 'Khách xe ôm không phải hàng giao.');
+      if (it.cod != null && (!num(it.cod) || it.cod < 0 || it.cod > 100000)) add('error', key, 'cod', 'Giá trị thu hộ từ 0 đến 100000k.');
+      if (menus.includes(key)) add('error', key, 'menu', 'Hàng giao không bán trong thực đơn quán ăn — bỏ khỏi thực đơn.');
+      if (appsData && !parcelUse.has(key)) add('warn', key, 'parcel', 'Chưa loại đơn giao hàng nào chở món này → không bao giờ có đơn. Chọn ở thẻ 📱 App & Đơn → Loại đơn.');
+    } else if (!tr.includes('passenger') && placesData && !menus.includes(key)) add('warn', key, 'menu', 'Chưa quán nào bán món này → không bao giờ có đơn.');
   }
+  return out;
+}
+
+// ---------- App giao hàng, loại đơn, loại khách (apps.json) ----------
+const inRange = (add, ref, field, v, lo, hi, label, { int = false, optional = false } = {}) => {
+  if (v == null && optional) return;
+  if (!num(v) || v < lo || v > hi || (int && !Number.isInteger(v))) add('error', ref, field, `${label}: ${int ? 'số nguyên ' : ''}từ ${lo} đến ${hi}.`);
+};
+const badHours = (h) => !Array.isArray(h) || !num(h[0]) || !num(h[1]) || h[0] < 0 || h[1] > 24 || h[0] >= h[1];
+
+export function validateApps(ad, items = {}, placesData = null) {
+  const out = [];
+  const mk = (cat) => (level, ref, field, msg) => out.push({ level, tab: 'app', cat, ref, field, msg });
+  if (!ad || typeof ad !== 'object') return [{ level: 'error', tab: 'app', cat: 'app', ref: '', field: '', msg: 'Thiếu dữ liệu app.' }];
+  // app
+  const apps = Object.entries(ad.apps || {});
+  if (!apps.length) mk('app')('error', '', 'id', 'Cần ít nhất 1 app giao hàng.');
+  for (const [key, a] of apps) {
+    const add = mk('app');
+    if (!ID_RE.test(key) || a.id !== key) add('error', key, 'id', 'Mã app không hợp lệ hoặc khác khóa.');
+    if (!a.name || !String(a.name).trim()) add('error', key, 'name', 'Chưa có tên app.');
+    inRange(add, key, 'platformFee', a.platformFee, 0, 0.9, 'Phí nền tảng');
+    inRange(add, key, 'taxRate', a.taxRate, 0, 0.5, 'Thuế');
+    inRange(add, key, 'distBonusPerKm', a.distBonusPerKm, 0, 50, 'Thưởng mỗi km');
+    inRange(add, key, 'extraItemFare', a.extraItemFare, 0, 100, 'Cước mỗi món thêm');
+    inRange(add, key, 'cancelComp', a.cancelComp, 0, 200, 'Bù khi đơn bị hủy');
+    inRange(add, key, 'rainSurcharge', a.rainSurcharge, 0, 100, 'Phụ phí mưa');
+    inRange(add, key, 'peakSurcharge', a.peakSurcharge, 0, 100, 'Phụ phí giờ cao điểm');
+    if (!Array.isArray(a.tipByStars) || a.tipByStars.length !== 6 || a.tipByStars.some((v) => !num(v) || v < 0 || v > 500)) add('error', key, 'tipByStars', 'Tiền boa: đủ 1★ → 5★, mỗi mức 0–500k.');
+    if (!Array.isArray(a.peakHours) || a.peakHours.some(badHours)) add('error', key, 'peakHours', 'Giờ cao điểm: mỗi khung là giờ bắt đầu < giờ kết thúc, trong 0–24.');
+    if (num(a.platformFee) && num(a.taxRate) && a.platformFee + a.taxRate > 0.6) add('warn', key, 'platformFee', 'Phí + thuế trên 60% cước — tài xế gần như không lời.');
+    const acc = a.account || {};
+    inRange(add, key, 'account.lockBelow', acc.lockBelow, 1, 5, 'Khóa tài khoản dưới');
+    inRange(add, key, 'account.cancelStars', acc.cancelStars, 1, 5, 'Sao tính cho mỗi lần tự hủy', { int: true });
+    inRange(add, key, 'account.cancelLimitPerDay', acc.cancelLimitPerDay, 0, 20, 'Số lần tự hủy mỗi ngày', { int: true });
+    inRange(add, key, 'account.cancelLockMin', acc.cancelLockMin, 0, 600, 'Phút khóa nhận đơn');
+    inRange(add, key, 'account.acceptWindow', acc.acceptWindow, 3, 50, 'Số lần mời để tính tỉ lệ nhận', { int: true });
+    inRange(add, key, 'account.lowAcceptBelow', acc.lowAcceptBelow, 0, 1, 'Tỉ lệ nhận đơn thấp');
+    inRange(add, key, 'account.lowAcceptPingMult', acc.lowAcceptPingMult, 1, 5, 'Đơn thưa hơn (lần)');
+    if (num(acc.lockBelow) && acc.lockBelow >= 4.8) add('warn', key, 'account.lockBelow', 'Ngưỡng khóa ≥ 4,8 — người chơi khởi đầu 4,8 sao, chỉ 1 đơn tệ là thua.');
+  }
+  // loại đơn
+  const types = Object.entries(ad.orderTypes || {});
+  const parcelItems = Object.values(items).filter((i) => i.parcel).map((i) => i.id);
+  for (const [key, t] of types) {
+    const add = mk('orderTypes');
+    if (!ID_RE.test(key) || t.id !== key) add('error', key, 'id', 'Mã loại đơn không hợp lệ hoặc khác khóa.');
+    if (!t.name || !String(t.name).trim()) add('error', key, 'name', 'Chưa có tên.');
+    if (!ORDER_KINDS.includes(t.kind)) add('error', key, 'kind', `Kiểu xử lý phải là: ${ORDER_KINDS.join(', ')}.`);
+    inRange(add, key, 'weight', t.weight, 0, 20, 'Mức thường xuyên');
+    inRange(add, key, 'fareMult', t.fareMult, 0.2, 5, 'Hệ số cước');
+    inRange(add, key, 'deadlineMult', t.deadlineMult, 0.2, 3, 'Hệ số thời hạn');
+    if (t.hours != null && badHours(t.hours)) add('error', key, 'hours', 'Khung giờ: giờ đầu < giờ cuối, trong 0–24.');
+    if (t.requires != null && EFFECTS[t.requires]?.kind !== 'bool') add('error', key, 'requires', 'Điều kiện mở phải là một tác dụng có/không của trang bị.');
+    if (t.kind === 'parcel') {
+      if (!(t.items || []).length) add('error', key, 'items', 'Chưa chọn món hàng nào cho loại đơn này.');
+      for (const id of t.items || []) if (!parcelItems.includes(id)) add('error', key, 'items', `"${id}" không phải hàng giao (thẻ Vật phẩm → đánh dấu "Hàng giao").`);
+      for (const f of ['codChance', 'bomChance', 'persuadeChance', 'returnFeePct']) inRange(add, key, f, t[f] ?? 0, 0, 1, 'Tỉ lệ');
+      if (t.codChance > 0 && !(t.items || []).some((id) => items[id]?.cod > 0)) add('warn', key, 'codChance', 'Có thu hộ nhưng không món nào có giá trị thu hộ → không bao giờ có đơn COD.');
+      if (t.bomChance > 0 && !(t.codChance > 0)) add('warn', key, 'bomChance', 'Bom hàng chỉ xảy ra với đơn thu hộ — tỉ lệ thu hộ đang là 0.');
+    }
+  }
+  for (const k of ['food', 'ride']) if (!types.some(([, t]) => t.kind === k)) mk('orderTypes')('error', '', 'kind', `Cần ít nhất 1 loại đơn kiểu "${k}" (nhiệm vụ chiếc ví dùng đơn chở khách).`);
+  if (!types.some(([, t]) => t.weight > 0)) mk('orderTypes')('error', '', 'weight', 'Mọi loại đơn đều có mức 0 → không bao giờ có đơn.');
+  // loại khách xe ôm
+  const riders = Object.entries(ad.riderTypes || {});
+  const placeIds = new Set((placesData?.places || []).map((p) => p.id));
+  for (const [key, r] of riders) {
+    const add = mk('riderTypes');
+    if (!ID_RE.test(key) || r.id !== key) add('error', key, 'id', 'Mã loại khách không hợp lệ hoặc khác khóa.');
+    if (!r.name || !String(r.name).trim()) add('error', key, 'name', 'Chưa có tên.');
+    inRange(add, key, 'weight', r.weight, 0, 20, 'Mức thường xuyên');
+    inRange(add, key, 'comfortKmh', r.comfortKmh, 10, 120, 'Chịu tốc độ (km/h)', { optional: true });
+    inRange(add, key, 'fareMult', r.fareMult, 0.2, 5, 'Hệ số cước', { optional: true });
+    inRange(add, key, 'deadlineMult', r.deadlineMult, 0.2, 3, 'Hệ số thời hạn', { optional: true });
+    inRange(add, key, 'quitBelow', r.quitBelow, 0, 90, 'Đòi xuống khi thoải mái dưới (%)', { optional: true });
+    inRange(add, key, 'minRides', r.minRides, 0, 500, 'Mở sau số chuyến', { int: true, optional: true });
+    for (const f of ['vagueChance', 'vomitChance', 'noPayChance', 'bigTipChance']) inRange(add, key, f, r[f], 0, 1, 'Tỉ lệ', { optional: true });
+    for (const f of ['bigTip', 'earlyTip', 'vomitCost']) inRange(add, key, f, r[f], 0, 500, 'Số tiền (k)', { optional: true });
+    inRange(add, key, 'vomitMental', r.vomitMental, 0, 100, 'Trừ tinh thần', { optional: true });
+    if (r.hours != null && badHours(r.hours)) add('error', key, 'hours', 'Khung giờ: giờ đầu < giờ cuối, trong 0–24.');
+    if (r.viaApp != null && typeof r.viaApp !== 'boolean') add('error', key, 'viaApp', 'Qua app phải là có/không.');
+    for (const id of r.from || []) if (placesData && !placeIds.has(id)) add('error', key, 'from', `Địa điểm "${id}" không tồn tại.`);
+    if (r.riderNames != null && (!Array.isArray(r.riderNames) || r.riderNames.some((s) => typeof s !== 'string' || !s.trim()))) add('error', key, 'riderNames', 'Tên người đi: mỗi dòng một tên, không để trống.');
+    if (num(r.vomitMental) && r.vomitMental >= 30) add('warn', key, 'vomitMental', 'Trừ tinh thần ≥ 30 một lần — người chơi đang yếu có thể thua ngay.');
+  }
+  if (riders.length && !riders.some(([, r]) => r.weight > 0)) mk('riderTypes')('error', '', 'weight', 'Mọi loại khách đều có mức 0 → đơn chở khách không tạo được.');
   return out;
 }
 
@@ -184,7 +279,7 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null) {
     }
     // điểm đến của đơn
     if (p.orders) {
-      for (const k of ['rideWeight', 'foodWeight']) if (p.orders[k] != null && (!num(p.orders[k]) || p.orders[k] < 0 || p.orders[k] > 10)) add('error', p.id, `orders.${k}`, 'Mức độ thường xuyên từ 0 đến 10.');
+      for (const k of ['rideWeight', 'foodWeight', 'parcelWeight']) if (p.orders[k] != null && (!num(p.orders[k]) || p.orders[k] < 0 || p.orders[k] > 10)) add('error', p.id, `orders.${k}`, 'Mức độ thường xuyên từ 0 đến 10.');
       const h = p.orders.hours;
       if (h != null && (!Array.isArray(h) || !num(h[0]) || !num(h[1]) || h[0] < 0 || h[1] > 24 || h[0] >= h[1])) add('error', p.id, 'orders.hours', 'Khung giờ đơn: giờ đầu < giờ cuối, trong 0–24.');
     }
@@ -295,9 +390,10 @@ export function validateGoods(goods, placesData) {
   return out;
 }
 
-export function validateAll({ items, gear, goods, places, content, baseContent }) {
+export function validateAll({ items, gear, goods, places, content, baseContent, apps = null }) {
   return [
-    ...validateItems(items, places),
+    ...validateItems(items, places, apps),
+    ...(apps ? validateApps(apps, items, places) : []),
     ...validateGear(gear),
     ...(goods ? validateGoods(goods, places) : []),
     ...validatePlaces(places, items, goods, gear),

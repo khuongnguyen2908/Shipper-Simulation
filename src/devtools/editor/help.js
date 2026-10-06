@@ -69,9 +69,61 @@ export const HINT = {
   orders: {
     rideWeight: '0–10. Mức 6 ≈ 1/3 số chuyến xe ôm đi tới/đi từ đây (nếu chỉ mình nơi này có mức). Tham khảo: karaoke 6 · chợ 3 · chung cư 1.',
     foodWeight: '0–10. Đơn đồ ăn giao tới đây thay vì tới nhà khách. Mức 3 ≈ 1/5 số đơn.',
+    parcelWeight: '0–10. Đơn giao hàng / hỏa tốc lấy hàng ở đây (shop gửi hàng). Có nơi nào có mức > 0 thì mọi đơn giao hàng lấy ở các nơi đó (chia theo mức); không có thì lấy ở nhà người gửi. Mẫu: tạp hóa 3 · chợ 3 · nhà sách 2.',
   },
   npc: {
     scale: '0,6–1,3. 1 = bình thường; Chú Tư Lùn 0,85.',
+  },
+
+  // ---------- app giao hàng ----------
+  app: {
+    platformFee: '0–90%. App lấy bao nhiêu % tổng cước. Mẫu 20%. Phí + thuế trên 60% thì tài xế gần như không lời.',
+    taxRate: '0–50%. Thuế thu nhập trên tổng cước. Mẫu 1,5%.',
+    distBonusPerKm: '0–50k mỗi km quãng đường quán → khách. Mẫu 4k (xăng tốn ~1k/km).',
+    extraItemFare: '0–100k cho mỗi món thêm trong đơn 2 món. Mẫu 6k.',
+    cancelComp: '0–200k app bù khi đơn bị hủy không phải lỗi tài xế (quán hết món, khách không nghe máy). Mẫu 5k.',
+    rainSurcharge: '0–100k cộng vào mỗi đơn nhận lúc trời mưa (như app thật). Mẫu 4k. Khách quen gọi thẳng không có phụ phí.',
+    peakSurcharge: '0–100k cộng vào mỗi đơn nhận trong giờ cao điểm. Mẫu 3k.',
+    peakHours: 'Giờ cao điểm: đơn tới dày hơn (khoảng chờ ×0,6), quán đông hơn, có phụ phí. Mẫu 11–13h và 17–19,5h.',
+    tipByStars: 'Tiền boa theo số sao (k). Mẫu: 4★ 3k · 5★ 8k.',
+    lockBelow: '1–5. Điểm trung bình dưới mức này → app khóa tài khoản → THUA. Mẫu 4,0 (người chơi bắt đầu 4,8).',
+    cancelStars: '1–5. Mỗi lần tài xế tự hủy đơn bị tính như một đánh giá bao nhiêu sao. Mẫu 2.',
+    cancelLimitPerDay: '0–20. Tự hủy quá số này trong ngày → tạm khóa nhận đơn. Mẫu 3 (lần thứ 4 bị khóa).',
+    cancelLockMin: '0–600 phút bị khóa nhận đơn. Mẫu 60.',
+    acceptWindow: '3–50. Tỉ lệ nhận đơn tính trên bao nhiêu lần mời gần nhất. Mẫu 10.',
+    lowAcceptBelow: '0–100%. Tỉ lệ nhận đơn dưới mức này → app phát đơn thưa hơn. Mẫu 50%.',
+    lowAcceptPingMult: '1–5 lần. Khoảng chờ giữa 2 đơn dài ra bao nhiêu lần khi tỉ lệ nhận thấp. Mẫu 1,6.',
+  },
+  orderType: {
+    kind: 'Cách code xử lý đơn: Đồ ăn (tới quán chờ nấu, có thể hết món) · Chở khách · Giao hàng (lấy hàng ở shop / nhà người gửi, có thể thu hộ COD, bị bom).',
+    weight: '0–20. Tỉ lệ so với các loại khác đang có lúc đó (đúng giờ, đủ trang bị). 0 = tắt. Mẫu: đồ ăn 6 · chở khách 2 · giao hàng 2 · hỏa tốc 1,2.',
+    fareMult: '0,2–5. Nhân với cước của món. Mẫu: hỏa tốc 1,6.',
+    deadlineMult: '0,2–3. Nhân với thời hạn app cho. Nhỏ = gắt hơn. Mẫu: hỏa tốc 0,8 (bot chạy đều vẫn trễ nhẹ; chạy nhanh thì kịp) · giao hàng 1,3.',
+    requires: 'Chỉ có loại đơn này khi người chơi có trang bị với tác dụng này. Mẫu: chở khách cần "Chở được khách" (mũ cho khách).',
+    items: 'Món hàng loại đơn này chở (chỉ hiện món đã đánh dấu "Hàng giao" ở thẻ Vật phẩm). Mỗi đơn chọn ngẫu nhiên 1 món.',
+    codChance: '0–100%. Tỉ lệ đơn thu hộ: tài xế ứng trước tiền hàng (giá trị ở thẻ Vật phẩm), giao xong khách trả lại. App chỉ giao đơn COD khi ví đủ tiền.',
+    bomChance: '0–100%. Đơn thu hộ bị khách bom → phải mang trả shop. Mẫu 12%.',
+    persuadeChance: '0–100%. Khi bị bom, năn nỉ 1 lần có bao nhiêu % khách đổi ý. Mẫu 30%.',
+    returnFeePct: '0–100% cước. App trả phí hoàn hàng khi tài xế mang hàng bị bom về trả shop. Mẫu 50%.',
+  },
+  rider: {
+    weight: '0–20. Tỉ lệ so với các loại khách khác đang có (đúng giờ, đủ chuyến). Mẫu: khách app 6 · khách say 4 (chỉ buổi tối).',
+    viaApp: 'Bỏ tích = khách gọi thẳng (khách quen): không mất phí app, không thuế, không phụ phí, không chấm sao trên app.',
+    minRides: 'Chỉ có loại khách này sau khi đã chở xong bao nhiêu chuyến (tính cả các ngày). Mẫu: khách quen 3.',
+    comfortKmh: '10–120 km/h. Chạy nhanh hơn mức này khách bắt đầu sợ (trừ "thoải mái"). Bình thường 40; cụ già 30; khách vội 55. Trang bị "Khách chịu tốc độ thêm" cộng thêm.',
+    fareMult: '0,2–5. Nhân với cước. Mẫu: khách vội 1,2.',
+    deadlineMult: '0,2–3. Nhân với thời hạn. Mẫu: khách vội 0,85 · khách say 1,2.',
+    quitBelow: '0–90%. Thoải mái tụt dưới mức này khách đòi xuống giữa đường (trả theo quãng đã đi, 1★). 0 = không bao giờ (khách say).',
+    vagueChance: '0–100%. Khách quên địa chỉ: chỉ biết khu vực (vòng tím), phải gọi hỏi hoặc hỏi người đi đường. Mẫu: khách say 50%.',
+    vomitChance: '0–100% mỗi lần xóc mạnh, tối đa 1 lần mỗi chuyến. Mẫu: khách say 25%.',
+    vomitMental: '0–100 tinh thần bị trừ khi khách ói ra xe. Mẫu 8.',
+    vomitCost: '0–500k tiền rửa xe khi khách ói. Mẫu 10k.',
+    noPayChance: '0–100%. Khách quỵt tiền cước (vẫn chấm sao). Mẫu: khách say 15%.',
+    bigTipChance: '0–100%. Khách boa đậm (khi chuyến không có sự cố). Mẫu: khách say 25%.',
+    bigTip: '0–500k tiền boa đậm. Mẫu 15k.',
+    earlyTip: '0–500k boa khi tới nơi trong 80% thời hạn. Mẫu: khách vội 10k.',
+    from: 'Khách loại này luôn được đón ở một trong các nơi này (đang mở cửa). Mẫu: khách say đi ra từ karaoke. Không chọn = đón ở nhà dân.',
+    riderNames: 'Đặt xe dùm: người đi khác người đặt. Mỗi dòng một tên người đi. Tên bắt đầu "Bà/Ông" hiện tóc bạc, "Bé" hiện dáng nhỏ.',
   },
 };
 
@@ -97,6 +149,17 @@ export const EXPLAIN = {
     ${T([['Hoạt động mẫu', 'Giá', 'Phút', 'Thể lực', 'Tinh thần', 'Lần/ngày'], ['Ăn tô phở', '35k', '15', '+45', '+5', '∞'], ['Cà phê sữa đá', '20k', '10', '+5', '+30', '∞'], ['Đọc sách tại chỗ', '5k', '30', '+5', '+20', '3'], ['Hát karaoke 1 tiếng', '80k', '60', '−5', '+40', '1']])}
     <p><b>Cần đồ</b>: hoạt động chỉ làm được khi người chơi mang theo món đó (mua ở nơi khác, vd mua nhang ở tiệm trà rồi đem tới chùa thắp). Thiếu đồ thì nút mờ và ghi nơi bán.</p>
     <p>⚠️ Số âm lớn (dưới −30) có thể làm người chơi đang yếu thua ngay; <b>−100 là thua chắc</b>.</p>`],
+  app: ['Tiền mỗi đơn tính thế nào', `
+    <p><b>Tổng cước</b> = cước món × hệ số loại đơn × hệ số loại khách + thưởng km + phụ phí (mưa / giờ cao điểm).</p>
+    <p><b>Tài xế nhận</b> = tổng cước − phí nền tảng − thuế + tiền boa. Tiền xăng trả ở cây xăng (hóa đơn vẫn ghi để biết lãi thực).</p>
+    <p>Khách quen gọi thẳng: không phí, không thuế, không phụ phí, không chấm sao. Đơn thu hộ: tiền hàng tài xế ứng trước được khách trả lại riêng, không tính vào lãi.</p>
+    <p>Bot chơi thử (npm run sim) lãi trung bình ~37k/đơn → ngày 1 (tiền nhà 400k) cần ~12 đơn. Đổi phí / thuế ở đây ảnh hưởng thẳng tới tỉ lệ thắng.</p>`],
+  orderTypes: ['Loại đơn hoạt động thế nào', `
+    <p>Mỗi lần app có đơn, game xét các loại đơn <b>đang có</b> (đúng khung giờ, đủ trang bị yêu cầu, mức > 0) rồi chọn theo <b>mức thường xuyên</b>. Ví dụ đủ cả 4 loại mẫu: 6 + 2 + 2 + 1,2 = 11,2 → đồ ăn ≈ 54%, chở khách ≈ 18%, giao hàng ≈ 18%, hỏa tốc ≈ 11%.</p>
+    <p><b>Giao hàng</b>: lấy hàng ở nơi có "Gửi hàng từ đây" (thẻ Địa điểm) hoặc nhà người gửi gần đó, xếp túi, giao. Đơn thu hộ phải ứng tiền hàng lúc lấy; bị bom thì năn nỉ (1 lần) hoặc mang trả shop để nhận lại tiền + phí hoàn hàng. Hàng hỏng bị từ chối thì mất tiền đã ứng.</p>`],
+  riderTypes: ['Loại khách xe ôm hoạt động thế nào', `
+    <p>Mỗi đơn chở khách chọn 1 loại khách đang có (đúng giờ, đủ số chuyến, nơi đón đang mở) theo mức thường xuyên. Các ô để trống = như khách thường.</p>
+    ${T([['Mẫu', 'Đặc điểm'], ['Khách app', 'Bình thường, chịu 40 km/h'], ['Khách quen', 'Sau 3 chuyến; gọi thẳng, không mất phí app'], ['Khách say', '19–22h từ karaoke; quên địa chỉ, ói, quỵt hoặc boa đậm; không bao giờ đòi xuống'], ['Đặt xe dùm', 'Cụ già / em bé, chỉ chịu 30 km/h'], ['Khách vội', 'Hạn gắt, cước ×1,2, tới sớm boa 10k, chịu 55 km/h']])}`],
   orders: ['Điểm đến của đơn tính thế nào', `
     <p>Mỗi khi có đơn xe ôm (hoặc đơn đồ ăn), game cộng mức của mọi nơi đang trong khung giờ, so với mức nền <b>12</b> của "nhà khách bất kỳ". Ví dụ chỉ karaoke có mức 6 → 6 / (6 + 12) ≈ <b>1/3</b> số chuyến đi tới/từ karaoke. Nhiều nơi cùng có mức thì chia nhau.</p>`],
 };

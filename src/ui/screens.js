@@ -1,6 +1,7 @@
 // Màn hình toàn cảnh: tiêu đề, tạm dừng, kết thúc ngày. Chữ lấy từ kho chữ screen.*
 import { fmtK } from '../sim/economy.js';
 import { ECONOMY } from '../data/balance.js';
+import { APP } from '../data/apps.js';
 import { fmt } from '../content/index.js';
 
 export class Screens {
@@ -32,7 +33,7 @@ export class Screens {
       <p class="story">${fmt('screen.story')}</p>
       <div class="rules">
         <div>${fmt('screen.ruleWin')}</div>
-        <div>${fmt('screen.ruleLose')}</div>
+        <div>${fmt('screen.ruleLose', { limit: Number(APP.account.lockBelow).toFixed(1) })}</div>
         <div>${fmt('screen.ruleItems')}</div>
       </div>
       <div class="keys">${fmt('screen.keys')}</div>

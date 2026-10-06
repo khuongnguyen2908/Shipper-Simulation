@@ -1,5 +1,6 @@
 // Bộ thử tự động cho phần mô phỏng thuần. Chạy: npm test
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ITEMS as DATA_ITEMS } from '../src/data/items.js';
 import { ECONOMY, TIME } from '../src/data/balance.js';
@@ -38,6 +39,11 @@ const NO_BAG = { insulation: 0, waterproof: 0, padding: 0 };
 const THERMAL = { insulation: 0.55, waterproof: 0.5, padding: 0.25 };
 const env = (o = {}) => ({ ambient: 30, sun: 0.5, raining: false, exposed: true, speed: 8, comfortSpeed: 11, suspension: 0.2, bag: NO_BAG, ...o });
 const layout = buildLayout();
+// dữ liệu đúng như trên đĩa (đã sửa bằng ?editor)
+const readJson = (p) => JSON.parse(fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8'));
+const DATA = { items: readJson('src/data/items.json'), apps: readJson('src/data/apps.json'), places: readJson('src/data/places.json'), itemsCod: (id) => DATA.items[id].cod };
+const ITEMS_DATA_BASE = (id) => DATA_ITEMS[id].base;
+const VALIDATE = await import('../src/data/validate.js');
 
 console.log('Vật lý món hàng');
 test('Phở nguội dần, túi giữ nhiệt nguội chậm hơn', () => {
@@ -413,6 +419,208 @@ console.log('Đồ dùng, hoạt động, điểm đến (luật bằng dữ li�
   });
 }
 
+console.log('App giao hàng, loại đơn, tài khoản, loại khách (apps.json)');
+{
+  const { APP, ORDER_TYPES, RIDER_TYPES, surchargeAt } = await import('../src/data/apps.js');
+  const { estimatePay } = await import('../src/sim/economy.js');
+  // tạo sẵn một đơn theo loại rồi nhận đơn (không qua ngẫu nhiên chọn loại)
+  const forceOffer = (om, make, now = 600) => {
+    if (om.state === S.OFFLINE) om.goOnline();
+    om.offer = make();
+    om.go(S.OFFERED);
+    return om.accept(now, { x: 0, z: 0 });
+  };
+  const withRider = (om, id) => {
+    const orig = om.pickRider;
+    om.pickRider = () => RIDER_TYPES[id];
+    return () => (om.pickRider = orig);
+  };
+
+  test('Phụ phí mưa / giờ cao điểm cộng vào cước; khách quen (không qua app) không mất phí, không thuế', () => {
+    assert.equal(surchargeAt(9 * 60, false), 0);
+    assert.equal(surchargeAt(9 * 60, true), APP.rainSurcharge);
+    assert.equal(surchargeAt(12 * 60, true), APP.rainSurcharge + APP.peakSurcharge);
+    const a = computePayout({ baseFare: 30, distanceKm: 2.5, stars: 5, surcharge: 4 });
+    assert.equal(a.gross, 44);
+    const b = computePayout({ baseFare: 30, distanceKm: 2.5, stars: 5, viaApp: false });
+    assert.equal(b.fee + b.tax, 0);
+    assert.equal(b.walletCredit, 40 + APP.tipByStars[5]);
+    assert.ok(estimatePay(30, 2.5, { viaApp: false }) > estimatePay(30, 2.5));
+  });
+  test('Loại đơn: chưa có mũ cho khách thì không có đơn chở khách; có đủ đồ ăn, giao hàng, hỏa tốc', () => {
+    const { om } = mkOM(4, { carry: { money: 2000, flags: { wallet: 5 } } });
+    const seen = {};
+    for (let i = 0; i < 400; i++) { const o = om.makeOffer(10 * 60, { x: 0, z: 0 }); seen[o.type] = (seen[o.type] || 0) + 1; }
+    assert.ok(!seen.ride, 'không được có đơn xe ôm khi chưa có mũ');
+    for (const t of ['food', 'parcel', 'express']) assert.ok(seen[t] > 10, `thiếu đơn ${t}: ${JSON.stringify(seen)}`);
+    const night = om.makeOffer(21.5 * 60, { x: 0, z: 0 });
+    assert.ok(!['parcel', 'express'].includes(night?.type), 'ngoài khung giờ giao hàng');
+  });
+  test('Hỏa tốc: cước cao hơn, thời hạn gắt hơn đơn giao hàng thường', () => {
+    const { om } = mkOM(6, { carry: { money: 2000 } });
+    const e = om.makeParcel(ORDER_TYPES.express, 600, { x: 0, z: 0 });
+    const p = om.makeParcel({ ...ORDER_TYPES.parcel, items: ['taiLieu'], codChance: 0 }, 600, { x: 0, z: 0 });
+    assert.ok(e.deadlineMult < p.deadlineMult);
+    assert.ok(e.baseFare > ITEMS_DATA_BASE('taiLieu') && Math.abs(p.baseFare - ITEMS_DATA_BASE('taiLieu')) < 0.01);
+  });
+  test('Giao hàng COD: chỉ có khi đủ tiền ứng; lấy hàng trừ tiền, giao xong khách trả lại', () => {
+    const poor = mkOM(8, { carry: { money: 20 } }).om;
+    for (let i = 0; i < 50; i++) assert.equal(poor.makeParcel({ ...ORDER_TYPES.parcel, codChance: 1 }, 600, { x: 0, z: 0 }).cod, 0);
+    const { om, gs } = mkOM(8, { carry: { money: 1000 } });
+    const o = forceOffer(om, () => om.makeParcel({ ...ORDER_TYPES.parcel, items: ['hopGiay'], codChance: 1, bomChance: 0 }, 600, { x: 0, z: 0 }));
+    o.flags.noAnswer = false; o.revealed = true; o.dropoff.apartment = false;
+    assert.equal(o.cod, DATA.itemsCod('hopGiay'));
+    const r = om.collectParcel(600);
+    assert.equal(gs.money, 1000 - o.cod);
+    om.finishPacking(r.items.map(() => ({ upright: true })), 601);
+    assert.equal(om.arriveAtDropoff(610), 'ready');
+    const rec = om.handOver(612);
+    gs.applyReceipt(rec);
+    assert.equal(rec.pay.cod, o.cod);
+    assert.ok(gs.money > 1000, 'nhận lại tiền ứng + tiền cước');
+    assert.ok(gs.stats.income.parcel > 0);
+  });
+  test('Bom hàng: năn nỉ không được → mang trả shop: hoàn tiền ứng + phí hoàn, tính 1 lần bom', () => {
+    const { om, gs } = mkOM(9, { carry: { money: 1000 } });
+    const o = forceOffer(om, () => om.makeParcel({ ...ORDER_TYPES.parcel, items: ['aoQuan'], codChance: 1, bomChance: 1, persuadeChance: 0 }, 600, { x: 0, z: 0 }));
+    o.flags.noAnswer = false; o.revealed = true; o.dropoff.apartment = false;
+    om.finishPacking(om.collectParcel(600).items.map(() => ({ upright: true })), 601);
+    assert.equal(om.arriveAtDropoff(610), 'bom');
+    assert.equal(om.handOver(611), null, 'đang bị bom thì không giao được');
+    assert.equal(om.persuadeBom(611).accepted, false);
+    assert.equal(om.persuadeBom(612), null, 'chỉ năn nỉ được 1 lần');
+    assert.ok(om.startReturn(612));
+    assert.equal(om.state, S.RETURNING);
+    const before = gs.money;
+    const r = om.returnToShop(630);
+    assert.equal(r.refund, o.cod);
+    assert.ok(r.fee > 0);
+    assert.equal(gs.money, before + r.refund + r.fee);
+    assert.equal(gs.account.bom, 1);
+    assert.equal(om.state, S.IDLE);
+  });
+  test('Hàng giao hỏng bị từ chối → mất tiền đã ứng; hủy khi đang giữ hàng COD → được hoàn', () => {
+    const { om, gs } = mkOM(10, { carry: { money: 1000 } });
+    const o = forceOffer(om, () => om.makeParcel({ ...ORDER_TYPES.parcel, items: ['dienThoai'], codChance: 1, bomChance: 0 }, 600, { x: 0, z: 0 }));
+    o.flags.noAnswer = false; o.revealed = true; o.dropoff.apartment = false;
+    om.finishPacking(om.collectParcel(600).items.map(() => ({ upright: true })), 601);
+    o.items[0].damage(90, 'x');
+    om.arriveAtDropoff(610);
+    const rec = om.handOver(611);
+    assert.ok(rec.ev.refused && rec.pay.cod === 0 && rec.codLost === o.cod);
+    let refund = 0;
+    const b = mkOM(11, { carry: { money: 1000 } });
+    b.om.on((e) => { if (e.type === 'cancelled') refund = e.codRefund; });
+    const o2 = forceOffer(b.om, () => b.om.makeParcel({ ...ORDER_TYPES.parcel, items: ['hopGiay'], codChance: 1, bomChance: 0 }, 600, { x: 0, z: 0 }));
+    b.om.collectParcel(600);
+    b.om.cancel('x', 605, { byDriver: true });
+    assert.equal(refund, o2.cod);
+  });
+  test('Tài khoản: từ chối nhiều → tỉ lệ nhận thấp → đơn thưa hơn; tự hủy quá giới hạn → tạm khóa nhận đơn', () => {
+    const gs = new GameState();
+    assert.equal(gs.acceptRate, 1);
+    for (let i = 0; i < 8; i++) gs.recordOffer(false);
+    gs.recordOffer(true);
+    assert.ok(gs.acceptRate < APP.account.lowAcceptBelow);
+    const lo = new OrderManager({ rng: makeRng(1), layout, gs });
+    const hi = new OrderManager({ rng: makeRng(1), layout, gs: new GameState() });
+    lo.schedulePing(9 * 60); hi.schedulePing(9 * 60);
+    assert.ok(Math.abs(lo.nextPingIn / hi.nextPingIn - APP.account.lowAcceptPingMult) < 1e-9);
+    const g2 = new GameState();
+    let r;
+    for (let i = 0; i <= APP.account.cancelLimitPerDay; i++) r = g2.applyCancel({ byDriver: true }, 600);
+    assert.ok(r.locked && g2.lockedUntil === 600 + APP.account.cancelLockMin);
+    const om = new OrderManager({ rng: makeRng(2), layout, gs: g2 });
+    om.goOnline();
+    for (let i = 0; i < 30; i++) om.update(1, 1, 610, { x: 0, z: 0 });
+    assert.equal(om.state, S.IDLE, 'đang bị khóa thì không có đơn');
+    const next = new GameState({ day: 2, carry: g2.carryOver() });
+    assert.equal(next.account.driverCancels, APP.account.cancelLimitPerDay + 1);
+    assert.equal(next.lockedUntil, 0, 'khóa chỉ trong ngày');
+  });
+  test('Khách say: chỉ buổi tối, đón ở karaoke; khách quen: mở sau vài chuyến, không qua app, không chấm sao', () => {
+    const { om, gs } = mkOM(12, { carry: { money: 500, flags: { wallet: 5 } } });
+    gs.buy('goods', 'spareHelmet');
+    for (let i = 0; i < 100; i++) assert.notEqual(om.pickRider(9 * 60).id, 'drunk');
+    let drunk = 0;
+    for (let i = 0; i < 200; i++) if (om.pickRider(20.5 * 60).id === 'drunk') drunk++;
+    assert.ok(drunk > 20, `khách say buổi tối chỉ ${drunk}/200`);
+    const undo = withRider(om, 'drunk');
+    const d = om.makeRide({ x: 0, z: 0 }, false, 20.5 * 60);
+    undo();
+    assert.equal(d.pickup.placeId, 'karaoke');
+    for (let i = 0; i < 100; i++) assert.notEqual(om.pickRider(10 * 60).id, 'regular', 'chưa đủ số chuyến thì chưa có khách quen');
+    gs.account.rides = 5;
+    const undo2 = withRider(om, 'regular');
+    const o = forceOffer(om, () => om.makeRide({ x: 0, z: 0 }, false, 600));
+    undo2();
+    assert.equal(o.viaApp, false);
+    om.boardPassenger(600);
+    om.arriveAtDropoff(610);
+    const count = gs.ratingBook.count;
+    const rec = om.handOver(612);
+    gs.applyReceipt(rec);
+    assert.equal(rec.pay.fee, 0);
+    assert.equal(gs.ratingBook.count, count, 'khách quen không chấm sao trên app');
+  });
+  test('Đặt xe dùm (cụ già) sợ nhanh hơn khách thường; khách vội tới sớm được boa', () => {
+    const { om, gs } = mkOM(13, { carry: { money: 500, flags: { wallet: 5 } } });
+    gs.buy('goods', 'spareHelmet');
+    const ride = (id) => { const u = withRider(om, id); const o = forceOffer(om, () => om.makeRide({ x: 0, z: 0 }, false, 600)); u(); om.boardPassenger(600); return o; };
+    const a = ride('booked');
+    assert.ok(RIDER_TYPES.booked.riderNames.includes(a.customer) && a.booker);
+    a.items[0].tick(env({ speed: 10 }), 5);
+    const scaredOld = 100 - a.items[0].condition;
+    om.cancel('x', 601, { byDriver: false });
+    const b = ride('app');
+    b.items[0].tick(env({ speed: 10 }), 5);
+    assert.ok(scaredOld > 100 - b.items[0].condition, 'cụ già phải sợ hơn ở cùng tốc độ');
+    om.cancel('x', 601, { byDriver: false });
+    const h = ride('hurry');
+    h.flags.picky = false;
+    om.arriveAtDropoff(602);
+    const rec = om.handOver(603);
+    assert.equal(rec.earlyTip, RIDER_TYPES.hurry.earlyTip);
+  });
+  test('Khách đòi xuống giữa đường: trả theo quãng đã đi, 1 sao; khách say ói ra xe thì mất tinh thần + tiền rửa xe', () => {
+    const { om, gs } = mkOM(14, { carry: { money: 500, flags: { wallet: 5 } } });
+    gs.buy('goods', 'spareHelmet');
+    const u = withRider(om, 'app');
+    const o = forceOffer(om, () => om.makeRide({ x: 0, z: 0 }, false, 600));
+    u();
+    om.boardPassenger(600);
+    const mid = { x: (o.pickup.door.x + o.dropoff.door.x) / 2, z: (o.pickup.door.z + o.dropoff.door.z) / 2 };
+    const rec = om.quitRide(605, mid);
+    assert.ok(rec.quit && rec.ev.stars === 1 && rec.traveled > 0.2 && rec.traveled < 0.8, `đi được ${rec.traveled}`);
+    const full = computePayout({ baseFare: o.baseFare, distanceKm: o.distanceKm, stars: 1, surcharge: o.surcharge });
+    assert.ok(rec.pay.gross < full.gross);
+    const u2 = withRider(om, 'drunk');
+    forceOffer(om, () => om.makeRide({ x: 0, z: 0 }, false, 20.5 * 60));
+    u2();
+    om.boardPassenger(1230);
+    const RT = RIDER_TYPES.drunk, old = RT.vomitChance;
+    RT.vomitChance = 1;
+    const m0 = gs.mental, money0 = gs.money;
+    om.itemEvent('bump', 0.5, env());
+    om.itemEvent('bump', 0.5, env());
+    RT.vomitChance = old;
+    assert.equal(gs.mental, m0 - RT.vomitMental, 'chỉ ói 1 lần mỗi chuyến');
+    assert.equal(gs.money, money0 - RT.vomitCost);
+  });
+  test('Bộ kiểm tra app & loại đơn: số sai, món không phải hàng giao, thiếu kiểu đơn → lỗi', () => {
+    const { validateApps } = VALIDATE;
+    assert.equal(validateApps(DATA.apps, DATA.items, DATA.places).filter((i) => i.level === 'error').length, 0);
+    const bad = JSON.parse(JSON.stringify(DATA.apps));
+    bad.apps.goship.platformFee = 2;
+    bad.apps.goship.account.lockBelow = 9;
+    bad.orderTypes.parcel.items = ['comTam'];
+    bad.riderTypes.drunk.from = ['khongCo'];
+    delete bad.orderTypes.ride;
+    const errs = validateApps(bad, DATA.items, DATA.places).filter((i) => i.level === 'error').map((i) => `${i.ref}.${i.field}`);
+    for (const f of ['goship.platformFee', 'goship.account.lockBelow', 'parcel.items', 'drunk.from', '.kind']) assert.ok(errs.includes(f), `không bắt lỗi ${f}: ${errs.join(', ')}`);
+  });
+}
+
 console.log('Bot mô phỏng (chạy thử 1 ngày)');
 {
   const { playDay } = await import('./economy-sim.js');
@@ -434,7 +642,8 @@ console.log('Giữ chỗ đang xem khi vẽ lại / tải lại (công cụ ?edi
     assert.deepEqual(planScroll(null, k1, false), { body: 0, side: 0 });
   });
   test('Nhớ món đang chọn: chỉ giữ mã/nhóm/tìm kiếm, bỏ tùy chọn tạm và dữ liệu hỏng', () => {
-    const saved = selToSave({ items: { id: 'pho', itemsPreview: { weather: 'rain' } }, gear: { cat: 'vehicles', id: 'SH' }, text: { group: 'dlg', search: 'mưa' }, bad: 5 });
+    const saved = selToSave({ items: { id: 'pho' }, itemsPreview: { weather: 'rain', bumps: 2 }, gear: { cat: 'vehicles', id: 'SH' }, text: { group: 'dlg', search: 'mưa' }, bad: 5 });
+    assert.ok(!('itemsPreview' in saved), 'tùy chọn biểu đồ không được lưu thành {} (biểu đồ sẽ hỏng sau F5)');
     assert.deepEqual(saved, { items: { id: 'pho' }, gear: { cat: 'vehicles', id: 'SH' }, text: { group: 'dlg', search: 'mưa' } });
     assert.deepEqual(selToSave(null), {});
   });
@@ -665,7 +874,7 @@ console.log('Dữ liệu & kho chữ (sửa bằng công cụ ?editor)');
   const fs = await import('node:fs');
   const path = await import('node:path');
   const read = (p) => JSON.parse(fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8'));
-  const data = { items: read('src/data/items.json'), gear: read('src/data/gear.json'), goods: read('src/data/goods.json'), places: read('src/data/places.json'), content: read('src/content/vi.json') };
+  const data = { items: read('src/data/items.json'), gear: read('src/data/gear.json'), goods: read('src/data/goods.json'), places: read('src/data/places.json'), content: read('src/content/vi.json'), apps: read('src/data/apps.json') };
   const { validateAll, validateItems, validatePlaces, validateContent, validateGoods, validateGear } = await import('../src/data/validate.js');
   test('Dữ liệu hiện tại không có lỗi', () => {
     const errs = validateAll({ ...data, baseContent: data.content }).filter((i) => i.level === 'error');
@@ -692,6 +901,9 @@ console.log('Dữ liệu & kho chữ (sửa bằng công cụ ?editor)');
       ...['hot', 'cold', 'liquid', 'fragile', 'paper', 'passenger'].map((t) => `trait.${t}`),
       ...[1, 2, 3, 4, 5].flatMap((n) => [`comment.${n}`, `comment.ride.${n}`]),
       ...['shirt', 'pants', 'helmet'].map((s) => `outfit.slot.${s}`),
+      ...['Ride', 'Food', 'Parcel'].flatMap((k) => [`goal.pickup${k}`, `goal.pickup${k}Hint`]),
+      ...Object.keys(data.apps.orderTypes).map((t) => `money.${t}`), // thu nhập ghi theo loại đơn
+      'state.RETURNING', 'phone.stepParcel',
       'npc.default.greet', 'npc.default.name',
     ];
     const physics = fs.readFileSync(new URL('../src/sim/ItemPhysics.js', import.meta.url), 'utf8');

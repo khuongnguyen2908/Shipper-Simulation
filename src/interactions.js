@@ -4,6 +4,7 @@
 // Mọi chữ lấy từ kho chữ qua fmt() — sửa bằng công cụ ?editor.
 // =============================================================
 import { ECONOMY, ENERGY, ORDER, VEHICLES, BAGS, WALLET_QUEST } from './data/balance.js';
+import { APP, ORDER_TYPES, RIDER_TYPES } from './data/apps.js';
 import { GOODS, OUTFIT_SLOTS } from './data/goods.js';
 import { isOpen, fmtHours, placesUsing, placesSelling } from './sim/placeRules.js';
 import { ITEMS } from './data/items.js';
@@ -48,15 +49,19 @@ export function gatherInteractions(g) {
   const o = om.order;
   if (o) {
     const dp = dist(p, o.pickup.door);
-    if (o.kind === 'food' && [S.TO_PICKUP, S.WAITING_FOOD, S.OUT_OF_STOCK].includes(om.state) && dp < 3.6) {
+    if (o.kind !== 'ride' && [S.TO_PICKUP, S.WAITING_FOOD, S.OUT_OF_STOCK].includes(om.state) && dp < 3.6) {
       E.push(foot ? { label: fmt('act.pickup', { place: o.pickup.name }), dist: dp - 10, run: () => pickup(g) } : { label: fmt('act.pickupNeedFoot'), dist: dp - 10, disabled: true });
+    }
+    // bị bom: mang hàng về trả shop
+    if (om.state === S.RETURNING && dp < 3.6) {
+      E.push(foot ? { label: fmt('act.returnParcel', { place: o.pickup.name }), dist: dp - 10, run: () => returnParcel(g) } : { label: fmt('act.deliverNeedFoot'), dist: dp - 10, disabled: true });
     }
     if (o.kind === 'ride' && om.state === S.TO_PICKUP && dp < 5.5) {
       E.push(!foot ? { label: fmt('act.board', { customer: o.customer }), dist: dp - 10, disabled: !slow, run: () => boardPassenger(g) } : { label: fmt('act.boardNeedBike'), dist: dp - 10, disabled: true });
     }
     if ([S.DELIVERING, S.AT_DROPOFF, S.NO_ANSWER, S.STAIRS].includes(om.state) && o.revealed) {
       const dd = dist(p, o.dropoff.door);
-      if (o.kind === 'food' && dd < 3.6) E.push(foot ? { label: fmt('act.deliver', { customer: o.customer }), dist: dd - 10, run: () => dropoff(g) } : { label: fmt('act.deliverNeedFoot'), dist: dd - 10, disabled: true });
+      if (o.kind !== 'ride' && dd < 3.6) E.push(foot ? { label: fmt('act.deliver', { customer: o.customer }), dist: dd - 10, run: () => dropoff(g) } : { label: fmt('act.deliverNeedFoot'), dist: dd - 10, disabled: true });
       if (o.kind === 'ride' && dd < 5.5) E.push(!foot ? { label: fmt('act.dropRide', { customer: o.customer }), dist: dd - 10, disabled: !slow, run: () => dropoff(g) } : { label: fmt('act.dropRideNeedBike'), dist: dd - 10, disabled: true });
     }
   }
@@ -99,7 +104,9 @@ export function acceptOffer(g) {
   const o = g.om.accept(g.clockMin, g.playerPos);
   if (!o) return;
   sfx.click();
-  const what = o.kind === 'ride' ? fmt('toast.acceptedRide', { customer: o.customer }) : fmt('toast.acceptedFood', { place: o.pickup.name });
+  const what = o.kind === 'ride' ? fmt('toast.acceptedRide', { customer: o.customer })
+    : o.kind === 'parcel' ? fmt('toast.acceptedParcel', { type: ORDER_TYPES[o.type]?.name || '', place: o.pickup.name })
+    : fmt('toast.acceptedFood', { place: o.pickup.name });
   g.hud.toast(fmt('toast.accepted', { id: o.id, what, min: o.allowedMin }), 'good');
   if (o.story === 'wallet') g.gs.flags.walletOffered = true;
 }
@@ -139,8 +146,14 @@ function callCustomer(g) {
   else say(g, who, '📱', fmt('dlg.callDelivering'));
 }
 
+// Tốc độ khách xe ôm chịu được (km/h) — theo loại khách, cộng trang bị
+export function comfortKmh(g, o) {
+  const rider = o && o.rider ? RIDER_TYPES[o.rider] : null;
+  return Math.round((rider && rider.comfortKmh ? rider.comfortKmh : ECONOMY.speedLimit * 3.6) + g.gs.effect('comfortKmh'));
+}
+
 function confirmCancel(g) {
-  say(g, fmt('dlg.app'), '📱', fmt('dlg.cancelAsk'), [
+  say(g, fmt('dlg.app'), '📱', fmt('dlg.cancelAsk', { stars: APP.account.cancelStars }), [
     { label: fmt('dlg.cancelYes'), onSelect: () => g.om.cancel(fmt('cancel.driver'), g.clockMin, { byDriver: true }) },
     { label: fmt('dlg.cancelNo'), primary: true },
   ]);
@@ -152,6 +165,7 @@ export function pickup(g) {
   const o = om.order;
   const now = g.clockMin;
   const n = npc(g, o.pickup.placeId);
+  if (o.kind === 'parcel') return parcelPickup(g);
   if (om.state === S.TO_PICKUP) {
     const r = om.arriveAtPickup(now);
     if (r.outOfStock) return outOfStock(g, r.item);
@@ -188,17 +202,49 @@ function outOfStock(g, item) {
         g.advance(2, 'idle');
         const r = om.resolveOutOfStock('call', g.clockMin);
         if (r.accepted) say(g, who, '📱', fmt('dlg.oosSubOk', { item: r.sub.name }), [{ label: fmt('dlg.oosSubOrder'), onSelect: () => waitFood(g, fmt('dlg.oosSubReady', { item: r.sub.name })) }]);
-        else say(g, who, '📱', fmt('dlg.oosCancelled', { k: ECONOMY.cancelComp }));
+        else say(g, who, '📱', fmt('dlg.oosCancelled', { k: APP.cancelComp }));
       },
     },
     { label: fmt('dlg.oosCook'), hint: fmt('dlg.oosCookHint'), onSelect: () => { om.resolveOutOfStock('cook', g.clockMin); waitFood(g, fmt('dlg.oosCookReply')); } },
-    { label: fmt('dlg.oosCancel'), hint: fmt('dlg.oosCancelHint'), onSelect: () => om.resolveOutOfStock('cancel', g.clockMin) },
+    { label: fmt('dlg.oosCancel'), hint: fmt('dlg.oosCancelHint', { stars: APP.account.cancelStars }), onSelect: () => om.resolveOutOfStock('cancel', g.clockMin) },
   ], { dismissible: false });
 }
 
-function startPacking(g) {
+// Người giao hàng ở điểm lấy: chủ shop (nếu là địa điểm) hoặc người gửi ở nhà dân
+function sender(g, o) {
+  return o.pickup.placeId ? npc(g, o.pickup.placeId) : { name: fmt('npc.sender.name'), portrait: '🧑' };
+}
+
+// Giao hàng / hỏa tốc: nhận hàng (đơn COD ứng tiền trước) rồi xếp túi
+function parcelPickup(g) {
+  const { om } = g;
+  const o = om.order;
+  const n = sender(g, o);
+  if (om.state !== S.TO_PICKUP) return;
+  if (o.cod && g.gs.money < o.cod) {
+    return say(g, n.name, n.portrait, fmt('dlg.parcelNoMoney', { cod: o.cod }), [
+      { label: fmt('dlg.parcelCancel'), onSelect: () => om.cancel(fmt('cancel.driver'), g.clockMin, { byDriver: true }) },
+      { label: fmt('dlg.leave'), primary: true },
+    ]);
+  }
+  say(g, n.name, n.portrait, o.cod ? fmt('dlg.parcelCod', { cod: o.cod }) : fmt('dlg.parcelReady'), [
+    {
+      label: fmt('dlg.parcelPack'),
+      primary: true,
+      onSelect: () => {
+        const r = om.collectParcel(g.clockMin);
+        if (!r || r.noMoney) return;
+        if (r.cod) sfx.cash();
+        startPacking(g, r.items);
+      },
+    },
+  ], { dismissible: false });
+}
+
+// items: món đã nhận (giao hàng); bỏ trống = lấy món quán vừa làm xong (đồ ăn)
+function startPacking(g, items = null) {
   const { om, gs } = g;
-  const items = om.collectFood(g.clockMin);
+  items = items || om.collectFood(g.clockMin);
   if (!items) return;
   const node = buildPacking({
     items,
@@ -218,7 +264,7 @@ function boardPassenger(g) {
   const o = om.order;
   om.boardPassenger(g.clockMin);
   sfx.click();
-  g.hud.toast(fmt('toast.boarded', { customer: o.customer }), 'good');
+  g.hud.toast(fmt('toast.boarded', { customer: o.customer, kmh: comfortKmh(g, o) }), 'good');
 }
 
 // ======================== GIAO HÀNG ========================
@@ -230,6 +276,7 @@ export function dropoff(g) {
   if (om.state === S.STAIRS) return stairs(g);
   const res = om.arriveAtDropoff(now);
   if (res === 'noAnswer') return noAnswer(g);
+  if (res === 'bom') return bom(g);
   if (res === 'stairs') return stairs(g);
   if (res === 'lift') {
     gs.spend(ECONOMY.parkingFee, 'parking', true);
@@ -279,10 +326,63 @@ function noAnswer(g, fromPhone = false) {
     {
       label: fmt('dlg.reportCancel'),
       disabled: o.calls < 3,
-      hint: o.calls < 3 ? fmt('dlg.reportCancelLocked', { calls: o.calls }) : fmt('dlg.reportCancelOk', { k: ECONOMY.cancelComp }),
-      onSelect: () => om.cancel(fmt('cancel.noAnswer'), g.clockMin, { byDriver: false, comp: ECONOMY.cancelComp }),
+      hint: o.calls < 3 ? fmt('dlg.reportCancelLocked', { calls: o.calls }) : fmt('dlg.reportCancelOk', { k: APP.cancelComp }),
+      onSelect: () => om.cancel(fmt('cancel.noAnswer'), g.clockMin, { byDriver: false, comp: APP.cancelComp }),
     },
   ]);
+}
+
+// Khách bom hàng COD: năn nỉ (1 lần) hoặc mang hàng về trả shop
+function bom(g) {
+  const { om } = g;
+  const o = om.order;
+  const type = ORDER_TYPES[o.type] || {};
+  const choices = [];
+  if (!o.persuaded && type.persuadeChance > 0) {
+    choices.push({
+      label: fmt('dlg.bomPersuade'),
+      hint: fmt('dlg.bomPersuadeHint'),
+      onSelect: () => {
+        const r = om.persuadeBom(g.clockMin);
+        g.advance(3, 'idle');
+        if (g.state !== 'play') return;
+        if (r && r.accepted) say(g, o.customer, '🙋', fmt('dlg.bomPersuadeOk'), [{ label: fmt('dlg.handOver'), primary: true, onSelect: () => handOver(g) }], { dismissible: false });
+        else say(g, o.customer, '😤', fmt('dlg.bomPersuadeFail'), [{ label: fmt('dlg.ellipsis'), onSelect: () => bom(g) }], { dismissible: false });
+      },
+    });
+  }
+  choices.push({
+    label: fmt('dlg.bomReturn'),
+    hint: fmt('dlg.bomReturnHint'),
+    primary: !choices.length,
+    onSelect: () => {
+      om.startReturn(g.clockMin);
+      sfx.bad();
+    },
+  });
+  choices.push({ label: fmt('dlg.bomWait') });
+  say(g, o.customer, '🙅', fmt('dlg.bom', { cod: o.cod }), choices);
+}
+
+function returnParcel(g) {
+  const { om } = g;
+  const o = om.order;
+  const n = sender(g, o);
+  const r = om.returnToShop(g.clockMin);
+  if (!r) return;
+  sfx.cash();
+  say(g, n.name, n.portrait, fmt('dlg.returned', { refund: r.refund, fee: r.fee }));
+}
+
+// Khách xe ôm sợ quá đòi xuống giữa đường (game gọi khi mức thoải mái tụt dưới ngưỡng của loại khách)
+export function passengerQuit(g) {
+  const { om, gs } = g;
+  const receipt = om.quitRide(g.clockMin, g.playerPos);
+  if (!receipt) return;
+  gs.applyReceipt(receipt);
+  g.bike.speed *= 0.3;
+  sfx.bad();
+  showReceipt(g, receipt);
 }
 
 function stairs(g) {
@@ -321,17 +421,29 @@ function stairs(g) {
 
 function handOver(g) {
   const { om, gs } = g;
-  const o = om.order;
   const receipt = om.handOver(g.clockMin);
   if (!receipt) return;
   gs.applyReceipt(receipt);
-  const { ev, pay } = receipt;
+  showReceipt(g, receipt);
+}
+
+// Hóa đơn sau mỗi đơn (giao xong, hoặc khách xe ôm bỏ xuống giữa đường)
+function showReceipt(g, receipt) {
+  const { gs } = g;
+  const { ev, pay, order: o } = receipt;
   const ride = o.kind === 'ride'; // chở khách: chấm theo mức thoải mái, lời khách kiểu đi xe
   ev.refused || ev.stars <= 2 ? sfx.bad() : sfx.cash();
-  const comment = ev.refused ? fmt('dlg.refusedComment') : ev.scared ? fmt('dlg.scaredComment') : pick(`comment.${ride ? 'ride.' : ''}${ev.stars}`, o.id);
+  const comment = ev.refused ? fmt('dlg.refusedComment') : receipt.quit ? fmt('dlg.quitComment') : receipt.noPay ? fmt('dlg.noPayComment') : ev.scared ? fmt('dlg.scaredComment') : pick(`comment.${ride ? 'ride.' : ''}${ev.stars}`, o.id);
   const reasons = ev.reasons.map(([k, v]) => `<span class="tag">${fmt(`dmg.${k}`)} −${v.toFixed(0)}%</span>`).join('') || `<span class="tag ok">${fmt(ride ? 'receipt.noDamageRide' : 'receipt.noDamage')}</span>`;
   const pens = ev.penalties.map((p) => `<div class="kv"><span>${p.label}</span><b class="minus">−${p.value} ★</b></div>`).join('');
   const row = (l, v, cls = '') => `<div class="kv ${cls}"><span>${l}</span><b>${v}</b></div>`;
+  const pct = (v) => (Math.round(v * 1000) / 10).toLocaleString('vi-VN'); // 0.015 → "1,5"
+  const extras = [
+    receipt.quit ? row(fmt('receipt.quitNote', { pct: Math.round(receipt.traveled * 100) }), '', 'minus') : '',
+    ev.scared ? row(fmt('receipt.scaredNote', { pct: Math.round(ECONOMY.scaredFarePct * 100) }), '', 'minus') : '',
+    receipt.noPay ? row(fmt('receipt.noPay'), '0k', 'minus') : '',
+  ].join('');
+  const tipNotes = [receipt.bigTip ? row(fmt('receipt.bigTip'), '+' + fmtK(receipt.bigTip)) : '', receipt.earlyTip ? row(fmt('receipt.earlyTip'), '+' + fmtK(receipt.earlyTip)) : ''].join('');
   const html = `<div class="receipt">
     <div class="stars-big ${ev.stars >= 4 ? 'good' : ev.stars <= 2 ? 'bad' : ''}">${stars(ev.stars)}</div>
     <div class="cmt">${o.customer}: ${comment}</div>
@@ -339,21 +451,23 @@ function handOver(g) {
     ${row(fmt('receipt.time'), fmt('receipt.timeValue', { min: Math.round(receipt.elapsed), allowed: o.allowedMin }))}
     <div class="tags">${reasons}</div>${pens}
     <div class="sep"></div>
-    ${ev.refused ? row(fmt('receipt.refused'), '0k', 'minus') : `
-    ${ev.scared ? row(fmt('receipt.scaredNote', { pct: Math.round(ECONOMY.scaredFarePct * 100) }), '', 'minus') : ''}
+    ${ev.refused ? row(fmt('receipt.refused'), '0k', 'minus') + (receipt.codLost ? row(fmt('receipt.codLost'), '−' + fmtK(receipt.codLost), 'minus') : '') : `
+    ${extras}
     ${row(fmt('receipt.base'), fmtK(pay.baseFare))}
     ${row(fmt('receipt.dist', { km: o.distanceKm.toFixed(1) }), '+' + fmtK(pay.distBonus))}
-    ${row(fmt('receipt.fee'), '−' + fmtK(pay.fee), 'minus')}
-    ${row(fmt('receipt.tax'), '−' + fmtK(pay.tax), 'minus')}
+    ${pay.surcharge ? row(fmt('receipt.surcharge'), '+' + fmtK(pay.surcharge)) : ''}
+    ${o.viaApp === false ? row(fmt('receipt.noAppFee'), '0k') : row(fmt('receipt.fee', { pct: pct(APP.platformFee) }), '−' + fmtK(pay.fee), 'minus') + row(fmt('receipt.tax', { pct: pct(APP.taxRate) }), '−' + fmtK(pay.tax), 'minus')}
     ${row(fmt('receipt.fuel', { liters: o.liters.toFixed(2) }), '−' + fmtK(pay.fuelCost), 'minus')}
     ${row(fmt('receipt.final'), fmtK(pay.final), 'total')}
+    ${tipNotes}
     ${row(fmt('receipt.tip'), '+' + fmtK(pay.tip))}`}
     <div class="sep"></div>
     ${row(fmt('receipt.wallet'), '+' + fmtK(pay.walletCredit), 'total')}
-    ${row(fmt('receipt.rating'), '⭐ ' + gs.rating.toFixed(2))}
+    ${pay.cod ? row(fmt('receipt.cod'), '+' + fmtK(pay.cod), 'total') : ''}
+    ${o.viaApp === false ? row(fmt('receipt.notRated'), '') : row(fmt('receipt.rating'), '⭐ ' + gs.rating.toFixed(2))}
   </div>`;
   g.modal.show({
-    title: fmt(ride ? 'receipt.titleRide' : 'receipt.title', { id: o.id }),
+    title: fmt(receipt.quit ? 'receipt.titleQuit' : ride ? 'receipt.titleRide' : 'receipt.title', { id: o.id }),
     html,
     choices: [{ label: fmt('receipt.continue'), primary: true, onSelect: () => afterDelivery(g, o) }],
     onClose: () => afterDelivery(g, o),

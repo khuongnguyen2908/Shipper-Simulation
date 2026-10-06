@@ -1,13 +1,14 @@
 // Điện thoại & ứng dụng giao hàng GoShip (DeliveryAppUI)
-// Thẻ: Đơn · Bản đồ · Nhóm · Ví · Túi đồ. Chữ lấy từ kho chữ phone.*
+// Thẻ: Đơn · Bản đồ · Nhóm · Ví · Tài khoản · Túi đồ. Chữ lấy từ kho chữ phone.*
 import { stateLabel, S } from '../sim/OrderManager.js';
+import { APP, ORDER_TYPES, RIDER_TYPES } from '../data/apps.js';
 import { traitLabel } from '../data/items.js';
 import { VEHICLES, BAGS, ORDER } from '../data/balance.js';
 import { GOODS } from '../data/goods.js';
 import { PLACES } from '../data/places.js';
 import { placesUsing } from '../sim/placeRules.js';
 import { fmtK } from '../sim/economy.js';
-import { fmt, list } from '../content/index.js';
+import { fmt, list, has } from '../content/index.js';
 import { MiniMap } from './minimap.js';
 
 const TABS = [
@@ -15,6 +16,7 @@ const TABS = [
   ['map', '🗺️', 'phone.tabMap'],
   ['chat', '💬', 'phone.tabChat'],
   ['wallet', '💳', 'phone.tabWallet'],
+  ['account', '👤', 'phone.tabAccount'],
   ['bag', '🎒', 'phone.tabBag'],
 ];
 
@@ -23,6 +25,27 @@ const stars = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
 // Các bước của đơn (chữ ở phone.stepFood / phone.stepRide, cùng thứ tự)
 const FOOD_STEPS = [[S.TO_PICKUP], [S.WAITING_FOOD, S.OUT_OF_STOCK], [S.PACKING], [S.DELIVERING], [S.AT_DROPOFF, S.NO_ANSWER, S.STAIRS]];
 const RIDE_STEPS = [[S.TO_PICKUP], [S.DELIVERING], [S.AT_DROPOFF]];
+const PARCEL_STEPS = [[S.TO_PICKUP], [S.PACKING], [S.DELIVERING], [S.AT_DROPOFF, S.NO_ANSWER, S.STAIRS], [S.RETURNING]];
+const STEPS = { food: [FOOD_STEPS, 'phone.stepFood'], ride: [RIDE_STEPS, 'phone.stepRide'], parcel: [PARCEL_STEPS, 'phone.stepParcel'] };
+const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}`;
+
+// Nhãn loại đơn / loại khách / thu hộ / phụ phí trên thẻ đơn
+function orderTags(o) {
+  const tags = [];
+  const rider = o.rider && RIDER_TYPES[o.rider];
+  if (rider) tags.push(`<span class="tag">${rider.icon || ''} ${rider.name}</span>`);
+  if (o.viaApp === false) tags.push(`<span class="tag good">${fmt('phone.regular')}</span>`);
+  if (o.booker) tags.push(`<span class="tag">${fmt('phone.booked', { booker: o.booker })}</span>`);
+  if (o.cod) tags.push(`<span class="tag warn">${fmt('phone.cod', { cod: o.cod })}</span>`);
+  if (o.surcharge) tags.push(`<span class="tag good">${fmt('phone.surcharge', { k: o.surcharge })}</span>`);
+  return tags.join('');
+}
+function offerTitle(o) {
+  if (o.kind === 'food' && o.type === 'food') return fmt('phone.offerFood');
+  if (o.kind === 'ride' && o.type === 'ride') return fmt('phone.offerRide');
+  const t = ORDER_TYPES[o.type] || {};
+  return fmt('phone.offerType', { icon: t.icon || '', name: (t.name || o.type).toLowerCase() });
+}
 
 export class Phone {
   constructor(root, handlers) {
@@ -90,6 +113,7 @@ export class Phone {
     if (this.tab === 'order') html = this.orderTab(d);
     else if (this.tab === 'chat') html = this.chatTab(d);
     else if (this.tab === 'wallet') html = this.walletTab(d);
+    else if (this.tab === 'account') html = this.accountTab(d);
     else if (this.tab === 'bag') html = this.bagTab(d);
     else if (this.tab === 'map') html = `<div class="ph-map" id="phMap"></div><div class="ph-legend">${fmt('phone.mapLegend')}</div>`;
     this.el.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('on', b.dataset.tab === this.tab));
@@ -108,6 +132,7 @@ export class Phone {
     h += `<button class="btn small ${online ? '' : 'primary'}" data-act="online" ${d.order ? 'disabled' : ''}>${fmt(online ? 'phone.turnOff' : 'phone.turnOn')}</button></div>`;
     if (d.state === S.OFFERED && d.offer) h += this.offerCard(d.offer, d.offerTimeLeft, d);
     else if (d.order) h += this.orderCard(d.order, d);
+    else if (online && gs.lockedUntil > d.now) h += `<div class="ph-lock">${fmt('phone.lockedNote', { time: hhmm(gs.lockedUntil) })}</div>`;
     else if (online) {
       h += `<div class="ph-wait"><div class="spinner"></div>${fmt('phone.searching')}</div>`;
       if (d.now >= d.lastOfferAt) h += `<div class="ph-note">${fmt('phone.noMoreOrders')}</div>`;
@@ -125,19 +150,19 @@ export class Phone {
     const ride = o.kind === 'ride';
     const floor = o.dropoff.apartment ? fmt('phone.floor', { floor: o.dropoff.floor }) : '';
     return `<div class="card offer">
-      <div class="offer-top"><b>${fmt(ride ? 'phone.offerRide' : 'phone.offerFood')}</b><span class="pay">~${fmtK(o.estPay)}</span></div>
+      <div class="offer-top"><b>${offerTitle(o)}</b><span class="pay">~${fmtK(o.estPay)}</span></div>
       <div class="route"><div>📍 <b>${o.pickup.name}</b><small>${ride ? fmt('phone.pickupRide', { customer: o.customer }) : o.pickup.address}</small></div>
       <div>🏁 <b>${o.revealed ? o.dropoff.address : fmt('phone.vague')}</b><small>${o.customer}${floor}</small></div></div>
       <div class="items">${items.map((i) => `${i.icon} ${i.name}`).join(' · ')}</div>
-      <div class="tags">${traits}<span class="tag">📏 ${o.distanceKm.toFixed(1)} km</span>${o.flags.picky ? `<span class="tag warn">${fmt('phone.picky')}</span>` : ''}</div>
+      <div class="tags">${orderTags(o)}${traits}<span class="tag">📏 ${o.distanceKm.toFixed(1)} km</span>${o.flags.picky ? `<span class="tag warn">${fmt('phone.picky')}</span>` : ''}</div>
       <div class="timer"><div style="width:${(left / ORDER.offerTimeoutSec) * 100}%"></div></div>
       <div class="row"><button class="btn" data-act="decline">${fmt('phone.decline')}</button><button class="btn primary" data-act="accept">${fmt('phone.accept', { sec: Math.ceil(left) })}</button></div>
     </div>`;
   }
 
   orderCard(o, d) {
-    const steps = o.kind === 'ride' ? RIDE_STEPS : FOOD_STEPS;
-    const names = list(o.kind === 'ride' ? 'phone.stepRide' : 'phone.stepFood');
+    const [steps, stepKey] = STEPS[o.kind] || STEPS.food;
+    const names = list(stepKey);
     const cur = steps.findIndex((st) => st.includes(d.state));
     const stepHtml = steps.map((_, i) => `<li class="${i < cur ? 'done' : i === cur ? 'cur' : ''}">${i < cur ? '✔' : i === cur ? '➤' : '○'} ${names[i] ?? ''}</li>`).join('');
     const left = Math.round(o.allowedMin - (d.now - o.acceptedAt));
@@ -149,10 +174,11 @@ export class Phone {
     return `<div class="card">
       <div class="offer-top"><b>#${o.id} · ${stateLabel(d.state)}</b><span class="${left < 0 ? 'late' : 'pay'}">${left >= 0 ? fmt('phone.left', { min: left }) : fmt('phone.late', { min: -left })}</span></div>
       <div class="route"><div>📍 <b>${o.pickup.name}</b></div><div>🏁 <b>${o.revealed ? o.dropoff.address : fmt('phone.unknownAddr')}</b><small>${o.customer}${floor}</small></div></div>
+      <div class="tags">${orderTags(o)}</div>
       <ul class="steps">${stepHtml}</ul>
       ${items}
       <div class="row"><button class="btn" data-act="call" ${canCall ? '' : 'disabled'}>${fmt('phone.call')}</button><button class="btn danger" data-act="cancel">${fmt('phone.cancel')}</button></div>
-      <div class="ph-note small">${fmt('phone.cancelNote')}</div>
+      <div class="ph-note small">${fmt('phone.cancelNote', { stars: APP.account.cancelStars })}</div>
     </div>`;
   }
 
@@ -163,14 +189,33 @@ export class Phone {
 
   walletTab(d) {
     const gs = d.gs;
-    const inc = Object.entries(gs.stats.income).map(([k, v]) => `<div class="kv"><span>${fmt(`money.${k}`)}</span><b class="plus">+${fmtK(v)}</b></div>`).join('');
-    const exp = Object.entries(gs.stats.expense).map(([k, v]) => `<div class="kv"><span>${fmt(`money.${k}`)}</span><b class="minus">−${fmtK(v)}</b></div>`).join('');
+    // nhãn thu/chi: kho chữ money.*; loại đơn mới tạo trong công cụ chưa có chữ riêng → dùng tên loại đơn
+    const label = (k) => (has(`money.${k}`) ? fmt(`money.${k}`) : ORDER_TYPES[k]?.name || k);
+    const inc = Object.entries(gs.stats.income).map(([k, v]) => `<div class="kv"><span>${label(k)}</span><b class="plus">+${fmtK(v)}</b></div>`).join('');
+    const exp = Object.entries(gs.stats.expense).map(([k, v]) => `<div class="kv"><span>${label(k)}</span><b class="minus">−${fmtK(v)}</b></div>`).join('');
     const rec = d.receipts.slice(-8).reverse().map((r) => `<div class="kv"><span>#${r.order.id} ${r.order.customer} <small class="st">${stars(r.ev.stars)}</small></span><b>${r.ev.refused ? '0k' : fmtK(r.pay.walletCredit)}</b></div>`).join('');
     const none = `<small>${fmt('phone.none')}</small>`;
     return `<div class="card"><div class="big">${fmtK(gs.money)}</div><small>${fmt('phone.rentToday', { rent: gs.rent })}${gs.rentPaid ? fmt('phone.rentPaid') : ''}</small>
       <div class="kv"><span>${fmt('phone.rating')}</span><b>⭐ ${gs.rating.toFixed(2)}</b></div><small>${fmt('phone.ratingNote')}</small></div>
       <div class="card"><b>${fmt('phone.income')}</b>${inc || none}<b>${fmt('phone.expense')}</b>${exp || none}</div>
       <div class="card"><b>${fmt('phone.recent')}</b>${rec || `<small>${fmt('phone.noOrders')}</small>`}</div>`;
+  }
+
+  // Tài khoản tài xế: điểm, tỉ lệ nhận đơn, tự hủy, bom hàng + luật của app (apps.json → account)
+  accountTab(d) {
+    const gs = d.gs;
+    const acc = APP.account || {};
+    const a = gs.account;
+    const kv = (l, v, note = '') => `<div class="kv"><span>${l}</span><b>${v}</b></div>${note ? `<small>${note}</small>` : ''}`;
+    const locked = gs.lockedUntil > d.now;
+    return `<div class="card"><b>${fmt('phone.accTitle')}</b>
+      ${kv(fmt('phone.accRating'), `⭐ ${gs.rating.toFixed(2)}`, fmt('phone.accLockAt', { limit: Number(acc.lockBelow).toFixed(1) }))}
+      ${kv(fmt('phone.accCompleted'), a.completed)}
+      ${kv(fmt('phone.accRides'), a.rides)}
+      ${kv(fmt('phone.accAccept', { n: a.recent.length }), `${Math.round(gs.acceptRate * 100)}%`, fmt('phone.accAcceptRule', { pct: Math.round((acc.lowAcceptBelow || 0) * 100) }))}
+      ${kv(fmt('phone.accCancels'), `${gs.stats.driverCancels} / ${acc.cancelLimitPerDay}`, fmt('phone.accCancelRule', { n: acc.cancelLimitPerDay, min: acc.cancelLockMin, stars: acc.cancelStars }))}
+      ${kv(fmt('phone.accBom'), a.bom)}
+      <div class="ph-note">${locked ? fmt('phone.accLocked', { time: hhmm(gs.lockedUntil) }) : fmt('phone.accOk')}</div></div>`;
   }
 
   bagTab(d) {

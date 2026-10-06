@@ -5,18 +5,22 @@
 //     ▲                ▲   └─từ chối/hết giờ─┘        │
 //     └──tắt app───────┤                              ├─(đồ ăn) tới quán→ WAITING_FOOD ─xong→ PACKING ─xếp xong→ DELIVERING
 //                      │                              │        └→ OUT_OF_STOCK ─đổi món/nấu thêm→ WAITING_FOOD
+//                      │                              ├─(giao hàng / hỏa tốc) lấy hàng ở shop──→ PACKING
 //                      │                              └─(xe ôm) đón khách──────────────────────────────→ DELIVERING
 //                      │   DELIVERING ─tới nơi→ AT_DROPOFF ─giao→ IDLE (chấm sao + trả tiền)
 //                      │                          ├→ NO_ANSWER ─gọi được/chờ→ AT_DROPOFF · hỏi hàng xóm→ DELIVERING (đổi chỗ)
-//                      │                          └→ STAIRS (thang máy hư) ─leo bộ/gọi khách xuống→ AT_DROPOFF
-//                      └──── hủy đơn (từ hầu hết trạng thái) ─────────────────────────────────────────────────┘
+//                      │                          ├→ STAIRS (thang máy hư) ─leo bộ/gọi khách xuống→ AT_DROPOFF
+//                      │                          └→ RETURNING (khách bom hàng COD) ─trả hàng cho shop→ IDLE
+//                      └──── hủy đơn (từ hầu hết trạng thái) · khách xe ôm đòi xuống giữa đường ──────────────────┘
+// Loại đơn, loại khách xe ôm, phí app đọc từ apps.json (sửa bằng ?editor, thẻ 📱 App & Đơn).
 // =============================================================
 import { ITEMS } from '../data/items.js';
 import { ORDER, DIST, TIME, ECONOMY } from '../data/balance.js';
+import { APP, ORDER_TYPES, RIDER_TYPES, ORDER_KINDS, typeOpen, isPeak, surchargeAt } from '../data/apps.js';
 import { CUSTOMER_NAMES } from '../data/places.js';
 import { DeliveryItem } from './ItemPhysics.js';
 import { evaluateOrder } from './OrderCondition.js';
-import { computePayout, estimatePay } from './economy.js';
+import { computePayout, estimatePay, addTip } from './economy.js';
 import { manhattan } from './cityLayout.js';
 import { fmt } from '../content/index.js';
 import { isOpen, orderWeight } from './placeRules.js';
@@ -33,32 +37,37 @@ export const S = Object.freeze({
   AT_DROPOFF: 'AT_DROPOFF',
   NO_ANSWER: 'NO_ANSWER',
   STAIRS: 'STAIRS',
+  RETURNING: 'RETURNING',
 });
 
 export const TRANSITIONS = {
   OFFLINE: ['IDLE'],
   IDLE: ['OFFERED', 'OFFLINE'],
   OFFERED: ['IDLE', 'TO_PICKUP'],
-  TO_PICKUP: ['WAITING_FOOD', 'OUT_OF_STOCK', 'DELIVERING', 'IDLE'],
+  TO_PICKUP: ['WAITING_FOOD', 'OUT_OF_STOCK', 'PACKING', 'DELIVERING', 'IDLE'],
   WAITING_FOOD: ['PACKING', 'IDLE'],
   OUT_OF_STOCK: ['WAITING_FOOD', 'IDLE'],
   PACKING: ['DELIVERING'],
   DELIVERING: ['AT_DROPOFF', 'IDLE'],
-  AT_DROPOFF: ['NO_ANSWER', 'STAIRS', 'DELIVERING', 'IDLE'],
+  AT_DROPOFF: ['NO_ANSWER', 'STAIRS', 'DELIVERING', 'RETURNING', 'IDLE'],
   NO_ANSWER: ['AT_DROPOFF', 'DELIVERING', 'IDLE'],
   STAIRS: ['AT_DROPOFF', 'IDLE'],
+  RETURNING: ['IDLE'],
 };
 
 // Nhãn hiển thị cho từng trạng thái (kho chữ: state.*)
 export const stateLabel = (st) => fmt(`state.${st}`);
 
-const CARGO_STATES = new Set([S.DELIVERING, S.AT_DROPOFF, S.NO_ANSWER, S.STAIRS]);
+const CARGO_STATES = new Set([S.DELIVERING, S.AT_DROPOFF, S.NO_ANSWER, S.STAIRS, S.RETURNING]);
+const r1 = (v) => Math.round(v * 10) / 10;
 
 export class OrderManager {
-  constructor({ rng, layout, gs }) {
+  // isRaining(phút): để tính phụ phí mưa lúc có đơn (game / bot truyền vào; bỏ trống = không mưa)
+  constructor({ rng, layout, gs, isRaining = () => false }) {
     this.rng = rng;
     this.layout = layout;
     this.gs = gs;
+    this.isRaining = isRaining;
     this.state = S.OFFLINE;
     this.order = null;
     this.offer = null;
@@ -88,6 +97,17 @@ export class OrderManager {
   get hasCargo() {
     return !!(this.order && this.order.items.length && CARGO_STATES.has(this.state));
   }
+  // Loại đơn / loại khách của đơn (dữ liệu có thể đã bị xóa trong công cụ → dùng mặc định)
+  typeOf(o) {
+    return ORDER_TYPES[o.type] || Object.values(ORDER_TYPES).find((t) => t.kind === o.kind) || { kind: o.kind, fareMult: 1, deadlineMult: 1 };
+  }
+  riderOf(o) {
+    return o.rider ? RIDER_TYPES[o.rider] || null : null;
+  }
+  // Khách đang bom hàng (chưa thuyết phục được, chưa đem trả)
+  bomPending(o = this.order) {
+    return !!(o && o.flags.bom && !o.bomResolved);
+  }
 
   // ---------- bật / tắt app ----------
   goOnline() {
@@ -103,16 +123,18 @@ export class OrderManager {
     return true;
   }
 
+  // Khoảng chờ tới đơn kế: giờ cao điểm nhanh hơn; tỉ lệ nhận đơn thấp thì app phát đơn thưa hơn
   schedulePing(now) {
-    const h = now / 60;
-    const peak = (h >= 11 && h < 13) || (h >= 17 && h < 19.5);
-    this.nextPingIn = this.rng.range(...ORDER.pingGap) * (peak ? 0.6 : 1);
+    const acc = APP.account || {};
+    const lowAccept = this.gs.acceptRate < (acc.lowAcceptBelow ?? 0) ? acc.lowAcceptPingMult || 1 : 1;
+    this.nextPingIn = this.rng.range(...ORDER.pingGap) * (isPeak(now) ? 0.6 : 1) * lowAccept;
   }
 
   // dtMin: phút game, dtSec: giây thật (đếm ngược thẻ đơn theo thời gian thật)
   update(dtMin, dtSec, now, pos) {
     if (this.state === S.IDLE) {
       if (now >= TIME.lastOfferAt) return;
+      if (this.gs.lockedUntil > now) return; // tài khoản đang bị tạm khóa nhận đơn
       this.nextPingIn -= dtMin;
       if (this.nextPingIn <= 0) {
         this.offer = this.makeOffer(now, pos);
@@ -127,6 +149,7 @@ export class OrderManager {
       if (this.offerTimeLeft <= 0) {
         const offer = this.offer;
         this.offer = null;
+        this.gs.recordOffer(false);
         this.go(S.IDLE);
         this.schedulePing(now);
         this.emit('offerExpired', { offer });
@@ -141,17 +164,34 @@ export class OrderManager {
     return true;
   }
 
+  // Loại đơn đang có: đúng khung giờ, đủ trang bị yêu cầu (vd mũ cho khách → đơn xe ôm)
+  availableTypes(now) {
+    return Object.values(ORDER_TYPES).filter((t) => ORDER_KINDS.includes(t.kind) && t.weight > 0 && typeOpen(t, now) && (!t.requires || this.gs.effect(t.requires)));
+  }
+
   makeOffer(now, pos = { x: 0, z: 0 }) {
     const gs = this.gs;
     // Đơn cốt truyện: lần đầu có mũ cho khách → đơn chở anh Minh
-    const canRide = gs.effect('passengerSeat');
-    if (gs.flags.wallet === 0 && canRide) return this.makeRide(pos, true, now);
-    if (canRide && this.rng.chance(ORDER.rideChance)) return this.makeRide(pos, false, now);
+    if (gs.flags.wallet === 0 && gs.effect('passengerSeat')) {
+      const rideType = ORDER_TYPES.ride || Object.values(ORDER_TYPES).find((t) => t.kind === 'ride');
+      if (rideType) return this.makeRide(pos, true, now, rideType);
+    }
+    // chọn loại đơn theo mức thường xuyên; loại nào lúc này không tạo được đơn thì thử loại khác
+    let types = this.availableTypes(now);
+    while (types.length) {
+      const t = this.rng.weighted(types, types.map((x) => x.weight));
+      const o = t.kind === 'ride' ? this.makeRide(pos, false, now, t) : t.kind === 'parcel' ? this.makeParcel(t, now, pos) : this.makeFood(t, now, pos);
+      if (o) return o;
+      types = types.filter((x) => x !== t);
+    }
+    return null;
+  }
 
+  makeFood(type, now, pos) {
     // chỉ quán đang mở cửa mới có đơn
     const options = this.layout.places
       .filter((p) => p.kind === 'restaurant' && isOpen(p, now) && (p.menu || []).length)
-      .map((r) => ({ r, menu: r.menu.filter((id) => this.canCarry(ITEMS[id])) }))
+      .map((r) => ({ r, menu: r.menu.filter((id) => ITEMS[id] && this.canCarry(ITEMS[id])) }))
       .filter((o) => o.menu.length);
     if (!options.length) return null;
     const weights = options.map((o) => (o.menu.some((id) => ITEMS[id].traits.includes('cold')) ? 1.6 : 1) / (40 + manhattan(pos, o.r.door)));
@@ -160,24 +200,63 @@ export class OrderManager {
     const itemIds = Array.from({ length: n }, () => this.rng.pick(menu));
     const dropoff = this.pickDropoff(r.door, true, now, 'foodWeight', r.id);
     const pickup = { placeId: r.id, name: r.name, address: r.address, door: r.door };
-    return this.buildOrder('food', pickup, dropoff, itemIds, pos);
+    return this.buildOrder({ type, pickup, dropoff, itemIds, pos, now });
+  }
+
+  // Giao hàng / hỏa tốc: lấy hàng ở shop (nơi có "gửi hàng từ đây") hoặc nhà người gửi gần đó
+  makeParcel(type, now, pos) {
+    const items = (type.items || []).filter((id) => ITEMS[id] && ITEMS[id].parcel && this.canCarry(ITEMS[id]));
+    if (!items.length) return null;
+    const id = this.rng.pick(items);
+    let pickup = this.placeDestination('parcelWeight', now, null, 1, true);
+    if (!pickup) {
+      const near = this.layout.lots.filter((l) => {
+        const d = manhattan(pos, l.door);
+        return d > 30 && d < 160;
+      });
+      const l = this.rng.pick(near.length ? near : this.layout.lots);
+      pickup = { name: l.address, address: l.address, door: l.door, lotKey: l.key };
+    }
+    const dropoff = this.pickDropoff(pickup.door, true, now, null, pickup.placeId);
+    const o = this.buildOrder({ type, pickup, dropoff, itemIds: [id], pos, now });
+    // thu hộ (COD): app chỉ giao đơn COD khi ví tài xế đủ tiền ứng trước
+    const value = ITEMS[id].cod || 0;
+    if (value > 0 && this.rng.chance(type.codChance || 0) && this.gs.money >= value) o.cod = value;
+    o.flags.bom = !!o.cod && this.rng.chance(type.bomChance || 0);
+    return o;
   }
 
   // Địa điểm (karaoke, nhà sách…) được đánh dấu làm điểm đến của đơn, theo trọng số + khung giờ.
-  // Trả về null nếu lần này không chọn địa điểm nào.
-  placeDestination(key, now, excludeId = null, scale = 1) {
+  // force: luôn chọn nếu có nơi đủ điều kiện. Trả về null nếu lần này không chọn địa điểm nào.
+  placeDestination(key, now, excludeId = null, scale = 1, force = false) {
     const cands = this.layout.places.filter((p) => p.id !== excludeId).map((p) => ({ p, w: orderWeight(p, key, now) })).filter((c) => c.w > 0);
     const W = cands.reduce((s, c) => s + c.w, 0);
-    if (!W || !this.rng.chance((W / (W + ORDER.placeDestBase)) * scale)) return null;
+    if (!W || (!force && !this.rng.chance((W / (W + ORDER.placeDestBase)) * scale))) return null;
     const { p } = this.rng.weighted(cands, cands.map((c) => c.w));
     return { placeId: p.id, name: p.name, address: p.name, door: p.door, apartment: false };
   }
 
-  makeRide(pos, story, now = 0) {
+  // Loại khách xe ôm lúc này (theo giờ, số chuyến đã chở, nơi đón)
+  pickRider(now) {
+    const gs = this.gs;
+    const cands = Object.values(RIDER_TYPES).filter((r) => r.weight > 0 && typeOpen(r, now) && (!r.minRides || gs.account.rides >= r.minRides) && (!r.from || this.riderPlaces(r, now).length));
+    if (!cands.length) return RIDER_TYPES.app || Object.values(RIDER_TYPES)[0] || null;
+    return this.rng.weighted(cands, cands.map((r) => r.weight));
+  }
+  riderPlaces(r, now) {
+    return (r.from || []).map((id) => this.layout.placeById[id]).filter((p) => p && isOpen(p, now));
+  }
+
+  makeRide(pos, story, now = 0, type = ORDER_TYPES.ride) {
     const market = this.layout.placeById.market;
+    const rider = story ? RIDER_TYPES.app || null : this.pickRider(now);
     let pickup;
+    const from = rider && rider.from ? this.riderPlaces(rider, now) : [];
     if (story) pickup = { placeId: 'market', name: market.name, address: market.address, door: market.door };
-    else if ((pickup = this.placeDestination('rideWeight', now, null, 0.5))) {
+    else if (from.length) {
+      const p = this.rng.pick(from); // khách say đi ra từ karaoke…
+      pickup = { placeId: p.id, name: p.name, address: p.name, door: p.door };
+    } else if ((pickup = this.placeDestination('rideWeight', now, null, 0.5))) {
       // khách xuất phát từ một địa điểm (vd. hát karaoke xong về nhà)
     } else {
       const near = this.layout.lots.filter((l) => {
@@ -188,16 +267,29 @@ export class OrderManager {
       pickup = { name: l.address, address: l.address, door: l.door, lotKey: l.key };
     }
     const dropoff = this.pickDropoff(pickup.door, false, now, pickup.placeId ? null : 'rideWeight', pickup.placeId);
-    const o = this.buildOrder('ride', pickup, dropoff, ['passenger'], pos);
-    o.flags.vague = false;
+    const o = this.buildOrder({ type: type || { id: 'ride', kind: 'ride', fareMult: 1, deadlineMult: 1 }, pickup, dropoff, itemIds: ['passenger'], pos, now, rider });
     o.flags.noAnswer = false;
-    o.revealed = true;
+    // khách say hay quên địa chỉ → chỉ biết khu vực, gọi hỏi lại / hỏi người đi đường
+    o.flags.vague = !story && !dropoff.placeId && !!rider && this.rng.chance(rider.vagueChance || 0);
+    o.revealed = !o.flags.vague;
+    if (o.flags.vague) o.zone = this.vagueZone(dropoff.door);
+    // đặt xe dùm: người đi khác người đặt
+    if (rider && Array.isArray(rider.riderNames) && rider.riderNames.length) {
+      o.booker = o.customer;
+      o.customer = this.rng.pick(rider.riderNames);
+    }
     if (story) {
       o.story = 'wallet';
       o.customer = 'Anh Minh';
       o.flags.picky = false;
     }
     return o;
+  }
+
+  vagueZone(door) {
+    const a = this.rng.range(0, Math.PI * 2);
+    const r = this.rng.range(6, 16);
+    return { x: door.x + Math.cos(a) * r, z: door.z + Math.sin(a) * r, r: 26 };
   }
 
   // destKey: 'foodWeight' | 'rideWeight' | null — cho phép giao tới địa điểm được đánh dấu
@@ -220,35 +312,48 @@ export class OrderManager {
     return { name: l.address, address: l.address, door: l.door, apartment: false, lotKey: l.key };
   }
 
-  buildOrder(kind, pickup, dropoff, itemIds, pos) {
+  buildOrder({ type, pickup, dropoff, itemIds, pos, now = 0, rider = null }) {
     const rng = this.rng;
+    const kind = type.kind;
     const defs = itemIds.map((id) => ITEMS[id]);
     const d1 = manhattan(pos, pickup.door);
     const d2 = manhattan(pickup.door, dropoff.door);
     const distanceKm = Math.round((d2 * DIST.displayPerUnit) / 100) / 10;
-    const baseFare = Math.max(...defs.map((d) => d.base)) + (defs.length - 1) * ECONOMY.extraItemFare;
+    const fareMult = (type.fareMult ?? 1) * (rider ? rider.fareMult ?? 1 : 1);
+    const baseFare = r1((Math.max(...defs.map((d) => d.base)) + (defs.length - 1) * APP.extraItemFare) * fareMult);
+    const viaApp = rider ? rider.viaApp !== false : true;
+    const surcharge = viaApp ? surchargeAt(now, this.isRaining(now)) : 0; // khách quen gọi thẳng: không có phụ phí app
     const named = !!dropoff.placeId; // giao tới địa điểm có tên → không mơ hồ, khách có mặt
-    const vague = kind === 'food' && !dropoff.apartment && !named && rng.chance(ORDER.vagueChance);
+    const vague = kind !== 'ride' && !dropoff.apartment && !named && rng.chance(ORDER.vagueChance);
     const o = {
       id: ++this.orderSeq,
+      type: type.id || kind,
       kind,
+      rider: rider ? rider.id : null,
+      viaApp,
       story: null,
       pickup,
       dropoff,
       itemIds,
       items: [],
       customer: rng.pick(CUSTOMER_NAMES),
+      booker: null,
       baseFare,
+      surcharge,
+      cod: 0,
+      codPaid: false,
       distanceKm,
       d1,
       d2,
-      estPay: estimatePay(baseFare, distanceKm),
+      estPay: estimatePay(baseFare, distanceKm, { surcharge, viaApp }),
+      deadlineMult: (type.deadlineMult ?? 1) * (rider ? rider.deadlineMult ?? 1 : 1),
       flags: {
         vague,
-        noAnswer: kind === 'food' && !dropoff.apartment && !named && rng.chance(ORDER.noAnswerChance),
+        noAnswer: kind !== 'ride' && !dropoff.apartment && !named && rng.chance(ORDER.noAnswerChance),
         picky: rng.chance(ORDER.pickyChance),
         outOfStock: kind === 'food' && rng.chance(ORDER.outOfStockChance),
         liftBroken: !!dropoff.apartment && rng.chance(ORDER.liftBrokenChance),
+        bom: false,
       },
       revealed: !vague,
       zone: null,
@@ -262,12 +367,11 @@ export class OrderManager {
       noAnswerResolved: false,
       stairsDone: false,
       missingItem: null,
+      bomResolved: false,
+      persuaded: false,
+      vomited: false,
     };
-    if (vague) {
-      const a = rng.range(0, Math.PI * 2);
-      const r = rng.range(6, 16);
-      o.zone = { x: dropoff.door.x + Math.cos(a) * r, z: dropoff.door.z + Math.sin(a) * r, r: 26 };
-    }
+    if (vague) o.zone = this.vagueZone(dropoff.door);
     return o;
   }
 
@@ -278,8 +382,9 @@ export class OrderManager {
     if (pos) o.d1 = manhattan(pos, o.pickup.door);
     o.acceptedAt = now;
     const prep = o.kind === 'food' ? ORDER.prepAllowance : 2;
-    o.allowedMin = Math.round((o.d1 + o.d2) / ORDER.planSpeed + prep + ORDER.slack);
+    o.allowedMin = Math.round(((o.d1 + o.d2) / ORDER.planSpeed + prep + ORDER.slack) * o.deadlineMult);
     this.order = o;
+    this.gs.recordOffer(true);
     this.go(S.TO_PICKUP);
     this.emit('accepted', { order: o });
     return o;
@@ -289,6 +394,7 @@ export class OrderManager {
     if (this.state !== S.OFFERED) return false;
     const offer = this.offer;
     this.offer = null;
+    this.gs.recordOffer(false);
     this.go(S.IDLE);
     this.schedulePing(now);
     this.emit('declined', { offer });
@@ -299,9 +405,7 @@ export class OrderManager {
   arriveAtPickup(now) {
     const o = this.order;
     if (this.state !== S.TO_PICKUP || !o || o.kind !== 'food') return null;
-    const h = now / 60;
-    const peak = (h >= 11 && h < 13) || (h >= 17 && h < 19.5);
-    const q = this.rng.range(...(peak ? ORDER.queuePeak : ORDER.queue));
+    const q = this.rng.range(...(isPeak(now) ? ORDER.queuePeak : ORDER.queue));
     o.readyAt = now + q;
     // quán làm lâu là lỗi của quán: cộng phần dư vào thời hạn
     o.allowedMin += Math.max(0, Math.round(q - ORDER.prepAllowance));
@@ -332,7 +436,7 @@ export class OrderManager {
     }
     // gọi khách
     if (this.rng.chance(ORDER.substituteAcceptChance)) {
-      const menu = this.layout.placeById[o.pickup.placeId].menu.filter((id) => id !== o.missingItem && this.canCarry(ITEMS[id]));
+      const menu = this.layout.placeById[o.pickup.placeId].menu.filter((id) => id !== o.missingItem && ITEMS[id] && this.canCarry(ITEMS[id]));
       const sub = menu.length ? this.rng.pick(menu) : o.missingItem;
       o.itemIds = o.itemIds.map((id) => (id === o.missingItem ? sub : id));
       o.flags.outOfStock = false;
@@ -340,7 +444,7 @@ export class OrderManager {
       this.go(S.WAITING_FOOD);
       return { accepted: true, sub: ITEMS[sub] };
     }
-    this.cancel(fmt('cancel.outOfStockCustomer'), now, { byDriver: false, comp: ECONOMY.cancelComp });
+    this.cancel(fmt('cancel.outOfStockCustomer'), now, { byDriver: false, comp: APP.cancelComp });
     return { accepted: false, cancelled: true };
   }
 
@@ -360,6 +464,19 @@ export class OrderManager {
     return o.items;
   }
 
+  // Giao hàng / hỏa tốc: nhận hàng ở shop (đơn COD phải ứng tiền hàng trước) → xếp túi
+  collectParcel(now) {
+    const o = this.order;
+    if (this.state !== S.TO_PICKUP || !o || o.kind !== 'parcel') return null;
+    if (o.cod && !o.codPaid) {
+      if (!this.gs.spend(o.cod, 'codAdvance')) return { noMoney: true, cod: o.cod };
+      o.codPaid = true;
+    }
+    o.items = o.itemIds.map((id) => new DeliveryItem(ITEMS[id], ++this.uid));
+    this.go(S.PACKING);
+    return { items: o.items, cod: o.codPaid ? o.cod : 0 };
+  }
+
   // modsList[i] = { upright, heatNeighbor, crushed } cho món thứ i
   finishPacking(modsList, now) {
     if (this.state !== S.PACKING) return false;
@@ -374,7 +491,11 @@ export class OrderManager {
   boardPassenger(now) {
     const o = this.order;
     if (this.state !== S.TO_PICKUP || !o || o.kind !== 'ride') return false;
-    o.items = [new DeliveryItem(ITEMS.passenger, ++this.uid)];
+    const it = new DeliveryItem(ITEMS.passenger, ++this.uid);
+    // mỗi loại khách chịu tốc độ khác nhau (cụ già sợ nhanh, khách vội thì không)
+    const rider = this.riderOf(o);
+    if (rider && rider.comfortKmh) it.comfortDelta = rider.comfortKmh / 3.6 - ECONOMY.speedLimit;
+    o.items = [it];
     o.pickedAt = now;
     this.go(S.DELIVERING);
     this.emit('pickedUp', { order: o });
@@ -390,17 +511,18 @@ export class OrderManager {
   }
 
   // ---------- ở điểm giao ----------
-  // Trả về: 'noAnswer' | 'stairs' | 'lift' | 'ready'
+  // Trả về: 'noAnswer' | 'stairs' | 'lift' | 'bom' | 'ready'
   arriveAtDropoff(now) {
     const o = this.order;
     if (!o) return null;
-    if (this.state === S.AT_DROPOFF) return 'ready';
+    if (this.state === S.AT_DROPOFF) return this.bomPending(o) ? 'bom' : 'ready';
     if (this.state !== S.DELIVERING) return null;
     this.go(S.AT_DROPOFF);
     if (o.flags.noAnswer && !o.noAnswerResolved) {
       this.go(S.NO_ANSWER);
       return 'noAnswer';
     }
+    if (this.bomPending(o)) return 'bom';
     if (o.dropoff.apartment && !o.stairsDone) {
       if (o.flags.liftBroken) {
         this.go(S.STAIRS);
@@ -479,25 +601,86 @@ export class OrderManager {
     return { floors: 0, minutes: ORDER.callDownWait };
   }
 
+  // ---------- bom hàng (đơn COD) ----------
+  // Năn nỉ khách nhận hàng (mỗi đơn 1 lần)
+  persuadeBom(now) {
+    const o = this.order;
+    if (this.state !== S.AT_DROPOFF || !this.bomPending(o) || o.persuaded) return null;
+    o.persuaded = true;
+    const accepted = this.rng.chance(this.typeOf(o).persuadeChance || 0);
+    if (accepted) o.bomResolved = true;
+    return { accepted };
+  }
+  // Báo bom → mang hàng về trả shop
+  startReturn(now) {
+    const o = this.order;
+    if (this.state !== S.AT_DROPOFF || !this.bomPending(o)) return false;
+    this.go(S.RETURNING);
+    this.emit('returning', { order: o });
+    return true;
+  }
+  // Trả hàng cho shop: nhận lại tiền đã ứng + phí hoàn hàng của app
+  returnToShop(now) {
+    const o = this.order;
+    if (this.state !== S.RETURNING || !o) return null;
+    const refund = o.codPaid ? o.cod : 0;
+    const fee = r1(o.baseFare * (this.typeOf(o).returnFeePct || 0));
+    this.gs.earn(refund, 'codRefund');
+    this.gs.earn(fee, 'returnFee');
+    this.gs.recordBom();
+    this.order = null;
+    this.go(S.IDLE);
+    this.schedulePing(now);
+    const res = { order: o, refund, fee };
+    this.emit('returned', res);
+    return res;
+  }
+
   canHandOver() {
-    return this.state === S.AT_DROPOFF;
+    return this.state === S.AT_DROPOFF && !this.bomPending();
   }
 
   handOver(now) {
     const o = this.order;
-    if (this.state !== S.AT_DROPOFF || !o) return null;
+    if (!this.canHandOver() || !o) return null;
+    const rider = this.riderOf(o);
     const elapsed = now - o.acceptedAt;
     const ev = evaluateOrder({ items: o.items, elapsedMin: elapsed, allowedMin: o.allowedMin, picky: o.flags.picky, extraPenalty: o.extraPenalty, ride: o.kind === 'ride' });
-    const pay = computePayout({ baseFare: o.baseFare, distanceKm: o.distanceKm, litersUsed: o.liters, stars: ev.stars, refused: ev.refused, farePct: ev.scared ? ECONOMY.scaredFarePct : 1 });
+    // khách say có khi quỵt tiền
+    const noPay = !ev.refused && !!rider && this.rng.chance(rider.noPayChance || 0);
+    const farePct = noPay ? 0 : ev.scared ? ECONOMY.scaredFarePct : 1;
+    const pay = computePayout({ baseFare: o.baseFare, distanceKm: o.distanceKm, litersUsed: o.liters, stars: ev.stars, refused: ev.refused, farePct, surcharge: o.surcharge, viaApp: o.viaApp });
+    const good = !ev.refused && !ev.scared && !noPay;
     // trang bị "boa thêm" (vd. sách giao tiếp) cho đơn 4–5 sao
-    const bonus = !ev.refused && ev.stars >= 4 ? this.gs.effect('tipBonus') : 0;
-    if (bonus) {
-      pay.tip += bonus;
-      pay.walletCredit = Math.round((pay.walletCredit + bonus) * 10) / 10;
-      pay.net = Math.round((pay.net + bonus) * 10) / 10;
-      pay.tipBonus = bonus;
-    }
-    const receipt = { order: o, ev, pay, elapsed, at: now };
+    const bonus = good && ev.stars >= 4 ? this.gs.effect('tipBonus') : 0;
+    addTip(pay, bonus);
+    if (bonus) pay.tipBonus = bonus;
+    // khách say boa đậm · khách vội tới sớm thì boa
+    const bigTip = good && rider && rider.bigTip && this.rng.chance(rider.bigTipChance || 0) ? rider.bigTip : 0;
+    const earlyTip = good && rider && rider.earlyTip && elapsed <= o.allowedMin * 0.8 ? rider.earlyTip : 0;
+    addTip(pay, bigTip + earlyTip);
+    // thu hộ: khách nhận hàng thì trả lại tiền hàng tài xế đã ứng; hàng hỏng bị từ chối thì mất luôn
+    pay.cod = o.codPaid && !ev.refused ? o.cod : 0;
+    const codLost = o.codPaid && ev.refused ? o.cod : 0;
+    const receipt = { order: o, ev, pay, elapsed, at: now, noPay, bigTip, earlyTip, codLost };
+    this.history.push(receipt);
+    this.order = null;
+    this.go(S.IDLE);
+    this.schedulePing(now);
+    this.emit('completed', { receipt });
+    return receipt;
+  }
+
+  // Khách xe ôm sợ quá đòi xuống giữa đường: trả tiền theo quãng đã đi, 1 sao
+  quitRide(now, pos) {
+    const o = this.order;
+    if (this.state !== S.DELIVERING || !o || o.kind !== 'ride') return null;
+    const traveled = Math.max(0, Math.min(1, 1 - manhattan(pos, o.dropoff.door) / Math.max(1, o.d2)));
+    const conditionPct = o.items.length ? o.items[0].condition : 0;
+    const ev = { refused: false, quit: true, stars: 1, conditionPct, timeRatio: o.allowedMin > 0 ? (now - o.acceptedAt) / o.allowedMin : 0, penalties: [{ label: fmt('pen.quit'), value: 4 }], reasons: Object.entries(o.items[0]?.reasons || {}).filter(([, v]) => v >= 0.5).sort((a, b) => b[1] - a[1]) };
+    const pay = computePayout({ baseFare: o.baseFare, distanceKm: o.distanceKm, litersUsed: o.liters, stars: 1, farePct: traveled, surcharge: o.surcharge, viaApp: o.viaApp });
+    pay.cod = 0;
+    const receipt = { order: o, ev, pay, elapsed: now - o.acceptedAt, at: now, quit: true, traveled };
     this.history.push(receipt);
     this.order = null;
     this.go(S.IDLE);
@@ -514,7 +697,8 @@ export class OrderManager {
     if (this.state === S.PACKING) this.go(S.DELIVERING);
     this.go(S.IDLE);
     this.schedulePing(now);
-    this.emit('cancelled', { order: o, reason, byDriver, comp });
+    // hủy khi đang giữ hàng COD: app thu hồi hàng và hoàn tiền đã ứng
+    this.emit('cancelled', { order: o, reason, byDriver, comp, codRefund: o.codPaid ? o.cod : 0, now });
     return true;
   }
 
@@ -525,7 +709,16 @@ export class OrderManager {
   }
   itemEvent(type, mag, env) {
     if (!this.hasCargo) return;
-    for (const it of this.order.items) it.event(type, mag, env);
+    const o = this.order;
+    for (const it of o.items) it.event(type, mag, env);
+    // khách say gặp xóc mạnh thì ói ra xe: mệt tinh thần + tiền rửa xe (mỗi chuyến tối đa 1 lần)
+    const rider = this.riderOf(o);
+    if (type === 'bump' && this.state === S.DELIVERING && rider && rider.vomitChance && !o.vomited && mag > 0.15 && this.rng.chance(rider.vomitChance)) {
+      o.vomited = true;
+      this.gs.addEnergy(0, -(rider.vomitMental || 0));
+      if (rider.vomitCost) this.gs.spend(rider.vomitCost, 'cleaning', true);
+      this.emit('vomit', { order: o, cost: rider.vomitCost || 0, mental: rider.vomitMental || 0 });
+    }
   }
   addFuel(liters) {
     if (this.order) this.order.liters += liters;

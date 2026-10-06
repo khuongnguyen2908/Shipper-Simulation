@@ -11,6 +11,7 @@ import gearJson from '../../data/gear.json' with { type: 'json' };
 import goodsJson from '../../data/goods.json' with { type: 'json' };
 import placesJson from '../../data/places.json' with { type: 'json' };
 import contentJson from '../../content/vi.json' with { type: 'json' };
+import appsJson from '../../data/apps.json' with { type: 'json' };
 import { validateAll } from '../../data/validate.js';
 import { setContentTable } from '../../content/index.js';
 import { el, button, clone } from './ui.js';
@@ -18,6 +19,7 @@ import * as tabItems from './tabItems.js';
 import * as tabGear from './tabGear.js';
 import * as tabPlaces from './tabPlaces.js';
 import * as tabText from './tabText.js';
+import * as tabApp from './tabApp.js';
 import { selKey, planScroll, selToSave } from './viewState.js';
 
 const FILES = {
@@ -26,11 +28,13 @@ const FILES = {
   goods: { path: 'src/data/goods.json', label: 'Đồ dùng', src: goodsJson },
   places: { path: 'src/data/places.json', label: 'Địa điểm & NPC', src: placesJson },
   content: { path: 'src/content/vi.json', label: 'Chữ & hội thoại', src: contentJson },
+  apps: { path: 'src/data/apps.json', label: 'App & Đơn', src: appsJson },
 };
 const TABS = [
   { id: 'items', icon: '🍜', label: 'Vật phẩm', mod: tabItems },
   { id: 'gear', icon: '🛵', label: 'Xe · Túi · Đồ dùng', mod: tabGear },
   { id: 'places', icon: '🏪', label: 'Địa điểm & NPC', mod: tabPlaces },
+  { id: 'app', icon: '📱', label: 'App & Đơn', mod: tabApp },
   { id: 'text', icon: '💬', label: 'Chữ & hội thoại', mod: tabText },
 ];
 const DRAFT_KEY = 'shipper-editor-draft-v1';
@@ -139,7 +143,7 @@ export async function startEditor(root) {
   ctx.issuesFor = (tab, ref, extra = {}) => ctx.issues.filter((i) => i.tab === tab && i.ref === ref && (!extra.cat || i.cat === extra.cat));
 
   function validate() {
-    ctx.issues = validateAll({ items: ctx.data.items, gear: ctx.data.gear, goods: ctx.data.goods, places: ctx.data.places, content: ctx.data.content, baseContent: ctx.base.content });
+    ctx.issues = validateAll({ items: ctx.data.items, gear: ctx.data.gear, goods: ctx.data.goods, places: ctx.data.places, content: ctx.data.content, baseContent: ctx.base.content, apps: ctx.data.apps });
   }
 
   // Gắn lỗi vào đúng ô nhập (theo data-ref / data-field / data-cat)
@@ -170,7 +174,7 @@ export async function startEditor(root) {
         { class: 'ed-tabs' },
         TABS.map((t) => {
           const n = ctx.issues.filter((i) => i.tab === t.id && i.level === 'error').length;
-          const fileKeys = t.id === 'text' ? ['content'] : t.id === 'gear' ? ['gear', 'goods'] : [t.id];
+          const fileKeys = t.id === 'text' ? ['content'] : t.id === 'gear' ? ['gear', 'goods'] : t.id === 'app' ? ['apps'] : [t.id];
           return el(
             'button',
             { class: `ed-tab${ctx.tab === t.id ? ' on' : ''}`, type: 'button', onclick: () => ctx.select(t.id) },
@@ -238,6 +242,7 @@ export async function startEditor(root) {
     else if (i.tab === 'gear') ctx.select('gear', { cat: i.cat, id: i.ref });
     else if (i.tab === 'places') ctx.select('places', { id: i.ref || '__streets' });
     else if (i.tab === 'text') ctx.select('text', { search: i.ref, group: '' });
+    else if (i.tab === 'app') ctx.select('app', { cat: i.cat, id: i.ref || null });
   }
 
   // ---------- lưu / xuất / nhập ----------
@@ -283,7 +288,7 @@ export async function startEditor(root) {
         try {
           const j = JSON.parse(await f.text());
           const first = Object.values(j)[0] || {};
-          const k = j.vehicles ? 'gear' : j.places ? 'places' : Object.keys(j).some((x) => x.includes('.')) ? 'content' : first.type === 'consumable' || first.type === 'equipment' ? 'goods' : 'items';
+          const k = j.vehicles ? 'gear' : j.places ? 'places' : j.orderTypes ? 'apps' : Object.keys(j).some((x) => x.includes('.')) ? 'content' : ['consumable', 'equipment', 'carry', 'outfit'].includes(first.type) ? 'goods' : 'items';
           ctx.data[k] = j;
           done.push(`${f.name} → ${FILES[k].label}`);
         } catch (e) {

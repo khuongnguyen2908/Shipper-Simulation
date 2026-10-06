@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, BAGS } from './data/balance.js';
 import { GOODS, outfitLook } from './data/goods.js';
+import { APP, RIDER_TYPES } from './data/apps.js';
 import { ITEMS } from './data/items.js';
 import { buildLayout, segmentRect, roadPos } from './sim/cityLayout.js';
 import { makeRng } from './sim/rng.js';
@@ -162,7 +163,7 @@ export class Game {
     this.seed = seed;
     this.gs = new GameState({ day, carry });
     this.hz = new HazardManager(makeRng(seed + day * 101));
-    this.om = new OrderManager({ rng: makeRng(seed * 7 + day), layout: this.layout, gs: this.gs });
+    this.om = new OrderManager({ rng: makeRng(seed * 7 + day), layout: this.layout, gs: this.gs, isRaining: (m) => this.hz.isRaining(m) });
     this.om.on((e) => this.onOrderEvent(e));
     this.clockMin = TIME.dayStart;
     this.chat = [];
@@ -409,6 +410,12 @@ export class Game {
     // ---- đơn hàng ----
     om.update(dMin, dt, this.clockMin, pp);
     om.tickItems({ ...env, speed: mounted ? speed : 0 }, dMin);
+    // khách xe ôm sợ quá (dưới ngưỡng của loại khách) → đòi xuống giữa đường
+    const ro = om.order;
+    if (ro && ro.kind === 'ride' && om.state === S.DELIVERING && ro.items[0]) {
+      const quitBelow = RIDER_TYPES[ro.rider]?.quitBelow || 0;
+      if (ro.items[0].condition < quitBelow) return act.passengerQuit(this);
+    }
 
     // ---- tương tác ----
     this.prompts = act.gatherInteractions(this);
@@ -534,11 +541,17 @@ export class Game {
       this.hud.toast(fmt('toast.offer'), 'good', 3500);
     } else if (e.type === 'offerExpired') this.hud.toast(fmt('toast.offerExpired'), 'info');
     else if (e.type === 'cancelled') {
-      this.gs.applyCancel(e);
+      const r = this.gs.applyCancel(e, this.clockMin);
       this.clearTempNpcs();
       this.bike.mesh.userData.bagMesh.visible = true;
-      this.hud.toast(fmt('toast.cancelled', { reason: e.reason }) + (e.comp ? fmt('toast.cancelComp', { k: e.comp }) : '') + (e.byDriver ? fmt('toast.cancelDriver') : ''), 'bad', 5000);
+      this.hud.toast(fmt('toast.cancelled', { reason: e.reason }) + (e.comp ? fmt('toast.cancelComp', { k: e.comp }) : '') + (e.byDriver ? fmt('toast.cancelDriver', { stars: APP.account.cancelStars }) : ''), 'bad', 5000);
+      if (r.locked) this.hud.toast(fmt('toast.accountLocked', { n: APP.account.cancelLimitPerDay, time: fmtTime(r.until) }), 'bad', 7000);
       sfx.bad();
+    } else if (e.type === 'returning') this.hud.toast(fmt('toast.returning', { place: e.order.pickup.name }), 'warn', 5000);
+    else if (e.type === 'vomit') {
+      sfx.bad();
+      this.shake = Math.max(this.shake, 0.3);
+      this.hud.toast(fmt('toast.vomit', { mental: e.mental, cost: e.cost }), 'bad', 4500);
     } else if (e.type === 'redirect') {
       this.clearTempNpcs();
       this.hud.toast(fmt('toast.redirect', { address: e.order.dropoff.address }), 'warn', 5000);
@@ -565,11 +578,13 @@ export class Game {
     if (o) {
       if ([S.TO_PICKUP, S.WAITING_FOOD, S.OUT_OF_STOCK, S.PACKING].includes(om.state)) {
         const wait = om.state === S.WAITING_FOOD ? Math.ceil(om.minutesUntilReady(this.clockMin)) : 0;
-        const ride = o.kind === 'ride';
-        return { ...o.pickup.door, text: fmt(ride ? 'goal.pickupRide' : 'goal.pickupFood', { customer: o.customer, place: o.pickup.name }), sub: wait ? fmt('goal.pickupWait', { min: wait }) : fmt(ride ? 'goal.pickupRideHint' : 'goal.pickupFoodHint'), color: '#f39c12' };
+        const k = o.kind === 'ride' ? 'Ride' : o.kind === 'parcel' ? 'Parcel' : 'Food';
+        return { ...o.pickup.door, text: fmt(`goal.pickup${k}`, { customer: o.customer, place: o.pickup.name }), sub: wait ? fmt('goal.pickupWait', { min: wait }) : fmt(`goal.pickup${k}Hint`), color: '#f39c12' };
       }
+      // bị bom: mang hàng về trả shop
+      if (om.state === S.RETURNING) return { ...o.pickup.door, text: fmt('goal.returnParcel', { place: o.pickup.name }), sub: fmt('goal.returnParcelHint'), color: '#e67e22' };
       if (!o.revealed && o.zone) return { x: o.zone.x, z: o.zone.z, zone: o.zone, text: fmt('goal.vague', { customer: o.customer }), sub: fmt('goal.vagueHint'), color: '#9b59b6' };
-      return { ...o.dropoff.door, text: fmt(o.kind === 'ride' ? 'goal.dropRide' : 'goal.dropFood', { address: o.dropoff.address }), sub: fmt(o.kind === 'ride' ? 'goal.dropRideHint' : 'goal.dropFoodHint'), color: '#2ecc71' };
+      return { ...o.dropoff.door, text: fmt(o.kind === 'ride' ? 'goal.dropRide' : 'goal.dropFood', { address: o.dropoff.address }), sub: o.kind === 'ride' ? fmt('goal.dropRideHint', { kmh: act.comfortKmh(this, o) }) : fmt('goal.dropFoodHint'), color: '#2ecc71' };
     }
     const P = this.layout.placeById;
     for (const ob of objectives(gs)) {
@@ -625,7 +640,11 @@ export class Game {
     const rng = makeRng(o.id * 31);
     if (o.kind === 'ride') {
       if (!this.passengerMesh) {
-        this.passengerMesh = makePerson({ ...randomPersonOpts(rng, guessGender(o.customer), { sitting: true }), hat: 'helmet', hatColor: 0xffffff });
+        // đặt xe dùm cho cụ già / em bé: tóc bạc, dáng nhỏ
+        const look = { ...randomPersonOpts(rng, guessGender(o.customer), { sitting: true }), hat: 'helmet', hatColor: 0xffffff };
+        if (/^(Bà|Ông|Cụ)\s/.test(o.customer)) look.hair = 0xc8c8c8;
+        if (/^Bé\s/.test(o.customer)) look.scale = 0.72;
+        this.passengerMesh = makePerson(look);
         this.scene.add(this.passengerMesh);
       }
       const m = this.passengerMesh;

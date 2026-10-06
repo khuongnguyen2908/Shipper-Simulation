@@ -4,6 +4,7 @@
 // điều kiện thắng/thua.
 // =============================================================
 import { ECONOMY, RATING, ENERGY, VEHICLES, BAGS, TIME, WALLET_QUEST } from '../data/balance.js';
+import { APP } from '../data/apps.js';
 import { GOODS, EFFECTS, OUTFIT_SLOTS, freeOutfit } from '../data/goods.js';
 import { isOpen } from './placeRules.js';
 import { RatingBook } from './economy.js';
@@ -38,8 +39,28 @@ export class GameState {
     this.mental = 100;
     this.rent = ECONOMY.rentBase + ECONOMY.rentPerDay * (day - 1);
     this.rentPaid = false;
-    this.stats = { completed: 0, refused: 0, cancelled: 0, stars: [], income: {}, expense: {}, distanceKm: 0, crashes: 0, fines: 0 };
+    this.stats = { completed: 0, refused: 0, cancelled: 0, driverCancels: 0, bom: 0, stars: [], income: {}, expense: {}, distanceKm: 0, crashes: 0, fines: 0 };
+    // Tài khoản tài xế (giữ qua các ngày): số đơn được mời / đã nhận, các lần mời gần đây (1 nhận · 0 bỏ),
+    // tổng đơn hoàn thành, số chuyến xe ôm, số lần tự hủy, số đơn bị bom
+    this.account = { offers: 0, accepted: 0, recent: [], completed: 0, rides: 0, driverCancels: 0, bom: 0, ...(c.account || {}) };
+    this.lockedUntil = 0; // tạm khóa nhận đơn tới phút này (tự hủy quá nhiều trong ngày)
     this.outcome = null;
+  }
+
+  // Tỉ lệ nhận đơn trong các lần mời gần đây (chưa đủ 3 lần thì coi như 100%)
+  get acceptRate() {
+    const r = this.account.recent;
+    return r.length < 3 ? 1 : r.reduce((a, b) => a + b, 0) / r.length;
+  }
+  recordOffer(accepted) {
+    const a = this.account;
+    a.offers += 1;
+    if (accepted) a.accepted += 1;
+    a.recent = [...a.recent, accepted ? 1 : 0].slice(-(APP.account?.acceptWindow || 10));
+  }
+  recordBom() {
+    this.account.bom += 1;
+    this.stats.bom += 1;
   }
 
   get rating() {
@@ -231,21 +252,39 @@ export class GameState {
 
   // ---------- kết quả đơn ----------
   applyReceipt(receipt) {
-    const { ev, pay } = receipt;
-    this.earn(pay.walletCredit, receipt.order.kind === 'ride' ? 'ride' : 'food');
-    this.ratingBook.add(ev.stars);
+    const { ev, pay, order } = receipt;
+    // thu nhập ghi theo loại đơn (money.food, money.ride, money.parcel, money.express…)
+    this.earn(pay.walletCredit, order.type || order.kind);
+    if (pay.cod) this.earn(pay.cod, 'codBack'); // khách trả lại tiền hàng đã ứng
+    // khách quen gọi thẳng (không qua app) không chấm sao trên app
+    if (order.viaApp !== false) this.ratingBook.add(ev.stars);
     this.stats.stars.push(ev.stars);
     if (ev.refused) this.stats.refused += 1;
     else this.stats.completed += 1;
-    this.stats.distanceKm += receipt.order.distanceKm;
+    if (!ev.refused && !receipt.quit) {
+      this.account.completed += 1;
+      if (order.kind === 'ride') this.account.rides += 1;
+    }
+    this.stats.distanceKm += order.distanceKm;
     this.addEnergy(0, ENERGY.mental.stars[ev.stars]);
   }
 
-  applyCancel({ byDriver, comp }) {
+  // now: phút lúc hủy (để tính tạm khóa). Trả về { locked } nếu bị tạm khóa nhận đơn.
+  applyCancel({ byDriver, comp, codRefund = 0 }, now = 0) {
+    const acc = APP.account || {};
     this.stats.cancelled += 1;
     if (comp) this.earn(comp, 'cancelComp');
-    if (byDriver) this.ratingBook.add(2);
+    if (codRefund) this.earn(codRefund, 'codRefund');
     this.addEnergy(0, -ENERGY.mental.cancel);
+    if (!byDriver) return { locked: false };
+    this.ratingBook.add(acc.cancelStars ?? 2);
+    this.stats.driverCancels += 1;
+    this.account.driverCancels += 1;
+    if (acc.cancelLimitPerDay != null && this.stats.driverCancels > acc.cancelLimitPerDay) {
+      this.lockedUntil = now + (acc.cancelLockMin || 0);
+      return { locked: true, until: this.lockedUntil };
+    }
+    return { locked: false };
   }
 
   // ---------- nhiệm vụ phụ: chiếc ví ----------
@@ -287,7 +326,7 @@ export class GameState {
     let reason = null;
     if (this.phys <= 0) reason = fmt('end.faint');
     else if (this.mental <= 0) reason = fmt('end.burnout');
-    else if (this.rating < RATING.lockBelow) reason = fmt('end.locked', { rating: this.rating.toFixed(2), limit: RATING.lockBelow });
+    else if (this.rating < APP.account.lockBelow) reason = fmt('end.locked', { rating: this.rating.toFixed(2), limit: Number(APP.account.lockBelow).toFixed(1) });
     else if (now >= TIME.dayEnd && !this.rentPaid) reason = fmt('end.evicted');
     if (reason) this.outcome = { type: 'lose', reason };
     return this.outcome;
@@ -306,6 +345,7 @@ export class GameState {
       inventory: this.inventory,
       consumables: this.consumables,
       outfit: this.outfit,
+      account: this.account,
       flags: { wallet: this.flags.wallet, walletDay: this.flags.walletDay },
     };
   }

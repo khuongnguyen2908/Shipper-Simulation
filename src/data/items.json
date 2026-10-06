@@ -141,5 +141,50 @@
       "passenger"
     ],
     "base": 30
+  },
+  "aoQuan": {
+    "id": "aoQuan",
+    "name": "Túi quần áo",
+    "icon": "🛍️",
+    "traits": [
+      "paper"
+    ],
+    "base": 22,
+    "parcel": true,
+    "cod": 180
+  },
+  "hopGiay": {
+    "id": "hopGiay",
+    "name": "Hộp giày",
+    "icon": "👟",
+    "traits": [
+      "paper"
+    ],
+    "base": 25,
+    "parcel": true,
+    "cod": 450
+  },
+  "dienThoai": {
+    "id": "dienThoai",
+    "name": "Điện thoại mới",
+    "icon": "📱",
+    "traits": [
+      "fragile",
+      "paper"
+    ],
+    "base": 30,
+    "parcel": true,
+    "cod": 900
+  },
+  "taiLieu": {
+    "id": "taiLieu",
+    "name": "Hồ sơ giấy tờ",
+    "icon": "📄",
+    "traits": [
+      "paper"
+    ],
+    "base": 20,
+    "parcel": true,
+    "cod": 0
   }
 }
