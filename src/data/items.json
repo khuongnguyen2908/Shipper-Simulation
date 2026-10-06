@@ -1,0 +1,101 @@
+{
+  "comTam": {
+    "id": "comTam",
+    "name": "Cơm tấm sườn",
+    "icon": "🍱",
+    "traits": [
+      "hot",
+      "paper"
+    ],
+    "base": 25,
+    "startTemp": 75
+  },
+  "pho": {
+    "id": "pho",
+    "name": "Phở bò",
+    "icon": "🍜",
+    "traits": [
+      "hot",
+      "liquid"
+    ],
+    "base": 28,
+    "startTemp": 85
+  },
+  "bunBo": {
+    "id": "bunBo",
+    "name": "Bún bò Huế",
+    "icon": "🍲",
+    "traits": [
+      "hot",
+      "liquid"
+    ],
+    "base": 29,
+    "startTemp": 85
+  },
+  "traSua": {
+    "id": "traSua",
+    "name": "Trà sữa trân châu",
+    "icon": "🧋",
+    "traits": [
+      "cold",
+      "liquid"
+    ],
+    "base": 30,
+    "startTemp": 4,
+    "meltAt": 10,
+    "meltRate": 0.12
+  },
+  "kem": {
+    "id": "kem",
+    "name": "Kem dừa",
+    "icon": "🍨",
+    "traits": [
+      "cold"
+    ],
+    "base": 32,
+    "startTemp": -8,
+    "meltAt": -2,
+    "meltRate": 0.2
+  },
+  "banhKem": {
+    "id": "banhKem",
+    "name": "Bánh kem sinh nhật",
+    "icon": "🎂",
+    "traits": [
+      "fragile",
+      "paper"
+    ],
+    "base": 45
+  },
+  "passenger": {
+    "id": "passenger",
+    "name": "Khách xe ôm",
+    "icon": "🧍",
+    "traits": [
+      "passenger"
+    ],
+    "base": 30
+  },
+  "comTamOpla": {
+    "id": "comTamOpla",
+    "name": "Cơm tấm ốp la",
+    "icon": "🍱",
+    "traits": [
+      "hot",
+      "paper"
+    ],
+    "base": 25,
+    "startTemp": 75
+  },
+  "comTamGa": {
+    "id": "comTamGa",
+    "name": "Cơm tấm gà nướng",
+    "icon": "🍱",
+    "traits": [
+      "hot",
+      "paper"
+    ],
+    "base": 25,
+    "startTemp": 75
+  }
+}

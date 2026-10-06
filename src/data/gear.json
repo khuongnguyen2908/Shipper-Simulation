@@ -1,0 +1,146 @@
+{
+  "vehicles": {
+    "cub": {
+      "id": "cub",
+      "name": "Cub cũ 50cc",
+      "maxSpeed": 12.5,
+      "accel": 4.2,
+      "brake": 9,
+      "steer": 2.2,
+      "suspension": 0.2,
+      "fuelPer100km": 3.5,
+      "tank": 3,
+      "price": 0,
+      "color": "#3a6fb0",
+      "desc": "Xe ông nội để lại. Chạy được là mừng."
+    },
+    "scooter": {
+      "id": "scooter",
+      "name": "Tay ga Vision",
+      "maxSpeed": 16.7,
+      "accel": 5.5,
+      "brake": 11,
+      "steer": 2.4,
+      "suspension": 0.6,
+      "fuelPer100km": 2.8,
+      "tank": 4.5,
+      "price": 1200,
+      "color": "#e8e8e8",
+      "desc": "Êm, tiết kiệm xăng, chạy nhanh hơn."
+    },
+    "sport": {
+      "id": "sport",
+      "name": "Mô tô 150cc",
+      "maxSpeed": 26.388889,
+      "accel": 9,
+      "brake": 13,
+      "steer": 2.2,
+      "suspension": 0.35,
+      "fuelPer100km": 5,
+      "tank": 10,
+      "price": 4500,
+      "color": "#000000",
+      "desc": "Nhanh, giảm xóc tốt, chở canh không đổ."
+    },
+    "exciter": {
+      "id": "exciter",
+      "name": "Tay côn Exciter",
+      "maxSpeed": 20.833333,
+      "accel": 7.5,
+      "brake": 11.5,
+      "steer": 2.5,
+      "suspension": 0.3,
+      "fuelPer100km": 3.2,
+      "tank": 4.5,
+      "price": 1500,
+      "color": "#302ec2",
+      "desc": ""
+    },
+    "wave": {
+      "id": "wave",
+      "name": "Xe số Wave",
+      "maxSpeed": 15.277778,
+      "accel": 4.8,
+      "brake": 10,
+      "steer": 2.3,
+      "suspension": 0.4,
+      "fuelPer100km": 2.2,
+      "tank": 4,
+      "price": 200,
+      "color": "#c22e2e",
+      "desc": ""
+    },
+    "SH": {
+      "id": "SH",
+      "name": "Tay ga SH",
+      "maxSpeed": 22.222222,
+      "accel": 6.5,
+      "brake": 12,
+      "steer": 2.4,
+      "suspension": 0.8,
+      "fuelPer100km": 3.5,
+      "tank": 7,
+      "price": 6000,
+      "color": "#d5c8c8",
+      "desc": ""
+    }
+  },
+  "bags": {
+    "nylon": {
+      "id": "nylon",
+      "name": "Túi nylon",
+      "insulation": 0,
+      "waterproof": 0,
+      "padding": 0,
+      "cols": 2,
+      "rows": 2,
+      "price": 0,
+      "color": "#f2f2f2",
+      "desc": "Miễn phí ở quán. Không giữ nhiệt, không chống nước."
+    },
+    "thermal": {
+      "id": "thermal",
+      "name": "Túi giữ nhiệt",
+      "insulation": 0.55,
+      "waterproof": 0.5,
+      "padding": 0.25,
+      "cols": 3,
+      "rows": 2,
+      "price": 120,
+      "color": "#27ae60",
+      "desc": "Mở khóa đơn trà sữa, kem (cước cao hơn)."
+    },
+    "box": {
+      "id": "box",
+      "name": "Thùng chuyên dụng",
+      "insulation": 0.8,
+      "waterproof": 1,
+      "padding": 0.55,
+      "cols": 3,
+      "rows": 3,
+      "price": 380,
+      "color": "#e67e22",
+      "desc": "Giữ nhiệt tốt, chống nước, có đệm chống sốc."
+    }
+  },
+  "gear": {
+    "raincoat": {
+      "id": "raincoat",
+      "name": "Áo mưa",
+      "price": 40,
+      "desc": "Mưa không còn trừ thể lực, tinh thần; khách xe ôm không bị ướt."
+    },
+    "jacket": {
+      "id": "jacket",
+      "name": "Áo khoác chống nắng",
+      "price": 60,
+      "desc": "Không mệt thêm khi nắng gắt 11h–15h."
+    },
+    "spareHelmet": {
+      "id": "spareHelmet",
+      "name": "Mũ bảo hiểm cho khách",
+      "price": 50,
+      "desc": "Mở khóa đơn chở khách (xe ôm)."
+    }
+  }
+}

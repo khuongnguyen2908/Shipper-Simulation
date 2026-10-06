@@ -1,0 +1,355 @@
+{
+  "streetsX": [
+    "Nguyễn Du",
+    "Pasteur",
+    "Hai Bà Trưng",
+    "Đồng Khởi",
+    "Nam Kỳ Khởi Nghĩa",
+    "Tôn Đức Thắng"
+  ],
+  "streetsZ": [
+    "Lý Tự Trọng",
+    "Lê Thánh Tôn",
+    "Điện Biên Phủ",
+    "Lê Lợi",
+    "Võ Văn Tần",
+    "Hàm Nghi"
+  ],
+  "mainRoads": [
+    {
+      "axis": "x",
+      "line": 2
+    },
+    {
+      "axis": "z",
+      "line": 2
+    }
+  ],
+  "alley": {
+    "block": [
+      1,
+      0
+    ],
+    "lot": "E1"
+  },
+  "customerNames": [
+    "Chị Lan",
+    "Anh Tuấn",
+    "Bé Na",
+    "Cô Hằng",
+    "Anh Khoa",
+    "Chị Vy",
+    "Chú Bảy",
+    "Anh Phát",
+    "Chị Thảo",
+    "Em Duy",
+    "Cô Mai",
+    "Anh Long",
+    "Chị Ngọc",
+    "Anh Hiếu",
+    "Bà Sáu",
+    "Em Quân"
+  ],
+  "places": [
+    {
+      "id": "home",
+      "name": "Phòng trọ Cô Hai",
+      "short": "Nhà",
+      "kind": "home",
+      "block": [
+        1,
+        3
+      ],
+      "lot": "N1",
+      "floors": 3,
+      "color": "#f2d7a7",
+      "sign": "PHÒNG TRỌ CÔ HAI",
+      "signBg": "#7a4b2a",
+      "npc": {
+        "name": "Cô Hai",
+        "shirt": "#b0478a",
+        "pants": "#333344",
+        "hat": null,
+        "portrait": "👵"
+      }
+    },
+    {
+      "id": "pho",
+      "name": "Phở Bà Tư",
+      "short": "Phở",
+      "kind": "restaurant",
+      "block": [
+        0,
+        1
+      ],
+      "lot": "E1",
+      "floors": 2,
+      "color": "#f6e27f",
+      "sign": "PHỞ BÀ TƯ",
+      "signBg": "#b03a2e",
+      "menu": [
+        "pho",
+        "bunBo"
+      ],
+      "npc": {
+        "name": "Bà Tư",
+        "shirt": "#e9e2c9",
+        "pants": "#222222",
+        "hat": "nonla",
+        "portrait": "🧑‍🍳"
+      },
+      "serves": "meal"
+    },
+    {
+      "id": "comtam",
+      "name": "Cơm Tấm Sườn Nướng",
+      "short": "Cơm",
+      "kind": "restaurant",
+      "block": [
+        2,
+        1
+      ],
+      "lot": "S1",
+      "floors": 2,
+      "color": "#f4c095",
+      "sign": "CƠM TẤM SƯỜN NƯỚNG",
+      "signBg": "#a04000",
+      "menu": [
+        "comTam",
+        "comTamOpla",
+        "comTamGa"
+      ],
+      "npc": {
+        "name": "Anh Sáu",
+        "shirt": "#ffffff",
+        "pants": "#34495e",
+        "hat": null,
+        "portrait": "🧑‍🍳"
+      },
+      "serves": "meal"
+    },
+    {
+      "id": "trasua",
+      "name": "Trà Sữa Mây",
+      "short": "Trà sữa",
+      "kind": "restaurant",
+      "block": [
+        3,
+        3
+      ],
+      "lot": "N0",
+      "floors": 3,
+      "color": "#d9c3e8",
+      "sign": "TRÀ SỮA MÂY",
+      "signBg": "#7d3c98",
+      "menu": [
+        "traSua",
+        "kem"
+      ],
+      "npc": {
+        "name": "Bé Thư",
+        "shirt": "#f5b7b1",
+        "pants": "#5d6d7e",
+        "hat": null,
+        "portrait": "🧑‍🍳"
+      },
+      "serves": "drink"
+    },
+    {
+      "id": "banh",
+      "name": "Tiệm Bánh Hạnh Phúc",
+      "short": "Bánh",
+      "kind": "restaurant",
+      "block": [
+        4,
+        2
+      ],
+      "lot": "W1",
+      "floors": 2,
+      "color": "#f9d5e5",
+      "sign": "TIỆM BÁNH HẠNH PHÚC",
+      "signBg": "#c0392b",
+      "menu": [
+        "banhKem"
+      ],
+      "npc": {
+        "name": "Chị Hạnh",
+        "shirt": "#ffffff",
+        "pants": "#e8a0bf",
+        "hat": null,
+        "portrait": "🧑‍🍳"
+      }
+    },
+    {
+      "id": "gas",
+      "name": "Cây xăng Petro",
+      "short": "Xăng",
+      "kind": "gas",
+      "block": [
+        2,
+        3
+      ],
+      "lot": "N2",
+      "color": "#ffffff",
+      "sign": "XĂNG DẦU",
+      "signBg": "#1f4e9c",
+      "npc": {
+        "name": "Anh bơm xăng",
+        "shirt": "#1f4e9c",
+        "pants": "#1c2833",
+        "hat": null,
+        "portrait": "⛽"
+      }
+    },
+    {
+      "id": "gear",
+      "name": "Đồ Nghề Shipper",
+      "short": "Đồ nghề",
+      "kind": "shop",
+      "block": [
+        1,
+        2
+      ],
+      "lot": "S2",
+      "floors": 2,
+      "color": "#9fd8cb",
+      "sign": "ĐỒ NGHỀ SHIPPER",
+      "signBg": "#117a65",
+      "npc": {
+        "name": "Anh Long",
+        "shirt": "#16a085",
+        "pants": "#2c3e50",
+        "hat": null,
+        "portrait": "🎒"
+      }
+    },
+    {
+      "id": "garage",
+      "name": "Tiệm Xe Tư Lùn",
+      "short": "Tiệm xe",
+      "kind": "garage",
+      "block": [
+        3,
+        1
+      ],
+      "lot": "W1",
+      "floors": 2,
+      "color": "#bdc3c7",
+      "sign": "SỬA XE – BÁN XE TƯ LÙN",
+      "signBg": "#2c3e50",
+      "npc": {
+        "name": "Chú Tư Lùn",
+        "shirt": "#7f8c8d",
+        "pants": "#1c2833",
+        "hat": null,
+        "scale": 0.85,
+        "portrait": "🔧"
+      }
+    },
+    {
+      "id": "cafe",
+      "name": "Cà phê Góc Phố",
+      "short": "Cà phê",
+      "kind": "cafe",
+      "block": [
+        3,
+        0
+      ],
+      "lot": "S0",
+      "floors": 2,
+      "color": "#c8a27a",
+      "sign": "CÀ PHÊ GÓC PHỐ",
+      "signBg": "#4e342e",
+      "npc": {
+        "name": "Chủ quán",
+        "shirt": "#6d4c41",
+        "pants": "#212121",
+        "hat": null,
+        "portrait": "☕"
+      },
+      "serves": "drink"
+    },
+    {
+      "id": "taphoa",
+      "name": "Tạp hóa Cô Ba",
+      "short": "Tạp hóa",
+      "kind": "taphoa",
+      "block": [
+        1,
+        0
+      ],
+      "lot": "S2",
+      "floors": 2,
+      "color": "#c9e4a6",
+      "sign": "TẠP HÓA CÔ BA",
+      "signBg": "#1e8449",
+      "hidden": true,
+      "npc": {
+        "name": "Cô Ba",
+        "shirt": "#8e44ad",
+        "pants": "#222222",
+        "hat": null,
+        "portrait": "👩"
+      }
+    },
+    {
+      "id": "gate",
+      "name": "Nhà cổng xanh (hẻm 42)",
+      "short": "Cổng xanh",
+      "kind": "gate",
+      "block": [
+        1,
+        0
+      ],
+      "lot": "C",
+      "floors": 2,
+      "color": "#f2f2f2",
+      "hidden": true,
+      "npc": {
+        "name": "Bác Năm (mẹ anh Minh)",
+        "shirt": "#5d6d7e",
+        "pants": "#1c2833",
+        "hat": null,
+        "portrait": "👵"
+      }
+    },
+    {
+      "id": "apartment",
+      "name": "Chung cư Ngô Gia",
+      "short": "Chung cư",
+      "kind": "apartment",
+      "block": [
+        4,
+        4
+      ],
+      "lot": "N",
+      "floors": 12,
+      "color": "#d5d8dc",
+      "sign": "CHUNG CƯ NGÔ GIA",
+      "signBg": "#566573",
+      "npc": {
+        "name": "Chú bảo vệ",
+        "shirt": "#34495e",
+        "pants": "#1c2833",
+        "hat": null,
+        "portrait": "💂"
+      }
+    },
+    {
+      "id": "market",
+      "name": "Chợ Mini",
+      "short": "Chợ",
+      "kind": "market",
+      "block": [
+        0,
+        4
+      ],
+      "lot": "N",
+      "floors": 1,
+      "color": "#e59866",
+      "sign": "CHỢ MINI",
+      "signBg": "#922b21",
+      "npc": null
+    }
+  ]
+}

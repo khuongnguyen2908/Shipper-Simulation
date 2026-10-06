@@ -1,0 +1,21 @@
+{
+  "name": "shipper-simulation",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Shipper Simulation Game – bản chơi được đầu tiên (Three.js / WebGL 2)",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm test && vite build",
+    "preview": "vite preview",
+    "test": "node tests/run.js",
+    "sim": "node tests/economy-sim.js"
+  },
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "vite": "^8.3.3",
+    "vite-plugin-singlefile": "^2.3.3"
+  }
+}
