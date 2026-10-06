@@ -3,6 +3,8 @@
 import { CITY, HALF, blockBounds, lotInfo } from '../../sim/cityLayout.js';
 import { PROTECTED, ID_RE, LOTS, lotCells } from '../../data/validate.js';
 import { moveInArray } from './order.js';
+import { personPreview } from './personPreview.js';
+import { guessGender } from '../../sim/people.js';
 import { el, field, textInput, numInput, colorInput, selectInput, checkInput, button, sideList, areaInput, dragHandle, makeSortable, emojiInput } from './ui.js';
 
 const KIND = { home: '🏠 Nhà trọ', restaurant: '🍴 Quán ăn', gas: '⛽ Cây xăng', shop: '🎒 Tiệm đồ nghề', garage: '🔧 Tiệm xe', cafe: '☕ Quán cà phê', taphoa: '🛒 Tạp hóa', gate: '🟩 Nhà cổng xanh', apartment: '🏢 Chung cư', market: '🧺 Chợ', service: '⭐ Dịch vụ' };
@@ -86,19 +88,38 @@ export function render(root, ctx) {
   // --- NPC ---
   if (p.npc) {
     const n = p.npc;
+    const prev = personPreview(p.id);
+    const changedN = () => { changedP(); prev.update(n); };
+    // ô chọn có "mặc định" (bỏ trống = xóa trường khỏi dữ liệu)
+    const optSel = (key, options) => {
+      const cur = n[key] ?? '';
+      const opts = options.some(([v]) => v === cur) ? options : [...options, [cur, `Tùy chỉnh (${cur})`]];
+      return selectInput(cur, opts, (v) => { if (v === '') delete n[key]; else n[key] = v; changedN(); });
+    };
+    const guessLabel = () => `Tự đoán theo tên (${(guessGender(n.name) || 'm') === 'f' ? 'Nữ' : 'Nam'})`;
+    const genderSel = optSel('gender', [['', guessLabel()], ['m', 'Nam'], ['f', 'Nữ']]);
     body.append(
       el('h3', {}, 'NPC đứng ở cửa'),
-      el(
-        'div',
-        { class: 'grid' },
-        field('Tên NPC', textInput(n.name, (v) => { n.name = v; changedP(); }), opt('npc.name')),
-        field('Chân dung (emoji)', emojiInput(n.portrait, (v) => { n.portrait = v; changedP(); }), opt('npc.portrait')),
-        field('Màu áo', colorInput(n.shirt, (v) => { n.shirt = v; changedP(); }), opt('npc.shirt')),
-        field('Màu quần', colorInput(n.pants, (v) => { n.pants = v; changedP(); }), opt('npc.pants')),
-        field('Đội mũ', selectInput(n.hat || '', [['', 'Không'], ['nonla', 'Nón lá'], ['helmet', 'Mũ bảo hiểm'], ['police', 'Mũ CSGT']], (v) => { n.hat = v || null; changedP(); }), opt('npc.hat')),
-        field('Vóc người', numInput(n.scale ?? 1, (v) => { if (v === 1) delete n.scale; else n.scale = v; changedP(); }, { step: 0.05, min: 0.6, max: 1.3 }), opt('npc.scale', { hint: '1 = bình thường' })),
+      el('div', { class: 'npc-wrap' },
+        el(
+          'div',
+          { class: 'grid' },
+          field('Tên NPC', textInput(n.name, (v) => { n.name = v; genderSel.options[0].textContent = guessLabel(); changedN(); }), opt('npc.name', { hint: 'Chị/Cô/Bà… → nữ; Anh/Chú/Ông… → nam' })),
+          field('Chân dung (emoji)', emojiInput(n.portrait, (v) => { n.portrait = v; changedP(); }), opt('npc.portrait')),
+          field('Giới tính', genderSel, opt('npc.gender')),
+          field('Kiểu tóc', optSel('hairStyle', [['', 'Theo giới tính (nam ngắn, nữ dài)'], ['short', 'Ngắn'], ['long', 'Dài'], ['ponytail', 'Cột đuôi ngựa'], ['bun', 'Búi tóc']]), opt('npc.hairStyle')),
+          field('Màu tóc', optSel('hair', [['', 'Đen'], ['#5a3825', 'Nâu'], ['#8d8d8d', 'Bạc (lớn tuổi)'], ['#d4a94f', 'Vàng (nhuộm)'], ['#8e2b2b', 'Đỏ (nhuộm)']]), opt('npc.hair')),
+          field('Màu da', optSel('skin', [['', 'Ngẫu nhiên (cố định)'], ['#ffdbac', 'Rất sáng'], ['#f1c27d', 'Sáng'], ['#e0ac69', 'Trung bình'], ['#c68642', 'Ngăm']]), opt('npc.skin')),
+          field('Màu áo', colorInput(n.shirt, (v) => { n.shirt = v; changedN(); }), opt('npc.shirt')),
+          field('Màu quần / váy', colorInput(n.pants, (v) => { n.pants = v; changedN(); }), opt('npc.pants')),
+          field('Mặc váy', checkInput(!!n.skirt, (v) => { if (v) n.skirt = true; else delete n.skirt; changedN(); }, 'Có'), opt('npc.skirt', { hint: 'Váy lấy màu quần; chân màu da' })),
+          field('Đội mũ', selectInput(n.hat || '', [['', 'Không'], ['nonla', 'Nón lá'], ['helmet', 'Mũ bảo hiểm'], ['police', 'Mũ CSGT']], (v) => { n.hat = v || null; changedN(); }), opt('npc.hat')),
+          field('Vóc người', numInput(n.scale ?? 1, (v) => { if (v === 1) delete n.scale; else n.scale = v; changedN(); }, { step: 0.05, min: 0.6, max: 1.3 }), opt('npc.scale', { hint: '1 = bình thường' })),
+        ),
+        prev.el,
       ),
     );
+    prev.update(n);
   }
 
   // --- thực đơn (quán ăn) ---

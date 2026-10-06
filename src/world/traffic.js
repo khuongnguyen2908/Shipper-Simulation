@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { CITY, roadPos, blockBounds, segmentRect } from '../sim/cityLayout.js';
 import { HAZARD } from '../data/balance.js';
 import { makeCar, makeNpcMoto, makePerson, makeDog, makeCone, animatePerson, randomPersonOpts } from './models.js';
+import { guessGender } from '../sim/people.js';
 import { pushCircle } from './physics.js';
 import { list } from '../content/index.js';
 
@@ -95,9 +96,10 @@ export class Traffic {
   // ---------------- người đi bộ ----------------
   spawnPed(i) {
     const rng = this.rng;
-    const mesh = makePerson(randomPersonOpts(rng));
+    const name = rng.pick(list('ped.names'));
+    const mesh = makePerson(randomPersonOpts(rng, guessGender(name)));
     this.scene.add(mesh);
-    this.peds.push({ id: i, mesh, bx: rng.int(0, CITY.N - 1), bz: rng.int(0, CITY.N - 1), t: rng.range(0, 140), speed: rng.range(0.9, 1.4), dir: rng.chance(0.5) ? 1 : -1, pause: 0, talk: 0, knock: 0, phase: rng.range(0, 6), name: rng.pick(list('ped.names')), x: 0, z: 0, asked: false });
+    this.peds.push({ id: i, mesh, bx: rng.int(0, CITY.N - 1), bz: rng.int(0, CITY.N - 1), t: rng.range(0, 140), speed: rng.range(0.9, 1.4), dir: rng.chance(0.5) ? 1 : -1, pause: 0, talk: 0, knock: 0, phase: rng.range(0, 6), name, x: 0, z: 0, asked: false });
   }
 
   spawnDog() {

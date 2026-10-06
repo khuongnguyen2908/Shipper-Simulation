@@ -379,6 +379,50 @@ console.log('Kéo thả đổi thứ tự (công cụ ?editor)');
   });
 }
 
+console.log('Ngoại hình nam/nữ');
+{
+  const { guessGender } = await import('../src/sim/people.js');
+  const { makePerson, npcLook, randomPersonOpts } = await import('../src/world/models.js');
+  test('Đoán giới tính theo cách xưng hô đầu tên', () => {
+    assert.equal(guessGender('Chị Lan'), 'f');
+    assert.equal(guessGender('cô bán vé số'), 'f');
+    assert.equal(guessGender('Bà Tư'), 'f');
+    assert.equal(guessGender('Anh Tuấn'), 'm');
+    assert.equal(guessGender('Chú Tư Lùn'), 'm');
+    assert.equal(guessGender('Bé Na'), null);
+    assert.equal(guessGender('Em Duy'), null);
+    assert.equal(guessGender(''), null);
+  });
+  test('NPC: chưa đặt thì đoán theo tên; đặt rồi thì theo dữ liệu; cố định theo mã', () => {
+    const coHai = npcLook('home', { name: 'Cô Hai', hat: null });
+    assert.equal(coHai.gender, 'f');
+    assert.equal(coHai.hairStyle, 'long');
+    assert.equal(coHai.skirt, false);
+    assert.equal(coHai.hat, null);
+    const set = npcLook('home', { name: 'Cô Hai', gender: 'm', hairStyle: 'bun', skirt: true, hair: 0x8d8d8d, skin: 0xc68642 });
+    assert.deepEqual([set.gender, set.hairStyle, set.skirt, set.hair, set.skin], ['m', 'bun', true, 0x8d8d8d, 0xc68642]);
+    assert.deepEqual(npcLook('pho', { name: 'Bà Tư' }), npcLook('pho', { name: 'Bà Tư' }));
+    assert.equal(npcLook('x', { name: 'Chủ quán' }).gender, 'm'); // không đoán được → nam như cũ
+  });
+  test('Người ngẫu nhiên: trộn nam/nữ; ngồi sau xe thì không mặc váy', () => {
+    const rng = makeRng(3);
+    const many = Array.from({ length: 400 }, () => randomPersonOpts(rng));
+    const f = many.filter((o) => o.gender === 'f').length;
+    assert.ok(f > 150 && f < 250, `nữ ${f}/400`);
+    assert.ok(many.some((o) => o.skirt) && many.every((o) => !o.skirt || o.gender === 'f'));
+    assert.ok(many.every((o) => o.gender === 'f' || o.hairStyle === 'short'));
+    assert.ok(Array.from({ length: 200 }, () => randomPersonOpts(rng, 'f', { sitting: true })).every((o) => o.gender === 'f' && !o.skirt));
+  });
+  test('Dựng hình 3D: tóc dài, búi, váy có đủ phần', () => {
+    const a = makePerson({ gender: 'f', hairStyle: 'long', skirt: true });
+    assert.ok(a.userData.parts.hair && a.userData.parts.skirt);
+    const b = makePerson({ gender: 'f', hairStyle: 'bun' });
+    assert.ok(b.userData.parts.hair && !b.userData.parts.skirt);
+    const c = makePerson({});
+    assert.ok(!c.userData.parts.hair && !c.userData.parts.skirt); // nam mặc định giữ như cũ
+  });
+}
+
 console.log('Bảng chọn emoji (công cụ ?editor)');
 {
   const { EMOJI_GROUPS, searchEmoji } = await import('../src/devtools/editor/emoji.js');
@@ -460,7 +504,10 @@ console.log('Dữ liệu & kho chữ (sửa bằng công cụ ?editor)');
     pho.block = [...comtam.block];
     pho.lot = comtam.lot;
     assert.ok(validatePlaces(places, data.items).some((i) => i.field === 'lot' && i.level === 'error'));
-    const content = { ...data.content, 'toast.dayStart': 'Ngày {abc}' };
+    Object.assign(comtam.npc, { gender: 'nam', hairStyle: 'xoăn', hair: 'đen', skirt: 'có' });
+    const npcErr = validatePlaces(places, data.items).filter((i) => i.ref === 'comtam' && i.level === 'error').map((i) => i.field);
+    for (const f of ['npc.gender', 'npc.hairStyle', 'npc.hair', 'npc.skirt']) assert.ok(npcErr.includes(f), `không bắt lỗi ${f}`);
+    const content ={ ...data.content, 'toast.dayStart': 'Ngày {abc}' };
     assert.ok(validateContent(content, data.content).some((i) => i.ref === 'toast.dayStart' && i.level === 'error'));
   });
 }

@@ -15,7 +15,8 @@ import { buildCity } from './world/city.js';
 import { Bike, Walker, CameraRig } from './world/controllers.js';
 import { Traffic } from './world/traffic.js';
 import { Sky } from './world/sky.js';
-import { makePerson, makeBeacon, makeZoneRing, setSitting, randomPersonOpts } from './world/models.js';
+import { makePerson, makeBeacon, makeZoneRing, setSitting, randomPersonOpts, npcLook } from './world/models.js';
+import { guessGender } from './sim/people.js';
 import { makeLabelTexture } from './world/textures.js';
 import { Input } from './input.js';
 import { Hud } from './ui/hud.js';
@@ -104,9 +105,8 @@ export class Game {
   // NPC đứng ở cửa các địa điểm (chủ quán, Cô Hai, bảo vệ…)
   spawnPlaceNpcs() {
     const out = {};
-    const rng = makeRng(5);
     const add = (id, opts, door, face, name, inward = 1.0) => {
-      const m = makePerson({ ...randomPersonOpts(rng), ...opts });
+      const m = makePerson(npcLook(id, { name, ...opts }));
       const [nx, nz] = NORMAL[face];
       m.position.set(door.x - nx * inward, SW_H, door.z - nz * inward);
       m.rotation.y = Math.atan2(nx, nz);
@@ -120,7 +120,7 @@ export class Game {
     };
     for (const p of this.layout.places) if (p.npc) add(p.id, p.npc, p.door, p.face, p.npc.name);
     const cafe = this.layout.placeById.cafe;
-    const minh = add('minh', { shirt: 0x34495e, pants: 0x1c2833 }, { x: cafe.door.x + 1.6, z: cafe.door.z }, cafe.face, fmt('npc.minh.name'), 0.4);
+    const minh = add('minh', { shirt: 0x34495e, pants: 0x1c2833, gender: 'm' }, { x: cafe.door.x + 1.6, z: cafe.door.z }, cafe.face, fmt('npc.minh.name'), 0.4);
     minh.visible = false;
     return out;
   }
@@ -623,7 +623,7 @@ export class Game {
     const rng = makeRng(o.id * 31);
     if (o.kind === 'ride') {
       if (!this.passengerMesh) {
-        this.passengerMesh = makePerson({ ...randomPersonOpts(rng), hat: 'helmet', hatColor: 0xffffff });
+        this.passengerMesh = makePerson({ ...randomPersonOpts(rng, guessGender(o.customer), { sitting: true }), hat: 'helmet', hatColor: 0xffffff });
         this.scene.add(this.passengerMesh);
       }
       const m = this.passengerMesh;
@@ -648,7 +648,7 @@ export class Game {
       const hideCustomer = o.flags.noAnswer && !o.noAnswerResolved; // khách vắng nhà
       if (near && !hideCustomer && this.customerFor !== key && !o.dropoff.apartment) {
         this.clearTempNpcs();
-        const m = makePerson(randomPersonOpts(rng));
+        const m = makePerson(randomPersonOpts(rng, guessGender(o.customer)));
         m.position.set(o.dropoff.door.x, SW_H, o.dropoff.door.z);
         this.scene.add(m);
         this.customerMesh = m;

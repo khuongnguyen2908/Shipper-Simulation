@@ -1,6 +1,8 @@
 // Mô hình low-poly dựng từ hình khối cơ bản: người, xe máy, ô tô, chó, cọc giao thông.
 // Hướng "phía trước" của mọi mô hình là trục +z cục bộ.
 import * as THREE from 'three';
+import { makeRng } from '../sim/rng.js';
+import { guessGender, hashStr } from '../sim/people.js';
 
 const matCache = new Map();
 export function mat(color, opts = {}) {
@@ -24,11 +26,14 @@ function box(w, h, d, color, x = 0, y = 0, z = 0, opts) {
   return m;
 }
 
-const SKINS = [0xf1c27d, 0xe0ac69, 0xc68642, 0xffdbac];
+export const SKINS = [0xf1c27d, 0xe0ac69, 0xc68642, 0xffdbac];
 
-export function makePerson({ shirt = 0x3498db, pants = 0x2c3e50, skin = SKINS[0], hat = null, hatColor = 0x2ecc71, hair = 0x1b1b1b, scale = 1, bag = false } = {}) {
+// gender: 'm' nam | 'f' nữ (vai hẹp hơn) · hairStyle: short | long | ponytail | bun · skirt: mặc váy (chân màu da)
+export function makePerson({ shirt = 0x3498db, pants = 0x2c3e50, skin = SKINS[0], hat = null, hatColor = 0x2ecc71, hair = 0x1b1b1b, scale = 1, bag = false, gender = 'm', hairStyle, skirt = false } = {}) {
   const g = new THREE.Group();
-  const body = box(0.5, 0.62, 0.3, shirt, 0, 1.06, 0);
+  const female = gender === 'f';
+  const style = hairStyle || (female ? 'long' : 'short');
+  const body = box(female ? 0.44 : 0.5, 0.62, female ? 0.27 : 0.3, shirt, 0, 1.06, 0);
   g.add(body);
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), mat(skin));
   head.position.set(0, 1.58, 0);
@@ -37,6 +42,19 @@ export function makePerson({ shirt = 0x3498db, pants = 0x2c3e50, skin = SKINS[0]
   const hairM = new THREE.Mesh(new THREE.SphereGeometry(0.21, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat(hair));
   hairM.position.set(0, 1.6, -0.01);
   g.add(hairM);
+  // phần tóc thêm theo kiểu
+  let hairExtra = null;
+  if (style === 'long') {
+    hairExtra = box(0.4, 0.46, 0.1, hair, 0, 1.42, -0.15);
+    hairExtra.add(box(0.06, 0.3, 0.2, hair, -0.19, 0.06, 0.09), box(0.06, 0.3, 0.2, hair, 0.19, 0.06, 0.09)); // hai bên má
+  } else if (style === 'ponytail') {
+    hairExtra = box(0.1, 0.32, 0.1, hair, 0, 1.46, -0.25);
+    hairExtra.rotation.x = 0.35;
+  } else if (style === 'bun') {
+    hairExtra = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), mat(hair));
+    hairExtra.position.set(0, 1.74, -0.14);
+  }
+  if (hairExtra) g.add(hairExtra);
   // mắt nhỏ để biết hướng nhìn
   g.add(box(0.05, 0.05, 0.02, 0x111111, -0.07, 1.6, 0.19));
   g.add(box(0.05, 0.05, 0.02, 0x111111, 0.07, 1.6, 0.19));
@@ -48,10 +66,18 @@ export function makePerson({ shirt = 0x3498db, pants = 0x2c3e50, skin = SKINS[0]
     g.add(pivot);
     return pivot;
   };
-  const legL = mkLimb(0.18, 0.75, pants, -0.12, 0.76);
-  const legR = mkLimb(0.18, 0.75, pants, 0.12, 0.76);
-  const armL = mkLimb(0.13, 0.6, shirt, -0.33, 1.34);
-  const armR = mkLimb(0.13, 0.6, shirt, 0.33, 1.34);
+  const legW = female ? 0.16 : 0.18, legC = skirt ? skin : pants;
+  const legL = mkLimb(legW, 0.75, legC, -0.11, 0.76);
+  const legR = mkLimb(legW, 0.75, legC, 0.11, 0.76);
+  const sx = female ? 0.3 : 0.33;
+  const armL = mkLimb(0.13, 0.6, shirt, -sx, 1.34);
+  const armR = mkLimb(0.13, 0.6, shirt, sx, 1.34);
+  let skirtMesh = null;
+  if (skirt) {
+    skirtMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.33, 0.44, 12), mat(pants));
+    skirtMesh.position.set(0, 0.56, 0);
+    g.add(skirtMesh);
+  }
   let hatMesh = null;
   if (hat === 'helmet') {
     hatMesh = new THREE.Mesh(new THREE.SphereGeometry(0.25, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat(hatColor, { roughness: 0.4 }));
@@ -76,20 +102,42 @@ export function makePerson({ shirt = 0x3498db, pants = 0x2c3e50, skin = SKINS[0]
     if (o.isMesh) o.castShadow = o === body || o === head;
   });
   g.scale.setScalar(scale);
-  g.userData.parts = { legL, legR, armL, armR, body, head, hat: hatMesh, bag: bagMesh };
+  g.userData.parts = { legL, legR, armL, armR, body, head, hat: hatMesh, bag: bagMesh, hair: hairExtra, skirt: skirtMesh };
   return g;
 }
 
-export function randomPersonOpts(rng) {
+// Ngoại hình ngẫu nhiên (khách, người đi đường). gender: 'm' | 'f' | bỏ trống = ngẫu nhiên.
+// sitting: ngồi sau xe → không mặc váy
+export function randomPersonOpts(rng, gender = null, { sitting = false } = {}) {
   const shirts = [0xe74c3c, 0x3498db, 0xf1c40f, 0x9b59b6, 0x1abc9c, 0xecf0f1, 0xe67e22, 0x34495e, 0xff8fab, 0x2ecc71];
   const pants = [0x2c3e50, 0x34495e, 0x7f8c8d, 0x1c2833, 0x5d4037, 0x283593];
-  return {
+  const o = {
     shirt: rng.pick(shirts),
     pants: rng.pick(pants),
     skin: rng.pick(SKINS),
     hat: rng.chance(0.25) ? 'nonla' : null,
     hair: rng.chance(0.15) ? 0x8d8d8d : 0x1b1b1b,
   };
+  // phần nam/nữ dùng nhánh ngẫu nhiên riêng để các lựa chọn phía trên không đổi
+  const r2 = makeRng(Math.floor(rng.next() * 4294967296));
+  o.gender = gender || (r2.chance(0.5) ? 'f' : 'm');
+  if (o.gender === 'f') {
+    o.hairStyle = r2.pick(['long', 'long', 'ponytail', 'bun']);
+    o.skirt = !sitting && r2.chance(0.3);
+    if (o.skirt) o.pants = r2.pick([0x2c3e50, 0x8e44ad, 0xc0392b, 0x16a085, 0x5d4037]);
+  } else o.hairStyle = 'short';
+  if (o.hair === 0x1b1b1b && r2.chance(0.1)) o.hair = 0x5a3825; // tóc nâu
+  return o;
+}
+
+// Ngoại hình NPC từ dữ liệu (places.json → npc, màu đã đổi sang số). Phần không đặt thì
+// ngẫu nhiên cố định theo mã địa điểm; giới tính không đặt thì đoán theo tên.
+export function npcLook(id, npc) {
+  const gender = npc.gender || guessGender(npc.name) || 'm';
+  const o = { ...randomPersonOpts(makeRng(hashStr(id)), gender), hairStyle: gender === 'f' ? 'long' : 'short', skirt: false, hair: 0x1b1b1b };
+  for (const k of ['shirt', 'pants', 'hat', 'hatColor', 'scale', 'hairStyle', 'hair', 'skin', 'skirt']) if (npc[k] !== undefined) o[k] = npc[k];
+  o.gender = gender;
+  return o;
 }
 
 // amount 0..1 (đứng yên → chạy)
@@ -170,7 +218,7 @@ export function makeNpcMoto(color, rng) {
   const bike = makeBike(color);
   bike.userData.bagMesh.visible = false;
   g.add(bike);
-  const rider = makePerson({ ...randomPersonOpts(rng), hat: 'helmet', hatColor: rng.pick([0xe74c3c, 0xf1c40f, 0xffffff, 0x2980b9]) });
+  const rider = makePerson({ ...randomPersonOpts(rng, null, { sitting: true }), hat: 'helmet', hatColor: rng.pick([0xe74c3c, 0xf1c40f, 0xffffff, 0x2980b9]) });
   rider.position.set(0, 0.25, -0.15);
   setSitting(rider, true);
   g.add(rider);

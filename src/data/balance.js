@@ -5,7 +5,7 @@
 import gearData from './gear.json' with { type: 'json' };
 
 // JSON lưu màu dạng "#rrggbb"; Three.js dùng số → đổi khi nạp
-const COLOR_KEYS = ['color', 'shirt', 'pants', 'hatColor'];
+const COLOR_KEYS = ['color', 'shirt', 'pants', 'hatColor', 'hair', 'skin'];
 export function colorsToNumbers(o) {
   if (Array.isArray(o)) return o.map(colorsToNumbers);
   if (!o || typeof o !== 'object') return o;

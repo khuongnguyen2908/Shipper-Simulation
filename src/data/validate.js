@@ -6,6 +6,7 @@
 // =============================================================
 import { CITY } from '../sim/cityLayout.js';
 import { EFFECTS, CONSUMABLE_FIELDS } from './goods.js';
+import { GENDERS, HAIR_STYLES } from '../sim/people.js';
 
 export const TRAIT_IDS = ['hot', 'cold', 'liquid', 'fragile', 'paper', 'passenger'];
 export const PROTECTED = {
@@ -120,7 +121,10 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null) {
     if (p.floors != null && (!Number.isInteger(p.floors) || p.floors < 1 || p.floors > 15)) add('error', p.id, 'floors', 'Số tầng 1–15.');
     if (p.npc) {
       if (!p.npc.name) add('error', p.id, 'npc.name', 'NPC chưa có tên.');
-      for (const f of ['shirt', 'pants']) if (p.npc[f] && !COLOR_RE.test(p.npc[f])) add('error', p.id, `npc.${f}`, 'Màu phải dạng #rrggbb.');
+      for (const f of ['shirt', 'pants', 'hair', 'skin']) if (p.npc[f] && !COLOR_RE.test(p.npc[f])) add('error', p.id, `npc.${f}`, 'Màu phải dạng #rrggbb.');
+      if (p.npc.gender != null && !GENDERS.includes(p.npc.gender)) add('error', p.id, 'npc.gender', 'Giới tính phải là "m" (nam) hoặc "f" (nữ).');
+      if (p.npc.hairStyle != null && !HAIR_STYLES.includes(p.npc.hairStyle)) add('error', p.id, 'npc.hairStyle', `Kiểu tóc phải là: ${HAIR_STYLES.join(', ')}.`);
+      if (p.npc.skirt != null && typeof p.npc.skirt !== 'boolean') add('error', p.id, 'npc.skirt', 'Mặc váy phải là true/false.');
     }
     if (p.kind === 'restaurant') {
       if (!p.menu || !p.menu.length) add('error', p.id, 'menu', 'Quán chưa bán món nào.');
