@@ -224,7 +224,7 @@
         "kem"
       ],
       "npc": {
-        "name": "Bé Thư",
+        "name": "Bé Vân",
         "shirt": "#f5b7b1",
         "pants": "#ffffff",
         "hat": null,
@@ -340,7 +340,8 @@
         "goods": [
           "nhang"
         ]
-      }
+      },
+      "face": "E"
     },
     {
       "id": "gas",
@@ -762,11 +763,11 @@
         4,
         3
       ],
-      "lot": "S12",
+      "lot": "E12",
       "floors": 2,
-      "color": "#d6eaf8",
+      "color": "#843a1a",
       "sign": "CHÙA RẤT LINH",
-      "signBg": "#2e86c1",
+      "signBg": "#b0bd00",
       "npc": {
         "name": "Sư cô Diệu Tâm",
         "shirt": "#8d6e63",
@@ -777,8 +778,8 @@
         "hairStyle": "bald"
       },
       "hours": [
-        8,
-        21
+        5,
+        19
       ],
       "activities": [
         {
@@ -803,7 +804,14 @@
           "mental": 5,
           "perDay": 0
         }
-      ]
+      ],
+      "orders": {
+        "hours": [
+          5,
+          19
+        ],
+        "rideWeight": 1
+      }
     }
   ]
 }
