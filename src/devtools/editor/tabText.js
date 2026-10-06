@@ -46,7 +46,7 @@ const SAMPLE = {
   street: 'Lê Lợi', number: 95, npc: 'Cô Hai', left: '12 phút', error: 'WebGL không khả dụng', price: 120, sub: '',
   forecastText: '',
   worn: '👕 Áo thun xanh lá · 👖 Quần jean · ⛑️ Mũ bảo hiểm xanh lá', slot: 'Áo',
-  kmh: 40, stars: 2, type: 'Giao hàng', cod: 450, refund: 450, icon: '📦', booker: 'Chị Lan',
+  mouth: 34, kmh: 40, stars: 2, type: 'Giao hàng', cod: 450, refund: 450, icon: '📦', booker: 'Chị Lan',
 };
 
 const fill = (s, extra) => String(s).replace(/\{(\w+)\}/g, (m, k) => (extra[k] ?? SAMPLE[k]) !== undefined ? `<mark>${extra[k] ?? SAMPLE[k]}</mark>` : `<mark class="bad">{${k}}</mark>`);

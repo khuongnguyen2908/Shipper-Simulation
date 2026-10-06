@@ -1,34 +1,40 @@
 {
   "streetsX": [
+    "Cách Mạng Tháng Tám",
     "Nguyễn Du",
     "Pasteur",
     "Hai Bà Trưng",
     "Đồng Khởi",
     "Nam Kỳ Khởi Nghĩa",
-    "Tôn Đức Thắng"
+    "Tôn Đức Thắng",
+    "Nguyễn Huệ",
+    "Tôn Thất Thiệp"
   ],
   "streetsZ": [
+    "Nguyễn Thị Minh Khai",
     "Lý Tự Trọng",
     "Lê Thánh Tôn",
     "Điện Biên Phủ",
     "Lê Lợi",
     "Võ Văn Tần",
-    "Hàm Nghi"
+    "Hàm Nghi",
+    "Bến Chương Dương",
+    "Trần Hưng Đạo"
   ],
   "mainRoads": [
     {
       "axis": "x",
-      "line": 2
+      "line": 3
     },
     {
       "axis": "z",
-      "line": 2
+      "line": 3
     }
   ],
   "alley": {
     "block": [
-      1,
-      0
+      2,
+      1
     ],
     "lot": "E1"
   },
@@ -57,10 +63,10 @@
       "short": "Nhà",
       "kind": "home",
       "block": [
-        1,
+        4,
         3
       ],
-      "lot": "N1",
+      "lot": "f6",
       "floors": 3,
       "color": "#f2d7a7",
       "sign": "PHÒNG TRỌ CÔ HAI",
@@ -79,8 +85,8 @@
       "short": "Bún Mọc",
       "kind": "restaurant",
       "block": [
-        0,
-        2
+        1,
+        3
       ],
       "lot": "E1",
       "floors": 2,
@@ -115,8 +121,8 @@
       "short": "Phở",
       "kind": "restaurant",
       "block": [
-        0,
-        1
+        1,
+        2
       ],
       "lot": "E1",
       "floors": 2,
@@ -162,8 +168,8 @@
       "short": "Cơm",
       "kind": "restaurant",
       "block": [
-        2,
-        1
+        3,
+        2
       ],
       "lot": "S1",
       "floors": 2,
@@ -211,8 +217,8 @@
       "short": "Trà sữa",
       "kind": "restaurant",
       "block": [
-        3,
-        3
+        4,
+        4
       ],
       "lot": "N0",
       "floors": 3,
@@ -265,8 +271,8 @@
       "short": "Bánh",
       "kind": "restaurant",
       "block": [
-        4,
-        2
+        5,
+        3
       ],
       "lot": "W1",
       "floors": 2,
@@ -304,10 +310,10 @@
       "short": "Trà",
       "kind": "restaurant",
       "block": [
-        4,
-        3
+        7,
+        4
       ],
-      "lot": "N2",
+      "lot": "S0",
       "floors": 2,
       "color": "#f4c095",
       "sign": "A DI ĐÀ TRÀ",
@@ -340,8 +346,7 @@
         "goods": [
           "nhang"
         ]
-      },
-      "face": "E"
+      }
     },
     {
       "id": "gas",
@@ -349,8 +354,8 @@
       "short": "Xăng",
       "kind": "gas",
       "block": [
-        2,
-        3
+        3,
+        4
       ],
       "lot": "N2",
       "color": "#ffffff",
@@ -370,15 +375,53 @@
       }
     },
     {
+      "id": "gas2",
+      "name": "Cây xăng PVOTL",
+      "short": "Xăng",
+      "kind": "service",
+      "icon": "⛽",
+      "block": [
+        2,
+        7
+      ],
+      "lot": "N2",
+      "floors": 1,
+      "color": "#d6eaf8",
+      "sign": "ĐỊA ĐIỂM MỚI",
+      "signBg": "#2e86c1",
+      "npc": {
+        "name": "Nhân viên",
+        "shirt": "#2e86c1",
+        "pants": "#333344",
+        "hat": null,
+        "portrait": "🙂"
+      },
+      "hours": [
+        8,
+        21
+      ],
+      "activities": [
+        {
+          "id": "nghi",
+          "label": "Ngồi nghỉ",
+          "cost": 0,
+          "minutes": 15,
+          "phys": 5,
+          "mental": 5,
+          "perDay": 0
+        }
+      ]
+    },
+    {
       "id": "gear",
       "name": "Đồ Nghề Shipper",
       "short": "Đồ nghề",
       "kind": "shop",
       "block": [
-        1,
-        2
+        4,
+        5
       ],
-      "lot": "S2",
+      "lot": "S1",
       "floors": 2,
       "color": "#9fd8cb",
       "sign": "ĐỒ NGHỀ SHIPPER",
@@ -412,8 +455,8 @@
       "short": "Tiệm xe",
       "kind": "garage",
       "block": [
-        3,
-        1
+        4,
+        2
       ],
       "lot": "W1",
       "floors": 2,
@@ -445,8 +488,8 @@
       "short": "Cà phê",
       "kind": "cafe",
       "block": [
-        3,
-        0
+        4,
+        1
       ],
       "lot": "S0",
       "floors": 2,
@@ -488,8 +531,8 @@
       "short": "Tạp hóa",
       "kind": "taphoa",
       "block": [
-        1,
-        0
+        2,
+        1
       ],
       "lot": "S2",
       "floors": 2,
@@ -530,8 +573,8 @@
       "short": "Cổng xanh",
       "kind": "gate",
       "block": [
-        1,
-        0
+        2,
+        1
       ],
       "lot": "C",
       "floors": 2,
@@ -551,8 +594,8 @@
       "short": "Chung cư",
       "kind": "apartment",
       "block": [
-        4,
-        4
+        5,
+        5
       ],
       "lot": "N",
       "floors": 12,
@@ -573,17 +616,17 @@
     },
     {
       "id": "market",
-      "name": "Chợ Mini",
-      "short": "Chợ",
+      "name": "Trung tâm thương mại",
+      "short": "TTTM",
       "kind": "market",
       "block": [
-        0,
-        4
+        1,
+        5
       ],
       "lot": "N",
-      "floors": 1,
+      "floors": 10,
       "color": "#e59866",
-      "sign": "CHỢ MINI",
+      "sign": "TTTM Vinsel",
       "signBg": "#922b21",
       "npc": null,
       "orders": {
@@ -591,18 +634,7 @@
         "foodWeight": 0,
         "parcelWeight": 3
       },
-      "sells": {
-        "goods": [
-          "aoTrang",
-          "aoDo",
-          "aoSoMi",
-          "aoDongPhuc",
-          "quanKaki",
-          "quanShort",
-          "muDo",
-          "muFullface"
-        ]
-      }
+      "icon": "🏬"
     },
     {
       "id": "nhasach",
@@ -612,9 +644,9 @@
       "icon": "📚",
       "block": [
         2,
-        2
+        4
       ],
-      "lot": "S1",
+      "lot": "N0",
       "floors": 2,
       "color": "#ba5512",
       "sign": "NHÀ SÁCH TỰ DO",
@@ -680,10 +712,10 @@
       "kind": "service",
       "icon": "🎤",
       "block": [
-        2,
-        4
+        4,
+        6
       ],
-      "lot": "S1",
+      "lot": "S12",
       "floors": 4,
       "color": "#3d2b56",
       "sign": "KARAOKE SÁNG",
@@ -731,15 +763,15 @@
     },
     {
       "id": "vanphong",
-      "name": "Văn Phòng Công Ty",
-      "short": "Mới",
+      "name": "Tòa Nhà Công Ty",
+      "short": "Công Ty",
       "kind": "service",
       "icon": "🏢",
       "block": [
-        0,
-        3
+        3,
+        5
       ],
-      "lot": "N01",
+      "lot": "E12",
       "floors": 5,
       "color": "#d6eaf8",
       "sign": "CÔNG TY D",
@@ -780,10 +812,10 @@
       "kind": "service",
       "icon": "🛕",
       "block": [
-        4,
-        3
+        7,
+        4
       ],
-      "lot": "E12",
+      "lot": "S12",
       "floors": 2,
       "color": "#843a1a",
       "sign": "CHÙA RẤT LINH",
@@ -831,6 +863,108 @@
           19
         ],
         "rideWeight": 1
+      }
+    },
+    {
+      "id": "clothestore",
+      "name": "Shop Quần Áo",
+      "short": "Áo",
+      "kind": "service",
+      "icon": "👕",
+      "block": [
+        1,
+        5
+      ],
+      "lot": "S2",
+      "floors": 2,
+      "color": "#d6eaf8",
+      "sign": "SHOP",
+      "signBg": "#2e86c1",
+      "npc": {
+        "name": "Anh Bình",
+        "shirt": "#d9f37c",
+        "pants": "#a5ff38",
+        "hat": null,
+        "portrait": "👨",
+        "hairStyle": "bun",
+        "hair": "#5a3825",
+        "gender": "m"
+      },
+      "hours": [
+        8,
+        21
+      ],
+      "orders": {
+        "hours": [
+          8,
+          21
+        ]
+      },
+      "sells": {
+        "goods": [
+          "aoDo",
+          "aoTrang",
+          "aoSoMi",
+          "quanKaki",
+          "quanShort",
+          "muDo",
+          "muFullface",
+          "aoXanh"
+        ]
+      }
+    },
+    {
+      "id": "goship",
+      "name": "Văn Phòng GoShip",
+      "short": "Goship",
+      "kind": "service",
+      "icon": "🏢",
+      "block": [
+        4,
+        5
+      ],
+      "lot": "S0",
+      "floors": 2,
+      "color": "#d6eaf8",
+      "sign": "ĐỊA ĐIỂM MỚI",
+      "signBg": "#27ff0a",
+      "npc": {
+        "name": "Nhân viên quản lý app",
+        "shirt": "#00ff33",
+        "pants": "#ffffff",
+        "hat": null,
+        "portrait": "👩",
+        "gender": "f",
+        "hairStyle": "ponytail",
+        "skin": "#f1c27d",
+        "skirt": true
+      },
+      "hours": [
+        8,
+        21
+      ],
+      "activities": [
+        {
+          "id": "noi",
+          "label": "Cãi lộn với chị nhân viên",
+          "cost": 0,
+          "minutes": 30,
+          "phys": 5,
+          "mental": 10,
+          "perDay": 1
+        }
+      ],
+      "orders": {
+        "hours": [
+          8,
+          21
+        ]
+      },
+      "face": "W",
+      "sells": {
+        "goods": [
+          "aoDongPhuc"
+        ]
       }
     }
   ]

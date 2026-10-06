@@ -5,7 +5,7 @@
       "name": "GoShip",
       "platformFee": 0.2,
       "taxRate": 0.015,
-      "distBonusPerKm": 4,
+      "distBonusPerKm": 6,
       "extraItemFare": 6,
       "tipByStars": [
         0,
@@ -150,7 +150,7 @@
       "vomitCost": 10,
       "noPayChance": 0.15,
       "bigTipChance": 0.25,
-      "bigTip": 15
+      "bigTip": 100
     },
     "booked": {
       "id": "booked",

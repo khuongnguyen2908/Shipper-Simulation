@@ -1,6 +1,6 @@
 // Thẻ ĐỊA ĐIỂM & NPC: tên, biển hiệu, màu, vị trí trên bản đồ (bấm ô để dời), NPC,
 // thực đơn quán, lời thoại riêng; mục "Tên đường & khách" cho tên phố, tên khách, người đi đường.
-import { CITY, HALF, blockBounds, lotInfo, LOT_SIZES, lotParts, lotSize, lotFaces } from '../../sim/cityLayout.js';
+import { CITY, HALF, blockBounds, lotInfo, LOT_SIZES, lotParts, lotSize, lotFaces, blockPlan, blockRect } from '../../sim/cityLayout.js';
 import { PROTECTED, ID_RE, LOTS, lotCells } from '../../data/validate.js';
 import { moveInArray } from './order.js';
 import { personPreview } from './personPreview.js';
@@ -72,8 +72,16 @@ export function render(root, ctx) {
   // --- bản đồ + vị trí ---
   const idInput = textInput(p.id, () => {}, { class: 'mono', disabled: locked });
   idInput.addEventListener('change', () => renamePlace(p, idInput.value.trim()));
+  const map = ctx.data.map;
+  const plan = blockPlan(p.block[0], p.block[1], map); // khối đang đặt có hẻm?
   const size = lotSize(p.lot) || 'one';
-  const lotOptions = p.kind === 'gate' ? ['C'] : LOT_SIZES[size];
+  // khối có hẻm: chọn một nhà (mặt phố hoặc trong hẻm); khối thường: lô theo kích thước
+  const lotOptions = plan ? plan.lots.map((l) => l.id) : p.kind === 'gate' ? ['C'] : LOT_SIZES[size];
+  const lotLabel = (l) => {
+    if (!plan) return LOT_LABEL[l] || l;
+    const info = lotInfo(p.block[0], p.block[1], l, null, map);
+    return `${l} · ${info.inAlley ? 'trong hẻm' : 'mặt phố'} — ${info.address}`;
+  };
   const mapBox = el('div', { class: 'mapbox' });
   body.append(
     el(
@@ -93,15 +101,15 @@ export function render(root, ctx) {
         field('Khối (cột x, hàng z)', el('span', { class: 'inline' },
           numInput(p.block[0], (v) => { p.block[0] = Math.round(v); changedP(); drawMap(); }, { step: 1, min: 0, max: CITY.N - 1 }),
           numInput(p.block[1], (v) => { p.block[1] = Math.round(v); changedP(); drawMap(); }, { step: 1, min: 0, max: CITY.N - 1 })), opt('block', { hint: `0–${CITY.N - 1}, từ tây-bắc` })),
-        p.kind !== 'gate' ? field('Kích thước', selectInput(size, Object.entries(SIZE_LABEL), (v) => {
+        p.kind !== 'gate' && !plan ? field('Kích thước', selectInput(size, Object.entries(SIZE_LABEL), (v) => {
           // giữ chỗ cũ nếu được: lấy lô cỡ mới chứa ô đầu của lô hiện tại
           p.lot = lotForCell(v, lotParts(p.lot)[0]) || lotParts(p.lot).map((c) => lotForCell(v, c)).find(Boolean) || LOT_SIZES[v][0];
           fixFace();
           changedP();
           ctx.rerender();
         }), opt('lotSize', { hint: 'Tòa nhà lớn chiếm nhiều lô (mỗi lô bớt 1 nhà khách). Mặt tiền: lô ngang quay ra đường phía bắc/nam; lô dọc quay ra đường phía tây/đông.' })) : null,
-        field('Lô trong khối', selectInput(p.lot, lotOptions.map((l) => [l, LOT_LABEL[l] || l]), (v) => { p.lot = v; fixFace(); changedP(); ctx.rerender(); }), opt('lot', { hint: 'Hoặc bấm vào ô trên bản đồ (giữ nguyên kích thước)' })),
-        p.kind !== 'gate' ? faceField() : null,
+        field('Lô trong khối', selectInput(lotOptions.includes(p.lot) ? p.lot : '', [...(lotOptions.includes(p.lot) ? [] : [['', `(${p.lot} — không có trong khối này)`]]), ...lotOptions.map((l) => [l, lotLabel(l)])], (v) => { if (!v) return; p.lot = v; if (plan) delete p.face; else fixFace(); changedP(); ctx.rerender(); }), opt('lot', { hint: plan ? 'Khối có hẻm: chọn một nhà (mặt tiền cố định theo nhà). Hoặc bấm vào nhà trên bản đồ.' : 'Hoặc bấm vào ô trên bản đồ (giữ nguyên kích thước)' })),
+        p.kind !== 'gate' && !plan ? faceField() : null,
       ),
       mapBox,
     ),
@@ -290,8 +298,29 @@ export function render(root, ctx) {
         const b = blockBounds(bx, bz);
         g.fillStyle = '#4a5560';
         g.fillRect(X(b.x0), Z(b.z0), CITY.BLOCK * k, CITY.BLOCK * k);
+        const bp = blockPlan(bx, bz, map);
+        if (bp) {
+          // khối có hẻm: hẻm + từng nhà có cửa (bấm để đặt địa điểm vào)
+          for (const a of bp.alleys) { const r = blockRect(bx, bz, a); g.fillStyle = bp.walk ? '#d8cbb4' : '#b3a68f'; g.fillRect(X(r.x0), Z(r.z0), (r.x1 - r.x0) * k, (r.z1 - r.z0) * k); }
+          for (const f of bp.fillers) { const r = blockRect(bx, bz, f); g.fillStyle = '#3d4650'; g.fillRect(X(r.x0), Z(r.z0), (r.x1 - r.x0) * k, (r.z1 - r.z0) * k); }
+          for (const l of bp.lots) {
+            const r = blockRect(bx, bz, l);
+            const key = `${bx},${bz},${l.id}`;
+            rects.push({ ...r, bx, bz, lot: l.id, key, alley: true });
+            const who = owner.get(key);
+            const q = places.find((x) => x.id === who);
+            g.fillStyle = who === '__clash' ? '#c0392b' : q ? q.signBg || q.color || '#999' : l.front ? '#5f6b76' : '#717a62';
+            g.fillRect(X(r.x0) + 0.5, Z(r.z0) + 0.5, (r.x1 - r.x0) * k - 1, (r.z1 - r.z0) * k - 1);
+            if (q && q.id === p.id) {
+              g.strokeStyle = '#f4d03f';
+              g.lineWidth = 3;
+              g.strokeRect(X(r.x0) + 1, Z(r.z0) + 1, (r.x1 - r.x0) * k - 2, (r.z1 - r.z0) * k - 2);
+            }
+          }
+          continue;
+        }
         for (const lot of [...SINGLE_LOTS, 'C']) {
-          const r = lotInfo(bx, bz, lot);
+          const r = lotInfo(bx, bz, lot, null, map);
           const key = `${bx},${bz},${lot}`;
           rects.push({ ...r, bx, bz, lot, key });
           const who = owner.get(key);
@@ -311,7 +340,7 @@ export function render(root, ctx) {
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     for (const q of places) {
-      const r = lotInfo(q.block[0], q.block[1], q.lot, q.face);
+      const r = lotInfo(q.block[0], q.block[1], q.lot, q.face, map);
       // vạch mặt tiền (cạnh có cửa)
       const edge = { N: [r.x0, r.z0, r.x1, r.z0], S: [r.x0, r.z1, r.x1, r.z1], W: [r.x0, r.z0, r.x0, r.z1], E: [r.x1, r.z0, r.x1, r.z1] }[r.face];
       if (edge && q.lot !== 'C') {
@@ -339,8 +368,16 @@ export function render(root, ctx) {
       const hit = rects.find((r) => wx >= r.x0 && wx <= r.x1 && wz >= r.z0 && wz <= r.z1 && r.lot !== 'C') || rects.find((r) => wx >= r.x0 && wx <= r.x1 && wz >= r.z0 && wz <= r.z1);
       if (!hit) return;
       if (p.kind === 'gate') return alert('Nhà cổng xanh gắn với hẻm 42, không dời được.');
+      if (hit.alley) {
+        // khối có hẻm: đặt vào đúng nhà vừa bấm (1 lô, mặt tiền theo nhà)
+        p.block = [hit.bx, hit.bz];
+        p.lot = hit.lot;
+        delete p.face;
+        changedP();
+        return ctx.rerender();
+      }
       if (hit.lot === 'C') return alert('Lô C (sân trong hẻm) chỉ dành cho nhà cổng xanh.');
-      const lot = lotForCell(lotSize(p.lot) || 'one', hit.lot);
+      const lot = lotForCell(lotSize(p.lot) || 'one', hit.lot); // (đang ở khối có hẻm → về lô 1 ô)
       if (!lot) return alert(`Ô ${hit.lot} không vừa kích thước "${SIZE_LABEL[lotSize(p.lot)]}". ${['col', 'vtwo'].includes(lotSize(p.lot)) ? 'Lô dọc chỉ đặt ở cột trái (N0, W1, S0) hoặc cột phải (N2, E1, S2).' : 'Chọn ô ở dãy bắc (N…) hoặc dãy nam (S…).'}`);
       p.block = [hit.bx, hit.bz];
       p.lot = lot;
@@ -348,7 +385,7 @@ export function render(root, ctx) {
       changedP();
       ctx.rerender();
     });
-    mapBox.append(c, el('small', { class: 'muted' }, 'Vàng = đang chọn · vạch = mặt tiền (cửa) · đỏ = trùng lô · nâu = lối vào hẻm 42 · bấm ô để dời'));
+    mapBox.append(c, el('small', { class: 'muted' }, 'Vàng = đang chọn · vạch = mặt tiền (cửa) · đỏ = trùng lô · nâu = lối vào hẻm 42 · khối có hẻm: bấm vào một nhà (xanh rêu = nhà trong hẻm) · bấm ô để dời'));
   }
 
   // ---------- mặt tiền ----------
@@ -432,8 +469,8 @@ function renderStreets(body, ctx) {
   const toList = (v) => v.split('\n').map((s) => s.trim()).filter(Boolean);
   body.append(
     el('div', { class: 'body-head' }, el('h2', {}, '🛣️ Tên đường & khách')),
-    streetFields('streetsX', 'Đường dọc (tây → đông, 6 tên)'),
-    streetFields('streetsZ', 'Đường ngang (bắc → nam, 6 tên)'),
+    streetFields('streetsX', `Đường dọc (tây → đông, ${CITY.N + 1} tên)`),
+    streetFields('streetsZ', `Đường ngang (bắc → nam, ${CITY.N + 1} tên)`),
     el('p', { class: 'muted' }, `Đường chính hay kẹt xe: ${pd.mainRoads.map((r) => (r.axis === 'x' ? pd.streetsX[r.line] : pd.streetsZ[r.line])).join(', ')}. Lưu ý: vài câu thoại có nhắc tên đường cố định (ví dụ "Hai Bà Trưng") — đổi tên đường thì xem lại ở thẻ Chữ.`),
     field('Tên khách hàng (mỗi dòng 1 tên)', areaInput(lines(pd.customerNames), (v) => { pd.customerNames = toList(v); changedP(); }, 6), { ref: '', fieldKey: 'customerNames', wide: true }),
     field('Tên người đi đường (mỗi dòng 1 tên) — kho chữ ped.names', areaInput(lines(ctx.data.content['ped.names']), (v) => { ctx.data.content['ped.names'] = toList(v); ctx.changed('content'); }, 5), { ref: 'ped.names', fieldKey: 'text', wide: true }),

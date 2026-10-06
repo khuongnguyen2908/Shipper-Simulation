@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ITEMS as DATA_ITEMS } from '../src/data/items.js';
-import { ECONOMY, TIME } from '../src/data/balance.js';
+import { ECONOMY, TIME, HAZARD as HAZARD_DATA } from '../src/data/balance.js';
 import { DeliveryItem } from '../src/sim/ItemPhysics.js';
 import { evaluateOrder } from '../src/sim/OrderCondition.js';
 import { computePayout } from '../src/sim/economy.js';
@@ -35,6 +35,8 @@ const ITEMS = {
   banhKem: { id: 'banhKem', name: 'Bánh', icon: '🎂', traits: ['fragile', 'paper'], base: 45 },
   passenger: { id: 'passenger', name: 'Khách', icon: '🧍', traits: ['passenger'], base: 30 },
 };
+// Số app cố định cho bộ thử công thức tiền (sửa apps.json trong công cụ không làm hỏng bộ thử)
+const TEST_APP = { platformFee: 0.2, taxRate: 0.015, distBonusPerKm: 4, extraItemFare: 6, tipByStars: [0, 0, 0, 0, 3, 8], cancelComp: 5 };
 const NO_BAG = { insulation: 0, waterproof: 0, padding: 0 };
 const THERMAL = { insulation: 0.55, waterproof: 0.5, padding: 0.25 };
 const env = (o = {}) => ({ ambient: 30, sun: 0.5, raining: false, exposed: true, speed: 8, comfortSpeed: 11, suspension: 0.2, bag: NO_BAG, ...o });
@@ -126,7 +128,7 @@ test('Chở khách: chấm theo "thoải mái"; hoảng sợ (<25%) → 1 sao, c
   assert.ok(half.walletCredit > 0 && Math.abs(half.gross - full.gross * ECONOMY.scaredFarePct) < 0.11, `${half.gross} vs ${full.gross}`);
 });
 test('Công thức: (cước + quãng đường) − 20% − thuế − xăng', () => {
-  const p = computePayout({ baseFare: 30, distanceKm: 2.5, litersUsed: 0.1, stars: 5 });
+  const p = computePayout({ baseFare: 30, distanceKm: 2.5, litersUsed: 0.1, stars: 5, app: TEST_APP });
   assert.equal(p.gross, 40);
   assert.equal(p.fee, 8);
   assert.equal(p.tax, 0.6);
@@ -281,7 +283,7 @@ test('Lịch chướng ngại lặp lại theo seed, luôn có mưa chiều', ()
   assert.deepEqual(a.rain, b.rain);
   assert.ok(a.rain.some((r) => r.heavy && r.start >= 14 * 60));
   assert.ok(a.police.length >= 3);
-  assert.equal(a.potholes.length, 46);
+  assert.equal(a.potholes.length, HAZARD_DATA.potholes);
   for (const p of a.potholes) assert.ok(!blockAt(p.x, p.z), 'ổ gà nằm trên vỉa hè');
 });
 
@@ -440,11 +442,11 @@ console.log('App giao hàng, loại đơn, tài khoản, loại khách (apps.jso
     assert.equal(surchargeAt(9 * 60, false), 0);
     assert.equal(surchargeAt(9 * 60, true), APP.rainSurcharge);
     assert.equal(surchargeAt(12 * 60, true), APP.rainSurcharge + APP.peakSurcharge);
-    const a = computePayout({ baseFare: 30, distanceKm: 2.5, stars: 5, surcharge: 4 });
+    const a = computePayout({ baseFare: 30, distanceKm: 2.5, stars: 5, surcharge: 4, app: TEST_APP });
     assert.equal(a.gross, 44);
-    const b = computePayout({ baseFare: 30, distanceKm: 2.5, stars: 5, viaApp: false });
+    const b = computePayout({ baseFare: 30, distanceKm: 2.5, stars: 5, viaApp: false, app: TEST_APP });
     assert.equal(b.fee + b.tax, 0);
-    assert.equal(b.walletCredit, 40 + APP.tipByStars[5]);
+    assert.equal(b.walletCredit, 40 + TEST_APP.tipByStars[5]);
     assert.ok(estimatePay(30, 2.5, { viaApp: false }) > estimatePay(30, 2.5));
   });
   test('Loại đơn: chưa có mũ cho khách thì không có đơn chở khách; có đủ đồ ăn, giao hàng, hỏa tốc', () => {
@@ -618,6 +620,141 @@ console.log('App giao hàng, loại đơn, tài khoản, loại khách (apps.jso
     delete bad.orderTypes.ride;
     const errs = validateApps(bad, DATA.items, DATA.places).filter((i) => i.level === 'error').map((i) => `${i.ref}.${i.field}`);
     for (const f of ['goship.platformFee', 'goship.account.lockBelow', 'parcel.items', 'drunk.from', '.kind']) assert.ok(errs.includes(f), `không bắt lỗi ${f}: ${errs.join(', ')}`);
+  });
+}
+
+console.log('Bản đồ 8×8, hẻm trong khối (map.json)');
+{
+  const { planBlock, ALLEY_TEMPLATES, INNER } = await import('../src/sim/blockPlan.js');
+  const { CITY, blockPlan, lotInfo, rideDoor } = await import('../src/sim/cityLayout.js');
+  const { validatePlaces, validateMap } = VALIDATE;
+  const MAPD = readJson('src/data/map.json');
+  const overlap = (a, b) => a.u0 < b.u1 && b.u0 < a.u1 && a.v0 < b.v1 && b.v0 < a.v1;
+  test('Mọi kiểu hẻm × 4 hướng × xe máy/đi bộ: nhà không chồng nhau, không lấn hẻm, có miệng hẻm; hẻm đi bộ có 2 cột mỗi miệng', () => {
+    for (const t of Object.keys(ALLEY_TEMPLATES)) for (const walk of [false, true]) for (let rot = 0; rot < 4; rot++) {
+      const p = planBlock({ alley: t, rot, walk }, 7 + rot);
+      const rects = [...p.lots, ...p.fillers];
+      for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) assert.ok(!overlap(rects[i], rects[j]), `${t}/${rot}: nhà chồng nhau`);
+      for (const r of rects) for (const a of p.alleys) assert.ok(!overlap(r, a), `${t}/${rot}: nhà lấn hẻm`);
+      for (const r of rects) assert.ok(r.u0 >= 0 && r.v0 >= 0 && r.u1 <= INNER && r.v1 <= INNER);
+      assert.ok(p.mouths.length >= 1 && p.lots.some((l) => !l.front), `${t}/${rot}: thiếu miệng hẻm / nhà trong hẻm`);
+      assert.equal(p.posts.length, walk ? p.mouths.length * 2 : 0);
+      assert.equal(new Set(p.lots.map((l) => l.id)).size, p.lots.length);
+    }
+  });
+  test('Bản đồ 8×8: thành phố cũ ở giữa; nhà trong hẻm có địa chỉ "số hẻm/số nhà", cửa ra hẻm (không nằm trong nhà nào)', () => {
+    assert.equal(CITY.N, 8);
+    for (const p of layout.places) assert.ok(p.block.every((v) => v >= 0 && v < CITY.N), `${p.id} nằm ngoài bản đồ`);
+    const inner = layout.lots.filter((l) => l.inAlley);
+    assert.ok(inner.length > 60, `chỉ có ${inner.length} nhà trong hẻm`);
+    for (const l of inner) {
+      assert.match(l.address, /^\d+\/\d+ /);
+      for (const ab of layout.alleyBlocks) for (const f of ab.fillers) assert.ok(!(l.door.x > f.x0 && l.door.x < f.x1 && l.door.z > f.z0 && l.door.z < f.z1), `cửa ${l.address} nằm trong nhà`);
+      assert.ok(ab0(l), `cửa ${l.address} không nằm trong hẻm`);
+    }
+    function ab0(l) { return layout.alleyBlocks.some((ab) => ab.alleys.some((a) => l.door.x >= a.x0 - 0.01 && l.door.x <= a.x1 + 0.01 && l.door.z >= a.z0 - 0.01 && l.door.z <= a.z1 + 0.01)); }
+  });
+  test('Xe ôm không đón/trả trong hẻm đi bộ: dùng miệng hẻm', () => {
+    const walkLots = layout.lots.filter((l) => l.walkOnly);
+    assert.ok(walkLots.length > 5);
+    for (const l of walkLots) assert.deepEqual(rideDoor(l), l.mouthDoor);
+    const { om, gs } = mkOM(21, { carry: { money: 500, flags: { wallet: 5 } } });
+    gs.buy('goods', 'spareHelmet');
+    const byKey = Object.fromEntries(layout.lots.map((l) => [l.key, l]));
+    for (let i = 0; i < 300; i++) {
+      const o = om.makeRide({ x: 0, z: 0 }, false, 600);
+      for (const end of [o.pickup, o.dropoff]) if (end.lotKey && byKey[end.lotKey].walkOnly) assert.deepEqual(end.door, byKey[end.lotKey].mouthDoor);
+    }
+  });
+  test('Địa điểm trong khối có hẻm: đúng lô của hẻm thì hợp lệ (quán trong hẻm); lô cũ / nhà cổng xanh / khối hẻm 42 → lỗi', () => {
+    const pd = JSON.parse(JSON.stringify(DATA.places));
+    const cafe = pd.places.find((p) => p.id === 'cafe');
+    const [k, spec] = Object.entries(MAPD.blocks)[0];
+    const [bx, bz] = k.split(',').map(Number);
+    const plan = blockPlan(bx, bz, MAPD);
+    const inner = plan.lots.find((l) => !l.front);
+    Object.assign(cafe, { block: [bx, bz], lot: inner.id });
+    delete cafe.face;
+    const errs = (x, m = MAPD) => validatePlaces(x, DATA.items, null, null, m).filter((i) => i.level === 'error');
+    assert.equal(errs(pd).length, 0, errs(pd).map((e) => e.msg).join('; '));
+    assert.ok(lotInfo(bx, bz, inner.id, null, MAPD).inAlley);
+    cafe.lot = 'N0';
+    assert.ok(errs(pd).some((e) => e.ref === 'cafe' && e.field === 'lot'));
+    const m2 = JSON.parse(JSON.stringify(MAPD));
+    m2.blocks[pd.alley.block.join(',')] = { alley: 'I', rot: 0, walk: false };
+    cafe.lot = inner.id;
+    assert.ok(errs(pd, m2).some((e) => e.field === 'alley'), 'khối có hẻm 42 không được đặt kiểu hẻm');
+    assert.ok(spec);
+  });
+  test('Bộ kiểm tra bản đồ: kiểu hẻm lạ, hướng sai, khối ngoài bản đồ, thiếu tên đường → lỗi', () => {
+    assert.equal(validateMap(MAPD, DATA.places).filter((i) => i.level === 'error').length, 0);
+    const bad = JSON.parse(JSON.stringify(MAPD));
+    bad.blocks['9,9'] = { alley: 'I' };
+    bad.blocks['0,0'] = { alley: 'xoanoc', rot: 7 };
+    const fields = validateMap(bad, DATA.places).filter((i) => i.level === 'error').map((i) => `${i.ref}.${i.field}`);
+    for (const f of ['9,9.block', '0,0.alley', '0,0.rot']) assert.ok(fields.includes(f), `không bắt lỗi ${f}`);
+    const pd = JSON.parse(JSON.stringify(DATA.places));
+    pd.streetsX.pop();
+    assert.ok(validateMap(MAPD, pd).some((i) => i.field === 'size' && i.level === 'error'));
+  });
+}
+
+console.log('Sông, cầu, quãng đường thật (map.json → rivers)');
+{
+  const { roadPos, routeDist, manhattan, neighbors, isWaterSeg, roadGraph, CITY } = await import('../src/sim/cityLayout.js');
+  const { HazardManager } = await import('../src/sim/hazards.js');
+  const { validateMap } = VALIDATE;
+  const MAPD = readJson('src/data/map.json');
+  const R = MAPD.rivers[0];
+  test('Bản đồ mẫu có sông + cầu; đi qua sông phải vòng qua cầu (quãng đường dài hơn nhiều đường chim bay)', () => {
+    assert.ok(R && R.bridges.length >= 2, 'bản đồ mẫu phải có 1 sông và vài cây cầu');
+    const noBridge = [...Array(R.to - R.from + 1).keys()].map((k) => k + R.from).find((k) => k > 0 && k < CITY.N && !R.bridges.includes(k));
+    const x = roadPos(noBridge), zr = roadPos(R.line);
+    const north = { x: x + 3, z: zr - 14 }, south = { x: x + 3, z: zr + 14 };
+    const d = routeDist(north, south);
+    assert.ok(d > manhattan(north, south) * 3, `qua sông chỉ ${d.toFixed(0)} m (đường chim bay ${manhattan(north, south)})`);
+    const a = { x: roadPos(2) + 3, z: roadPos(2) + 10 }, b = { x: roadPos(2) + 3, z: roadPos(3) + 20 };
+    assert.ok(Math.abs(routeDist(a, b) - manhattan(a, b)) < 1, 'cùng một con đường thì bằng quãng thẳng');
+  });
+  test('Nhà trong hẻm: quãng đường cộng thêm đoạn đi trong hẻm', () => {
+    const l = layout.lots.find((x) => x.inAlley && x.inner > 5);
+    const from = { x: roadPos(0) + 3, z: roadPos(0) + 20 };
+    assert.ok(routeDist(from, l.door) >= routeDist(from, l.door.mouth) + l.inner - 0.01);
+  });
+  test('Xe NPC, ổ gà, chốt CSGT, kẹt xe không ở trên mặt sông', () => {
+    const g = roadGraph();
+    for (let j = 0; j <= CITY.N; j++) for (let i = 0; i <= CITY.N; i++) for (const [a, b] of neighbors(i, j)) {
+      const seg = i === a ? ['x', i, Math.min(j, b)] : ['z', j, Math.min(i, a)];
+      assert.ok(!isWaterSeg(...seg), `xe đi qua sông ở ${i},${j} → ${a},${b}`);
+    }
+    for (let s = 1; s <= 5; s++) {
+      const h = new HazardManager(makeRng(s));
+      for (const p of h.potholes) {
+        const nearZ = Math.abs(p.z - roadPos(R.line)) < CITY.ROAD / 2 + 0.01;
+        assert.ok(!(nearZ && R.axis === 'z'), 'ổ gà trên mặt sông');
+      }
+      for (const p of h.police) assert.ok(neighbors(...p.node).length >= 3 && !g.bridgeNodes.has(p.node.join(',')), 'chốt CSGT ở cầu / đường cụt');
+      for (const j of h.jams) for (const sg of j.segments) assert.ok(!isWaterSeg(sg.axis, sg.line, sg.from));
+    }
+  });
+  test('Thời hạn đơn tính theo quãng đường thật', () => {
+    const { om } = mkOM(31);
+    for (let i = 0; i < 30; i++) {
+      const o = om.makeOffer(10 * 60, { x: 0, z: 0 });
+      assert.ok(Math.abs(o.d2 - routeDist(o.pickup.door, o.dropoff.door)) < 1e-6);
+    }
+  });
+  test('Bộ kiểm tra sông: cắt rời thành phố (không cầu), cầu ngoài đoạn sông, số sai → lỗi', () => {
+    assert.equal(validateMap(MAPD, DATA.places).filter((i) => i.level === 'error').length, 0);
+    const cut = JSON.parse(JSON.stringify(MAPD));
+    cut.rivers[0].bridges = [];
+    assert.ok(validateMap(cut, DATA.places).some((i) => i.level === 'error' && /cắt rời/.test(i.msg)));
+    const bad = JSON.parse(JSON.stringify(MAPD));
+    bad.rivers[0].bridges = [99];
+    const n = bad.rivers.length; // sông thêm vào có số thứ tự = số sông đang có
+    bad.rivers.push({ axis: 'y', line: 3, from: 5, to: 2, bridges: [] });
+    const f = validateMap(bad, DATA.places).filter((i) => i.level === 'error').map((i) => `${i.ref}.${i.field}`);
+    for (const k of ['river0.bridges', `river${n}.axis`, `river${n}.from`]) assert.ok(f.includes(k), `không bắt lỗi ${k}: ${f.join(', ')}`);
   });
 }
 
@@ -874,7 +1011,7 @@ console.log('Dữ liệu & kho chữ (sửa bằng công cụ ?editor)');
   const fs = await import('node:fs');
   const path = await import('node:path');
   const read = (p) => JSON.parse(fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8'));
-  const data = { items: read('src/data/items.json'), gear: read('src/data/gear.json'), goods: read('src/data/goods.json'), places: read('src/data/places.json'), content: read('src/content/vi.json'), apps: read('src/data/apps.json') };
+  const data = { items: read('src/data/items.json'), gear: read('src/data/gear.json'), goods: read('src/data/goods.json'), places: read('src/data/places.json'), content: read('src/content/vi.json'), apps: read('src/data/apps.json'), map: read('src/data/map.json') };
   const { validateAll, validateItems, validatePlaces, validateContent, validateGoods, validateGear } = await import('../src/data/validate.js');
   test('Dữ liệu hiện tại không có lỗi', () => {
     const errs = validateAll({ ...data, baseContent: data.content }).filter((i) => i.level === 'error');

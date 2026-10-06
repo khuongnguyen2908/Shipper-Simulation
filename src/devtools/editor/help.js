@@ -75,11 +75,18 @@ export const HINT = {
     scale: '0,6–1,3. 1 = bình thường; Chú Tư Lùn 0,85.',
   },
 
+  // ---------- bản đồ ----------
+  map: {
+    alley: 'Kiểu mạng hẻm bên trong khối. Game tự xếp nhà mặt phố + nhà trong hẻm (địa chỉ "số hẻm/số nhà"). Khối có hẻm 42 (nhà cổng xanh) phải để "Không hẻm".',
+    walk: 'Hẻm đi bộ hẹp 2 m, có cột chắn ở miệng hẻm: phải đậu xe ngoài đường rồi đi bộ vào. Khách xe ôm ở nhà trong hẻm đi bộ được đón/trả ở miệng hẻm.',
+    river: 'Sông thay cho một con đường (từ ngã tư a tới b): xe không chạy dọc / băng qua được, trừ ở ngã tư có cầu. Quãng đường và thời hạn đơn tự tính vòng qua cầu. Sông không được cắt rời thành phố (bộ kiểm tra sẽ báo).',
+  },
+
   // ---------- app giao hàng ----------
   app: {
     platformFee: '0–90%. App lấy bao nhiêu % tổng cước. Mẫu 20%. Phí + thuế trên 60% thì tài xế gần như không lời.',
     taxRate: '0–50%. Thuế thu nhập trên tổng cước. Mẫu 1,5%.',
-    distBonusPerKm: '0–50k mỗi km quãng đường quán → khách. Mẫu 4k (xăng tốn ~1k/km).',
+    distBonusPerKm: '0–50k mỗi km quãng đường quán → khách. Mẫu 6k (xăng tốn ~1k/km). Bản đồ 8×8 có sông nên quãng đi dài hơn — 4k thì tỉ lệ thắng ngày 1 tụt (bot chơi bình thường 58% → 75% khi lên 6k).',
     extraItemFare: '0–100k cho mỗi món thêm trong đơn 2 món. Mẫu 6k.',
     cancelComp: '0–200k app bù khi đơn bị hủy không phải lỗi tài xế (quán hết món, khách không nghe máy). Mẫu 5k.',
     rainSurcharge: '0–100k cộng vào mỗi đơn nhận lúc trời mưa (như app thật). Mẫu 4k. Khách quen gọi thẳng không có phụ phí.',
@@ -135,7 +142,7 @@ export const EXPLAIN = {
     <p>Mỗi món bắt đầu <b>100%</b>. Trên đường mất dần tùy đặc tính (nguội, tan, đổ, vỡ, ướt). Lúc giao, số sao tính theo tình trạng trung bình:</p>
     ${T([['Tình trạng', '≥ 90%', '75–89%', '60–74%', '40–59%', '25–39%', '&lt; 25%'], ['Trừ sao', '0', '−0,5', '−1,5', '−2,5', '−3,5', 'khách từ chối, 1★, không có tiền']])}
     <p>Trễ giờ cũng trừ sao (trễ ≤ 25%: −1, ≤ 50%: −2, hơn nữa: −3). Điểm đánh giá dưới <b>4,0</b> → app khóa tài khoản → thua.</p>
-    <p>Tiền mỗi đơn ≈ cước − 20% phí − 1,5% thuế + thưởng quãng đường (4k/km) + boa (4★: 3k, 5★: 8k). Bot chơi thử lãi trung bình ~36k/đơn → ngày 1 (tiền nhà 400k) cần khoảng 12 đơn.</p>`],
+    <p>Tiền mỗi đơn ≈ cước − 20% phí − 1,5% thuế + thưởng quãng đường (6k/km) + boa (4★: 3k, 5★: 8k). Bot chơi thử lãi trung bình ~39k/đơn → ngày 1 (tiền nhà 400k) cần khoảng 12 đơn.</p>`],
   goods: ['Thể lực, tinh thần và đồ dùng', `
     <p>Hai thanh <b>thể lực</b> và <b>tinh thần</b> từ 0 đến 100, đầu ngày đầy. Về 0 là <b>thua</b> (ngất / suy sụp). Thanh không vượt quá 100.</p>
     ${T([['Thứ', 'Thể lực', 'Tinh thần'], ['Ăn phở / cơm tấm (35k)', '+45', '+5'], ['Cà phê / trà sữa (20k)', '+5', '+30'], ['Nước tăng lực (15k)', '+25', '+5'], ['Cả ngày tụt dần (chạy xe, nắng, chờ, kẹt xe)', '≈ −40 đến −60', '≈ −20 đến −40'], ['Leo thang chung cư (mỗi tầng)', '−3,5', ''], ['Bị CSGT phạt · bị 1★ · đơn bị hủy', '', '−10 · −12 · −6']])}
@@ -149,11 +156,15 @@ export const EXPLAIN = {
     ${T([['Hoạt động mẫu', 'Giá', 'Phút', 'Thể lực', 'Tinh thần', 'Lần/ngày'], ['Ăn tô phở', '35k', '15', '+45', '+5', '∞'], ['Cà phê sữa đá', '20k', '10', '+5', '+30', '∞'], ['Đọc sách tại chỗ', '5k', '30', '+5', '+20', '3'], ['Hát karaoke 1 tiếng', '80k', '60', '−5', '+40', '1']])}
     <p><b>Cần đồ</b>: hoạt động chỉ làm được khi người chơi mang theo món đó (mua ở nơi khác, vd mua nhang ở tiệm trà rồi đem tới chùa thắp). Thiếu đồ thì nút mờ và ghi nơi bán.</p>
     <p>⚠️ Số âm lớn (dưới −30) có thể làm người chơi đang yếu thua ngay; <b>−100 là thua chắc</b>.</p>`],
+  map: ['Bản đồ hoạt động thế nào', `
+    <p>Thành phố là lưới khối nhà, giữa các khối là đường lớn. Khối <b>không hẻm</b> có 8 lô quanh mép (như cũ). Khối <b>có hẻm</b> được chia lại: nhà mặt phố dọc 4 cạnh + mạng hẻm bên trong + nhà hai bên hẻm; phần còn lại là nhà phía sau (không có cửa).</p>
+    <p>Địa điểm đặt được vào nhà trong hẻm (quán trong hẻm): chọn khối có hẻm ở thẻ Địa điểm rồi bấm vào một nhà. Đổi kiểu / hướng hẻm sẽ xếp lại nhà → các địa điểm trong khối đó cần chọn lại lô.</p>
+    <p>Hẻm xe máy rộng 4 m (chạy xe vào được). Hẻm đi bộ rộng 2 m, có 2 cột chắn ở miệng hẻm: phải đậu xe ngoài và đi bộ vào giao hàng.</p>`],
   app: ['Tiền mỗi đơn tính thế nào', `
     <p><b>Tổng cước</b> = cước món × hệ số loại đơn × hệ số loại khách + thưởng km + phụ phí (mưa / giờ cao điểm).</p>
     <p><b>Tài xế nhận</b> = tổng cước − phí nền tảng − thuế + tiền boa. Tiền xăng trả ở cây xăng (hóa đơn vẫn ghi để biết lãi thực).</p>
     <p>Khách quen gọi thẳng: không phí, không thuế, không phụ phí, không chấm sao. Đơn thu hộ: tiền hàng tài xế ứng trước được khách trả lại riêng, không tính vào lãi.</p>
-    <p>Bot chơi thử (npm run sim) lãi trung bình ~37k/đơn → ngày 1 (tiền nhà 400k) cần ~12 đơn. Đổi phí / thuế ở đây ảnh hưởng thẳng tới tỉ lệ thắng.</p>`],
+    <p>Bot chơi thử (npm run sim) lãi trung bình ~39k/đơn → ngày 1 (tiền nhà 400k) cần ~11–12 đơn. Đổi phí / thuế ở đây ảnh hưởng thẳng tới tỉ lệ thắng.</p>`],
   orderTypes: ['Loại đơn hoạt động thế nào', `
     <p>Mỗi lần app có đơn, game xét các loại đơn <b>đang có</b> (đúng khung giờ, đủ trang bị yêu cầu, mức > 0) rồi chọn theo <b>mức thường xuyên</b>. Ví dụ đủ cả 4 loại mẫu: 6 + 2 + 2 + 1,2 = 11,2 → đồ ăn ≈ 54%, chở khách ≈ 18%, giao hàng ≈ 18%, hỏa tốc ≈ 11%.</p>
     <p><b>Giao hàng</b>: lấy hàng ở nơi có "Gửi hàng từ đây" (thẻ Địa điểm) hoặc nhà người gửi gần đó, xếp túi, giao. Đơn thu hộ phải ứng tiền hàng lúc lấy; bị bom thì năn nỉ (1 lần) hoặc mang trả shop để nhận lại tiền + phí hoàn hàng. Hàng hỏng bị từ chối thì mất tiền đã ứng.</p>`],

@@ -21,7 +21,7 @@ import { CUSTOMER_NAMES } from '../data/places.js';
 import { DeliveryItem } from './ItemPhysics.js';
 import { evaluateOrder } from './OrderCondition.js';
 import { computePayout, estimatePay, addTip } from './economy.js';
-import { manhattan } from './cityLayout.js';
+import { routeDist, rideDoor } from './cityLayout.js';
 import { fmt } from '../content/index.js';
 import { isOpen, orderWeight } from './placeRules.js';
 
@@ -60,6 +60,8 @@ export const stateLabel = (st) => fmt(`state.${st}`);
 
 const CARGO_STATES = new Set([S.DELIVERING, S.AT_DROPOFF, S.NO_ANSWER, S.STAIRS, S.RETURNING]);
 const r1 = (v) => Math.round(v * 10) / 10;
+// Hệ số "xa" khi chọn nơi lấy hàng: (30 + d)² → quán / shop gần tài xế được chọn nhiều hơn hẳn
+const near = (d) => (30 + d) ** 2;
 
 export class OrderManager {
   // isRaining(phút): để tính phụ phí mưa lúc có đơn (game / bot truyền vào; bỏ trống = không mưa)
@@ -194,7 +196,8 @@ export class OrderManager {
       .map((r) => ({ r, menu: r.menu.filter((id) => ITEMS[id] && this.canCarry(ITEMS[id])) }))
       .filter((o) => o.menu.length);
     if (!options.length) return null;
-    const weights = options.map((o) => (o.menu.some((id) => ITEMS[id].traits.includes('cold')) ? 1.6 : 1) / (40 + manhattan(pos, o.r.door)));
+    // app giao đơn cho tài xế ở gần: quán gần được ưu tiên mạnh (gấp đôi khoảng cách → ít đơn hơn ~4 lần)
+    const weights = options.map((o) => (o.menu.some((id) => ITEMS[id].traits.includes('cold')) ? 1.6 : 1) / near(routeDist(pos, o.r.door)));
     const { r, menu } = this.rng.weighted(options, weights);
     const n = this.rng.chance(ORDER.twoItemChance) ? 2 : 1;
     const itemIds = Array.from({ length: n }, () => this.rng.pick(menu));
@@ -208,13 +211,17 @@ export class OrderManager {
     const items = (type.items || []).filter((id) => ITEMS[id] && ITEMS[id].parcel && this.canCarry(ITEMS[id]));
     if (!items.length) return null;
     const id = this.rng.pick(items);
-    let pickup = this.placeDestination('parcelWeight', now, null, 1, true);
+    // lấy ở shop "gửi hàng từ đây" gần tài xế (trong ORDER.parcelShopMax m, ưu tiên gần); không có thì nhà người gửi gần đó
+    let pickup = null;
+    const shops = this.layout.places
+      .map((p) => ({ p, w: orderWeight(p, 'parcelWeight', now), d: routeDist(pos, p.door) }))
+      .filter((c) => c.w > 0 && c.d <= ORDER.parcelShopMax);
+    if (shops.length) {
+      const { p } = this.rng.weighted(shops, shops.map((c) => c.w / near(c.d)));
+      pickup = { placeId: p.id, name: p.name, address: p.name, door: p.door };
+    }
     if (!pickup) {
-      const near = this.layout.lots.filter((l) => {
-        const d = manhattan(pos, l.door);
-        return d > 30 && d < 160;
-      });
-      const l = this.rng.pick(near.length ? near : this.layout.lots);
+      const l = this.pickLotAround(pos, 30, 160);
       pickup = { name: l.address, address: l.address, door: l.door, lotKey: l.key };
     }
     const dropoff = this.pickDropoff(pickup.door, true, now, null, pickup.placeId);
@@ -228,12 +235,13 @@ export class OrderManager {
 
   // Địa điểm (karaoke, nhà sách…) được đánh dấu làm điểm đến của đơn, theo trọng số + khung giờ.
   // force: luôn chọn nếu có nơi đủ điều kiện. Trả về null nếu lần này không chọn địa điểm nào.
-  placeDestination(key, now, excludeId = null, scale = 1, force = false) {
+  // forRide: đơn xe ôm → địa điểm trong hẻm đi bộ thì đón/trả ở miệng hẻm
+  placeDestination(key, now, excludeId = null, scale = 1, force = false, forRide = false) {
     const cands = this.layout.places.filter((p) => p.id !== excludeId).map((p) => ({ p, w: orderWeight(p, key, now) })).filter((c) => c.w > 0);
     const W = cands.reduce((s, c) => s + c.w, 0);
     if (!W || (!force && !this.rng.chance((W / (W + ORDER.placeDestBase)) * scale))) return null;
     const { p } = this.rng.weighted(cands, cands.map((c) => c.w));
-    return { placeId: p.id, name: p.name, address: p.name, door: p.door, apartment: false };
+    return { placeId: p.id, name: p.name, address: p.name, door: forRide ? rideDoor(p) : p.door, apartment: false };
   }
 
   // Loại khách xe ôm lúc này (theo giờ, số chuyến đã chở, nơi đón)
@@ -252,21 +260,17 @@ export class OrderManager {
     const rider = story ? RIDER_TYPES.app || null : this.pickRider(now);
     let pickup;
     const from = rider && rider.from ? this.riderPlaces(rider, now) : [];
-    if (story) pickup = { placeId: 'market', name: market.name, address: market.address, door: market.door };
+    if (story) pickup = { placeId: 'market', name: market.name, address: market.address, door: rideDoor(market) };
     else if (from.length) {
       const p = this.rng.pick(from); // khách say đi ra từ karaoke…
-      pickup = { placeId: p.id, name: p.name, address: p.name, door: p.door };
-    } else if ((pickup = this.placeDestination('rideWeight', now, null, 0.5))) {
+      pickup = { placeId: p.id, name: p.name, address: p.name, door: rideDoor(p) };
+    } else if ((pickup = this.placeDestination('rideWeight', now, null, 0.5, false, true))) {
       // khách xuất phát từ một địa điểm (vd. hát karaoke xong về nhà)
     } else {
-      const near = this.layout.lots.filter((l) => {
-        const d = manhattan(pos, l.door);
-        return d > 40 && d < 180;
-      });
-      const l = this.rng.pick(near.length ? near : this.layout.lots);
-      pickup = { name: l.address, address: l.address, door: l.door, lotKey: l.key };
+      const l = this.pickLotAround(pos, 40, 180);
+      pickup = { name: l.address, address: l.address, door: rideDoor(l), lotKey: l.key };
     }
-    const dropoff = this.pickDropoff(pickup.door, false, now, pickup.placeId ? null : 'rideWeight', pickup.placeId);
+    const dropoff = this.pickDropoff(pickup.door, false, now, pickup.placeId ? null : 'rideWeight', pickup.placeId, true);
     const o = this.buildOrder({ type: type || { id: 'ride', kind: 'ride', fareMult: 1, deadlineMult: 1 }, pickup, dropoff, itemIds: ['passenger'], pos, now, rider });
     o.flags.noAnswer = false;
     // khách say hay quên địa chỉ → chỉ biết khu vực, gọi hỏi lại / hỏi người đi đường
@@ -293,31 +297,38 @@ export class OrderManager {
   }
 
   // destKey: 'foodWeight' | 'rideWeight' | null — cho phép giao tới địa điểm được đánh dấu
-  pickDropoff(from, allowApartment = true, now = 0, destKey = null, excludeId = null) {
+  // forRide: đơn xe ôm → nhà / địa điểm trong hẻm đi bộ thì trả khách ở miệng hẻm
+  pickDropoff(from, allowApartment = true, now = 0, destKey = null, excludeId = null, forRide = false) {
     if (destKey) {
-      const place = this.placeDestination(destKey, now, excludeId);
+      const place = this.placeDestination(destKey, now, excludeId, 1, false, forRide);
       if (place) return place;
     }
     const apt = this.layout.placeById.apartment;
     if (allowApartment && this.rng.chance(ORDER.apartmentChance)) {
       return { name: apt.name, address: fmt('addr.apartment', { name: apt.name, address: apt.address }), door: apt.door, apartment: true, floor: this.rng.int(3, 11) };
     }
-    const [a, b] = ORDER.dropDist;
-    let cands = this.layout.lots.filter((l) => {
-      const d = manhattan(from, l.door);
-      return d >= a && d <= b;
-    });
-    if (!cands.length) cands = this.layout.lots;
-    const l = this.rng.pick(cands);
-    return { name: l.address, address: l.address, door: l.door, apartment: false, lotKey: l.key };
+    const l = this.pickLotAround(from, ...ORDER.dropDist);
+    return { name: l.address, address: l.address, door: forRide ? rideDoor(l) : l.door, apartment: false, lotKey: l.key };
+  }
+
+  // Nhà khách cách điểm `from` từ a tới b m (đường đi thật), ưu tiên nhà gần hơn (khả năng ~ 1/khoảng cách)
+  // — vòng càng xa càng nhiều nhà, chọn đều thì hầu hết đơn rơi vào khoảng xa nhất
+  pickLotAround(from, a, b) {
+    const cands = [];
+    for (const l of this.layout.lots) {
+      const d = routeDist(from, l.door);
+      if (d >= a && d <= b) cands.push({ l, d });
+    }
+    if (!cands.length) return this.rng.pick(this.layout.lots);
+    return this.rng.weighted(cands, cands.map((c) => 1 / c.d)).l;
   }
 
   buildOrder({ type, pickup, dropoff, itemIds, pos, now = 0, rider = null }) {
     const rng = this.rng;
     const kind = type.kind;
     const defs = itemIds.map((id) => ITEMS[id]);
-    const d1 = manhattan(pos, pickup.door);
-    const d2 = manhattan(pickup.door, dropoff.door);
+    const d1 = routeDist(pos, pickup.door);
+    const d2 = routeDist(pickup.door, dropoff.door);
     const distanceKm = Math.round((d2 * DIST.displayPerUnit) / 100) / 10;
     const fareMult = (type.fareMult ?? 1) * (rider ? rider.fareMult ?? 1 : 1);
     const baseFare = r1((Math.max(...defs.map((d) => d.base)) + (defs.length - 1) * APP.extraItemFare) * fareMult);
@@ -379,7 +390,7 @@ export class OrderManager {
     if (this.state !== S.OFFERED || !this.offer) return null;
     const o = this.offer;
     this.offer = null;
-    if (pos) o.d1 = manhattan(pos, o.pickup.door);
+    if (pos) o.d1 = routeDist(pos, o.pickup.door);
     o.acceptedAt = now;
     const prep = o.kind === 'food' ? ORDER.prepAllowance : 2;
     o.allowedMin = Math.round(((o.d1 + o.d2) / ORDER.planSpeed + prep + ORDER.slack) * o.deadlineMult);
@@ -560,7 +571,7 @@ export class OrderManager {
     if (this.state !== S.NO_ANSWER) return null;
     const cafe = this.layout.placeById.cafe;
     const near = this.layout.lots.filter((l) => {
-      const d = manhattan(o.dropoff.door, l.door);
+      const d = routeDist(o.dropoff.door, l.door);
       return d > 25 && d < 110 && l.key !== o.dropoff.lotKey;
     });
     let alt;
@@ -675,7 +686,7 @@ export class OrderManager {
   quitRide(now, pos) {
     const o = this.order;
     if (this.state !== S.DELIVERING || !o || o.kind !== 'ride') return null;
-    const traveled = Math.max(0, Math.min(1, 1 - manhattan(pos, o.dropoff.door) / Math.max(1, o.d2)));
+    const traveled = Math.max(0, Math.min(1, 1 - routeDist(pos, o.dropoff.door) / Math.max(1, o.d2)));
     const conditionPct = o.items.length ? o.items[0].condition : 0;
     const ev = { refused: false, quit: true, stars: 1, conditionPct, timeRatio: o.allowedMin > 0 ? (now - o.acceptedAt) / o.allowedMin : 0, penalties: [{ label: fmt('pen.quit'), value: 4 }], reasons: Object.entries(o.items[0]?.reasons || {}).filter(([, v]) => v >= 0.5).sort((a, b) => b[1] - a[1]) };
     const pay = computePayout({ baseFare: o.baseFare, distanceKm: o.distanceKm, litersUsed: o.liters, stars: 1, farePct: traveled, surcharge: o.surcharge, viaApp: o.viaApp });

@@ -12,6 +12,7 @@ import goodsJson from '../../data/goods.json' with { type: 'json' };
 import placesJson from '../../data/places.json' with { type: 'json' };
 import contentJson from '../../content/vi.json' with { type: 'json' };
 import appsJson from '../../data/apps.json' with { type: 'json' };
+import mapJson from '../../data/map.json' with { type: 'json' };
 import { validateAll } from '../../data/validate.js';
 import { setContentTable } from '../../content/index.js';
 import { el, button, clone } from './ui.js';
@@ -20,6 +21,7 @@ import * as tabGear from './tabGear.js';
 import * as tabPlaces from './tabPlaces.js';
 import * as tabText from './tabText.js';
 import * as tabApp from './tabApp.js';
+import * as tabMap from './tabMap.js';
 import { selKey, planScroll, selToSave } from './viewState.js';
 
 const FILES = {
@@ -29,11 +31,13 @@ const FILES = {
   places: { path: 'src/data/places.json', label: 'Địa điểm & NPC', src: placesJson },
   content: { path: 'src/content/vi.json', label: 'Chữ & hội thoại', src: contentJson },
   apps: { path: 'src/data/apps.json', label: 'App & Đơn', src: appsJson },
+  map: { path: 'src/data/map.json', label: 'Bản đồ', src: mapJson },
 };
 const TABS = [
   { id: 'items', icon: '🍜', label: 'Vật phẩm', mod: tabItems },
   { id: 'gear', icon: '🛵', label: 'Xe · Túi · Đồ dùng', mod: tabGear },
   { id: 'places', icon: '🏪', label: 'Địa điểm & NPC', mod: tabPlaces },
+  { id: 'map', icon: '🗺️', label: 'Bản đồ', mod: tabMap },
   { id: 'app', icon: '📱', label: 'App & Đơn', mod: tabApp },
   { id: 'text', icon: '💬', label: 'Chữ & hội thoại', mod: tabText },
 ];
@@ -143,7 +147,7 @@ export async function startEditor(root) {
   ctx.issuesFor = (tab, ref, extra = {}) => ctx.issues.filter((i) => i.tab === tab && i.ref === ref && (!extra.cat || i.cat === extra.cat));
 
   function validate() {
-    ctx.issues = validateAll({ items: ctx.data.items, gear: ctx.data.gear, goods: ctx.data.goods, places: ctx.data.places, content: ctx.data.content, baseContent: ctx.base.content, apps: ctx.data.apps });
+    ctx.issues = validateAll({ items: ctx.data.items, gear: ctx.data.gear, goods: ctx.data.goods, places: ctx.data.places, content: ctx.data.content, baseContent: ctx.base.content, apps: ctx.data.apps, map: ctx.data.map });
   }
 
   // Gắn lỗi vào đúng ô nhập (theo data-ref / data-field / data-cat)
@@ -243,6 +247,7 @@ export async function startEditor(root) {
     else if (i.tab === 'places') ctx.select('places', { id: i.ref || '__streets' });
     else if (i.tab === 'text') ctx.select('text', { search: i.ref, group: '' });
     else if (i.tab === 'app') ctx.select('app', { cat: i.cat, id: i.ref || null });
+    else if (i.tab === 'map') ctx.select('map', /^\d+,\d+$/.test(i.ref) ? { id: i.ref } : {});
   }
 
   // ---------- lưu / xuất / nhập ----------
@@ -288,7 +293,7 @@ export async function startEditor(root) {
         try {
           const j = JSON.parse(await f.text());
           const first = Object.values(j)[0] || {};
-          const k = j.vehicles ? 'gear' : j.places ? 'places' : j.orderTypes ? 'apps' : Object.keys(j).some((x) => x.includes('.')) ? 'content' : ['consumable', 'equipment', 'carry', 'outfit'].includes(first.type) ? 'goods' : 'items';
+          const k = j.vehicles ? 'gear' : j.places ? 'places' : j.orderTypes ? 'apps' : j.blocks && j.size ? 'map' : Object.keys(j).some((x) => x.includes('.')) ? 'content' : ['consumable', 'equipment', 'carry', 'outfit'].includes(first.type) ? 'goods' : 'items';
           ctx.data[k] = j;
           done.push(`${f.name} → ${FILES[k].label}`);
         } catch (e) {

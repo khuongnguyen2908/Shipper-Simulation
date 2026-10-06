@@ -8,7 +8,7 @@ import { OrderManager, S } from '../src/sim/OrderManager.js';
 import { GameState } from '../src/sim/GameState.js';
 import { HazardManager } from '../src/sim/hazards.js';
 import { makeRng } from '../src/sim/rng.js';
-import { buildLayout, manhattan } from '../src/sim/cityLayout.js';
+import { buildLayout, routeDist } from '../src/sim/cityLayout.js';
 import { TIME, ENERGY, DIST, ORDER } from '../src/data/balance.js';
 import { ORDER_TYPES, RIDER_TYPES } from '../src/data/apps.js';
 
@@ -51,7 +51,7 @@ export function playDay(seed, strat, day = 1) {
     }
   };
   const drive = (to) => {
-    const d = manhattan(pos, to);
+    const d = routeDist(pos, to);
     const v = st.speed * st.eff;
     let min = d / v; // m game / phút game = m/s × 1 giây thật
     if (rng.chance(0.15)) min += rng.range(2, 6); // kẹt xe, chốt CSGT
@@ -107,7 +107,7 @@ export function playDay(seed, strat, day = 1) {
       if (om.state !== S.OFFERED) { pass(1, 'idle'); log.idleMin++; continue; }
     }
     if (om.state === S.OFFERED) {
-      if (manhattan(pos, om.offer.pickup.door) > st.maxD1 || gs.fuel < 0.2) { om.decline(now); continue; }
+      if (routeDist(pos, om.offer.pickup.door) > st.maxD1 || gs.fuel < 0.2) { om.decline(now); continue; }
       om.accept(now, pos);
     }
     const o = om.order;

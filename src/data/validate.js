@@ -4,7 +4,8 @@
 //  - error: game sẽ chạy sai → công cụ không cho lưu
 //  - warn : chạy được nhưng nên xem lại
 // =============================================================
-import { CITY, LOT_IDS, MULTI_LOTS, lotParts, lotFaces } from '../sim/cityLayout.js';
+import { CITY, LOT_IDS, MULTI_LOTS, lotParts, lotFaces, blockPlan, blockLotIds, roadGraph, neighbors } from '../sim/cityLayout.js';
+import { ALLEY_TEMPLATES } from '../sim/blockPlan.js';
 import { EFFECTS, CONSUMABLE_FIELDS, OUTFIT_SLOTS } from './goods.js';
 import { ORDER_KINDS } from './apps.js';
 import { GENDERS, HAIR_STYLES } from '../sim/people.js';
@@ -199,7 +200,7 @@ export function validateGear(gear) {
   return out;
 }
 
-export function validatePlaces(pd, items, goodsTable = null, gearTable = null) {
+export function validatePlaces(pd, items, goodsTable = null, gearTable = null, mapData = undefined) {
   const out = [];
   const add = (level, ref, field, msg) => out.push({ level, tab: 'places', ref, field, msg });
   const places = pd.places || [];
@@ -216,7 +217,18 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null) {
     if (!p.short) add('warn', p.id, 'short', 'Chưa có tên ngắn (hiện trên bản đồ).');
     const [bx, bz] = p.block || [];
     if (!Number.isInteger(bx) || !Number.isInteger(bz) || bx < 0 || bz < 0 || bx >= CITY.N || bz >= CITY.N) add('error', p.id, 'block', `Khối phải từ 0 đến ${CITY.N - 1}.`);
-    if (!LOTS.includes(p.lot)) add('error', p.id, 'lot', 'Lô không hợp lệ.');
+    const plan = Number.isInteger(bx) && Number.isInteger(bz) ? blockPlan(bx, bz, mapData) : null;
+    if (plan) {
+      // khối có hẻm: chỉ đặt được vào lô có cửa của mặt bằng hẻm (1 lô, mặt tiền theo lô)
+      const l = plan.lots.find((x) => x.id === p.lot);
+      if (p.kind === 'gate') add('error', p.id, 'lot', 'Nhà cổng xanh phải ở khối không hẻm (lô C của hẻm 42).');
+      else if (!l) add('error', p.id, 'lot', `Khối ${bx},${bz} có hẻm — chọn một lô của hẻm (bấm vào nhà trên bản đồ). Lô "${p.lot}" không có trong khối này.`);
+      else if (p.face != null && p.face !== l.face) add('error', p.id, 'face', 'Lô trong khối có hẻm có mặt tiền cố định — bỏ chọn hướng mặt tiền.');
+      for (const c of lotCells(p)) {
+        if (occupied.has(c)) add('error', p.id, 'lot', `Trùng lô với "${occupied.get(c)}".`);
+        else occupied.set(c, p.id);
+      }
+    } else if (!LOTS.includes(p.lot)) add('error', p.id, 'lot', 'Lô không hợp lệ.');
     else {
       if (p.lot === 'C' && p.kind !== 'gate') add('error', p.id, 'lot', 'Lô C (sân trong hẻm) chỉ dành cho nhà cổng xanh.');
       if (p.kind === 'gate' && (p.lot !== 'C' || bx !== pd.alley.block[0] || bz !== pd.alley.block[1])) add('error', p.id, 'lot', 'Nhà cổng xanh phải ở lô C của khối có hẻm 42.');
@@ -290,8 +302,12 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null) {
   }
   if (!pd.customerNames || !pd.customerNames.filter((s) => String(s).trim()).length) add('error', '', 'customerNames', 'Cần ít nhất 1 tên khách.');
   // nhà dân còn lại làm điểm giao hàng (tòa nhà lớn chiếm bớt)
-  const homes = CITY.N * CITY.N * LOT_IDS.length - [...occupied.keys()].filter((c) => LOT_IDS.includes(c.split(',')[2])).length - 1;
-  if (homes < 120) add('warn', '', 'lot', `Chỉ còn ${homes} nhà khách làm điểm giao (nên ≥ 120) — tòa nhà lớn đang chiếm nhiều lô.`);
+  if (blockPlan(pd.alley.block[0], pd.alley.block[1], mapData)) add('error', '', 'alley', `Khối ${pd.alley.block.join(',')} chứa hẻm 42 (nhà cổng xanh) — phải để kiểu "không hẻm" ở thẻ Bản đồ.`);
+  let allLots = 0;
+  for (let bz = 0; bz < CITY.N; bz++) for (let bx = 0; bx < CITY.N; bx++) allLots += blockLotIds(bx, bz, mapData).length;
+  const homes = allLots - [...occupied.keys()].filter((c) => !c.endsWith(',C')).length - 1; // − lô lối vào hẻm 42
+  const minHomes = Math.round(CITY.N * CITY.N * 4.8); // bản 5×5 cũ: 120
+  if (homes < minHomes) add('warn', '', 'lot', `Chỉ còn ${homes} nhà khách làm điểm giao (nên ≥ ${minHomes}) — tòa nhà lớn đang chiếm nhiều lô.`);
   return out;
 }
 
@@ -390,13 +406,52 @@ export function validateGoods(goods, placesData) {
   return out;
 }
 
-export function validateAll({ items, gear, goods, places, content, baseContent, apps = null }) {
+// Bản đồ (map.json): cỡ, kiểu hẻm từng khối, sông + cầu (sông không được cắt rời thành phố)
+export function validateMap(map, placesData = null) {
+  const out = [];
+  const add = (level, ref, field, msg) => out.push({ level, tab: 'map', ref, field, msg });
+  if (!map || typeof map !== 'object') return [{ level: 'error', tab: 'map', ref: '', field: '', msg: 'Thiếu dữ liệu bản đồ.' }];
+  if (!Number.isInteger(map.size) || map.size < 3 || map.size > 12) add('error', '', 'size', 'Cỡ bản đồ: số nguyên 3–12 khối.');
+  else if (map.size !== CITY.N) add('warn', '', 'size', `Đổi cỡ bản đồ (${CITY.N} → ${map.size}) cần tải lại trang sau khi lưu; nhớ sửa đủ ${map.size + 1} tên đường mỗi chiều.`);
+  if (placesData && Number.isInteger(map.size)) {
+    for (const k of ['streetsX', 'streetsZ']) if ((placesData[k] || []).length !== map.size + 1) add('error', '', 'size', `Bản đồ ${map.size} khối cần ${map.size + 1} tên đường (${k === 'streetsX' ? 'dọc' : 'ngang'}) — đang có ${(placesData[k] || []).length}. Sửa ở thẻ Địa điểm → Tên đường.`);
+  }
+  for (const [key, s] of Object.entries(map.blocks || {})) {
+    const m = /^(\d+),(\d+)$/.exec(key);
+    if (!m || +m[1] >= (map.size || CITY.N) || +m[2] >= (map.size || CITY.N)) add('error', key, 'block', 'Khối nằm ngoài bản đồ.');
+    if (!ALLEY_TEMPLATES[s.alley]) add('error', key, 'alley', `Kiểu hẻm phải là: ${Object.keys(ALLEY_TEMPLATES).join(', ')}.`);
+    if (s.rot != null && (!Number.isInteger(s.rot) || s.rot < 0 || s.rot > 3)) add('error', key, 'rot', 'Hướng xoay 0–3.');
+    if (s.walk != null && typeof s.walk !== 'boolean') add('error', key, 'walk', 'Hẻm đi bộ phải là có/không.');
+  }
+  // sông
+  const size = Number.isInteger(map.size) ? map.size : CITY.N;
+  (map.rivers || []).forEach((r, i) => {
+    const ref = `river${i}`;
+    const int = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+    if (!['x', 'z'].includes(r.axis)) add('error', ref, 'axis', 'Hướng sông: chạy dọc đường dọc (x) hoặc đường ngang (z).');
+    if (!int(r.line, 0, size)) add('error', ref, 'line', `Đường số 0–${size}.`);
+    if (!int(r.from, 0, size) || !int(r.to, 0, size) || r.from >= r.to) add('error', ref, 'from', `Đoạn sông: từ ngã tư a tới b, 0 ≤ a < b ≤ ${size}.`);
+    if (!Array.isArray(r.bridges) || r.bridges.some((b) => !int(b, r.from, r.to))) add('error', ref, 'bridges', 'Cầu phải ở các ngã tư nằm trên đoạn sông.');
+  });
+  // sông không được cắt rời một khu (mọi ngã tư có đường phải tới được nhau)
+  if (size === CITY.N && !out.some((i) => i.level === 'error' && i.ref.startsWith('river'))) {
+    const g = roadGraph(map);
+    const nodes = [];
+    for (let j = 0; j <= size; j++) for (let i = 0; i <= size; i++) if (neighbors(i, j, map).length) nodes.push(j * (size + 1) + i);
+    const cut = nodes.filter((v) => g.D[nodes[0] * g.n + v] === Infinity).length;
+    if (cut) add('error', 'river0', 'bridges', `Sông cắt rời ${cut} ngã tư khỏi phần còn lại của thành phố — thêm cầu để xe qua được.`);
+  }
+  return out;
+}
+
+export function validateAll({ items, gear, goods, places, content, baseContent, apps = null, map = undefined }) {
   return [
     ...validateItems(items, places, apps),
     ...(apps ? validateApps(apps, items, places) : []),
+    ...(map ? validateMap(map, places) : []),
     ...validateGear(gear),
     ...(goods ? validateGoods(goods, places) : []),
-    ...validatePlaces(places, items, goods, gear),
+    ...validatePlaces(places, items, goods, gear, map),
     ...validateContent(content, baseContent || content),
   ];
 }

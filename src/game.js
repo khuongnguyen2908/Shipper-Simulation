@@ -119,7 +119,8 @@ export class Game {
       out[id] = m;
       return m;
     };
-    for (const p of this.layout.places) if (p.npc) add(p.id, p.npc, p.door, p.face, p.npc.name);
+    // quán trong hẻm: cửa sát mặt nhà (0,7 m) → NPC đứng lùi ít hơn để không lọt vào tường
+    for (const p of this.layout.places) if (p.npc) add(p.id, p.npc, p.door, p.face, p.npc.name, p.inAlley ? 0.3 : 1.0);
     const cafe = this.layout.placeById.cafe;
     const [cnx, cnz] = NORMAL[cafe.face]; // đứng lệch 1,6 m dọc theo mặt tiền (hướng nào cũng nằm trên vỉa hè)
     const minh = add('minh', { shirt: 0x34495e, pants: 0x1c2833, gender: 'm' }, { x: cafe.door.x + (cnz ? 1.6 : 0), z: cafe.door.z + (cnx ? 1.6 : 0) }, cafe.face, fmt('npc.minh.name'), 0.4);
@@ -256,7 +257,7 @@ export class Game {
 
   titleCam(t) {
     const a = t / 20000;
-    this.camera.position.set(Math.cos(a) * 140, 70, Math.sin(a) * 140);
+    this.camera.position.set(Math.cos(a) * 140, 70, Math.sin(a) * 140); // bay vòng quanh trung tâm (thành phố cũ)
     this.camera.lookAt(0, 0, 0);
     this.sky.update(0.016, 9 * 60, null, { x: 0, z: 0 }, this.camera);
     this.city.setNight(0);
@@ -777,6 +778,7 @@ export class Game {
       player: { x: pp.x, z: pp.z, heading: this.mode === 'bike' ? this.bike.heading : this.walker.heading },
       bike: this.mode === 'foot' ? { x: this.bike.pos.x, z: this.bike.pos.z } : null,
       places,
+      alleyBlocks: this.layout.alleyBlocks,
       target: tgt && tgt.x != null && !tgt.zone ? { x: tgt.x, z: tgt.z, color: tgt.color } : null,
       zone: tgt && tgt.zone,
       police,

@@ -91,7 +91,7 @@ Chuyến **chở khách** dùng cùng bảng nhưng "hàng còn" là **mức tho
 
 ## 4. Kinh tế (`src/sim/economy.js`, số liệu ở `src/data/apps.json`)
 
-**Lãi thực = (Giá cước + Thưởng quãng đường + Phụ phí) − Phí nền tảng 20% − Thuế 1,5% − Tiền xăng**, cộng tiền boa (4★: 3k, 5★: 8k). Tiền xăng đã trả ở cây xăng nên ví chỉ được cộng `cước − phí − thuế + boa`; hóa đơn vẫn hiện đủ công thức. Phụ phí: mưa +4k, giờ cao điểm +3k (lúc nhận đơn). Mọi số này sửa ở `?editor` → thẻ 📱 App & Đơn.
+**Lãi thực = (Giá cước + Thưởng quãng đường + Phụ phí) − Phí nền tảng 20% − Thuế 1,5% − Tiền xăng**, cộng tiền boa (4★: 3k, 5★: 8k). Tiền xăng đã trả ở cây xăng nên ví chỉ được cộng `cước − phí − thuế + boa`; hóa đơn vẫn hiện đủ công thức. Thưởng quãng đường 6k/km (bản đồ 8×8 có sông nên đi xa hơn). Phụ phí: mưa +4k, giờ cao điểm +3k (lúc nhận đơn). Mọi số này sửa ở `?editor` → thẻ 📱 App & Đơn.
 
 ### Loại đơn (`apps.json → orderTypes`)
 
@@ -146,11 +146,11 @@ Mỗi xe có **kiểu dáng** (`gear.json → model`): `cub` (xe số cổ), `un
 
 | Chiến thuật | Thắng | Giờ thắng TB | Đơn/ngày | Sao TB | Lãi/đơn | Điểm cuối |
 |---|---|---|---|---|---|---|
-| Cẩn thận (chạy chậm) | 45% | 20:42 | 11,8 | 4,34 | 36,8k | 4,55 |
-| Ẩu (max ga) | 100% | 18:05 | 13,1 | 4,03 | 35,5k | 4,36 |
-| Kén đơn gần | 69% | 17:59 | 8,9 | 4,43 | 38,7k | 4,63 |
-| Bình thường (trả ví) | 74% | 20:13 | 12,3 | 4,39 | 37,0k | 4,58 |
-| Tham (giữ tiền ví) | 74% | 19:15 | 10,6 | 4,39 | 36,9k | 4,13 |
+| Cẩn thận (chạy chậm) | 45% | 20:44 | 11,2 | 4,35 | 39,0k | 4,56 |
+| Ẩu (max ga) | 99% | 18:03 | 12,4 | 4,08 | 37,8k | 4,41 |
+| Kén đơn gần | 36% | 17:30 | 6,4 | 4,48 | 42,2k | 4,69 |
+| Bình thường (trả ví) | 75% | 20:08 | 11,6 | 4,43 | 39,1k | 4,60 |
+| Tham (giữ tiền ví) | 80% | 19:20 | 10,3 | 4,43 | 38,9k | 4,14 |
 
 Tỉ lệ loại đơn bot nhận được: đồ ăn 60% · chở khách 15% · giao hàng 15% · hỏa tốc 10%. Ngày 1 tiền ít nên hầu như chưa có đơn thu hộ (bom ~0,01/ngày); các ngày sau ví nhiều tiền thì đơn COD và bom hàng xuất hiện nhiều hơn.
 
@@ -178,9 +178,17 @@ src/
 tests/        run.js (25 bộ thử luật) · economy-sim.js (bot chơi headless)
 ```
 
-## 7. Giới hạn của bản đầu tiên
+## 7. Bản đồ (`src/data/map.json`, `src/sim/cityLayout.js`, `src/sim/blockPlan.js`)
 
-- Một quận 5×5 khối nhà; đường lưới, xe NPC không có đèn giao thông.
+- Lưới **8×8 khối** (cỡ ở `map.json → size`), đường lớn giữa các khối; thành phố cũ 5×5 nằm giữa (khối 1–5).
+- **Hẻm trong khối** (`blocks["bx,bz"] = { alley, rot, walk }`): kiểu hẻm thẳng / cụt / chữ L / chữ T / xương cá, xoay 4 hướng. Game tự xếp nhà mặt phố (sâu 9 m) + nhà trong hẻm (sâu 6 m, địa chỉ "số hẻm/số nhà đường") + nhà phía sau. Hẻm xe máy rộng 4 m; hẻm đi bộ 2 m có 2 cột chắn ở miệng hẻm (khe 0,9 m: người qua được, xe máy không). Địa điểm đặt được vào nhà trong hẻm (lô `f…` mặt phố, `h…` trong hẻm). Khách xe ôm ở nhà trong hẻm đi bộ được đón/trả ở miệng hẻm.
+- **Sông** (`rivers: [{ axis, line, from, to, bridges }]`) thay cho một con đường; ngã tư có cầu thì đường cắt ngang đi qua, không cầu thì là mặt nước (đường cụt). Bộ kiểm tra báo lỗi nếu sông cắt rời thành phố.
+- **Quãng đường thật** (`routeDist`): đi trong hẻm ra miệng hẻm → đường gần nhất → mạng đường (khoảng cách ngắn nhất giữa các ngã tư, vòng qua cầu). Dùng cho thời hạn đơn, thưởng km, chọn quán / nhà khách. App ưu tiên quán, shop gần tài xế (hệ số 1/(30 + d)²) và nhà khách gần (1/d).
+- Xe NPC, ổ gà (110), chốt CSGT, kẹt xe tránh sông; NPC ở xa người chơi (> 150 m) ẩn đi cho nhẹ máy.
+
+## 8. Giới hạn hiện tại
+
+- Xe NPC chưa có đèn giao thông, chưa có hầm chui.
 - Mỗi lúc chỉ nhận một đơn (chưa ghép đơn).
 - Chưa có điều khiển cảm ứng cho điện thoại; chưa có lưu giữa ngày (lưu ở đầu mỗi ngày).
 - Đồ họa low-poly bằng khối cơ bản, chưa có mô hình/âm thanh từ file.

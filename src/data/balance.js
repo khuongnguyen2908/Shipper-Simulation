@@ -79,7 +79,8 @@ export const ORDER = {
   callAnswerChance: 0.45,
   waitComeChance: 0.6,
   substituteAcceptChance: 0.7,
-  dropDist: [60, 240],      // khoảng cách quán → khách (m game)
+  dropDist: [60, 200],      // khoảng cách quán → khách (m game, theo đường đi thật)
+  parcelShopMax: 220,       // đơn giao hàng chỉ lấy ở shop cách tài xế tối đa bấy nhiêu m (xa hơn → lấy ở nhà người gửi gần)
   stairMinPerFloor: 1.5,
   callDownWait: 8,
   liftMin: 3,
@@ -90,9 +91,9 @@ export const HAZARD = {
   stormStart: [14 * 60, 15.5 * 60], stormLen: [55, 100],
   drizzleChance: 0.35, drizzleStart: [8 * 60, 10 * 60], drizzleLen: [25, 45],
   policeFirst: 8 * 60, policeGap: [80, 140], policeLen: [40, 60], policeReportChance: 0.7,
-  rush: [[7 * 60, 8.5 * 60], [17 * 60, 18.75 * 60]], jamSegments: 3,
+  rush: [[7 * 60, 8.5 * 60], [17 * 60, 18.75 * 60]], jamSegments: 5,
   jamSpeedCap: 3.2,
-  potholes: 46,
+  potholes: 110,           // bản đồ 8×8 (mật độ như bản 5×5 cũ: 46 ổ gà)
   dogDartChance: 0.4,
   ambient: { night: 27, morning: 30, harsh: 35, rain: 25 },
 };

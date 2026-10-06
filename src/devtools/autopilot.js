@@ -1,25 +1,10 @@
 // Lái tự động cho kiểm thử (chỉ nạp khi có ?debug).
-// Đi theo lưới đường: ra ngã tư gần nhất → chạy dọc/ngang → tới đường trước cửa đích.
-import { CITY, roadPos } from '../sim/cityLayout.js';
-
-const nearestLine = (v) => Math.max(0, Math.min(CITY.N, Math.round((v - CITY.ORIGIN) / CITY.PITCH)));
+// Đi theo mạng đường (vòng qua cầu, tránh sông): ngã tư gần nhất → các ngã tư trên đường ngắn nhất → miệng hẻm → cửa đích.
+import { roadPos, routeNodes } from '../sim/cityLayout.js';
 
 export function planRoute(from, to) {
-  const i0 = nearestLine(from.x), j0 = nearestLine(from.z);
-  // đường mà cửa đích quay ra: đường gần nhất theo trục x hoặc z
-  const ix = nearestLine(to.x), jz = nearestLine(to.z);
-  const dX = Math.abs(to.x - roadPos(ix)), dZ = Math.abs(to.z - roadPos(jz));
-  const pts = [];
-  // ra lòng đường gần nhất
-  const fx = Math.abs(from.x - roadPos(i0)), fz = Math.abs(from.z - roadPos(j0));
-  if (fz < fx) pts.push({ x: from.x, z: roadPos(j0) + 2.5 }, { x: roadPos(i0), z: roadPos(j0) + 2.5 });
-  else pts.push({ x: roadPos(i0) + 2.5, z: from.z }, { x: roadPos(i0) + 2.5, z: roadPos(j0) });
-  if (dZ < dX) {
-    // cửa quay ra đường ngang z = roadPos(jz)
-    pts.push({ x: roadPos(i0), z: roadPos(jz) }, { x: to.x, z: roadPos(jz) + Math.sign(to.z - roadPos(jz)) * 4 });
-  } else {
-    pts.push({ x: roadPos(ix), z: roadPos(j0) }, { x: roadPos(ix) + Math.sign(to.x - roadPos(ix)) * 4, z: to.z });
-  }
+  const pts = routeNodes(from, to).map(([i, j]) => ({ x: roadPos(i), z: roadPos(j) }));
+  if (to.mouth) pts.push({ x: to.mouth.x, z: to.mouth.z }); // nhà trong hẻm: vào qua miệng hẻm
   pts.push({ x: to.x, z: to.z });
   return pts;
 }

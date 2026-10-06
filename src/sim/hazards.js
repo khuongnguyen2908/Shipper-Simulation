@@ -5,7 +5,7 @@
 // =============================================================
 import { HAZARD, TIME } from '../data/balance.js';
 import { MAIN_ROADS } from '../data/places.js';
-import { CITY, roadPos, intersectionName, segmentName } from './cityLayout.js';
+import { CITY, roadPos, intersectionName, segmentName, neighbors, isWaterSeg } from './cityLayout.js';
 import { fmt } from '../content/index.js';
 
 const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}`;
@@ -28,14 +28,16 @@ export class HazardManager {
     let id = 0;
     while (t < TIME.dayEnd - 40) {
       const len = rng.range(...HAZARD.policeLen);
-      const node = [rng.int(1, CITY.N - 1), rng.int(1, CITY.N - 1)];
+      // chốt ở ngã tư bên trong có ≥ 3 ngả đường (không đặt trên cầu, mặt sông, đường cụt)
+      let node = [rng.int(1, CITY.N - 1), rng.int(1, CITY.N - 1)];
+      for (let k = 0; k < 40 && neighbors(...node).length < 3; k++) node = [rng.int(1, CITY.N - 1), rng.int(1, CITY.N - 1)];
       this.police.push({ id: `p${id++}`, start: t, end: t + len, node, reported: rng.chance(HAZARD.policeReportChance), name: intersectionName(...node) });
       t += len + rng.range(...HAZARD.policeGap);
     }
 
     // Kẹt xe giờ cao điểm trên đường chính
     const allSegs = [];
-    for (const r of MAIN_ROADS) for (let f = 0; f < CITY.N; f++) allSegs.push({ axis: r.axis, line: r.line, from: f });
+    for (const r of MAIN_ROADS) for (let f = 0; f < CITY.N; f++) if (!isWaterSeg(r.axis, r.line, f)) allSegs.push({ axis: r.axis, line: r.line, from: f });
     this.jams = HAZARD.rush.map(([s, e], k) => ({
       id: `j${k}`,
       start: s + rng.range(-15, 15),
@@ -121,6 +123,7 @@ function makePotholes(rng) {
     let nearCross = false;
     for (let k = 0; k <= CITY.N; k++) if (Math.abs(along - roadPos(k)) < 8) nearCross = true;
     if (nearCross) continue;
+    if (isWaterSeg(axis, line, Math.floor((along - CITY.ORIGIN) / CITY.PITCH))) continue; // không đặt ổ gà trên mặt sông
     const lat = rng.range(-4.6, 4.6);
     const x = axis === 'x' ? roadPos(line) + lat : along;
     const z = axis === 'x' ? along : roadPos(line) + lat;

@@ -1,5 +1,5 @@
 // Bản đồ nhỏ (góc màn hình) và bản đồ lớn trong điện thoại — vẽ bằng canvas 2D.
-import { CITY, HALF, roadPos, blockBounds, segmentRect } from '../sim/cityLayout.js';
+import { CITY, HALF, roadPos, blockBounds, segmentRect, roadGraph } from '../sim/cityLayout.js';
 import { STREETS_X, STREETS_Z } from '../data/places.js';
 
 const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺' };
@@ -30,6 +30,32 @@ export class MiniMap {
         g.fillStyle = '#7d8a74';
         g.fillRect(X(b.x0 + 3), Z(b.z0 + 3), (CITY.BLOCK - 6) * k, (CITY.BLOCK - 6) * k);
       }
+    }
+    // sông (mặt nước) và cầu
+    const G = roadGraph();
+    const H = CITY.ROAD / 2;
+    g.fillStyle = '#3d7ea6';
+    for (const id of G.waterSegs) {
+      const m = /^([xz])(\d+):(\d+)$/.exec(id);
+      const r = segmentRect({ axis: m[1], line: +m[2], from: +m[3] });
+      g.fillRect(X(r.x0), Z(r.z0), (r.x1 - r.x0) * k, (r.z1 - r.z0) * k);
+    }
+    for (const key of G.waterNodes) {
+      const [i, j] = key.split(',').map(Number);
+      g.fillRect(X(roadPos(i) - H), Z(roadPos(j) - H), CITY.ROAD * k, CITY.ROAD * k);
+    }
+    g.fillStyle = '#9fa2a4';
+    for (const key of G.bridgeNodes) {
+      const [i, j] = key.split(',').map(Number);
+      // sông ngang → cầu chạy dọc (bắc–nam); sông dọc → cầu chạy ngang
+      const riverAlongX = G.waterSegs.has(`z${j}:${i - 1}`) || G.waterSegs.has(`z${j}:${i}`);
+      if (riverAlongX) g.fillRect(X(roadPos(i) - H * 0.6), Z(roadPos(j) - H), CITY.ROAD * 0.6 * k, CITY.ROAD * k);
+      else g.fillRect(X(roadPos(i) - H), Z(roadPos(j) - H * 0.6), CITY.ROAD * k, CITY.ROAD * 0.6 * k);
+    }
+    // hẻm (hẻm đi bộ màu nhạt hơn)
+    for (const ab of data.alleyBlocks || []) {
+      g.fillStyle = ab.walk ? '#b9ae9c' : '#9c9282';
+      for (const r of ab.alleys) g.fillRect(X(r.x0), Z(r.z0), Math.max(1.5, (r.x1 - r.x0) * k), Math.max(1.5, (r.z1 - r.z0) * k));
     }
     // kẹt xe
     for (const s of data.jams || []) {

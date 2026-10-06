@@ -4,7 +4,7 @@
 //  - Chó lang thang, thỉnh thoảng lao qua đường trước mũi xe
 //  - Chốt CSGT, đoàn xe kẹt giờ cao điểm
 import * as THREE from 'three';
-import { CITY, roadPos, blockBounds, segmentRect } from '../sim/cityLayout.js';
+import { CITY, roadPos, blockBounds, segmentRect, neighbors } from '../sim/cityLayout.js';
 import { HAZARD } from '../data/balance.js';
 import { makeCar, makeNpcMoto, makePerson, makeDog, makeCone, animatePerson, randomPersonOpts } from './models.js';
 import { guessGender } from '../sim/people.js';
@@ -12,6 +12,7 @@ import { pushCircle } from './physics.js';
 import { list } from '../content/index.js';
 
 const SW_H = 0.15;
+const FAR = 150; // m — xa hơn thì NPC ẩn (sương mù che từ ~260 m, tầm nhìn thường ~100 m)
 const CAR_COLORS = [0xecf0f1, 0x2c3e50, 0xc0392b, 0x2980b9, 0x95a5a6, 0xf1c40f, 0x16a085, 0x7f8c8d];
 const MOTO_COLORS = [0xc0392b, 0x2c3e50, 0xecf0f1, 0x8e44ad, 0x2980b9, 0xd35400, 0x1abc9c];
 
@@ -61,7 +62,9 @@ export class Traffic {
     this.jamCircles = [];
     this.jamKeys = new Set();
     this.honkCd = 0;
-    const nCars = opts.cars ?? 22, nMotos = opts.motos ?? 30, nPeds = opts.peds ?? 36, nDogs = opts.dogs ?? 6;
+    // số NPC theo diện tích bản đồ (mẫu cũ 5×5 khối: 22 ô tô, 30 xe máy, 36 người, 6 chó)
+    const k = (CITY.N * CITY.N) / 25;
+    const nCars = opts.cars ?? Math.round(22 * k), nMotos = opts.motos ?? Math.round(30 * k), nPeds = opts.peds ?? Math.round(36 * k), nDogs = opts.dogs ?? Math.round(6 * k);
     for (let i = 0; i < nCars + nMotos; i++) this.spawnAgent(i < nCars ? 'car' : 'moto');
     for (let i = 0; i < nPeds; i++) this.spawnPed(i);
     for (let i = 0; i < nDogs; i++) this.spawnDog();
@@ -71,7 +74,9 @@ export class Traffic {
   // ---------------- xe NPC ----------------
   spawnAgent(kind) {
     const rng = this.rng;
-    const from = [rng.int(0, CITY.N), rng.int(0, CITY.N)];
+    // xuất phát ở ngã tư có đường đi (không phải mặt sông)
+    let from = [rng.int(0, CITY.N), rng.int(0, CITY.N)];
+    for (let k = 0; k < 50 && !neighbors(...from).length; k++) from = [rng.int(0, CITY.N), rng.int(0, CITY.N)];
     const to = this.pickNext(from, null);
     const mesh = kind === 'car' ? makeCar(rng.pick(CAR_COLORS)) : makeNpcMoto(rng.pick(MOTO_COLORS), rng);
     this.scene.add(mesh);
@@ -81,7 +86,8 @@ export class Traffic {
 
   pickNext(node, prev) {
     const [i, j] = node;
-    const opts = [[i + 1, j], [i - 1, j], [i, j + 1], [i, j - 1]].filter(([a, b]) => a >= 0 && b >= 0 && a <= CITY.N && b <= CITY.N);
+    const opts = neighbors(i, j); // chỉ đi theo đoạn đường có thật (tránh sông; đường cụt thì quay đầu)
+    if (!opts.length) return prev || node;
     let c = opts.filter((n) => !prev || n[0] !== prev[0] || n[1] !== prev[1]);
     if (!c.length) c = opts;
     // ưu tiên đi thẳng
@@ -204,10 +210,31 @@ export class Traffic {
   update(dt, ctx) {
     const events = [];
     this.honkCd -= dt;
+    // NPC ở xa người chơi (ngoài tầm nhìn sương mù) thì ẩn và cập nhật đơn giản để đỡ nặng máy
+    const far = (x, z) => Math.abs(x - ctx.px) > FAR || Math.abs(z - ctx.pz) > FAR;
     // xe NPC
     for (const a of this.agents) {
       const dx = a.to[0] - a.from[0], dz = a.to[1] - a.from[1];
       let v = a.maxSpeed;
+      if (far(a.x, a.z)) {
+        // ở xa: vẫn chạy theo đường (để lúc lại gần có xe), không xét chắn đường, không vẽ
+        a.mesh.visible = false;
+        a.speed = v;
+        a.t += v * dt;
+        if (a.t >= CITY.PITCH) {
+          a.t -= CITY.PITCH;
+          const nx = this.pickNext(a.to, a.from);
+          a.from = a.to;
+          a.to = nx;
+        }
+        a.dx = a.to[0] - a.from[0];
+        a.dz = a.to[1] - a.from[1];
+        a.x = roadPos(a.from[0]) + a.dx * a.t + -a.dz * a.lane;
+        a.z = roadPos(a.from[1]) + a.dz * a.t + a.dx * a.lane;
+        a.heading = Math.atan2(a.dx, a.dz);
+        continue;
+      }
+      a.mesh.visible = true;
       if (this.jamKeys.has(segKeyOf(a.from, a.to))) v = 0.9;
       for (const b of this.agents) {
         if (b === a || b.from[0] !== a.from[0] || b.from[1] !== a.from[1] || b.to[0] !== a.to[0] || b.to[1] !== a.to[1]) continue;
@@ -264,6 +291,10 @@ export class Traffic {
 
     // người đi bộ
     for (const p of this.peds) {
+      if (far(p.x, p.z)) {
+        p.mesh.visible = false;
+        if (p.x !== 0 || p.z !== 0) continue; // chưa đặt chỗ lần nào thì tính 1 lần bên dưới
+      } else p.mesh.visible = true;
       p.phase += dt * 4;
       let moving = false;
       if (p.knock > 0) {
@@ -292,6 +323,10 @@ export class Traffic {
 
     // chó
     for (const d of this.dogs) {
+      if (d.state === 'wander' && far(d.x, d.z)) {
+        d.mesh.visible = false;
+        if (d.x !== 0 || d.z !== 0) continue;
+      } else d.mesh.visible = true;
       d.phase += dt * 10;
       if (d.state === 'wander') {
         if (d.pause > 0) d.pause -= dt;

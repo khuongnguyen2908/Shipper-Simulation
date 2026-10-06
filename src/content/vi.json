@@ -107,6 +107,7 @@
   "forecast.heavy": "mưa to {from}–{to}",
   "forecast.light": "mưa phùn {from}–{to}",
   "addr.house": "{number} {street}",
+  "addr.alleyHouse": "{mouth}/{n} {street}",
   "addr.alleyStreet": "Hẻm 42 {street}",
   "addr.gate": "Nhà cổng xanh, {street}",
   "addr.apartment": "{name} ({address})",
@@ -663,5 +664,8 @@
   "dlg.invCarry": "Mang theo",
   "dlg.carryItem": "{icon} {name} ×{n} — dùng ở {where}",
   "dlg.carryShop": "Đang có {n}. {desc} Dùng ở: {where}",
-  "phone.carryWhere": "· dùng ở {where}"
+  "phone.carryWhere": "· dùng ở {where}",
+  "npc.clothestore.greet": "\"Thay bộ đồ sáng sủa, khách nó còn lên xe\"",
+  "npc.goship.greet": "\"Chào bạn! Vào chơi nha.\"",
+  "npc.gas2.greet": "\"Chào bạn! Vào chơi nha.\""
 }
