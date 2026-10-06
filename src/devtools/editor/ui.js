@@ -93,22 +93,93 @@ export function button(label, onClick, cls = '') {
 }
 
 // Danh sách chọn bên trái (dùng chung cho các thẻ)
-export function sideList(rows, selected, onPick, { issuesFor } = {}) {
-  return el(
+// onReorder(from, to): có thì mỗi dòng có tay nắm ⠿ để kéo đổi thứ tự; dòng r.fixed đứng yên ở đầu
+export function sideList(rows, selected, onPick, { issuesFor, onReorder } = {}) {
+  const list = el(
     'div',
     { class: 'side-list' },
     rows.map((r) => {
       const iss = issuesFor ? issuesFor(r.id) : [];
       const err = iss.some((i) => i.level === 'error'), warn = iss.length && !err;
+      const sortable = onReorder && !r.fixed;
       return el(
         'button',
-        { class: `side-row${r.id === selected ? ' on' : ''}`, type: 'button', onclick: () => onPick(r.id) },
+        { class: `side-row${r.id === selected ? ' on' : ''}`, type: 'button', 'data-sort': sortable ? '' : null, onclick: () => onPick(r.id) },
+        sortable ? dragHandle() : null,
         el('span', { class: 'sr-icon' }, r.icon || '•'),
         el('span', { class: 'sr-main' }, el('b', {}, r.title), el('small', {}, r.sub || '')),
         err ? el('span', { class: 'dot err', title: 'Có lỗi' }) : warn ? el('span', { class: 'dot warn', title: 'Có cảnh báo' }) : null,
       );
     }),
   );
+  if (onReorder) makeSortable(list, '.side-row[data-sort]', onReorder);
+  return list;
+}
+
+// Tay nắm để kéo (bấm vào tay nắm không mở mục)
+export function dragHandle() {
+  return el('span', { class: 'drag-h', title: 'Giữ và kéo để đổi thứ tự', onclick: (e) => { e.preventDefault(); e.stopPropagation(); } }, '⠿');
+}
+
+// Kéo thả bằng chuột hoặc cảm ứng: giữ tay nắm .drag-h trong một dòng rồi kéo lên/xuống.
+// Dòng đi theo tay ngay khi kéo; thả ra thì gọi onMove(vịTríCũ, vịTríMới) nếu có đổi.
+export function makeSortable(container, itemSelector, onMove) {
+  container.addEventListener('pointerdown', (e) => {
+    const handle = e.target.closest('.drag-h');
+    const row = handle && handle.closest(itemSelector);
+    if (!row || !container.contains(row) || e.button !== 0) return;
+    e.preventDefault();
+    const items = () => [...container.querySelectorAll(itemSelector)];
+    const from = items().indexOf(row);
+    // vùng đang cuộn gần nhất (cột trái, hoặc cả trang)
+    let scroller = container.parentElement;
+    while (scroller && !(/(auto|scroll)/.test(getComputedStyle(scroller).overflowY) && scroller.scrollHeight > scroller.clientHeight)) scroller = scroller.parentElement;
+    scroller = scroller || document.scrollingElement;
+    let lastY = e.clientY, raf = 0;
+    row.classList.add('dragging');
+    document.body.classList.add('ed-dragging');
+
+    // đặt dòng đang kéo vào chỗ con trỏ đang chỉ
+    const place = (y) => {
+      for (const other of items()) {
+        if (other === row) continue;
+        const b = other.getBoundingClientRect();
+        if (y < b.top + b.height / 2) {
+          if (other.previousElementSibling !== row) other.before(row);
+          return;
+        }
+      }
+      const all = items(), last = all[all.length - 1];
+      if (last !== row) last.after(row);
+    };
+    // gần mép trên/dưới thì tự cuộn danh sách
+    const autoScroll = () => {
+      const r = scroller.getBoundingClientRect();
+      const head = document.querySelector('.ed-head')?.getBoundingClientRect().bottom || 0; // thanh trên cùng che mất phần đầu
+      const top = Math.max(r.top, 0, scroller.contains(document.querySelector('.ed-head')) ? head : 0), bottom = Math.min(r.bottom, innerHeight);
+      const d = lastY < top + 40 ? -10 : lastY > bottom - 40 ? 10 : 0;
+      if (d) { scroller.scrollTop += d; place(lastY); }
+      raf = requestAnimationFrame(autoScroll);
+    };
+    raf = requestAnimationFrame(autoScroll);
+
+    // nghe trên cả cửa sổ: dời dòng trong trang làm trình duyệt bỏ "bắt" con trỏ của tay nắm
+    const move = (ev) => { if (ev.pointerId === e.pointerId) { lastY = ev.clientY; place(lastY); } };
+    const end = (ev) => {
+      if (ev.pointerId !== e.pointerId) return;
+      cancelAnimationFrame(raf);
+      removeEventListener('pointermove', move);
+      removeEventListener('pointerup', end);
+      removeEventListener('pointercancel', end);
+      row.classList.remove('dragging');
+      document.body.classList.remove('ed-dragging');
+      const to = items().indexOf(row);
+      if (to !== from) onMove(from, to);
+    };
+    addEventListener('pointermove', move);
+    addEventListener('pointerup', end);
+    addEventListener('pointercancel', end);
+  });
 }
 
 export const clone = (o) => JSON.parse(JSON.stringify(o));

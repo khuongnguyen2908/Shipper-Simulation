@@ -1,5 +1,6 @@
 // Thẻ XE · TÚI · ĐỒ DÙNG: chỉ số, giá, mô tả, tác dụng + nơi bán + bảng so sánh.
 import { PROTECTED, ID_RE } from '../../data/validate.js';
+import { moveKey } from './order.js';
 import { EFFECTS, CONSUMABLE_FIELDS } from '../../data/goods.js';
 import { el, field, textInput, numInput, colorInput, button, sideList, areaInput, selectInput, checkInput } from './ui.js';
 
@@ -56,7 +57,7 @@ export function render(root, ctx) {
         })),
         sel.id,
         (id) => ctx.select('gear', { id }),
-        { issuesFor: (id) => ctx.issuesFor('gear', id, { cat }) },
+        { issuesFor: (id) => ctx.issuesFor('gear', id, { cat }), onReorder: (a, b) => { moveKey(table, a, b); changed(); } },
       ),
     );
   };

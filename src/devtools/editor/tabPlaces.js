@@ -2,7 +2,8 @@
 // thực đơn quán, lời thoại riêng; mục "Tên đường & khách" cho tên phố, tên khách, người đi đường.
 import { CITY, HALF, blockBounds, lotInfo } from '../../sim/cityLayout.js';
 import { PROTECTED, ID_RE, LOTS, lotCells } from '../../data/validate.js';
-import { el, field, textInput, numInput, colorInput, selectInput, checkInput, button, sideList, areaInput } from './ui.js';
+import { moveInArray } from './order.js';
+import { el, field, textInput, numInput, colorInput, selectInput, checkInput, button, sideList, areaInput, dragHandle, makeSortable } from './ui.js';
 
 const KIND = { home: '🏠 Nhà trọ', restaurant: '🍴 Quán ăn', gas: '⛽ Cây xăng', shop: '🎒 Tiệm đồ nghề', garage: '🔧 Tiệm xe', cafe: '☕ Quán cà phê', taphoa: '🛒 Tạp hóa', gate: '🟩 Nhà cổng xanh', apartment: '🏢 Chung cư', market: '🧺 Chợ', service: '⭐ Dịch vụ' };
 const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', service: '⭐' };
@@ -22,10 +23,10 @@ export function render(root, ctx) {
     side.append(
       el('div', { class: 'side-head' }, el('b', {}, `Địa điểm (${places.length})`), el('span', { class: 'inline' }, button('＋ Quán ăn', () => addPlace('restaurant'), 'small primary'), button('＋ Dịch vụ', () => addPlace('service'), 'small primary'))),
       sideList(
-        [{ id: '__streets', icon: '🛣️', title: 'Tên đường & khách', sub: 'phố, khách hàng, người đi đường' }, ...places.map((p) => ({ id: p.id, icon: p.icon || ICON[p.kind] || '•', title: p.name, sub: `${p.id} · khối ${p.block.join(',')} lô ${p.lot}` }))],
+        [{ id: '__streets', icon: '🛣️', title: 'Tên đường & khách', sub: 'phố, khách hàng, người đi đường', fixed: true }, ...places.map((p) => ({ id: p.id, icon: p.icon || ICON[p.kind] || '•', title: p.name, sub: `${p.id} · khối ${p.block.join(',')} lô ${p.lot}` }))],
         sel.id,
         (id) => ctx.select('places', { id }),
-        { issuesFor: (id) => (id === '__streets' ? ctx.issuesFor('places', '') : ctx.issuesFor('places', id)) },
+        { issuesFor: (id) => (id === '__streets' ? ctx.issuesFor('places', '') : ctx.issuesFor('places', id)), onReorder: (a, b) => { moveInArray(places, a, b); changedP(); } },
       ),
     );
   };
@@ -141,9 +142,11 @@ export function render(root, ctx) {
         changedP();
         ctx.rerender();
       });
+      const head = el('b', {}, act.label || act.id);
       actBox.append(el('div', { class: 'act-card' },
+        el('div', { class: 'act-head' }, dragHandle(), head),
         field('', el('div', { class: 'grid tight' },
-          field('Tên hoạt động', textInput(act.label, (v) => { act.label = v; changedP(); })),
+          field('Tên hoạt động', textInput(act.label, (v) => { act.label = v; head.textContent = v || act.id; changedP(); })),
           field('Mã', idIn),
           num('cost', 'Giá (k)', { min: 0 }),
           num('minutes', 'Mất bao nhiêu phút', { min: 0, max: 480 }),
@@ -162,7 +165,8 @@ export function render(root, ctx) {
     }, 'small primary'));
   };
   drawActs();
-  body.append(el('h3', {}, 'Hoạt động tại đây'), el('p', { class: 'muted' }, 'Người chơi chọn trong hộp thoại khi bấm E ở cửa. Thời gian trôi đúng số phút; thể lực/tinh thần cộng ngay.'), actBox);
+  makeSortable(actBox, '.act-card', (a, b) => { moveInArray(p.activities, a, b); changedP(); drawActs(); ctx.applyFieldIssues(); });
+  body.append(el('h3', {}, 'Hoạt động tại đây'), el('p', { class: 'muted' }, 'Người chơi chọn trong hộp thoại khi bấm E ở cửa (theo thứ tự dưới đây — kéo ⠿ để đổi). Thời gian trôi đúng số phút; thể lực/tinh thần cộng ngay.'), actBox);
 
   // --- hàng bán ---
   const gear = ctx.data.gear, goods = ctx.data.goods;

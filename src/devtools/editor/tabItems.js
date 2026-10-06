@@ -4,6 +4,7 @@ import { DeliveryItem } from '../../sim/ItemPhysics.js';
 import { fmt } from '../../content/index.js';
 import { TRAIT_IDS, PROTECTED, ID_RE } from '../../data/validate.js';
 import { el, field, textInput, numInput, checkInput, button, sideList, selectInput } from './ui.js';
+import { moveKey } from './order.js';
 
 const TRAIT_INFO = {
   hot: ['🔥 Nóng', 'Nguội dần; dưới 60°C bắt đầu mất điểm'],
@@ -29,7 +30,7 @@ export function render(root, ctx) {
         Object.values(items).map((it) => ({ id: it.id, icon: it.icon, title: it.name || '(chưa đặt tên)', sub: `${it.id} · ${it.base}k` })),
         sel.id,
         (id) => ctx.select('items', { id }),
-        { issuesFor: (id) => ctx.issuesFor('items', id) },
+        { issuesFor: (id) => ctx.issuesFor('items', id), onReorder: (a, b) => { moveKey(items, a, b); ctx.changed('items'); } },
       ),
     );
   };

@@ -118,6 +118,7 @@ export function playDay(seed, strat, day = 1) {
       }
       pass(Math.ceil(om.minutesUntilReady(now)), 'idle');
       const items = om.collectFood(now);
+      if (!items) break; // hết ngày khi đang chờ quán làm món
       om.finishPacking(items.map(() => ({ upright: true })), now);
     } else om.boardPassenger(now);
     if (!o.revealed) { om.callCustomer(now); pass(1, 'idle'); }

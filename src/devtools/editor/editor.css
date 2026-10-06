@@ -28,6 +28,13 @@ body.editor-mode #ui { position: static; pointer-events: auto; }
 .side-list { display: flex; flex-direction: column; gap: 3px; }
 .side-row { display: flex; gap: 8px; align-items: center; text-align: left; background: transparent; color: #e8ecf2; border: 1px solid transparent; border-radius: 8px; padding: 6px 8px; cursor: pointer; font: inherit; }
 .side-row:hover { background: #232b38; } .side-row.on { background: #23402f; border-color: #00b14f; }
+/* kéo thả đổi thứ tự */
+.drag-h { cursor: grab; color: #6b7686; padding: 2px 2px; margin: -2px 0; font-size: 15px; line-height: 1; touch-action: none; user-select: none; border-radius: 4px; }
+.drag-h:hover { color: #e8ecf2; background: #2d3644; }
+.dragging { outline: 2px dashed #00b14f; outline-offset: -2px; background: #1f3a2a !important; opacity: .9; }
+body.ed-dragging, body.ed-dragging * { cursor: grabbing !important; user-select: none; }
+.act-head { display: flex; align-items: center; gap: 8px; width: 100%; }
+.act-head b { flex: 1; }
 .sr-icon { font-size: 18px; width: 22px; text-align: center; }
 .sr-main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .sr-main small { color: #8b97a8; font-size: 11px; }

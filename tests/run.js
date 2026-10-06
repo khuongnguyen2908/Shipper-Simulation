@@ -360,6 +360,25 @@ console.log('Bot mô phỏng (chạy thử 1 ngày)');
   });
 }
 
+console.log('Kéo thả đổi thứ tự (công cụ ?editor)');
+{
+  const { moveInArray, moveKey } = await import('../src/devtools/editor/order.js');
+  test('Dời phần tử trong mảng lên/xuống, giữ đủ phần tử', () => {
+    assert.deepEqual(moveInArray(['a', 'b', 'c', 'd'], 0, 2), ['b', 'c', 'a', 'd']);
+    assert.deepEqual(moveInArray(['a', 'b', 'c', 'd'], 3, 0), ['d', 'a', 'b', 'c']);
+    assert.deepEqual(moveInArray(['a', 'b', 'c'], 1, 1), ['a', 'b', 'c']);
+    assert.deepEqual(moveInArray(['a', 'b', 'c'], 0, 99), ['b', 'c', 'a']);
+  });
+  test('Dời khóa trong bảng: giữ nguyên đối tượng và dữ liệu, chỉ đổi thứ tự', () => {
+    const t = { pho: { n: 1 }, kem: { n: 2 }, traSua: { n: 3 } };
+    const ref = t.kem;
+    const out = moveKey(t, 1, 0);
+    assert.equal(out, t);
+    assert.deepEqual(Object.keys(t), ['kem', 'pho', 'traSua']);
+    assert.equal(t.kem, ref);
+  });
+}
+
 console.log('Dữ liệu & kho chữ (sửa bằng công cụ ?editor)');
 {
   const fs = await import('node:fs');
