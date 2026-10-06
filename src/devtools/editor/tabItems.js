@@ -3,7 +3,8 @@
 import { DeliveryItem } from '../../sim/ItemPhysics.js';
 import { fmt } from '../../content/index.js';
 import { TRAIT_IDS, PROTECTED, ID_RE } from '../../data/validate.js';
-import { el, field, textInput, numInput, checkInput, button, sideList, selectInput, emojiInput } from './ui.js';
+import { el, field, textInput, numInput, checkInput, button, sideList, selectInput, emojiInput, explain } from './ui.js';
+import { HINT, EXPLAIN } from './help.js';
 import { moveKey } from './order.js';
 
 const TRAIT_INFO = {
@@ -57,10 +58,11 @@ export function render(root, ctx) {
       'div',
       { class: 'grid' },
       field('Mã (không dấu)', idInput, { ref, fieldKey: 'id', hint: protectedId ? 'Code dùng trực tiếp mã này' : 'Đổi mã sẽ tự cập nhật thực đơn các quán' }),
-      field('Tên hiển thị', textInput(it.name, (v) => { it.name = v; changed(); }), { ref, fieldKey: 'name' }),
-      field('Biểu tượng (emoji)', emojiInput(it.icon, (v) => { it.icon = v; changed(); }), { ref, fieldKey: 'icon' }),
-      field('Giá cước (k)', numInput(it.base, (v) => { it.base = v; changed(); }, { step: 1, min: 1 }), { ref, fieldKey: 'base', hint: 'Đơn nhiều món: lấy giá cao nhất + 6k mỗi món thêm' }),
+      field('Tên hiển thị', textInput(it.name, (v) => { it.name = v; changed(); }), { ref, fieldKey: 'name', hint: HINT.item.name }),
+      field('Biểu tượng (emoji)', emojiInput(it.icon, (v) => { it.icon = v; changed(); }), { ref, fieldKey: 'icon', hint: HINT.item.icon }),
+      field('Giá cước (k)', numInput(it.base, (v) => { it.base = v; changed(); }, { step: 1, min: 1 }), { ref, fieldKey: 'base', hint: HINT.item.base }),
     ),
+    explain(EXPLAIN.item),
   );
 
   // --- đặc tính ---
@@ -90,11 +92,11 @@ export function render(root, ctx) {
     ),
   );
   if (tr.includes('hot') || tr.includes('cold')) {
-    const temps = el('div', { class: 'grid' }, field('Nhiệt độ lúc nhận (°C)', numInput(it.startTemp, (v) => { it.startTemp = v; changed(); }, { step: 1 }), { ref, fieldKey: 'startTemp' }));
+    const temps = el('div', { class: 'grid' }, field('Nhiệt độ lúc nhận (°C)', numInput(it.startTemp, (v) => { it.startTemp = v; changed(); }, { step: 1 }), { ref, fieldKey: 'startTemp', hint: tr.includes('cold') ? HINT.item.coldStart : HINT.item.hotStart }));
     if (tr.includes('cold')) {
       temps.append(
-        field('Bắt đầu tan ở (°C)', numInput(it.meltAt, (v) => { it.meltAt = v; changed(); }, { step: 0.5 }), { ref, fieldKey: 'meltAt' }),
-        field('Tốc độ tan', numInput(it.meltRate, (v) => { it.meltRate = v; changed(); }, { step: 0.01, min: 0 }), { ref, fieldKey: 'meltRate', hint: '% mất mỗi phút cho mỗi °C vượt ngưỡng (0,1–0,3 là vừa)' }),
+        field('Bắt đầu tan ở (°C)', numInput(it.meltAt, (v) => { it.meltAt = v; changed(); }, { step: 0.5 }), { ref, fieldKey: 'meltAt', hint: HINT.item.meltAt }),
+        field('Tốc độ tan', numInput(it.meltRate, (v) => { it.meltRate = v; changed(); }, { step: 0.01, min: 0 }), { ref, fieldKey: 'meltRate', hint: HINT.item.meltRate }),
       );
     }
     body.append(temps);

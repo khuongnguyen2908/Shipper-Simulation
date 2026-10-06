@@ -114,3 +114,12 @@ input.emoji { font-size: 18px; }
 .person-prev { flex: none; width: 170px; height: 230px; border-radius: 12px; background: radial-gradient(circle at 50% 40%, #2a3546, #141a23); border: 1px solid #2d3644; overflow: hidden; position: sticky; top: 80px; }
 .person-prev canvas { display: block; }
 @media (max-width: 700px) { .npc-wrap { flex-direction: column-reverse; } .person-prev { position: static; } }
+/* hộp 📖 Giải thích */
+.explain { background: #142033; border: 1px solid #2b4466; border-radius: 10px; margin: 6px 0 10px; }
+.explain summary { cursor: pointer; padding: 7px 12px; color: #9ec5ff; font-weight: 600; font-size: 13px; }
+.explain-body { padding: 2px 14px 10px; font-size: 13px; line-height: 1.5; color: #d4dbe6; }
+.explain-body p { margin: 6px 0; }
+table.ref { border-collapse: collapse; margin: 6px 0; font-size: 12px; }
+table.ref td { border: 1px solid #2d3644; padding: 3px 8px; }
+table.ref tr:first-child td { background: #1d2a3d; font-weight: 600; }
+

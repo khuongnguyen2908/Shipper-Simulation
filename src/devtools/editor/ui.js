@@ -229,4 +229,12 @@ export function makeSortable(container, itemSelector, onMove) {
   });
 }
 
+// Hộp "📖 Giải thích" bấm mở/đóng; nhớ trạng thái mở khi trang vẽ lại
+const openExplain = new Set();
+export function explain([title, html]) {
+  const d = el('details', { class: 'explain', open: openExplain.has(title) }, el('summary', {}, `📖 ${title}`), el('div', { class: 'explain-body', html }));
+  d.addEventListener('toggle', () => (d.open ? openExplain.add(title) : openExplain.delete(title)));
+  return d;
+}
+
 export const clone = (o) => JSON.parse(JSON.stringify(o));

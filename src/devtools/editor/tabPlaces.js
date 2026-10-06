@@ -5,7 +5,8 @@ import { PROTECTED, ID_RE, LOTS, lotCells } from '../../data/validate.js';
 import { moveInArray } from './order.js';
 import { personPreview } from './personPreview.js';
 import { guessGender } from '../../sim/people.js';
-import { el, field, textInput, numInput, colorInput, selectInput, checkInput, button, sideList, areaInput, dragHandle, makeSortable, emojiInput } from './ui.js';
+import { el, field, textInput, numInput, colorInput, selectInput, checkInput, button, sideList, areaInput, dragHandle, makeSortable, emojiInput, explain } from './ui.js';
+import { HINT, EXPLAIN } from './help.js';
 
 const KIND = { home: '🏠 Nhà trọ', restaurant: '🍴 Quán ăn', gas: '⛽ Cây xăng', shop: '🎒 Tiệm đồ nghề', garage: '🔧 Tiệm xe', cafe: '☕ Quán cà phê', taphoa: '🛒 Tạp hóa', gate: '🟩 Nhà cổng xanh', apartment: '🏢 Chung cư', market: '🧺 Chợ', service: '⭐ Dịch vụ' };
 const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', service: '⭐' };
@@ -69,13 +70,13 @@ export function render(root, ctx) {
         'div',
         { class: 'grid tight' },
         field('Mã (không dấu)', idInput, opt('id', { hint: locked ? 'Code dùng trực tiếp mã này' : 'Đổi mã sẽ đổi cả khóa lời thoại npc.<mã>.*' })),
-        field('Tên đầy đủ', textInput(p.name, (v) => { p.name = v; changedP(); }), opt('name')),
-        field('Tên ngắn (bản đồ)', textInput(p.short, (v) => { p.short = v; changedP(); }), opt('short')),
+        field('Tên đầy đủ', textInput(p.name, (v) => { p.name = v; changedP(); }), opt('name', { hint: HINT.place.name })),
+        field('Tên ngắn (bản đồ)', textInput(p.short, (v) => { p.short = v; changedP(); }), opt('short', { hint: HINT.place.short })),
         field('Biểu tượng bản đồ', emojiInput(p.icon ?? '', (v) => { if (v) p.icon = v; else delete p.icon; changedP(); }, { placeholder: ICON[p.kind] || '📍' }), opt('icon', { hint: 'Emoji; để trống = theo loại' })),
-        p.kind !== 'gate' ? field('Chữ trên biển hiệu', textInput(p.sign, (v) => { p.sign = v; changedP(); }), opt('sign')) : null,
+        p.kind !== 'gate' ? field('Chữ trên biển hiệu', textInput(p.sign, (v) => { p.sign = v; changedP(); }), opt('sign', { hint: HINT.place.sign })) : null,
         p.signBg != null || p.kind !== 'gate' ? field('Màu biển hiệu', colorInput(p.signBg, (v) => { p.signBg = v; changedP(); }), opt('signBg')) : null,
         field('Màu tường', colorInput(p.color, (v) => { p.color = v; changedP(); }), opt('color')),
-        p.floors != null ? field('Số tầng', numInput(p.floors, (v) => { p.floors = Math.round(v); changedP(); }, { step: 1, min: 1, max: 15 }), opt('floors')) : null,
+        p.floors != null ? field('Số tầng', numInput(p.floors, (v) => { p.floors = Math.round(v); changedP(); }, { step: 1, min: 1, max: 15 }), opt('floors', { hint: HINT.place.floors })) : null,
         field('Khối (cột x, hàng z)', el('span', { class: 'inline' },
           numInput(p.block[0], (v) => { p.block[0] = Math.round(v); changedP(); drawMap(); }, { step: 1, min: 0, max: CITY.N - 1 }),
           numInput(p.block[1], (v) => { p.block[1] = Math.round(v); changedP(); drawMap(); }, { step: 1, min: 0, max: CITY.N - 1 })), opt('block', { hint: `0–${CITY.N - 1}, từ tây-bắc` })),
@@ -114,7 +115,7 @@ export function render(root, ctx) {
           field('Màu quần / váy', colorInput(n.pants, (v) => { n.pants = v; changedN(); }), opt('npc.pants')),
           field('Mặc váy', checkInput(!!n.skirt, (v) => { if (v) n.skirt = true; else delete n.skirt; changedN(); }, 'Có'), opt('npc.skirt', { hint: 'Váy lấy màu quần; chân màu da' })),
           field('Đội mũ', selectInput(n.hat || '', [['', 'Không'], ['nonla', 'Nón lá'], ['helmet', 'Mũ bảo hiểm'], ['police', 'Mũ CSGT']], (v) => { n.hat = v || null; changedN(); }), opt('npc.hat')),
-          field('Vóc người', numInput(n.scale ?? 1, (v) => { if (v === 1) delete n.scale; else n.scale = v; changedN(); }, { step: 0.05, min: 0.6, max: 1.3 }), opt('npc.scale', { hint: '1 = bình thường' })),
+          field('Vóc người', numInput(n.scale ?? 1, (v) => { if (v === 1) delete n.scale; else n.scale = v; changedN(); }, { step: 0.05, min: 0.6, max: 1.3 }), opt('npc.scale', { hint: HINT.npc.scale })),
         ),
         prev.el,
       ),
@@ -154,7 +155,7 @@ export function render(root, ctx) {
   const drawActs = () => {
     actBox.innerHTML = '';
     acts().forEach((act, i) => {
-      const num = (k, label, o = {}) => field(label, numInput(act[k], (v) => { act[k] = v; changedP(); }, { step: 1, ...o }));
+      const num = (k, label, o = {}) => field(label, numInput(act[k], (v) => { act[k] = v; changedP(); }, { step: 1, ...o }), { hint: HINT.act[k] });
       const idIn = textInput(act.id, () => {}, { class: 'mono' });
       idIn.addEventListener('change', () => {
         const v = idIn.value.trim();
@@ -167,7 +168,7 @@ export function render(root, ctx) {
       actBox.append(el('div', { class: 'act-card' },
         el('div', { class: 'act-head' }, dragHandle(), head),
         field('', el('div', { class: 'grid tight' },
-          field('Tên hoạt động', textInput(act.label, (v) => { act.label = v; head.textContent = v || act.id; changedP(); })),
+          field('Tên hoạt động', textInput(act.label, (v) => { act.label = v; head.textContent = v || act.id; changedP(); }), { hint: HINT.act.label }),
           field('Mã', idIn),
           num('cost', 'Giá (k)', { min: 0 }),
           num('minutes', 'Mất bao nhiêu phút', { min: 0, max: 480 }),
@@ -187,7 +188,7 @@ export function render(root, ctx) {
   };
   drawActs();
   makeSortable(actBox, '.act-card', (a, b) => { moveInArray(p.activities, a, b); changedP(); drawActs(); ctx.applyFieldIssues(); });
-  body.append(el('h3', {}, 'Hoạt động tại đây'), el('p', { class: 'muted' }, 'Người chơi chọn trong hộp thoại khi bấm E ở cửa (theo thứ tự dưới đây — kéo ⠿ để đổi). Thời gian trôi đúng số phút; thể lực/tinh thần cộng ngay.'), actBox);
+  body.append(el('h3', {}, 'Hoạt động tại đây'), el('p', { class: 'muted' }, 'Người chơi chọn trong hộp thoại khi bấm E ở cửa (theo thứ tự dưới đây — kéo ⠿ để đổi). Thời gian trôi đúng số phút; thể lực/tinh thần cộng ngay.'), explain(EXPLAIN.act), actBox);
 
   // --- hàng bán ---
   const gear = ctx.data.gear, goods = ctx.data.goods;
@@ -218,9 +219,10 @@ export function render(root, ctx) {
   body.append(
     el('h3', {}, 'Điểm đến của đơn hàng'),
     el('p', { class: 'muted' }, 'Mức 0 = không bao giờ, 10 = rất thường xuyên. Ví dụ karaoke: khách xe ôm mức 6, khung giờ 17→22.'),
+    explain(EXPLAIN.orders),
     el('div', { class: 'grid' },
-      field('Khách xe ôm đi tới / từ đây', numInput(ord().rideWeight ?? 0, (v) => { ordW().rideWeight = v; cleanup(); changedP(); }, { step: 1, min: 0, max: 10 }), opt('orders.rideWeight')),
-      p.kind !== 'restaurant' ? field('Đặt đồ ăn giao tới đây', numInput(ord().foodWeight ?? 0, (v) => { ordW().foodWeight = v; cleanup(); changedP(); }, { step: 1, min: 0, max: 10 }), opt('orders.foodWeight')) : null,
+      field('Khách xe ôm đi tới / từ đây', numInput(ord().rideWeight ?? 0, (v) => { ordW().rideWeight = v; cleanup(); changedP(); }, { step: 1, min: 0, max: 10 }), opt('orders.rideWeight', { hint: HINT.orders.rideWeight })),
+      p.kind !== 'restaurant' ? field('Đặt đồ ăn giao tới đây', numInput(ord().foodWeight ?? 0, (v) => { ordW().foodWeight = v; cleanup(); changedP(); }, { step: 1, min: 0, max: 10 }), opt('orders.foodWeight', { hint: HINT.orders.foodWeight })) : null,
       hoursRow(() => ord().hours, ordW, 'orders.hours', 'Khung giờ có đơn', 'Bỏ trống ("Cả ngày") = theo giờ mở cửa', cleanup),
     ),
   );

@@ -2,7 +2,8 @@
 import { PROTECTED, ID_RE } from '../../data/validate.js';
 import { moveKey } from './order.js';
 import { EFFECTS, CONSUMABLE_FIELDS } from '../../data/goods.js';
-import { el, field, textInput, numInput, colorInput, button, sideList, areaInput, selectInput, checkInput, emojiInput } from './ui.js';
+import { el, field, textInput, numInput, colorInput, button, sideList, areaInput, selectInput, checkInput, emojiInput, explain } from './ui.js';
+import { HINT, EXPLAIN } from './help.js';
 
 const CATS = [
   ['vehicles', '🛵 Xe'],
@@ -10,25 +11,25 @@ const CATS = [
   ['goods', '🎁 Đồ dùng'],
 ];
 
-// Các trường của từng nhóm: [khóa, nhãn, tùy chọn ô số, gợi ý]
+// Các trường của từng nhóm: [khóa, nhãn, tùy chọn ô số] — gợi ý dưới ô nằm ở help.js
 const FIELDS = {
   vehicles: [
-    ['maxSpeed', 'Tốc độ tối đa (km/h)', { scale: 3.6, step: 1, digits: 0 }, 'Cub 45 · tay ga 60 · mô tô 80'],
-    ['accel', 'Tăng tốc (m/s²)', { step: 0.1 }, 'Càng cao càng bốc'],
-    ['brake', 'Lực phanh (m/s²)', { step: 0.5 }, 'Phanh gấp > 6,5 m/s² làm canh sóng sánh'],
-    ['steer', 'Độ nhạy lái', { step: 0.1 }, '2,2 là vừa'],
-    ['suspension', 'Giảm xóc (%)', { scale: 100, step: 5, digits: 0 }, 'Giảm đổ canh khi qua ổ gà'],
-    ['fuelPer100km', 'Hao xăng (L/100 km)', { step: 0.1 }, ''],
-    ['tank', 'Bình xăng (L)', { step: 0.5 }, ''],
-    ['price', 'Giá (k)', { step: 50 }, ''],
+    ['maxSpeed', 'Tốc độ tối đa (km/h)', { scale: 3.6, step: 1, digits: 0 }],
+    ['accel', 'Tăng tốc (m/s²)', { step: 0.1 }],
+    ['brake', 'Lực phanh (m/s²)', { step: 0.5 }],
+    ['steer', 'Độ nhạy lái', { step: 0.1 }],
+    ['suspension', 'Giảm xóc (%)', { scale: 100, step: 5, digits: 0 }],
+    ['fuelPer100km', 'Hao xăng (L/100 km)', { step: 0.1 }],
+    ['tank', 'Bình xăng (L)', { step: 0.5 }],
+    ['price', 'Giá (k)', { step: 50 }],
   ],
   bags: [
-    ['insulation', 'Giữ nhiệt (%)', { scale: 100, step: 5, digits: 0 }, '≥ 50% mới nhận được đơn trà sữa, kem'],
-    ['waterproof', 'Chống nước (%)', { scale: 100, step: 5, digits: 0 }, 'Bảo vệ hộp giấy khi mưa'],
-    ['padding', 'Đệm chống sốc (%)', { scale: 100, step: 5, digits: 0 }, 'Giảm hư đồ dễ vỡ và đổ canh'],
-    ['cols', 'Số cột ô', { step: 1, min: 1, max: 5 }, 'Lưới xếp túi = cột × hàng'],
-    ['rows', 'Số hàng ô', { step: 1, min: 1, max: 4 }, ''],
-    ['price', 'Giá (k)', { step: 10 }, 'Túi giá 0 = túi miễn phí lúc đầu'],
+    ['insulation', 'Giữ nhiệt (%)', { scale: 100, step: 5, digits: 0 }],
+    ['waterproof', 'Chống nước (%)', { scale: 100, step: 5, digits: 0 }],
+    ['padding', 'Đệm chống sốc (%)', { scale: 100, step: 5, digits: 0 }],
+    ['cols', 'Số cột ô', { step: 1, min: 1, max: 5 }],
+    ['rows', 'Số hàng ô', { step: 1, min: 1, max: 4 }],
+    ['price', 'Giá (k)', { step: 10 }],
   ],
 };
 
@@ -84,10 +85,11 @@ export function render(root, ctx) {
       cat === 'goods'
         ? field('Biểu tượng (emoji)', emojiInput(s.icon, (v) => { s.icon = v; changed(); }), opt('icon'))
         : field('Màu', colorInput(s.color, (v) => { s.color = v; changed(); }), opt('color', { hint: cat === 'vehicles' ? 'Màu thân xe' : 'Màu túi trên baga' })),
-      cat === 'goods' ? field('Giá (k)', numInput(s.price, (v) => { s.price = v; changed(); }, { step: 5, min: 0 }), opt('price')) : null,
-      ...(FIELDS[cat] || []).map(([k, label, o, hint]) => field(label, numInput(s[k], (v) => { s[k] = v; changed(); }, o), opt(k, { hint }))),
+      cat === 'goods' ? field('Giá (k)', numInput(s.price, (v) => { s.price = v; changed(); }, { step: 5, min: 0 }), opt('price', { hint: HINT.goods.price })) : null,
+      ...(FIELDS[cat] || []).map(([k, label, o]) => field(label, numInput(s[k], (v) => { s[k] = v; changed(); }, o), opt(k, { hint: HINT[cat][k] }))),
     ),
     field('Mô tả (hiện trong cửa hàng)', areaInput(s.desc, (v) => { s.desc = v; changed(); }, 2), opt('desc', { wide: true })),
+    explain(EXPLAIN[cat]),
   );
 
   if (cat === 'goods') renderGoods(body, s, ctx, opt, changed);
@@ -158,12 +160,12 @@ function renderGoods(body, s, ctx, opt, changed) {
       else { delete s.use; s.effects = s.effects || {}; }
       changed();
       ctx.rerender();
-    }), opt('type')),
+    }), opt('type', { hint: HINT.goods.type })),
   );
   if (s.type === 'consumable') {
     s.use = s.use || {};
     body.append(el('div', { class: 'grid' }, Object.entries(CONSUMABLE_FIELDS).map(([k, r]) =>
-      field(r.label, numInput(s.use[k] ?? 0, (v) => { s.use[k] = v; changed(); }, { step: k === 'fuel' ? 0.1 : 1, min: r.min, max: r.max }), opt(`use.${k}`)))));
+      field(r.label, numInput(s.use[k] ?? 0, (v) => { s.use[k] = v; changed(); }, { step: k === 'fuel' ? 0.1 : 1, min: r.min, max: r.max }), opt(`use.${k}`, { hint: HINT.use[k] })))));
     return;
   }
   s.effects = s.effects || {};

@@ -20,6 +20,15 @@ export const PLACE_KINDS = ['home', 'restaurant', 'gas', 'shop', 'garage', 'cafe
 export const ID_RE = /^[a-zA-Z][a-zA-Z0-9_]*$/;
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
+// Cảnh báo số trừ thể lực/tinh thần quá lớn (thanh 0–100, về 0 là thua)
+function drainWarn(add, ref, field, phys, mental, who) {
+  for (const [v, name] of [[phys, 'thể lực'], [mental, 'tinh thần']]) {
+    if (!num(v)) continue;
+    if (v <= -100) add('warn', ref, field, `${who}trừ ${-v} ${name} → người chơi THUA ngay (thanh tối đa 100).`);
+    else if (v <= -30) add('warn', ref, field, `${who}trừ ${-v} ${name} một lần — người chơi đang yếu có thể thua ngay. Thường chỉ −5 đến −20.`);
+  }
+}
+
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
 
 // Các ô lô mà một địa điểm chiếm (lô 'N'/'S' = cả dãy 3 ô)
@@ -46,6 +55,7 @@ export function validateItems(items, placesData) {
     if (tr.includes('passenger') && tr.length > 1) add('error', key, 'traits', 'Khách xe ôm không đi kèm đặc tính khác.');
     if (!num(it.base) || it.base <= 0) add('error', key, 'base', 'Giá cước phải là số > 0.');
     else if (it.base > 200) add('warn', key, 'base', 'Giá cước rất cao (> 200k) – kiểm tra cân bằng.');
+    else if (it.base < 10 && !tr.includes('passenger')) add('warn', key, 'base', 'Cước dưới 10k — sau phí app 20% gần như không lời (xăng ~1k/km).');
     if (tr.includes('hot') && (!num(it.startTemp) || it.startTemp < 40 || it.startTemp > 100)) add('error', key, 'startTemp', 'Món nóng cần nhiệt độ ban đầu 40–100°C.');
     if (tr.includes('cold')) {
       if (!num(it.startTemp) || it.startTemp < -30 || it.startTemp > 15) add('error', key, 'startTemp', 'Món lạnh cần nhiệt độ ban đầu −30–15°C.');
@@ -80,6 +90,7 @@ export function validateGear(gear) {
       if (cat === 'bags' && (!Number.isInteger(s.cols) || !Number.isInteger(s.rows))) add('error', key, 'cols', 'Số ô phải là số nguyên.');
       if (cat === 'bags' && s.cols * s.rows < 2) add('warn', key, 'cols', 'Túi chỉ có 1 ô → không chở được đơn 2 món.');
       if (!COLOR_RE.test(s.color || '')) add('error', key, 'color', 'Màu phải dạng #rrggbb.');
+      if (s.price === 0 && !PROTECTED[cat].includes(key)) add('warn', key, 'price', 'Giá 0 → người chơi lấy miễn phí ngay từ đầu.');
     }
     if (cat === 'bags' && table.nylon && table.nylon.price !== 0) add('warn', 'nylon', 'price', 'Túi nylon là túi khởi đầu, nên để giá 0.');
     if (cat === 'vehicles' && table.cub && table.cub.price !== 0) add('warn', 'cub', 'price', 'Xe Cub là xe khởi đầu, nên để giá 0.');
@@ -152,6 +163,8 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null) {
         if (!num(act[k]) || act[k] < lo || act[k] > hi) add('error', p.id, f, `"${act.label || act.id}": ${name} phải là số từ ${lo} đến ${hi}.`);
       }
       if (num(act.minutes) && act.minutes > 120) add('warn', p.id, f, 'Hoạt động hơn 2 tiếng — tốn nhiều thời gian trong ngày.');
+      drainWarn(add, p.id, f, act.phys, act.mental, `"${act.label || act.id}": `);
+      if (!act.cost && !act.perDay && Math.max(0, act.phys || 0) + Math.max(0, act.mental || 0) > 10) add('warn', p.id, f, `"${act.label || act.id}": miễn phí, không giới hạn lần mà hồi hơn 10 điểm → người chơi có thể hồi đầy thanh liên tục. Đặt giá hoặc giới hạn lần/ngày.`);
     }
     // hàng bán
     for (const [k, table] of [['goods', goodsTable], ['bags', gearTable?.bags], ['vehicles', gearTable?.vehicles]]) {
@@ -231,6 +244,12 @@ export function validateGoods(goods, placesData) {
       const u = s.use || {};
       for (const [k, r] of Object.entries(CONSUMABLE_FIELDS)) if (u[k] != null && (!num(u[k]) || u[k] < r.min || u[k] > r.max)) add('error', key, `use.${k}`, `Phải từ ${r.min} đến ${r.max}.`);
       if (!u.phys && !u.mental && !u.fuel && !u.bikeHp) add('warn', key, 'use', 'Dùng xong không có tác dụng gì.');
+      drainWarn(add, key, u.phys <= -30 ? 'use.phys' : 'use.mental', u.phys, u.mental, '');
+      const gain = Math.max(0, u.phys || 0) + Math.max(0, u.mental || 0);
+      if (num(s.price) && gain > 0) {
+        if (s.price === 0) add('warn', key, 'price', 'Miễn phí mà có tác dụng → người chơi mua bao nhiêu cũng được.');
+        else if (gain / s.price > 3) add('warn', key, 'price', `Rẻ so với tác dụng (+${gain} điểm / ${s.price}k). Tham khảo: cà phê 20k cho +35, phở 35k cho +50.`);
+      }
     } else if (s.type === 'equipment') {
       const e = s.effects || {};
       for (const [k, v] of Object.entries(e)) {

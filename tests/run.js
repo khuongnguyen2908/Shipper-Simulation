@@ -191,9 +191,13 @@ test('Đơn kem/trà sữa chỉ xuất hiện khi có túi giữ nhiệt', () =
     assert.ok(!o.itemIds.some((id) => DATA_ITEMS[id].traits.includes('cold')));
   }
   gs.buy('bags', 'thermal');
+  // chọn giờ quán có món lạnh đang mở (giờ mở cửa do người dùng chỉnh trong ?editor)
+  const coldShop = om.layout.places.find((p) => (p.menu || []).some((id) => DATA_ITEMS[id]?.traits.includes('cold')));
+  if (!coldShop) return; // dữ liệu không còn quán nào bán món lạnh
+  const t = coldShop.hours ? coldShop.hours[0] * 60 + 30 : 480;
   let sawCold = false;
-  for (let i = 0; i < 80; i++) if (om.makeOffer(480, { x: 0, z: 0 }).itemIds.some((id) => DATA_ITEMS[id].traits.includes('cold'))) sawCold = true;
-  assert.ok(sawCold);
+  for (let i = 0; i < 200 && !sawCold; i++) if (om.makeOffer(t, { x: 0, z: 0 }).itemIds.some((id) => DATA_ITEMS[id].traits.includes('cold'))) sawCold = true;
+  assert.ok(sawCold, `không thấy đơn món lạnh lúc ${t / 60}h từ ${coldShop.id}`);
 });
 test('Có mũ cho khách → đơn chở anh Minh (nhiệm vụ ví)', () => {
   const { om, gs } = mkOM(9, { carry: { money: 500 } });
@@ -458,7 +462,7 @@ console.log('Dữ liệu & kho chữ (sửa bằng công cụ ?editor)');
   const path = await import('node:path');
   const read = (p) => JSON.parse(fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8'));
   const data = { items: read('src/data/items.json'), gear: read('src/data/gear.json'), goods: read('src/data/goods.json'), places: read('src/data/places.json'), content: read('src/content/vi.json') };
-  const { validateAll, validateItems, validatePlaces, validateContent } = await import('../src/data/validate.js');
+  const { validateAll, validateItems, validatePlaces, validateContent, validateGoods, validateGear } = await import('../src/data/validate.js');
   test('Dữ liệu hiện tại không có lỗi', () => {
     const errs = validateAll({ ...data, baseContent: data.content }).filter((i) => i.level === 'error');
     assert.equal(errs.length, 0, errs.map((e) => `${e.tab}/${e.ref}/${e.field}: ${e.msg}`).join('\n'));
@@ -507,6 +511,28 @@ console.log('Dữ liệu & kho chữ (sửa bằng công cụ ?editor)');
     Object.assign(comtam.npc, { gender: 'nam', hairStyle: 'xoăn', hair: 'đen', skirt: 'có' });
     const npcErr = validatePlaces(places, data.items).filter((i) => i.ref === 'comtam' && i.level === 'error').map((i) => i.field);
     for (const f of ['npc.gender', 'npc.hairStyle', 'npc.hair', 'npc.skirt']) assert.ok(npcErr.includes(f), `không bắt lỗi ${f}`);
+  });
+  test('Cảnh báo số nguy hiểm: trừ thanh quá mạnh, miễn phí không giới hạn, quá rẻ, xe giá 0', () => {
+    const places = JSON.parse(JSON.stringify(data.places));
+    const pho = places.places.find((p) => p.id === 'pho');
+    pho.activities = [
+      { id: 'a', label: 'Ngất', cost: 10, minutes: 5, phys: -100, mental: 0, perDay: 0 },
+      { id: 'b', label: 'Mệt', cost: 10, minutes: 5, phys: 0, mental: -40, perDay: 0 },
+      { id: 'c', label: 'Free', cost: 0, minutes: 5, phys: 20, mental: 0, perDay: 0 },
+      { id: 'd', label: 'Ổn', cost: 20, minutes: 10, phys: -5, mental: 30, perDay: 1 },
+    ];
+    const w = validatePlaces(places, data.items).filter((i) => i.ref === 'pho' && i.level === 'warn');
+    assert.ok(w.some((i) => i.field === 'activities.a' && /THUA ngay/.test(i.msg)));
+    assert.ok(w.some((i) => i.field === 'activities.b' && /có thể thua/.test(i.msg)));
+    assert.ok(w.some((i) => i.field === 'activities.c' && /miễn phí/.test(i.msg)));
+    assert.ok(!w.some((i) => i.field === 'activities.d'), 'hoạt động bình thường không bị cảnh báo');
+    const goods = { cheap: { id: 'cheap', name: 'Rẻ', price: 5, type: 'consumable', use: { minutes: 1, phys: 30, mental: 0 } }, free: { id: 'free', name: 'Free', price: 0, type: 'consumable', use: { minutes: 1, phys: 5 } } };
+    const gw = validateGoods(goods, null).filter((i) => i.level === 'warn' && i.field === 'price').map((i) => i.ref);
+    assert.deepEqual(gw.sort(), ['cheap', 'free']);
+    const gear = JSON.parse(JSON.stringify(data.gear));
+    const someBike = Object.keys(gear.vehicles).find((k) => k !== 'cub');
+    gear.vehicles[someBike].price = 0;
+    assert.ok(validateGear(gear).some((i) => i.ref === someBike && i.field === 'price' && i.level === 'warn'));
     const content ={ ...data.content, 'toast.dayStart': 'Ngày {abc}' };
     assert.ok(validateContent(content, data.content).some((i) => i.ref === 'toast.dayStart' && i.level === 'error'));
   });
