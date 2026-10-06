@@ -9,7 +9,8 @@
     "build": "npm test && vite build",
     "preview": "vite preview",
     "test": "node tests/run.js",
-    "sim": "node tests/economy-sim.js"
+    "sim": "node tests/economy-sim.js",
+    "dang": "node scripts/dang.js"
   },
   "dependencies": {
     "three": "^0.186.1"
