@@ -44,9 +44,9 @@
       "physDrainPct": -10
     }
   },
-  "skillBook": {
-    "id": "skillBook",
-    "name": "Sách \"Nói sao cho khách vui\"",
+  "book1": {
+    "id": "book1",
+    "name": "Sách \"Làm vui lòng khách như thế nào?\"",
     "icon": "📘",
     "price": 120,
     "desc": "Giao tiếp khéo hơn → đơn 4–5 sao được boa thêm.",
@@ -55,17 +55,58 @@
       "tipBonus": 2
     }
   },
-  "novel": {
-    "id": "novel",
-    "name": "Tiểu thuyết bỏ túi",
+  "Book2": {
+    "id": "Book2",
+    "name": "Sách \"Tình yêu của loài ngựa\"",
+    "icon": "📘",
+    "price": 200,
+    "desc": "Có bao giờ bạn thắc mắc loài ngựa yêu như thế nào? Tôi không biết, nhưng đọc cho đỡ chán.",
+    "type": "equipment",
+    "effects": {
+      "mentalDrainPct": -10
+    }
+  },
+  "novel1": {
+    "id": "novel1",
+    "name": "Tiểu thuyết tình yêu",
     "icon": "📖",
     "price": 35,
-    "desc": "Đọc lúc rảnh hoặc lúc chờ quán làm món.",
+    "desc": "Một chuyện tình đẹp của anh shipper và nữ chủ tịch. Đọc lúc rảnh hoặc lúc chờ quán làm món.",
     "type": "consumable",
     "use": {
       "minutes": 20,
       "phys": 0,
       "mental": 15,
+      "fuel": 0,
+      "bikeHp": 0
+    }
+  },
+  "novel2": {
+    "id": "novel2",
+    "name": "Truyện ma công sở",
+    "icon": "📖",
+    "price": 50,
+    "desc": "Một câu chuyện ma mà ai đi làm cũng truyền tai nhau,....ma OT",
+    "type": "consumable",
+    "use": {
+      "minutes": 20,
+      "phys": 0,
+      "mental": 30,
+      "fuel": 0,
+      "bikeHp": 0
+    }
+  },
+  "novel3": {
+    "id": "novel3",
+    "name": "Tuyển tập truyện đồng tính quốc tế",
+    "icon": "📖",
+    "price": 80,
+    "desc": "Đọc để hiểu hơn về tình yêu đôi lứa",
+    "type": "consumable",
+    "use": {
+      "minutes": 20,
+      "phys": 0,
+      "mental": 50,
       "fuel": 0,
       "bikeHp": 0
     }
@@ -84,5 +125,13 @@
       "fuel": 0,
       "bikeHp": 0
     }
+  },
+  "nhang": {
+    "id": "nhang",
+    "name": "Nhang Thơm",
+    "icon": "📦",
+    "price": 20,
+    "desc": "Bó nhang trầm. Đem tới chùa để thắp.",
+    "type": "carry"
   }
 }

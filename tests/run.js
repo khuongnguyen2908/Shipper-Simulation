@@ -383,13 +383,56 @@ console.log('Kéo thả đổi thứ tự (công cụ ?editor)');
   });
 }
 
+console.log('Đồ mang tới địa điểm dùng (vd nhang → chùa)');
+{
+  const { GOODS } = await import('../src/data/goods.js');
+  const { validatePlaces, validateGoods } = await import('../src/data/validate.js');
+  // món thử gắn tạm vào danh mục, xong thì gỡ
+  GOODS.__nhangThu = { id: '__nhangThu', name: 'Nhang thử', icon: '🪔', price: 10, type: 'carry', desc: '' };
+  const temple = { id: 'chuaThu', hours: null, activities: [] };
+  const act = { id: 'thap', label: 'Thắp nhang', cost: 0, minutes: 10, phys: 0, mental: 25, perDay: 1, needs: { id: '__nhangThu', qty: 2 } };
+  test('Mua đồ mang theo được nhiều cái; không bấm dùng từ túi đồ được', () => {
+    const gs = new GameState({ carry: { money: 100 } });
+    assert.ok(gs.buy('goods', '__nhangThu').ok && gs.buy('goods', '__nhangThu').ok);
+    assert.equal(gs.countOf('__nhangThu'), 2);
+    assert.equal(gs.useConsumable('__nhangThu').ok, false);
+    assert.equal(gs.countOf('__nhangThu'), 2);
+  });
+  test('Hoạt động cần đồ: thiếu thì không làm được; đủ thì làm và trừ đúng số lượng', () => {
+    const gs = new GameState({ carry: { money: 100 } });
+    gs.mental = 50;
+    gs.buy('goods', '__nhangThu');
+    assert.equal(gs.activityStatus(temple, act, 480), 'needItem');
+    assert.equal(gs.doActivity(temple, act, 480).ok, false);
+    gs.buy('goods', '__nhangThu');
+    assert.equal(gs.activityStatus(temple, act, 480), 'ok');
+    assert.ok(gs.doActivity(temple, act, 480).ok);
+    assert.equal(gs.countOf('__nhangThu'), 0);
+    assert.equal(gs.mental, 75);
+    // đồ mang theo giữ qua ngày hôm sau
+    gs.buy('goods', '__nhangThu');
+    assert.equal(new GameState({ day: 2, carry: gs.carryOver() }).countOf('__nhangThu'), 1);
+  });
+  test('Bộ kiểm tra: đồ mang theo chưa nơi dùng → cảnh báo; cần đồ lạ / trang bị / số lượng sai → lỗi', () => {
+    const pd = { places: [], alley: { block: [1, 0], lot: 'E1' }, streetsX: [], streetsZ: [], customerNames: ['A'] };
+    assert.ok(validateGoods({ x: { ...GOODS.__nhangThu, id: 'x' } }, pd).some((i) => i.ref === 'x' && i.level === 'warn' && /Chưa địa điểm/.test(i.msg)));
+    const bad = (needs) => validatePlaces({ ...pd, places: [{ id: 'p', name: 'P', short: 'P', kind: 'service', block: [0, 0], lot: 'N0', color: '#ffffff', sign: 'P', activities: [{ ...act, needs }] }] }, {}, { ...GOODS }, null)
+      .filter((i) => i.level === 'error' && i.field === 'activities.thap');
+    assert.ok(bad({ id: 'khongCo', qty: 1 }).length);
+    assert.ok(bad({ id: Object.values(GOODS).find((g) => g.type === 'equipment').id, qty: 1 }).length);
+    assert.ok(bad({ id: '__nhangThu', qty: 0 }).length);
+    assert.equal(bad({ id: '__nhangThu', qty: 1 }).length, 0);
+  });
+  delete GOODS.__nhangThu;
+}
+
 console.log('Tòa nhà nhiều lô');
 {
   const { lotInfo, LOT_W, lotParts, LOT_SIZES, lotSize } = await import('../src/sim/cityLayout.js');
   const { lotCells } = await import('../src/data/validate.js');
   const W = LOT_W, near = (a, b) => Math.abs(a - b) < 1e-9;
   test('Khung lô đúng cỡ và mặt tiền đúng hướng', () => {
-    const cases = { N1: [1, 1, 'N'], N01: [2, 1, 'N'], S12: [2, 1, 'S'], N: [3, 1, 'N'], S: [3, 1, 'S'], W: [1, 3, 'W'], E: [1, 3, 'E'], E1: [1, 1, 'E'] };
+    const cases = { N1: [1, 1, 'N'], N01: [2, 1, 'N'], S12: [2, 1, 'S'], W01: [1, 2, 'W'], E12: [1, 2, 'E'], N: [3, 1, 'N'], S: [3, 1, 'S'], W: [1, 3, 'W'], E: [1, 3, 'E'], E1: [1, 1, 'E'] };
     for (const [lot, [w, d, face]] of Object.entries(cases)) {
       const r = lotInfo(2, 2, lot);
       assert.ok(near(r.x1 - r.x0, w * W) && near(r.z1 - r.z0, d * W), `${lot}: ${(r.x1 - r.x0) / W}×${(r.z1 - r.z0) / W}`);

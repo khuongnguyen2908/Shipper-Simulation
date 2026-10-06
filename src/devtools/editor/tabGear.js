@@ -5,6 +5,8 @@ import { EFFECTS, CONSUMABLE_FIELDS } from '../../data/goods.js';
 import { el, field, textInput, numInput, colorInput, button, sideList, areaInput, selectInput, checkInput, emojiInput, explain } from './ui.js';
 import { HINT, EXPLAIN } from './help.js';
 
+const TYPE_SHORT = { consumable: 'dùng 1 lần', equipment: 'trang bị', carry: 'dùng tại địa điểm' };
+
 const CATS = [
   ['vehicles', '🛵 Xe'],
   ['bags', '👜 Túi'],
@@ -54,7 +56,7 @@ export function render(root, ctx) {
           id: s.id,
           icon: cat === 'vehicles' ? '🛵' : cat === 'bags' ? '👜' : s.icon || '🎁',
           title: s.name,
-          sub: `${s.id} · ${s.price}k${cat === 'goods' ? ` · ${s.type === 'consumable' ? 'dùng 1 lần' : 'trang bị'}` : ''}`,
+          sub: `${s.id} · ${s.price}k${cat === 'goods' ? ` · ${TYPE_SHORT[s.type] || s.type}` : ''}`,
         })),
         sel.id,
         (id) => ctx.select('gear', { id }),
@@ -128,10 +130,12 @@ export function render(root, ctx) {
 
   function remove() {
     const users = places.filter((p) => (p.sells?.[cat] || []).includes(ref));
-    if (!confirm(`Xóa "${s.name}"?${users.length ? `\nSẽ gỡ khỏi hàng của: ${users.map((p) => p.name).join(', ')}.` : ''}\nNgười chơi đã mua sẽ không còn tác dụng của món này.`)) return;
+    const needers = cat === 'goods' ? places.filter((p) => (p.activities || []).some((a) => a.needs?.id === ref)) : [];
+    if (!confirm(`Xóa "${s.name}"?${users.length ? `\nSẽ gỡ khỏi hàng của: ${users.map((p) => p.name).join(', ')}.` : ''}${needers.length ? `\nHoạt động ở ${needers.map((p) => p.name).join(', ')} sẽ không cần món này nữa.` : ''}\nNgười chơi đã mua sẽ không còn tác dụng của món này.`)) return;
     delete table[ref];
     for (const p of users) p.sells[cat] = p.sells[cat].filter((x) => x !== ref);
-    if (users.length) ctx.changed('places');
+    for (const p of needers) for (const a of p.activities) if (a.needs?.id === ref) delete a.needs;
+    if (users.length || needers.length) ctx.changed('places');
     changed();
     ctx.select('gear', { id: null });
   }
@@ -144,6 +148,7 @@ export function render(root, ctx) {
     for (const k of Object.keys(table)) delete table[k];
     for (const [k, v] of entries) table[k] = v;
     for (const p of places) if (p.sells?.[cat]) p.sells[cat] = p.sells[cat].map((x) => (x === oldId ? newId : x));
+    if (cat === 'goods') for (const p of places) for (const a of p.activities || []) if (a.needs?.id === oldId) a.needs.id = newId;
     ctx.changed('places');
     changed();
     ctx.select('gear', { id: newId });
@@ -154,14 +159,23 @@ export function render(root, ctx) {
 function renderGoods(body, s, ctx, opt, changed) {
   body.append(
     el('h3', {}, 'Loại & tác dụng'),
-    field('Loại', selectInput(s.type, [['consumable', 'Đồ dùng 1 lần (dùng từ túi đồ, phím I)'], ['equipment', 'Trang bị (mua 1 lần, tác dụng mãi)']], (v) => {
+    field('Loại', selectInput(s.type, [['consumable', 'Đồ dùng 1 lần (dùng từ túi đồ, phím I)'], ['equipment', 'Trang bị (mua 1 lần, tác dụng mãi)'], ['carry', 'Dùng tại địa điểm (mang tới nơi dùng, vd nhang → chùa)']], (v) => {
       s.type = v;
       if (v === 'consumable') { delete s.effects; s.use = s.use || { minutes: 5, phys: 10, mental: 10, fuel: 0, bikeHp: 0 }; }
+      else if (v === 'carry') { delete s.use; delete s.effects; }
       else { delete s.use; s.effects = s.effects || {}; }
       changed();
       ctx.rerender();
     }), opt('type', { hint: HINT.goods.type })),
   );
+  if (s.type === 'carry') {
+    // tác dụng nằm ở hoạt động của địa điểm; ở đây chỉ cho xem nơi dùng
+    const using = ctx.data.places.places.filter((p) => (p.activities || []).some((a) => a.needs?.id === s.id));
+    body.append(field('Dùng được ở', el('div', { class: using.length ? 'chips' : 'muted' }, using.length
+      ? using.map((p) => button(`${p.icon || '📍'} ${p.name}: ${p.activities.filter((a) => a.needs?.id === s.id).map((a) => a.label).join(', ')}`, () => ctx.select('places', { id: p.id }), 'small'))
+      : 'Chưa nơi nào. Vào thẻ 🏪 Địa điểm → chọn nơi → ở một hoạt động, đặt ô "Cần đồ" là món này.'), opt('type', { wide: true, hint: HINT.goods.carry })));
+    return;
+  }
   if (s.type === 'consumable') {
     s.use = s.use || {};
     body.append(el('div', { class: 'grid' }, Object.entries(CONSUMABLE_FIELDS).map(([k, r]) =>

@@ -5,8 +5,8 @@ const FEMALE = ['chị', 'cô', 'bà', 'dì', 'thím', 'mợ', 'má', 'mẹ', 'n
 const MALE = ['anh', 'chú', 'ông', 'cậu', 'dượng', 'ba', 'bố', 'cha', 'chàng'];
 
 export const GENDERS = ['m', 'f'];
-// short = tóc ngắn · long = tóc dài · ponytail = cột đuôi ngựa · bun = búi tóc
-export const HAIR_STYLES = ['short', 'long', 'ponytail', 'bun'];
+// short = tóc ngắn · long = tóc dài · ponytail = cột đuôi ngựa · bun = búi tóc · bald = trọc (sư thầy, sư cô)
+export const HAIR_STYLES = ['short', 'long', 'ponytail', 'bun', 'bald'];
 
 export function guessGender(name) {
   const w = String(name || '').trim().split(/\s+/)[0]?.toLowerCase() || '';

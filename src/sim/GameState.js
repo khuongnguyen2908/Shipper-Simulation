@@ -23,7 +23,7 @@ export class GameState {
     this.fuel = c.fuel ?? 0.35; // lít — xe gần cạn để người chơi phải đổ xăng
     this.bikeHp = c.bikeHp ?? 100;
     this.inventory = c.inventory ?? []; // vật phẩm nhiệm vụ (ví…)
-    this.consumables = { ...(c.consumables || {}) }; // đồ dùng 1 lần: mã → số lượng
+    this.consumables = { ...(c.consumables || {}) }; // đồ dùng 1 lần + đồ mang theo (dùng tại địa điểm): mã → số lượng
     this.activityUses = {}; // số lần làm hoạt động hôm nay: 'địaĐiểm.hoạtĐộng' → lần
     const tutorialDone = day > 1;
     this.flags = {
@@ -124,11 +124,12 @@ export class GameState {
     const table = { vehicles: VEHICLES, bags: BAGS, goods: GOODS }[category];
     const spec = table && table[id];
     if (!spec) return { ok: false, msg: fmt('gs.noSuchItem') };
-    const consumable = category === 'goods' && spec.type === 'consumable';
+    // đồ dùng 1 lần và đồ "dùng tại địa điểm" mua được nhiều cái (đếm số lượng)
+    const stack = category === 'goods' && (spec.type === 'consumable' || spec.type === 'carry');
     const ownList = category === 'goods' ? this.owned.gear : this.owned[category];
-    if (!consumable && ownList.includes(id)) return { ok: false, msg: fmt('gs.alreadyOwned') };
+    if (!stack && ownList.includes(id)) return { ok: false, msg: fmt('gs.alreadyOwned') };
     if (!this.spend(spec.price, 'purchase')) return { ok: false, msg: fmt('gs.short', { k: Math.ceil(spec.price - this.money) }) };
-    if (consumable) {
+    if (stack) {
       this.consumables[id] = this.countOf(id) + 1;
       return { ok: true, msg: fmt('gs.bought', { name: spec.name }) };
     }
@@ -180,6 +181,7 @@ export class GameState {
   activityStatus(place, act, now) {
     if (!isOpen(place, now)) return 'closed';
     if (act.perDay > 0 && (this.activityUses[`${place.id}.${act.id}`] || 0) >= act.perDay) return 'usedUp';
+    if (act.needs && this.countOf(act.needs.id) < (act.needs.qty || 1)) return 'needItem';
     if (this.money < (act.cost || 0)) return 'money';
     return 'ok';
   }
@@ -187,6 +189,11 @@ export class GameState {
     const st = this.activityStatus(place, act, now);
     if (st !== 'ok') return { ok: false, reason: st };
     if (act.cost) this.spend(act.cost, 'activity');
+    if (act.needs) {
+      // dùng hết đồ mang theo (vd thắp nhang ở chùa)
+      this.consumables[act.needs.id] -= act.needs.qty || 1;
+      if (this.consumables[act.needs.id] <= 0) delete this.consumables[act.needs.id];
+    }
     const k = `${place.id}.${act.id}`;
     this.activityUses[k] = (this.activityUses[k] || 0) + 1;
     this.addEnergy(act.phys || 0, act.mental || 0);

@@ -10,8 +10,8 @@ Bạn là lập trình viên game web cho dự án **Shipper Simulation**: game 
 ## 2. Kiến trúc
 ```
 src/
-  data/      balance.js (mọi con số cân bằng) · items.json · gear.json (xe, túi) · goods.json + goods.js (đồ dùng, danh sách tác dụng EFFECTS)
-             places.json (địa điểm: giờ mở cửa, hoạt động, hàng bán, điểm đến đơn) · validate.js
+  data/      balance.js (mọi con số cân bằng) · items.json · gear.json (xe, túi) · goods.json + goods.js (đồ dùng: dùng 1 lần / trang bị / dùng tại địa điểm; danh sách tác dụng EFFECTS)
+             places.json (địa điểm: lô 1–3 ô, giờ mở cửa, hoạt động (có thể cần đồ mang theo), hàng bán, điểm đến đơn) · validate.js
   content/   vi.json — MỌI chữ hiển thị; code gọi fmt(khóa, tham số) / pick / list
   sim/       mô phỏng thuần (không Three.js, không DOM): OrderManager (máy trạng thái), ItemPhysics,
              OrderCondition, economy, hazards, GameState, objectives, cityLayout, rng

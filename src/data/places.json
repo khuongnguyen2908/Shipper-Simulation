@@ -74,6 +74,42 @@
       }
     },
     {
+      "id": "bunmoc",
+      "name": "Bún Mọc Cô Yến",
+      "short": "Bún Mọc",
+      "kind": "restaurant",
+      "block": [
+        0,
+        2
+      ],
+      "lot": "E1",
+      "floors": 2,
+      "color": "#f4c095",
+      "sign": "QUÁN MỚI",
+      "signBg": "#b03a2e",
+      "menu": [
+        "bunMoc"
+      ],
+      "npc": {
+        "name": "Cô Yến",
+        "shirt": "#8a00bd",
+        "pants": "#333344",
+        "hat": null,
+        "portrait": "🧑‍🍳",
+        "scale": 0.85
+      },
+      "hours": [
+        6,
+        13
+      ],
+      "orders": {
+        "hours": [
+          6,
+          13
+        ]
+      }
+    },
+    {
       "id": "pho",
       "name": "Phở Bà Tư",
       "short": "Phở",
@@ -108,11 +144,21 @@
           "mental": 5,
           "perDay": 0
         }
-      ]
+      ],
+      "hours": [
+        6,
+        21
+      ],
+      "orders": {
+        "hours": [
+          6,
+          21
+        ]
+      }
     },
     {
       "id": "comtam",
-      "name": "Cơm Tấm Sườn Nướng",
+      "name": "Cơm Tấm Anh Vũ",
       "short": "Cơm",
       "kind": "restaurant",
       "block": [
@@ -122,7 +168,7 @@
       "lot": "S1",
       "floors": 2,
       "color": "#f4c095",
-      "sign": "CƠM TẤM SƯỜN NƯỚNG",
+      "sign": "CƠM TẤM VŨ",
       "signBg": "#a04000",
       "menu": [
         "comTam",
@@ -130,11 +176,12 @@
         "comTamGa"
       ],
       "npc": {
-        "name": "Anh Sáu",
+        "name": "Anh Vũ",
         "shirt": "#ffffff",
         "pants": "#34495e",
-        "hat": null,
-        "portrait": "🧑‍🍳"
+        "hat": "nonla",
+        "portrait": "🧑‍🍳",
+        "hairStyle": "bun"
       },
       "activities": [
         {
@@ -146,7 +193,17 @@
           "mental": 5,
           "perDay": 0
         }
-      ]
+      ],
+      "hours": [
+        6,
+        21
+      ],
+      "orders": {
+        "hours": [
+          6,
+          21
+        ]
+      }
     },
     {
       "id": "trasua",
@@ -169,9 +226,15 @@
       "npc": {
         "name": "Bé Thư",
         "shirt": "#f5b7b1",
-        "pants": "#5d6d7e",
+        "pants": "#ffffff",
         "hat": null,
-        "portrait": "🧑‍🍳"
+        "portrait": "👧",
+        "gender": "f",
+        "hairStyle": "long",
+        "hair": "#d4a94f",
+        "skirt": true,
+        "skin": "#ffdbac",
+        "scale": 0.8
       },
       "activities": [
         {
@@ -183,7 +246,18 @@
           "mental": 30,
           "perDay": 0
         }
-      ]
+      ],
+      "hours": [
+        9,
+        22
+      ],
+      "icon": "🧋",
+      "orders": {
+        "hours": [
+          9,
+          22
+        ]
+      }
     },
     {
       "id": "banh",
@@ -205,9 +279,67 @@
       "npc": {
         "name": "Chị Hạnh",
         "shirt": "#ffffff",
-        "pants": "#e8a0bf",
+        "pants": "#6d123a",
         "hat": null,
-        "portrait": "🧑‍🍳"
+        "portrait": "🧑‍🍳",
+        "skirt": true,
+        "hairStyle": "bun",
+        "hair": "#8e2b2b"
+      },
+      "hours": [
+        9,
+        22
+      ],
+      "icon": "🎂",
+      "orders": {
+        "hours": [
+          9,
+          22
+        ]
+      }
+    },
+    {
+      "id": "tra",
+      "name": "Tiệm Trà A Di Đà",
+      "short": "Trà",
+      "kind": "restaurant",
+      "block": [
+        4,
+        3
+      ],
+      "lot": "N2",
+      "floors": 2,
+      "color": "#f4c095",
+      "sign": "A DI ĐÀ TRÀ",
+      "signBg": "#b03a2e",
+      "menu": [
+        "traXanh",
+        "traXanhHaoHang",
+        "nuocSoi"
+      ],
+      "npc": {
+        "name": "Chị Linh",
+        "shirt": "#ff2e2e",
+        "pants": "#dadafb",
+        "hat": null,
+        "portrait": "👩",
+        "skin": "#f1c27d"
+      },
+      "hours": [
+        8,
+        21
+      ],
+      "icon": "🍵",
+      "orders": {
+        "hours": [
+          8,
+          21
+        ]
+      },
+      "sells": {
+        "goods": [
+          "nhang"
+        ]
       }
     },
     {
@@ -334,7 +466,17 @@
           "mental": 30,
           "perDay": 0
         }
-      ]
+      ],
+      "hours": [
+        4,
+        21
+      ],
+      "orders": {
+        "hours": [
+          4,
+          21
+        ]
+      }
     },
     {
       "id": "taphoa",
@@ -418,8 +560,8 @@
         "portrait": "💂"
       },
       "orders": {
-        "rideWeight": 1,
-        "foodWeight": 0
+        "rideWeight": 5,
+        "foodWeight": 5
       }
     },
     {
@@ -444,8 +586,8 @@
     },
     {
       "id": "nhasach",
-      "name": "Nhà Sách Gió",
-      "short": "Nhà sách",
+      "name": "Nhà Sách Tự Do",
+      "short": "Nhà sách Tự Do",
       "kind": "service",
       "icon": "📚",
       "block": [
@@ -453,20 +595,24 @@
         2
       ],
       "lot": "S1",
-      "floors": 3,
-      "color": "#e8f0d8",
-      "sign": "NHÀ SÁCH GIÓ",
-      "signBg": "#1f6f5c",
+      "floors": 2,
+      "color": "#ba5512",
+      "sign": "NHÀ SÁCH TỰ DO",
+      "signBg": "#636363",
       "npc": {
-        "name": "Chị Thủy thủ thư",
-        "shirt": "#f0e6d2",
-        "pants": "#3b4a5a",
+        "name": "Em Minh chủ tiệm",
+        "shirt": "#9eecff",
+        "pants": "#9c9c9c",
         "hat": null,
-        "portrait": "📚"
+        "portrait": "📚",
+        "hairStyle": "long",
+        "gender": "f",
+        "skin": "#ffdbac",
+        "skirt": true
       },
       "hours": [
-        8,
-        21
+        10,
+        20
       ],
       "activities": [
         {
@@ -490,41 +636,45 @@
       ],
       "sells": {
         "goods": [
-          "novel",
-          "skillBook"
+          "novel1",
+          "book1",
+          "Book2",
+          "novel2",
+          "novel3"
         ]
       },
       "orders": {
         "rideWeight": 2,
-        "foodWeight": 1
+        "foodWeight": 1,
+        "hours": [
+          10,
+          20
+        ]
       }
     },
     {
       "id": "karaoke",
-      "name": "Karaoke Nice",
+      "name": "Karaoke Đèn Sáng",
       "short": "Karaoke",
       "kind": "service",
       "icon": "🎤",
       "block": [
         2,
-        2
+        4
       ],
-      "lot": "N1",
+      "lot": "S1",
       "floors": 4,
       "color": "#3d2b56",
-      "sign": "KARAOKE NICE",
+      "sign": "KARAOKE SÁNG",
       "signBg": "#c2185b",
       "npc": {
         "name": "Anh Tú lễ tân",
         "shirt": "#212121",
         "pants": "#212121",
         "hat": null,
-        "portrait": "🎤"
+        "portrait": "🎤",
+        "scale": 1.3
       },
-      "hours": [
-        16,
-        23
-      ],
       "activities": [
         {
           "id": "sing",
@@ -550,9 +700,110 @@
         "foodWeight": 3,
         "hours": [
           17,
-          22
+          24
+        ]
+      },
+      "hours": [
+        17,
+        24
+      ]
+    },
+    {
+      "id": "vanphong",
+      "name": "Văn Phòng Công Ty",
+      "short": "Mới",
+      "kind": "service",
+      "icon": "🏢",
+      "block": [
+        0,
+        3
+      ],
+      "lot": "N01",
+      "floors": 5,
+      "color": "#d6eaf8",
+      "sign": "CÔNG TY D",
+      "signBg": "#2e86c1",
+      "npc": {
+        "name": "Chú bảo vệ",
+        "shirt": "#2e86c1",
+        "pants": "#333344",
+        "hat": null,
+        "portrait": "💂"
+      },
+      "hours": [
+        9,
+        17
+      ],
+      "activities": [
+        {
+          "id": "dilam",
+          "label": "Đi làm văn phòng",
+          "cost": 0,
+          "minutes": 480,
+          "phys": -20,
+          "mental": -20,
+          "perDay": 1
+        }
+      ],
+      "orders": {
+        "hours": [
+          9,
+          17
         ]
       }
+    },
+    {
+      "id": "chua",
+      "name": "Chùa Rất Linh",
+      "short": "Chùa",
+      "kind": "service",
+      "icon": "🛕",
+      "block": [
+        4,
+        3
+      ],
+      "lot": "S12",
+      "floors": 2,
+      "color": "#d6eaf8",
+      "sign": "CHÙA RẤT LINH",
+      "signBg": "#2e86c1",
+      "npc": {
+        "name": "Sư cô Diệu Tâm",
+        "shirt": "#8d6e63",
+        "pants": "#8d6e63",
+        "hat": null,
+        "portrait": "🙏",
+        "gender": "f",
+        "hairStyle": "bald"
+      },
+      "hours": [
+        8,
+        21
+      ],
+      "activities": [
+        {
+          "id": "thapnhang",
+          "label": "Thắp nhang cầu an",
+          "cost": 0,
+          "minutes": 10,
+          "phys": 0,
+          "mental": 25,
+          "perDay": 1,
+          "needs": {
+            "id": "nhang",
+            "qty": 1
+          }
+        },
+        {
+          "id": "nghi",
+          "label": "Ngồi nghỉ",
+          "cost": 0,
+          "minutes": 15,
+          "phys": 5,
+          "mental": 5,
+          "perDay": 0
+        }
+      ]
     }
   ]
 }

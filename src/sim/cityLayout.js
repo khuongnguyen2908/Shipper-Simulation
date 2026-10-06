@@ -14,11 +14,12 @@ export const LOT_IDS = ['N0', 'N1', 'N2', 'S0', 'S1', 'S2', 'E1', 'W1'];
 // Lô nhiều ô (tòa nhà lớn) = danh sách các lô đơn bên trong. Mặt tiền = chữ cái đầu (N/S/W/E).
 export const MULTI_LOTS = {
   N01: ['N0', 'N1'], N12: ['N1', 'N2'], S01: ['S0', 'S1'], S12: ['S1', 'S2'], // 2 lô ngang
+  W01: ['N0', 'W1'], W12: ['W1', 'S0'], E01: ['N2', 'E1'], E12: ['E1', 'S2'], // 2 lô dọc (mặt tiền tây/đông)
   N: ['N0', 'N1', 'N2'], S: ['S0', 'S1', 'S2'], // cả dãy
   W: ['N0', 'W1', 'S0'], E: ['N2', 'E1', 'S2'], // cả cột
 };
 // Kích thước → các lô cùng cỡ
-export const LOT_SIZES = { one: LOT_IDS, two: ['N01', 'N12', 'S01', 'S12'], row: ['N', 'S'], col: ['W', 'E'] };
+export const LOT_SIZES = { one: LOT_IDS, two: ['N01', 'N12', 'S01', 'S12'], vtwo: ['W01', 'W12', 'E01', 'E12'], row: ['N', 'S'], col: ['W', 'E'] };
 export const lotParts = (lot) => MULTI_LOTS[lot] || [lot];
 export const lotSize = (lot) => Object.keys(LOT_SIZES).find((k) => LOT_SIZES[k].includes(lot)) || null;
 const CELL = { N0: [0, 0], N1: [1, 0], N2: [2, 0], W1: [0, 1], E1: [2, 1], S0: [0, 2], S1: [1, 2], S2: [2, 2] };

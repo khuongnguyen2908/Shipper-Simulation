@@ -10,6 +10,39 @@
     "base": 25,
     "startTemp": 75
   },
+  "comTamOpla": {
+    "id": "comTamOpla",
+    "name": "Cơm tấm ốp la",
+    "icon": "🍱",
+    "traits": [
+      "hot",
+      "paper"
+    ],
+    "base": 20,
+    "startTemp": 75
+  },
+  "comTamGa": {
+    "id": "comTamGa",
+    "name": "Cơm tấm gà nướng",
+    "icon": "🍱",
+    "traits": [
+      "hot",
+      "paper"
+    ],
+    "base": 30,
+    "startTemp": 75
+  },
+  "bunMoc": {
+    "id": "bunMoc",
+    "name": "Bún mọc chả",
+    "icon": "🍜",
+    "traits": [
+      "hot",
+      "liquid"
+    ],
+    "base": 30,
+    "startTemp": 85
+  },
   "pho": {
     "id": "pho",
     "name": "Phở bò",
@@ -67,6 +100,39 @@
     ],
     "base": 45
   },
+  "nuocSoi": {
+    "id": "nuocSoi",
+    "name": "Nước sôi",
+    "icon": "🍵",
+    "traits": [
+      "hot",
+      "liquid"
+    ],
+    "base": 10,
+    "startTemp": 100
+  },
+  "traXanh": {
+    "id": "traXanh",
+    "name": "Trà xanh (nóng)",
+    "icon": "🍵",
+    "traits": [
+      "hot",
+      "liquid"
+    ],
+    "base": 30,
+    "startTemp": 80
+  },
+  "traXanhHaoHang": {
+    "id": "traXanhHaoHang",
+    "name": "Trà xanh hảo hạng (nóng)",
+    "icon": "🍵",
+    "traits": [
+      "hot",
+      "liquid"
+    ],
+    "base": 60,
+    "startTemp": 90
+  },
   "passenger": {
     "id": "passenger",
     "name": "Khách xe ôm",
@@ -75,27 +141,5 @@
       "passenger"
     ],
     "base": 30
-  },
-  "comTamOpla": {
-    "id": "comTamOpla",
-    "name": "Cơm tấm ốp la",
-    "icon": "🍱",
-    "traits": [
-      "hot",
-      "paper"
-    ],
-    "base": 25,
-    "startTemp": 75
-  },
-  "comTamGa": {
-    "id": "comTamGa",
-    "name": "Cơm tấm gà nướng",
-    "icon": "🍱",
-    "traits": [
-      "hot",
-      "paper"
-    ],
-    "base": 25,
-    "startTemp": 75
   }
 }

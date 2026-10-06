@@ -371,7 +371,9 @@
     "Cậu học sinh",
     "Chị nhân viên",
     "Anh bảo vệ",
-    "Cô bán trái cây"
+    "Cô bán trái cây",
+    "Anh xã hội",
+    "Chị đại"
   ],
   "ped.smallTalk": [
     "\"Trời nắng quá con ơi, chạy nhớ uống nước.\"",
@@ -510,8 +512,8 @@
   "screen.startError": "Không khởi động được game",
   "screen.startErrorText": "Trình duyệt cần hỗ trợ WebGL 2. Lỗi: {error}",
   "modal.close": "Đóng (Esc)",
-  "npc.nhasach.greet": "\"Chào em! Mệt thì vào đây đọc sách cho thư thả, sách mới về nhiều lắm.\"",
-  "npc.karaoke.greet": "\"Phòng VIP còn trống nè anh! Hát một bài cho đời bớt khổ.\"",
+  "npc.nhasach.greet": "\"Chào anh! Mệt thì vào đây đọc sách cho thư thả, sách mới về nhiều lắm.\"",
+  "npc.karaoke.greet": "\"Phòng VIP còn trống. Vào hát một bài cho đời bớt khổ.\"",
   "act.service": "Vào {place}",
   "act.market": "Vào {place}",
   "act.closed": " (đóng cửa, mở {hours})",
@@ -536,5 +538,18 @@
   "money.activity": "Vui chơi, dịch vụ",
   "phone.consumables": "Đồ dùng trong túi (phím I để dùng)",
   "phone.equipment": "Trang bị",
-  "npc.gas.greet": "\"Đổ xăng hông em? Có nước tăng lực nữa nè.\""
+  "npc.gas.greet": "\"Đổ xăng hông em? Có nước tăng lực nữa nè.\"",
+  "npc.tiemtra.greet": "\"Chào em! Đơn của em đây.\"",
+  "npc.tra.greet": "\"Tu tại tâm, uống tại quán, a di đà trà\"",
+  "npc.bunmoc.greet": "\"Chào em! Đơn của em đây. Cẩn thận nha\"",
+  "npc.vanphong.greet": "\"Xin chào, bạn có muốn đi làm văn phòng không? Ngồi máy lạnh sướng lắm.\"",
+  "npc.chua.greet": "\"A Di Đà Phật. Thí chủ có mang nhang thì vào thắp một nén cầu an nhé.\"",
+  "dlg.needsUse": "dùng {n} {icon} {name} (đang có {have})",
+  "dlg.needItem": "Cần {n} {icon} {name} — mua ở {where}",
+  "dlg.needItemNoShop": "Cần {n} {icon} {name}",
+  "dlg.nowhere": "chưa có nơi dùng",
+  "dlg.invCarry": "Mang theo",
+  "dlg.carryItem": "{icon} {name} ×{n} — dùng ở {where}",
+  "dlg.carryShop": "Đang có {n}. {desc} Dùng ở: {where}",
+  "phone.carryWhere": "· dùng ở {where}"
 }

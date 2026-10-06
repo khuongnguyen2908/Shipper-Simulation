@@ -13,9 +13,10 @@ const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garag
 const LOT_LABEL = {
   N0: 'N0 · bắc trái', N1: 'N1 · bắc giữa', N2: 'N2 · bắc phải', S0: 'S0 · nam trái', S1: 'S1 · nam giữa', S2: 'S2 · nam phải', E1: 'E1 · đông', W1: 'W1 · tây',
   N01: 'N0+N1 · bắc, bên trái', N12: 'N1+N2 · bắc, bên phải', S01: 'S0+S1 · nam, bên trái', S12: 'S1+S2 · nam, bên phải',
+  W01: 'N0+W1 · cột tây, phía trên', W12: 'W1+S0 · cột tây, phía dưới', E01: 'N2+E1 · cột đông, phía trên', E12: 'E1+S2 · cột đông, phía dưới',
   N: 'N · cả dãy bắc', S: 'S · cả dãy nam', W: 'W · cả cột tây (N0+W1+S0)', E: 'E · cả cột đông (N2+E1+S2)', C: 'C · sân trong hẻm',
 };
-const SIZE_LABEL = { one: '1 lô', two: '2 lô ngang', row: 'Cả dãy (3 lô ngang)', col: 'Cả cột (3 lô dọc)' };
+const SIZE_LABEL = { one: '1 lô', two: '2 lô ngang', vtwo: '2 lô dọc', row: 'Cả dãy (3 lô ngang)', col: 'Cả cột (3 lô dọc)' };
 // Lô cùng cỡ có chứa ô vừa bấm (ưu tiên lô bắt đầu từ ô đó)
 const lotForCell = (size, cell) => {
   const fits = LOT_SIZES[size].filter((l) => lotParts(l).includes(cell));
@@ -96,7 +97,7 @@ export function render(root, ctx) {
           p.lot = lotForCell(v, lotParts(p.lot)[0]) || lotParts(p.lot).map((c) => lotForCell(v, c)).find(Boolean) || LOT_SIZES[v][0];
           changedP();
           ctx.rerender();
-        }), opt('lotSize', { hint: 'Tòa nhà lớn chiếm nhiều lô (mỗi lô bớt 1 nhà khách). Mặt tiền quay ra đường phía bắc/nam (dãy) hoặc tây/đông (cột).' })) : null,
+        }), opt('lotSize', { hint: 'Tòa nhà lớn chiếm nhiều lô (mỗi lô bớt 1 nhà khách). Mặt tiền: lô ngang quay ra đường phía bắc/nam; lô dọc quay ra đường phía tây/đông.' })) : null,
         field('Lô trong khối', selectInput(p.lot, lotOptions.map((l) => [l, LOT_LABEL[l] || l]), (v) => { p.lot = v; changedP(); drawMap(); }), opt('lot', { hint: 'Hoặc bấm vào ô trên bản đồ (giữ nguyên kích thước)' })),
       ),
       mapBox,
@@ -125,7 +126,7 @@ export function render(root, ctx) {
           field('Tên NPC', textInput(n.name, (v) => { n.name = v; genderSel.options[0].textContent = guessLabel(); changedN(); }), opt('npc.name', { hint: 'Chị/Cô/Bà… → nữ; Anh/Chú/Ông… → nam' })),
           field('Chân dung (emoji)', emojiInput(n.portrait, (v) => { n.portrait = v; changedP(); }), opt('npc.portrait')),
           field('Giới tính', genderSel, opt('npc.gender')),
-          field('Kiểu tóc', optSel('hairStyle', [['', 'Theo giới tính (nam ngắn, nữ dài)'], ['short', 'Ngắn'], ['long', 'Dài'], ['ponytail', 'Cột đuôi ngựa'], ['bun', 'Búi tóc']]), opt('npc.hairStyle')),
+          field('Kiểu tóc', optSel('hairStyle', [['', 'Theo giới tính (nam ngắn, nữ dài)'], ['short', 'Ngắn'], ['long', 'Dài'], ['ponytail', 'Cột đuôi ngựa'], ['bun', 'Búi tóc'], ['bald', 'Trọc']]), opt('npc.hairStyle')),
           field('Màu tóc', optSel('hair', [['', 'Đen'], ['#5a3825', 'Nâu'], ['#8d8d8d', 'Bạc (lớn tuổi)'], ['#d4a94f', 'Vàng (nhuộm)'], ['#8e2b2b', 'Đỏ (nhuộm)']]), opt('npc.hair')),
           field('Màu da', optSel('skin', [['', 'Ngẫu nhiên (cố định)'], ['#ffdbac', 'Rất sáng'], ['#f1c27d', 'Sáng'], ['#e0ac69', 'Trung bình'], ['#c68642', 'Ngăm']]), opt('npc.skin')),
           field('Màu áo', colorInput(n.shirt, (v) => { n.shirt = v; changedN(); }), opt('npc.shirt')),
@@ -191,7 +192,16 @@ export function render(root, ctx) {
           num('minutes', 'Mất bao nhiêu phút', { min: 0, max: 480 }),
           num('phys', 'Thể lực +/−', { min: -100, max: 100 }),
           num('mental', 'Tinh thần +/−', { min: -100, max: 100 }),
-          num('perDay', 'Tối đa mỗi ngày (0 = không giới hạn)', { min: 0, max: 20 })), { ref, fieldKey: `activities.${act.id}`, wide: true }),
+          num('perDay', 'Tối đa mỗi ngày (0 = không giới hạn)', { min: 0, max: 20 }),
+          field('Cần đồ (dùng hết khi làm)', el('span', { class: 'inline' },
+            selectInput(act.needs?.id || '', [['', 'Không cần'], ...Object.values(ctx.data.goods).filter((g) => g.type !== 'equipment').map((g) => [g.id, `${g.icon || ''} ${g.name}`])], (v) => {
+              if (v) act.needs = { id: v, qty: act.needs?.qty || 1 };
+              else delete act.needs;
+              changedP();
+              drawActs();
+              ctx.applyFieldIssues();
+            }),
+            act.needs ? numInput(act.needs.qty || 1, (v) => { act.needs.qty = Math.round(v); changedP(); }, { step: 1, min: 1, max: 10 }) : null), { hint: HINT.act.needs })), { ref, fieldKey: `activities.${act.id}`, wide: true }),
         button('🗑 Xóa hoạt động', () => { p.activities.splice(i, 1); if (!p.activities.length) delete p.activities; changedP(); drawActs(); ctx.applyFieldIssues(); }, 'danger small')));
     });
     actBox.append(button('＋ Thêm hoạt động', () => {
@@ -317,7 +327,7 @@ export function render(root, ctx) {
       if (p.kind === 'gate') return alert('Nhà cổng xanh gắn với hẻm 42, không dời được.');
       if (hit.lot === 'C') return alert('Lô C (sân trong hẻm) chỉ dành cho nhà cổng xanh.');
       const lot = lotForCell(lotSize(p.lot) || 'one', hit.lot);
-      if (!lot) return alert(`Ô ${hit.lot} không vừa kích thước "${SIZE_LABEL[lotSize(p.lot)]}". ${lotSize(p.lot) === 'col' ? 'Cả cột chỉ đặt ở cột trái (N0, W1, S0) hoặc cột phải (N2, E1, S2).' : 'Chọn ô ở dãy bắc (N…) hoặc dãy nam (S…).'}`);
+      if (!lot) return alert(`Ô ${hit.lot} không vừa kích thước "${SIZE_LABEL[lotSize(p.lot)]}". ${['col', 'vtwo'].includes(lotSize(p.lot)) ? 'Lô dọc chỉ đặt ở cột trái (N0, W1, S0) hoặc cột phải (N2, E1, S2).' : 'Chọn ô ở dãy bắc (N…) hoặc dãy nam (S…).'}`);
       p.block = [hit.bx, hit.bz];
       p.lot = lot;
       changedP();

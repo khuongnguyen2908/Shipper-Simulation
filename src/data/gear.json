@@ -14,6 +14,20 @@
       "color": "#3a6fb0",
       "desc": "Xe ông nội để lại. Chạy được là mừng."
     },
+    "wave": {
+      "id": "wave",
+      "name": "Xe số Wave",
+      "maxSpeed": 15.277778,
+      "accel": 4.8,
+      "brake": 10,
+      "steer": 2.3,
+      "suspension": 0.4,
+      "fuelPer100km": 2.2,
+      "tank": 4,
+      "price": 200,
+      "color": "#c22e2e",
+      "desc": ""
+    },
     "scooter": {
       "id": "scooter",
       "name": "Tay ga Vision",
@@ -27,20 +41,6 @@
       "price": 1200,
       "color": "#e8e8e8",
       "desc": "Êm, tiết kiệm xăng, chạy nhanh hơn."
-    },
-    "sport": {
-      "id": "sport",
-      "name": "Mô tô 150cc",
-      "maxSpeed": 26.388889,
-      "accel": 9,
-      "brake": 13,
-      "steer": 2.2,
-      "suspension": 0.35,
-      "fuelPer100km": 5,
-      "tank": 10,
-      "price": 4500,
-      "color": "#000000",
-      "desc": "Nhanh, giảm xóc tốt, chở canh không đổ."
     },
     "exciter": {
       "id": "exciter",
@@ -56,19 +56,19 @@
       "color": "#302ec2",
       "desc": ""
     },
-    "wave": {
-      "id": "wave",
-      "name": "Xe số Wave",
-      "maxSpeed": 15.277778,
-      "accel": 4.8,
-      "brake": 10,
-      "steer": 2.3,
-      "suspension": 0.4,
-      "fuelPer100km": 2.2,
-      "tank": 4,
-      "price": 200,
-      "color": "#c22e2e",
-      "desc": ""
+    "sport": {
+      "id": "sport",
+      "name": "Mô tô 150cc",
+      "maxSpeed": 26.388889,
+      "accel": 9,
+      "brake": 13,
+      "steer": 2.2,
+      "suspension": 0.35,
+      "fuelPer100km": 5,
+      "tank": 10,
+      "price": 4500,
+      "color": "#000000",
+      "desc": "Nhanh, giảm xóc tốt, chở canh không đổ."
     },
     "SH": {
       "id": "SH",

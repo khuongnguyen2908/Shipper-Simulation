@@ -163,6 +163,12 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null) {
       }
       if (num(act.minutes) && act.minutes > 120) add('warn', p.id, f, 'Hoạt động hơn 2 tiếng — tốn nhiều thời gian trong ngày.');
       drainWarn(add, p.id, f, act.phys, act.mental, `"${act.label || act.id}": `);
+      if (act.needs != null) {
+        const g = goodsTable && goodsTable[act.needs.id];
+        if (!act.needs.id || (goodsTable && !g)) add('error', p.id, f, `"${act.label || act.id}": cần đồ "${act.needs.id}" nhưng không có trong danh mục đồ dùng.`);
+        else if (g && g.type === 'equipment') add('error', p.id, f, `"${act.label || act.id}": trang bị không bị dùng hết — chọn đồ loại "dùng tại địa điểm" hoặc "dùng 1 lần".`);
+        if (!Number.isInteger(act.needs.qty) || act.needs.qty < 1 || act.needs.qty > 10) add('error', p.id, f, `"${act.label || act.id}": số lượng đồ cần từ 1 đến 10.`);
+      }
       if (!act.cost && !act.perDay && Math.max(0, act.phys || 0) + Math.max(0, act.mental || 0) > 10) add('warn', p.id, f, `"${act.label || act.id}": miễn phí, không giới hạn lần mà hồi hơn 10 điểm → người chơi có thể hồi đầy thanh liên tục. Đặt giá hoặc giới hạn lần/ngày.`);
     }
     // hàng bán
@@ -260,7 +266,10 @@ export function validateGoods(goods, placesData) {
         else if (def.kind !== 'bool' && (!num(v) || v < def.min || v > def.max)) add('error', key, `effects.${k}`, `Phải từ ${def.min} đến ${def.max}.`);
       }
       if (!Object.values(e).some((v) => v)) add('warn', key, 'effects', 'Trang bị chưa có tác dụng nào.');
-    } else add('error', key, 'type', 'Loại phải là "đồ dùng 1 lần" hoặc "trang bị".');
+    } else if (s.type === 'carry') {
+      // dùng tại địa điểm: phải có hoạt động nào đó cần món này
+      if (placesData && !(placesData.places || []).some((p) => (p.activities || []).some((a) => a.needs?.id === key))) add('warn', key, 'type', 'Chưa địa điểm nào có hoạt động cần món này → mua về không dùng được. Thêm ô "Cần đồ" ở hoạt động (thẻ Địa điểm).');
+    } else add('error', key, 'type', 'Loại phải là "đồ dùng 1 lần", "trang bị" hoặc "dùng tại địa điểm".');
     if (placesData && !sold.has(key)) add('warn', key, 'sells', 'Chưa địa điểm nào bán món này.');
   }
   const has = (eff) => Object.values(goods).some((g) => g.type === 'equipment' && g.effects?.[eff] && sold.has(g.id));

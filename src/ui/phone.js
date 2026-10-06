@@ -4,6 +4,8 @@ import { stateLabel, S } from '../sim/OrderManager.js';
 import { traitLabel } from '../data/items.js';
 import { VEHICLES, BAGS, ORDER } from '../data/balance.js';
 import { GOODS } from '../data/goods.js';
+import { PLACES } from '../data/places.js';
+import { placesUsing } from '../sim/placeRules.js';
 import { fmtK } from '../sim/economy.js';
 import { fmt, list } from '../content/index.js';
 import { MiniMap } from './minimap.js';
@@ -175,7 +177,10 @@ export class Phone {
     const gs = d.gs;
     const v = gs.vehicleSpec, b = gs.bagSpec;
     const gear = Object.values(GOODS).filter((g) => g.type === 'equipment').map((g) => `<div class="kv"><span>${gs.has(g.id) ? '✔' : '✕'} ${g.icon || ''} ${g.name}</span><small>${g.desc || ''}</small></div>`).join('');
-    const cons = Object.entries(gs.consumables).filter(([id, n]) => GOODS[id] && n > 0).map(([id, n]) => `<div class="kv"><span>${GOODS[id].icon || ''} ${GOODS[id].name}</span><b>×${n}</b></div>`).join('');
+    const cons = Object.entries(gs.consumables).filter(([id, n]) => GOODS[id] && n > 0).map(([id, n]) => {
+      const where = GOODS[id].type === 'carry' ? placesUsing(id, PLACES).map((p) => p.short || p.name).join(', ') : '';
+      return `<div class="kv"><span>${GOODS[id].icon || ''} ${GOODS[id].name}${where ? ` <small>${fmt('phone.carryWhere', { where })}</small>` : ''}</span><b>×${n}</b></div>`;
+    }).join('');
     const inv = gs.inventory.length
       ? gs.inventory.map((id) => (id === 'wallet' ? `<div class="kv"><span>${fmt('phone.walletItem')}</span><button class="btn small" data-act="wallet">${fmt('phone.view')}</button></div>` : '')).join('')
       : `<small>${fmt('phone.nothing')}</small>`;

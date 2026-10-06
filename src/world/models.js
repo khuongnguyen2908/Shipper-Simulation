@@ -28,7 +28,7 @@ function box(w, h, d, color, x = 0, y = 0, z = 0, opts) {
 
 export const SKINS = [0xf1c27d, 0xe0ac69, 0xc68642, 0xffdbac];
 
-// gender: 'm' nam | 'f' nữ (vai hẹp hơn) · hairStyle: short | long | ponytail | bun · skirt: mặc váy (chân màu da)
+// gender: 'm' nam | 'f' nữ (vai hẹp hơn) · hairStyle: short | long | ponytail | bun | bald · skirt: mặc váy (chân màu da)
 export function makePerson({ shirt = 0x3498db, pants = 0x2c3e50, skin = SKINS[0], hat = null, hatColor = 0x2ecc71, hair = 0x1b1b1b, scale = 1, bag = false, gender = 'm', hairStyle, skirt = false } = {}) {
   const g = new THREE.Group();
   const female = gender === 'f';
@@ -41,7 +41,7 @@ export function makePerson({ shirt = 0x3498db, pants = 0x2c3e50, skin = SKINS[0]
   g.add(head);
   const hairM = new THREE.Mesh(new THREE.SphereGeometry(0.21, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat(hair));
   hairM.position.set(0, 1.6, -0.01);
-  g.add(hairM);
+  if (style !== 'bald') g.add(hairM);
   // phần tóc thêm theo kiểu
   let hairExtra = null;
   if (style === 'long') {

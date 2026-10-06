@@ -5,7 +5,7 @@
 // =============================================================
 import { ECONOMY, ENERGY, ORDER, VEHICLES, BAGS, WALLET_QUEST } from './data/balance.js';
 import { GOODS } from './data/goods.js';
-import { isOpen, fmtHours } from './sim/placeRules.js';
+import { isOpen, fmtHours, placesUsing, placesSelling } from './sim/placeRules.js';
 import { ITEMS } from './data/items.js';
 import { S } from './sim/OrderManager.js';
 import { fmtK } from './sim/economy.js';
@@ -422,6 +422,13 @@ function openPlace(g, pl, extra = [], text = null) {
   say(g, n.name, n.portrait, text ?? placeLine(pl.id, 'greet'), choices);
 }
 
+const placeShort = (p) => p.short || p.name;
+// "Chùa, Nhà thờ" — nơi dùng được một món mang theo
+function whereUsed(g, goodsId) {
+  const list = placesUsing(goodsId, g.layout.places);
+  return list.length ? list.map(placeShort).join(', ') : fmt('dlg.nowhere');
+}
+
 // "+20 tinh thần · +5 thể lực"
 function gainText(o) {
   const parts = [];
@@ -440,8 +447,15 @@ function activityChoices(g, pl) {
     const used = gs.activityUses[`${pl.id}.${act.id}`] || 0;
     const label = fmt(act.cost ? 'dlg.activity' : 'dlg.activityFree', { label: act.label, cost: act.cost, min: act.minutes });
     let hint = gainText(act);
+    const need = act.needs && GOODS[act.needs.id];
+    const needP = need && { n: act.needs.qty || 1, icon: need.icon || '', name: need.name, have: gs.countOf(need.id) };
+    if (need) hint = [fmt('dlg.needsUse', needP), hint].filter(Boolean).join(' · ');
     if (act.perDay > 0) hint += ` · ${fmt('dlg.usesLeft', { n: Math.max(0, act.perDay - used), max: act.perDay })}`;
     if (st === 'usedUp') hint = fmt('dlg.usedUp', { n: act.perDay });
+    if (st === 'needItem') {
+      const shops = placesSelling(need.id, g.layout.places);
+      hint = shops.length ? fmt('dlg.needItem', { ...needP, where: shops.map(placeShort).join(', ') }) : fmt('dlg.needItemNoShop', needP);
+    }
     if (st === 'money') hint = fmt('dlg.noMoney');
     return {
       label,
@@ -486,11 +500,14 @@ function shopDialog(g, pl) {
   for (const id of sells.goods || []) {
     const s = GOODS[id];
     if (!s) continue;
-    const consumable = s.type === 'consumable';
-    const owned = !consumable && gs.has(id);
+    const consumable = s.type === 'consumable', carry = s.type === 'carry';
+    const owned = s.type === 'equipment' && gs.has(id);
     choices.push({
       label: `${owned ? '✔ ' : ''}${s.icon || ''} ${s.name} – ${s.price}k`,
-      hint: owned ? fmt('dlg.shopOwned') : consumable ? fmt('dlg.goodsCount', { n: gs.countOf(id), desc: s.desc || '', gains: gainText(s.use || {}) }) : s.desc,
+      hint: owned ? fmt('dlg.shopOwned')
+        : consumable ? fmt('dlg.goodsCount', { n: gs.countOf(id), desc: s.desc || '', gains: gainText(s.use || {}) })
+        : carry ? fmt('dlg.carryShop', { n: gs.countOf(id), desc: s.desc || '', where: whereUsed(g, id) })
+        : s.desc,
       disabled: owned || gs.money < s.price,
       keepOpen: true,
       onSelect: () => {
@@ -682,10 +699,10 @@ export function openInventory(g) {
   const v = gs.vehicleSpec, b = gs.bagSpec;
   const gear = Object.values(GOODS).filter((x) => x.type === 'equipment' && gs.has(x.id)).map((x) => `${x.icon || ''} ${x.name}`).join(', ') || fmt('dlg.invNoGear');
   const choices = [];
-  // đồ dùng 1 lần: bấm để dùng
+  // đồ dùng 1 lần: bấm để dùng (đồ mang theo thì chỉ dùng ở địa điểm)
   for (const [id, n] of Object.entries(gs.consumables)) {
     const s = GOODS[id];
-    if (!s || n <= 0) continue;
+    if (!s || n <= 0 || s.type !== 'consumable') continue;
     choices.push({
       label: fmt('dlg.invUse', { icon: s.icon || '', name: s.name, n, min: s.use?.minutes || 0 }),
       hint: gainText(s.use || {}),
@@ -702,7 +719,9 @@ export function openInventory(g) {
   if (gs.hasItem('wallet')) choices.push({ label: fmt('dlg.invWallet'), onSelect: () => viewWallet(g) });
   choices.push({ label: fmt('dlg.invClose') });
   const row = (l, val) => `<div class="kv"><span>${l}</span><b>${val}</b></div>`;
-  const cons = Object.entries(gs.consumables).filter(([id, n]) => GOODS[id] && n > 0).map(([id, n]) => `${GOODS[id].icon || ''} ${GOODS[id].name} ×${n}`).join(', ');
+  const held = (type) => Object.entries(gs.consumables).filter(([id, n]) => GOODS[id]?.type === type && n > 0);
+  const cons = held('consumable').map(([id, n]) => `${GOODS[id].icon || ''} ${GOODS[id].name} ×${n}`).join(', ');
+  const carry = held('carry').map(([id, n]) => fmt('dlg.carryItem', { icon: GOODS[id].icon || '', name: GOODS[id].name, n, where: whereUsed(g, id) })).join('<br>');
   g.modal.show({
     title: fmt('dlg.invTitle'),
     html: row(fmt('dlg.invVehicle'), `${v.name} · ${gs.bikeHp.toFixed(0)}%`) +
@@ -710,6 +729,7 @@ export function openInventory(g) {
       row(fmt('dlg.invBag'), b.name) +
       row(fmt('dlg.invGear'), gear) +
       row(fmt('dlg.invConsumables'), cons || fmt('dlg.invNone')) +
+      (carry ? row(fmt('dlg.invCarry'), carry) : '') +
       row(fmt('dlg.invItems'), gs.inventory.length ? fmt('dlg.invWalletItem') : fmt('dlg.invNone')),
     choices,
   });

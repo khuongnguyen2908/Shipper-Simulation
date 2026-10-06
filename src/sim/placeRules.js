@@ -22,3 +22,7 @@ export function orderWeight(place, key, minutes) {
   }
   return o[key];
 }
+
+// Đồ "dùng tại địa điểm": nơi có hoạt động cần món này / nơi bán món này
+export const placesUsing = (goodsId, places) => places.filter((p) => (p.activities || []).some((a) => a.needs?.id === goodsId));
+export const placesSelling = (goodsId, places) => places.filter((p) => (p.sells?.goods || []).includes(goodsId));

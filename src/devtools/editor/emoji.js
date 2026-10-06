@@ -26,7 +26,7 @@ export const EMOJI_GROUPS = [
     ['👜', 'túi xách'], ['🛍️', 'túi mua sắm'], ['📦', 'thùng hộp giao hàng'], ['🧳', 'vali'], ['🔋', 'pin sạc dự phòng'], ['🔌', 'sạc dây cắm'],
     ['📱', 'điện thoại'], ['🎧', 'tai nghe nghe nhạc'], ['🔦', 'đèn pin'], ['🗺️', 'bản đồ'], ['🧭', 'la bàn'], ['💊', 'thuốc viên'], ['🩹', 'băng cá nhân'],
     ['🧴', 'kem chống nắng chai lọ'], ['🧻', 'giấy cuộn'], ['💳', 'thẻ ngân hàng'], ['👛', 'ví bóp'], ['🔑', 'chìa khóa'], ['🎁', 'quà hộp quà'],
-    ['⚡', 'tia sét năng lượng tăng lực'], ['🍀', 'may mắn cỏ bốn lá'], ['❤️', 'tim tình yêu'], ['⭐', 'ngôi sao sao'],
+    ['⚡', 'tia sét năng lượng tăng lực'], ['🍀', 'may mắn cỏ bốn lá'], ['🪔', 'nhang đèn dầu thờ cúng'], ['🙏', 'chắp tay cầu nguyện lạy'], ['📿', 'chuỗi hạt tràng hạt'], ['❤️', 'tim tình yêu'], ['⭐', 'ngôi sao sao'],
   ]],
   ['Xe · sửa xe', [
     ['🛵', 'xe máy tay ga'], ['🏍️', 'mô tô xe côn'], ['🚲', 'xe đạp'], ['🛴', 'xe trượt scooter'], ['🚗', 'ô tô xe hơi'], ['⛽', 'cây xăng đổ xăng'],
