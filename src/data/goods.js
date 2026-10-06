@@ -1,11 +1,50 @@
 // Đồ dùng mua được — dữ liệu ở goods.json (sửa bằng ?editor, thẻ Xe · Túi · Đồ dùng).
 //  - type 'consumable': dùng 1 lần từ túi đồ (phím I): use = { minutes, phys, mental, fuel, bikeHp }
 //  - type 'equipment' : mua 1 lần, tác dụng lâu dài: effects = { <mã tác dụng>: giá trị }
+//  - type 'carry'     : mang theo, dùng tại địa điểm có hoạt động cần nó (vd nhang → chùa)
+//  - type 'outfit'    : trang phục shipper, mặc ở tủ đồ phòng trọ: slot (chỗ mặc) + style (kiểu) + color;
+//                       effects (nếu có) chỉ tính khi đang mặc. Giá 0 = có sẵn từ đầu.
 // Danh sách tác dụng bên dưới là những gì code hiểu được. Muốn thêm kiểu tác dụng mới
 // thì thêm vào EFFECTS + chỗ dùng trong code (GameState.effect(...)).
 import raw from './goods.json' with { type: 'json' };
 
 export const GOODS = raw;
+
+// Chỗ mặc → các kiểu dáng (nhãn chỉ hiện trong công cụ ?editor; trong game dùng kho chữ outfit.*)
+export const OUTFIT_SLOTS = {
+  shirt: { label: 'Áo', styles: { long: 'Tay dài', short: 'Tay ngắn' } },
+  pants: { label: 'Quần', styles: { long: 'Quần dài', shorts: 'Quần short' } },
+  helmet: { label: 'Mũ bảo hiểm', styles: { half: 'Nửa đầu', full: 'Fullface (có kính)' } },
+};
+
+// Ngoại hình khi một chỗ mặc không có món nào (giống shipper áo xanh lá ban đầu)
+const DEFAULT_PART = {
+  shirt: { color: '#27ae60', style: 'long' },
+  pants: { color: '#1f2d3d', style: 'long' },
+  helmet: { color: '#27ae60', style: 'half' },
+};
+
+const hex = (c, fallback) => parseInt(String(/^#[0-9a-fA-F]{6}$/.test(c || '') ? c : fallback).slice(1), 16);
+
+// Món có sẵn (giá 0) đầu tiên của một chỗ mặc
+export function freeOutfit(goods, slot) {
+  return Object.values(goods).find((g) => g.type === 'outfit' && g.slot === slot && g.price === 0) || null;
+}
+
+// worn: { shirt, pants, helmet } → món đồ (hoặc null). Trả về tham số cho makePerson (màu dạng số).
+export function outfitLook(worn = {}) {
+  const part = (slot) => ({ ...DEFAULT_PART[slot], ...(worn[slot] || {}) });
+  const sh = part('shirt'), pa = part('pants'), he = part('helmet');
+  return {
+    shirt: hex(sh.color, DEFAULT_PART.shirt.color),
+    sleeves: sh.style === 'short' ? 'short' : 'long',
+    pants: hex(pa.color, DEFAULT_PART.pants.color),
+    shorts: pa.style === 'shorts',
+    hat: 'helmet',
+    hatColor: hex(he.color, DEFAULT_PART.helmet.color),
+    helmetStyle: he.style === 'full' ? 'full' : 'half',
+  };
+}
 
 // kind: 'bool' (có/không) · 'pct' (phần trăm, âm = giảm) · 'num' (số cộng thêm)
 export const EFFECTS = {

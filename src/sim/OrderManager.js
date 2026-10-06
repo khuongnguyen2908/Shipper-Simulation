@@ -487,8 +487,8 @@ export class OrderManager {
     const o = this.order;
     if (this.state !== S.AT_DROPOFF || !o) return null;
     const elapsed = now - o.acceptedAt;
-    const ev = evaluateOrder({ items: o.items, elapsedMin: elapsed, allowedMin: o.allowedMin, picky: o.flags.picky, extraPenalty: o.extraPenalty });
-    const pay = computePayout({ baseFare: o.baseFare, distanceKm: o.distanceKm, litersUsed: o.liters, stars: ev.stars, refused: ev.refused });
+    const ev = evaluateOrder({ items: o.items, elapsedMin: elapsed, allowedMin: o.allowedMin, picky: o.flags.picky, extraPenalty: o.extraPenalty, ride: o.kind === 'ride' });
+    const pay = computePayout({ baseFare: o.baseFare, distanceKm: o.distanceKm, litersUsed: o.liters, stars: ev.stars, refused: ev.refused, farePct: ev.scared ? ECONOMY.scaredFarePct : 1 });
     // trang bị "boa thêm" (vd. sách giao tiếp) cho đơn 4–5 sao
     const bonus = !ev.refused && ev.stars >= 4 ? this.gs.effect('tipBonus') : 0;
     if (bonus) {

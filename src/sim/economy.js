@@ -7,12 +7,14 @@ import { ECONOMY } from '../data/balance.js';
 
 const r1 = (v) => Math.round(v * 10) / 10;
 
-export function computePayout({ baseFare, distanceKm, litersUsed = 0, stars = 5, refused = false }) {
+// farePct: phần cước khách chịu trả (1 = đủ; khách xe ôm hoảng sợ → ECONOMY.scaredFarePct)
+export function computePayout({ baseFare, distanceKm, litersUsed = 0, stars = 5, refused = false, farePct = 1 }) {
   const fuelCost = r1(litersUsed * ECONOMY.fuelPrice);
   if (refused) {
     return { baseFare: 0, distBonus: 0, gross: 0, fee: 0, tax: 0, fuelCost, final: -fuelCost, tip: 0, walletCredit: 0, net: -fuelCost };
   }
-  const distBonus = r1(distanceKm * ECONOMY.distBonusPerKm);
+  baseFare = r1(baseFare * farePct);
+  const distBonus = r1(distanceKm * ECONOMY.distBonusPerKm * farePct);
   const gross = r1(baseFare + distBonus);
   const fee = r1(gross * ECONOMY.platformFee);
   const tax = r1(gross * ECONOMY.taxRate);

@@ -5,7 +5,7 @@
 //  - warn : chạy được nhưng nên xem lại
 // =============================================================
 import { CITY, LOT_IDS, MULTI_LOTS, lotParts, lotFaces } from '../sim/cityLayout.js';
-import { EFFECTS, CONSUMABLE_FIELDS } from './goods.js';
+import { EFFECTS, CONSUMABLE_FIELDS, OUTFIT_SLOTS } from './goods.js';
 import { GENDERS, HAIR_STYLES } from '../sim/people.js';
 
 export const TRAIT_IDS = ['hot', 'cold', 'liquid', 'fragile', 'paper', 'passenger'];
@@ -16,7 +16,9 @@ export const PROTECTED = {
   places: ['home', 'gas', 'gear', 'garage', 'cafe', 'taphoa', 'gate', 'apartment', 'market'],
 };
 export const LOTS = [...LOT_IDS, ...Object.keys(MULTI_LOTS), 'C'];
-export const PLACE_KINDS = ['home', 'restaurant', 'gas', 'shop', 'garage', 'cafe', 'taphoa', 'gate', 'apartment', 'market', 'service'];
+// Kiểu dáng xe (khớp BIKE_MODELS trong src/world/models.js — có bộ thử kiểm tra)
+export const VEHICLE_MODELS = { cub: 'Xe số cổ (Cub)', underbone: 'Xe số (Wave)', scooter: 'Tay ga (Vision, SH)', sport: 'Tay côn / mô tô' };
+export const PLACE_KINDS =['home', 'restaurant', 'gas', 'shop', 'garage', 'cafe', 'taphoa', 'gate', 'apartment', 'market', 'service'];
 export const ID_RE = /^[a-zA-Z][a-zA-Z0-9_]*$/;
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
@@ -89,6 +91,10 @@ export function validateGear(gear) {
       if (cat === 'bags' && (!Number.isInteger(s.cols) || !Number.isInteger(s.rows))) add('error', key, 'cols', 'Số ô phải là số nguyên.');
       if (cat === 'bags' && s.cols * s.rows < 2) add('warn', key, 'cols', 'Túi chỉ có 1 ô → không chở được đơn 2 món.');
       if (!COLOR_RE.test(s.color || '')) add('error', key, 'color', 'Màu phải dạng #rrggbb.');
+      if (cat === 'vehicles') {
+        if (s.model == null) add('warn', key, 'model', 'Chưa chọn kiểu dáng → hiện như xe số.');
+        else if (!(s.model in VEHICLE_MODELS)) add('error', key, 'model', `Kiểu dáng phải là: ${Object.keys(VEHICLE_MODELS).join(', ')}.`);
+      }
       if (s.price === 0 && !PROTECTED[cat].includes(key)) add('warn', key, 'price', 'Giá 0 → người chơi lấy miễn phí ngay từ đầu.');
     }
     if (cat === 'bags' && table.nylon && table.nylon.price !== 0) add('warn', 'nylon', 'price', 'Túi nylon là túi khởi đầu, nên để giá 0.');
@@ -167,7 +173,7 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null) {
       if (act.needs != null) {
         const g = goodsTable && goodsTable[act.needs.id];
         if (!act.needs.id || (goodsTable && !g)) add('error', p.id, f, `"${act.label || act.id}": cần đồ "${act.needs.id}" nhưng không có trong danh mục đồ dùng.`);
-        else if (g && g.type === 'equipment') add('error', p.id, f, `"${act.label || act.id}": trang bị không bị dùng hết — chọn đồ loại "dùng tại địa điểm" hoặc "dùng 1 lần".`);
+        else if (g && (g.type === 'equipment' || g.type === 'outfit')) add('error', p.id, f, `"${act.label || act.id}": trang bị / trang phục không bị dùng hết — chọn đồ loại "dùng tại địa điểm" hoặc "dùng 1 lần".`);
         if (!Number.isInteger(act.needs.qty) || act.needs.qty < 1 || act.needs.qty > 10) add('error', p.id, f, `"${act.label || act.id}": số lượng đồ cần từ 1 đến 10.`);
       }
       if (!act.cost && !act.perDay && Math.max(0, act.phys || 0) + Math.max(0, act.mental || 0) > 10) add('warn', p.id, f, `"${act.label || act.id}": miễn phí, không giới hạn lần mà hồi hơn 10 điểm → người chơi có thể hồi đầy thanh liên tục. Đặt giá hoặc giới hạn lần/ngày.`);
@@ -259,19 +265,29 @@ export function validateGoods(goods, placesData) {
         if (s.price === 0) add('warn', key, 'price', 'Miễn phí mà có tác dụng → người chơi mua bao nhiêu cũng được.');
         else if (gain / s.price > 3) add('warn', key, 'price', `Rẻ so với tác dụng (+${gain} điểm / ${s.price}k). Tham khảo: cà phê 20k cho +35, phở 35k cho +50.`);
       }
-    } else if (s.type === 'equipment') {
+    } else if (s.type === 'equipment' || s.type === 'outfit') {
       const e = s.effects || {};
       for (const [k, v] of Object.entries(e)) {
         const def = EFFECTS[k];
         if (!def) add('error', key, `effects.${k}`, `Tác dụng lạ: ${k}.`);
         else if (def.kind !== 'bool' && (!num(v) || v < def.min || v > def.max)) add('error', key, `effects.${k}`, `Phải từ ${def.min} đến ${def.max}.`);
       }
-      if (!Object.values(e).some((v) => v)) add('warn', key, 'effects', 'Trang bị chưa có tác dụng nào.');
+      if (s.type === 'equipment' && !Object.values(e).some((v) => v)) add('warn', key, 'effects', 'Trang bị chưa có tác dụng nào.');
+      if (s.type === 'outfit') {
+        const slot = OUTFIT_SLOTS[s.slot];
+        if (!slot) add('error', key, 'slot', `Chỗ mặc phải là: ${Object.keys(OUTFIT_SLOTS).join(', ')}.`);
+        else if (!(s.style in slot.styles)) add('error', key, 'style', `Kiểu phải là: ${Object.keys(slot.styles).join(', ')}.`);
+        if (!COLOR_RE.test(s.color || '')) add('error', key, 'color', 'Màu phải dạng #rrggbb.');
+      }
     } else if (s.type === 'carry') {
       // dùng tại địa điểm: phải có hoạt động nào đó cần món này
       if (placesData && !(placesData.places || []).some((p) => (p.activities || []).some((a) => a.needs?.id === key))) add('warn', key, 'type', 'Chưa địa điểm nào có hoạt động cần món này → mua về không dùng được. Thêm ô "Cần đồ" ở hoạt động (thẻ Địa điểm).');
-    } else add('error', key, 'type', 'Loại phải là "đồ dùng 1 lần", "trang bị" hoặc "dùng tại địa điểm".');
-    if (placesData && !sold.has(key)) add('warn', key, 'sells', 'Chưa địa điểm nào bán món này.');
+    } else add('error', key, 'type', 'Loại phải là "đồ dùng 1 lần", "trang bị", "dùng tại địa điểm" hoặc "trang phục".');
+    // trang phục giá 0 là đồ có sẵn, không cần nơi bán
+    if (placesData && !sold.has(key) && !(s.type === 'outfit' && s.price === 0)) add('warn', key, 'sells', 'Chưa địa điểm nào bán món này.');
+  }
+  for (const [slot, def] of Object.entries(OUTFIT_SLOTS)) {
+    if (!Object.values(goods).some((g) => g.type === 'outfit' && g.slot === slot && g.price === 0)) out.push({ level: 'warn', tab: 'gear', cat: 'goods', ref: '', field: 'slot', msg: `Chưa có ${def.label.toLowerCase()} giá 0 (có sẵn) → shipper mặc ${def.label.toLowerCase()} mặc định cho tới khi mua.` });
   }
   const has = (eff) => Object.values(goods).some((g) => g.type === 'equipment' && g.effects?.[eff] && sold.has(g.id));
   if (placesData && !has('passengerSeat')) out.push({ level: 'warn', tab: 'gear', cat: 'goods', ref: '', field: 'effects', msg: 'Không nơi nào bán trang bị "Chở được khách" → đơn xe ôm (và nhiệm vụ chiếc ví) không bao giờ mở.' });

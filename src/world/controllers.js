@@ -16,7 +16,9 @@ const lerpAngle = (a, b, t) => {
 export class Bike {
   constructor(scene, spec) {
     this.spec = spec;
-    this.mesh = makeBike(spec.color);
+    // mesh: khung ngoài cố định (giữ đèn pha, người lái, khách); thân xe bên trong đổi theo kiểu dáng
+    this.mesh = new THREE.Group();
+    this.setModel(spec);
     scene.add(this.mesh);
     this.pos = new THREE.Vector3();
     this.heading = 0;
@@ -32,18 +34,33 @@ export class Bike {
     this.mesh.add(this.headlight, this.headlight.target);
   }
 
+  // Dựng thân xe theo kiểu dáng (gear.json → model); cùng kiểu thì chỉ đổi màu
+  setModel(spec) {
+    const model = spec.model || 'underbone';
+    if (this.body && this.body.userData.model === model) return setBikeColor(this.body, spec.color);
+    const bagVisible = this.body ? this.body.userData.bagMesh.visible : true;
+    if (this.body) this.mesh.remove(this.body);
+    this.body = makeBike(spec.color, model);
+    this.mesh.add(this.body);
+    this.mesh.userData = this.body.userData;
+    this.body.userData.bagMesh.visible = bagVisible;
+    if (this.bagSpec) this.setBag(this.bagSpec);
+  }
+
   setSpec(spec) {
     this.spec = spec;
-    setBikeColor(this.mesh, spec.color);
+    this.setModel(spec);
   }
 
   setBag(bagSpec) {
-    const b = this.mesh.userData.bagMesh;
+    this.bagSpec = bagSpec;
+    const ud = this.mesh.userData;
+    const b = ud.bagMesh;
     b.material = b.material.clone();
     b.material.color.setHex(bagSpec.color);
     const s = bagSpec.id === 'box' ? 1.25 : bagSpec.id === 'thermal' ? 1.05 : 0.8;
     b.scale.setScalar(s);
-    b.position.y = 1.22 + (s - 1) * 0.2;
+    b.position.y = ud.bagY + (s - 1) * 0.2;
   }
 
   forward() {
@@ -136,8 +153,8 @@ export class Bike {
     this.mesh.position.set(this.pos.x, raised ? SW_H : 0, this.pos.z);
     this.mesh.rotation.set(0, this.heading, this.lean);
     const ud = this.mesh.userData;
-    ud.wheelF.rotation.x += (this.speed * dt) / 0.32;
-    ud.wheelR.rotation.x += (this.speed * dt) / 0.32;
+    ud.wheelF.rotation.x += (this.speed * dt) / ud.wheelRadius;
+    ud.wheelR.rotation.x += (this.speed * dt) / ud.wheelRadius;
     return Math.abs(this.speed) * dt; // quãng đường đã đi (tính xăng)
   }
 
@@ -150,6 +167,8 @@ export class Bike {
 // ======================== ĐI BỘ ========================
 export class Walker {
   constructor(scene) {
+    this.scene = scene;
+    this.sitting = false;
     this.mesh = makePerson({ shirt: 0x27ae60, pants: 0x1f2d3d, hat: 'helmet', hatColor: 0x27ae60, bag: false });
     scene.add(this.mesh);
     this.pos = new THREE.Vector3();
@@ -190,7 +209,23 @@ export class Walker {
     return activity;
   }
 
+  // Thay ngoại hình (trang phục, áo mưa…): dựng lại người, giữ nguyên chỗ đứng/ngồi
+  setLook(opts) {
+    const old = this.mesh;
+    const m = makePerson({ ...opts, bag: false });
+    m.position.copy(old.position);
+    m.rotation.copy(old.rotation);
+    const parent = old.parent;
+    if (parent) {
+      parent.remove(old);
+      parent.add(m);
+    }
+    if (this.sitting) setSitting(m, true);
+    this.mesh = m;
+  }
+
   sitOn(bike) {
+    this.sitting = true;
     setSitting(this.mesh, true);
     bike.mesh.add(this.mesh);
     this.mesh.position.set(0, 0.28, -0.05);
@@ -198,6 +233,7 @@ export class Walker {
   }
 
   standUp(scene, bike) {
+    this.sitting = false;
     setSitting(this.mesh, false);
     bike.mesh.remove(this.mesh);
     scene.add(this.mesh);

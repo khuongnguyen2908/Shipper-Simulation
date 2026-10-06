@@ -133,5 +133,129 @@
     "price": 20,
     "desc": "Bó nhang trầm. Đem tới chùa để thắp.",
     "type": "carry"
+  },
+  "aoXanh": {
+    "id": "aoXanh",
+    "name": "Áo thun xanh lá",
+    "icon": "👕",
+    "price": 0,
+    "desc": "Áo mặc đi làm hằng ngày, có sẵn.",
+    "type": "outfit",
+    "slot": "shirt",
+    "style": "long",
+    "color": "#27ae60"
+  },
+  "quanJean": {
+    "id": "quanJean",
+    "name": "Quần jean",
+    "icon": "👖",
+    "price": 0,
+    "desc": "Quần jean cũ, bền.",
+    "type": "outfit",
+    "slot": "pants",
+    "style": "long",
+    "color": "#1f2d3d"
+  },
+  "muXanh": {
+    "id": "muXanh",
+    "name": "Mũ bảo hiểm xanh lá",
+    "icon": "⛑️",
+    "price": 0,
+    "desc": "Mũ nửa đầu, có sẵn.",
+    "type": "outfit",
+    "slot": "helmet",
+    "style": "half",
+    "color": "#27ae60"
+  },
+  "aoTrang": {
+    "id": "aoTrang",
+    "name": "Áo thun trắng",
+    "icon": "👕",
+    "price": 30,
+    "desc": "Áo thun tay ngắn, mát.",
+    "type": "outfit",
+    "slot": "shirt",
+    "style": "short",
+    "color": "#ecf0f1"
+  },
+  "aoDo": {
+    "id": "aoDo",
+    "name": "Áo thun đỏ",
+    "icon": "👕",
+    "price": 30,
+    "desc": "Áo thun tay ngắn, nổi bật giữa phố.",
+    "type": "outfit",
+    "slot": "shirt",
+    "style": "short",
+    "color": "#c0392b"
+  },
+  "aoSoMi": {
+    "id": "aoSoMi",
+    "name": "Áo sơ mi xanh dương",
+    "icon": "👔",
+    "price": 60,
+    "desc": "Tay dài, lịch sự.",
+    "type": "outfit",
+    "slot": "shirt",
+    "style": "long",
+    "color": "#2e86c1"
+  },
+  "aoDongPhuc": {
+    "id": "aoDongPhuc",
+    "name": "Áo đồng phục GoShip",
+    "icon": "🦺",
+    "price": 90,
+    "desc": "Khách tin tưởng hơn: đơn 4–5★ được boa thêm 1k.",
+    "type": "outfit",
+    "slot": "shirt",
+    "style": "short",
+    "color": "#1e8449",
+    "effects": {
+      "tipBonus": 1
+    }
+  },
+  "quanKaki": {
+    "id": "quanKaki",
+    "name": "Quần kaki be",
+    "icon": "👖",
+    "price": 40,
+    "desc": "Quần dài màu be.",
+    "type": "outfit",
+    "slot": "pants",
+    "style": "long",
+    "color": "#c8b88a"
+  },
+  "quanShort": {
+    "id": "quanShort",
+    "name": "Quần short đen",
+    "icon": "🩳",
+    "price": 25,
+    "desc": "Mát mẻ ngày nắng.",
+    "type": "outfit",
+    "slot": "pants",
+    "style": "shorts",
+    "color": "#222222"
+  },
+  "muDo": {
+    "id": "muDo",
+    "name": "Mũ bảo hiểm đỏ",
+    "icon": "⛑️",
+    "price": 50,
+    "desc": "Mũ nửa đầu màu đỏ.",
+    "type": "outfit",
+    "slot": "helmet",
+    "style": "half",
+    "color": "#c0392b"
+  },
+  "muFullface": {
+    "id": "muFullface",
+    "name": "Mũ fullface đen",
+    "icon": "⛑️",
+    "price": 150,
+    "desc": "Mũ trùm kín đầu, có kính chắn gió.",
+    "type": "outfit",
+    "slot": "helmet",
+    "style": "full",
+    "color": "#1c1c1c"
   }
 }

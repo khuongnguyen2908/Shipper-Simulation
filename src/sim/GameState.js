@@ -4,7 +4,7 @@
 // điều kiện thắng/thua.
 // =============================================================
 import { ECONOMY, RATING, ENERGY, VEHICLES, BAGS, TIME, WALLET_QUEST } from '../data/balance.js';
-import { GOODS, EFFECTS } from '../data/goods.js';
+import { GOODS, EFFECTS, OUTFIT_SLOTS, freeOutfit } from '../data/goods.js';
 import { isOpen } from './placeRules.js';
 import { RatingBook } from './economy.js';
 import { fmt } from '../content/index.js';
@@ -24,6 +24,7 @@ export class GameState {
     this.bikeHp = c.bikeHp ?? 100;
     this.inventory = c.inventory ?? []; // vật phẩm nhiệm vụ (ví…)
     this.consumables = { ...(c.consumables || {}) }; // đồ dùng 1 lần + đồ mang theo (dùng tại địa điểm): mã → số lượng
+    this.outfit = { ...(c.outfit || {}) }; // trang phục đang mặc: chỗ mặc → mã (trống = đồ có sẵn)
     this.activityUses = {}; // số lần làm hoạt động hôm nay: 'địaĐiểm.hoạtĐộng' → lần
     const tutorialDone = day > 1;
     this.flags = {
@@ -61,17 +62,45 @@ export class GameState {
   has(goodsId) {
     return this.owned.gear.includes(goodsId);
   }
-  // Tổng tác dụng của mọi trang bị đang có (bool → true/false, số → cộng dồn)
+  // Tổng tác dụng của mọi trang bị đang có + trang phục đang mặc (bool → true/false, số → cộng dồn)
   effect(name) {
     const kind = EFFECTS[name]?.kind;
     let sum = 0;
-    for (const id of this.owned.gear) {
-      const v = GOODS[id]?.type === 'equipment' ? GOODS[id].effects?.[name] : undefined;
+    const sources = [...this.owned.gear.filter((id) => GOODS[id]?.type === 'equipment'), ...Object.values(this.wornIds())];
+    for (const id of sources) {
+      const v = GOODS[id]?.effects?.[name];
       if (v === undefined || v === false) continue;
       if (kind === 'bool') return true;
       sum += Number(v) || 0;
     }
     return kind === 'bool' ? false : sum;
+  }
+
+  // ---------- trang phục ----------
+  // Có món trang phục này chưa (giá 0 = có sẵn)
+  ownsOutfit(id) {
+    const g = GOODS[id];
+    return !!g && g.type === 'outfit' && (g.price === 0 || this.owned.gear.includes(id));
+  }
+  // Mã món đang mặc ở từng chỗ (món đã mất/bị xóa → rơi về món có sẵn; không có thì bỏ trống)
+  wornIds() {
+    const out = {};
+    for (const slot of Object.keys(OUTFIT_SLOTS)) {
+      const id = this.outfit[slot];
+      const ok = id && this.ownsOutfit(id) && GOODS[id].slot === slot;
+      const pick = ok ? id : freeOutfit(GOODS, slot)?.id;
+      if (pick) out[slot] = pick;
+    }
+    return out;
+  }
+  // Món đang mặc: chỗ mặc → dữ liệu món (dùng để dựng ngoại hình)
+  wornGoods() {
+    return Object.fromEntries(Object.entries(this.wornIds()).map(([slot, id]) => [slot, GOODS[id]]));
+  }
+  wear(id) {
+    if (!this.ownsOutfit(id)) return false;
+    this.outfit[GOODS[id].slot] = id;
+    return true;
   }
   countOf(goodsId) {
     return this.consumables[goodsId] || 0;
@@ -127,7 +156,7 @@ export class GameState {
     // đồ dùng 1 lần và đồ "dùng tại địa điểm" mua được nhiều cái (đếm số lượng)
     const stack = category === 'goods' && (spec.type === 'consumable' || spec.type === 'carry');
     const ownList = category === 'goods' ? this.owned.gear : this.owned[category];
-    if (!stack && ownList.includes(id)) return { ok: false, msg: fmt('gs.alreadyOwned') };
+    if (!stack && (ownList.includes(id) || this.ownsOutfit(id))) return { ok: false, msg: fmt('gs.alreadyOwned') };
     if (!this.spend(spec.price, 'purchase')) return { ok: false, msg: fmt('gs.short', { k: Math.ceil(spec.price - this.money) }) };
     if (stack) {
       this.consumables[id] = this.countOf(id) + 1;
@@ -276,6 +305,7 @@ export class GameState {
       bikeHp: this.bikeHp,
       inventory: this.inventory,
       consumables: this.consumables,
+      outfit: this.outfit,
       flags: { wallet: this.flags.wallet, walletDay: this.flags.walletDay },
     };
   }

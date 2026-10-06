@@ -33,7 +33,8 @@ export const ECONOMY = {
   distBonusPerKm: 4,       // thưởng quãng đường
   extraItemFare: 6,        // mỗi món thêm trong đơn
   tipByStars: [0, 0, 0, 0, 3, 8], // tiền boa theo số sao (chỉ số = số sao)
-  refuseBelow: 25,         // hàng còn dưới 25% → khách từ chối nhận
+  refuseBelow: 25,         // hàng còn dưới 25% → khách từ chối nhận (khách xe ôm: hoảng sợ)
+  scaredFarePct: 0.5,      // khách xe ôm hoảng sợ (thoải mái dưới refuseBelow) → chỉ trả 50% cước, 1 sao
   cancelComp: 5,           // app bù khi đơn bị hủy không do tài xế
   rentBase: 400,           // tiền nhà ngày 1
   rentPerDay: 150,         // mỗi ngày sau tăng thêm

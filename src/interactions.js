@@ -4,7 +4,7 @@
 // Mọi chữ lấy từ kho chữ qua fmt() — sửa bằng công cụ ?editor.
 // =============================================================
 import { ECONOMY, ENERGY, ORDER, VEHICLES, BAGS, WALLET_QUEST } from './data/balance.js';
-import { GOODS } from './data/goods.js';
+import { GOODS, OUTFIT_SLOTS } from './data/goods.js';
 import { isOpen, fmtHours, placesUsing, placesSelling } from './sim/placeRules.js';
 import { ITEMS } from './data/items.js';
 import { S } from './sim/OrderManager.js';
@@ -326,19 +326,21 @@ function handOver(g) {
   if (!receipt) return;
   gs.applyReceipt(receipt);
   const { ev, pay } = receipt;
+  const ride = o.kind === 'ride'; // chở khách: chấm theo mức thoải mái, lời khách kiểu đi xe
   ev.refused || ev.stars <= 2 ? sfx.bad() : sfx.cash();
-  const comment = ev.refused ? fmt('dlg.refusedComment') : pick(`comment.${ev.stars}`, o.id);
-  const reasons = ev.reasons.map(([k, v]) => `<span class="tag">${fmt(`dmg.${k}`)} −${v.toFixed(0)}%</span>`).join('') || `<span class="tag ok">${fmt('receipt.noDamage')}</span>`;
+  const comment = ev.refused ? fmt('dlg.refusedComment') : ev.scared ? fmt('dlg.scaredComment') : pick(`comment.${ride ? 'ride.' : ''}${ev.stars}`, o.id);
+  const reasons = ev.reasons.map(([k, v]) => `<span class="tag">${fmt(`dmg.${k}`)} −${v.toFixed(0)}%</span>`).join('') || `<span class="tag ok">${fmt(ride ? 'receipt.noDamageRide' : 'receipt.noDamage')}</span>`;
   const pens = ev.penalties.map((p) => `<div class="kv"><span>${p.label}</span><b class="minus">−${p.value} ★</b></div>`).join('');
   const row = (l, v, cls = '') => `<div class="kv ${cls}"><span>${l}</span><b>${v}</b></div>`;
   const html = `<div class="receipt">
     <div class="stars-big ${ev.stars >= 4 ? 'good' : ev.stars <= 2 ? 'bad' : ''}">${stars(ev.stars)}</div>
     <div class="cmt">${o.customer}: ${comment}</div>
-    ${row(fmt('receipt.condition'), `${ev.conditionPct.toFixed(0)}%`)}
+    ${row(fmt(ride ? 'receipt.comfort' : 'receipt.condition'), `${ev.conditionPct.toFixed(0)}%`)}
     ${row(fmt('receipt.time'), fmt('receipt.timeValue', { min: Math.round(receipt.elapsed), allowed: o.allowedMin }))}
     <div class="tags">${reasons}</div>${pens}
     <div class="sep"></div>
     ${ev.refused ? row(fmt('receipt.refused'), '0k', 'minus') : `
+    ${ev.scared ? row(fmt('receipt.scaredNote', { pct: Math.round(ECONOMY.scaredFarePct * 100) }), '', 'minus') : ''}
     ${row(fmt('receipt.base'), fmtK(pay.baseFare))}
     ${row(fmt('receipt.dist', { km: o.distanceKm.toFixed(1) }), '+' + fmtK(pay.distBonus))}
     ${row(fmt('receipt.fee'), '−' + fmtK(pay.fee), 'minus')}
@@ -351,7 +353,7 @@ function handOver(g) {
     ${row(fmt('receipt.rating'), '⭐ ' + gs.rating.toFixed(2))}
   </div>`;
   g.modal.show({
-    title: fmt('receipt.title', { id: o.id }),
+    title: fmt(ride ? 'receipt.titleRide' : 'receipt.title', { id: o.id }),
     html,
     choices: [{ label: fmt('receipt.continue'), primary: true, onSelect: () => afterDelivery(g, o) }],
     onClose: () => afterDelivery(g, o),
@@ -500,19 +502,20 @@ function shopDialog(g, pl) {
   for (const id of sells.goods || []) {
     const s = GOODS[id];
     if (!s) continue;
-    const consumable = s.type === 'consumable', carry = s.type === 'carry';
-    const owned = s.type === 'equipment' && gs.has(id);
+    const consumable = s.type === 'consumable', carry = s.type === 'carry', outfit = s.type === 'outfit';
+    const owned = (s.type === 'equipment' && gs.has(id)) || (outfit && gs.ownsOutfit(id));
     choices.push({
       label: `${owned ? '✔ ' : ''}${s.icon || ''} ${s.name} – ${s.price}k`,
-      hint: owned ? fmt('dlg.shopOwned')
+      hint: owned ? fmt(outfit ? 'dlg.outfitOwned' : 'dlg.shopOwned')
         : consumable ? fmt('dlg.goodsCount', { n: gs.countOf(id), desc: s.desc || '', gains: gainText(s.use || {}) })
         : carry ? fmt('dlg.carryShop', { n: gs.countOf(id), desc: s.desc || '', where: whereUsed(g, id) })
+        : outfit ? fmt('dlg.outfitShop', { slot: fmt(`outfit.slot.${s.slot}`), desc: s.desc || '' })
         : s.desc,
       disabled: owned || gs.money < s.price,
       keepOpen: true,
       onSelect: () => {
         const r = gs.buy('goods', id);
-        g.hud.toast(r.ok ? fmt('toast.bought', { msg: r.msg }) : r.msg, r.ok ? 'good' : 'bad');
+        g.hud.toast(r.ok ? fmt(outfit ? 'toast.boughtOutfit' : 'toast.bought', { msg: r.msg }) : r.msg, r.ok ? 'good' : 'bad');
         if (r.ok) sfx.cash();
         reopen();
       },
@@ -606,9 +609,41 @@ function landlord(g, pl) {
       disabled: !!g.om.hasCargo,
       onSelect: () => { g.advance(ENERGY.nap.minutes, 'idle', { indoor: true, waiting: false }); gs.addEnergy(ENERGY.nap.phys + ENERGY.nap.minutes * 0.02, ENERGY.nap.mental); },
     },
+    { label: fmt('dlg.wardrobe'), hint: fmt('dlg.wardrobeHint'), onSelect: () => wardrobe(g) },
   ];
   const text = can ? fmt('npc.home.greetCan', { rent: gs.rent }) : fmt('npc.home.greet', { rent: gs.rent, money: fmtK(gs.money) });
   openPlace(g, pl, extra, text);
+}
+
+// "Áo thun xanh lá · Quần jean · Mũ bảo hiểm xanh lá"
+function wornText(gs) {
+  return Object.values(gs.wornGoods()).map((x) => `${x.icon || ''} ${x.name}`).join(' · ') || fmt('dlg.invNone');
+}
+
+// Tủ đồ ở phòng trọ: mặc trang phục đã mua (đồ giá 0 có sẵn)
+function wardrobe(g) {
+  const { gs } = g;
+  const worn = gs.wornIds();
+  const choices = [];
+  for (const slot of Object.keys(OUTFIT_SLOTS)) {
+    for (const s of Object.values(GOODS)) {
+      if (s.type !== 'outfit' || s.slot !== slot || !gs.ownsOutfit(s.id)) continue;
+      const on = worn[slot] === s.id;
+      choices.push({
+        label: `${on ? '✔ ' : ''}${s.icon || ''} ${s.name}`,
+        hint: fmt(on ? 'dlg.wardrobeWearing' : 'dlg.wardrobeItem', { slot: fmt(`outfit.slot.${slot}`), desc: s.desc || '' }),
+        disabled: on,
+        keepOpen: true,
+        onSelect: () => {
+          gs.wear(s.id);
+          sfx.click();
+          wardrobe(g);
+        },
+      });
+    }
+  }
+  choices.push({ label: fmt('dlg.wardrobeClose') });
+  g.modal.show({ title: fmt('dlg.wardrobeTitle'), text: fmt('dlg.wardrobeIntro', { worn: wornText(gs) }), choices, wide: true });
 }
 
 function minhReturn(g) {
@@ -728,6 +763,7 @@ export function openInventory(g) {
       row(fmt('dlg.invFuel'), `${gs.fuel.toFixed(2)} / ${v.tank} L`) +
       row(fmt('dlg.invBag'), b.name) +
       row(fmt('dlg.invGear'), gear) +
+      row(fmt('dlg.invOutfit'), wornText(gs)) +
       row(fmt('dlg.invConsumables'), cons || fmt('dlg.invNone')) +
       (carry ? row(fmt('dlg.invCarry'), carry) : '') +
       row(fmt('dlg.invItems'), gs.inventory.length ? fmt('dlg.invWalletItem') : fmt('dlg.invNone')),

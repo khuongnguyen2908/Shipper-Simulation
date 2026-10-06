@@ -45,6 +45,8 @@
   "pen.picky": "Khách khó tính",
   "pen.extra": "Bắt khách chờ / xuống lấy",
   "pen.refused": "Khách từ chối nhận hàng",
+  "pen.comfort": "Khách chỉ còn {pct}% thoải mái",
+  "pen.scared": "Khách hoảng sợ suốt chuyến",
   "money.food": "Giao đồ ăn",
   "money.ride": "Chở khách",
   "money.cancelComp": "Bù hủy đơn",
@@ -165,6 +167,7 @@
   "toast.walletKeep": "👛 Nhiệm vụ phụ: tìm nhà anh Minh để trả ví.",
   "toast.refuel": "⛽ {msg}",
   "toast.bought": "🛍️ {msg}!",
+  "toast.boughtOutfit": "🛍️ {msg}! Về tủ đồ ở phòng trọ để mặc 👕",
   "toast.boughtVehicle": "🛵 {msg}!",
   "toast.walletReturned": "😇 Nhận {k}k tiền cảm ơn · tinh thần tăng mạnh!",
   "chat.group": "Hội Shipper Q1",
@@ -258,6 +261,7 @@
   "dlg.callDown": "Gọi khách xuống lấy (chờ 8 phút)",
   "dlg.callDownHint": "Khách không vui: −0,5 sao",
   "dlg.refusedComment": "\"Đổ hết rồi thế này chị không nhận đâu!\"",
+  "dlg.scaredComment": "\"Chạy kiểu này ai dám đi nữa! Đưa nửa tiền thôi!\"",
   "dlg.walletFound": "Anh Minh vừa xuống xe đi mất. Bạn chợt thấy <b>một chiếc ví da</b> rơi trên yên sau…",
   "dlg.walletOpen": "Mở ví xem",
   "dlg.walletTitle": "Chiếc ví da",
@@ -273,6 +277,18 @@
   "dlg.payRentShort": "Còn thiếu {k}k",
   "dlg.nap": "Ngủ một giấc ({min} phút)",
   "dlg.napHint": "+{phys} thể lực, +{mental} tinh thần",
+  "dlg.wardrobe": "👕 Mở tủ đồ thay đồ",
+  "dlg.wardrobeHint": "Mặc áo, quần, mũ bảo hiểm đã mua (quần áo bán ở Chợ)",
+  "dlg.wardrobeTitle": "👕 Tủ đồ",
+  "dlg.wardrobeIntro": "Đang mặc: <b>{worn}</b><br>Chọn món muốn mặc:",
+  "dlg.wardrobeItem": "{slot} · {desc}",
+  "dlg.wardrobeWearing": "Đang mặc · {slot}",
+  "dlg.wardrobeClose": "Đóng tủ",
+  "dlg.outfitShop": "{slot} · {desc} Mua xong về tủ đồ ở phòng trọ để mặc.",
+  "dlg.outfitOwned": "Đã có — mặc ở tủ đồ phòng trọ",
+  "outfit.slot.shirt": "Áo",
+  "outfit.slot.pants": "Quần",
+  "outfit.slot.helmet": "Mũ bảo hiểm",
   "dlg.backToWork": "Dạ con đi làm tiếp",
   "dlg.gasTooFar": "\"Dắt xe vô đây anh mới bơm được chứ!\"",
   "dlg.shopOwned": "Đã có",
@@ -304,6 +320,7 @@
   "dlg.invFuel": "Xăng",
   "dlg.invBag": "Túi giao hàng",
   "dlg.invGear": "Trang bị",
+  "dlg.invOutfit": "Đang mặc",
   "dlg.invItems": "Vật phẩm",
   "dlg.invNone": "không có",
   "dlg.invNoGear": "chưa có",
@@ -324,6 +341,30 @@
   "receipt.wallet": "Cộng vào ví",
   "receipt.rating": "Điểm đánh giá mới",
   "receipt.continue": "Tiếp tục",
+  "receipt.titleRide": "🧾 Hoàn tất chuyến #{id}",
+  "receipt.comfort": "Khách thoải mái",
+  "receipt.noDamageRide": "Khách thoải mái suốt chuyến 👍",
+  "receipt.scaredNote": "Khách sợ quá, chỉ trả {pct}% cước",
+  "comment.ride.1": [
+    "\"Chạy như đua xe vậy, tim muốn rớt ra ngoài!\"",
+    "\"Lần sau đi bộ còn hơn.\""
+  ],
+  "comment.ride.2": [
+    "\"Phanh gấp hoài, say xe luôn rồi nè.\"",
+    "\"Em chạy từ từ thôi, đi mà muốn rụng tim.\""
+  ],
+  "comment.ride.3": [
+    "\"Cũng tới nơi, mà chạy hơi ẩu.\"",
+    "\"Tạm được, lần sau đi êm hơn nha.\""
+  ],
+  "comment.ride.4": [
+    "\"Cảm ơn em, chạy cũng êm.\"",
+    "\"Ok em, tới nơi an toàn là được.\""
+  ],
+  "comment.ride.5": [
+    "\"Chạy êm ru mà đúng giờ luôn! Tip em nè!\"",
+    "\"Tài xế dễ thương ghê, 5 sao!\""
+  ],
   "comment.1": [
     "\"Hàng như vầy ai mà ăn được?!\"",
     "\"Tệ quá, lần sau không đặt nữa.\""

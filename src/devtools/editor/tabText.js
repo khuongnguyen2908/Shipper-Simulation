@@ -31,6 +31,7 @@ const GROUPS = {
   forecast: 'Dự báo thời tiết',
   addr: 'Mẫu địa chỉ',
   modal: 'Hộp thoại',
+  outfit: 'Trang phục',
 };
 
 // Giá trị mẫu để xem trước
@@ -44,6 +45,7 @@ const SAMPLE = {
   rains: 'mưa to 14:30–16:00', from: '14:30', to: '16:00', goal: 5, limit: 4, pct: 20, allowed: 45, sec: 20,
   street: 'Lê Lợi', number: 95, npc: 'Cô Hai', left: '12 phút', error: 'WebGL không khả dụng', price: 120, sub: '',
   forecastText: '',
+  worn: '👕 Áo thun xanh lá · 👖 Quần jean · ⛑️ Mũ bảo hiểm xanh lá', slot: 'Áo',
 };
 
 const fill = (s, extra) => String(s).replace(/\{(\w+)\}/g, (m, k) => (extra[k] ?? SAMPLE[k]) !== undefined ? `<mark>${extra[k] ?? SAMPLE[k]}</mark>` : `<mark class="bad">{${k}}</mark>`);

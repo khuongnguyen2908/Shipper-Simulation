@@ -3,7 +3,7 @@
 // =============================================================
 import * as THREE from 'three';
 import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, BAGS } from './data/balance.js';
-import { GOODS } from './data/goods.js';
+import { GOODS, outfitLook } from './data/goods.js';
 import { ITEMS } from './data/items.js';
 import { buildLayout, segmentRect, roadPos } from './sim/cityLayout.js';
 import { makeRng } from './sim/rng.js';
@@ -185,6 +185,7 @@ export class Game {
     this.bike.vel.set(0, 0);
     this.bike.setSpec(this.gs.vehicleSpec);
     this.bike.setBag(this.gs.bagSpec);
+    this.lookKey = null; // dựng lại ngoại hình shipper theo đồ đang mặc
     this.bike.update(0.016, {}, { mounted: false, fuel: 1, hp: 100, wet: false, grid: this.city.grid, potholes: [], emit: () => {} });
     this.walker.update(0.016, {}, 0, { grid: this.city.grid, phys: 100 });
     this.rig.yaw = -0.75 * Math.PI; // camera đứng giữa đường phía tây-bắc, nhìn về nhà trọ và xe
@@ -659,11 +660,24 @@ export class Game {
     }
   }
 
+  // Ngoại hình shipper: trang phục đang mặc + áo mưa khi mưa / áo khoác khi nắng gắt (nếu có)
+  applyLook() {
+    const { gs, hz } = this;
+    const now = this.clockMin;
+    const overlay = hz.isRaining(now) && gs.effect('rainProtect') ? 'raincoat' : hz.isHarshSun(now) && gs.effect('sunProtect') ? 'jacket' : null;
+    const look = { ...outfitLook(gs.wornGoods()), overlay };
+    const key = JSON.stringify(look);
+    if (key === this.lookKey) return;
+    this.lookKey = key;
+    this.walker.setLook(look);
+  }
+
   updateVisuals(dt) {
     const { gs, om, hz } = this;
     const now = this.clockMin;
     const rain = hz.rainAt(now);
     const pp = this.playerPos;
+    this.applyLook();
     const { night, wet } = this.sky.update(dt, now, rain, pp, this.camera);
     this.city.setNight(night);
     this.city.setWet(wet);

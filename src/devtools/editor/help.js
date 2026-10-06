@@ -39,7 +39,7 @@ export const HINT = {
   // ---------- đồ dùng ----------
   goods: {
     price: '0–100 000k. Tham khảo: cà phê 20k (+30 tinh thần) · phở 35k (+45 thể lực) · nước tăng lực 15k (+25 thể lực).',
-    type: 'Dùng 1 lần: mua được nhiều, mỗi lần dùng mất 1. Trang bị: mua 1 lần, tác dụng mãi (kể cả các ngày sau). Dùng tại địa điểm: chỉ mang theo, đem tới nơi có hoạt động cần nó (vd nhang → chùa).',
+    type: 'Dùng 1 lần: mua được nhiều, mỗi lần dùng mất 1. Trang bị: mua 1 lần, tác dụng mãi (kể cả các ngày sau). Dùng tại địa điểm: chỉ mang theo, đem tới nơi có hoạt động cần nó (vd nhang → chùa). Trang phục: áo / quần / mũ bảo hiểm của shipper, mua rồi về tủ đồ phòng trọ để mặc; giá 0 = có sẵn.',
     carry: 'Tác dụng (tinh thần, thời gian…) đặt ở hoạt động của nơi dùng, không đặt ở đây. Món giữ qua các ngày.',
   },
   use: {

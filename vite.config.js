@@ -6,11 +6,25 @@ import path from 'node:path';
 // Chỉ những file dữ liệu này được công cụ ?editor ghi đè
 const EDITABLE = ['src/data/items.json', 'src/data/gear.json', 'src/data/goods.json', 'src/data/places.json', 'src/content/vi.json'];
 
+const norm = (f) => path.resolve(f).toLowerCase();
+// file → lúc editor vừa ghi. Để ngoài plugin: Vite có thể tạo plugin nhiều lần, phải dùng chung một bảng.
+const editorWrites = new Map();
+
 // Plugin cho công cụ nội dung: POST /__editor/save ghi file JSON (chỉ khi chạy npm run dev)
+// File dữ liệu đổi → không tải lại kiểu mặc định (editor sẽ mất chỗ đang sửa), mà báo sự kiện
+// 'shipper:data-changed': tab game tự tải lại, editor chỉ báo khi file bị sửa từ bên ngoài.
 function editorSavePlugin() {
   return {
     name: 'shipper-editor-save',
     apply: 'serve',
+    handleHotUpdate({ file, server }) {
+      const f = norm(file);
+      const rel = EDITABLE.find((p) => norm(path.resolve(server.config.root, p)) === f);
+      if (!rel) return;
+      const fromEditor = Date.now() - (editorWrites.get(f) || 0) < 3000;
+      server.ws.send({ type: 'custom', event: 'shipper:data-changed', data: { file: rel, fromEditor } });
+      return [];
+    },
     configureServer(server) {
       server.middlewares.use('/__editor/ping', (req, res) => {
         res.setHeader('Content-Type', 'application/json');
@@ -32,6 +46,7 @@ function editorSavePlugin() {
               if (!EDITABLE.includes(f.path)) throw new Error(`Không được ghi file: ${f.path}`);
               JSON.parse(f.content); // phải là JSON hợp lệ
               const abs = path.resolve(server.config.root, f.path);
+              editorWrites.set(norm(abs), Date.now());
               fs.writeFileSync(abs, f.content.endsWith('\n') ? f.content : f.content + '\n', 'utf8');
               written.push(f.path);
             }

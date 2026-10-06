@@ -12,6 +12,7 @@
       "tank": 3,
       "price": 0,
       "color": "#3a6fb0",
+      "model": "cub",
       "desc": "Xe ông nội để lại. Chạy được là mừng."
     },
     "wave": {
@@ -26,6 +27,7 @@
       "tank": 4,
       "price": 200,
       "color": "#c22e2e",
+      "model": "underbone",
       "desc": ""
     },
     "scooter": {
@@ -40,6 +42,7 @@
       "tank": 4.5,
       "price": 1200,
       "color": "#e8e8e8",
+      "model": "scooter",
       "desc": "Êm, tiết kiệm xăng, chạy nhanh hơn."
     },
     "exciter": {
@@ -54,6 +57,7 @@
       "tank": 4.5,
       "price": 1500,
       "color": "#302ec2",
+      "model": "sport",
       "desc": ""
     },
     "sport": {
@@ -68,6 +72,7 @@
       "tank": 10,
       "price": 4500,
       "color": "#000000",
+      "model": "sport",
       "desc": "Nhanh, giảm xóc tốt, chở canh không đổ."
     },
     "SH": {
@@ -82,6 +87,7 @@
       "tank": 7,
       "price": 6000,
       "color": "#d5c8c8",
+      "model": "scooter",
       "desc": ""
     }
   },

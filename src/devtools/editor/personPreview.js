@@ -1,7 +1,7 @@
-// Khung xem trước NPC 3D trong công cụ (dùng đúng hàm dựng người của game).
+// Khung xem trước 3D trong công cụ: NPC, trang phục shipper, xe máy (dùng đúng hàm dựng hình của game).
 // Chỉ một bộ vẽ WebGL dùng chung cho mọi lần mở, để không hết "ngữ cảnh" WebGL của trình duyệt.
 import * as THREE from 'three';
-import { makePerson, npcLook } from '../../world/models.js';
+import { makePerson, npcLook, makeBike } from '../../world/models.js';
 import { colorsToNumbers } from '../../data/balance.js';
 
 const W = 170, H = 230;
@@ -31,14 +31,24 @@ export function personPreview(id) {
   host.className = 'person-prev';
   host.title = 'Xem trước (tự xoay)';
   host.append(renderer.domElement);
-  const update = (npc) => {
+  // opts: tham số makePerson (màu dạng số)
+  const showLook = (opts) => {
     if (person) scene.remove(person);
-    person = makePerson(npcLook(id, colorsToNumbers(npc)));
+    person = makePerson(opts);
     scene.add(person);
     // camera lùi/tiến theo vóc người để luôn thấy trọn người
-    const k = npc.scale || 1;
+    const k = opts.scale || 1;
     camera.position.set(0, 1.15 * k, 3.3 * k + 0.4);
     camera.lookAt(0, 0.98 * k, 0);
+  };
+  const update = (npc) => showLook(npcLook(id, colorsToNumbers(npc)));
+  // Xem trước xe máy (color dạng "#rrggbb")
+  const showBike = (color, model) => {
+    if (person) scene.remove(person);
+    person = makeBike(parseInt(String(color || '#888888').slice(1), 16) || 0x888888, model);
+    scene.add(person);
+    camera.position.set(0, 1.25, 4.4);
+    camera.lookAt(0, 0.6, 0);
   };
   cancelAnimationFrame(raf);
   const loop = () => {
@@ -49,5 +59,5 @@ export function personPreview(id) {
     raf = requestAnimationFrame(loop);
   };
   raf = requestAnimationFrame(loop);
-  return { el: host, update };
+  return { el: host, update, showLook, showBike };
 }

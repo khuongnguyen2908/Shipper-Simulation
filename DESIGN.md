@@ -83,6 +83,8 @@ Bộ điều khiển xe (`src/world/controllers.js`) phát sự kiện: **bump**
 | 25–40% | 3,5 | | | |
 | < 25% | khách từ chối, 1★, 0 đồng | | | |
 
+Chuyến **chở khách** dùng cùng bảng nhưng "hàng còn" là **mức thoải mái** của khách; dưới 25% thì khách hoảng sợ: vẫn tới nơi, 1★ và chỉ trả `ECONOMY.scaredFarePct` (50%) cước. Hóa đơn, lời nhận xét dùng bộ chữ riêng (`receipt.titleRide`, `comment.ride.*`, `pen.comfort`…).
+
 ## 4. Kinh tế (`src/sim/economy.js`)
 
 **Lãi thực = (Giá cước + Thưởng quãng đường) − Phí nền tảng 20% − Thuế 1,5% − Tiền xăng**, cộng tiền boa (4★: 3k, 5★: 8k). Tiền xăng đã trả ở cây xăng nên ví chỉ được cộng `cước − phí − thuế + boa`; hóa đơn vẫn hiện đủ công thức.
@@ -106,6 +108,10 @@ Ví dụ: cùng một cú ổ gà ở 45 km/h, tô phở mất ~10% với Cub nh
 | Thùng chuyên dụng | 80% | 100% | 55% | 3×3 | 380k | – |
 
 Đồ nghề khác: Áo mưa 40k · Mũ bảo hiểm cho khách 50k (mở đơn xe ôm) · Áo khoác chống nắng 60k.
+
+Mỗi xe có **kiểu dáng** (`gear.json → model`): `cub` (xe số cổ), `underbone` (xe số), `scooter` (tay ga), `sport` (tay côn / mô tô). Xe NPC trộn ngẫu nhiên các kiểu.
+
+**Trang phục** (`goods.json`, `type: "outfit"`): 3 chỗ mặc (áo · quần · mũ bảo hiểm), mỗi món có kiểu + màu, mua ở Chợ, thay ở **tủ đồ phòng trọ**; món giá 0 là đồ có sẵn. Tác dụng của trang phục (nếu có) chỉ tính khi đang mặc. Có áo mưa thì shipper tự mặc áo mưa cánh dơi khi mưa; có áo khoác chống nắng thì mặc lúc nắng gắt.
 
 ### Đo bằng mô phỏng (`npm run sim`, 300 ngày mỗi chiến thuật, ngày 1)
 

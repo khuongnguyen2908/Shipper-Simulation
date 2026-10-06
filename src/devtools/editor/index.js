@@ -18,6 +18,7 @@ import * as tabItems from './tabItems.js';
 import * as tabGear from './tabGear.js';
 import * as tabPlaces from './tabPlaces.js';
 import * as tabText from './tabText.js';
+import { selKey, planScroll, selToSave } from './viewState.js';
 
 const FILES = {
   items: { path: 'src/data/items.json', label: 'Vật phẩm', src: itemsJson },
@@ -34,6 +35,16 @@ const TABS = [
 ];
 const DRAFT_KEY = 'shipper-editor-draft-v1';
 const TAB_KEY = 'shipper-editor-tab';
+const SEL_KEY = 'shipper-editor-sel'; // món đang chọn ở từng thẻ (giữ qua F5)
+const SCROLL_KEY = 'shipper-editor-scroll'; // chỗ đang cuộn lúc rời trang
+
+const readJson = (k) => {
+  try {
+    return JSON.parse(store.get(k) || 'null');
+  } catch {
+    return null;
+  }
+};
 
 const store = {
   get(k) {
@@ -63,7 +74,7 @@ export async function startEditor(root) {
     data: clone(base),
     issues: [],
     tab: TABS.some((t) => t.id === store.get(TAB_KEY)) ? store.get(TAB_KEY) : 'items',
-    sel: {},
+    sel: selToSave(readJson(SEL_KEY)),
     canSave: false,
   };
 
@@ -84,7 +95,12 @@ export async function startEditor(root) {
     renderHeader();
     renderIssues();
     applyFieldIssues();
-    if (ctx.refreshSide) ctx.refreshSide();
+    if (ctx.refreshSide) {
+      const side = main.querySelector('.ed-side');
+      const top = side ? side.scrollTop : 0;
+      ctx.refreshSide();
+      if (side) side.scrollTop = top; // vẽ lại danh sách bên trái mà không cuộn về đầu
+    }
     clearTimeout(draftTimer);
     draftTimer = setTimeout(() => {
       const d = dirtyFiles();
@@ -92,10 +108,25 @@ export async function startEditor(root) {
     }, 400);
   };
 
+  // Chỗ đang xem: lần đầu lấy từ lúc rời trang trước (F5), sau đó cập nhật mỗi lần vẽ
+  const page = document.body; // trang editor cuộn trong <body>
+  const sideScroll = () => main.querySelector('.ed-side')?.scrollTop || 0;
+  let view = readJson(SCROLL_KEY);
+  const currentView = () => ({ key: selKey(ctx.tab, ctx.sel[ctx.tab]), tab: ctx.tab, body: page.scrollTop, side: sideScroll() });
+
+  // Vẽ lại cả trang nhưng giữ chỗ cuộn: cùng món → đứng yên; sang món khác → hiện từ đầu món mới
   ctx.rerender = () => {
+    const before = view && { ...view, body: view.restore ? view.body : page.scrollTop, side: view.restore ? view.side : sideScroll() };
     renderHeader();
     renderTab();
     renderIssues();
+    const key = selKey(ctx.tab, ctx.sel[ctx.tab]);
+    const to = planScroll(before, key, !!before && before.tab === ctx.tab);
+    page.scrollTop = to.body;
+    const side = main.querySelector('.ed-side');
+    if (side) side.scrollTop = to.side;
+    view = { key, tab: ctx.tab };
+    store.set(SEL_KEY, JSON.stringify(selToSave(ctx.sel)));
   };
 
   ctx.select = (tab, sel) => {
@@ -292,6 +323,19 @@ export async function startEditor(root) {
   window.addEventListener('beforeunload', (e) => {
     if (dirtyFiles().length) e.preventDefault();
   });
+  // rời trang / F5: nhớ chỗ đang cuộn để mở lại đúng chỗ
+  window.addEventListener('pagehide', () => store.set(SCROLL_KEY, JSON.stringify({ ...currentView(), restore: true })));
+
+  // File dữ liệu đổi trên đĩa: do chính editor lưu → không làm gì (editor đã có dữ liệu mới);
+  // bị sửa từ bên ngoài (sửa tay, git pull…) → báo để tải lại, tránh lưu đè lên bản mới
+  if (import.meta.hot) {
+    import.meta.hot.on('shipper:data-changed', ({ file, fromEditor }) => {
+      if (fromEditor) return;
+      showBanner(`📂 File <b>${escapeHtml(file)}</b> vừa bị sửa bên ngoài công cụ. Tải lại để thấy bản mới${dirtyFiles().length ? ' (thay đổi chưa lưu sẽ còn trong bản nháp)' : ''}.`, 'warn', [
+        button('Tải lại', () => location.reload(), 'primary small'),
+      ]);
+    });
+  }
 
   // ---------- khởi động ----------
   try {

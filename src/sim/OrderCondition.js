@@ -2,6 +2,8 @@
 // CHẤM ĐIỂM ĐƠN HÀNG (OrderCondition)
 // Số sao = 5 − (phạt tình trạng hàng) − (phạt trễ giờ) − (khách khó tính) − (phạt khác)
 // Hàng còn dưới ECONOMY.refuseBelow % → khách từ chối nhận, 1 sao, không có tiền.
+// Chở khách (ride): "tình trạng" là mức thoải mái; dưới ngưỡng thì khách hoảng sợ:
+// vẫn tới nơi nhưng 1 sao và chỉ trả một phần cước (scared).
 // =============================================================
 import { ECONOMY } from '../data/balance.js';
 import { fmt } from '../content/index.js';
@@ -30,17 +32,21 @@ export function collectReasons(items) {
     .sort((a, b) => b[1] - a[1]);
 }
 
-export function evaluateOrder({ items, elapsedMin, allowedMin, picky = false, extraPenalty = 0 }) {
+export function evaluateOrder({ items, elapsedMin, allowedMin, picky = false, extraPenalty = 0, ride = false }) {
   const conditionPct = items.length ? items.reduce((s, i) => s + i.condition, 0) / items.length : 100;
   const timeRatio = allowedMin > 0 ? elapsedMin / allowedMin : 0;
   const penalties = [];
   const cp = conditionPenalty(conditionPct);
-  if (cp) penalties.push({ label: fmt('pen.condition', { pct: Math.round(conditionPct) }), value: cp });
+  if (cp) penalties.push({ label: fmt(ride ? 'pen.comfort' : 'pen.condition', { pct: Math.round(conditionPct) }), value: cp });
   const tp = timePenalty(timeRatio);
   if (tp) penalties.push({ label: fmt('pen.late', { pct: Math.round((timeRatio - 1) * 100) }), value: tp });
   if (picky) penalties.push({ label: fmt('pen.picky'), value: 0.5 });
   if (extraPenalty) penalties.push({ label: fmt('pen.extra'), value: extraPenalty });
   const reasons = collectReasons(items);
+  if (conditionPct < ECONOMY.refuseBelow && ride) {
+    penalties.push({ label: fmt('pen.scared'), value: 5 });
+    return { refused: false, scared: true, stars: 1, conditionPct, timeRatio, penalties, reasons };
+  }
   if (conditionPct < ECONOMY.refuseBelow) {
     penalties.push({ label: fmt('pen.refused'), value: 5 });
     return { refused: true, stars: 1, conditionPct, timeRatio, penalties, reasons };
