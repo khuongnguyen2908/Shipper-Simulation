@@ -9,7 +9,8 @@ import { spawnSync } from 'node:child_process';
 
 // Trên Windows chỉ 'npm' (npm.cmd) cần chạy qua shell; git chạy thẳng để ghi chú có dấu cách không bị cắt
 const useShell = (cmd) => process.platform === 'win32' && cmd === 'npm';
-const run = (cmd, args, opts = {}) => spawnSync(cmd, args, { stdio: 'inherit', shell: useShell(cmd), ...opts });
+const run = (cmd, args, opts = {}) =>
+  useShell(cmd) ? spawnSync([cmd, ...args].join(' '), { stdio: 'inherit', shell: true, ...opts }) : spawnSync(cmd, args, { stdio: 'inherit', ...opts });
 const out = (cmd, args) => spawnSync(cmd, args, { encoding: 'utf8', shell: useShell(cmd) }).stdout?.trim() ?? '';
 const stop = (msg) => {
   console.error(`\n❌ ${msg}`);
