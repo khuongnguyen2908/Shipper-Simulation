@@ -378,7 +378,7 @@
       "id": "gas2",
       "name": "Cây xăng PVOTL",
       "short": "Xăng",
-      "kind": "service",
+      "kind": "gas",
       "icon": "⛽",
       "block": [
         2,
