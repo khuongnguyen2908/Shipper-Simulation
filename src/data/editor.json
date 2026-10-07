@@ -1,3 +1,10 @@
 {
-  "ignoredWarnings": []
+  "ignoredWarnings": [
+    {
+      "tab": "places",
+      "ref": "vanphong",
+      "field": "activities.dilam",
+      "msg": "Hoạt động hơn 2 tiếng — tốn nhiều thời gian trong ngày."
+    }
+  ]
 }

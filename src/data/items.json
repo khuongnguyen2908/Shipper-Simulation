@@ -8,7 +8,8 @@
       "paper"
     ],
     "base": 25,
-    "startTemp": 75
+    "startTemp": 75,
+    "group": "food"
   },
   "comTamOpla": {
     "id": "comTamOpla",
@@ -18,8 +19,9 @@
       "hot",
       "paper"
     ],
-    "base": 20,
-    "startTemp": 75
+    "base": 25,
+    "startTemp": 75,
+    "group": "food"
   },
   "comTamGa": {
     "id": "comTamGa",
@@ -29,8 +31,9 @@
       "hot",
       "paper"
     ],
-    "base": 30,
-    "startTemp": 75
+    "base": 25,
+    "startTemp": 75,
+    "group": "food"
   },
   "bunMoc": {
     "id": "bunMoc",
@@ -41,7 +44,20 @@
       "liquid"
     ],
     "base": 30,
-    "startTemp": 85
+    "startTemp": 85,
+    "group": "food"
+  },
+  "bunMoc_2": {
+    "id": "bunMoc_2",
+    "name": "Bún mọc giò heo",
+    "icon": "🍜",
+    "traits": [
+      "hot",
+      "liquid"
+    ],
+    "base": 30,
+    "startTemp": 85,
+    "group": "food"
   },
   "pho": {
     "id": "pho",
@@ -51,8 +67,33 @@
       "hot",
       "liquid"
     ],
-    "base": 28,
-    "startTemp": 85
+    "base": 30,
+    "startTemp": 85,
+    "group": "food"
+  },
+  "pho_2": {
+    "id": "pho_2",
+    "name": "Phở gà",
+    "icon": "🍜",
+    "traits": [
+      "hot",
+      "liquid"
+    ],
+    "base": 30,
+    "startTemp": 85,
+    "group": "food"
+  },
+  "pho_3": {
+    "id": "pho_3",
+    "name": "Phở không người lái",
+    "icon": "🍜",
+    "traits": [
+      "hot",
+      "liquid"
+    ],
+    "base": 30,
+    "startTemp": 85,
+    "group": "food"
   },
   "bunBo": {
     "id": "bunBo",
@@ -62,12 +103,25 @@
       "hot",
       "liquid"
     ],
-    "base": 29,
+    "base": 30,
     "startTemp": 85
   },
   "traSua": {
     "id": "traSua",
     "name": "Trà sữa trân châu",
+    "icon": "🧋",
+    "traits": [
+      "cold",
+      "liquid"
+    ],
+    "base": 30,
+    "startTemp": 4,
+    "meltAt": 10,
+    "meltRate": 0.12
+  },
+  "traSua_2": {
+    "id": "traSua_2",
+    "name": "Trà sữa khoai môn",
     "icon": "🧋",
     "traits": [
       "cold",
@@ -85,7 +139,7 @@
     "traits": [
       "cold"
     ],
-    "base": 32,
+    "base": 35,
     "startTemp": -8,
     "meltAt": -2,
     "meltRate": 0.2
@@ -99,6 +153,56 @@
       "paper"
     ],
     "base": 45
+  },
+  "banhNgot": {
+    "id": "banhNgot",
+    "name": "Bánh su kem",
+    "icon": "🍰",
+    "traits": [
+      "fragile",
+      "paper"
+    ],
+    "base": 30,
+    "group": "food"
+  },
+  "banhNgot_2": {
+    "id": "banhNgot_2",
+    "name": "Bánh Tiramisu",
+    "icon": "🍰",
+    "traits": [
+      "fragile",
+      "paper"
+    ],
+    "base": 30,
+    "group": "food"
+  },
+  "dongGia1": {
+    "id": "dongGia1",
+    "name": "Trà xanh hoa nhài (L) (Có đường)",
+    "icon": "🥤",
+    "traits": [
+      "liquid",
+      "cold"
+    ],
+    "base": 30,
+    "startTemp": 4,
+    "group": "drink",
+    "meltAt": 10,
+    "meltRate": 0.12
+  },
+  "dongGia1_2": {
+    "id": "dongGia1_2",
+    "name": "Trà xanh hoa nhài (L) (0 đường)",
+    "icon": "🥤",
+    "traits": [
+      "liquid",
+      "cold"
+    ],
+    "base": 30,
+    "startTemp": 4,
+    "group": "drink",
+    "meltAt": 10,
+    "meltRate": 0.12
   },
   "nuocSoi": {
     "id": "nuocSoi",
@@ -132,6 +236,42 @@
     ],
     "base": 60,
     "startTemp": 90
+  },
+  "cafe": {
+    "id": "cafe",
+    "name": "Cà phê đá",
+    "icon": "☕",
+    "traits": [
+      "cold"
+    ],
+    "base": 25,
+    "startTemp": 10,
+    "meltAt": 20,
+    "meltRate": 0.12
+  },
+  "cafe_2": {
+    "id": "cafe_2",
+    "name": "Cà phê sữa đá",
+    "icon": "☕",
+    "traits": [
+      "cold"
+    ],
+    "base": 25,
+    "startTemp": 10,
+    "meltAt": 20,
+    "meltRate": 0.12
+  },
+  "cafe_3": {
+    "id": "cafe_3",
+    "name": "Cà phê sữa tươi",
+    "icon": "☕",
+    "traits": [
+      "cold"
+    ],
+    "base": 25,
+    "startTemp": 10,
+    "meltAt": 20,
+    "meltRate": 0.12
   },
   "passenger": {
     "id": "passenger",
@@ -186,5 +326,106 @@
     "base": 20,
     "parcel": true,
     "cod": 0
+  },
+  "banhMi": {
+    "id": "banhMi",
+    "name": "Bánh mì trứng",
+    "icon": "🥖",
+    "traits": [
+      "paper"
+    ],
+    "base": 20,
+    "startTemp": 80,
+    "group": "food"
+  },
+  "banhMi_2": {
+    "id": "banhMi_2",
+    "name": "Bánh mì thịt",
+    "icon": "🥖",
+    "traits": [
+      "paper"
+    ],
+    "base": 20,
+    "startTemp": 80,
+    "group": "food"
+  },
+  "banhMi_3": {
+    "id": "banhMi_3",
+    "name": "Bánh mì xíu mại",
+    "icon": "🥖",
+    "traits": [
+      "paper"
+    ],
+    "base": 20,
+    "startTemp": 80,
+    "group": "food"
+  },
+  "banhTrang": {
+    "id": "banhTrang",
+    "name": "Bánh tráng trộn khô",
+    "icon": "🍱",
+    "traits": [
+      "paper"
+    ],
+    "base": 15,
+    "startTemp": 80,
+    "group": "food"
+  },
+  "banhTrang_2": {
+    "id": "banhTrang_2",
+    "name": "Bánh tráng trộn mỡ hành",
+    "icon": "🍱",
+    "traits": [
+      "paper"
+    ],
+    "base": 15,
+    "startTemp": 80,
+    "group": "food"
+  },
+  "banhTrang_3": {
+    "id": "banhTrang_3",
+    "name": "Bánh tráng cuốn",
+    "icon": "🍱",
+    "traits": [
+      "paper"
+    ],
+    "base": 15,
+    "startTemp": 80,
+    "group": "food"
+  },
+  "oc": {
+    "id": "oc",
+    "name": "Ốc Len Xào Dừa",
+    "icon": "🥘",
+    "traits": [
+      "liquid",
+      "paper"
+    ],
+    "base": 30,
+    "startTemp": 50,
+    "group": "food"
+  },
+  "oc_2": {
+    "id": "oc_2",
+    "name": "Ốc Hương Xào Trứng Muối",
+    "icon": "🥘",
+    "traits": [
+      "liquid",
+      "paper"
+    ],
+    "base": 30,
+    "startTemp": 70,
+    "group": "food"
+  },
+  "oc_3": {
+    "id": "oc_3",
+    "name": "Mì Xào Ốc Giác",
+    "icon": "🥘",
+    "traits": [
+      "paper"
+    ],
+    "base": 30,
+    "startTemp": 70,
+    "group": "food"
   }
 }

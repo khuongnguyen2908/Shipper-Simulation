@@ -62,12 +62,12 @@
       "name": "Giờ hành chính",
       "ranges": [
         [
-          7.5,
-          11.5
+          8,
+          12
         ],
         [
-          13,
-          17
+          13.5,
+          17.5
         ]
       ]
     },
@@ -81,7 +81,7 @@
     },
     "quanAn": {
       "id": "quanAn",
-      "name": "Quán ăn",
+      "name": "Quán ăn bình thường",
       "ranges": [
         8,
         21
@@ -89,7 +89,7 @@
     },
     "caNgay": {
       "id": "caNgay",
-      "name": "Cả ngày chơi",
+      "name": "Cả ngày",
       "ranges": [
         6,
         22
@@ -97,10 +97,40 @@
     },
     "buoiToi": {
       "id": "buoiToi",
-      "name": "Buổi tối",
+      "name": "Quán ăn đêm",
       "ranges": [
         17,
-        23
+        24
+      ]
+    },
+    "haiTuGio": {
+      "id": "haiTuGio",
+      "name": "24Gio",
+      "ranges": [
+        0,
+        24
+      ]
+    },
+    "sangDenToi": {
+      "id": "sangDenToi",
+      "name": "Sáng đến tối 24h",
+      "ranges": [
+        8,
+        24
+      ]
+    },
+    "quanDem": {
+      "id": "quanDem",
+      "name": "Quán nhậu đêm",
+      "ranges": [
+        [
+          0,
+          2
+        ],
+        [
+          17,
+          24
+        ]
       ]
     }
   },
@@ -128,9 +158,143 @@
       }
     },
     {
+      "id": "quan1",
+      "name": "Ốc Đêm Thắm",
+      "short": "Ăn",
+      "kind": "restaurant",
+      "block": [
+        2,
+        3
+      ],
+      "lot": "S2",
+      "floors": 2,
+      "color": "#f4c095",
+      "sign": "ỐC THẮM",
+      "signBg": "#b03a2e",
+      "menu": [
+        "oc",
+        "oc_2",
+        "oc_3"
+      ],
+      "npc": {
+        "name": "Chị Thắm",
+        "shirt": "#5a5b72",
+        "pants": "#b8b8b8",
+        "hat": "nonla",
+        "portrait": "🧑‍🍳"
+      },
+      "hours": "quanDem"
+    },
+    {
+      "id": "banhtrang",
+      "name": "Bánh Tráng bé Mai",
+      "short": "Ăn",
+      "kind": "restaurant",
+      "block": [
+        4,
+        4
+      ],
+      "lot": "N1",
+      "floors": 1,
+      "color": "#a3a3a3",
+      "sign": "BÁNH TRÁNG BÉ MAI",
+      "signBg": "#e3359b",
+      "menu": [
+        "banhTrang",
+        "banhTrang_2",
+        "banhTrang_3"
+      ],
+      "npc": {
+        "name": "Bé Mai",
+        "shirt": "#b875a3",
+        "pants": "#9393a9",
+        "hat": null,
+        "portrait": "👩",
+        "skirt": true,
+        "gender": "f"
+      },
+      "hours": "quanAn",
+      "orders": {
+        "hours": [
+          6,
+          13
+        ]
+      }
+    },
+    {
+      "id": "banhmi",
+      "name": "Bánh mì Bông",
+      "short": "Ăn",
+      "kind": "restaurant",
+      "block": [
+        1,
+        3
+      ],
+      "lot": "N0",
+      "floors": 2,
+      "color": "#ac4d4d",
+      "sign": "BÁNH MÌ BÔNG",
+      "signBg": "#f16a5b",
+      "menu": [
+        "banhMi",
+        "banhMi_2",
+        "banhMi_3"
+      ],
+      "npc": {
+        "name": "Nhân viên bán hàng",
+        "shirt": "#a14a85",
+        "pants": "#323285",
+        "hat": null,
+        "portrait": "🧑‍🍳",
+        "skirt": true
+      },
+      "hours": "quanAn",
+      "orders": {
+        "hours": [
+          6,
+          13
+        ]
+      }
+    },
+    {
+      "id": "banhmi_2",
+      "name": "Bánh mì Bông",
+      "short": "Ăn",
+      "kind": "restaurant",
+      "block": [
+        4,
+        4
+      ],
+      "lot": "N2",
+      "floors": 2,
+      "color": "#ac4d4d",
+      "sign": "BÁNH MÌ BÔNG",
+      "signBg": "#f16a5b",
+      "menu": [
+        "banhMi",
+        "banhMi_2",
+        "banhMi_3"
+      ],
+      "npc": {
+        "name": "Nhân viên bán hàng",
+        "shirt": "#a14a85",
+        "pants": "#323285",
+        "hat": null,
+        "portrait": "🧑‍🍳",
+        "skirt": true
+      },
+      "hours": "quanAn",
+      "orders": {
+        "hours": [
+          6,
+          13
+        ]
+      }
+    },
+    {
       "id": "bunmoc",
       "name": "Bún Mọc Cô Yến",
-      "short": "Bún Mọc",
+      "short": "Ăn",
       "kind": "restaurant",
       "block": [
         1,
@@ -142,7 +306,8 @@
       "sign": "BÚN MỌC YẾN",
       "signBg": "#b03a2e",
       "menu": [
-        "bunMoc"
+        "bunMoc",
+        "bunMoc_2"
       ],
       "npc": {
         "name": "Cô Yến",
@@ -153,8 +318,8 @@
         "scale": 0.85
       },
       "hours": [
-        6,
-        13
+        6.5,
+        13.5
       ],
       "orders": {
         "hours": [
@@ -166,7 +331,7 @@
     {
       "id": "pho",
       "name": "Phở Bà Tư",
-      "short": "Phở",
+      "short": "Ăn",
       "kind": "restaurant",
       "block": [
         1,
@@ -179,7 +344,9 @@
       "signBg": "#b03a2e",
       "menu": [
         "pho",
-        "bunBo"
+        "bunBo",
+        "pho_2",
+        "pho_3"
       ],
       "npc": {
         "name": "Bà Tư",
@@ -199,10 +366,7 @@
           "perDay": 0
         }
       ],
-      "hours": [
-        6,
-        21
-      ],
+      "hours": "quanAn",
       "orders": {
         "hours": [
           6,
@@ -212,8 +376,8 @@
     },
     {
       "id": "comtam",
-      "name": "Cơm Tấm Anh Vũ",
-      "short": "Cơm",
+      "name": "Cơm Tấm Bốn Thèm",
+      "short": "Ăn",
       "kind": "restaurant",
       "block": [
         3,
@@ -222,7 +386,7 @@
       "lot": "S1",
       "floors": 2,
       "color": "#f4c095",
-      "sign": "CƠM TẤM VŨ",
+      "sign": "CƠM TẤM THÈM",
       "signBg": "#a04000",
       "menu": [
         "comTam",
@@ -248,10 +412,53 @@
           "perDay": 0
         }
       ],
-      "hours": [
+      "hours": "quanAn",
+      "orders": {
+        "hours": [
+          6,
+          21
+        ]
+      }
+    },
+    {
+      "id": "comtam_2",
+      "name": "Cơm Tấm Bốn Thèm",
+      "short": "Ăn",
+      "kind": "restaurant",
+      "block": [
         6,
-        21
+        5
       ],
+      "lot": "N0",
+      "floors": 2,
+      "color": "#f4c095",
+      "sign": "CƠM TẤM THÈM",
+      "signBg": "#a04000",
+      "menu": [
+        "comTam",
+        "comTamOpla",
+        "comTamGa"
+      ],
+      "npc": {
+        "name": "Anh Vũ",
+        "shirt": "#ffffff",
+        "pants": "#34495e",
+        "hat": "nonla",
+        "portrait": "🧑‍🍳",
+        "hairStyle": "bun"
+      },
+      "activities": [
+        {
+          "id": "meal",
+          "label": "Ăn một đĩa cơm tấm",
+          "cost": 35,
+          "minutes": 15,
+          "phys": 45,
+          "mental": 5,
+          "perDay": 0
+        }
+      ],
+      "hours": "quanAn",
       "orders": {
         "hours": [
           6,
@@ -262,7 +469,7 @@
     {
       "id": "trasua",
       "name": "Trà Sữa Mây",
-      "short": "Trà sữa",
+      "short": "Uống",
       "kind": "restaurant",
       "block": [
         4,
@@ -275,7 +482,8 @@
       "signBg": "#7d3c98",
       "menu": [
         "traSua",
-        "kem"
+        "kem",
+        "traSua_2"
       ],
       "npc": {
         "name": "Bé Vân",
@@ -301,10 +509,7 @@
           "perDay": 0
         }
       ],
-      "hours": [
-        9,
-        22
-      ],
+      "hours": "quanAn",
       "icon": "🧋",
       "orders": {
         "hours": [
@@ -314,9 +519,79 @@
       }
     },
     {
+      "id": "tra_2",
+      "name": "Tiệm Trà Đông Gia",
+      "short": "Uống",
+      "kind": "restaurant",
+      "block": [
+        3,
+        2
+      ],
+      "lot": "S2",
+      "floors": 2,
+      "color": "#f4c095",
+      "sign": "ĐÔNG GIA",
+      "signBg": "#b03a2e",
+      "menu": [
+        "dongGia1",
+        "dongGia1_2"
+      ],
+      "npc": {
+        "name": "Nhân viên tiệm",
+        "shirt": "#00ccff",
+        "pants": "#363636",
+        "hat": null,
+        "portrait": "👩",
+        "skin": "#f1c27d",
+        "gender": "f"
+      },
+      "hours": "sangDenToi",
+      "icon": "🧋",
+      "sells": {
+        "goods": [
+          "nhang"
+        ]
+      }
+    },
+    {
+      "id": "tra_3",
+      "name": "Tiệm Trà Đông Gia",
+      "short": "Uống",
+      "kind": "restaurant",
+      "block": [
+        6,
+        5
+      ],
+      "lot": "N2",
+      "floors": 2,
+      "color": "#f4c095",
+      "sign": "ĐÔNG GIA",
+      "signBg": "#b03a2e",
+      "menu": [
+        "dongGia1",
+        "dongGia1_2"
+      ],
+      "npc": {
+        "name": "Nhân viên tiệm",
+        "shirt": "#00ccff",
+        "pants": "#363636",
+        "hat": null,
+        "portrait": "👩",
+        "skin": "#f1c27d",
+        "gender": "f"
+      },
+      "hours": "sangDenToi",
+      "icon": "🧋",
+      "sells": {
+        "goods": [
+          "nhang"
+        ]
+      }
+    },
+    {
       "id": "banh",
       "name": "Tiệm Bánh Hạnh Phúc",
-      "short": "Bánh",
+      "short": "Ăn",
       "kind": "restaurant",
       "block": [
         5,
@@ -328,7 +603,9 @@
       "sign": "TIỆM BÁNH HẠNH PHÚC",
       "signBg": "#c0392b",
       "menu": [
-        "banhKem"
+        "banhKem",
+        "banhNgot",
+        "banhNgot_2"
       ],
       "npc": {
         "name": "Chị Hạnh",
@@ -340,10 +617,7 @@
         "hairStyle": "bun",
         "hair": "#8e2b2b"
       },
-      "hours": [
-        9,
-        22
-      ],
+      "hours": "quanAn",
       "icon": "🎂",
       "orders": {
         "hours": [
@@ -355,7 +629,7 @@
     {
       "id": "tra",
       "name": "Tiệm Trà A Di Đà",
-      "short": "Trà",
+      "short": "Uống",
       "kind": "restaurant",
       "block": [
         7,
@@ -379,10 +653,7 @@
         "portrait": "👩",
         "skin": "#f1c27d"
       },
-      "hours": [
-        8,
-        21
-      ],
+      "hours": "anSang",
       "icon": "🍵",
       "orders": {
         "hours": [
@@ -420,7 +691,8 @@
         "goods": [
           "energyDrink"
         ]
-      }
+      },
+      "hours": "haiTuGio"
     },
     {
       "id": "gas2",
@@ -434,9 +706,9 @@
       ],
       "lot": "N2",
       "floors": 1,
-      "color": "#d6eaf8",
-      "sign": "ĐỊA ĐIỂM MỚI",
-      "signBg": "#2e86c1",
+      "color": "#ffffff",
+      "sign": "XĂNG DẦU",
+      "signBg": "#1f4e9c",
       "npc": {
         "name": "Nhân viên",
         "shirt": "#2e86c1",
@@ -444,10 +716,6 @@
         "hat": null,
         "portrait": "🙂"
       },
-      "hours": [
-        8,
-        21
-      ],
       "activities": [
         {
           "id": "nghi",
@@ -458,12 +726,48 @@
           "mental": 5,
           "perDay": 0
         }
-      ]
+      ],
+      "hours": "caNgay"
+    },
+    {
+      "id": "gas2_2",
+      "name": "Cây xăng PVOTL",
+      "short": "Xăng",
+      "kind": "gas",
+      "icon": "⛽",
+      "block": [
+        6,
+        1
+      ],
+      "lot": "S2",
+      "floors": 1,
+      "color": "#ffffff",
+      "sign": "XĂNG DẦU",
+      "signBg": "#1f4e9c",
+      "npc": {
+        "name": "Nhân viên",
+        "shirt": "#2e86c1",
+        "pants": "#333344",
+        "hat": null,
+        "portrait": "🙂"
+      },
+      "activities": [
+        {
+          "id": "nghi",
+          "label": "Ngồi nghỉ",
+          "cost": 0,
+          "minutes": 15,
+          "phys": 5,
+          "mental": 5,
+          "perDay": 0
+        }
+      ],
+      "hours": "caNgay"
     },
     {
       "id": "gear",
       "name": "Đồ Nghề Shipper",
-      "short": "Đồ nghề",
+      "short": "Đồ",
       "kind": "shop",
       "block": [
         4,
@@ -495,12 +799,13 @@
       },
       "orders": {
         "parcelWeight": 1
-      }
+      },
+      "hours": "caNgay"
     },
     {
       "id": "garage",
       "name": "Tiệm Xe Tư Lùn",
-      "short": "Tiệm xe",
+      "short": "Xe",
       "kind": "garage",
       "block": [
         4,
@@ -528,12 +833,56 @@
           "sport",
           "SH"
         ]
-      }
+      },
+      "hours": "caNgay"
+    },
+    {
+      "id": "cafe1",
+      "name": "Cà phê Long Ra",
+      "short": "Uống",
+      "kind": "restaurant",
+      "block": [
+        4,
+        3
+      ],
+      "lot": "f5",
+      "floors": 2,
+      "color": "#821737",
+      "sign": "CÀ PHÊ LONGRA",
+      "signBg": "#d7b81d",
+      "npc": {
+        "name": "Chị Thủy Anh",
+        "shirt": "#000000",
+        "pants": "#404040",
+        "hat": null,
+        "portrait": "👩",
+        "hairStyle": "long",
+        "gender": "f",
+        "skirt": true
+      },
+      "hours": "sangDenToi",
+      "activities": [
+        {
+          "id": "nghi",
+          "label": "Ngồi cafe",
+          "cost": 0,
+          "minutes": 15,
+          "phys": 5,
+          "mental": 5,
+          "perDay": 0
+        }
+      ],
+      "menu": [
+        "cafe",
+        "cafe_2",
+        "cafe_3"
+      ],
+      "icon": "☕"
     },
     {
       "id": "cafe",
       "name": "Cà phê Góc Phố",
-      "short": "Cà phê",
+      "short": "Uống",
       "kind": "cafe",
       "block": [
         4,
@@ -562,16 +911,63 @@
           "perDay": 0
         }
       ],
-      "hours": [
-        4,
-        21
-      ],
+      "hours": "caNgay",
       "orders": {
         "hours": [
           4,
           21
         ]
       }
+    },
+    {
+      "id": "cafevong",
+      "name": "Cà phê Võng",
+      "short": "Uống",
+      "kind": "service",
+      "block": [
+        7,
+        6
+      ],
+      "lot": "N2",
+      "floors": 2,
+      "color": "#c8a27a",
+      "sign": "CÀ PHÊ VÕNG",
+      "signBg": "#4e342e",
+      "npc": {
+        "name": "Chị chủ quán",
+        "shirt": "#ff7142",
+        "pants": "#ffffff",
+        "hat": null,
+        "portrait": "☕",
+        "skin": "#ffdbac",
+        "gender": "f",
+        "hairStyle": "long",
+        "skirt": true,
+        "hair": "#d4a94f"
+      },
+      "icon": "☕",
+      "hours": "sangDenToi",
+      "nap": true,
+      "activities": [
+        {
+          "id": "drink",
+          "label": "Uống cà phê ",
+          "cost": 20,
+          "minutes": 10,
+          "phys": 5,
+          "mental": 30,
+          "perDay": 0
+        },
+        {
+          "id": "fun",
+          "label": "Làm gì đó vui vẻ",
+          "cost": 200,
+          "minutes": 15,
+          "phys": -5,
+          "mental": 30,
+          "perDay": 0
+        }
+      ]
     },
     {
       "id": "taphoa",
@@ -613,7 +1009,8 @@
       },
       "orders": {
         "parcelWeight": 3
-      }
+      },
+      "hours": "caNgay"
     },
     {
       "id": "gate",
@@ -634,7 +1031,8 @@
         "pants": "#1c2833",
         "hat": null,
         "portrait": "👵"
-      }
+      },
+      "hours": "caNgay"
     },
     {
       "id": "apartment",
@@ -660,7 +1058,8 @@
       "orders": {
         "rideWeight": 5,
         "foodWeight": 5
-      }
+      },
+      "hours": "haiTuGio"
     },
     {
       "id": "market",
@@ -682,12 +1081,13 @@
         "foodWeight": 0,
         "parcelWeight": 3
       },
-      "icon": "🏬"
+      "icon": "🏬",
+      "hours": "caNgay"
     },
     {
       "id": "nhasach",
       "name": "Nhà Sách Tự Do",
-      "short": "Nhà sách Tự Do",
+      "short": "Sách",
       "kind": "service",
       "icon": "📚",
       "block": [
@@ -710,10 +1110,7 @@
         "skin": "#ffdbac",
         "skirt": true
       },
-      "hours": [
-        10,
-        20
-      ],
+      "hours": "hanhChinh",
       "activities": [
         {
           "id": "read",
@@ -804,10 +1201,7 @@
           24
         ]
       },
-      "hours": [
-        17,
-        24
-      ]
+      "hours": "sangDenToi"
     },
     {
       "id": "vanphong",
@@ -831,10 +1225,7 @@
         "hat": null,
         "portrait": "💂"
       },
-      "hours": [
-        9,
-        17
-      ],
+      "hours": "hanhChinh",
       "activities": [
         {
           "id": "dilam",
@@ -877,10 +1268,7 @@
         "gender": "f",
         "hairStyle": "bald"
       },
-      "hours": [
-        5,
-        19
-      ],
+      "hours": "hanhChinh",
       "activities": [
         {
           "id": "thapnhang",
@@ -938,10 +1326,7 @@
         "hair": "#5a3825",
         "gender": "m"
       },
-      "hours": [
-        8,
-        21
-      ],
+      "hours": "caNgay",
       "orders": {
         "hours": [
           8,
@@ -987,10 +1372,7 @@
         "skin": "#f1c27d",
         "skirt": true
       },
-      "hours": [
-        8,
-        21
-      ],
+      "hours": "hanhChinh",
       "activities": [
         {
           "id": "noi",
@@ -1003,10 +1385,7 @@
         }
       ],
       "orders": {
-        "hours": [
-          8,
-          16
-        ]
+        "hours": "hanhChinh"
       },
       "face": "W",
       "sells": {

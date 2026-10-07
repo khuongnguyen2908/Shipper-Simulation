@@ -384,7 +384,7 @@
   "receipt.titleRide": "🧾 Hoàn tất chuyến #{id}",
   "receipt.comfort": "Khách thoải mái",
   "receipt.noDamageRide": "Khách thoải mái suốt chuyến 👍",
-  "receipt.scaredNote": "Khách sợ quá, chỉ trả {pct}% cước",
+  "receipt.scaredNote": "Khách sợ quá, chỉ trả {pct}% c��ớc",
   "comment.ride.1": [
     "\"Chạy như đua xe vậy, tim muốn rớt ra ngoài!\"",
     "\"Lần sau đi bộ còn hơn.\""
@@ -696,5 +696,15 @@
   "dlg.stopOnOrder": "có đơn là đứng dậy",
   "toast.napOrder": "📱 Điện thoại reo! Dậy sau {min} phút ({time}) · Thể lực {phys} · Tinh thần {mental}",
   "toast.napDone": "☀️ Dậy rồi! {time} · Thể lực {phys} · Tinh thần {mental}",
-  "toast.orderWake": "📱 Có đơn mới — đứng dậy xem điện thoại!"
+  "toast.orderWake": "📱 Có đơn mới — đứng dậy xem điện thoại!",
+  "npc.cafevong.greet": "\"Chào em! Đơn của em đây.\"",
+  "npc.cafe1.greet": "\"Chào bạn! Vào chơi nha.\"",
+  "npc.gas2_2.greet": "\"Chào bạn! Vào chơi nha.\"",
+  "npc.comtam_2.greet": "\"Cơm tấm sườn bì chả, ngon nhất phố!\"",
+  "npc.tra_2.greet": "\"Đông Gia xin chào, mình uống gì ạ?\"",
+  "npc.tra_3.greet": "\"Đông Gia xin chào, mình uống gì ạ?\"",
+  "npc.banhmi.greet": "\"Đơn của anh đây. Cẩn thận nha\"",
+  "npc.banhmi_2.greet": "\"Đơn của anh đây. Cẩn thận nha\"",
+  "npc.banhtrang.greet": "\"Đơn của anh đây. Cẩn thận nha\"",
+  "npc.quan1.greet": "\"Chào em! Đơn của em đây.\""
 }
