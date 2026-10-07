@@ -1171,8 +1171,9 @@ console.log('Mở tiệm / món theo ngày');
     assert.ok(unlocked({}, 1) && !unlocked({ openDay: 2 }, 1));
   });
   test('Quán chưa khai trương không có đơn; tới ngày thì có', () => {
-    const r = layout.places.find((p) => p.kind === 'restaurant' && !p.hours);
-    const r2 = r || layout.places.find((p) => p.kind === 'restaurant');
+    // quán đang mở lúc 12:00, có món nóng có đơn từ ngày 1 (dữ liệu người dùng đổi giờ / thêm quán đêm thoải mái)
+    const r2 = layout.places.find((p) => p.kind === 'restaurant' && isOpen(p, 12 * 60) && (p.menu || []).some((id) => LIVE_ITEMS[id] && openDayOf(LIVE_ITEMS[id]) === 1 && !LIVE_ITEMS[id].traits.includes('cold')));
+    if (!r2) return; // dữ liệu không có quán mở buổi trưa
     const saved = r2.openDay;
     r2.openDay = 3;
     const from = (day) => {
@@ -1187,7 +1188,7 @@ console.log('Mở tiệm / món theo ngày');
     } finally { if (saved === undefined) delete r2.openDay; else r2.openDay = saved; }
   });
   test('Món chưa tới ngày không có đơn (kể cả khi quán đã mở)', () => {
-    const r = layout.places.find((p) => p.kind === 'restaurant' && (p.menu || []).length >= 2 && p.menu.every((id) => LIVE_ITEMS[id] && !LIVE_ITEMS[id].traits.includes('cold')));
+    const r = layout.places.find((p) => p.kind === 'restaurant' && isOpen(p, 12 * 60) && (p.menu || []).length >= 2 && p.menu.every((id) => LIVE_ITEMS[id] && openDayOf(LIVE_ITEMS[id]) === 1 && !LIVE_ITEMS[id].traits.includes('cold')));
     if (!r) return; // dữ liệu không có quán 2 món nóng
     const id = r.menu[0], it = LIVE_ITEMS[id], saved = it.openDay;
     it.openDay = 4;
