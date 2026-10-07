@@ -1051,6 +1051,29 @@ console.log('Khung giờ (một đoạn, nhiều đoạn, giờ lẻ, khung gi�
   });
 }
 
+console.log('Vẽ xe kẹt giờ cao điểm');
+{
+  const THREE = await import('three');
+  const { Traffic } = await import('../src/world/traffic.js');
+  test('Xe kẹt xe được tính lại vùng bao (không bị bỏ qua khi vẽ), hết kẹt thì không còn xe', () => {
+    const t = Object.create(Traffic.prototype);
+    Object.assign(t, { scene: new THREE.Scene(), rng: makeRng(1), jamKeys: new Set(), jamCircles: [] });
+    t.buildJamMeshes();
+    t.jamCarMesh.computeBoundingSphere(); // lần vẽ đầu tiên lúc chưa có xe → vùng bao rỗng
+    t.setJams([{ axis: 'x', line: 2, from: 1 }]);
+    const m = t.jamCarMesh, s = m.boundingSphere;
+    assert.ok(m.count > 0 && s.radius > 0, `vùng bao rỗng: r=${s.radius}`);
+    const M = new THREE.Matrix4(), p = new THREE.Vector3();
+    for (let i = 0; i < m.count; i++) {
+      m.getMatrixAt(i, M);
+      p.setFromMatrixPosition(M);
+      assert.ok(s.containsPoint(p), `xe thứ ${i} nằm ngoài vùng bao`);
+    }
+    t.setJams([]);
+    assert.equal(t.jamCarMesh.count, 0);
+  });
+}
+
 console.log('Mở tiệm / món theo ngày');
 {
   const { playRun } = await import('./economy-sim.js');

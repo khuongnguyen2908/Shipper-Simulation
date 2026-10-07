@@ -171,6 +171,12 @@ export class Traffic {
     this.jamCarMesh.instanceMatrix.needsUpdate = this.jamMotoMesh.instanceMatrix.needsUpdate = true;
     if (this.jamCarMesh.instanceColor) this.jamCarMesh.instanceColor.needsUpdate = true;
     if (this.jamMotoMesh.instanceColor) this.jamMotoMesh.instanceColor.needsUpdate = true;
+    // Tính lại vùng bao theo vị trí xe mới. Không có bước này, Three.js giữ vùng bao tính lúc chưa có xe
+    // (rỗng) → tưởng cả đám xe nằm ngoài tầm nhìn nên không vẽ (lỗi: giờ cao điểm không thấy xe kẹt).
+    for (const m of [this.jamCarMesh, this.jamMotoMesh]) {
+      m.computeBoundingSphere();
+      if (m.boundingBox) m.computeBoundingBox();
+    }
   }
 
   // ---------------- CSGT ----------------
