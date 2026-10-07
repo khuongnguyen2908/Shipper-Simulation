@@ -6,7 +6,7 @@ import { TRAIT_IDS, PROTECTED, ID_RE } from '../../data/validate.js';
 import { el, field, textInput, numInput, checkInput, button, sideList, selectInput, emojiInput, explain, openDayInput } from './ui.js';
 import { HINT, EXPLAIN } from './help.js';
 import { moveKey } from './order.js';
-import { rowMenu, pasteButton, entryButtons, doRemove } from './opsUi.js';
+import { rowMenu, addButton, entryButtons, doRemove } from './opsUi.js';
 
 const TRAIT_INFO = {
   hot: ['🔥 Nóng', 'Nguội dần; dưới 60°C bắt đầu mất điểm'],
@@ -27,7 +27,7 @@ export function render(root, ctx) {
   const drawSide = () => {
     side.innerHTML = '';
     side.append(
-      el('div', { class: 'side-head' }, el('b', {}, `Món hàng (${ids.length})`), el('span', { class: 'inline' }, pasteButton(ctx, 'items'), button('＋ Thêm món', addItem, 'small primary'))),
+      el('div', { class: 'side-head' }, el('b', {}, `Món hàng (${ids.length})`), addButton(ctx, 'items', [['🍜 Món mới', addItem]])),
       sideList(
         Object.values(items).map((it) => ({ id: it.id, icon: it.icon, title: it.name || '(chưa đặt tên)', sub: `${it.id} · ${it.base}k${it.openDay > 1 ? ` · từ ngày ${it.openDay}` : ''}` })),
         sel.id,
@@ -131,7 +131,7 @@ export function render(root, ctx) {
         t.items = on ? [...(t.items || []), it.id] : (t.items || []).filter((x) => x !== it.id);
         ctx.changed('apps');
         changed();
-      }, `${t.icon || ''} ${t.name}`))), { ref, fieldKey: 'orderTypes', wide: true, hint: 'Thay đổi này nằm trong file app (apps.json)' }) : null,
+      }, `${t.icon || ''} ${t.name}`))), { ref, fieldKey: 'orderTypes', wide: true, hint: 'Thay đổi này nằm trong file app (apps.json)' }) : '', // append(null) sẽ in ra chữ "null"
     );
   }
 

@@ -55,7 +55,7 @@ export function render(root, ctx) {
   const content = ctx.data.content;
   const base = ctx.base.content;
   const sel = ctx.sel.text;
-  sel.group = sel.group ?? '';
+  sel.group = sel.group ?? 'screen'; // lần đầu mở nhóm đầu tiên (nhóm "Tất cả" rất dài)
   sel.search = sel.search ?? '';
   const groupOf = (k) => k.split('.')[0];
   const counts = {};
@@ -99,7 +99,7 @@ export function render(root, ctx) {
   });
   body.append(
     el('div', { class: 'text-tools' }, search, onlyEdited, onlyIssues, editedInfo),
-    el('p', { class: 'muted' }, 'Dùng được HTML đơn giản: <b>đậm</b>, <i>nghiêng</i>, <small>nhỏ</small>, <br> xuống dòng. {tên} là tham số game tự điền — chỉ dùng những tham số có sẵn của câu đó.'),
+    el('p', { class: 'muted' }, 'Bấm vào một câu để sửa — phần xem trước hiện ngay bên dưới. Dùng được HTML đơn giản: <b>đậm</b>, <i>nghiêng</i>, <small>nhỏ</small>, <br> xuống dòng. {tên} là tham số game tự điền — chỉ dùng những tham số có sẵn của câu đó.'),
     listBox,
   );
 
@@ -117,9 +117,9 @@ export function render(root, ctx) {
       return k.toLowerCase().includes(q) || String(v).toLowerCase().includes(q);
     });
     if (!keys.length) listBox.append(el('p', { class: 'muted' }, 'Không có câu nào khớp.'));
-    const LIMIT = 150;
+    const LIMIT = 60;
     for (const k of keys.slice(0, LIMIT)) listBox.append(entry(k));
-    if (keys.length > LIMIT) listBox.append(el('p', { class: 'muted' }, `… còn ${keys.length - LIMIT} câu nữa — gõ tìm kiếm hoặc chọn nhóm để thu hẹp.`));
+    if (keys.length > LIMIT) listBox.append(el('p', { class: 'muted' }, `… còn ${keys.length - LIMIT} câu nữa — gõ tìm kiếm hoặc chọn nhóm bên trái để thu hẹp.`));
     ctx.applyFieldIssues();
   }
 

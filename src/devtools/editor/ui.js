@@ -21,15 +21,88 @@ export function el(tag, attrs = {}, ...children) {
 
 // Một dòng nhập liệu có nhãn, gợi ý và chỗ hiện lỗi.
 // ref/field/cat dùng để gắn lỗi từ src/data/validate.js vào đúng ô.
+// Ghi chú thu vào nút ⓘ cạnh tên ô (rê chuột / bấm để xem); bật "Hiện ghi chú" ở thanh trên thì hiện hết như cũ.
 export function field(label, input, { hint, ref = '', fieldKey = '', cat = '', wide = false } = {}) {
+  const tip = hint ? el('span', { class: 'fld-i', tabindex: 0, title: '', onclick: (e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.closest('.fld').classList.toggle('tip-on'); } }, 'ⓘ') : null;
   return el(
     'div',
     { class: `fld${wide ? ' wide' : ''}`, 'data-ref': ref, 'data-field': fieldKey, 'data-cat': cat },
-    el('span', { class: 'fld-l' }, label),
+    label || tip ? el('span', { class: 'fld-l' }, label, tip) : null,
     input,
     hint ? el('small', { class: 'fld-h' }, hint) : null,
     el('div', { class: 'fld-msg' }),
   );
+}
+
+// ---------- thẻ con: chia trang dài thành nhiều phần, mỗi lúc chỉ hiện một phần ----------
+// key: loại trang (vd 'place') → nhớ phần đang mở khi chuyển mục / F5.
+// defs: [[mã, nhãn], …]. Dùng: const t = subTabs('place', defs); t.pane('npc').append(…); body.append(t.el); t.done();
+const SUB_KEY = 'shipper-editor-sub';
+const subOpen = (() => {
+  try {
+    return JSON.parse(localStorage.getItem(SUB_KEY) || '{}') || {};
+  } catch {
+    return {};
+  }
+})();
+export function subTabs(key, defs) {
+  const bar = el('div', { class: 'subtabs', role: 'tablist' });
+  const panes = {};
+  const btns = {};
+  for (const [id, label] of defs) {
+    panes[id] = el('div', { class: 'sec-pane', 'data-sec': id });
+    btns[id] = el('button', { type: 'button', class: 'subtab', onclick: () => show(id) }, label, el('i', { class: 'sub-dot' }));
+    bar.append(btns[id]);
+  }
+  const wrap = el('div', { class: 'subtabs-wrap' }, bar, Object.values(panes));
+  wrap.showSec = (id) => show(id);
+  function show(id) {
+    if (!panes[id] || btns[id].hidden) id = defs.map(([d]) => d).find((d) => !btns[d].hidden) || id;
+    for (const [d] of defs) {
+      panes[d].hidden = d !== id;
+      btns[d].classList.toggle('on', d === id);
+    }
+    subOpen[key] = id;
+    try {
+      localStorage.setItem(SUB_KEY, JSON.stringify(subOpen));
+    } catch {
+      /* chế độ riêng tư */
+    }
+  }
+  return {
+    el: wrap,
+    pane: (id) => panes[id],
+    // gọi sau khi đổ nội dung: ẩn phần rỗng, mở phần đã nhớ
+    done() {
+      for (const [d] of defs) btns[d].hidden = !panes[d].childNodes.length;
+      show(subOpen[key] || defs[0][0]);
+    },
+  };
+}
+// Đánh dấu chấm đỏ / vàng trên thẻ con có ô lỗi / cảnh báo (gọi sau khi gắn lỗi vào ô)
+export function markSubTabs(root) {
+  root.querySelectorAll('.subtabs-wrap').forEach((w) => {
+    const bar = w.querySelector(':scope > .subtabs');
+    w.querySelectorAll(':scope > .sec-pane').forEach((pane, i) => {
+      const btn = bar.children[i];
+      btn.classList.toggle('has-err', !!pane.querySelector('.fld.has-err'));
+      btn.classList.toggle('has-warn', !pane.querySelector('.fld.has-err') && !!pane.querySelector('.fld.has-warn'));
+    });
+  });
+}
+// Mở đúng thẻ con / mục "Nâng cao" đang chứa một ô (để nhảy tới chỗ lỗi)
+export function revealField(fld) {
+  for (let n = fld; n; n = n.parentElement) {
+    if (n.tagName === 'DETAILS') n.open = true;
+    if (n.classList?.contains('sec-pane')) n.parentElement.showSec?.(n.dataset.sec);
+  }
+}
+
+// Mục "⚙️ Nâng cao": ô ít khi sửa, mặc định thu gọn (nhớ trạng thái mở khi trang vẽ lại)
+export function advanced(title, ...children) {
+  const d = el('details', { class: 'adv', open: openExplain.has(`adv:${title}`) }, el('summary', {}, `⚙️ ${title}`), el('div', { class: 'grid tight' }, children));
+  d.addEventListener('toggle', () => (d.open ? openExplain.add(`adv:${title}`) : openExplain.delete(`adv:${title}`)));
+  return d;
 }
 
 export function textInput(value, onInput, attrs = {}) {
@@ -142,7 +215,33 @@ export function button(label, onClick, cls = '') {
 // Danh sách chọn bên trái (dùng chung cho các thẻ)
 // onReorder(from, to): có thì mỗi dòng có tay nắm ⠿ để kéo đổi thứ tự; dòng r.fixed đứng yên ở đầu
 // menu(id): có thì mỗi dòng có nút ⋯ (và chuột phải) mở menu thao tác [{ label, onClick, disabled, danger }]
-export function sideList(rows, selected, onPick, { issuesFor, onReorder, menu } = {}) {
+// Danh sách dài (> 8 dòng) có ô tìm ở trên: lọc theo tên / mã / dòng phụ, không phân biệt dấu. Đang lọc thì tắt kéo thả.
+const listQuery = new Map(); // chữ đang tìm của từng danh sách (giữ khi vẽ lại)
+const fold = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+export function sideList(rows, selected, onPick, opts = {}) {
+  const list = sideRows(rows, selected, onPick, opts);
+  if (rows.length <= 8) return list;
+  const key = opts.key || rows.find((r) => !r.fixed)?.id || 'list';
+  const q = el('input', { type: 'search', class: 'side-search', placeholder: '🔎 Tìm…', value: listQuery.get(key) || '' });
+  const apply = () => {
+    const words = fold(q.value).split(/\s+/).filter(Boolean);
+    listQuery.set(key, q.value);
+    list.classList.toggle('filtering', words.length > 0);
+    list.querySelectorAll('.side-row').forEach((row) => {
+      const hay = fold(row.dataset.find);
+      row.hidden = !words.every((w) => hay.includes(w));
+    });
+  };
+  q.addEventListener('input', apply);
+  q.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { q.value = ''; apply(); }
+    if (e.key === 'Enter') list.querySelector('.side-row:not([hidden])')?.click();
+  });
+  apply();
+  return el('div', { class: 'side-wrap' }, q, list);
+}
+
+function sideRows(rows, selected, onPick, { issuesFor, onReorder, menu } = {}) {
   const list = el(
     'div',
     { class: 'side-list' },
@@ -153,7 +252,7 @@ export function sideList(rows, selected, onPick, { issuesFor, onReorder, menu } 
       const hasMenu = menu && !r.fixed;
       const row = el(
         'button',
-        { class: `side-row${r.id === selected ? ' on' : ''}`, type: 'button', 'data-sort': sortable ? '' : null, onclick: () => onPick(r.id) },
+        { class: `side-row${r.id === selected ? ' on' : ''}`, type: 'button', 'data-sort': sortable ? '' : null, 'data-find': `${r.title} ${r.sub || ''} ${r.id}`, onclick: () => onPick(r.id) },
         sortable ? dragHandle() : null,
         el('span', { class: 'sr-icon' }, r.icon || '•'),
         el('span', { class: 'sr-main' }, el('b', {}, r.title), el('small', {}, r.sub || '')),

@@ -165,3 +165,45 @@ table.sim-table td { vertical-align: top; }
 .dm-col { display: flex; align-items: flex-end; height: 36px; width: 14px; background: #1f2733; border-radius: 3px; }
 .dm-bar { display: block; width: 100%; background: #00b14f; border-radius: 3px; }
 
+/* ---- gọn giao diện: thẻ con, ghi chú ⓘ, Nâng cao, ô tìm danh sách ---- */
+.ed-app [hidden] { display: none !important; }
+.fld { position: relative; }
+.fld-l { display: flex; align-items: center; gap: 5px; }
+.fld-i { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; font-size: 11px; font-weight: 700; color: #7f8b9c; cursor: help; user-select: none; }
+.fld-i:hover, .fld-i:focus, .fld.tip-on .fld-i { color: #fff; background: #2b4466; outline: none; }
+body.editor-mode:not(.show-hints) .fld > .fld-h { display: none; }
+body.editor-mode:not(.show-hints) .fld:has(> .fld-l .fld-i:hover) > .fld-h,
+body.editor-mode:not(.show-hints) .fld:has(> .fld-l .fld-i:focus) > .fld-h,
+body.editor-mode:not(.show-hints) .fld.tip-on > .fld-h {
+  display: block; position: absolute; left: 0; top: 100%; z-index: 40; width: max(240px, 100%); max-width: 400px; box-sizing: border-box;
+  background: #0b0f15; border: 1px solid #3a4558; border-radius: 8px; padding: 8px 10px; color: #d4dbe6; font-size: 12px; line-height: 1.45; box-shadow: 0 8px 24px #000a;
+}
+body.show-hints .fld-i { display: none; }
+.subtabs { display: flex; gap: 2px; flex-wrap: wrap; border-bottom: 1px solid #2d3644; margin: 12px 0 6px; }
+.subtab { background: none; border: 0; border-bottom: 2px solid transparent; color: #a9b3c4; padding: 8px 12px; font: 600 13px 'Segoe UI', sans-serif; cursor: pointer; border-radius: 6px 6px 0 0; }
+.subtab:hover { background: #232b38; color: #fff; }
+.subtab.on { color: #fff; border-bottom-color: #00b14f; background: #1f2a24; }
+.sub-dot { display: none; width: 7px; height: 7px; border-radius: 50%; margin-left: 6px; vertical-align: middle; }
+.subtab.has-err .sub-dot { display: inline-block; background: #e74c3c; }
+.subtab.has-warn .sub-dot { display: inline-block; background: #f39c12; }
+.sec-pane > h3:first-child { margin-top: 10px; }
+.adv { margin-top: 12px; border: 1px dashed #2f3a4a; border-radius: 10px; }
+.adv summary { cursor: pointer; padding: 7px 10px; color: #a9b3c4; font-size: 13px; font-weight: 600; }
+.adv[open] summary { border-bottom: 1px dashed #2f3a4a; }
+.adv > .grid { padding: 0 10px 10px; }
+.side-search { margin: 0 0 6px; }
+.side-list.filtering .drag-h { visibility: hidden; }
+.fld.flash { animation: fld-flash 1.5s ease-out; border-radius: 8px; }
+@keyframes fld-flash { 0%, 40% { box-shadow: 0 0 0 3px #f5b041; } 100% { box-shadow: 0 0 0 3px transparent; } }
+/* thẻ Chữ: xem trước chỉ hiện ở câu đang sửa */
+.tx-preview { display: none; }
+.tx:focus-within .tx-preview { display: block; }
+.tx:focus-within { border-color: #2e7d4f; }
+/* thẻ Chữ: mỗi câu một dòng — khóa bên trái, ô sửa bên phải */
+.tx { display: grid; grid-template-columns: minmax(170px, 240px) 1fr; gap: 2px 12px; align-items: start; padding: 6px 10px; }
+.tx-head { grid-column: 1; flex-direction: column; align-items: flex-start; gap: 3px; margin: 2px 0 0; }
+.tx-head code { margin-right: 0; word-break: break-all; }
+.tx > .fld, .tx > .tx-preview { grid-column: 2; }
+.tx > .fld.wide { margin-top: 0; }
+.text-list { gap: 4px; }
+@media (max-width: 900px) { .tx { grid-template-columns: 1fr; } .tx > * { grid-column: 1 !important; } }

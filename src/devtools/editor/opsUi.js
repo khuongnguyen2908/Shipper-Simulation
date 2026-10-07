@@ -2,7 +2,7 @@
 // Mỗi thao tác là MỘT bước hoàn tác (ctx.historyBreak trước và sau).
 import { KINDS, duplicate, makeClip, makeActivityClip, parseClip, paste, remove, removeInfo, currentEntry, pasteKindFor, uniqueId } from './ops.js';
 import { CHANGEABLE_KINDS } from './placeKind.js';
-import { button } from './ui.js';
+import { button, openMenu } from './ui.js';
 
 const CLIP_KEY = 'shipper-editor-clip';
 const TAB_NAME = { items: '🍜 Vật phẩm', gear: '🛵 Xe · Túi · Đồ dùng', places: '🏪 Địa điểm', app: '📱 App & Đơn' };
@@ -127,12 +127,19 @@ export function rowMenu(ctx, kind) {
   };
 }
 
-// Nút "📥 Dán" ở đầu danh sách
-export function pasteButton(ctx, kind) {
-  const clip = readClip();
-  const ok = clip && clip.kind === kind;
-  const b = button('📥 Dán', () => doPaste(ctx, readClip()), `small${ok ? '' : ' dim'}`);
-  b.title = ok ? `Dán ${label(kind)} "${clip.data.name || clip.data.id}" (Ctrl+V)` : 'Chưa sao chép mục loại này (⋯ → Sao chép)';
+// Nút "＋ Thêm ▾" ở đầu danh sách: các cách thêm mới + Dán mục đã sao chép
+// adds: [[nhãn, hàm], …]
+export function addButton(ctx, kind, adds) {
+  const b = button('＋ Thêm ▾', () => {
+    const clip = readClip();
+    const ok = clip && clip.kind === kind;
+    const r = b.getBoundingClientRect();
+    openMenu(r.left, r.bottom + 4, [
+      ...adds.map(([lbl, fn]) => ({ label: lbl, onClick: fn })),
+      null,
+      { label: ok ? `📥 Dán "${clip.data.name || clip.data.id}"` : '📥 Dán', kbd: 'Ctrl+V', disabled: !ok, hint: ok ? '' : 'Chưa sao chép mục loại này (⋯ → Sao chép)', onClick: () => doPaste(ctx, readClip()) },
+    ]);
+  }, 'small primary');
   return b;
 }
 

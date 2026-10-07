@@ -2,11 +2,11 @@
 import { ID_RE } from '../../data/validate.js';
 import { ORDER_KINDS } from '../../data/apps.js';
 import { EFFECTS } from '../../data/goods.js';
-import { el, field, textInput, numInput, button, sideList, selectInput, checkInput, emojiInput, explain, areaInput } from './ui.js';
+import { el, field, textInput, numInput, button, sideList, selectInput, checkInput, emojiInput, explain, areaInput, subTabs } from './ui.js';
 import { HINT, EXPLAIN } from './help.js';
 import { hoursPicker } from './hoursUi.js';
 import { moveKey } from './order.js';
-import { rowMenu, pasteButton, entryButtons, doRemove } from './opsUi.js';
+import { rowMenu, addButton, entryButtons, doRemove } from './opsUi.js';
 
 const CATS = [
   ['app', '📱 App'],
@@ -31,7 +31,7 @@ export function render(root, ctx) {
     const total = Object.values(table).reduce((s, x) => s + (x.weight > 0 ? x.weight : 0), 0);
     side.append(
       el('div', { class: 'seg' }, CATS.map(([c, label]) => button(label, () => ctx.select('app', { cat: c, id: null }), cat === c ? 'on' : ''))),
-      el('div', { class: 'side-head' }, el('b', {}, `${Object.keys(table).length} mục`), cat === 'app' ? null : el('span', { class: 'inline' }, pasteButton(ctx, cat), button('＋ Thêm', add, 'small primary'))),
+      el('div', { class: 'side-head' }, el('b', {}, `${Object.keys(table).length} mục`), cat === 'app' ? null : addButton(ctx, cat, [['＋ Mục mới', add]])),
       sideList(
         Object.values(table).map((x) => ({
           id: x.id,
@@ -75,11 +75,12 @@ export function render(root, ctx) {
   function renderApp() {
     const H = HINT.app;
     const acc = (x.account = x.account || {});
-    body.append(
+    const T = subTabs('app', [['fees', '💰 Phí & tiền mỗi đơn'], ['time', '⏰ Giờ & nhu cầu đơn'], ['account', '🛡️ Luật tài khoản']]);
+    body.append(T.el);
+    T.pane('fees').append(
       el('div', { class: 'grid' },
         field('Tên app', textInput(x.name, (v) => { x.name = v; changed(); }), opt('name')),
         num('platformFee', 'Phí nền tảng (%)', { ...pct, min: 0, max: 90, hint: H.platformFee }),
-        hoursRow('Giờ app nhận đơn', 'Ngoài giờ này app nghỉ, không phát đơn nào (người chơi về ngủ). Mặc định 06:00–24:00.'),
         num('taxRate', 'Thuế (%)', { ...pct, min: 0, max: 50, hint: H.taxRate }),
         num('distBonusPerKm', 'Thưởng mỗi km (k)', { step: 0.5, min: 0, hint: H.distBonusPerKm }),
         num('extraItemFare', 'Cước mỗi món thêm (k)', { step: 1, min: 0, hint: H.extraItemFare }),
@@ -88,16 +89,20 @@ export function render(root, ctx) {
         num('peakSurcharge', 'Phụ phí giờ cao điểm (k/đơn)', { step: 1, min: 0, hint: H.peakSurcharge }),
         num('nightSurcharge', 'Phụ phí đêm (k/đơn)', { step: 1, min: 0, hint: H.nightSurcharge }),
       ),
-      hoursRow('Giờ tính phụ phí đêm', H.nightHours, 'nightHours', 'Không có phụ phí đêm'),
-      demandField(),
       field('Tiền boa theo số sao (k)', el('span', { class: 'inline' }, [1, 2, 3, 4, 5].map((s) => el('label', {}, `${s}★ `, numInput(x.tipByStars?.[s], (v) => { x.tipByStars = x.tipByStars || [0, 0, 0, 0, 0, 0]; x.tipByStars[s] = v; changed(); }, { step: 1, min: 0 })))), opt('tipByStars', { wide: true, hint: H.tipByStars })),
+      example(),
+      explain(EXPLAIN.app),
+    );
+    T.pane('time').append(
+      hoursRow('Giờ app nhận đơn', 'Ngoài giờ này app nghỉ, không phát đơn nào (người chơi về ngủ). Mặc định 06:00–24:00.'),
       field('Giờ cao điểm', el('div', {}, (x.peakHours || []).map((h, i) => el('div', { class: 'inline' },
         numInput(h[0], (v) => { h[0] = v; changed(); }, { step: 0.5, min: 0, max: 24 }), el('span', {}, '→'), numInput(h[1], (v) => { h[1] = v; changed(); }, { step: 0.5, min: 0, max: 24 }),
         button('✕', () => { x.peakHours.splice(i, 1); changed(); ctx.rerender(); }, 'small'))),
       button('＋ Thêm khung giờ', () => { (x.peakHours = x.peakHours || []).push([11, 13]); changed(); ctx.rerender(); }, 'small')), opt('peakHours', { wide: true, hint: H.peakHours })),
-      example(),
-      explain(EXPLAIN.app),
-      el('h3', {}, 'Luật tài khoản tài xế'),
+      hoursRow('Giờ tính phụ phí đêm', H.nightHours, 'nightHours', 'Không có phụ phí đêm'),
+      demandField(),
+    );
+    T.pane('account').append(
       el('div', { class: 'grid' },
         field('Khóa tài khoản khi điểm dưới', numInput(acc.lockBelow, (v) => { acc.lockBelow = v; changed(); }, { step: 0.1, min: 1, max: 5 }), opt('account.lockBelow', { hint: H.lockBelow })),
         field('Mỗi lần tự hủy tính như (sao)', numInput(acc.cancelStars, (v) => { acc.cancelStars = v; changed(); }, { step: 1, min: 1, max: 5 }), opt('account.cancelStars', { hint: H.cancelStars })),
@@ -108,6 +113,7 @@ export function render(root, ctx) {
         field('Khi đó đơn thưa hơn (lần)', numInput(acc.lowAcceptPingMult, (v) => { acc.lowAcceptPingMult = v; changed(); }, { step: 0.1, min: 1, max: 5 }), opt('account.lowAcceptPingMult', { hint: H.lowAcceptPingMult })),
       ),
     );
+    T.done();
   }
 
   // Nhu cầu đơn theo giờ: 24 ô số + thanh cao thấp (1 = bình thường)

@@ -16,7 +16,7 @@ import mapJson from '../../data/map.json' with { type: 'json' };
 import balanceJson from '../../data/balance.json' with { type: 'json' };
 import { validateAll } from '../../data/validate.js';
 import { setContentTable } from '../../content/index.js';
-import { el, button, clone } from './ui.js';
+import { el, button, clone, markSubTabs, revealField } from './ui.js';
 import * as tabItems from './tabItems.js';
 import * as tabGear from './tabGear.js';
 import * as tabPlaces from './tabPlaces.js';
@@ -52,6 +52,7 @@ const DRAFT_KEY = 'shipper-editor-draft-v1';
 const TAB_KEY = 'shipper-editor-tab';
 const SEL_KEY = 'shipper-editor-sel'; // món đang chọn ở từng thẻ (giữ qua F5)
 const SCROLL_KEY = 'shipper-editor-scroll'; // chỗ đang cuộn lúc rời trang
+const HINTS_KEY = 'shipper-editor-hints'; // '1' = hiện mọi ghi chú dưới ô (mặc định thu vào ⓘ)
 
 const readJson = (k) => {
   try {
@@ -80,6 +81,7 @@ const store = {
 
 export async function startEditor(root) {
   document.body.classList.add('editor-mode');
+  document.body.classList.toggle('show-hints', store.get(HINTS_KEY) === '1');
   const canvas = document.getElementById('game');
   if (canvas) canvas.style.display = 'none';
 
@@ -176,6 +178,7 @@ export async function startEditor(root) {
       f.classList.toggle('has-err', mine.some((i) => i.level === 'error'));
       f.classList.toggle('has-warn', mine.length > 0 && !mine.some((i) => i.level === 'error'));
     });
+    markSubTabs(main);
   }
   ctx.applyFieldIssues = applyFieldIssues;
 
@@ -213,6 +216,11 @@ export async function startEditor(root) {
         Object.assign(button('↶', () => stepHistory('undo'), hist.undo.length ? 'icon-btn' : 'icon-btn off'), { title: `Hoàn tác (Ctrl+Z) — còn ${hist.undo.length} bước` }),
         Object.assign(button('↷', () => stepHistory('redo'), hist.redo.length ? 'icon-btn' : 'icon-btn off'), { title: `Làm lại (Ctrl+Y) — ${hist.redo.length} bước` }),
         button('↺ Bỏ thay đổi', revertAll, dirty.length ? '' : 'off'),
+        Object.assign(button(document.body.classList.contains('show-hints') ? 'ⓘ Ẩn ghi chú' : 'ⓘ Hiện ghi chú', () => {
+          const on = document.body.classList.toggle('show-hints');
+          store.set(HINTS_KEY, on ? '1' : null);
+          renderHeader();
+        }), { title: 'Hiện hết ghi chú dưới mọi ô, hoặc thu vào nút ⓘ (rê chuột / bấm ⓘ để xem từng ô)' }),
         el('a', { class: 'btn', href: './?debug', target: '_blank', title: 'Game chỉ thấy thay đổi đã lưu' }, '▶ Thử trong game'),
       ),
     );
@@ -265,6 +273,14 @@ export async function startEditor(root) {
     else if (i.tab === 'app') ctx.select('app', { cat: i.cat, id: i.ref || null });
     else if (i.tab === 'map') ctx.select('map', /^\d+,\d+$/.test(i.ref) ? { id: i.ref } : {});
     else if (i.tab === 'balance') ctx.select('balance', { id: tabBalance.sectionOf(i.field) });
+    // mở đúng thẻ con / mục Nâng cao chứa ô bị lỗi rồi cuộn tới
+    const f = [...main.querySelectorAll('.fld.has-err, .fld.has-warn')].find((x) => x.dataset.field && (i.field === x.dataset.field || String(i.field).startsWith(`${x.dataset.field}.`)) && (!i.ref || x.dataset.ref === String(i.ref)));
+    if (f) {
+      revealField(f);
+      f.scrollIntoView({ block: 'center' });
+      f.classList.add('flash');
+      setTimeout(() => f.classList.remove('flash'), 1500);
+    }
   }
 
   // ---------- lưu / xuất / nhập ----------
