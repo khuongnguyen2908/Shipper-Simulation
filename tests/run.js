@@ -1357,7 +1357,8 @@ console.log('Tòa nhà nhiều lô');
 console.log('Ngoại hình nam/nữ');
 {
   const { guessGender } = await import('../src/sim/people.js');
-  const { makePerson, npcLook, randomPersonOpts } = await import('../src/world/models.js');
+  const { makePerson, npcLook, randomPersonOpts, setSitting, sitY, HIP_Y } = await import('../src/world/models.js');
+  const THREE = await import('three');
   test('Đoán giới tính theo cách xưng hô đầu tên', () => {
     assert.equal(guessGender('Chị Lan'), 'f');
     assert.equal(guessGender('cô bán vé số'), 'f');
@@ -1388,13 +1389,49 @@ console.log('Ngoại hình nam/nữ');
     assert.ok(many.every((o) => o.gender === 'f' || o.hairStyle === 'short'));
     assert.ok(Array.from({ length: 200 }, () => randomPersonOpts(rng, 'f', { sitting: true })).every((o) => o.gender === 'f' && !o.skirt));
   });
+  // Người gộp khối: tìm màu trong hình (bỏ qua độ tối ở chân mảnh — chỉ so tỉ lệ R:G:B)
+  const meshOf = (pivot) => pivot.children.find((o) => o.isMesh);
+  const hasColor = (geo, hex) => {
+    const c = new THREE.Color(hex), m = Math.max(c.r, c.g, c.b), col = geo.attributes.color;
+    for (let i = 0; i < col.count; i++) {
+      const r = col.getX(i), g = col.getY(i), b = col.getZ(i), k = Math.max(r, g, b);
+      if (k > 0 && Math.abs(r / k - c.r / m) < 0.01 && Math.abs(g / k - c.g / m) < 0.01 && Math.abs(b / k - c.b / m) < 0.01) return true;
+    }
+    return false;
+  };
+  const tris = (o) => o.userData.parts.torso.geometry.attributes.position.count;
   test('Dựng hình 3D: tóc dài, búi, váy có đủ phần', () => {
-    const a = makePerson({ gender: 'f', hairStyle: 'long', skirt: true });
-    assert.ok(a.userData.parts.hair && a.userData.parts.skirt);
-    const b = makePerson({ gender: 'f', hairStyle: 'bun' });
-    assert.ok(b.userData.parts.hair && !b.userData.parts.skirt);
-    const c = makePerson({});
-    assert.ok(!c.userData.parts.hair && !c.userData.parts.skirt); // nam mặc định giữ như cũ
+    const skin = 0xf1c27d, pants = 0x2c3e50;
+    const skirt = makePerson({ gender: 'f', hairStyle: 'long', skirt: true, skin, pants });
+    const noSkirt = makePerson({ gender: 'f', hairStyle: 'long', skin, pants });
+    const low = (p) => (p.userData.parts.torso.geometry.computeBoundingBox(), p.userData.parts.torso.geometry.boundingBox.min.y);
+    assert.ok(low(skirt) < 0.5 && low(noSkirt) > 0.75, 'váy phủ xuống gần gối');
+    const thigh = meshOf(skirt.userData.parts.legL).geometry;
+    assert.ok(hasColor(thigh, skin) && !hasColor(thigh, pants), 'mặc váy: chân màu da');
+    assert.ok(hasColor(meshOf(noSkirt.userData.parts.legL).geometry, pants));
+    assert.ok(tris(makePerson({ gender: 'f', hairStyle: 'bun' })) > tris(makePerson({ gender: 'f', hairStyle: 'short' })), 'búi tóc');
+    assert.ok(tris(noSkirt) > tris(makePerson({ gender: 'f', hairStyle: 'bald' })), 'tóc dài');
+  });
+  test('Dựng hình 3D người: đủ khớp gối/khuỷu, ≤ 10 khối, chung 1 vật liệu, ngồi đúng yên xe', () => {
+    const looks = [{}, { hat: 'helmet', helmetStyle: 'full', overlay: 'raincoat' }, { gender: 'f', skirt: true, hat: 'nonla' }, { hat: 'police', bag: true }, { overlay: 'jacket', scale: 0.72 }];
+    const mats = new Set();
+    for (const o of looks) {
+      const p = makePerson(o), parts = p.userData.parts;
+      for (const k of ['legL', 'legR', 'kneeL', 'kneeR', 'armL', 'armR', 'elbowL', 'elbowR', 'body', 'torso']) assert.ok(parts[k], k);
+      let n = 0;
+      p.traverse((m) => {
+        if (!m.isMesh) return;
+        n++;
+        if (m !== parts.overlay) mats.add(m.material);
+      });
+      assert.ok(n <= 10, JSON.stringify(o) + ": " + n + " khối");
+      setSitting(p, true);
+      assert.ok(parts.legL.rotation.x < -1 && parts.kneeL.rotation.x > 1, 'ngồi: đùi ra trước, cẳng chân thả xuống');
+      setSitting(p, false);
+      assert.equal(parts.kneeL.rotation.x, 0);
+    }
+    assert.equal(mats.size, 1, 'mọi người dùng chung 1 vật liệu');
+    assert.ok(Math.abs(sitY(1) + HIP_Y - 0.98) < 1e-9 && Math.abs(sitY(0.72, 1.02) + HIP_Y * 0.72 - 1.02) < 1e-9, 'háng nằm đúng độ cao yên');
   });
   {
     const { makeBike, setBikeColor, BIKE_MODELS } = await import('../src/world/models.js');
@@ -1417,17 +1454,20 @@ console.log('Ngoại hình nam/nữ');
     });
   }
   test('Dựng hình 3D trang phục: tay ngắn, quần short, mũ fullface, áo mưa, áo khoác', () => {
-    const plain = makePerson({ hat: 'helmet' });
-    assert.equal(plain.userData.parts.armL.children.length, 1);
+    const skin = 0xf1c27d, pants = 0x2c3e50, shirt = 0x3498db;
+    const upper = (p) => meshOf(p.userData.parts.armL).geometry;
+    const plain = makePerson({ hat: 'helmet', skin, pants, shirt });
+    assert.ok(!hasColor(upper(plain), skin), 'tay dài: bắp tay toàn màu áo');
     assert.ok(!plain.userData.parts.overlay);
-    const p = makePerson({ sleeves: 'short', shorts: true, hat: 'helmet', helmetStyle: 'full' });
-    assert.equal(p.userData.parts.armL.children.length, 2, 'tay ngắn = phần áo + cẳng tay');
-    assert.equal(p.userData.parts.legL.children.length, 2, 'quần short = phần quần + bắp chân');
-    assert.equal(p.userData.parts.hat.children.length, 1, 'mũ fullface có kính');
+    const p = makePerson({ sleeves: 'short', shorts: true, hat: 'helmet', helmetStyle: 'full', skin, pants, shirt });
+    assert.ok(hasColor(upper(p), skin) && hasColor(upper(p), shirt), 'tay ngắn = phần áo + da');
+    const thigh = meshOf(p.userData.parts.legL).geometry;
+    assert.ok(hasColor(thigh, skin) && hasColor(thigh, pants), 'quần short = phần quần + da');
+    assert.ok(hasColor(p.userData.parts.torso.geometry, 0x2b3a48), 'mũ fullface có kính');
     assert.ok(makePerson({ overlay: 'raincoat' }).userData.parts.overlay);
-    const j = makePerson({ overlay: 'jacket', sleeves: 'short', shirt: 0xff0000 });
-    assert.equal(j.userData.parts.armL.children.length, 1, 'áo khoác luôn tay dài');
-    assert.notEqual(j.userData.parts.body.material.color.getHex(), 0xff0000);
+    const j = makePerson({ overlay: 'jacket', sleeves: 'short', shirt: 0xff0000, skin });
+    assert.ok(!hasColor(upper(j), skin), 'áo khoác luôn tay dài');
+    assert.ok(!hasColor(j.userData.parts.torso.geometry, 0xff0000), 'áo khoác che áo trong');
   });
 }
 

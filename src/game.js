@@ -19,7 +19,7 @@ import { buildCity } from './world/city.js';
 import { Bike, Walker, CameraRig } from './world/controllers.js';
 import { Traffic } from './world/traffic.js';
 import { Sky } from './world/sky.js';
-import { makePerson, makeBeacon, makeZoneRing, setSitting, randomPersonOpts, npcLook } from './world/models.js';
+import { makePerson, makeBeacon, makeZoneRing, setSitting, randomPersonOpts, npcLook, sitY } from './world/models.js';
 import { guessGender } from './sim/people.js';
 import { makeLabelTexture } from './world/textures.js';
 import { Input } from './input.js';
@@ -782,8 +782,12 @@ export class Game {
       } else if (m.parent !== this.bike.mesh) {
         this.bike.mesh.add(m);
         setSitting(m, true);
-        m.userData.parts.armR.rotation.x = -1;
-        m.position.set(0, 0.32, -0.62);
+        // khách ôm hờ eo người lái: tay đưa ra trước vừa phải, gập khuỷu
+        for (const s of ['L', 'R']) {
+          m.userData.parts['arm' + s].rotation.x = -0.55;
+          m.userData.parts['elbow' + s].rotation.x = -0.9;
+        }
+        m.position.set(0, sitY(m.scale.x, 1.02), -0.62);
         m.rotation.set(0, 0, 0);
         this.bike.mesh.userData.bagMesh.visible = false;
       }

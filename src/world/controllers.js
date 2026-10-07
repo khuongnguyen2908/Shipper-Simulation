@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { blockAt } from '../sim/cityLayout.js';
 import { resolveCircle } from './physics.js';
-import { makeBike, makePerson, animatePerson, setSitting, setBikeColor } from './models.js';
+import { makeBike, makePerson, animatePerson, setSitting, setBikeColor, sitY } from './models.js';
 
 const SW_H = 0.15;
 const lerpAngle = (a, b, t) => {
@@ -228,7 +228,7 @@ export class Walker {
     this.sitting = true;
     setSitting(this.mesh, true);
     bike.mesh.add(this.mesh);
-    this.mesh.position.set(0, 0.28, -0.05);
+    this.mesh.position.set(0, sitY(), -0.05);
     this.mesh.rotation.set(0, 0, 0);
   }
 
