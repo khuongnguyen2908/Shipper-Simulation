@@ -169,12 +169,13 @@ export class GameState {
   }
 
   // Tiêu hao theo hoạt động mỗi dt phút game
-  // activity: 'idle' | 'walk' | 'run' | 'drive' | 'push' · 'sleep' (ngủ: hồi lại) · 'rest' (nằm bắt buộc khi kiệt sức: không đổi)
+  // activity: 'idle' | 'walk' | 'run' | 'drive' | 'push' · 'sleep' (ngủ ở nhà: hồi lại) · 'nap' (chợp mắt ngoài: hồi ít hơn) · 'rest' (nằm bắt buộc khi kiệt sức: không đổi)
   // env.now (phút tuyệt đối): để tính thức quá lâu
   drain(activity, dt, env) {
-    if (activity === 'sleep') {
+    if (activity === 'sleep' || activity === 'nap') {
       const S = ENERGY.sleep;
-      this.addEnergy((S.physPerHour / 60) * dt, (S.mentalPerHour / 60) * dt);
+      const k = activity === 'nap' ? S.napMul ?? 0.6 : 1; // chợp mắt ở quán / võng: hồi kém giường nhà
+      this.addEnergy((S.physPerHour / 60) * dt * k, (S.mentalPerHour / 60) * dt * k);
       return;
     }
     if (activity === 'rest') return;
@@ -212,6 +213,11 @@ export class GameState {
   }
   wake(now) {
     this.awakeSince = now;
+  }
+  // Chợp mắt `minutes` phút: bớt số giờ đã thức (mỗi phút ngủ bớt napAwakeCut phút), không bớt quá lúc này
+  napWake(now, minutes) {
+    const cut = minutes * (ENERGY.sleep.napAwakeCut ?? 4);
+    this.awakeSince = Math.min(now, this.awakeSince + cut);
   }
   // Kiệt sức: 'faint' (thể lực về 0) · 'burnout' (tinh thần về 0) · null
   get collapsed() {

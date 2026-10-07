@@ -562,6 +562,10 @@ function gainText(o) {
 }
 
 function activityChoices(g, pl) {
+  return [...placeActivities(g, pl), ...napChoices(g, pl)];
+}
+
+function placeActivities(g, pl) {
   const { gs } = g;
   return (pl.activities || []).map((act) => {
     const st = gs.activityStatus(pl, act, g.clockMin);
@@ -572,6 +576,7 @@ function activityChoices(g, pl) {
     const needP = need && { n: act.needs.qty || 1, icon: need.icon || '', name: need.name, have: gs.countOf(need.id) };
     if (need) hint = [fmt('dlg.needsUse', needP), hint].filter(Boolean).join(' · ');
     if (act.perDay > 0) hint += ` · ${fmt('dlg.usesLeft', { n: Math.max(0, act.perDay - used), max: act.perDay })}`;
+    if (act.stopOnOrder) hint += ` · ${fmt('dlg.stopOnOrder')}`;
     if (st === 'usedUp') hint = fmt('dlg.usedUp', { n: act.perDay });
     if (st === 'needItem') {
       const shops = placesSelling(need.id, g.layout.places);
@@ -585,9 +590,10 @@ function activityChoices(g, pl) {
       onSelect: () => {
         const r = gs.doActivity(pl, act, g.clockMin);
         if (!r.ok) return;
-        if (r.minutes) g.advance(r.minutes, 'idle', { indoor: true, waiting: false });
+        if (r.minutes) g.advance(r.minutes, 'idle', { indoor: true, waiting: false, stopOnOffer: !!act.stopOnOrder });
         sfx.cash();
         g.hud.toast(fmt('toast.activity', { label: act.label, gains: gainText(act) }), 'good');
+        if (act.stopOnOrder && g.om.state === S.OFFERED) g.hud.toast(fmt('toast.orderWake'), 'info', 4000);
       },
     };
   });
@@ -731,6 +737,28 @@ function landlord(g, pl) {
   ];
   const text = paid ? fmt('npc.home.greetPaid', { day: gs.rentDueDay }) : can ? fmt('npc.home.greetCan', { rent: gs.rent, day: gs.rentDueDay }) : fmt('npc.home.greet', { rent: gs.rent, day: gs.rentDueDay, money: fmtK(gs.money) });
   openPlace(g, pl, extra, text);
+}
+
+// Chợp mắt ở địa điểm được tick "Cho chợp mắt ở đây" (places.json → nap): 2 lựa chọn ngắn / dài, có đơn thì dậy
+function napChoices(g, pl) {
+  if (!pl.nap || pl.kind === 'home') return [];
+  const S2 = ENERGY.sleep;
+  const k = S2.napMul ?? 0.6;
+  const busy = !!g.om.order || g.om.state === S.OFFERED;
+  const online = g.om.state !== S.OFFLINE;
+  return [['dlg.napShort', S2.napShortMin ?? 30], ['dlg.napLong', S2.napLongMin ?? 120]].map(([key, min]) => ({
+    label: fmt(key, { min, h: +(min / 60).toFixed(1), time: fmtClock(g.clockMin + min) }),
+    hint: busy ? fmt('dlg.sleepBusy')
+      : fmt(online ? 'dlg.napHint' : 'dlg.napHintOff', { phys: Math.round((S2.physPerHour * k * min) / 60), mental: Math.round((S2.mentalPerHour * k * min) / 60) }),
+    disabled: busy,
+    onSelect: () => {
+      const r = g.nap(min);
+      if (!r) return;
+      sfx.click();
+      const p = { min: r.slept, time: fmtClock(g.clockMin), phys: Math.round(g.gs.phys), mental: Math.round(g.gs.mental) };
+      g.hud.toast(fmt(r.byOrder ? 'toast.napOrder' : 'toast.napDone', p), r.byOrder ? 'info' : 'good', 6000);
+    },
+  }));
 }
 
 // Ngủ: 2 / 4 / 6 / 8 tiếng hoặc tới 06:00 sáng. Đang chạy đơn thì không ngủ được.

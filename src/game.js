@@ -545,9 +545,23 @@ export class Game {
     return this.clockMin;
   }
 
+  // Chợp mắt ở địa điểm (không tắt app): có đơn mời thì dậy ngay. Trả về số phút đã ngủ và có bị đơn đánh thức không.
+  nap(minutes) {
+    if (this.om.order || this.om.state === S.OFFERED) return null;
+    const start = this.clockMin;
+    this.advance(minutes, 'nap', { indoor: true, waiting: false, quiet: true, stopOnOffer: true });
+    if (this.state !== 'play') return null;
+    const slept = Math.round(this.clockMin - start);
+    this.gs.napWake(this.clockMin, slept);
+    this.saveGame();
+    return { slept, byOrder: this.om.state === S.OFFERED };
+  }
+
   // Cho thời gian trôi nhanh (chờ quán, leo cầu thang, ngủ…), tính đủ hao mòn & món hàng
-  advance(min, activity = 'idle', { indoor = false, waiting = true, quiet = false } = {}) {
+  // stopOnOffer: có đơn mời thì dừng ngay (ngồi chờ đơn, chợp mắt)
+  advance(min, activity = 'idle', { indoor = false, waiting = true, quiet = false, stopOnOffer = false } = {}) {
     const n = Math.max(1, Math.round(min));
+    const start = this.clockMin;
     for (let i = 0; i < n; i++) {
       this.clockMin += 1;
       const now = this.clockMin;
@@ -558,8 +572,9 @@ export class Game {
       for (const e of this.hz.poll(now)) this.onHazard(e);
       if (this.gs.checkEnd(now)) break;
       if (this.gs.collapsed && activity !== 'rest') break; // kiệt sức giữa chừng → xử lý ngay
+      if (stopOnOffer && this.om.state === S.OFFERED) break; // điện thoại reo có đơn
     }
-    if (!quiet) this.hud.toast(fmt('toast.timeSkip', { min: n, time: fmtTime(this.clockMin) }), 'info', 2200);
+    if (!quiet) this.hud.toast(fmt('toast.timeSkip', { min: Math.round(this.clockMin - start), time: fmtTime(this.clockMin) }), 'info', 2200);
     this.checkEnd();
   }
 

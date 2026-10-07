@@ -1545,5 +1545,39 @@ console.log('Dữ liệu & kho chữ (sửa bằng công cụ ?editor)');
   });
 }
 
+console.log('Chợp mắt ở địa điểm');
+{
+  const { validatePlaces, validateBalance } = await import('../src/data/validate.js');
+  const S = ENERGY.sleep;
+  test('Chợp mắt hồi kém ngủ ở nhà (× napMul) và bớt giờ đã thức', () => {
+    const a = new GameState(), b = new GameState();
+    a.phys = b.phys = 10; a.mental = b.mental = 10;
+    a.drain('sleep', 60, { now: 600 });
+    b.drain('nap', 60, { now: 600 });
+    assert.ok(Math.abs((b.phys - 10) - (a.phys - 10) * S.napMul) < 1e-6);
+    assert.ok(Math.abs((b.mental - 10) - (a.mental - 10) * S.napMul) < 1e-6);
+    const g = new GameState();
+    const now = g.awakeSince + 20 * 60; // thức 20 tiếng → buồn ngủ
+    assert.equal(g.tiredLevel(now), 1);
+    g.napWake(now, S.napLongMin);
+    assert.ok(Math.abs(g.awakeHours(now) - (20 - (S.napLongMin * S.napAwakeCut) / 60)) < 1e-6);
+    assert.equal(g.tiredLevel(now), 0, 'ngủ ngắn 2 tiếng hết buồn ngủ');
+    g.napWake(now, 10000);
+    assert.equal(g.awakeHours(now), 0, 'không bớt quá lúc này');
+  });
+  test('Bộ kiểm tra: ô chợp mắt / dừng khi có đơn phải là true/false; phòng trọ tick chợp mắt → cảnh báo', () => {
+    const pd = { places: [], alley: { block: [1, 0], lot: 'E1' }, streetsX: [], streetsZ: [], customerNames: ['A'] };
+    const act = { id: 'ngoi', label: 'Ngồi', cost: 0, minutes: 30, phys: 0, mental: 5, perDay: 0 };
+    const run = (extra, a2 = act) => validatePlaces({ ...pd, places: [{ id: 'p', name: 'P', short: 'P', kind: 'service', block: [0, 0], lot: 'N0', color: '#ffffff', sign: 'P', activities: [a2], ...extra }] }, {}, null, null);
+    assert.equal(run({ nap: true }, { ...act, stopOnOrder: true }).filter((i) => i.level === 'error' && (i.field === 'nap' || i.field === 'activities.ngoi')).length, 0);
+    assert.ok(run({ nap: 'có' }).some((i) => i.level === 'error' && i.field === 'nap'));
+    assert.ok(run({}, { ...act, stopOnOrder: 1 }).some((i) => i.level === 'error' && i.field === 'activities.ngoi'));
+    assert.ok(run({ nap: true, kind: 'home' }).some((i) => i.level === 'warn' && i.field === 'nap'));
+    const bal = JSON.parse(fs.readFileSync(new URL('../src/data/balance.json', import.meta.url), 'utf8'));
+    bal.energy.sleep.napLongMin = 10;
+    assert.ok(validateBalance(bal).some((i) => i.field === 'energy.sleep.napLongMin' || i.ref === 'energy.sleep.napLongMin'));
+  });
+}
+
 console.log(`\n${pass} đạt, ${fail} lỗi`);
 if (fail) process.exit(1);

@@ -224,6 +224,7 @@ export function render(root, ctx) {
           num('phys', 'Thể lực +/−', { min: -100, max: 100 }),
           num('mental', 'Tinh thần +/−', { min: -100, max: 100 }),
           num('perDay', 'Tối đa mỗi ngày (0 = không giới hạn)', { min: 0, max: 20 }),
+          field('Có đơn thì dừng', checkInput(!!act.stopOnOrder, (v) => { if (v) act.stopOnOrder = true; else delete act.stopOnOrder; changedP(); }, 'Dừng khi có đơn'), { hint: HINT.act.stopOnOrder }),
           field('Cần đồ (dùng hết khi làm)', el('span', { class: 'inline' },
             selectInput(act.needs?.id || '', [['', 'Không cần'], ...Object.values(ctx.data.goods).filter((g) => g.type !== 'equipment').map((g) => [g.id, `${g.icon || ''} ${g.name}`])], (v) => {
               if (v) act.needs = { id: v, qty: act.needs?.qty || 1 };
@@ -250,6 +251,12 @@ export function render(root, ctx) {
   drawActs();
   makeSortable(actBox, '.act-card', (a, b) => { moveInArray(p.activities, a, b); changedP(); drawActs(); ctx.applyFieldIssues(); });
   body.append(el('h3', {}, 'Hoạt động tại đây'), el('p', { class: 'muted' }, 'Người chơi chọn trong hộp thoại khi bấm E ở cửa (theo thứ tự dưới đây — kéo ⠿ để đổi). Thời gian trôi đúng số phút; thể lực/tinh thần cộng ngay.'), explain(EXPLAIN.act), actBox);
+  // --- chợp mắt ---
+  if (p.kind !== 'home') {
+    const Z = ctx.data.balance.energy?.sleep || {};
+    body.append(el('div', { class: 'grid' }, field('💤 Chợp mắt', checkInput(!!p.nap, (v) => { if (v) p.nap = true; else delete p.nap; changedP(); },
+      `Cho chợp mắt ở đây (${Z.napShortMin ?? 30} phút / ${+((Z.napLongMin ?? 120) / 60).toFixed(1)} tiếng)`), opt('nap', { hint: HINT.place.nap, wide: true }))));
+  }
 
   // --- hàng bán ---
   const gear = ctx.data.gear, goods = ctx.data.goods;

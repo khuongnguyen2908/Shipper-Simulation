@@ -306,6 +306,7 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null, m
         if (!num(act[k]) || act[k] < lo || act[k] > hi) add('error', p.id, f, `"${act.label || act.id}": ${name} phải là số từ ${lo} đến ${hi}.`);
       }
       if (num(act.minutes) && act.minutes > 120) add('warn', p.id, f, 'Hoạt động hơn 2 tiếng — tốn nhiều thời gian trong ngày.');
+      if (act.stopOnOrder != null && typeof act.stopOnOrder !== 'boolean') add('error', p.id, f, `"${act.label || act.id}": "Dừng khi có đơn" phải là true/false.`);
       drainWarn(add, p.id, f, act.phys, act.mental, `"${act.label || act.id}": `);
       if (act.needs != null) {
         const g = goodsTable && goodsTable[act.needs.id];
@@ -334,6 +335,8 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null, m
   // mở theo ngày
   for (const p of places) {
     openDayErr(add, p.id, p.openDay, PROTECTED.places.includes(p.id));
+    if (p.nap != null && typeof p.nap !== 'boolean') add('error', p.id, 'nap', 'Ô "Cho chợp mắt" phải là true/false.');
+    if (p.nap && p.kind === 'home') add('warn', p.id, 'nap', 'Phòng trọ đã có giường ngủ — ô chợp mắt không có tác dụng.');
     if (p.kind === 'restaurant' && items && (p.menu || []).length) {
       const first = Math.min(...p.menu.filter((id) => items[id]).map((id) => openDayOf(items[id])));
       if (Number.isFinite(first) && first > openDayOf(p)) add('warn', p.id, 'openDay', `Quán mở ngày ${openDayOf(p)} nhưng tới ngày ${first} mới có món nào có đơn.`);
@@ -509,6 +512,7 @@ export function validateBalance(b) {
   if (num(b.economy?.rentEveryDays) && !Number.isInteger(b.economy.rentEveryDays)) add('error', 'economy.rentEveryDays', 'Số ngày mỗi kỳ phải là số nguyên.');
   if (num(b.economy?.maxLate) && !Number.isInteger(b.economy.maxLate)) add('error', 'economy.maxLate', 'Số lần trễ phải là số nguyên.');
   const S = b.energy?.sleep;
+  if (S && num(S.napShortMin) && num(S.napLongMin) && S.napLongMin < S.napShortMin) add('warn', 'energy.sleep.napLongMin', '"Ngủ một giấc ngắn" nên dài hơn "Chợp mắt".');
   if (S && num(S.tiredAfterH) && num(S.veryTiredAfterH) && S.veryTiredAfterH < S.tiredAfterH) add('warn', 'energy.sleep.veryTiredAfterH', 'Mốc "rất buồn ngủ" nên sau mốc "buồn ngủ".');
   // mục Nâng cao: mọi giá trị lá phải là số (hoặc danh sách số)
   const walk = (o, pre) => {

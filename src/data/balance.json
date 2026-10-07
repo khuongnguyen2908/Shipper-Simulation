@@ -66,7 +66,11 @@
       "tiredAfterH": 16,
       "veryTiredAfterH": 22,
       "tiredMul": 2,
-      "veryTiredMul": 3
+      "veryTiredMul": 3,
+      "napShortMin": 30,
+      "napLongMin": 120,
+      "napMul": 0.6,
+      "napAwakeCut": 4
     },
     "collapse": {
       "hours": 6,

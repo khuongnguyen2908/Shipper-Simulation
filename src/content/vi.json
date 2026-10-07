@@ -688,5 +688,13 @@
   "dlg.faint": "Bạn ngất xỉu giữa đường. Người đi đường đưa bạn về phòng trọ, Cô Hai gọi y tá tới chích thuốc. Nằm {hours} tiếng mới tỉnh ({time}), tiền thuốc {fee}. Đơn đang chạy đã bị hủy.",
   "dlg.burnout": "Tinh thần suy sụp, bạn tắt app về phòng nằm {hours} tiếng. Giờ là {time}, thấy đỡ hơn chút rồi. Đơn đang chạy đã bị hủy.",
   "cancel.collapse": "Tài xế kiệt sức, app tự hủy đơn",
-  "money.medical": "Tiền thuốc"
+  "money.medical": "Tiền thuốc",
+  "dlg.napShort": "💤 Chợp mắt {min} phút (dậy lúc {time})",
+  "dlg.napLong": "💤 Ngủ một giấc ngắn {h} tiếng (dậy lúc {time})",
+  "dlg.napHint": "+{phys} thể lực, +{mental} tinh thần · app vẫn bật, có đơn là dậy",
+  "dlg.napHintOff": "+{phys} thể lực, +{mental} tinh thần · app đang tắt nên ngủ đủ giờ",
+  "dlg.stopOnOrder": "có đơn là đứng dậy",
+  "toast.napOrder": "📱 Điện thoại reo! Dậy sau {min} phút ({time}) · Thể lực {phys} · Tinh thần {mental}",
+  "toast.napDone": "☀️ Dậy rồi! {time} · Thể lực {phys} · Tinh thần {mental}",
+  "toast.orderWake": "📱 Có đơn mới — đứng dậy xem điện thoại!"
 }

@@ -55,6 +55,7 @@ export const HINT = {
   place: {
     name: 'Hiện trong app, hộp thoại, mục tiêu.',
     short: 'Hiện trên bản đồ nhỏ — nên ngắn (1–2 chữ).',
+    nap: 'Tick: hộp thoại ở đây có thêm 2 lựa chọn "Chợp mắt" và "Ngủ một giấc ngắn" (miễn phí). Hồi sức kém ngủ ở nhà, có đơn mời là dậy (app tắt thì ngủ đủ giờ). Số phút và mức hồi chỉnh ở thẻ ⚖️ Cân bằng → Năng lượng. Phòng trọ đã có giường nên không có ô này.',
     sign: 'Chữ in trên biển trước cửa; nên VIẾT HOA, ngắn.',
     floors: '1–15 tầng (chỉ là hình dáng nhà).',
     openDay: '1–60. Trước ngày này tiệm hiện "Sắp khai trương": không vào được, không có đơn, không làm hoạt động, mờ trên bản đồ. Sáng ngày khai trương game báo cho người chơi. Xem tổng quan ở mục 📅 Lịch mở theo ngày.',
@@ -67,6 +68,7 @@ export const HINT = {
     phys: '−100 → +100, cộng/trừ ngay. ⚠️ Thanh về 0 là THUA; −100 = thua chắc. Tham khảo: ăn phở +45 · hát karaoke −5.',
     mental: '−100 → +100, cộng/trừ ngay. ⚠️ Thanh về 0 là THUA. Tham khảo: cà phê +30 · hát karaoke +40.',
     perDay: '0 = không giới hạn. Vd hát karaoke 1 lần/ngày, đọc sách 3 lần/ngày.',
+    stopOnOrder: 'Tick: đang làm mà có đơn mời thì dừng ngay để nhận đơn (vd "Ngồi cà phê chờ đơn" 60 phút). Tiền và thể lực / tinh thần vẫn tính đủ. Không tick: làm xong mới xem điện thoại.',
     needs: 'Người chơi phải mang theo đồ này (mua ở nơi khác) mới làm được; làm xong trừ đúng số lượng. Vd chùa "Thắp nhang" cần 1 Bó nhang. Số bên cạnh = số cái cần.',
   },
   orders: {
@@ -167,6 +169,7 @@ export const EXPLAIN = {
   act: ['Hoạt động hoạt động thế nào', `
     <p>Khi người chơi bấm E ở cửa (trong giờ mở cửa), hộp thoại hiện các hoạt động. Chọn một hoạt động: <b>trừ tiền</b> → <b>thời gian trôi</b> đúng số phút → <b>cộng/trừ thể lực, tinh thần</b> ngay.</p>
     ${T([['Hoạt động mẫu', 'Giá', 'Phút', 'Thể lực', 'Tinh thần', 'Lần/ngày'], ['Ăn tô phở', '35k', '15', '+45', '+5', '∞'], ['Cà phê sữa đá', '20k', '10', '+5', '+30', '∞'], ['Đọc sách tại chỗ', '5k', '30', '+5', '+20', '3'], ['Hát karaoke 1 tiếng', '80k', '60', '−5', '+40', '1']])}
+    <p><b>Dừng khi có đơn</b>: đang làm mà điện thoại reo thì dừng ngay để nhận đơn — hợp với kiểu "ngồi cà phê chờ đơn". <b>Chợp mắt</b>: tick ô 💤 dưới danh sách hoạt động để người chơi ngủ ngắn ở đây khi vắng đơn.</p>
     <p><b>Cần đồ</b>: hoạt động chỉ làm được khi người chơi mang theo món đó (mua ở nơi khác, vd mua nhang ở tiệm trà rồi đem tới chùa thắp). Thiếu đồ thì nút mờ và ghi nơi bán.</p>
     <p>⚠️ Số âm lớn (dưới −30) có thể làm người chơi đang yếu thua ngay; <b>−100 là thua chắc</b>.</p>`],
   map: ['Bản đồ hoạt động thế nào', `

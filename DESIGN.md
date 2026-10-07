@@ -15,6 +15,7 @@ Bật app → Có đơn (Y nhận / N bỏ) → Chạy tới quán → Chờ qu�
 - **Chơi tự do 24h** (đồng hồ chạy liên tục, `src/sim/clock.js`): không có "thắng"; ngày mới bắt đầu lúc 06:00 (tự lưu). App nhận đơn 06:00–24:00 (`apps.json → hours`).
 - **Tiền nhà theo kỳ:** mỗi 3 ngày trả một lần, hạn 22:00 ngày cuối kỳ (kỳ 1: 1.000k, mỗi kỳ +200k — số tạm, chỉnh ở thẻ ⚖️). Trả sớm lúc nào cũng được. Trễ lần 1: phạt 20%, nợ dồn kỳ sau; trễ 2 lần liên tiếp → bị đuổi.
 - **Ngủ** ở phòng trọ (2/4/6/8 tiếng hoặc tới 06:00): hồi 12 thể lực + 10 tinh thần mỗi giờ, app tự tắt, tự lưu khi dậy. Thức > 16 tiếng → hao ×2, > 22 tiếng → ×3.
+- **Chợp mắt** ở địa điểm có tick 💤 (places.json → `nap`): 30 phút hoặc ngủ ngắn 2 tiếng, miễn phí, hồi ×0,6 so với ngủ ở nhà, mỗi phút ngủ bớt 4 phút "đã thức". App vẫn bật → có đơn mời là dậy. Hoạt động có tick "Dừng khi có đơn" (`stopOnOrder`) cũng dừng ngay khi có đơn (ngồi cà phê chờ đơn). Không có nút tua nhanh: thời gian trôi qua hoạt động / ngủ.
 - **Kiệt sức** (thể lực / tinh thần về 0) không thua: hủy đơn đang chạy, về phòng trọ nằm 6 tiếng; ngất mất 100k tiền thuốc.
 - **Thua:** bị đuổi khỏi phòng (trễ tiền nhà 2 lần liên tiếp) · điểm đánh giá < 4.0 (khóa tài khoản). Màn hình thua: chơi lại từ lần lưu gần nhất / chơi mới.
 - **Ràng buộc mở khóa:** xăng → mới chạy được · Túi giữ nhiệt → đơn trà sữa/kem · Mũ cho khách → đơn xe ôm → nhiệm vụ chiếc ví · Áo mưa → hết bị phạt khi mưa · tiền → xe tốt hơn.
