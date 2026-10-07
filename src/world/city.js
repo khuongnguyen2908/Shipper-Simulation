@@ -6,12 +6,12 @@ import { CITY, LOT_W, HALF, roadPos, blockBounds, roadGraph, segmentRect } from 
 import { ALLEY } from '../data/places.js';
 import { makeRng } from '../sim/rng.js';
 import { SpatialGrid } from './physics.js';
-import { makeFacadeTextures, makeTileTexture, makeAsphaltTexture, makeSignTexture, makeGlowTexture } from './textures.js';
+import { makeTileTexture, makeAsphaltTexture, makeSignTexture, makeGlowTexture } from './textures.js';
+import { HouseGeo, buildHouse, housesForLot, makeHouseAtlas, houseTop } from './houses.js';
 import { mat, makeStool } from './models.js';
 
 const WALL_COLORS = [0xe8d5b7, 0xf4c095, 0x9fd8cb, 0xf6e27f, 0xe7a9a9, 0xb8d8e8, 0xd9c3e8, 0xf2f2f2, 0xc9e4a6, 0xf7b267, 0xffe0b5, 0xa9cce3];
 const AWNING_COLORS = [0xc0392b, 0x2980b9, 0x27ae60, 0xf39c12, 0x8e44ad, 0x16a085];
-const FLOOR_H = 3.2;
 const SW_H = 0.15; // độ cao vỉa hè
 
 // Thông tin mặt tiền theo hướng: tâm mặt trước, góc xoay, bề rộng, pháp tuyến hướng ra đường
@@ -153,36 +153,32 @@ export function buildCity(scene, layout, potholes, seed = 7) {
     }
   }
 
-  // ---------- nhà ống (instanced theo số tầng) ----------
-  const facade = makeFacadeTextures(seed);
-  const roofMat = new THREE.MeshStandardMaterial({ color: 0x9a9690, roughness: 0.95 });
-  const facadeMats = {};
-  const getFacadeMat = (floors, wide = 3) => {
-    const k = `${floors}|${wide}`;
-    if (!facadeMats[k]) {
-      const map = facade.map.clone();
-      const em = facade.emissive.clone();
-      map.repeat.set(wide / 4, floors / 4);
-      em.repeat.set(wide / 4, floors / 4);
-      map.needsUpdate = em.needsUpdate = true;
-      facadeMats[k] = new THREE.MeshStandardMaterial({ map, emissiveMap: em, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.85 });
+  // ---------- nhà ống A+ (gộp theo từng khối phố, 1 vật liệu chung) ----------
+  const atlas = makeHouseAtlas();
+  const houseMat = new THREE.MeshStandardMaterial({ map: atlas.map, emissiveMap: atlas.emissive, emissive: 0xffffff, emissiveIntensity: 0, vertexColors: true, roughness: 0.85, alphaTest: 0.5 });
+  const houseGroups = new Map();
+  const geoAt = (x, z) => {
+    const off = CITY.ORIGIN + CITY.ROAD / 2;
+    const k = Math.floor((x - off) / CITY.PITCH) + ',' + Math.floor((z - off) / CITY.PITCH);
+    if (!houseGroups.has(k)) houseGroups.set(k, new HouseGeo());
+    return houseGroups.get(k);
+  };
+  // Dựng 1–2 căn trên một lô (mặt tiền rộng thì chia 2); trả về độ cao căn cao nhất (cho va chạm)
+  const addLotHouses = (r, face, floors, opts = {}) => {
+    const f = frontOf(r, face);
+    const depth = f.nx ? r.x1 - r.x0 : r.z1 - r.z0;
+    let top = 0;
+    for (const h of housesForLot({ x: f.x, y: SW_H, z: f.z, nx: f.nx, nz: f.nz, width: f.width, depth }, { floors, colors: WALL_COLORS, seed: rng.int(1, 1e9), ...opts })) {
+      buildHouse(geoAt(h.x - f.nx * depth * 0.5, h.z - f.nz * depth * 0.5), h);
+      top = Math.max(top, houseTop(h.floors));
     }
-    return facadeMats[k];
+    return top;
   };
-  const byFloors = new Map();
-  const addHouse = (r, floors, colorHex) => {
-    if (!byFloors.has(floors)) byFloors.set(floors, []);
-    byFloors.get(floors).push({ r, color: colorHex });
-  };
-  const awnings = [];
-  const tanks = [];
   for (const l of layout.lots) {
     const floors = l.inAlley ? rng.int(1, 4) : rng.int(2, 6); // nhà trong hẻm thấp hơn nhà mặt phố
     const r = { x0: l.x0 + 0.25, x1: l.x1 - 0.25, z0: l.z0 + 0.25, z1: l.z1 - 0.25 };
-    addHouse(r, floors, rng.pick(WALL_COLORS));
-    addBox(r.x0, r.z0, r.x1, r.z1, floors * FLOOR_H + SW_H, 'house');
-    if (rng.chance(0.55)) awnings.push({ r, face: l.face, color: rng.pick(AWNING_COLORS) });
-    if (rng.chance(0.45)) tanks.push({ x: r.x0 + 1.5 + rng.next() * (r.x1 - r.x0 - 3), z: r.z0 + 1.5 + rng.next() * (r.z1 - r.z0 - 3), y: floors * FLOOR_H + SW_H });
+    const top = addLotHouses(r, l.face, floors, { alley: l.inAlley });
+    addBox(r.x0, r.z0, r.x1, r.z1, top + SW_H, 'house');
   }
   // ---------- khối có hẻm: nhà phía sau (không cửa), mặt hẻm, cột chắn hẻm đi bộ ----------
   const alleyGeo = new THREE.PlaneGeometry(1, 1);
@@ -191,9 +187,8 @@ export function buildCity(scene, layout, potholes, seed = 7) {
   const postList = [];
   for (const ab of layout.alleyBlocks || []) {
     for (const r of ab.fillers) {
-      const fl = rng.int(1, 3);
-      addHouse({ x0: r.x0 + 0.1, x1: r.x1 - 0.1, z0: r.z0 + 0.1, z1: r.z1 - 0.1 }, fl, rng.pick(WALL_COLORS));
-      addBox(r.x0, r.z0, r.x1, r.z1, fl * FLOOR_H + SW_H, 'house');
+      const top = addLotHouses({ x0: r.x0 + 0.1, x1: r.x1 - 0.1, z0: r.z0 + 0.1, z1: r.z1 - 0.1 }, 'S', rng.int(1, 3), { alley: true, back: true });
+      addBox(r.x0, r.z0, r.x1, r.z1, top + SW_H, 'house');
     }
     for (const r of ab.alleys) {
       const m = new THREE.Mesh(alleyGeo, alleyMats[ab.walk ? 'walk' : 'bike']);
@@ -219,58 +214,11 @@ export function buildCity(scene, layout, potholes, seed = 7) {
     scene.add(pm);
   }
 
-  // nhà vùng ven (ngoài biên bản đồ, chỉ để nhìn)
+  // nhà vùng ven (ngoài biên bản đồ, chỉ để nhìn): ít chi tiết, quay mặt vào thành phố
   for (let a = -HALF - 6; a <= HALF + 6; a += 12) {
-    for (const [x, z] of [[a, -HALF - 9], [a, HALF + 9], [-HALF - 9, a], [HALF + 9, a]]) {
-      addHouse({ x0: x - 5.5, x1: x + 5.5, z0: z - 5.5, z1: z + 5.5 }, rng.int(3, 8), rng.pick(WALL_COLORS));
+    for (const [x, z, face] of [[a, -HALF - 9, 'S'], [a, HALF + 9, 'N'], [-HALF - 9, a, 'E'], [HALF + 9, a, 'W']]) {
+      addLotHouses({ x0: x - 5.5, x1: x + 5.5, z0: z - 5.5, z1: z + 5.5 }, face, rng.int(3, 8), { low: true });
     }
-  }
-  const unit = new THREE.BoxGeometry(1, 1, 1);
-  for (const [floors, list] of byFloors) {
-    const fm = getFacadeMat(floors);
-    const mesh = new THREE.InstancedMesh(unit, [fm, fm, roofMat, roofMat, fm, fm], list.length);
-    list.forEach(({ r, color }, k) => {
-      const h = floors * FLOOR_H;
-      dummy.position.set((r.x0 + r.x1) / 2, SW_H + h / 2, (r.z0 + r.z1) / 2);
-      dummy.rotation.set(0, 0, 0);
-      dummy.scale.set(r.x1 - r.x0, h, r.z1 - r.z0);
-      dummy.updateMatrix();
-      mesh.setMatrixAt(k, dummy.matrix);
-      mesh.setColorAt(k, col.setHex(color));
-    });
-    mesh.castShadow = mesh.receiveShadow = true;
-    scene.add(mesh);
-  }
-
-  // mái hiên
-  if (awnings.length) {
-    const aw = new THREE.InstancedMesh(unit, new THREE.MeshStandardMaterial({ roughness: 0.7 }), awnings.length);
-    awnings.forEach(({ r, face, color }, k) => {
-      const f = frontOf(r, face);
-      const along = f.width - 1.2;
-      dummy.position.set(f.x + f.nx * 0.7, SW_H + 2.9, f.z + f.nz * 0.7);
-      dummy.rotation.set(0, 0, 0);
-      dummy.scale.set(f.nx ? 1.4 : along, 0.12, f.nx ? along : 1.4);
-      dummy.updateMatrix();
-      aw.setMatrixAt(k, dummy.matrix);
-      aw.setColorAt(k, col.setHex(color));
-    });
-    aw.castShadow = true;
-    scene.add(aw);
-  }
-  // bồn nước inox trên mái
-  if (tanks.length) {
-    const tg = new THREE.CylinderGeometry(0.6, 0.6, 1.6, 12);
-    tg.rotateZ(Math.PI / 2);
-    const tm = new THREE.InstancedMesh(tg, new THREE.MeshStandardMaterial({ color: 0xdfe6e9, metalness: 0.7, roughness: 0.3 }), tanks.length);
-    tanks.forEach((t, k) => {
-      dummy.position.set(t.x, t.y + 0.7, t.z);
-      dummy.scale.set(1, 1, 1);
-      dummy.updateMatrix();
-      tm.setMatrixAt(k, dummy.matrix);
-    });
-    tm.castShadow = true;
-    scene.add(tm);
   }
 
   // ---------- địa điểm đặc biệt ----------
@@ -286,19 +234,15 @@ export function buildCity(scene, layout, potholes, seed = 7) {
     scene.add(s);
     return s;
   };
-  const addBuilding = (r, floors, colorHex, wide = 3) => {
-    const h = floors * FLOOR_H;
-    const fm = getFacadeMat(floors, wide);
-    const geo = new THREE.BoxGeometry(r.x1 - r.x0, h, r.z1 - r.z0);
-    const tinted = fm.clone();
-    tinted.color = new THREE.Color(colorHex);
-    facadeMats[`t${signMats.length}|${Math.random()}`] = tinted;
-    const m = new THREE.Mesh(geo, [tinted, tinted, roofMat, roofMat, tinted, tinted]);
-    m.position.set((r.x0 + r.x1) / 2, SW_H + h / 2, (r.z0 + r.z1) / 2);
-    m.castShadow = m.receiveShadow = true;
-    scene.add(m);
-    addBox(r.x0, r.z0, r.x1, r.z1, h + SW_H, 'place');
-    return m;
+  // Nhà của địa điểm: nhà A+ một căn (không chia), tầng 1 mặt phẳng để gắn biển; màu tường theo dữ liệu
+  // tầng trệt theo loại: nhà ở / cổng hẻm → cửa nhà; chung cư → dãy kiốt cửa cuốn; còn lại → tiệm mở cửa
+  const GROUND_OF = { home: 'home', gate: 'home', apartment: 'shutter' };
+  const addBuilding = (r, floors, colorHex, face, kind) => {
+    const f = frontOf(r, face);
+    const depth = f.nx ? r.x1 - r.x0 : r.z1 - r.z0;
+    const h = { x: f.x, y: SW_H, z: f.z, nx: f.nx, nz: f.nz, W: f.width, D: depth, floors, color: new THREE.Color(colorHex).getHex(), seed: rng.int(1, 1e9), ground: GROUND_OF[kind] || 'shop', place: true };
+    buildHouse(geoAt(f.x - f.nx * depth * 0.5, f.z - f.nz * depth * 0.5), h);
+    addBox(r.x0, r.z0, r.x1, r.z1, houseTop(floors) + SW_H, 'place');
   };
   const addAwning = (f, colorHex, depth = 1.6) => {
     const along = f.width - 0.8;
@@ -351,13 +295,13 @@ export function buildCity(scene, layout, potholes, seed = 7) {
       continue;
     }
     if (p.kind === 'apartment') {
-      addBuilding(r, p.floors, p.color, 9);
+      addBuilding(r, p.floors, p.color, p.face, p.kind);
       addSign(p.sign, p.signBg, f, SW_H + 3.6, 12);
       addAwning(f, accent, 2.2);
       continue;
     }
     if (p.kind === 'market') {
-      addBuilding(r, 2, p.color, 9);
+      addBuilding(r, 2, p.color, p.face, p.kind);
       addSign(p.sign, p.signBg, f, SW_H + 4.6, 12);
       for (let k = 0; k < 6; k++) {
         // chia mặt tiền thành 6 sạp (mặt tiền quay bắc/nam thì chia theo x, quay đông/tây thì theo z)
@@ -367,7 +311,7 @@ export function buildCity(scene, layout, potholes, seed = 7) {
       continue;
     }
     if (p.kind === 'gate') {
-      addBuilding(r, p.floors, p.color, 2);
+      addBuilding(r, p.floors, p.color, p.face, p.kind);
       const gate = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.3, (r.z1 - r.z0) * 0.6), mat(0x1e9e57, { emissive: 0x0b3d20, emissiveIntensity: 0.4 }));
       gate.position.set(r.x1 + 0.1, SW_H + 1.15, (r.z0 + r.z1) / 2);
       gate.castShadow = true;
@@ -375,11 +319,18 @@ export function buildCity(scene, layout, potholes, seed = 7) {
       continue;
     }
     // nhà hàng, quán, tiệm, nhà trọ
-    addBuilding(r, p.floors, p.color);
+    addBuilding(r, p.floors, p.color, p.face, p.kind);
     addSign(p.sign, p.signBg, f, SW_H + 3.7);
     addAwning(f, accent);
     // ghế đẩu bày ra vỉa hè (quán trong hẻm thì không — chắn lối đi)
     if (!p.inAlley && (p.kind === 'restaurant' || p.kind === 'cafe')) addStools(f, 4, p.kind === 'cafe' ? 0x2e86c1 : 0xe74c3c);
+  }
+
+  for (const geo of houseGroups.values()) {
+    if (!geo.tris) continue;
+    const m = new THREE.Mesh(geo.toGeometry(), houseMat);
+    m.castShadow = m.receiveShadow = true;
+    scene.add(m);
   }
 
   // biển hẻm 42
@@ -458,6 +409,86 @@ export function buildCity(scene, layout, potholes, seed = 7) {
   trunks.castShadow = crowns.castShadow = true;
   scene.add(trunks, crowns);
 
+  // ---------- cột điện + dây điện chằng chịt ----------
+  // Mỗi cạnh khối 2 cột sát mép vỉa hè (né đèn đường ở góc, cây ở 1/3 cạnh, miệng hẻm ở giữa).
+  // Dây nối 2 cột cùng cạnh và nối sang cột của khối kế bên (vắt qua ngã tư); vẽ bằng nét mảnh → 1 lệnh vẽ cho cả thành phố.
+  const polePos = new Map(); // `${bx},${bz},${side}` → [[x,z], [x,z]] theo chiều tăng toạ độ
+  for (let bz = 0; bz < CITY.N; bz++) {
+    for (let bx = 0; bx < CITY.N; bx++) {
+      const b = blockBounds(bx, bz), e = 0.45;
+      polePos.set(`${bx},${bz},N`, [[b.x0 + 8, b.z0 + e], [b.x1 - 8, b.z0 + e]]);
+      polePos.set(`${bx},${bz},S`, [[b.x0 + 8, b.z1 - e], [b.x1 - 8, b.z1 - e]]);
+      polePos.set(`${bx},${bz},W`, [[b.x0 + e, b.z0 + 8], [b.x0 + e, b.z1 - 8]]);
+      polePos.set(`${bx},${bz},E`, [[b.x1 - e, b.z0 + 8], [b.x1 - e, b.z1 - 8]]);
+    }
+  }
+  const poleList = [...polePos.values()].flat();
+  const POLE_H = 8.2;
+  const poleMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.09, 0.14, POLE_H, 6), mat(0x9a968f), poleList.length);
+  const armMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1.1, 0.08, 0.08), mat(0x777777), poleList.length);
+  const boxMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.22, 0.3, 0.14), mat(0x8a8f94), poleList.length);
+  const coils = [];
+  poleList.forEach(([x, z], k) => {
+    dummy.rotation.set(0, 0, 0);
+    dummy.scale.set(1, 1, 1);
+    dummy.position.set(x, SW_H + POLE_H / 2, z);
+    dummy.updateMatrix();
+    poleMesh.setMatrixAt(k, dummy.matrix);
+    dummy.position.set(x, SW_H + POLE_H - 0.6, z);
+    dummy.rotation.set(0, rng.next() < 0.5 ? 0 : Math.PI / 2, 0);
+    dummy.updateMatrix();
+    armMesh.setMatrixAt(k, dummy.matrix);
+    dummy.rotation.set(0, 0, 0);
+    dummy.position.set(x + 0.15, SW_H + 2.2 + rng.next() * 0.8, z + 0.15);
+    dummy.updateMatrix();
+    boxMesh.setMatrixAt(k, dummy.matrix); // hộp công tơ
+    if (rng.chance(0.45)) coils.push([x, z]);
+    addBox(x - 0.14, z - 0.14, x + 0.14, z + 0.14, POLE_H, 'pole');
+  });
+  poleMesh.castShadow = armMesh.castShadow = true;
+  scene.add(poleMesh, armMesh, boxMesh);
+  if (coils.length) {
+    // cuộn dây rối treo trên cột
+    const cm = new THREE.InstancedMesh(new THREE.TorusGeometry(0.28, 0.06, 4, 10), mat(0x1c1c1c), coils.length);
+    coils.forEach(([x, z], k) => {
+      dummy.position.set(x, SW_H + POLE_H - 1.6 - rng.next() * 0.8, z);
+      dummy.rotation.set(Math.PI / 2 + (rng.next() - 0.5) * 0.8, rng.next() * 3, 0);
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix();
+      cm.setMatrixAt(k, dummy.matrix);
+    });
+    cm.castShadow = true;
+    scene.add(cm);
+  }
+  const wirePts = [];
+  const wire = ([x0, z0], [x1, z1]) => {
+    const n = 3 + rng.int(0, 2);
+    for (let w = 0; w < n; w++) {
+      const h0 = SW_H + POLE_H - 0.55 - w * 0.22 - rng.next() * 0.1, sag = 0.6 + rng.next() * 0.9 + Math.hypot(x1 - x0, z1 - z0) * 0.02;
+      const off = (w - (n - 1) / 2) * 0.12;
+      const ox = z1 !== z0 ? off : 0, oz = x1 !== x0 ? off : 0;
+      for (let s = 0; s < 10; s++) {
+        const t0 = s / 10, t1 = (s + 1) / 10;
+        const y = (t) => h0 - sag * 4 * t * (1 - t);
+        wirePts.push(x0 + (x1 - x0) * t0 + ox, y(t0), z0 + (z1 - z0) * t0 + oz, x0 + (x1 - x0) * t1 + ox, y(t1), z0 + (z1 - z0) * t1 + oz);
+      }
+    }
+  };
+  for (let bz = 0; bz < CITY.N; bz++) {
+    for (let bx = 0; bx < CITY.N; bx++) {
+      for (const side of ['N', 'S', 'W', 'E']) {
+        const [a, b] = polePos.get(`${bx},${bz},${side}`);
+        wire(a, b);
+        // vắt qua ngã tư sang cột đầu tiên của khối kế bên trên cùng dãy phố
+        const next = side === 'N' || side === 'S' ? polePos.get(`${bx + 1},${bz},${side}`) : polePos.get(`${bx},${bz + 1},${side}`);
+        if (next) wire(b, next[0]);
+      }
+    }
+  }
+  const wireGeo = new THREE.BufferGeometry();
+  wireGeo.setAttribute('position', new THREE.Float32BufferAttribute(wirePts, 3));
+  scene.add(new THREE.LineSegments(wireGeo, new THREE.LineBasicMaterial({ color: 0x1a1a1a })));
+
   // ---------- ổ gà ----------
   const ph = new THREE.InstancedMesh(new THREE.CircleGeometry(1, 10), new THREE.MeshStandardMaterial({ color: 0x232325, roughness: 1 }), potholes.length);
   potholes.forEach((p, k) => {
@@ -477,7 +508,7 @@ export function buildCity(scene, layout, potholes, seed = 7) {
     setNight(n) {
       headMat.emissiveIntensity = 0.2 + 3 * n;
       poolMat.opacity = 0.85 * n;
-      for (const m of Object.values(facadeMats)) m.emissiveIntensity = 1.6 * n;
+      houseMat.emissiveIntensity = 1.6 * n;
       for (const m of signMats) m.emissiveIntensity = 0.15 + 0.7 * n;
     },
     setWet(w) {

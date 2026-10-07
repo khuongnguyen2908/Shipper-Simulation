@@ -15,47 +15,6 @@ function toTexture(c, srgb = true) {
   return t;
 }
 
-// Mặt tiền nhà ống: 4 cột × 4 tầng cửa sổ; màu tường do instanceColor quyết định
-export function makeFacadeTextures(seed = 1) {
-  const S = 64;
-  const [c, g] = canvas(S * 4, S * 4);
-  const [e, ge] = canvas(S * 4, S * 4);
-  g.fillStyle = '#ffffff';
-  g.fillRect(0, 0, c.width, c.height);
-  ge.fillStyle = '#000000';
-  ge.fillRect(0, 0, e.width, e.height);
-  let s = seed;
-  const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
-  for (let fy = 0; fy < 4; fy++) {
-    for (let fx = 0; fx < 4; fx++) {
-      const x = fx * S, y = fy * S;
-      // ban công / gờ tầng
-      g.fillStyle = 'rgba(0,0,0,0.12)';
-      g.fillRect(x, y + S - 6, S, 6);
-      // cửa sổ
-      const wx = x + 14, wy = y + 12, ww = S - 28, wh = S - 26;
-      g.fillStyle = '#3e4a56';
-      g.fillRect(wx, wy, ww, wh);
-      g.fillStyle = '#6f8494';
-      g.fillRect(wx + 3, wy + 3, ww / 2 - 4, wh - 6);
-      g.fillStyle = 'rgba(0,0,0,0.25)';
-      g.fillRect(wx - 3, wy - 3, ww + 6, 3);
-      // song sắt (rất Sài Gòn)
-      g.fillStyle = 'rgba(30,30,30,0.5)';
-      for (let k = 1; k < 4; k++) g.fillRect(wx + (ww * k) / 4, wy, 2, wh);
-      // cửa sổ sáng ban đêm
-      if (rnd() < 0.55) {
-        ge.fillStyle = rnd() < 0.7 ? '#ffcf7a' : '#cfe8ff';
-        ge.fillRect(wx, wy, ww, wh);
-      }
-    }
-  }
-  const map = toTexture(c);
-  const emissive = toTexture(e);
-  map.wrapS = map.wrapT = emissive.wrapS = emissive.wrapT = THREE.RepeatWrapping;
-  return { map, emissive };
-}
-
 export function makeTileTexture() {
   const [c, g] = canvas(128, 128);
   g.fillStyle = '#c9bfb3';

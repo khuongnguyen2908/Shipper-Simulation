@@ -706,5 +706,19 @@
   "npc.banhmi.greet": "\"Đơn của anh đây. Cẩn thận nha\"",
   "npc.banhmi_2.greet": "\"Đơn của anh đây. Cẩn thận nha\"",
   "npc.banhtrang.greet": "\"Đơn của anh đây. Cẩn thận nha\"",
-  "npc.quan1.greet": "\"Chào em! Đơn của em đây.\""
+  "npc.quan1.greet": "\"Chào em! Đơn của em đây.\"",
+  "city.shopSigns": [
+    "TẠP HÓA",
+    "PHỞ",
+    "CƠM TẤM",
+    "SỬA XE",
+    "NHÀ THUỐC",
+    "TIỆM VÀNG",
+    "CÀ PHÊ",
+    "BÁNH MÌ",
+    "ĐIỆN THOẠI",
+    "GIẶT ỦI",
+    "HỚT TÓC",
+    "BÚN BÒ"
+  ]
 }

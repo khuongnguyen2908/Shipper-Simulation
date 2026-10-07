@@ -1510,6 +1510,50 @@ console.log('Ngoại hình nam/nữ');
   });
 }
 
+console.log('Nhà ống A+ (src/world/houses.js)');
+{
+  const { HouseGeo, buildHouse, housesForLot, houseTop, SPLIT_MIN } = await import('../src/world/houses.js');
+  const build = (lot, o) => {
+    const g = new HouseGeo(), list = housesForLot(lot, { colors: [0xffcc88, 0x9fd8cb], seed: 7, ...o });
+    for (const h of list) buildHouse(g, h);
+    return { g, list };
+  };
+  const bounds = (g) => {
+    const mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
+    for (let i = 0; i < g.p.length; i += 3) for (let k = 0; k < 3; k++) { mn[k] = Math.min(mn[k], g.p[i + k]); mx[k] = Math.max(mx[k], g.p[i + k]); }
+    return { mn, mx };
+  };
+  test('Lô rộng > 7 m chia 2 căn phủ kín mặt tiền; lô hẹp 1 căn', () => {
+    assert.equal(housesForLot({ x: 0, z: 0, nx: 0, nz: 1, width: 6, depth: 9 }, { floors: 3, colors: [1], seed: 1 }).length, 1);
+    const two = housesForLot({ x: 0, z: 0, nx: 0, nz: 1, width: 11, depth: 9 }, { floors: 3, colors: [1], seed: 1 });
+    assert.equal(two.length, 2);
+    assert.ok(Math.abs(two[0].W + two[1].W - 11) < 0.1 && two.every((h) => h.W > 4 && h.W < SPLIT_MIN));
+  });
+  test('Nhà nằm trong lô theo cả 4 hướng mặt tiền (chỉ mái bạt/ban công đua ra trước ≤ 1,3 m), cao đúng số tầng, UV trong tấm texture', () => {
+    for (const [nx, nz] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+      const lot = { x: 10 * nx, y: 0.15, z: 10 * nz, nx, nz, width: 9, depth: 9 };
+      const { g, list } = build(lot, { floors: 4 });
+      const { mn, mx } = bounds(g);
+      // lô: mặt trước tại (x, z), lùi vào trong 9 m, bề ngang 9 m; phía trước cho đua ra 1,3 m, các phía khác 0,1 m
+      const lo = (n, c) => (n > 0 ? c - 9 - 0.1 : n < 0 ? c - 1.3 : -4.6);
+      const hi = (n, c) => (n > 0 ? c + 1.3 : n < 0 ? c + 9 + 0.1 : 4.6);
+      assert.ok(mn[0] >= lo(nx, lot.x) && mx[0] <= hi(nx, lot.x) && mn[2] >= lo(nz, lot.z) && mx[2] <= hi(nz, lot.z), 'hướng ' + nx + ',' + nz + ': x ' + mn[0].toFixed(2) + '…' + mx[0].toFixed(2) + ' z ' + mn[2].toFixed(2) + '…' + mx[2].toFixed(2));
+      const top = Math.max(...list.map((h) => houseTop(h.floors)));
+      assert.ok(mx[1] >= 0.15 + top && mx[1] <= 0.15 + top + 3, 'chiều cao');
+      assert.ok(g.uv.every((v) => v >= 0 && v <= 1), 'UV ngoài tấm texture');
+    }
+  });
+  test('Nhà ống: cùng seed ra cùng hình; số tam giác vừa phải (6 tầng ≤ 600/căn, vùng ven ≤ 150/căn)', () => {
+    const lot = { x: 0, z: 0, nx: 0, nz: 1, width: 5.5, depth: 9 };
+    const a = build(lot, { floors: 6 }).g, b = build(lot, { floors: 6 }).g;
+    assert.deepEqual(a.p, b.p);
+    assert.ok(a.tris <= 600, a.tris + ' tam giác');
+    const low = build({ ...lot, width: 11 }, { floors: 8, low: true });
+    assert.ok(low.g.tris / low.list.length <= 150, low.g.tris + ' tam giác');
+    for (const fl of [1, 2, 3, 5]) assert.ok(build(lot, { floors: fl, alley: true }).g.tris > 0);
+  });
+}
+
 console.log('Bảng chọn emoji (công cụ ?editor)');
 {
   const { EMOJI_GROUPS, searchEmoji } = await import('../src/devtools/editor/emoji.js');
