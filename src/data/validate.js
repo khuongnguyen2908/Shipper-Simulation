@@ -10,6 +10,7 @@ import { EFFECTS, CONSUMABLE_FIELDS, OUTFIT_SLOTS } from './goods.js';
 import { ORDER_KINDS } from './apps.js';
 import { GENDERS, HAIR_STYLES } from '../sim/people.js';
 import { openDayOf } from '../sim/placeRules.js';
+import { hoursProblem, totalHours } from '../sim/hours.js';
 import { BALANCE_GROUPS, KNOWN_PATHS, getPath } from './balanceSpec.js';
 
 const MAX_OPEN_DAY = 60;
@@ -98,6 +99,7 @@ const badHours = (h) => !Array.isArray(h) || !num(h[0]) || !num(h[1]) || h[0] < 
 
 export function validateApps(ad, items = {}, placesData = null) {
   const out = [];
+  const presets = placesData?.hourPresets || {};
   const mk = (cat) => (level, ref, field, msg) => out.push({ level, tab: 'app', cat, ref, field, msg });
   if (!ad || typeof ad !== 'object') return [{ level: 'error', tab: 'app', cat: 'app', ref: '', field: '', msg: 'Thiếu dữ liệu app.' }];
   // app
@@ -138,7 +140,7 @@ export function validateApps(ad, items = {}, placesData = null) {
     inRange(add, key, 'weight', t.weight, 0, 20, 'Mức thường xuyên');
     inRange(add, key, 'fareMult', t.fareMult, 0.2, 5, 'Hệ số cước');
     inRange(add, key, 'deadlineMult', t.deadlineMult, 0.2, 3, 'Hệ số thời hạn');
-    if (t.hours != null && badHours(t.hours)) add('error', key, 'hours', 'Khung giờ: giờ đầu < giờ cuối, trong 0–24.');
+    if (hoursProblem(t.hours, presets)) add('error', key, 'hours', `Khung giờ: ${hoursProblem(t.hours, presets)}`);
     if (t.requires != null && EFFECTS[t.requires]?.kind !== 'bool') add('error', key, 'requires', 'Điều kiện mở phải là một tác dụng có/không của trang bị.');
     if (t.kind === 'parcel') {
       if (!(t.items || []).length) add('error', key, 'items', 'Chưa chọn món hàng nào cho loại đơn này.');
@@ -166,7 +168,7 @@ export function validateApps(ad, items = {}, placesData = null) {
     for (const f of ['vagueChance', 'vomitChance', 'noPayChance', 'bigTipChance']) inRange(add, key, f, r[f], 0, 1, 'Tỉ lệ', { optional: true });
     for (const f of ['bigTip', 'earlyTip', 'vomitCost']) inRange(add, key, f, r[f], 0, 500, 'Số tiền (k)', { optional: true });
     inRange(add, key, 'vomitMental', r.vomitMental, 0, 100, 'Trừ tinh thần', { optional: true });
-    if (r.hours != null && badHours(r.hours)) add('error', key, 'hours', 'Khung giờ: giờ đầu < giờ cuối, trong 0–24.');
+    if (hoursProblem(r.hours, presets)) add('error', key, 'hours', `Khung giờ: ${hoursProblem(r.hours, presets)}`);
     if (r.viaApp != null && typeof r.viaApp !== 'boolean') add('error', key, 'viaApp', 'Qua app phải là có/không.');
     for (const id of r.from || []) if (placesData && !placeIds.has(id)) add('error', key, 'from', `Địa điểm "${id}" không tồn tại.`);
     if (r.riderNames != null && (!Array.isArray(r.riderNames) || r.riderNames.some((s) => typeof s !== 'string' || !s.trim()))) add('error', key, 'riderNames', 'Tên người đi: mỗi dòng một tên, không để trống.');
@@ -215,6 +217,14 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null, m
   const out = [];
   const add = (level, ref, field, msg) => out.push({ level, tab: 'places', ref, field, msg });
   const places = pd.places || [];
+  const presets = pd.hourPresets || {};
+  // khung giờ mẫu
+  for (const [key, h] of Object.entries(presets)) {
+    if (!ID_RE.test(key) || h.id !== key) add('error', `hour:${key}`, 'id', `Mã khung giờ mẫu "${key}" không hợp lệ hoặc khác khóa.`);
+    if (!h.name || !String(h.name).trim()) add('error', `hour:${key}`, 'name', 'Khung giờ mẫu chưa có tên.');
+    const bad = h.ranges == null ? 'Chưa có đoạn giờ nào.' : typeof h.ranges === 'string' ? 'Khung giờ mẫu không được trỏ tới mẫu khác.' : hoursProblem(h.ranges, presets);
+    if (bad) add('error', `hour:${key}`, 'ranges', `"${h.name || key}": ${bad}`);
+  }
   const ids = new Set();
   for (const id of PROTECTED.places) if (!places.some((p) => p.id === id)) add('error', id, 'id', `Thiếu địa điểm bắt buộc "${id}".`);
   if (!places.some((p) => p.kind === 'restaurant')) add('error', '', 'kind', 'Cần ít nhất một quán ăn.');
@@ -273,9 +283,9 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null, m
     if (!PLACE_KINDS.includes(p.kind)) add('error', p.id, 'kind', `Loại địa điểm lạ: ${p.kind}.`);
     // giờ mở cửa
     if (p.hours != null) {
-      const [a, b] = Array.isArray(p.hours) ? p.hours : [];
-      if (!num(a) || !num(b) || a < 0 || b > 24 || a >= b) add('error', p.id, 'hours', 'Giờ mở cửa: 2 số từ 0 đến 24, giờ mở < giờ đóng.');
-      else if (b - a < 1) add('warn', p.id, 'hours', 'Mở cửa chưa tới 1 tiếng.');
+      const bad = hoursProblem(p.hours, presets);
+      if (bad) add('error', p.id, 'hours', `Giờ mở cửa: ${bad}`);
+      else if (totalHours(p.hours, presets) < 1) add('warn', p.id, 'hours', 'Mở cửa chưa tới 1 tiếng.');
     }
     // hoạt động
     const actIds = new Set();
@@ -305,8 +315,8 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null, m
     // điểm đến của đơn
     if (p.orders) {
       for (const k of ['rideWeight', 'foodWeight', 'parcelWeight']) if (p.orders[k] != null && (!num(p.orders[k]) || p.orders[k] < 0 || p.orders[k] > 10)) add('error', p.id, `orders.${k}`, 'Mức độ thường xuyên từ 0 đến 10.');
-      const h = p.orders.hours;
-      if (h != null && (!Array.isArray(h) || !num(h[0]) || !num(h[1]) || h[0] < 0 || h[1] > 24 || h[0] >= h[1])) add('error', p.id, 'orders.hours', 'Khung giờ đơn: giờ đầu < giờ cuối, trong 0–24.');
+      const bad = hoursProblem(p.orders.hours, presets);
+      if (bad) add('error', p.id, 'orders.hours', `Khung giờ có đơn: ${bad}`);
     }
   }
   for (const [k, arr] of [['streetsX', pd.streetsX], ['streetsZ', pd.streetsZ]]) {

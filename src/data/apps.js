@@ -4,6 +4,7 @@
 //                  food (lấy món ở quán, chờ nấu) · ride (chở khách) · parcel (lấy hàng ở shop, có thể thu hộ COD / bị bom)
 //  - riderTypes: các loại khách xe ôm (khách app, khách quen, khách say…)
 import raw from './apps.json' with { type: 'json' };
+import { inHours } from '../sim/hours.js';
 
 export const APPS = raw.apps;
 export const ORDER_TYPES = raw.orderTypes;
@@ -13,11 +14,7 @@ export const APP = Object.values(APPS)[0];
 
 export const ORDER_KINDS = ['food', 'ride', 'parcel'];
 
-const inHours = (hours, now) => {
-  if (!Array.isArray(hours)) return true;
-  const h = now / 60;
-  return h >= hours[0] && h < hours[1];
-};
+// khung giờ của loại đơn / loại khách: một đoạn, nhiều đoạn, hoặc mã khung giờ mẫu (xem sim/hours.js)
 export const typeOpen = (t, now) => inHours(t.hours, now);
 
 // Giờ cao điểm (đơn nhiều hơn, quán đông, có phụ phí)

@@ -148,4 +148,13 @@ table.sim-table td { vertical-align: top; }
 .kbd { color: #8b97a8; font-size: 11px; }
 .btn.dim { opacity: .55; }
 .btn.icon-btn { padding: 7px 10px; font-size: 15px; }
+/* chọn khung giờ */
+.hours-picker { display: flex; flex-direction: column; gap: 3px; }
+.hp-opt { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
+.hp-opt:hover { background: #1f2733; }
+.hp-opt.on { background: #1d3427; border-color: #2e7d4f; }
+.hp-opt small { margin-left: auto; }
+.ranges { display: flex; flex-direction: column; gap: 6px; padding: 6px 0 2px 26px; }
+.range-row select.time-sel { width: 92px; }
+.hp-card .act-head b:last-child { flex: none; color: #9ec5ff; font-weight: 600; }
 

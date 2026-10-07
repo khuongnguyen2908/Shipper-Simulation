@@ -4,6 +4,7 @@ import { ORDER_KINDS } from '../../data/apps.js';
 import { EFFECTS } from '../../data/goods.js';
 import { el, field, textInput, numInput, button, sideList, selectInput, checkInput, emojiInput, explain, areaInput } from './ui.js';
 import { HINT, EXPLAIN } from './help.js';
+import { hoursPicker } from './hoursUi.js';
 import { moveKey } from './order.js';
 import { rowMenu, pasteButton, entryButtons, doRemove } from './opsUi.js';
 
@@ -56,10 +57,12 @@ export function render(root, ctx) {
   const num = (k, label, o = {}, obj = x) => field(label, numInput(obj[k], (v) => { obj[k] = v; changed(); }, o), opt(k, { hint: o.hint }));
   // ô số có thể bỏ trống (bỏ trống = như khách thường)
   const optNum = (k, label, o = {}) => field(label, numInput(x[k], (v) => { if (Number.isFinite(v)) x[k] = v; else delete x[k]; changed(); }, o), opt(k, { hint: o.hint }));
-  // khung giờ: "Cả ngày" hoặc [giờ đầu, giờ cuối]
-  const hoursRow = (label, hint) => field(label, el('span', { class: 'inline' },
-    checkInput(!Array.isArray(x.hours), (v) => { if (v) delete x.hours; else x.hours = [8, 21]; changed(); ctx.rerender(); }, 'Cả ngày'),
-    Array.isArray(x.hours) ? [numInput(x.hours[0], (v) => { x.hours[0] = v; changed(); }, { step: 1, min: 0, max: 24 }), el('span', {}, '→'), numInput(x.hours[1], (v) => { x.hours[1] = v; changed(); }, { step: 1, min: 0, max: 24 })] : null), opt('hours', { hint }));
+  // khung giờ: tick "Cả ngày" / một khung giờ mẫu (⏰, sửa ở thẻ Địa điểm → Khung giờ mẫu) / "Tự đặt"
+  const hoursRow = (label, hint) => field(label, hoursPicker({
+    value: x.hours,
+    presets: ctx.data.places.hourPresets || {},
+    onChange: (v) => { if (v == null) delete x.hours; else x.hours = v; changed(); },
+  }), opt('hours', { hint, wide: true }));
 
   body.append(el('div', { class: 'body-head' }, el('h2', {}, `${cat === 'app' ? '📱' : x.icon || ''} ${x.name}`), cat === 'app' ? el('span', { class: 'pill' }, '🔒 App đang chạy') : el('span', { class: 'inline' }, entryButtons(ctx, cat, x.id), button('🗑 Xóa', () => doRemove(ctx, cat, x.id), 'danger small'))));
 

@@ -10,6 +10,8 @@ import { el, field, textInput, numInput, colorInput, selectInput, checkInput, bu
 import { openDayOf } from '../../sim/placeRules.js';
 import { rentFor } from '../../data/balance.js';
 import { HINT, EXPLAIN } from './help.js';
+import { hoursPicker, rangesEditor, presetUsers } from './hoursUi.js';
+import { ranges, packRanges, fmtHours } from '../../sim/hours.js';
 import { CHANGEABLE_KINDS, canChangeKind, applyKind } from './placeKind.js';
 
 const KIND = { home: '🏠 Nhà trọ', restaurant: '🍴 Quán ăn', gas: '⛽ Cây xăng', shop: '🎒 Tiệm đồ nghề', garage: '🔧 Tiệm xe', cafe: '☕ Quán cà phê', taphoa: '🛒 Tạp hóa', gate: '🟩 Nhà cổng xanh', apartment: '🏢 Chung cư', market: '🧺 Chợ', service: '⭐ Dịch vụ' };
@@ -33,7 +35,7 @@ export function render(root, ctx) {
   const pd = ctx.data.places;
   const places = pd.places;
   const sel = ctx.sel.places;
-  if (!sel.id || (!['__streets', '__schedule'].includes(sel.id) && !places.some((p) => p.id === sel.id))) sel.id = places[0].id;
+  if (!sel.id || (!['__streets', '__schedule', '__hours'].includes(sel.id) && !places.some((p) => p.id === sel.id))) sel.id = places[0].id;
   const changedP = () => ctx.changed('places');
 
   const side = el('aside', { class: 'ed-side' });
@@ -45,11 +47,12 @@ export function render(root, ctx) {
         [
           { id: '__streets', icon: '🛣️', title: 'Tên đường & khách', sub: 'phố, khách hàng, người đi đường', fixed: true },
           { id: '__schedule', icon: '📅', title: 'Lịch mở theo ngày', sub: 'quán, món mở từ ngày nào', fixed: true },
+          { id: '__hours', icon: '⏰', title: 'Khung giờ mẫu', sub: `${Object.keys(pd.hourPresets || {}).length} mẫu · tick ở giờ mở cửa / có đơn`, fixed: true },
           ...places.map((p) => ({ id: p.id, icon: p.icon || ICON[p.kind] || '•', title: p.name, sub: `${p.id} · khối ${p.block.join(',')} lô ${p.lot}${p.openDay > 1 ? ` · mở ngày ${p.openDay}` : ''}` })),
         ],
         sel.id,
         (id) => ctx.select('places', { id }),
-        { issuesFor: (id) => (id === '__schedule' ? [] : id === '__streets' ? ctx.issuesFor('places', '') : ctx.issuesFor('places', id)), onReorder: (a, b) => { moveInArray(places, a, b); changedP(); }, menu: rowMenu(ctx, 'places') },
+        { issuesFor: (id) => (id === '__schedule' ? [] : id === '__hours' ? ctx.issues.filter((i) => i.tab === 'places' && String(i.ref).startsWith('hour:')) : id === '__streets' ? ctx.issuesFor('places', '') : ctx.issuesFor('places', id)), onReorder: (a, b) => { moveInArray(places, a, b); changedP(); }, menu: rowMenu(ctx, 'places') },
       ),
     );
   };
@@ -60,6 +63,7 @@ export function render(root, ctx) {
   root.append(el('div', { class: 'ed-split' }, side, body));
   if (sel.id === '__streets') return renderStreets(body, ctx);
   if (sel.id === '__schedule') return renderSchedule(body, ctx);
+  if (sel.id === '__hours') return renderHourPresets(body, ctx);
 
   const p = places.find((x) => x.id === sel.id);
   const ref = p.id;
@@ -177,15 +181,19 @@ export function render(root, ctx) {
 
   // --- giờ mở cửa ---
   // read(): đọc (có thể không tồn tại) · write(): lấy object để ghi (tạo nếu chưa có)
-  const hoursRow = (read, write, fieldKey, label, hint, onClear) => {
-    const cur = read();
-    const on = Array.isArray(cur);
-    return field(label, el('span', { class: 'inline' },
-      checkInput(!on, (v) => { const o = write(); if (v) delete o.hours; else o.hours = [8, 21]; if (onClear) onClear(); changedP(); ctx.rerender(); }, 'Cả ngày'),
-      on ? numInput(cur[0], (v) => { write().hours[0] = v; changedP(); }, { step: 1, min: 0, max: 24 }) : null,
-      on ? el('span', {}, '→') : null,
-      on ? numInput(cur[1], (v) => { write().hours[1] = v; changedP(); }, { step: 1, min: 0, max: 24 }) : null), opt(fieldKey, { hint }));
-  };
+  // Tick "Cả ngày" / một khung giờ mẫu (⏰, sửa ở mục Khung giờ mẫu) / "Tự đặt" (nhiều đoạn, giờ lẻ 30 phút)
+  const hoursRow = (read, write, fieldKey, label, hint, onClear, emptyLabel = 'Cả ngày') => field(label, hoursPicker({
+    value: read(),
+    presets: pd.hourPresets || {},
+    emptyLabel,
+    onChange: (v) => {
+      const o = write();
+      if (v == null) delete o.hours;
+      else o.hours = v;
+      if (onClear) onClear();
+      changedP();
+    },
+  }), opt(fieldKey, { hint, wide: true }));
   body.append(el('h3', {}, 'Giờ mở cửa'), el('div', { class: 'grid' },
     hoursRow(() => p.hours, () => p, 'hours', 'Giờ mở cửa (giờ)', 'Ngoài giờ: không vào được, không có đơn từ quán, không làm hoạt động. Ngày chơi 6h → 22h.'),
     field('Mở từ ngày (khai trương)', openDayInput(p, changedP, { disabled: locked }), opt('openDay', { hint: locked ? 'Địa điểm gắn với cốt truyện → luôn mở từ ngày 1.' : HINT.place.openDay }))));
@@ -277,7 +285,7 @@ export function render(root, ctx) {
       field('Khách xe ôm đi tới / từ đây', numInput(ord().rideWeight ?? 0, (v) => { ordW().rideWeight = v; cleanup(); changedP(); }, { step: 1, min: 0, max: 10 }), opt('orders.rideWeight', { hint: HINT.orders.rideWeight })),
       p.kind !== 'restaurant' ? field('Đặt đồ ăn giao tới đây', numInput(ord().foodWeight ?? 0, (v) => { ordW().foodWeight = v; cleanup(); changedP(); }, { step: 1, min: 0, max: 10 }), opt('orders.foodWeight', { hint: HINT.orders.foodWeight })) : null,
       p.kind !== 'restaurant' ? field('Gửi hàng từ đây (đơn giao hàng)', numInput(ord().parcelWeight ?? 0, (v) => { ordW().parcelWeight = v; cleanup(); changedP(); }, { step: 1, min: 0, max: 10 }), opt('orders.parcelWeight', { hint: HINT.orders.parcelWeight })) : null,
-      hoursRow(() => ord().hours, ordW, 'orders.hours', 'Khung giờ có đơn', 'Bỏ trống ("Cả ngày") = theo giờ mở cửa', cleanup),
+      hoursRow(() => ord().hours, ordW, 'orders.hours', 'Khung giờ có đơn', '"Theo giờ mở cửa" = có đơn mọi lúc tiệm mở.', cleanup, 'Theo giờ mở cửa'),
     ),
   );
 
@@ -529,6 +537,80 @@ function renderSchedule(body, ctx) {
       el('thead', {}, el('tr', {}, el('th', {}, 'Ngày'), el('th', {}, 'Tiền nhà'), el('th', {}, 'Quán có đơn'), el('th', {}, 'Khai trương'), el('th', {}, 'Món mới trên app'))),
       el('tbody', {}, rows)),
   );
+}
+
+// Trang "⏰ Khung giờ mẫu": tạo / sửa / xóa mẫu; mỗi mẫu ghi rõ đang dùng ở đâu. Sửa mẫu → mọi nơi dùng đổi theo.
+function renderHourPresets(body, ctx) {
+  const pd = ctx.data.places;
+  const presets = (pd.hourPresets = pd.hourPresets || {});
+  const changed = (alsoApps = false) => {
+    if (alsoApps) ctx.changed('apps');
+    ctx.changed('places');
+  };
+  body.append(
+    el('div', { class: 'body-head' }, el('h2', {}, '⏰ Khung giờ mẫu'), button('＋ Thêm khung giờ mẫu', add, 'small primary')),
+    el('p', { class: 'muted' }, 'Ở mỗi địa điểm (giờ mở cửa, giờ có đơn) và thẻ 📱 App & Đơn (loại đơn, loại khách): tick một mẫu là lấy theo. Sửa mẫu ở đây → mọi nơi đang dùng đổi theo. Mỗi mẫu có thể nhiều đoạn (vd nghỉ trưa), giờ lẻ 30 phút.'),
+  );
+  if (!Object.keys(presets).length) body.append(el('p', { class: 'muted' }, 'Chưa có khung giờ mẫu nào.'));
+  for (const h of Object.values(presets)) {
+    const users = presetUsers(ctx.data, h.id);
+    const ref = `hour:${h.id}`;
+    const idIn = textInput(h.id, () => {}, { class: 'mono' });
+    idIn.addEventListener('change', () => rename(h, idIn.value.trim()));
+    const list = (ranges(h.ranges, {}) || [[8, 17]]).map((r) => [...r]);
+    const preview = el('b', {}, fmtHours(h.ranges, {}));
+    body.append(el('div', { class: 'act-card hp-card' },
+      el('div', { class: 'act-head' }, el('b', {}, `⏰ ${h.name || h.id}`), preview),
+      el('div', { class: 'grid tight' },
+        field('Tên', textInput(h.name, (v) => { h.name = v; changed(); }), { ref, fieldKey: 'name' }),
+        field('Mã (không dấu)', idIn, { ref, fieldKey: 'id', hint: 'Đổi mã → mọi nơi đang dùng tự đổi theo' })),
+      field('Các đoạn giờ', rangesEditor(list, (l) => {
+        h.ranges = packRanges(l);
+        preview.textContent = fmtHours(h.ranges, {});
+        changed(users.some((u) => u.tab === 'app'));
+      }), { ref, fieldKey: 'ranges', wide: true }),
+      field('Đang dùng ở', users.length
+        ? el('div', { class: 'chips' }, users.map((u) => button(u.label, () => ctx.select(u.tab, u.sel), 'small')))
+        : el('small', { class: 'muted' }, 'Chưa nơi nào dùng.'), { wide: true }),
+      button('🗑 Xóa mẫu', () => remove(h, users), 'danger small')));
+  }
+
+  function add() {
+    let n = 1;
+    while (presets[`gio${n}`]) n++;
+    const id = `gio${n}`;
+    presets[id] = { id, name: 'Khung giờ mới', ranges: [8, 17] };
+    ctx.historyBreak();
+    changed();
+    ctx.historyBreak();
+    ctx.rerender();
+  }
+  function rename(h, newId) {
+    if (!newId || newId === h.id) return;
+    if (!ID_RE.test(newId)) return alert('Mã chỉ gồm chữ không dấu, số, gạch dưới.');
+    if (presets[newId]) return alert('Mã này đã có.');
+    const users = presetUsers(ctx.data, h.id);
+    for (const u of users) u.obj[u.key] = newId;
+    const entries = Object.entries(presets).map(([k, v]) => (k === h.id ? [newId, { ...v, id: newId }] : [k, v]));
+    for (const k of Object.keys(presets)) delete presets[k];
+    for (const [k, v] of entries) presets[k] = v;
+    ctx.historyBreak();
+    changed(users.some((u) => u.tab === 'app'));
+    ctx.historyBreak();
+    ctx.rerender();
+  }
+  // Xóa mẫu: nơi đang dùng giữ nguyên giờ (chuyển sang "Tự đặt")
+  function remove(h, users) {
+    const list = users.map((u) => `• ${u.label}`).join('\n');
+    if (!confirm(`Xóa khung giờ mẫu "${h.name}"?${users.length ? `\n${users.length} nơi đang dùng sẽ giữ nguyên giờ ${fmtHours(h.ranges, {})} (chuyển sang "Tự đặt"):\n${list}` : ''}\n\n(Lỡ tay: Ctrl+Z)`)) return;
+    const keep = packRanges(ranges(h.ranges, {}) || [[8, 17]]);
+    for (const u of users) u.obj[u.key] = JSON.parse(JSON.stringify(keep));
+    delete presets[h.id];
+    ctx.historyBreak();
+    changed(users.some((u) => u.tab === 'app'));
+    ctx.historyBreak();
+    ctx.rerender();
+  }
 }
 
 export { LOTS };

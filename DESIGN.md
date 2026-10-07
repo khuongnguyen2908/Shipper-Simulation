@@ -200,7 +200,13 @@ tests/        run.js (25 bộ thử luật) · economy-sim.js (bot chơi headles
 - Danh sách ô, nhãn, phạm vi: `src/data/balanceSpec.js` (dùng chung cho editor và `validate.js`). Số nào chưa có ô riêng hiện ở mục "Nâng cao".
 - Nút **🤖 Chạy thử bot**: Web Worker (`devtools/editor/simWorker.js`) gọi `applyBalance(số đang sửa)` rồi `playRun` (bot nối ngày) — không cần lưu; chạy được cả trên bản build.
 
-## 10. Giới hạn hiện tại
+## 10. Khung giờ (`src/sim/hours.js`)
+
+- Mọi ô giờ (giờ mở cửa, giờ có đơn của địa điểm; loại đơn, loại khách của app) nhận: bỏ trống = cả ngày · `[a, b]` một đoạn · `[[a,b],[c,d]]` nhiều đoạn (nghỉ trưa) · `"mãMẫu"` = khung giờ mẫu ở `places.json → hourPresets`. Giờ được lẻ (7.5 = 7:30).
+- Sửa khung giờ mẫu (editor → Địa điểm → ⏰ Khung giờ mẫu) → mọi nơi đang dùng đổi theo. Xóa mẫu → nơi đang dùng giữ nguyên giờ (chuyển sang "tự đặt").
+- `inHours`, `fmtHours`, `hoursProblem` dùng chung cho game (`placeRules`, `apps.typeOpen`), bộ kiểm tra và editor.
+
+## 11. Giới hạn hiện tại
 
 - Xe NPC chưa có đèn giao thông, chưa có hầm chui.
 - Mỗi lúc chỉ nhận một đơn (chưa ghép đơn).

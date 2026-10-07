@@ -260,7 +260,7 @@ export async function startEditor(root) {
   function jump(i) {
     if (i.tab === 'items') ctx.select('items', { id: i.ref });
     else if (i.tab === 'gear') ctx.select('gear', { cat: i.cat, id: i.ref });
-    else if (i.tab === 'places') ctx.select('places', { id: i.ref || '__streets' });
+    else if (i.tab === 'places') ctx.select('places', { id: String(i.ref).startsWith('hour:') ? '__hours' : i.ref || '__streets' });
     else if (i.tab === 'text') ctx.select('text', { search: i.ref, group: '' });
     else if (i.tab === 'app') ctx.select('app', { cat: i.cat, id: i.ref || null });
     else if (i.tab === 'map') ctx.select('map', /^\d+,\d+$/.test(i.ref) ? { id: i.ref } : {});

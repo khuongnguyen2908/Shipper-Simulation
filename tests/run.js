@@ -13,6 +13,7 @@ import { HazardManager } from '../src/sim/hazards.js';
 import { makeRng } from '../src/sim/rng.js';
 import { buildLayout, blockAt, HALF } from '../src/sim/cityLayout.js';
 import { objectives } from '../src/sim/objectives.js';
+import { ranges } from '../src/sim/hours.js';
 import * as CONTENT from '../src/content/index.js';
 
 let pass = 0, fail = 0;
@@ -219,7 +220,8 @@ test('Đơn kem/trà sữa chỉ xuất hiện khi có túi giữ nhiệt', () =
   // chọn giờ quán có món lạnh đang mở (giờ mở cửa do người dùng chỉnh trong ?editor)
   const coldShop = om.layout.places.find((p) => (p.menu || []).some((id) => DATA_ITEMS[id]?.traits.includes('cold')));
   if (!coldShop) return; // dữ liệu không còn quán nào bán món lạnh
-  const t = coldShop.hours ? coldShop.hours[0] * 60 + 30 : 480;
+  const open1 = ranges(coldShop.hours); // khung giờ có thể là mẫu / nhiều đoạn
+  const t = open1 ? open1[0][0] * 60 + 30 : 480;
   let sawCold = false;
   for (let i = 0; i < 200 && !sawCold; i++) if (om.makeOffer(t, { x: 0, z: 0 }).itemIds.some((id) => DATA_ITEMS[id].traits.includes('cold'))) sawCold = true;
   assert.ok(sawCold, `không thấy đơn món lạnh lúc ${t / 60}h từ ${coldShop.id}`);
@@ -908,6 +910,66 @@ console.log('Nhân bản · sao chép · dán · xóa · hoàn tác (công cụ 
     const rest = d.places.places.filter((p) => p.kind === 'restaurant');
     for (const p of rest.slice(1)) O.remove(d, base, 'places', p.id);
     assert.ok(O.remove(d, base, 'places', rest[0].id).error, 'phải giữ ít nhất 1 quán ăn');
+  });
+}
+
+console.log('Khung giờ (một đoạn, nhiều đoạn, giờ lẻ, khung giờ mẫu)');
+{
+  const Hr = await import('../src/sim/hours.js');
+  const { isOpen, orderWeight } = await import('../src/sim/placeRules.js');
+  const { typeOpen } = await import('../src/data/apps.js');
+  const { presetUsers } = await import('../src/devtools/editor/hoursUi.js');
+  const { validatePlaces } = await import('../src/data/validate.js');
+  const presets = { hc: { id: 'hc', name: 'Hành chính', ranges: [[7.5, 11.5], [13, 17]] }, toi: { id: 'toi', name: 'Tối', ranges: [17, 23] } };
+  test('Đọc khung giờ: cả ngày / một đoạn / nhiều đoạn / mẫu', () => {
+    assert.equal(Hr.ranges(null), null);
+    assert.deepEqual(Hr.ranges([8, 21]), [[8, 21]]);
+    assert.deepEqual(Hr.ranges([[7.5, 11.5], [13, 17]]), [[7.5, 11.5], [13, 17]]);
+    assert.deepEqual(Hr.ranges('toi', presets), [[17, 23]]);
+    assert.equal(Hr.ranges('khongCo', presets), null);
+    assert.equal(Hr.fmtHours('hc', presets), '07:30–11:30, 13:00–17:00');
+    assert.equal(Hr.fmtHours([17, 24]), '17:00–24:00');
+    assert.equal(Hr.totalHours('hc', presets), 8);
+  });
+  test('Nghỉ trưa thì đóng, 7:30 thì mở, đúng giờ đóng là đóng', () => {
+    const h = 'hc';
+    assert.equal(Hr.inHours(h, 7 * 60 + 29, presets), false);
+    assert.equal(Hr.inHours(h, 7 * 60 + 30, presets), true);
+    assert.equal(Hr.inHours(h, 12 * 60, presets), false);
+    assert.equal(Hr.inHours(h, 13 * 60, presets), true);
+    assert.equal(Hr.inHours(h, 17 * 60, presets), false);
+  });
+  test('Game dùng khung giờ mẫu thật trong places.json (cửa tiệm, điểm đến đơn, loại đơn)', () => {
+    const real = Hr.hourPresets();
+    const id = Object.keys(real).find((k) => Hr.ranges(k).length >= 2) || Object.keys(real)[0];
+    if (!id) return;
+    const [[a, b]] = Hr.ranges(id);
+    assert.equal(isOpen({ hours: id }, a * 60), true);
+    assert.equal(isOpen({ hours: id }, b * 60), false);
+    assert.equal(orderWeight({ hours: id, orders: { rideWeight: 4 } }, 'rideWeight', a * 60), 4);
+    assert.equal(orderWeight({ hours: id, orders: { rideWeight: 4 } }, 'rideWeight', b * 60), 0);
+    assert.equal(typeOpen({ hours: id }, a * 60), true);
+  });
+  test('Bộ kiểm tra: đoạn sai, chồng nhau, mẫu không tồn tại, mẫu hỏng', () => {
+    assert.ok(Hr.hoursProblem([9, 8]));
+    assert.ok(Hr.hoursProblem([[8, 12], [11, 15]]));
+    assert.ok(Hr.hoursProblem([8, 25]));
+    assert.ok(Hr.hoursProblem('khongCo', presets));
+    assert.equal(Hr.hoursProblem('hc', presets), null);
+    assert.equal(Hr.hoursProblem([[7.5, 11.5], [13, 17]]), null);
+    const pd = { places: [{ id: 'p', name: 'P', short: 'P', kind: 'service', block: [0, 0], lot: 'N0', color: '#ffffff', sign: 'P', hours: 'khongCo' }], hourPresets: { ...presets, xau: { id: 'xau', name: 'Xấu', ranges: [[8, 12], [10, 14]] } }, alley: { block: [1, 0], lot: 'E1' }, streetsX: [], streetsZ: [], customerNames: ['A'] };
+    const iss = validatePlaces(pd, {}).filter((i) => i.level === 'error');
+    assert.ok(iss.some((i) => i.ref === 'p' && i.field === 'hours'));
+    assert.ok(iss.some((i) => i.ref === 'hour:xau' && i.field === 'ranges'));
+  });
+  test('Gọn dữ liệu: 1 đoạn lưu [a,b], nhiều đoạn xếp theo giờ', () => {
+    assert.deepEqual(Hr.packRanges([[8, 21]]), [8, 21]);
+    assert.deepEqual(Hr.packRanges([[13, 17], [7.5, 11.5]]), [[7.5, 11.5], [13, 17]]);
+  });
+  test('Tìm nơi đang dùng một khung giờ mẫu (địa điểm + loại đơn / loại khách)', () => {
+    const data = { places: { places: [{ id: 'a', name: 'A', hours: 'hc' }, { id: 'b', name: 'B', hours: [8, 9], orders: { hours: 'hc' } }] }, apps: { orderTypes: { x: { id: 'x', name: 'X', hours: 'hc' } }, riderTypes: {} } };
+    assert.equal(presetUsers(data, 'hc').length, 3);
+    assert.equal(presetUsers(data, 'toi').length, 0);
   });
 }
 

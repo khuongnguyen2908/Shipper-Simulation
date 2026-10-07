@@ -56,6 +56,54 @@
     "Bà Sáu",
     "Em Quân"
   ],
+  "hourPresets": {
+    "hanhChinh": {
+      "id": "hanhChinh",
+      "name": "Giờ hành chính",
+      "ranges": [
+        [
+          7.5,
+          11.5
+        ],
+        [
+          13,
+          17
+        ]
+      ]
+    },
+    "anSang": {
+      "id": "anSang",
+      "name": "Ăn sáng",
+      "ranges": [
+        6,
+        10
+      ]
+    },
+    "quanAn": {
+      "id": "quanAn",
+      "name": "Quán ăn",
+      "ranges": [
+        8,
+        21
+      ]
+    },
+    "caNgay": {
+      "id": "caNgay",
+      "name": "Cả ngày chơi",
+      "ranges": [
+        6,
+        22
+      ]
+    },
+    "buoiToi": {
+      "id": "buoiToi",
+      "name": "Buổi tối",
+      "ranges": [
+        17,
+        23
+      ]
+    }
+  },
   "places": [
     {
       "id": "home",
@@ -91,7 +139,7 @@
       "lot": "E1",
       "floors": 2,
       "color": "#f4c095",
-      "sign": "QUÁN MỚI",
+      "sign": "BÚN MỌC YẾN",
       "signBg": "#b03a2e",
       "menu": [
         "bunMoc"
@@ -474,10 +522,10 @@
       "sells": {
         "vehicles": [
           "cub",
-          "scooter",
-          "sport",
-          "exciter",
           "wave",
+          "scooter",
+          "exciter",
+          "sport",
           "SH"
         ]
       }
@@ -926,7 +974,7 @@
       "lot": "S0",
       "floors": 2,
       "color": "#d6eaf8",
-      "sign": "ĐỊA ĐIỂM MỚI",
+      "sign": "GOSHIP",
       "signBg": "#27ff0a",
       "npc": {
         "name": "Nhân viên quản lý app",
@@ -957,7 +1005,7 @@
       "orders": {
         "hours": [
           8,
-          21
+          16
         ]
       },
       "face": "W",
