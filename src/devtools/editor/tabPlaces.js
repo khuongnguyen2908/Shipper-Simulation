@@ -5,6 +5,8 @@ import { PROTECTED, ID_RE, LOTS, lotCells } from '../../data/validate.js';
 import { moveInArray } from './order.js';
 import { rowMenu, addButton, entryButtons, doRemove, doCopyActivity, doPasteActivity } from './opsUi.js';
 import { personPreview } from './personPreview.js';
+import { housePreview } from './housePreview.js';
+import { LOOKS, guessLook, lookOf } from '../../data/looks.js';
 import { guessGender } from '../../sim/people.js';
 import { el, field, textInput, numInput, colorInput, selectInput, checkInput, button, sideList, areaInput, dragHandle, makeSortable, emojiInput, explain, openDayInput, subTabs, advanced } from './ui.js';
 import { openDayOf } from '../../sim/placeRules.js';
@@ -36,7 +38,11 @@ export function render(root, ctx) {
   const places = pd.places;
   const sel = ctx.sel.places;
   if (!sel.id || (!['__streets', '__schedule', '__hours'].includes(sel.id) && !places.some((p) => p.id === sel.id))) sel.id = places[0].id;
-  const changedP = () => ctx.changed('places');
+  let updHouse = null; // khung xem trước nhà (trang Thông tin) — vẽ lại khi sửa
+  const changedP = () => {
+    ctx.changed('places');
+    updHouse?.();
+  };
 
   const side = el('aside', { class: 'ed-side' });
   const drawSide = () => {
@@ -115,6 +121,8 @@ export function render(root, ctx) {
         field('Tên đầy đủ', textInput(p.name, (v) => { p.name = v; changedP(); }), opt('name', { hint: HINT.place.name })),
         field('Tên ngắn (bản đồ)', textInput(p.short, (v) => { p.short = v; changedP(); }), opt('short', { hint: HINT.place.short })),
         kindField(),
+        lookField(),
+        floorsField(),
         field('Biểu tượng bản đồ', emojiInput(p.icon ?? '', (v) => { if (v) p.icon = v; else delete p.icon; changedP(); }, { placeholder: ICON[p.kind] || '📍' }), opt('icon', { hint: 'Emoji; để trống = theo loại' })),
         p.kind !== 'gate' ? field('Chữ trên biển hiệu', textInput(p.sign, (v) => { p.sign = v; changedP(); }), opt('sign', { hint: HINT.place.sign })) : null,
         field('Khối (cột x, hàng z)', el('span', { class: 'inline' },
@@ -130,12 +138,11 @@ export function render(root, ctx) {
         field('Lô trong khối', selectInput(lotOptions.includes(p.lot) ? p.lot : '', [...(lotOptions.includes(p.lot) ? [] : [['', `(${p.lot} — không có trong khối này)`]]), ...lotOptions.map((l) => [l, lotLabel(l)])], (v) => { if (!v) return; p.lot = v; if (plan) delete p.face; else fixFace(); changedP(); ctx.rerender(); }), opt('lot', { hint: plan ? 'Khối có hẻm: chọn một nhà (mặt tiền cố định theo nhà). Hoặc bấm vào nhà trên bản đồ.' : 'Hoặc bấm vào ô trên bản đồ (giữ nguyên kích thước)' })),
         p.kind !== 'gate' && !plan ? faceField() : null,
       ),
-      advanced('Nâng cao: mã, màu, số tầng',
+      advanced('Nâng cao: mã, màu',
         field('Mã (không dấu)', idInput, opt('id', { hint: locked ? 'Code dùng trực tiếp mã này' : 'Đổi mã sẽ đổi cả khóa lời thoại npc.<mã>.*' })),
         p.signBg != null || p.kind !== 'gate' ? field('Màu biển hiệu', colorInput(p.signBg, (v) => { p.signBg = v; changedP(); }), opt('signBg')) : null,
         field('Màu tường', colorInput(p.color, (v) => { p.color = v; changedP(); }), opt('color')),
-        p.floors != null ? field('Số tầng', numInput(p.floors, (v) => { p.floors = Math.round(v); changedP(); }, { step: 1, min: 1, max: 15 }), opt('floors', { hint: HINT.place.floors })) : null,
-      )),
+      ), houseBox()),
       mapBox,
     ),
   );
@@ -443,6 +450,32 @@ export function render(root, ctx) {
     return field('Loại địa điểm', s, opt('kind', { hint: can ? HINT.place.kind
       : locked ? 'Địa điểm có khóa 🔒 (code gọi thẳng) — không đổi loại được.'
       : 'Loại này gắn với cốt truyện (quán cà phê, tạp hóa: nhiệm vụ chiếc ví) hoặc chỉ có một (nhà trọ, nhà cổng xanh, chung cư) — không đổi được.' }));
+  }
+
+  // ---------- kiểu nhà + số tầng + xem trước ----------
+  function lookField() {
+    const guess = LOOKS[guessLook(p)].label;
+    const s = selectInput(p.look && LOOKS[p.look] ? p.look : '', [['', `Tự đoán theo loại — ${guess}`], ...Object.entries(LOOKS).map(([k, v]) => [k, v.label])], (v) => {
+      if (v) p.look = v;
+      else delete p.look;
+      const r = LOOKS[lookOf(p)].floors;
+      if (r && Number.isInteger(p.floors)) p.floors = Math.max(r[0], Math.min(r[1], p.floors)); // kéo số tầng vào khoảng của kiểu mới
+      changedP();
+      ctx.rerender();
+    });
+    return field('Kiểu nhà', s, opt('look', { hint: HINT.place.look }));
+  }
+  function floorsField() {
+    const r = LOOKS[lookOf(p)].floors;
+    if (!r) return null; // kiểu nhà hình cố định (chùa, cây xăng, cà phê…) — không chọn số tầng
+    const cur = Number.isInteger(p.floors) ? p.floors : r[0];
+    return field('Số tầng', numInput(cur, (v) => { p.floors = Math.max(r[0], Math.min(r[1], Math.round(v))); changedP(); }, { step: 1, min: r[0], max: r[1] }), opt('floors', { hint: `${r[0]}–${r[1]} tầng cho kiểu "${LOOKS[lookOf(p)].label}". ${HINT.place.floors}` }));
+  }
+  function houseBox() {
+    const hp = housePreview();
+    updHouse = () => hp.show(p, ctx.data.items, map);
+    updHouse();
+    return el('div', { class: 'house-wrap' }, hp.el, el('small', { class: 'muted' }, 'Xem trước nhà trong game (đổi kiểu nhà, số tầng, màu, biển, lô… là thấy ngay)'));
   }
 
   // ---------- mặt tiền ----------

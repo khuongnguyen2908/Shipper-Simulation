@@ -10,6 +10,7 @@ import { EFFECTS, CONSUMABLE_FIELDS, OUTFIT_SLOTS } from './goods.js';
 import { ORDER_KINDS } from './apps.js';
 import { GENDERS, HAIR_STYLES } from '../sim/people.js';
 import { openDayOf } from '../sim/placeRules.js';
+import { LOOKS, lookOf } from './looks.js';
 import { hoursProblem, totalHours } from '../sim/hours.js';
 import { BALANCE_GROUPS, KNOWN_PATHS, getPath } from './balanceSpec.js';
 import { ITEM_GROUP_IDS } from './itemGroups.js';
@@ -275,6 +276,11 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null, m
     if (p.kind !== 'gas' && p.kind !== 'gate' && p.kind !== 'market' && p.sign == null) add('warn', p.id, 'sign', 'Chưa có biển hiệu.');
     if (p.signBg && !COLOR_RE.test(p.signBg)) add('error', p.id, 'signBg', 'Màu biển phải dạng #rrggbb.');
     if (p.floors != null && (!Number.isInteger(p.floors) || p.floors < 1 || p.floors > 15)) add('error', p.id, 'floors', 'Số tầng 1–15.');
+    // kiểu nhà (hình dáng) + số tầng cho phép theo kiểu
+    if (p.look != null && !LOOKS[p.look]) add('error', p.id, 'look', `Kiểu nhà lạ: ${p.look}.`);
+    // chỉ kiểm khi đã tự chọn kiểu (kiểu tự đoán thì lúc vẽ tự kéo số tầng vào khoảng, không báo lỗi dữ liệu cũ)
+    const fr = LOOKS[p.look]?.floors;
+    if (fr && Number.isInteger(p.floors) && (p.floors < fr[0] || p.floors > fr[1])) add('error', p.id, 'floors', `Kiểu nhà "${LOOKS[lookOf(p)].label}": số tầng ${fr[0]}–${fr[1]}.`);
     if (p.npc) {
       if (!p.npc.name) add('error', p.id, 'npc.name', 'NPC chưa có tên.');
       for (const f of ['shirt', 'pants', 'hair', 'skin']) if (p.npc[f] && !COLOR_RE.test(p.npc[f])) add('error', p.id, `npc.${f}`, 'Màu phải dạng #rrggbb.');

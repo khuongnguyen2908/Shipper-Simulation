@@ -720,5 +720,21 @@
     "GIẶT ỦI",
     "HỚT TÓC",
     "BÚN BÒ"
+  ],
+  "city.menuTitle": "THỰC ĐƠN",
+  "city.cartBanhMi": "BÁNH MÌ",
+  "city.repairSign": "VÁ XE",
+  "city.pagodaHall": "ĐẠI HÙNG BỬU ĐIỆN",
+  "city.pagodaCouplet": "NAM MÔ A DI ĐÀ PHẬT",
+  "city.gasPrices": [
+    "RON 95|23.450",
+    "E5 92|22.180",
+    "DẦU DO|20.300"
+  ],
+  "city.mallBanners": [
+    "SALE 50%",
+    "GIẢM GIÁ",
+    "KHAI TRƯƠNG",
+    "MUA 1 TẶNG 1"
   ]
 }

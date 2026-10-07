@@ -137,7 +137,8 @@ export function buildHouse(g, h) {
   };
   const wallC = lin(h.color);
   const top = houseTop(n);
-  const balcony = !h.low && n > 1 && r.chance(h.alley ? 0.45 : 0.7); // kiểu nhà có ban công (cả các tầng lầu)
+  let balcony = !h.low && n > 1 && r.chance(h.alley ? 0.45 : 0.7); // kiểu nhà có ban công (cả các tầng lầu)
+  if (h.balcony != null) balcony = h.balcony && n > 1; // địa điểm có thể ép có / không ban công
   const sb = balcony ? 0.6 : 0; // tầng lầu lùi vào để chừa ban công
   const railReg = r.chance(0.5) ? R.rail0 : R.rail1, railC = lin(r.pick(RAIL_COLORS));
   const wallSub = (u0, u1, y0, y1, H) => [(u0 + W / 2) / W, y0 / H, (u1 + W / 2) / W, y1 / H];
@@ -277,6 +278,16 @@ export function housesForLot(lot, { floors, colors, seed, alley = false, low = f
       color: r.pick(colors), seed: (seed * 31 + k * 7919) >>> 0, ground, alley, low,
     };
   });
+}
+
+// Vật liệu nhà dùng chung (cả thành phố + nhà địa điểm + khung xem trước trong editor). Chỉ chạy trên trình duyệt.
+let sharedMat = null;
+export function houseMaterial() {
+  if (!sharedMat) {
+    const atlas = typeof document !== 'undefined' ? makeHouseAtlas() : null;
+    sharedMat = new THREE.MeshStandardMaterial({ map: atlas?.map ?? null, emissiveMap: atlas?.emissive ?? null, emissive: 0xffffff, emissiveIntensity: 0, vertexColors: true, roughness: 0.85, alphaTest: 0.5 });
+  }
+  return sharedMat;
 }
 
 // ---------- tấm texture chung (chỉ chạy trên trình duyệt) ----------

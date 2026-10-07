@@ -7,8 +7,12 @@ import { ALLEY } from '../data/places.js';
 import { makeRng } from '../sim/rng.js';
 import { SpatialGrid } from './physics.js';
 import { makeTileTexture, makeAsphaltTexture, makeSignTexture, makeGlowTexture } from './textures.js';
-import { HouseGeo, buildHouse, housesForLot, makeHouseAtlas, houseTop } from './houses.js';
-import { mat, makeStool } from './models.js';
+import { HouseGeo, buildHouse, housesForLot, houseMaterial, houseTop } from './houses.js';
+import { buildPlace } from './placeBuildings.js';
+import { lookOf, lookFloors } from '../data/looks.js';
+import { ITEMS } from '../data/items.js';
+import { hashStr } from '../sim/people.js';
+import { mat } from './models.js';
 
 const WALL_COLORS = [0xe8d5b7, 0xf4c095, 0x9fd8cb, 0xf6e27f, 0xe7a9a9, 0xb8d8e8, 0xd9c3e8, 0xf2f2f2, 0xc9e4a6, 0xf7b267, 0xffe0b5, 0xa9cce3];
 const AWNING_COLORS = [0xc0392b, 0x2980b9, 0x27ae60, 0xf39c12, 0x8e44ad, 0x16a085];
@@ -154,8 +158,7 @@ export function buildCity(scene, layout, potholes, seed = 7) {
   }
 
   // ---------- nhà ống A+ (gộp theo từng khối phố, 1 vật liệu chung) ----------
-  const atlas = makeHouseAtlas();
-  const houseMat = new THREE.MeshStandardMaterial({ map: atlas.map, emissiveMap: atlas.emissive, emissive: 0xffffff, emissiveIntensity: 0, vertexColors: true, roughness: 0.85, alphaTest: 0.5 });
+  const houseMat = houseMaterial();
   const houseGroups = new Map();
   const geoAt = (x, z) => {
     const off = CITY.ORIGIN + CITY.ROAD / 2;
@@ -221,7 +224,7 @@ export function buildCity(scene, layout, potholes, seed = 7) {
     }
   }
 
-  // ---------- địa điểm đặc biệt ----------
+  // ---------- địa điểm: nhà theo "Kiểu nhà" (src/data/looks.js, chọn trong ?editor) ----------
   const signMats = [];
   const addSign = (text, bg, f, y, maxW = 8) => {
     const tex = makeSignTexture(text, bg);
@@ -234,96 +237,34 @@ export function buildCity(scene, layout, potholes, seed = 7) {
     scene.add(s);
     return s;
   };
-  // Nhà của địa điểm: nhà A+ một căn (không chia), tầng 1 mặt phẳng để gắn biển; màu tường theo dữ liệu
-  // tầng trệt theo loại: nhà ở / cổng hẻm → cửa nhà; chung cư → dãy kiốt cửa cuốn; còn lại → tiệm mở cửa
-  const GROUND_OF = { home: 'home', gate: 'home', apartment: 'shutter' };
-  const addBuilding = (r, floors, colorHex, face, kind) => {
-    const f = frontOf(r, face);
-    const depth = f.nx ? r.x1 - r.x0 : r.z1 - r.z0;
-    const h = { x: f.x, y: SW_H, z: f.z, nx: f.nx, nz: f.nz, W: f.width, D: depth, floors, color: new THREE.Color(colorHex).getHex(), seed: rng.int(1, 1e9), ground: GROUND_OF[kind] || 'shop', place: true };
-    buildHouse(geoAt(f.x - f.nx * depth * 0.5, f.z - f.nz * depth * 0.5), h);
-    addBox(r.x0, r.z0, r.x1, r.z1, houseTop(floors) + SW_H, 'place');
-  };
-  const addAwning = (f, colorHex, depth = 1.6) => {
-    const along = f.width - 0.8;
-    const a = new THREE.Mesh(new THREE.BoxGeometry(f.nx ? depth : along, 0.14, f.nx ? along : depth), mat(colorHex));
-    a.position.set(f.x + (f.nx * depth) / 2, SW_H + 2.95, f.z + (f.nz * depth) / 2);
-    a.castShadow = true;
-    scene.add(a);
-  };
-  const addStools = (f, n, colorHex) => {
-    for (let i = 0; i < n; i++) {
-      const s = makeStool(colorHex);
-      const t = (i / Math.max(1, n - 1) - 0.5) * (f.width - 3);
-      const out = 2.2 + (i % 2) * 0.6;
-      s.position.set(f.x + f.nx * out + (f.nx ? 0 : t), SW_H, f.z + f.nz * out + (f.nz ? 0 : t));
-      scene.add(s);
-    }
-  };
-
   for (const p of layout.places) {
     const r = { x0: p.x0 + 0.25, x1: p.x1 - 0.25, z0: p.z0 + 0.25, z1: p.z1 - 0.25 };
     const f = frontOf(r, p.face);
-    const accent = p.signBg ? new THREE.Color(p.signBg).getHex() : 0x1e8449;
-    if (p.kind === 'gas') {
-      // mái che + trụ bơm, không có tường
-      const roof = new THREE.Mesh(new THREE.BoxGeometry(r.x1 - r.x0 + 2, 0.5, r.z1 - r.z0 + 2), mat(0xffffff));
-      roof.position.set((r.x0 + r.x1) / 2, 5, (r.z0 + r.z1) / 2 - 1);
-      roof.castShadow = true;
-      scene.add(roof);
-      const band = new THREE.Mesh(new THREE.BoxGeometry(r.x1 - r.x0 + 2.1, 0.3, r.z1 - r.z0 + 2.1), mat(accent));
-      band.position.copy(roof.position);
-      band.position.y = 4.7;
-      scene.add(band);
-      for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-        const x = (r.x0 + r.x1) / 2 + dx * ((r.x1 - r.x0) / 2 - 0.5), z = (r.z0 + r.z1) / 2 - 1 + dz * ((r.z1 - r.z0) / 2 - 0.5);
-        const pil = new THREE.Mesh(new THREE.BoxGeometry(0.35, 5, 0.35), mat(0xdddddd));
-        pil.position.set(x, 2.5, z);
-        scene.add(pil);
-        addBox(x - 0.2, z - 0.2, x + 0.2, z + 0.2, 5, 'pillar');
+    const depth = f.nx ? r.x1 - r.x0 : r.z1 - r.z0;
+    const b = buildPlace({
+      look: lookOf(p), W: f.width, D: depth, floors: lookFloors(p), color: p.color, signBg: p.signBg, sign: p.sign, short: p.short, kind: p.kind,
+      menu: (p.menu || []).map((id) => ITEMS[id]?.name).filter(Boolean), seed: hashStr(p.id), inAlley: p.inAlley,
+    });
+    b.group.position.set(f.x, SW_H, f.z);
+    b.group.rotation.y = f.rotY;
+    scene.add(b.group);
+    signMats.push(...b.glow);
+    if (b.colliders === 'full') addBox(r.x0, r.z0, r.x1, r.z1, b.height + SW_H, 'place');
+    else {
+      // nhà mở (cây xăng): chỉ chắn cột, trụ bơm, cửa hàng — đổi khung riêng → thế giới
+      const c = Math.cos(f.rotY), s = Math.sin(f.rotY);
+      const W2 = (x, z) => [f.x + x * c + z * s, f.z - x * s + z * c];
+      for (const q of b.colliders) {
+        const [ax, az] = W2(q.x0, q.z0), [bx, bz] = W2(q.x1, q.z1);
+        addBox(Math.min(ax, bx), Math.min(az, bz), Math.max(ax, bx), Math.max(az, bz), q.h, 'place');
       }
-      for (const dx of [-2, 2]) {
-        const x = (r.x0 + r.x1) / 2 + dx, z = (r.z0 + r.z1) / 2;
-        const pump = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.6, 0.6), mat(accent));
-        pump.position.set(x, SW_H + 0.8, z);
-        pump.castShadow = true;
-        scene.add(pump);
-        addBox(x - 0.45, z - 0.35, x + 0.45, z + 0.35, 2, 'pump');
-      }
-      const sf = { ...f, z: f.z + f.nz * 1.0 };
-      addSign(p.sign, p.signBg, sf, 4.7, 7);
-      continue;
-    }
-    if (p.kind === 'apartment') {
-      addBuilding(r, p.floors, p.color, p.face, p.kind);
-      addSign(p.sign, p.signBg, f, SW_H + 3.6, 12);
-      addAwning(f, accent, 2.2);
-      continue;
-    }
-    if (p.kind === 'market') {
-      addBuilding(r, 2, p.color, p.face, p.kind);
-      addSign(p.sign, p.signBg, f, SW_H + 4.6, 12);
-      for (let k = 0; k < 6; k++) {
-        // chia mặt tiền thành 6 sạp (mặt tiền quay bắc/nam thì chia theo x, quay đông/tây thì theo z)
-        const ff = f.nx ? { ...f, width: f.width / 6, z: r.z0 + ((k + 0.5) * f.width) / 6 } : { ...f, width: f.width / 6, x: r.x0 + ((k + 0.5) * f.width) / 6 };
-        addAwning(ff, AWNING_COLORS[k % AWNING_COLORS.length], 2.4);
-      }
-      continue;
     }
     if (p.kind === 'gate') {
-      addBuilding(r, p.floors, p.color, p.face, p.kind);
       const gate = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.3, (r.z1 - r.z0) * 0.6), mat(0x1e9e57, { emissive: 0x0b3d20, emissiveIntensity: 0.4 }));
       gate.position.set(r.x1 + 0.1, SW_H + 1.15, (r.z0 + r.z1) / 2);
       gate.castShadow = true;
       scene.add(gate);
-      continue;
     }
-    // nhà hàng, quán, tiệm, nhà trọ
-    addBuilding(r, p.floors, p.color, p.face, p.kind);
-    addSign(p.sign, p.signBg, f, SW_H + 3.7);
-    addAwning(f, accent);
-    // ghế đẩu bày ra vỉa hè (quán trong hẻm thì không — chắn lối đi)
-    if (!p.inAlley && (p.kind === 'restaurant' || p.kind === 'cafe')) addStools(f, 4, p.kind === 'cafe' ? 0x2e86c1 : 0xe74c3c);
   }
 
   for (const geo of houseGroups.values()) {
@@ -509,7 +450,7 @@ export function buildCity(scene, layout, potholes, seed = 7) {
       headMat.emissiveIntensity = 0.2 + 3 * n;
       poolMat.opacity = 0.85 * n;
       houseMat.emissiveIntensity = 1.6 * n;
-      for (const m of signMats) m.emissiveIntensity = 0.15 + 0.7 * n;
+      for (const m of signMats) m.emissiveIntensity = (m.userData.glowBase ?? 0.15) + 0.7 * n;
     },
     setWet(w) {
       roadMat.color.copy(dryColor).lerp(wetColor, w);

@@ -1554,6 +1554,54 @@ console.log('Nhà ống A+ (src/world/houses.js)');
   });
 }
 
+console.log('Kiểu nhà địa điểm (src/data/looks.js, src/world/placeBuildings.js)');
+{
+  const { LOOKS, guessLook, lookOf, lookFloors } = await import('../src/data/looks.js');
+  const { buildPlace, BUILT_LOOKS } = await import('../src/world/placeBuildings.js');
+  const THREE = await import('three');
+  test('Kiểu nhà: danh sách trong editor khớp với kiểu dựng được', () => {
+    assert.deepEqual(Object.keys(LOOKS).sort(), [...BUILT_LOOKS].sort());
+  });
+  test('Tự đoán kiểu nhà theo loại + tên (dữ liệu hiện tại)', () => {
+    const want = { chua: 'pagoda', karaoke: 'karaoke', cafevong: 'hammock', gas: 'gas', home: 'tro', apartment: 'apartment', market: 'tower', banhmi: 'banhmi', banhtrang: 'eatery', trasua: 'modern', cafe: 'cafe', garage: 'repair', pho: 'eatery' };
+    for (const p of DATA.places.places) {
+      assert.ok(LOOKS[guessLook(p)], p.id);
+      if (want[p.id] && !p.look) assert.equal(guessLook(p), want[p.id], p.id);
+    }
+    assert.equal(lookOf({ kind: 'restaurant', name: 'Phở', look: 'pagoda' }), 'pagoda', 'đã chọn thì theo đã chọn');
+    assert.equal(lookOf({ kind: 'restaurant', name: 'Phở', look: 'laLam' }), 'eatery', 'kiểu lạ → tự đoán');
+    assert.equal(lookFloors({ kind: 'apartment', floors: 30 }), 15, 'kéo vào khoảng');
+    assert.equal(lookFloors({ kind: 'service', name: 'Chùa', floors: 4 }), null, 'chùa không có số tầng');
+  });
+  test('Mọi kiểu nhà dựng được với mọi cỡ lô, nằm trong lô (đồ bày ra vỉa hè ≤ 3,1 m), không quá nhiều khối', () => {
+    for (const look of Object.keys(LOOKS)) {
+      for (const [W, D] of [[6, 6], [10.8, 10.8], [22.2, 10.8], [33.6, 10.8]]) {
+        const fl = LOOKS[look].floors;
+        const b = buildPlace({ look, W, D, floors: fl ? fl[1] : 2, color: '#f4c095', signBg: '#c0392b', sign: 'THỬ', short: 'T', kind: look === 'tower' ? 'market' : 'restaurant', menu: ['Phở'], seed: 5 });
+        const box = new THREE.Box3().setFromObject(b.group);
+        const where = `${look} ${W}×${D}`;
+        assert.ok(box.min.z >= -D - 0.3 && box.max.z <= 3.1, `${where}: z ${box.min.z.toFixed(2)}…${box.max.z.toFixed(2)}`);
+        assert.ok(box.min.x >= -W / 2 - 1.6 && box.max.x <= W / 2 + 1.6, `${where}: x ${box.min.x.toFixed(2)}…${box.max.x.toFixed(2)}`);
+        let n = 0;
+        b.group.traverse((m) => m.isMesh && n++);
+        assert.ok(n <= 30, `${where}: ${n} khối`);
+        assert.ok(b.colliders === 'full' || (Array.isArray(b.colliders) && b.colliders.length), where);
+      }
+    }
+  });
+  test('Kiểm tra dữ liệu: kiểu nhà lạ → lỗi; tự chọn kiểu mà số tầng ngoài khoảng → lỗi', () => {
+    const pd = JSON.parse(JSON.stringify(DATA.places));
+    const p = pd.places.find((x) => x.kind === 'restaurant');
+    p.look = 'laLam';
+    assert.ok(VALIDATE.validatePlaces(pd, DATA.items).some((i) => i.level === 'error' && i.field === 'look' && i.ref === p.id));
+    p.look = 'tro';
+    p.floors = 5;
+    assert.ok(VALIDATE.validatePlaces(pd, DATA.items).some((i) => i.level === 'error' && i.field === 'floors' && i.ref === p.id));
+    p.floors = 2;
+    assert.ok(!VALIDATE.validatePlaces(pd, DATA.items).some((i) => i.ref === p.id && (i.field === 'floors' || i.field === 'look')));
+  });
+}
+
 console.log('Bảng chọn emoji (công cụ ?editor)');
 {
   const { EMOJI_GROUPS, searchEmoji } = await import('../src/devtools/editor/emoji.js');

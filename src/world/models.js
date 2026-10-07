@@ -48,9 +48,11 @@ const RAINCOAT_MAT = new THREE.MeshStandardMaterial({ color: RAINCOAT_COLOR, rou
 const _col = new THREE.Color(), _mtx = new THREE.Matrix4(), _q = new THREE.Quaternion(), _eul = new THREE.Euler(), _pos = new THREE.Vector3(), _one = new THREE.Vector3(1, 1, 1);
 
 // Gom các mảnh (hình + màu + chỗ đặt) rồi gộp thành một hình duy nhất
-class PartList {
-  constructor() {
+export class PartList {
+  // keepUv: giữ toạ độ texture (mảnh có dán hình); mặc định bỏ để gộp nhẹ hơn
+  constructor(keepUv = false) {
     this.list = [];
+    this.keepUv = keepUv;
   }
   add(geo, color, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, ao = 0.74) {
     this.list.push({ geo, color, x, y, z, rx, ry, rz, ao });
@@ -58,7 +60,7 @@ class PartList {
   build() {
     const geos = this.list.map(({ geo, color, x, y, z, rx, ry, rz, ao }) => {
       const g = geo.index ? geo.toNonIndexed() : geo;
-      g.deleteAttribute('uv');
+      if (!this.keepUv) g.deleteAttribute('uv');
       g.computeBoundingBox();
       const { min, max } = g.boundingBox, h = Math.max(1e-4, max.y - min.y);
       const p = g.attributes.position, col = new Float32Array(p.count * 3);
@@ -351,7 +353,7 @@ const vehGeo = new Map();
 const vehCached = (key, fn) => vehGeo.get(key) || (vehGeo.set(key, fn()), vehGeo.get(key));
 
 // Hình chiếu cạnh (u = phía trước, v = lên) → khối đùn dày `depth` theo bề ngang (trục x)
-function sideGeo(pts, depth, bevel = 0) {
+export function sideGeo(pts, depth, bevel = 0) {
   const s = new THREE.Shape();
   pts.forEach(([u, v], i) => (i ? s.lineTo(u, v) : s.moveTo(u, v)));
   const d = Math.max(0.005, depth - bevel * 2);
@@ -361,7 +363,7 @@ function sideGeo(pts, depth, bevel = 0) {
   return g;
 }
 // thanh tròn nối 2 điểm [x,y,z] → hình đã đặt đúng chỗ (dùng với PartList.add(..., 0,0,0))
-function rodGeo(a, b, r, seg = 6) {
+export function rodGeo(a, b, r, seg = 6) {
   const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), d = B.clone().sub(A);
   const g = new THREE.CylinderGeometry(r, r, d.length(), seg);
   g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize()));
