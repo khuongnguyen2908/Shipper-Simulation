@@ -7,6 +7,7 @@ import { el, field, textInput, numInput, checkInput, button, sideList, selectInp
 import { HINT, EXPLAIN } from './help.js';
 import { moveKey } from './order.js';
 import { rowMenu, addButton, entryButtons, doRemove } from './opsUi.js';
+import { ITEM_GROUPS, groupOf, guessGroup } from '../../data/itemGroups.js';
 
 const TRAIT_INFO = {
   hot: ['🔥 Nóng', 'Nguội dần; dưới 60°C bắt đầu mất điểm'],
@@ -21,18 +22,40 @@ export function render(root, ctx) {
   const items = ctx.data.items;
   const sel = ctx.sel.items;
   const ids = Object.keys(items);
-  if (!sel.id || !items[sel.id]) sel.id = ids[0];
+  // nhóm đang xem ('' = tất cả) — chỉ để sắp xếp trong editor (src/data/itemGroups.js)
+  if (sel.group && !ITEM_GROUPS.some(([g]) => g === sel.group)) sel.group = '';
+  const inGroup = (it) => !sel.group || groupOf(it) === sel.group;
+  if (!sel.id || !items[sel.id]) sel.id = (Object.values(items).find(inGroup) || items[ids[0]])?.id;
 
   const side = el('aside', { class: 'ed-side' });
   const drawSide = () => {
     side.innerHTML = '';
+    const shown = Object.values(items).filter(inGroup);
+    const count = (g) => Object.values(items).filter((it) => groupOf(it) === g).length;
+    // đổi nhóm: giữ món đang mở nếu thuộc nhóm mới, không thì mở món đầu của nhóm
+    const pickGroup = (g) => {
+      const fits = (it) => !g || groupOf(it) === g;
+      ctx.select('items', { group: g, id: items[sel.id] && fits(items[sel.id]) ? sel.id : Object.values(items).find(fits)?.id });
+    };
+    const adds = sel.group === 'rider'
+      ? [['🧍 Thêm loại khách xe ôm (thẻ 📱 App & Đơn)', () => ctx.select('app', { cat: 'riderTypes', id: null })]]
+      : [[sel.group === 'drink' ? '🥤 Nước uống mới' : sel.group === 'parcel' ? '📦 Hàng giao mới' : '🍜 Món mới', () => addItem(sel.group || 'food')]];
     side.append(
-      el('div', { class: 'side-head' }, el('b', {}, `Món hàng (${ids.length})`), addButton(ctx, 'items', [['🍜 Món mới', addItem]])),
+      el('div', { class: 'seg group-seg' },
+        button(`Tất cả (${ids.length})`, () => pickGroup(''), `small${!sel.group ? ' on' : ''}`),
+        ITEM_GROUPS.map(([g, label]) => button(`${label} (${count(g)})`, () => pickGroup(g), `small${sel.group === g ? ' on' : ''}`))),
+      el('div', { class: 'side-head' }, el('b', {}, `Món hàng (${shown.length})`), addButton(ctx, 'items', adds)),
       sideList(
-        Object.values(items).map((it) => ({ id: it.id, icon: it.icon, title: it.name || '(chưa đặt tên)', sub: `${it.id} · ${it.base}k${it.openDay > 1 ? ` · từ ngày ${it.openDay}` : ''}` })),
+        shown.map((it) => ({ id: it.id, icon: it.icon, title: it.name || '(chưa đặt tên)', sub: `${it.id} · ${it.base}k${it.openDay > 1 ? ` · từ ngày ${it.openDay}` : ''}` })),
         sel.id,
         (id) => ctx.select('items', { id }),
-        { issuesFor: (id) => ctx.issuesFor('items', id), onReorder: (a, b) => { moveKey(items, a, b); ctx.changed('items'); }, menu: rowMenu(ctx, 'items') },
+        {
+          key: `items:${sel.group || 'all'}`,
+          issuesFor: (id) => ctx.issuesFor('items', id),
+          // đang xem một nhóm: đổi vị trí trong nhóm → dời món tới chỗ của món đích trong danh sách đầy đủ
+          onReorder: (a, b) => { const keys = Object.keys(items); moveKey(items, keys.indexOf(shown[a].id), keys.indexOf(shown[b].id)); ctx.changed('items'); },
+          menu: rowMenu(ctx, 'items'),
+        },
       ),
     );
   };
@@ -63,6 +86,12 @@ export function render(root, ctx) {
       field('Biểu tượng (emoji)', emojiInput(it.icon, (v) => { it.icon = v; changed(); }), { ref, fieldKey: 'icon', hint: HINT.item.icon }),
       field('Giá cước (k)', numInput(it.base, (v) => { it.base = v; changed(); }, { step: 1, min: 1 }), { ref, fieldKey: 'base', hint: HINT.item.base }),
       field('Có đơn từ ngày', openDayInput(it, changed, { disabled: protectedId }), { ref, fieldKey: 'openDay', hint: protectedId ? 'Món gắn với code → luôn có từ ngày 1.' : HINT.item.openDay }),
+      field('Nhóm (để xếp trong editor)', selectInput(it.group || '', [['', `Tự đoán (${ITEM_GROUPS.find(([g]) => g === guessGroup(it))[1]})`], ...ITEM_GROUPS], (v) => {
+        if (v) it.group = v;
+        else delete it.group;
+        changed();
+        ctx.rerender();
+      }), { ref, fieldKey: 'group', hint: HINT.item.group }),
     ),
     explain(EXPLAIN.item),
   );
@@ -161,11 +190,17 @@ export function render(root, ctx) {
   body.append(el('h3', {}, 'Xem trước: món hư thế nào trong 30 phút'), previewBox(it, ctx));
 
   // ---------- thao tác ----------
-  function addItem() {
+  // Thêm món theo nhóm đang xem (mẫu ban đầu hợp với nhóm đó)
+  function addItem(group = 'food') {
     let n = 1;
     while (items[`mon${n}`]) n++;
     const id = `mon${n}`;
-    items[id] = { id, name: 'Món mới', icon: '🥡', traits: ['hot'], base: 25, startTemp: 80 };
+    const tpl = {
+      food: { name: 'Món mới', icon: '🥡', traits: ['hot'], base: 25, startTemp: 80 },
+      drink: { name: 'Nước uống mới', icon: '🥤', traits: ['cold', 'liquid'], base: 25, startTemp: 4, meltAt: 10, meltRate: 0.12 },
+      parcel: { name: 'Hàng giao mới', icon: '📦', traits: ['paper'], base: 20, parcel: true, cod: 0 },
+    }[group] || {};
+    items[id] = { id, ...tpl, group };
     ctx.changed('items');
     ctx.select('items', { id });
   }

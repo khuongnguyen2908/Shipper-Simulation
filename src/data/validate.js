@@ -12,6 +12,7 @@ import { GENDERS, HAIR_STYLES } from '../sim/people.js';
 import { openDayOf } from '../sim/placeRules.js';
 import { hoursProblem, totalHours } from '../sim/hours.js';
 import { BALANCE_GROUPS, KNOWN_PATHS, getPath } from './balanceSpec.js';
+import { ITEM_GROUP_IDS } from './itemGroups.js';
 
 const MAX_OPEN_DAY = 60;
 // "Mở từ ngày" / "Có đơn từ ngày": số nguyên 1–60, bỏ trống = ngày 1
@@ -64,6 +65,7 @@ export function validateItems(items, placesData, appsData = null) {
     if (it.id !== key) add('error', key, 'id', `Mã bên trong (${it.id}) khác khóa (${key}).`);
     if (!it.name || !String(it.name).trim()) add('error', key, 'name', 'Chưa có tên.');
     if (!it.icon) add('warn', key, 'icon', 'Chưa có biểu tượng.');
+    if (it.group != null && !ITEM_GROUP_IDS.includes(it.group)) add('error', key, 'group', `Nhóm "${it.group}" không có (chọn: ${ITEM_GROUP_IDS.join(', ')}).`);
     const tr = it.traits || [];
     for (const t of tr) if (!TRAIT_IDS.includes(t)) add('error', key, 'traits', `Đặc tính lạ: ${t}.`);
     if (!tr.length) add('warn', key, 'traits', 'Không có đặc tính nào → món không bao giờ hư.');

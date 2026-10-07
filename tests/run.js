@@ -1579,5 +1579,41 @@ console.log('Chợp mắt ở địa điểm');
   });
 }
 
+console.log('Công cụ ?editor: bỏ qua cảnh báo, nhóm vật phẩm');
+{
+  const { splitIgnored, addIgnore, removeIgnore } = await import('../src/devtools/editor/ignore.js');
+  const { groupOf, guessGroup } = await import('../src/data/itemGroups.js');
+  const { validateItems } = await import('../src/data/validate.js');
+  test('Bỏ qua đúng một cảnh báo; nội dung đổi thì hiện lại; lỗi đỏ không ẩn được', () => {
+    const w1 = { level: 'warn', tab: 'places', ref: 'cafe', field: 'activities.a', msg: 'Hoạt động hơn 2 tiếng' };
+    const w2 = { ...w1, ref: 'chua' };
+    const e1 = { ...w1, level: 'error' };
+    const list = [];
+    addIgnore(list, w1);
+    addIgnore(list, w1);
+    assert.equal(list.length, 1, 'không ghi trùng');
+    let r = splitIgnored([w1, w2, e1], list);
+    assert.deepEqual([r.shown, r.ignored], [[w2, e1], [w1]]);
+    r = splitIgnored([{ ...w1, msg: 'Hoạt động hơn 3 tiếng' }], list);
+    assert.equal(r.shown.length, 1, 'nội dung đổi → hiện lại');
+    removeIgnore(list, w1);
+    assert.equal(splitIgnored([w1], list).shown.length, 1);
+    assert.equal(splitIgnored([w1], null).shown.length, 1, 'file hỏng / thiếu → không ẩn gì');
+  });
+  test('Nhóm vật phẩm: tự đoán theo đặc tính / tên; nhóm lạ → lỗi', () => {
+    assert.equal(guessGroup({ name: 'Trà sữa', traits: ['cold', 'liquid'] }), 'drink');
+    assert.equal(guessGroup({ name: 'Phở bò', traits: ['hot', 'liquid'] }), 'food');
+    assert.equal(guessGroup({ name: 'Khách', traits: ['passenger'] }), 'rider');
+    assert.equal(guessGroup({ name: 'Hộp giày', traits: ['paper'], parcel: true }), 'parcel');
+    assert.equal(groupOf({ name: 'Phở bò', traits: ['hot'], group: 'drink' }), 'drink', 'đã chọn nhóm thì theo nhóm đã chọn');
+    const items = JSON.parse(JSON.stringify(DATA.items));
+    const k = Object.keys(items).find((x) => x !== 'passenger');
+    items[k].group = 'drink';
+    assert.ok(!validateItems(items, DATA.places).some((i) => i.field === 'group'));
+    items[k].group = 'banhKeo';
+    assert.ok(validateItems(items, DATA.places).some((i) => i.level === 'error' && i.field === 'group' && i.ref === k));
+  });
+}
+
 console.log(`\n${pass} đạt, ${fail} lỗi`);
 if (fail) process.exit(1);

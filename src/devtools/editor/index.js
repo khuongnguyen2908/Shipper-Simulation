@@ -14,6 +14,7 @@ import contentJson from '../../content/vi.json' with { type: 'json' };
 import appsJson from '../../data/apps.json' with { type: 'json' };
 import mapJson from '../../data/map.json' with { type: 'json' };
 import balanceJson from '../../data/balance.json' with { type: 'json' };
+import editorJson from '../../data/editor.json' with { type: 'json' };
 import { validateAll } from '../../data/validate.js';
 import { setContentTable } from '../../content/index.js';
 import { el, button, clone, markSubTabs, revealField } from './ui.js';
@@ -27,6 +28,7 @@ import * as tabBalance from './tabBalance.js';
 import { selKey, planScroll, selToSave } from './viewState.js';
 import { createHistory, syncMirror, record, breakStep, undo, redo } from './history.js';
 import { currentEntry, parseClip } from './ops.js';
+import { splitIgnored, addIgnore, removeIgnore } from './ignore.js';
 import { doDuplicate, doCopy, doRemove, doPaste } from './opsUi.js';
 
 const FILES = {
@@ -38,6 +40,7 @@ const FILES = {
   apps: { path: 'src/data/apps.json', label: 'App & Đơn', src: appsJson },
   map: { path: 'src/data/map.json', label: 'Bản đồ', src: mapJson },
   balance: { path: 'src/data/balance.json', label: 'Cân bằng', src: balanceJson },
+  editor: { path: 'src/data/editor.json', label: 'Cảnh báo đã bỏ qua', src: editorJson },
 };
 const TABS = [
   { id: 'items', icon: '🍜', label: 'Vật phẩm', mod: tabItems },
@@ -163,8 +166,25 @@ export async function startEditor(root) {
   ctx.issuesFor = (tab, ref, extra = {}) => ctx.issues.filter((i) => i.tab === tab && i.ref === ref && (!extra.cat || i.cat === extra.cat));
 
   function validate() {
-    ctx.issues = validateAll({ items: ctx.data.items, gear: ctx.data.gear, goods: ctx.data.goods, places: ctx.data.places, content: ctx.data.content, baseContent: ctx.base.content, apps: ctx.data.apps, map: ctx.data.map, balance: ctx.data.balance });
+    const all = validateAll({ items: ctx.data.items, gear: ctx.data.gear, goods: ctx.data.goods, places: ctx.data.places, content: ctx.data.content, baseContent: ctx.base.content, apps: ctx.data.apps, map: ctx.data.map, balance: ctx.data.balance });
+    const { shown, ignored } = splitIgnored(all, ctx.data.editor?.ignoredWarnings);
+    ctx.issues = shown; // cảnh báo đã bỏ qua không tính, không hiện ở ô
+    ctx.ignored = ignored;
   }
+  // Bỏ qua / hiện lại đúng một cảnh báo (ghi vào src/data/editor.json, bấm Lưu như bình thường)
+  const ignoreList = () => {
+    ctx.data.editor = ctx.data.editor || {};
+    return (ctx.data.editor.ignoredWarnings = ctx.data.editor.ignoredWarnings || []);
+  };
+  ctx.ignoreWarning = (i) => {
+    addIgnore(ignoreList(), i);
+    ctx.changed('editor');
+    ctx.notify('🙈 Đã bỏ qua cảnh báo. Xem lại ở mục "Đã bỏ qua" cuối danh sách vấn đề.', 'ok', true);
+  };
+  ctx.unignoreWarning = (i) => {
+    removeIgnore(ignoreList(), i);
+    ctx.changed('editor');
+  };
 
   // Gắn lỗi vào đúng ô nhập (theo data-ref / data-field / data-cat)
   function applyFieldIssues() {
@@ -174,7 +194,10 @@ export async function startEditor(root) {
       const msg = f.querySelector(':scope > .fld-msg'); // khung lỗi của chính ô này (không lấy của ô con)
       if (!field) return;
       const mine = tabIssues.filter((i) => i.ref === ref && (i.field === field || i.field.startsWith(field + '.')) && (!cat || !i.cat || i.cat === cat));
-      msg.innerHTML = mine.map((i) => `<div class="${i.level}">${i.level === 'error' ? '⛔' : '⚠️'} ${escapeHtml(i.msg)}</div>`).join('');
+      msg.innerHTML = '';
+      msg.append(...mine.map((i) => el('div', { class: i.level },
+        `${i.level === 'error' ? '⛔' : '⚠️'} ${i.msg}`,
+        i.level === 'warn' ? ignoreBtn(i) : null)));
       f.classList.toggle('has-err', mine.some((i) => i.level === 'error'));
       f.classList.toggle('has-warn', mine.length > 0 && !mine.some((i) => i.level === 'error'));
     });
@@ -240,6 +263,7 @@ export async function startEditor(root) {
     issuesBox.innerHTML = '';
     if (!list.length) {
       issuesBox.append(el('div', { class: 'iss-empty' }, '✔ Không có lỗi hay cảnh báo nào.'));
+      renderIgnored();
       return;
     }
     const tabName = (id) => TABS.find((t) => t.id === id)?.label || id;
@@ -253,16 +277,41 @@ export async function startEditor(root) {
           .sort((a, b) => (a.level === b.level ? 0 : a.level === 'error' ? -1 : 1))
           .slice(0, 200)
           .map((i) =>
-            el(
-              'button',
-              { class: `iss ${i.level}`, type: 'button', onclick: () => jump(i) },
-              i.level === 'error' ? '⛔ ' : '⚠️ ',
-              el('b', {}, `${tabName(i.tab)}${i.ref ? ` › ${i.ref}` : ''}`),
-              ` — ${i.msg}`,
+            el('div', { class: 'iss-row' },
+              el(
+                'button',
+                { class: `iss ${i.level}`, type: 'button', onclick: () => jump(i) },
+                i.level === 'error' ? '⛔ ' : '⚠️ ',
+                el('b', {}, `${tabName(i.tab)}${i.ref ? ` › ${i.ref}` : ''}`),
+                ` — ${i.msg}`,
+              ),
+              i.level === 'warn' ? ignoreBtn(i) : null,
             ),
           ),
       ),
     );
+    renderIgnored();
+  }
+
+  // Nút "🙈 Bỏ qua" cạnh một cảnh báo (chỉ cảnh báo vàng; lỗi đỏ phải sửa)
+  function ignoreBtn(i) {
+    const b = button('🙈 Bỏ qua', (e) => { e.stopPropagation(); ctx.ignoreWarning(i); }, 'small ghost');
+    b.title = 'Ẩn đúng cảnh báo này (không tính vào số cảnh báo). Nội dung cảnh báo đổi thì nó hiện lại.';
+    return b;
+  }
+  // Mục "Đã bỏ qua (N)" cuối danh sách vấn đề: bấm "Hiện lại" để bỏ ẩn
+  const ignoredOpen = { v: false };
+  function renderIgnored() {
+    const list = ctx.ignored || [];
+    if (!list.length) return;
+    const tabName = (id) => TABS.find((t) => t.id === id)?.label || id;
+    const d = el('details', { class: 'iss-ignored', open: ignoredOpen.v },
+      el('summary', {}, `🙈 Đã bỏ qua (${list.length})`),
+      el('div', { class: 'iss-list' }, list.map((i) => el('div', { class: 'iss-row' },
+        el('span', { class: 'iss muted' }, '⚠️ ', el('b', {}, `${tabName(i.tab)}${i.ref ? ` › ${i.ref}` : ''}`), ` — ${i.msg}`),
+        button('👁 Hiện lại', () => ctx.unignoreWarning(i), 'small')))));
+    d.addEventListener('toggle', () => (ignoredOpen.v = d.open));
+    issuesBox.append(d);
   }
 
   function jump(i) {
@@ -326,7 +375,7 @@ export async function startEditor(root) {
         try {
           const j = JSON.parse(await f.text());
           const first = Object.values(j)[0] || {};
-          const k = j.vehicles ? 'gear' : j.places ? 'places' : j.orderTypes ? 'apps' : j.blocks && j.size ? 'map' : Object.keys(j).some((x) => x.includes('.')) ? 'content' : ['consumable', 'equipment', 'carry', 'outfit'].includes(first.type) ? 'goods' : 'items';
+          const k = j.ignoredWarnings ? 'editor' : j.vehicles ? 'gear' : j.places ? 'places' : j.orderTypes ? 'apps' : j.blocks && j.size ? 'map' : Object.keys(j).some((x) => x.includes('.')) ? 'content' : ['consumable', 'equipment', 'carry', 'outfit'].includes(first.type) ? 'goods' : 'items';
           ctx.data[k] = j;
           done.push(`${f.name} → ${FILES[k].label}`);
         } catch (e) {

@@ -7,6 +7,7 @@ export const HINT = {
   item: {
     name: 'Hiện trong app GoShip, hộp thoại, túi xếp hàng.',
     icon: 'Bấm 😀 Chọn, hoặc dán emoji.',
+    group: 'Chỉ để chia nhóm danh sách bên trái (Đồ ăn / Nước uống / Khách / Hàng giao) cho dễ tìm — game không dùng. "Tự đoán": theo đặc tính và tên (trà, cà phê, nước, sữa… → Nước uống).',
     base: '1–200k. Tiền cước khách trả; app trừ 20% phí + 1,5% thuế. Món mẫu 20–60k. Đơn nhiều món: lấy giá cao nhất + 6k mỗi món thêm.',
     hotStart: '40–100°C. Nguội dần về nhiệt độ ngoài trời (25–35°C); dưới 60°C bắt đầu mất điểm. Tham khảo: phở 85, cơm tấm 75.',
     coldStart: '−30 → 15°C. Ấm dần theo trời + nắng. Tham khảo: trà sữa 4, kem −8.',

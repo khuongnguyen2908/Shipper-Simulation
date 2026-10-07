@@ -13,6 +13,7 @@ src/
   data/      balance.js + balance.json (con số cân bằng; số chung sửa ở thẻ ⚖️ Cân bằng, ô định nghĩa ở balanceSpec.js) · items.json · gear.json (xe, túi) · goods.json + goods.js (đồ dùng: dùng 1 lần / trang bị / dùng tại địa điểm; danh sách tác dụng EFFECTS)
              places.json (địa điểm: lô 1–3 ô, giờ mở cửa / khung giờ mẫu hourPresets (sim/hours.js), hoạt động (có thể cần đồ mang theo / dừng khi có đơn), chỗ chợp mắt (`nap`), hàng bán, điểm đến đơn) · validate.js
              apps.json + apps.js (app giao hàng: phí, thuế, phụ phí, luật tài khoản · loại đơn · loại khách xe ôm)
+             editor.json (cảnh báo đã "Bỏ qua" trong ?editor) · itemGroups.js (nhóm món — chỉ để xếp trong editor)
              map.json + map.js (cỡ bản đồ, kiểu hẻm từng khối, sông + cầu; mặt bằng hẻm ở sim/blockPlan.js, đường đi ở cityLayout.routeDist)
   content/   vi.json — MỌI chữ hiển thị; code gọi fmt(khóa, tham số) / pick / list
   sim/       mô phỏng thuần (không Three.js, không DOM): clock (đồng hồ 24h liên tục), OrderManager (máy trạng thái), ItemPhysics,

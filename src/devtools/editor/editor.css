@@ -207,3 +207,14 @@ body.show-hints .fld-i { display: none; }
 .tx > .fld.wide { margin-top: 0; }
 .text-list { gap: 4px; }
 @media (max-width: 900px) { .tx { grid-template-columns: 1fr; } .tx > * { grid-column: 1 !important; } }
+/* bỏ qua cảnh báo */
+.iss-row { display: flex; align-items: center; gap: 6px; }
+.iss-row .iss { flex: 1; }
+.btn.ghost { background: transparent; border-color: #3a4558; color: #a9b3c4; font-weight: 600; padding: 2px 8px; }
+.btn.ghost:hover { background: #2c3544; color: #fff; }
+.fld-msg .btn.ghost { margin-left: 8px; font-size: 11px; padding: 1px 7px; }
+.iss-ignored { margin-top: 8px; color: #8b97a8; }
+.iss-ignored summary { cursor: pointer; font-size: 12.5px; font-weight: 600; }
+.iss-ignored .iss { cursor: default; color: #8b97a8; }
+/* nhóm vật phẩm */
+.group-seg .btn { flex: 1 1 auto; }
