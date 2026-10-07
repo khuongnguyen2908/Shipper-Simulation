@@ -1434,7 +1434,7 @@ console.log('Ngoại hình nam/nữ');
     assert.ok(Math.abs(sitY(1) + HIP_Y - 0.98) < 1e-9 && Math.abs(sitY(0.72, 1.02) + HIP_Y * 0.72 - 1.02) < 1e-9, 'háng nằm đúng độ cao yên');
   });
   {
-    const { makeBike, setBikeColor, BIKE_MODELS } = await import('../src/world/models.js');
+    const { makeBike, setBikeColor, BIKE_MODELS, makeCar, CAR_KINDS, makeNpcMoto, jamCarGeo, jamMotoGeo } = await import('../src/world/models.js');
     const { VEHICLE_MODELS } = await import('../src/data/validate.js');
     test('Xe máy: kiểu dáng trong công cụ khớp với kiểu dựng được', () => {
       assert.deepEqual(Object.keys(VEHICLE_MODELS).sort(), [...BIKE_MODELS].sort());
@@ -1445,12 +1445,33 @@ console.log('Ngoại hình nam/nữ');
         const ud = b.userData;
         assert.equal(ud.model, model);
         assert.ok(ud.wheelF && ud.wheelR && ud.wheelRadius > 0.2 && ud.wheelRadius < 0.4, model);
-        assert.ok(ud.painted.length >= 3, `${model}: ít phần sơn`);
+        assert.ok(ud.painted.length >= 1 && ud.painted[0].geometry.attributes.position.count > 100, `${model}: thiếu phần sơn`);
         assert.ok(ud.bagY > 1.1 && ud.bagY < 1.4, `${model}: túi ở độ cao ${ud.bagY}`);
         setBikeColor(b, 0xff0000);
         assert.ok(ud.painted.every((m) => m.material.color.getHex() === 0xff0000), model);
       }
       assert.equal(makeBike(0x123456, 'khongCo').userData.model, 'underbone', 'kiểu lạ → xe số');
+    });
+    const meshes = (o) => { let n = 0; o.traverse((m) => m.isMesh && m.visible && n++); return n; };
+    test('Xe gộp khối: xe máy ≤ 8 khối, đèn pha riêng từng xe, cùng kiểu dùng chung hình; ô tô 4 kiểu ≤ 3 khối, dài ≤ 4,4 m', () => {
+      for (const model of BIKE_MODELS) {
+        const a = makeBike(0x111111, model), b = makeBike(0x222222, model);
+        assert.ok(meshes(a) <= 8, `${model}: ${meshes(a)} khối`);
+        assert.equal(a.userData.body.geometry, b.userData.body.geometry, 'cùng kiểu dùng chung hình');
+        assert.notEqual(a.userData.lamp.material, b.userData.lamp.material, 'đèn pha mỗi xe sáng riêng');
+        assert.notEqual(a.userData.body.material, b.userData.body.material, 'màu sơn riêng');
+      }
+      const npc = makeNpcMoto(0x123456, makeRng(3));
+      assert.ok(meshes(npc) <= 17, `NPC xe máy: ${meshes(npc)} khối`);
+      for (const kind of CAR_KINDS) {
+        const c = makeCar(0x123456, kind);
+        assert.equal(c.userData.kind, kind);
+        assert.ok(meshes(c) <= 3, kind);
+        const bb = new THREE.Box3().setFromObject(c), size = bb.getSize(new THREE.Vector3());
+        assert.ok(size.z <= 4.5 && size.x <= 2.1 && bb.min.y > -0.01, `${kind}: ${size.x.toFixed(2)} × ${size.z.toFixed(2)}`);
+      }
+      assert.equal(makeCar(0x123456, 'laLam').userData.kind, 'sedan', 'kiểu lạ → sedan');
+      assert.ok(jamCarGeo().attributes.color && jamMotoGeo().attributes.color, 'xe kẹt có màu kính/lốp riêng');
     });
   }
   test('Dựng hình 3D trang phục: tay ngắn, quần short, mũ fullface, áo mưa, áo khoác', () => {

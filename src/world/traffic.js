@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { CITY, roadPos, blockBounds, segmentRect, neighbors } from '../sim/cityLayout.js';
 import { HAZARD } from '../data/balance.js';
-import { makeCar, makeNpcMoto, makePerson, makeDog, makeCone, animatePerson, randomPersonOpts } from './models.js';
+import { makeCar, makeNpcMoto, makePerson, makeDog, makeCone, animatePerson, randomPersonOpts, jamCarGeo, jamMotoGeo } from './models.js';
 import { guessGender } from '../sim/people.js';
 import { pushCircle } from './physics.js';
 import { list } from '../content/index.js';
@@ -78,7 +78,8 @@ export class Traffic {
     let from = [rng.int(0, CITY.N), rng.int(0, CITY.N)];
     for (let k = 0; k < 50 && !neighbors(...from).length; k++) from = [rng.int(0, CITY.N), rng.int(0, CITY.N)];
     const to = this.pickNext(from, null);
-    const mesh = kind === 'car' ? makeCar(rng.pick(CAR_COLORS)) : makeNpcMoto(rng.pick(MOTO_COLORS), rng);
+    // ô tô: sedan nhiều nhất, rồi SUV, taxi, xe tải nhỏ
+    const mesh = kind === 'car' ? makeCar(rng.pick(CAR_COLORS), rng.pick(['sedan', 'sedan', 'sedan', 'suv', 'suv', 'taxi', 'taxi', 'truck'])) : makeNpcMoto(rng.pick(MOTO_COLORS), rng);
     this.scene.add(mesh);
     const maxSpeed = kind === 'car' ? rng.range(7, 10) : rng.range(8, 11.5);
     this.agents.push({ kind, mesh, from, to, t: rng.range(5, CITY.PITCH - 5), speed: maxSpeed * 0.5, maxSpeed, lane: kind === 'car' ? 2.8 : 4.4, stop: 0, x: 0, z: 0, dx: 0, dz: 0, heading: 0, honk: 0 });
@@ -117,11 +118,11 @@ export class Traffic {
 
   // ---------------- kẹt xe ----------------
   buildJamMeshes() {
-    const unit = new THREE.BoxGeometry(1, 1, 1);
-    this.jamCarMesh = new THREE.InstancedMesh(unit, new THREE.MeshStandardMaterial({ roughness: 0.4, metalness: 0.2 }), 220);
+    // hình ô tô / xe máy giản lược (thân trắng → nhận màu từng chiếc; kính, lốp giữ màu tối)
+    this.jamCarMesh = new THREE.InstancedMesh(jamCarGeo(), new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.4, metalness: 0.2 }), 220);
     this.jamCarMesh.count = 0;
     this.jamCarMesh.castShadow = true;
-    this.jamMotoMesh = new THREE.InstancedMesh(unit, new THREE.MeshStandardMaterial({ roughness: 0.6 }), 260);
+    this.jamMotoMesh = new THREE.InstancedMesh(jamMotoGeo(), new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.6 }), 260);
     this.jamMotoMesh.count = 0;
     this.jamMotoMesh.castShadow = true;
     this.scene.add(this.jamCarMesh, this.jamMotoMesh);
@@ -144,9 +145,8 @@ export class Traffic {
         for (let a = a0 + 3; a < a1 - 3 && nc < 220; a += 5.6 + this.rng.next() * 1.5) {
           const lat = mid + side * (2.9 + this.rng.range(-0.25, 0.25));
           const x = alongX ? a : lat, z = alongX ? lat : a;
-          dummy.position.set(x, 0.8, z);
-          dummy.rotation.set(0, alongX ? Math.PI / 2 : 0, 0);
-          dummy.scale.set(1.8, 1.3, 4);
+          dummy.position.set(x, 0, z);
+          dummy.rotation.set(0, (alongX ? Math.PI / 2 : 0) + (side > 0 ? Math.PI : 0), 0);
           dummy.updateMatrix();
           this.jamCarMesh.setMatrixAt(nc, dummy.matrix);
           this.jamCarMesh.setColorAt(nc, col.setHex(this.rng.pick(CAR_COLORS)));
@@ -156,9 +156,8 @@ export class Traffic {
         for (let a = a0 + 2; a < a1 - 2 && nm < 260; a += 2.2 + this.rng.next()) {
           const lat = mid + side * (4.9 + this.rng.range(-0.3, 0.3));
           const x = alongX ? a : lat, z = alongX ? lat : a;
-          dummy.position.set(x, 0.75, z);
-          dummy.rotation.set(0, alongX ? Math.PI / 2 : 0, 0);
-          dummy.scale.set(0.5, 1.5, 1.6);
+          dummy.position.set(x, 0, z);
+          dummy.rotation.set(0, (alongX ? Math.PI / 2 : 0) + (side > 0 ? Math.PI : 0), 0);
           dummy.updateMatrix();
           this.jamMotoMesh.setMatrixAt(nm, dummy.matrix);
           this.jamMotoMesh.setColorAt(nm, col.setHex(this.rng.pick(MOTO_COLORS)));

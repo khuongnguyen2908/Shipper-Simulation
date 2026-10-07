@@ -334,129 +334,327 @@ export function setSitting(g, sitting) {
   p.body.position.y = 0;
 }
 
-// ======================== XE MÁY ========================
-// 4 kiểu dáng (gear.json → model). Mọi kiểu giữ yên cao ~0,9 m để người lái / khách ngồi vừa.
-// Mỗi phần: [rộng, cao, dài, màu ('paint' = màu xe), x, y, z, nghiêng quanh trục x]
-const PAINT = { roughness: 0.35, metalness: 0.2 };
-const DARK = 0x2b2b2b, SEAT = 0x222222, METAL = 0x666666, CHROME = 0xbdc3c7, CREAM = 0xf3ead3;
-const BIKE_SHAPES = {
-  // Cub cũ: yếm màu kem, khung xương sống chéo, yên dài, đồ mạ crôm
+// ======================== XE (phong cách A+) ========================
+// Xe cũng gộp khối như người: phần không sơn (màu nằm trong đỉnh), phần kim loại, phần sơn (đổi màu = đổi vật liệu),
+// 2 bánh (quay), đèn pha (sáng theo đêm), đèn hậu + xi nhan, thùng hàng (ẩn khi chở khách).
+// Hình theo kiểu xe được dựng 1 lần rồi dùng chung cho mọi xe cùng kiểu.
+const VEH_MAT = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.7, metalness: 0.05 });
+const VEH_METAL = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.32, metalness: 0.45 });
+const VEH_LIGHT = new THREE.MeshBasicMaterial({ vertexColors: true });
+const paintMats = new Map();
+function paintMat(color) {
+  if (!paintMats.has(color)) paintMats.set(color, new THREE.MeshStandardMaterial({ color, vertexColors: true, flatShading: true, roughness: 0.35, metalness: 0.2 }));
+  return paintMats.get(color);
+}
+const PAINT_WHITE = 0xffffff; // phần sơn dựng màu trắng, màu thật lấy từ vật liệu
+const vehGeo = new Map();
+const vehCached = (key, fn) => vehGeo.get(key) || (vehGeo.set(key, fn()), vehGeo.get(key));
+
+// Hình chiếu cạnh (u = phía trước, v = lên) → khối đùn dày `depth` theo bề ngang (trục x)
+function sideGeo(pts, depth, bevel = 0) {
+  const s = new THREE.Shape();
+  pts.forEach(([u, v], i) => (i ? s.lineTo(u, v) : s.moveTo(u, v)));
+  const d = Math.max(0.005, depth - bevel * 2);
+  const g = new THREE.ExtrudeGeometry(s, { depth: d, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 1 });
+  g.translate(0, 0, -d / 2);
+  g.rotateY(-PI / 2);
+  return g;
+}
+// thanh tròn nối 2 điểm [x,y,z] → hình đã đặt đúng chỗ (dùng với PartList.add(..., 0,0,0))
+function rodGeo(a, b, r, seg = 6) {
+  const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), d = B.clone().sub(A);
+  const g = new THREE.CylinderGeometry(r, r, d.length(), seg);
+  g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize()));
+  g.translate(...A.add(B).multiplyScalar(0.5).toArray());
+  return g;
+}
+// cung dè bánh xe (nửa trên vòng bánh)
+const fenderGeo = (R, t = 0.035, arc = 0.55) => new THREE.TorusGeometry(R, t, 3, 8, PI * arc).rotateZ(PI * (0.5 - arc / 2)).rotateY(PI / 2);
+
+const BLACK = 0x161616, DARK = 0x2a2a2a, GREY = 0x6b6f74, CHROME = 0xd5dade, ALU = 0x9aa0a6, SEAT = 0x2b2420, CREAM = 0xf3ead3;
+
+// Bánh xe: lốp + vành + nan (đúc 5 chấu hoặc nan căm) + đùm + đĩa phanh (bánh trước)
+function wheelGeo(R, t, spokes, disc) {
+  return vehCached(`wh|${R}|${t}|${spokes}|${disc}`, () => {
+    const L = new PartList();
+    L.add(new THREE.TorusGeometry(R - t, t, 5, 14).rotateY(PI / 2), BLACK, 0, 0, 0, 0, 0, 0, 0.8);
+    L.add(new THREE.CylinderGeometry(R - t * 1.05, R - t * 1.05, 0.035, 12, 1, true).rotateZ(PI / 2), ALU, 0, 0, 0, 0, 0, 0, 0.85);
+    L.add(new THREE.CylinderGeometry(0.05, 0.05, 0.12, 8).rotateZ(PI / 2), GREY);
+    const n = spokes === 'wire' ? 12 : 5, len = R - t - 0.03;
+    for (let k = 0; k < n; k++) {
+      const sp = spokes === 'wire' ? new THREE.BoxGeometry(0.008, len, 0.008) : new THREE.BoxGeometry(0.022, len, 0.03);
+      sp.translate(spokes === 'wire' ? (k % 2 ? 0.03 : -0.03) : 0, len / 2, 0);
+      L.add(sp, ALU, 0, 0, 0, (k * 2 * PI) / n, 0, 0, 1);
+    }
+    if (disc) L.add(new THREE.CylinderGeometry(R * 0.38, R * 0.38, 0.008, 14).rotateZ(PI / 2), CHROME, 0.055, 0, 0, 0, 0, 0, 1);
+    return L.build();
+  });
+}
+
+// Mỗi kiểu xe: P = phần sơn, D = phần thường (màu riêng), K = kim loại, rồi các số đo dùng chung
+// wheel [bán kính, z trước, z sau, kiểu nan], lamp [y, z], tail [y, z], rackY, bar [nửa rộng, y, z]
+const BIKE_SPECS = {
+  // Cub cũ: yếm kem, khung xương sống, yên da nâu dài, nan căm, nhiều đồ crôm
   cub: {
-    wheel: [0.32, 0.6, 0.09], lamp: [0.98, 0.64], tail: [0.78, -0.56], rackY: 0.98, bar: [0.66, 1.07, 0.5, CHROME],
-    parts: [
-      [0.4, 0.5, 0.07, CREAM, 0, 0.64, 0.36, -0.25], // yếm
-      [0.14, 0.14, 0.5, 'paint', 0, 0.7, 0.08, 0.35], // khung chéo
-      [0.28, 0.28, 0.5, 'paint', 0, 0.7, -0.28], // thân sau
-      [0.22, 0.2, 0.26, METAL, 0, 0.38, 0], // máy
-      [0.28, 0.1, 0.62, 0x3b2a1e, 0, 0.88, -0.22], // yên da nâu
-      [0.08, 0.5, 0.08, 0x888888, 0, 0.66, 0.56], // phuộc
-      [0.26, 0.14, 0.16, 'paint', 0, 1.0, 0.54], // đầu đèn
-      [0.14, 0.08, 0.4, CREAM, 0, 0.66, 0.6], // dè trước
-    ],
+    wheel: [0.32, 0.6, -0.6, 'wire', 0.06], lamp: [0.99, 0.66], tail: [0.78, -0.86], rackY: 0.98, bar: [0.33, 1.07, 0.5],
+    build(P, D, K) {
+      P.add(sideGeo([[-0.8, 0.6], [-0.86, 0.74], [-0.55, 0.8], [-0.1, 0.78], [0.02, 0.62], [-0.1, 0.5], [-0.6, 0.48]], 0.3, 0.012), PAINT_WHITE);
+      P.add(sideGeo([[-0.05, 0.6], [0.1, 0.7], [0.42, 0.95], [0.5, 0.9], [0.15, 0.56], [0.0, 0.53]], 0.14, 0.012), PAINT_WHITE);
+      P.add(new THREE.BoxGeometry(0.26, 0.16, 0.2), PAINT_WHITE, 0, 1.0, 0.54); // hộp đèn
+      P.add(fenderGeo(0.36, 0.035, 0.5), PAINT_WHITE, 0, 0.32, 0.6);
+      P.add(fenderGeo(0.36, 0.04, 0.45), PAINT_WHITE, 0, 0.32, -0.6, 0.35);
+      D.add(sideGeo([[0.28, 0.36], [0.4, 0.34], [0.47, 0.6], [0.43, 0.9], [0.34, 0.92], [0.33, 0.62]], 0.42), CREAM); // yếm kem
+      D.add(sideGeo([[-0.74, 0.78], [-0.62, 0.9], [0.05, 0.88], [0.12, 0.8], [-0.6, 0.77]], 0.3), 0x3b2a1e); // yên da
+      K.add(new THREE.BoxGeometry(0.2, 0.2, 0.26), GREY, 0, 0.38, -0.02);
+      for (let k = 0; k < 4; k++) K.add(new THREE.BoxGeometry(0.24, 0.014, 0.1), GREY, 0, 0.32 + k * 0.035, 0.14);
+      K.add(rodGeo([0.16, 0.3, 0.1], [0.18, 0.32, -0.7], 0.04, 8), CHROME); // ống xả dài
+      for (const s of [-1, 1]) K.add(rodGeo([s * 0.07, 0.32, 0.6], [s * 0.07, 0.98, 0.52], 0.026), CHROME); // phuộc
+      for (const s of [-1, 1]) K.add(rodGeo([s * 0.13, 0.36, -0.55], [s * 0.13, 0.72, -0.42], 0.022), CHROME); // giảm xóc sau
+    },
   },
-  // Xe số (Wave): dàn áo nhựa, khoảng trống bước chân giữa yếm và thân
+  // Xe số (Wave): dàn áo nhựa, khung dưới để chân, tem sọc, mâm đúc
   underbone: {
-    wheel: [0.3, 0.62, 0.1], lamp: [1.0, 0.67], tail: [0.8, -0.56], rackY: 0.98, bar: [0.72, 1.08, 0.5, 0x333333],
-    parts: [
-      [0.3, 0.32, 0.62, 'paint', 0, 0.68, -0.22], // thân sau
-      [0.34, 0.42, 0.16, 'paint', 0, 0.66, 0.38], // yếm
-      [0.12, 0.1, 0.5, DARK, 0, 0.42, 0.1], // khung dưới (chỗ để chân)
-      [0.24, 0.22, 0.3, 0x555555, 0, 0.36, -0.02], // máy
-      [0.3, 0.1, 0.6, SEAT, 0, 0.88, -0.22], // yên
-      [0.1, 0.5, 0.1, 0x555555, 0, 0.7, 0.56], // phuộc
-      [0.34, 0.18, 0.2, 'paint', 0, 0.98, 0.56], // đầu xe
-      [0.16, 0.06, 0.36, 'paint', 0, 0.62, 0.62], // dè trước
-    ],
+    wheel: [0.3, 0.62, -0.62, 'mag', 0.068], lamp: [1.0, 0.77], tail: [0.73, -0.92], rackY: 0.98, bar: [0.33, 1.1, 0.56],
+    build(P, D, K) {
+      P.add(sideGeo([[-0.86, 0.6], [-0.92, 0.78], [-0.6, 0.84], [-0.05, 0.82], [0.1, 0.64], [0.02, 0.48], [-0.35, 0.42], [-0.7, 0.46]], 0.3, 0.012), PAINT_WHITE);
+      P.add(sideGeo([[0.3, 0.38], [0.42, 0.36], [0.6, 0.92], [0.5, 0.98], [0.36, 0.62]], 0.36, 0.012), PAINT_WHITE); // yếm
+      P.add(sideGeo([[0.44, 0.92], [0.66, 0.9], [0.78, 0.98], [0.74, 1.1], [0.5, 1.12]], 0.3, 0.012), PAINT_WHITE); // đầu xe
+      P.add(fenderGeo(0.33), PAINT_WHITE, 0, 0.3, 0.62);
+      D.add(sideGeo([[-0.84, 0.68], [-0.3, 0.71], [0.04, 0.6], [0.0, 0.58], [-0.3, 0.665], [-0.84, 0.645]], 0.32, 0.004), 0xf4f4f4); // tem sọc
+      D.add(sideGeo([[-0.74, 0.82], [-0.62, 0.95], [0.0, 0.94], [0.09, 0.86], [-0.02, 0.8], [-0.6, 0.8]], 0.29), SEAT);
+      D.add(sideGeo([[-0.62, 0.92], [0.0, 0.915], [0.0, 0.905], [-0.62, 0.91]], 0.295, 0.002), 0x5a4a40); // chỉ may yên
+      D.add(sideGeo([[0.0, 0.44], [0.32, 0.4], [0.44, 0.7], [0.38, 0.73], [0.28, 0.49], [0.02, 0.52]], 0.12), DARK);
+      D.add(sideGeo([[-0.66, 0.24], [-0.05, 0.3], [0.0, 0.38], [-0.66, 0.36]], 0.04), DARK, 0.12); // hộp xích
+      D.add(sideGeo([[-0.85, 0.36], [-0.75, 0.58], [-0.55, 0.62], [-0.62, 0.5]], 0.14), DARK); // dè sau
+      K.add(new THREE.BoxGeometry(0.2, 0.2, 0.28), GREY, 0, 0.36, -0.05);
+      for (let k = 0; k < 4; k++) K.add(new THREE.BoxGeometry(0.24, 0.015, 0.12), 0x80858a, 0, 0.3 + k * 0.035, 0.12);
+      for (const s of [-1, 1]) K.add(rodGeo([s * 0.08, 0.3, 0.62], [s * 0.08, 0.98, 0.55], 0.024), CHROME);
+      for (const s of [-1, 1]) K.add(rodGeo([s * 0.14, 0.42, -0.55], [s * 0.14, 0.8, -0.42], 0.018), CHROME);
+      for (const s of [-1, 1]) for (let k = 0; k < 3; k++) D.add(new THREE.TorusGeometry(0.03, 0.008, 3, 6).rotateX(PI / 2), 0xc0392b, s * 0.14, 0.52 + k * 0.07, -0.52 + k * 0.025, 0.33, 0, 0, 1); // lò xo
+      K.add(rodGeo([0.17, 0.3, -0.17], [0.17, 0.3, -0.67], 0.045, 8), CHROME); // ống xả
+      D.add(new THREE.BoxGeometry(0.02, 0.09, 0.26), DARK, 0.22, 0.32, -0.38); // ốp chống nóng
+      K.add(rodGeo([-0.15, 0.92, -0.62], [0.15, 0.92, -0.62], 0.015), CHROME); // tay dắt
+    },
   },
   // Tay ga (Vision, SH): bánh nhỏ, sàn để chân phẳng, yếm cao, thân sau bầu, đèn trên tay lái
   scooter: {
-    wheel: [0.26, 0.58, 0.12], lamp: [1.04, 0.58], tail: [0.72, -0.65], rackY: 0.98, bar: [0.66, 1.1, 0.46, 0x333333],
-    parts: [
-      [0.36, 0.06, 0.48, DARK, 0, 0.36, 0.08], // sàn để chân
-      [0.42, 0.62, 0.14, 'paint', 0, 0.7, 0.4, -0.18], // yếm cao
-      [0.3, 0.2, 0.3, 'paint', 0, 0.42, 0.55], // mũi xe
-      [0.42, 0.4, 0.72, 'paint', 0, 0.62, -0.28], // thân sau
-      [0.36, 0.1, 0.66, SEAT, 0, 0.88, -0.22], // yên
-      [0.6, 0.12, 0.18, 'paint', 0, 1.06, 0.48], // ốp tay lái
-    ],
+    wheel: [0.26, 0.58, -0.6, 'mag', 0.07], lamp: [1.06, 0.66], tail: [0.74, -0.9], rackY: 0.98, bar: [0.33, 1.1, 0.48],
+    build(P, D, K) {
+      P.add(sideGeo([[0.3, 0.36], [0.5, 0.38], [0.66, 0.74], [0.62, 1.0], [0.5, 1.04], [0.42, 0.7], [0.33, 0.5]], 0.44, 0.012), PAINT_WHITE); // yếm cao
+      P.add(sideGeo([[-0.84, 0.55], [-0.92, 0.72], [-0.62, 0.86], [-0.05, 0.84], [0.12, 0.62], [0.08, 0.4], [-0.3, 0.33], [-0.72, 0.4]], 0.44, 0.012), PAINT_WHITE); // thân sau
+      P.add(sideGeo([[0.38, 1.0], [0.62, 1.02], [0.7, 1.1], [0.46, 1.17]], 0.6, 0.012), PAINT_WHITE); // ốp tay lái
+      P.add(fenderGeo(0.3, 0.035, 0.5), PAINT_WHITE, 0, 0.26, 0.58);
+      D.add(new THREE.BoxGeometry(0.38, 0.06, 0.5), DARK, 0, 0.36, 0.08); // sàn để chân
+      D.add(sideGeo([[-0.74, 0.84], [-0.6, 0.96], [0.02, 0.95], [0.1, 0.87], [-0.62, 0.83]], 0.38), SEAT);
+      D.add(sideGeo([[-0.6, 0.94], [0.02, 0.935], [0.02, 0.925], [-0.6, 0.93]], 0.385, 0.002), 0x5a4a40);
+      D.add(sideGeo([[-0.8, 0.56], [-0.3, 0.6], [0.05, 0.5], [0.0, 0.48], [-0.3, 0.58], [-0.8, 0.54]], 0.45, 0.004), 0xc9ced2); // viền crôm thân
+      D.add(new THREE.BoxGeometry(0.16, 0.18, 0.5), DARK, 0.1, 0.3, -0.38); // càng sau + máy
+      for (const s of [-1, 1]) K.add(rodGeo([s * 0.07, 0.26, 0.58], [s * 0.07, 0.8, 0.5], 0.026), CHROME);
+      K.add(rodGeo([-0.14, 0.32, -0.58], [-0.14, 0.7, -0.4], 0.02), CHROME);
+      K.add(rodGeo([0.18, 0.3, -0.2], [0.2, 0.36, -0.75], 0.045, 8), CHROME);
+      K.add(rodGeo([-0.14, 0.93, -0.66], [0.14, 0.93, -0.66], 0.015), CHROME);
+    },
   },
-  // Tay côn / mô tô: bình xăng trước yên, đuôi vuốt cao, phuộc vàng, bánh to
+  // Tay côn / mô tô (Exciter): bình xăng trước yên, đuôi vuốt cao, phuộc vàng, máy lộ, bánh to
   sport: {
-    wheel: [0.33, 0.66, 0.15], lamp: [0.98, 0.68], tail: [1.02, -0.78], rackY: 1.1, bar: [0.62, 1.02, 0.46, 0x333333],
-    parts: [
-      [0.28, 0.3, 0.42, 0x3d3d3d, 0, 0.48, 0.05], // máy
-      [0.12, 0.12, 0.7, 'paint', 0, 0.68, 0, 0.15], // khung
-      [0.38, 0.24, 0.44, 'paint', 0, 0.9, 0.22], // bình xăng
-      [0.26, 0.08, 0.46, SEAT, 0, 0.9, -0.24], // yên
-      [0.24, 0.14, 0.42, 'paint', 0, 0.98, -0.56, -0.25], // đuôi
-      [0.34, 0.3, 0.16, 'paint', 0, 1.0, 0.56, 0.35], // mặt nạ trước
-      [0.1, 0.55, 0.1, 0xd4ac0d, 0, 0.62, 0.6, -0.3], // phuộc vàng
-      [0.14, 0.05, 0.34, 'paint', 0, 0.72, 0.66], // dè trước
-      [0.09, 0.09, 0.5, 0xaaaaaa, 0.18, 0.44, -0.32, -0.2], // ống xả
-    ],
+    wheel: [0.33, 0.66, -0.66, 'mag', 0.075], lamp: [1.0, 0.74], tail: [1.0, -0.94], rackY: 1.1, bar: [0.31, 1.04, 0.44],
+    build(P, D, K) {
+      P.add(sideGeo([[-0.05, 0.85], [0.0, 0.98], [0.3, 1.03], [0.42, 0.92], [0.3, 0.8], [0.0, 0.78]], 0.4, 0.012), PAINT_WHITE); // bình xăng
+      P.add(sideGeo([[-0.92, 0.98], [-0.96, 1.04], [-0.55, 1.0], [-0.2, 0.9], [-0.1, 0.8], [-0.5, 0.82]], 0.26, 0.012), PAINT_WHITE); // đuôi
+      P.add(sideGeo([[0.45, 0.82], [0.6, 0.86], [0.76, 1.04], [0.64, 1.16], [0.5, 1.05]], 0.34, 0.012), PAINT_WHITE); // mặt nạ
+      P.add(fenderGeo(0.37, 0.03, 0.4), PAINT_WHITE, 0, 0.33, 0.66);
+      D.add(sideGeo([[-0.6, 0.98], [-0.15, 0.93], [-0.02, 0.9], [-0.1, 0.86], [-0.6, 0.92]], 0.27), SEAT);
+      D.add(sideGeo([[-0.4, 0.7], [0.3, 0.85], [0.42, 0.82], [-0.38, 0.62]], 0.32), DARK); // khung
+      D.add(sideGeo([[0.0, 0.95], [0.3, 1.0], [0.3, 0.99], [0.0, 0.94]], 0.41, 0.003), 0xf4f4f4); // tem sọc bình xăng
+      D.add(new THREE.BoxGeometry(0.28, 0.3, 0.42), 0x3d3d3d, 0, 0.48, 0.05); // máy
+      for (let k = 0; k < 5; k++) D.add(new THREE.BoxGeometry(0.32, 0.015, 0.16), 0x55595e, 0, 0.55 + k * 0.035, 0.22);
+      D.add(sideGeo([[-0.66, 0.3], [-0.05, 0.4], [-0.05, 0.37], [-0.66, 0.27]], 0.03), DARK, 0.13); // xích
+      D.add(new THREE.BoxGeometry(0.44, 0.03, 0.4), DARK, 0, 1.08, -0.62); // baga cao
+      for (const s of [-1, 1]) D.add(rodGeo([s * 0.08, 0.33, 0.66], [s * 0.08, 1.0, 0.56], 0.03), 0xd4ac0d); // phuộc vàng
+      K.add(rodGeo([-0.12, 0.33, -0.66], [-0.12, 0.42, -0.05], 0.025), ALU); // gắp sau
+      K.add(rodGeo([0.12, 0.33, -0.66], [0.12, 0.42, -0.05], 0.025), ALU);
+      K.add(rodGeo([0.17, 0.36, 0.0], [0.2, 0.62, -0.7], 0.05, 8), CHROME); // pô vuốt lên
+      K.add(rodGeo([0.0, 0.55, -0.2], [0.0, 0.85, -0.35], 0.03), CHROME); // phuộc sau giữa
+    },
   },
 };
-export const BIKE_MODELS = Object.keys(BIKE_SHAPES);
+export const BIKE_MODELS = Object.keys(BIKE_SPECS);
 
-// Xe máy: 2 bánh, thân theo kiểu dáng, ghi đông, đèn pha, đèn hậu, baga + túi giao hàng
-export function makeBike(color = 0x3a6fb0, model = 'underbone') {
-  if (!BIKE_SHAPES[model]) model = 'underbone'; // kiểu lạ (dữ liệu cũ / gõ sai) → xe số
-  const B = BIKE_SHAPES[model];
-  const g = new THREE.Group();
-  const [wr, wz, tire] = B.wheel;
-  const wheelGeo = new THREE.CylinderGeometry(wr, wr, tire, 16);
-  wheelGeo.rotateZ(Math.PI / 2);
-  const wm = mat(0x1a1a1a, { roughness: 0.9 });
-  const wheelF = new THREE.Mesh(wheelGeo, wm);
-  wheelF.position.set(0, wr, wz);
-  const wheelR = new THREE.Mesh(wheelGeo, wm);
-  wheelR.position.set(0, wr, -wz);
-  wheelF.castShadow = wheelR.castShadow = true;
-  g.add(wheelF, wheelR);
-  const painted = [];
-  for (const [w, h, d, c, x, y, z, tilt = 0] of B.parts) {
-    const m = c === 'paint' ? box(w, h, d, color, x, y, z, PAINT) : box(w, h, d, c, x, y, z);
-    m.rotation.x = tilt;
-    if (c === 'paint') painted.push(m);
-    g.add(m);
+// Phần dùng chung mọi kiểu: tay lái, gương, đồng hồ, gác chân, chân chống, biển số, baga
+function commonBikeParts(S, D, K, Lt) {
+  const [bw, by, bz] = S.bar, [ty, tz] = S.tail, [ly, lz] = S.lamp;
+  D.add(new THREE.CylinderGeometry(0.018, 0.018, bw * 2, 6).rotateZ(PI / 2), DARK, 0, by, bz);
+  for (const s of [-1, 1]) {
+    D.add(new THREE.CylinderGeometry(0.032, 0.032, 0.12, 7).rotateZ(PI / 2), BLACK, s * bw, by, bz);
+    K.add(new THREE.BoxGeometry(0.15, 0.012, 0.02), CHROME, s * (bw - 0.08), by, bz + 0.06, 0, s * 0.2, 0);
+    D.add(rodGeo([s * (bw - 0.13), by + 0.02, bz], [s * (bw - 0.08), by + 0.22, bz - 0.04], 0.01), DARK);
+    K.add(new THREE.CylinderGeometry(0.05, 0.05, 0.015, 10).rotateX(PI / 2).scale(1.3, 0.8, 1), CHROME, s * (bw - 0.08), by + 0.26, bz - 0.04);
+    D.add(new THREE.BoxGeometry(0.04, 0.03, 0.12), DARK, s * 0.17, 0.33, 0.1); // gác chân
+    D.add(new THREE.BoxGeometry(0.04, 0.03, 0.1), DARK, s * 0.2, 0.42, -0.42);
+    Lt.add(new THREE.BoxGeometry(0.06, 0.04, 0.05), 0xffa21a, s * 0.17, ly - 0.02, lz - 0.04); // xi nhan
+    Lt.add(new THREE.BoxGeometry(0.06, 0.04, 0.05), 0xffa21a, s * 0.15, ty + 0.02, tz + 0.03);
   }
-  const [bw, by, bz, bc] = B.bar;
-  g.add(box(bw, 0.05, 0.05, bc, 0, by, bz)); // ghi đông
-  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 8), new THREE.MeshStandardMaterial({ color: 0xffffee, emissive: 0xffeeaa, emissiveIntensity: 0.4 }));
-  lamp.position.set(0, B.lamp[0], B.lamp[1]);
-  g.add(lamp);
-  g.add(box(0.14, 0.06, 0.04, 0xff2222, 0, B.tail[0], B.tail[1], { emissive: 0x880000, emissiveIntensity: 0.6 })); // đèn hậu
-  g.add(box(0.36, 0.04, 0.42, model === 'cub' ? CHROME : 0x444444, 0, B.rackY, -0.55)); // baga
-  const bagY = B.rackY + 0.24;
-  const bagMesh = box(0.5, 0.42, 0.42, 0x27ae60, 0, bagY, -0.58);
-  g.add(bagMesh);
-  g.userData = { wheelF, wheelR, wheelRadius: wr, bagMesh, bagY, body: painted[0], painted, lamp, model };
+  D.add(new THREE.CylinderGeometry(0.06, 0.07, 0.05, 10), DARK, 0, by + 0.05, bz + 0.04); // đồng hồ
+  D.add(new THREE.CylinderGeometry(0.05, 0.05, 0.005, 10), 0xf4f4f4, 0, by + 0.077, bz + 0.04, 0, 0, 0, 1);
+  K.add(new THREE.TorusGeometry(0.075, 0.012, 4, 12), CHROME, 0, ly, lz + 0.005);
+  Lt.add(new THREE.BoxGeometry(0.15, 0.06, 0.04), 0xff2a2a, 0, ty, tz); // đèn hậu
+  D.add(new THREE.BoxGeometry(0.19, 0.14, 0.012), 0xf2f2f2, 0, ty - 0.18, tz + 0.02, 0.15, 0, 0, 1); // biển số
+  for (const k of [-1, 1]) D.add(new THREE.BoxGeometry(0.14, 0.022, 0.014), 0x222222, 0, ty - 0.18 + k * 0.03, tz + 0.012, 0.15, 0, 0, 1);
+  if (S.rackY < 1.05) D.add(new THREE.BoxGeometry(0.36, 0.03, 0.36), DARK, 0, S.rackY - 0.06, -0.62); // baga
+}
+
+// Thùng giao hàng giữ nhiệt trên baga (đặt ở gốc thùng)
+const bagGeo = () => vehCached('bag', () => {
+  const L = new PartList();
+  L.add(new THREE.BoxGeometry(0.5, 0.42, 0.42), 0x27ae60, 0, 0, 0);
+  L.add(new THREE.BoxGeometry(0.52, 0.06, 0.44), 0x1e8a4c, 0, 0.2, 0, 0, 0, 0, 1);
+  L.add(new THREE.BoxGeometry(0.505, 0.035, 0.425), 0xe6ecef, 0, -0.11, 0, 0, 0, 0, 1);
+  for (const [x, z] of [[-0.25, -0.21], [0.25, -0.21], [-0.25, 0.21], [0.25, 0.21]]) L.add(new THREE.BoxGeometry(0.025, 0.42, 0.025), 0x1e8a4c, x, 0, z, 0, 0, 0, 1);
+  L.add(new THREE.BoxGeometry(0.26, 0.12, 0.01), 0xffffff, 0, 0.04, -0.215, 0, 0, 0, 1); // ô logo
+  return L.build();
+});
+
+// Xe máy: dựng theo kiểu dáng (gear.json → model). Yên cao ~0,93 m để người lái / khách ngồi vừa.
+export function makeBike(color = 0x3a6fb0, model = 'underbone') {
+  if (!BIKE_SPECS[model]) model = 'underbone'; // kiểu lạ (dữ liệu cũ / gõ sai) → xe số
+  const S = BIKE_SPECS[model];
+  const [R, zf, zr, spokes, t] = S.wheel;
+  const parts = vehCached(`bike|${model}`, () => {
+    const P = new PartList(), D = new PartList(), K = new PartList(), Lt = new PartList();
+    S.build(P, D, K);
+    commonBikeParts(S, D, K, Lt);
+    return { paint: P.build(), dark: D.build(), metal: K.build(), lights: Lt.build() };
+  });
+  const g = new THREE.Group();
+  const mk = (geo, m, x = 0, y = 0, z = 0) => {
+    const o = new THREE.Mesh(geo, m);
+    o.position.set(x, y, z);
+    o.castShadow = o.receiveShadow = true;
+    g.add(o);
+    return o;
+  };
+  const body = mk(parts.paint, paintMat(color));
+  mk(parts.dark, VEH_MAT);
+  mk(parts.metal, VEH_METAL);
+  mk(parts.lights, VEH_LIGHT).castShadow = false;
+  const wheelF = mk(wheelGeo(R, t, spokes, true), VEH_MAT, 0, R, zf);
+  const wheelR = mk(wheelGeo(R, t, spokes, false), VEH_MAT, 0, R, zr);
+  // đèn pha: vật liệu riêng từng xe (ban đêm sáng lên)
+  const lamp = mk(new THREE.IcosahedronGeometry(0.075, 1).scale(1, 0.8, 0.5), new THREE.MeshStandardMaterial({ color: 0xfff4c8, emissive: 0xffeeaa, emissiveIntensity: 0.4 }), 0, S.lamp[0], S.lamp[1]);
+  lamp.castShadow = false;
+  const bagY = S.rackY + 0.24;
+  const bagMesh = mk(bagGeo(), VEH_MAT, 0, bagY, -0.62);
+  g.userData = { wheelF, wheelR, wheelRadius: R, bagMesh, bagY, body, painted: [body], lamp, model };
   return g;
 }
 
 export function setBikeColor(bike, color) {
-  for (const m of bike.userData.painted) m.material = mat(color, PAINT);
+  for (const m of bike.userData.painted) m.material = paintMat(color);
 }
 
-export function makeCar(color = 0xd35400) {
+// ======================== Ô TÔ ========================
+// 4 kiểu: sedan 4 chỗ, SUV 7 chỗ, taxi, xe tải nhỏ. Dài ≤ 4,4 m (khớp vòng va chạm 2 × r1,05 trong traffic.js).
+export const CAR_KINDS = ['sedan', 'suv', 'taxi', 'truck'];
+const GLASS = 0x22303d;
+function carWheels(D, R, xs, zs) {
+  for (const x of xs) for (const z of zs) {
+    D.add(new THREE.CylinderGeometry(R, R, 0.24, 12).rotateZ(PI / 2), BLACK, x, R, z, 0, 0, 0, 0.8);
+    D.add(new THREE.CylinderGeometry(R * 0.6, R * 0.6, 0.02, 10).rotateZ(PI / 2), ALU, x + Math.sign(x) * 0.12, R, z, 0, 0, 0, 1);
+  }
+}
+// Ô tô con (sedan / taxi / SUV): thân dưới + khoang kính + mui + cột + cản + đèn
+function carParts(kind) {
+  const P = new PartList(), D = new PartList(), Lt = new PartList();
+  const suv = kind === 'suv', W = suv ? 1.82 : 1.76, L2 = suv ? 2.08 : 2.02, R = suv ? 0.37 : 0.33, base = suv ? 0.4 : 0.32;
+  const top = suv ? 1.05 : 0.92, roof = suv ? 1.7 : 1.42;
+  P.add(sideGeo(suv
+    ? [[-L2, base], [L2, base], [L2 + 0.03, 0.78], [L2 - 0.12, 1.0], [1.35, 1.05], [-L2, 1.07], [-L2 - 0.04, 0.72]]
+    : [[-L2, base], [L2, base], [L2 + 0.03, 0.62], [L2 - 0.1, 0.82], [1.0, 0.9], [-1.25, 0.93], [-L2 + 0.05, 0.86], [-L2 - 0.05, 0.6]], W, 0.03), PAINT_WHITE);
+  // khoang kính (màu kính tối) + mui sơn + cột giữa
+  const cab = suv ? [[-L2 + 0.05, top], [1.3, top], [0.85, roof - 0.03], [-L2 + 0.12, roof - 0.03]] : [[-1.45, top], [1.0, top], [0.4, roof - 0.03], [-0.9, roof - 0.03]];
+  D.add(sideGeo(cab, W - 0.14, 0.02), GLASS, 0, 0, 0, 0, 0, 0, 0.9);
+  const rz0 = cab[3][0], rz1 = cab[2][0];
+  P.add(new THREE.BoxGeometry(W - 0.12, 0.07, rz1 - rz0 + 0.06), PAINT_WHITE, 0, roof, (rz0 + rz1) / 2);
+  P.add(new THREE.BoxGeometry(W - 0.12, roof - top, 0.1), PAINT_WHITE, 0, (top + roof) / 2, suv ? -0.35 : -0.2);
+  if (suv) {
+    P.add(new THREE.BoxGeometry(W - 0.12, roof - top, 0.1), PAINT_WHITE, 0, (top + roof) / 2, -1.25);
+    for (const s of [-1, 1]) D.add(new THREE.BoxGeometry(0.05, 0.05, 2.6), 0x333333, s * (W / 2 - 0.15), roof + 0.06, -0.4); // giá nóc
+  }
+  // đường cửa, tay nắm, gương
+  for (const z of suv ? [0.5, -0.45, -1.3] : [0.35, -0.75]) D.add(new THREE.BoxGeometry(W + 0.01, 0.45, 0.015), 0x1a1a1a, 0, top - 0.25, z, 0, 0, 0, 1);
+  for (const z of suv ? [0.25, -0.7] : [0.1, -1.0]) D.add(new THREE.BoxGeometry(W + 0.03, 0.03, 0.12), 0x888888, 0, top - 0.1, z, 0, 0, 0, 1);
+  for (const s of [-1, 1]) P.add(new THREE.BoxGeometry(0.16, 0.1, 0.12), PAINT_WHITE, s * (W / 2 + 0.06), top + 0.08, suv ? 1.15 : 0.82);
+  // cản, lưới tản nhiệt, biển số
+  for (const s of [-1, 1]) D.add(new THREE.BoxGeometry(W + 0.04, 0.2, 0.14), 0x2f2f2f, 0, base + 0.12, s * (L2 + 0.03), 0, 0, 0, 0.9);
+  D.add(new THREE.BoxGeometry(W * 0.5, 0.14, 0.03), 0x1a1a1a, 0, base + 0.36, L2 + 0.02, 0, 0, 0, 1);
+  for (const s of [-1, 1]) D.add(new THREE.BoxGeometry(0.42, 0.12, 0.02), 0xf2f2f2, 0, base + 0.14, s * (L2 + 0.11), 0, 0, 0, 1);
+  // đèn
+  for (const x of [-1, 1]) {
+    Lt.add(new THREE.BoxGeometry(0.34, 0.12, 0.04), 0xfff6d8, x * (W / 2 - 0.25), base + 0.38, L2 + 0.02);
+    Lt.add(new THREE.BoxGeometry(0.3, 0.12, 0.04), 0xd62222, x * (W / 2 - 0.22), base + (suv ? 0.5 : 0.42), -L2 - 0.02);
+  }
+  carWheels(D, R, [-W / 2 + 0.1, W / 2 - 0.1], [L2 - 0.75, -L2 + 0.75]);
+  if (kind === 'taxi') {
+    for (const s of [-1, 1]) D.add(new THREE.BoxGeometry(0.01, 0.1, 3.2), 0x1e9e55, s * (W / 2 + 0.035), top - 0.32, -0.05, 0, 0, 0, 1); // sọc hông
+    D.add(new THREE.BoxGeometry(0.5, 0.16, 0.22), 0x1e9e55, 0, roof + 0.12, -0.25);
+    Lt.add(new THREE.BoxGeometry(0.46, 0.1, 0.23), 0xfff3a0, 0, roof + 0.13, -0.25); // hộp đèn TAXI
+  }
+  return { paint: P.build(), dark: D.build(), lights: Lt.build() };
+}
+// Xe tải nhỏ: cabin sơn màu + thùng hàng trắng sọc xanh
+function truckParts() {
+  const P = new PartList(), D = new PartList(), Lt = new PartList(), W = 1.76;
+  P.add(sideGeo([[1.0, 0.5], [2.15, 0.5], [2.2, 0.95], [1.98, 1.85], [1.0, 1.92]], W, 0.03), PAINT_WHITE);
+  D.add(new THREE.BoxGeometry(W - 0.2, 0.6, 0.04), GLASS, 0, 1.45, 2.06, -0.3, 0, 0, 1);
+  for (const s of [-1, 1]) D.add(new THREE.BoxGeometry(0.02, 0.5, 0.6), GLASS, s * (W / 2 + 0.005), 1.45, 1.55, 0, 0, 0, 1);
+  D.add(new THREE.BoxGeometry(1.4, 0.25, 4.2), 0x222222, 0, 0.5, 0);
+  D.add(new THREE.BoxGeometry(W + 0.04, 1.65, 2.95), 0xeeeeee, 0, 1.38, -0.62, 0, 0, 0, 0.82); // thùng
+  for (const s of [-1, 1]) D.add(new THREE.BoxGeometry(0.01, 0.22, 2.9), 0x2e6fd6, s * (W / 2 + 0.03), 1.3, -0.62, 0, 0, 0, 1);
+  D.add(new THREE.BoxGeometry(W + 0.04, 0.2, 0.14), 0x2f2f2f, 0, 0.6, 2.18);
+  D.add(new THREE.BoxGeometry(W * 0.5, 0.2, 0.03), 0x1a1a1a, 0, 0.82, 2.2, 0, 0, 0, 1);
+  for (const s of [-1, 1]) {
+    Lt.add(new THREE.BoxGeometry(0.3, 0.14, 0.04), 0xfff6d8, s * 0.62, 0.82, 2.2);
+    Lt.add(new THREE.BoxGeometry(0.2, 0.14, 0.03), 0xd62222, s * 0.75, 0.75, -2.12);
+    P.add(new THREE.BoxGeometry(0.12, 0.18, 0.08), PAINT_WHITE, s * (W / 2 + 0.06), 1.5, 1.95);
+  }
+  carWheels(D, 0.36, [-W / 2 + 0.12, W / 2 - 0.12], [1.5, -1.4]);
+  return { paint: P.build(), dark: D.build(), lights: Lt.build() };
+}
+// kind bỏ trống → chọn theo màu (cố định cho cùng một màu)
+export function makeCar(color = 0xd35400, kind = null) {
+  if (!CAR_KINDS.includes(kind)) kind = 'sedan';
+  if (kind === 'taxi') color = 0xf4f4f4;
+  const parts = vehCached(`car|${kind}`, () => (kind === 'truck' ? truckParts() : carParts(kind)));
   const g = new THREE.Group();
-  g.add(box(1.8, 0.7, 4.0, color, 0, 0.65, 0, { roughness: 0.3, metalness: 0.3 }));
-  g.add(box(1.6, 0.6, 2.0, color, 0, 1.25, -0.2, { roughness: 0.3, metalness: 0.3 }));
-  g.add(box(1.62, 0.45, 1.6, 0x24323f, 0, 1.27, -0.2, { roughness: 0.1, metalness: 0.5 }));
-  const wg = new THREE.CylinderGeometry(0.34, 0.34, 0.25, 12);
-  wg.rotateZ(Math.PI / 2);
-  for (const [x, z] of [[-0.85, 1.3], [0.85, 1.3], [-0.85, -1.3], [0.85, -1.3]]) {
-    const w = new THREE.Mesh(wg, mat(0x111111));
-    w.position.set(x, 0.34, z);
-    g.add(w);
+  for (const [geo, m] of [[parts.paint, paintMat(color)], [parts.dark, VEH_MAT], [parts.lights, VEH_LIGHT]]) {
+    const o = new THREE.Mesh(geo, m);
+    o.castShadow = m !== VEH_LIGHT;
+    o.receiveShadow = true;
+    g.add(o);
   }
-  const hl = mat(0xffffee, { emissive: 0xffffaa, emissiveIntensity: 0.3 });
-  for (const x of [-0.6, 0.6]) {
-    const h = new THREE.Mesh(boxGeo(0.3, 0.15, 0.05), hl);
-    h.position.set(x, 0.75, 2.01);
-    g.add(h);
-  }
+  g.userData = { kind };
   return g;
+}
+
+// Hình giản lược cho xe kẹt giờ cao điểm (vẽ hàng loạt một lần): thân trắng nhận màu từng chiếc, kính / lốp tối
+export function jamCarGeo() {
+  return vehCached('jamCar', () => {
+    const L = new PartList();
+    L.add(sideGeo([[-2.0, 0.32], [2.0, 0.32], [2.03, 0.65], [1.9, 0.85], [-2.0, 0.9], [-2.05, 0.6]], 1.76, 0), 0xffffff);
+    L.add(sideGeo([[-1.4, 0.9], [0.95, 0.9], [0.4, 1.4], [-0.9, 1.4]], 1.6, 0), GLASS, 0, 0, 0, 0, 0, 0, 1);
+    for (const x of [-0.8, 0.8]) for (const z of [1.3, -1.3]) L.add(new THREE.CylinderGeometry(0.33, 0.33, 0.22, 8).rotateZ(PI / 2), BLACK, x, 0.33, z, 0, 0, 0, 1);
+    return L.build();
+  });
+}
+export function jamMotoGeo() {
+  return vehCached('jamMoto', () => {
+    const L = new PartList();
+    L.add(sideGeo([[-0.85, 0.5], [-0.9, 0.8], [0.0, 0.85], [0.6, 1.05], [0.75, 0.95], [0.4, 0.4], [-0.5, 0.4]], 0.32, 0), 0xffffff);
+    for (const z of [0.62, -0.62]) L.add(new THREE.CylinderGeometry(0.3, 0.3, 0.1, 8).rotateZ(PI / 2), BLACK, 0, 0.3, z, 0, 0, 0, 1);
+    L.add(new THREE.BoxGeometry(0.36, 0.55, 0.26), 0x4a4f57, 0, 1.25, -0.1, 0, 0, 0, 0.8); // người lái
+    L.add(new THREE.IcosahedronGeometry(0.15, 0), 0x3a3f47, 0, 1.68, -0.08, 0, 0, 0, 1);
+    return L.build();
+  });
 }
 
 // Xe máy NPC (có người lái)
