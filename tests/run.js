@@ -946,12 +946,16 @@ console.log('Nhân bản · sao chép · dán · xóa · hoàn tác (công cụ 
   });
   test('Nhân bản món: mã mới không trùng, đứng ngay sau, có trong thực đơn quán gốc; dữ liệu vẫn hợp lệ', () => {
     const d = load();
+    // mã mới = pho_<số nhỏ nhất chưa dùng> (dữ liệu thật có thể đã có pho_2, pho_3… do người dùng nhân bản)
+    const nextFree = () => { let n = 2; while (d.items[`pho_${n}`]) n++; return `pho_${n}`; };
+    const want = nextFree();
     const r = O.duplicate(d, 'items', 'pho');
-    assert.equal(r.id, 'pho_2');
+    assert.equal(r.id, want);
     const keys = Object.keys(d.items);
-    assert.equal(keys.indexOf('pho_2'), keys.indexOf('pho') + 1);
-    assert.ok(d.places.places.some((p) => (p.menu || []).includes('pho_2')));
-    assert.equal(O.duplicate(d, 'items', 'pho').id, 'pho_3');
+    assert.equal(keys.indexOf(want), keys.indexOf('pho') + 1);
+    assert.ok(d.places.places.some((p) => (p.menu || []).includes(want)));
+    const want2 = nextFree();
+    assert.equal(O.duplicate(d, 'items', 'pho').id, want2);
     assert.deepEqual(errs(d), []);
   });
   test('Nhân bản địa điểm: đặt vào lô trống cùng cỡ, chép lời thoại; địa điểm cốt truyện thì không', () => {
@@ -1583,6 +1587,7 @@ console.log('Công cụ ?editor: bỏ qua cảnh báo, nhóm vật phẩm');
 {
   const { splitIgnored, addIgnore, removeIgnore } = await import('../src/devtools/editor/ignore.js');
   const { groupOf, guessGroup } = await import('../src/data/itemGroups.js');
+  const { goodsGroupOf } = await import('../src/devtools/editor/goodsGroups.js');
   const { validateItems } = await import('../src/data/validate.js');
   test('Bỏ qua đúng một cảnh báo; nội dung đổi thì hiện lại; lỗi đỏ không ẩn được', () => {
     const w1 = { level: 'warn', tab: 'places', ref: 'cafe', field: 'activities.a', msg: 'Hoạt động hơn 2 tiếng' };
@@ -1599,6 +1604,15 @@ console.log('Công cụ ?editor: bỏ qua cảnh báo, nhóm vật phẩm');
     removeIgnore(list, w1);
     assert.equal(splitIgnored([w1], list).shown.length, 1);
     assert.equal(splitIgnored([w1], null).shown.length, 1, 'file hỏng / thiếu → không ẩn gì');
+  });
+  test('Nhóm đồ dùng: quần áo chỉ để mặc → Thời trang; quần áo có tác dụng → nhóm riêng', () => {
+    assert.equal(goodsGroupOf({ type: 'outfit', name: 'Áo thun', slot: 'shirt' }), 'fashion');
+    assert.equal(goodsGroupOf({ type: 'outfit', name: 'Áo đồng phục', slot: 'shirt', effects: { tipBonus: 1 } }), 'wearFx');
+    assert.equal(goodsGroupOf({ type: 'outfit', name: 'Áo', effects: {} }), 'fashion', 'tác dụng rỗng = chỉ để mặc');
+    assert.equal(goodsGroupOf({ type: 'equipment', name: 'Áo mưa', effects: { rainProtect: true } }), 'wearFx');
+    assert.equal(goodsGroupOf({ type: 'equipment', name: 'Sách hay', effects: { tipBonus: 2 } }), 'equipment');
+    assert.equal(goodsGroupOf({ type: 'consumable', name: 'Nước tăng lực' }), 'consumable');
+    assert.equal(goodsGroupOf({ type: 'carry', name: 'Nhang' }), 'carry');
   });
   test('Nhóm vật phẩm: tự đoán theo đặc tính / tên; nhóm lạ → lỗi', () => {
     assert.equal(guessGroup({ name: 'Trà sữa', traits: ['cold', 'liquid'] }), 'drink');

@@ -6,6 +6,7 @@ import { EFFECTS, CONSUMABLE_FIELDS, OUTFIT_SLOTS, freeOutfit, outfitLook } from
 import { el, field, textInput, numInput, colorInput, button, sideList, areaInput, selectInput, checkInput, emojiInput, explain } from './ui.js';
 import { HINT, EXPLAIN } from './help.js';
 import { personPreview } from './personPreview.js';
+import { GOODS_GROUPS, goodsGroupOf } from './goodsGroups.js';
 
 const TYPE_SHORT = { consumable: 'dùng 1 lần', equipment: 'trang bị', carry: 'dùng tại địa điểm', outfit: 'trang phục' };
 
@@ -43,18 +44,32 @@ export function render(root, ctx) {
   const cat = sel.cat;
   const fileKey = cat === 'goods' ? 'goods' : 'gear';
   const table = cat === 'goods' ? ctx.data.goods : ctx.data.gear[cat];
-  if (!sel.id || !table[sel.id]) sel.id = Object.keys(table)[0];
+  // Đồ dùng: lọc theo nhóm ('' = tất cả; goodsGroups.js) — chỉ để xếp danh sách
+  if (sel.group && !GOODS_GROUPS.some(([g]) => g === sel.group)) sel.group = '';
+  const group = cat === 'goods' ? sel.group || '' : '';
+  const inGroup = (s) => !group || goodsGroupOf(s) === group;
+  if (!sel.id || !table[sel.id]) sel.id = (Object.values(table).find(inGroup) || Object.values(table)[0])?.id;
   const changed = () => ctx.changed(fileKey);
   const places = ctx.data.places.places;
 
   const side = el('aside', { class: 'ed-side' });
   const drawSide = () => {
     side.innerHTML = '';
+    const shown = Object.values(table).filter(inGroup);
+    const count = (g) => Object.values(table).filter((s) => goodsGroupOf(s) === g).length;
+    // đổi nhóm: giữ mục đang mở nếu thuộc nhóm mới, không thì mở mục đầu của nhóm
+    const pickGroup = (g) => {
+      const fits = (s) => !g || goodsGroupOf(s) === g;
+      ctx.select('gear', { group: g, id: table[sel.id] && fits(table[sel.id]) ? sel.id : Object.values(table).find(fits)?.id });
+    };
     side.append(
       el('div', { class: 'seg' }, CATS.map(([c, label]) => button(label, () => ctx.select('gear', { cat: c, id: null }), cat === c ? 'on' : ''))),
-      el('div', { class: 'side-head' }, el('b', {}, `${Object.keys(table).length} mục`), addButton(ctx, cat, [['＋ Mục mới', add]])),
+      cat === 'goods' ? el('div', { class: 'seg group-seg' },
+        button(`Tất cả (${Object.keys(table).length})`, () => pickGroup(''), `small${!group ? ' on' : ''}`),
+        GOODS_GROUPS.map(([g, label]) => button(`${label} (${count(g)})`, () => pickGroup(g), `small${group === g ? ' on' : ''}`))) : null,
+      el('div', { class: 'side-head' }, el('b', {}, `${shown.length} mục`), addButton(ctx, cat, [[cat === 'goods' && group ? `＋ ${GOODS_GROUPS.find(([g]) => g === group)[1]} mới` : '＋ Mục mới', add]])),
       sideList(
-        Object.values(table).map((s) => ({
+        shown.map((s) => ({
           id: s.id,
           icon: cat === 'vehicles' ? '🛵' : cat === 'bags' ? '👜' : s.icon || '🎁',
           title: s.name,
@@ -62,7 +77,13 @@ export function render(root, ctx) {
         })),
         sel.id,
         (id) => ctx.select('gear', { id }),
-        { issuesFor: (id) => ctx.issuesFor('gear', id, { cat }), onReorder: (a, b) => { moveKey(table, a, b); changed(); }, menu: rowMenu(ctx, cat) },
+        {
+          key: `gear:${cat}:${group || 'all'}`,
+          issuesFor: (id) => ctx.issuesFor('gear', id, { cat }),
+          // đang xem một nhóm: dời mục tới chỗ của mục đích trong danh sách đầy đủ
+          onReorder: (a, b) => { const keys = Object.keys(table); moveKey(table, keys.indexOf(shown[a].id), keys.indexOf(shown[b].id)); changed(); },
+          menu: rowMenu(ctx, cat),
+        },
       ),
     );
   };
@@ -130,7 +151,7 @@ export function render(root, ctx) {
     table[id] = {
       vehicles: { id, name: 'Xe mới', maxSpeed: 15, accel: 5, brake: 10, steer: 2.3, suspension: 0.4, fuelPer100km: 3, tank: 4, price: 2000, color: '#2e86c1', model: 'underbone', desc: '' },
       bags: { id, name: 'Túi mới', insulation: 0.3, waterproof: 0.3, padding: 0.2, cols: 2, rows: 2, price: 80, color: '#8e44ad', desc: '' },
-      goods: { id, name: 'Đồ dùng mới', icon: '🎁', price: 20, desc: '', type: 'consumable', use: { minutes: 5, phys: 10, mental: 10, fuel: 0, bikeHp: 0 } },
+      goods: goodsTemplate(id, group || 'consumable'),
     }[cat];
     changed();
     ctx.select('gear', { id });
@@ -149,6 +170,19 @@ export function render(root, ctx) {
     changed();
     ctx.select('gear', { id: newId });
   }
+}
+
+// Đồ dùng mới theo nhóm đang xem
+function goodsTemplate(id, group) {
+  const base = { id, price: 20, desc: '' };
+  if (group === 'equipment') return { ...base, name: 'Trang bị mới', icon: '🛡️', type: 'equipment', effects: {} };
+  if (group === 'wearFx') return { ...base, name: 'Áo mới', icon: '🧥', type: 'equipment', effects: {} };
+  if (group === 'carry') return { ...base, name: 'Đồ mang theo mới', icon: '🎒', type: 'carry' };
+  if (group === 'fashion') {
+    const slot = Object.keys(OUTFIT_SLOTS)[0];
+    return { ...base, name: 'Áo mới', icon: '👕', type: 'outfit', slot, style: Object.keys(OUTFIT_SLOTS[slot].styles)[0], color: '#2e86c1' };
+  }
+  return { ...base, name: 'Đồ dùng mới', icon: '🎁', type: 'consumable', use: { minutes: 5, phys: 10, mental: 10, fuel: 0, bikeHp: 0 } };
 }
 
 // Phần riêng của đồ dùng: loại + tác dụng
