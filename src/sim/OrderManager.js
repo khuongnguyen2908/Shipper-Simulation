@@ -16,7 +16,7 @@
 // =============================================================
 import { ITEMS } from '../data/items.js';
 import { ORDER, DIST, ECONOMY } from '../data/balance.js';
-import { APP, ORDER_TYPES, RIDER_TYPES, ORDER_KINDS, typeOpen, isPeak, surchargeAt } from '../data/apps.js';
+import { APP, ORDER_TYPES, RIDER_TYPES, ORDER_KINDS, typeOpen, isPeak, surchargeAt, demandAt } from '../data/apps.js';
 import { CUSTOMER_NAMES } from '../data/places.js';
 import { DeliveryItem } from './ItemPhysics.js';
 import { evaluateOrder } from './OrderCondition.js';
@@ -130,13 +130,15 @@ export class OrderManager {
   schedulePing(now) {
     const acc = APP.account || {};
     const lowAccept = this.gs.acceptRate < (acc.lowAcceptBelow ?? 0) ? acc.lowAcceptPingMult || 1 : 1;
-    this.nextPingIn = this.rng.range(...ORDER.pingGap) * (isPeak(now) ? 0.6 : 1) * lowAccept;
+    // nhu cầu theo giờ: thưa (0,5) → chờ gấp đôi; dày (2) → chờ một nửa
+    this.nextPingIn = (this.rng.range(...ORDER.pingGap) * (isPeak(now) ? 0.6 : 1) * lowAccept) / Math.max(0.1, demandAt(now));
   }
 
   // dtMin: phút game, dtSec: giây thật (đếm ngược thẻ đơn theo thời gian thật)
   update(dtMin, dtSec, now, pos) {
     if (this.state === S.IDLE) {
       if (!inHours(APP.hours, now)) return; // ngoài giờ app nhận đơn (apps.json → hours)
+      if (demandAt(now) <= 0) return; // giờ này không có ai đặt
       if (this.gs.lockedUntil > now) return; // tài khoản đang bị tạm khóa nhận đơn
       this.nextPingIn -= dtMin;
       if (this.nextPingIn <= 0) {

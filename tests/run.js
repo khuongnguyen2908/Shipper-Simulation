@@ -1051,6 +1051,63 @@ console.log('Khung giờ (một đoạn, nhiều đoạn, giờ lẻ, khung gi�
   });
 }
 
+console.log('Ban đêm: đơn thưa, phụ phí đêm, đường tối');
+{
+  const { demandAt, surchargeAt, isNightFare, APP: APPX } = await import('../src/data/apps.js');
+  const { isDark } = await import('../src/sim/clock.js');
+  const { validateApps } = await import('../src/data/validate.js');
+  const NIGHT_ = (await import('../src/data/balance.js')).NIGHT;
+  const at = (h) => dayStartAt(1) + (h * 60 - TIME.dayStart) + (h < 6 ? 1440 : 0); // giờ h của ngày chơi 1
+  test('Nhu cầu đơn theo giờ và phụ phí đêm đọc đúng từ apps.json', () => {
+    const app = { demandByHour: Array.from({ length: 24 }, (_, h) => (h >= 22 ? 0.5 : 1)), nightHours: [[22, 24], [0, 6]], nightSurcharge: 5, rainSurcharge: 4, peakSurcharge: 3, peakHours: [[11, 13]] };
+    assert.equal(demandAt(at(14), app), 1);
+    assert.equal(demandAt(at(23), app), 0.5);
+    assert.equal(isNightFare(at(23), app), true);
+    assert.equal(isNightFare(at(2), app), true);
+    assert.equal(isNightFare(at(14), app), false);
+    assert.equal(surchargeAt(at(23), false, app), 5);
+    assert.equal(surchargeAt(at(12), true, app), 7);
+    assert.equal(surchargeAt(at(23), false, { ...app, nightHours: undefined }), 0, 'không đặt giờ đêm = không có phụ phí đêm');
+  });
+  test('Đêm khuya đơn thưa hơn ban ngày (theo nhu cầu trong apps.json)', () => {
+    const count = (h) => {
+      const { om, gs } = mkOM(4);
+      gs.flags.online = true;
+      om.goOnline();
+      let n = 0;
+      for (let i = 0; i < 600; i++) {
+        om.update(1, 0, at(h), { x: 0, z: 0 });
+        if (om.state === S.OFFERED) { n++; om.decline(at(h)); gs.account.recent = []; }
+      }
+      return n;
+    };
+    const day = count(14), night = count(23);
+    const ratio = demandAt(at(23)) / demandAt(at(14));
+    assert.ok(day > 20, `ban ngày quá ít đơn: ${day}`);
+    if (ratio < 0.9) assert.ok(night < day * ((ratio + 1) / 2), `đêm ${night} đơn, ngày ${day} đơn`);
+  });
+  test('Đường tối: qua nửa đêm vẫn tính là tối; chạy đêm hao tinh thần thêm', () => {
+    const n = { start: 21, end: 5 };
+    assert.ok(isDark(at(22), n) && isDark(at(3), n) && !isDark(at(12), n) && !isDark(at(6), n));
+    const a = new GameState(), b = new GameState();
+    a.wake(at(14) - 60); // cùng mới thức 1 tiếng → chỉ khác ở chỗ đêm / ngày
+    b.wake(at(23) - 60);
+    a.drain('drive', 60, { outdoor: true, now: at(14) });
+    b.drain('drive', 60, { outdoor: true, now: at(23) });
+    assert.ok(Math.abs((a.mental - b.mental) - NIGHT_.mentalPerMin * 60) < 1e-6);
+  });
+  test('Bộ kiểm tra bắt nhu cầu theo giờ / phụ phí đêm sai', () => {
+    const ad = JSON.parse(JSON.stringify(require_apps()));
+    const g = ad.apps[Object.keys(ad.apps)[0]];
+    g.demandByHour = [1, 2];
+    g.nightSurcharge = -3;
+    g.nightHours = [[22, 30]];
+    const f = validateApps(ad, {}, { places: [], hourPresets: {} }).filter((i) => i.level === 'error').map((i) => i.field);
+    for (const k of ['demandByHour', 'nightSurcharge', 'nightHours']) assert.ok(f.includes(k), `không bắt lỗi ${k}`);
+  });
+  function require_apps() { return JSON.parse(fs.readFileSync(new URL('../src/data/apps.json', import.meta.url), 'utf8')); }
+}
+
 console.log('Vẽ xe kẹt giờ cao điểm');
 {
   const THREE = await import('three');

@@ -209,7 +209,14 @@ tests/        run.js (25 bộ thử luật) · economy-sim.js (bot chơi headles
 - Sửa khung giờ mẫu (editor → Địa điểm → ⏰ Khung giờ mẫu) → mọi nơi đang dùng đổi theo. Xóa mẫu → nơi đang dùng giữ nguyên giờ (chuyển sang "tự đặt").
 - `inHours`, `fmtHours`, `hoursProblem` dùng chung cho game (`placeRules`, `apps.typeOpen`), bộ kiểm tra và editor.
 
-## 11. Giới hạn hiện tại
+## 11. Ban đêm (Đợt 2)
+
+- **Nhu cầu đơn theo giờ** (`apps.json → demandByHour`, 24 số; thẻ App & Đơn): khoảng chờ giữa 2 đơn chia cho nhu cầu giờ đó. Mặc định ban ngày 1 (như cũ), 21h 0,8 · 22h 0,6 · 23h 0,5 · khuya 0,4.
+- **Phụ phí đêm** (`nightSurcharge`, `nightHours`): +5k mỗi đơn 22:00–06:00, cộng chung với phụ phí mưa / cao điểm.
+- **Đường tối** (`balance.json → night`; thẻ ⚖️ mục Ban đêm): 21:00–05:00 tinh thần hao thêm 0,02/phút khi ở ngoài đường, ổ gà xóc ×1,5.
+- Ban đêm chỉ có đơn khi còn quán mở (giờ mở cửa) — khung giờ mẫu "Quán nhậu đêm" (17:00–02:00) để đặt cho quán chạy đêm.
+
+## 12. Giới hạn hiện tại
 
 - Xe NPC chưa có đèn giao thông, chưa có hầm chui.
 - Mỗi lúc chỉ nhận một đơn (chưa ghép đơn).

@@ -87,6 +87,9 @@ export const HINT = {
 
   // ---------- app giao hàng ----------
   app: {
+    nightSurcharge: '0–1000k. Cộng vào mỗi đơn nhận trong "Giờ tính phụ phí đêm". Mặc định +5k.',
+    nightHours: 'Mặc định 22:00–06:00 (2 đoạn: 22–24 và 0–6). Tick "Không có phụ phí đêm" để tắt.',
+    demandByHour: 'Mỗi ô là một giờ (0h → 23h): 1 = bình thường, 0,5 = đơn thưa một nửa (chờ lâu gấp đôi), 2 = dày gấp đôi, 0 = không có đơn. Giờ cao điểm vẫn dày thêm như cũ. Mặc định: ban ngày 1, 21h 0,8, 22h 0,6, 23h 0,5, khuya 0,4.',
     platformFee: '0–90%. App lấy bao nhiêu % tổng cước. Mẫu 20%. Phí + thuế trên 60% thì tài xế gần như không lời.',
     taxRate: '0–50%. Thuế thu nhập trên tổng cước. Mẫu 1,5%.',
     distBonusPerKm: '0–50k mỗi km quãng đường quán → khách. Mẫu 6k (xăng tốn ~1k/km). Bản đồ 8×8 có sông nên quãng đi dài hơn — 4k thì tỉ lệ thắng ngày 1 tụt (bot chơi bình thường 58% → 75% khi lên 6k).',

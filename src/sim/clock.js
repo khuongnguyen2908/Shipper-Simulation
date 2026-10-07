@@ -2,7 +2,7 @@
 // Thời gian trong game là SỐ PHÚT TUYỆT ĐỐI tính từ 00:00 ngày 1, chạy liên tục (không quay vòng):
 // ngày 1 bắt đầu 06:00 = phút 360, 06:00 ngày 2 = phút 1800…  Ngày mới bắt đầu lúc TIME.dayStart (06:00).
 // Luật theo giờ trong ngày (giờ mở cửa, nắng, cao điểm…) dùng tod() = phút trong ngày 0–1439.
-import { TIME } from '../data/balance.js';
+import { TIME, NIGHT } from '../data/balance.js';
 
 export const DAY = 1440;
 // phút trong ngày (0–1439)
@@ -15,6 +15,11 @@ export const dayStartAt = (d) => (d - 1) * DAY + TIME.dayStart;
 export function atHour(d, hour) {
   const off = (((hour * 60 - TIME.dayStart) % DAY) + DAY) % DAY;
   return dayStartAt(d) + off;
+}
+// Trời tối (đường vắng, khó thấy ổ gà): từ NIGHT.start tới NIGHT.end giờ (qua nửa đêm)
+export function isDark(m, night = NIGHT) {
+  const h = tod(m) / 60, a = night.start, b = night.end;
+  return a > b ? h >= a || h < b : h >= a && h < b;
 }
 // "07:05"
 export const fmtClock = (m) => `${String(Math.floor(tod(m) / 60)).padStart(2, '0')}:${String(tod(m) % 60).padStart(2, '0')}`;

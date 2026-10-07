@@ -11,10 +11,10 @@ import { GameState } from '../src/sim/GameState.js';
 import { HazardManager } from '../src/sim/hazards.js';
 import { makeRng } from '../src/sim/rng.js';
 import { buildLayout, routeDist } from '../src/sim/cityLayout.js';
-import { TIME, ENERGY, DIST, ORDER, ECONOMY, dueDayOf } from '../src/data/balance.js';
+import { TIME, ENERGY, DIST, ORDER, ECONOMY, NIGHT, dueDayOf } from '../src/data/balance.js';
 import { APP, ORDER_TYPES, RIDER_TYPES } from '../src/data/apps.js';
 import { inHours } from '../src/sim/hours.js';
-import { dayOf, dayStartAt, minutesUntil } from '../src/sim/clock.js';
+import { dayOf, dayStartAt, minutesUntil, isDark } from '../src/sim/clock.js';
 
 const layout = buildLayout();
 const P = layout.placeById;
@@ -86,7 +86,8 @@ export function playRun(seed, strat, days = 9) {
     const e = envAt(st.speed);
     const bumps = Math.round((d / 100) * st.bumpsPer100 + rng.next());
     const brakes = Math.round((d / 100) * st.brakesPer100 + rng.next() * 0.5);
-    for (let i = 0; i < bumps; i++) om.itemEvent('bump', (st.speed / 12.5) * rng.range(0.7, 1.2), e);
+    const dark = isDark(now) ? NIGHT.potholeMul || 1 : 1; // đêm tối: ổ gà xóc mạnh hơn
+    for (let i = 0; i < bumps; i++) om.itemEvent('bump', (st.speed / 12.5) * rng.range(0.7, 1.2) * dark, e);
     for (let i = 0; i < brakes; i++) om.itemEvent('brake', st.brakeMag, e);
     pass(Math.ceil(min), 'drive', st.speed);
     pos = { ...to };

@@ -3,8 +3,8 @@
 // Tiền, điểm đánh giá, thể lực, tinh thần, xăng, đồ đã mua, cờ nhiệm vụ,
 // tiền nhà theo kỳ, ngủ / thức, kiệt sức, điều kiện thua (game chơi tự do 24h — không có "thắng").
 // =============================================================
-import { ECONOMY, RATING, ENERGY, VEHICLES, BAGS, WALLET_QUEST, rentFor, periodOfDay, dueDayOf } from '../data/balance.js';
-import { dayStartAt, atHour } from './clock.js';
+import { ECONOMY, RATING, ENERGY, VEHICLES, BAGS, WALLET_QUEST, NIGHT, rentFor, periodOfDay, dueDayOf } from '../data/balance.js';
+import { dayStartAt, atHour, isDark } from './clock.js';
 import { APP } from '../data/apps.js';
 import { GOODS, EFFECTS, OUTFIT_SLOTS, freeOutfit } from '../data/goods.js';
 import { isOpen } from './placeRules.js';
@@ -187,6 +187,7 @@ export class GameState {
       m += M.rain;
     }
     if (env.inJam) m += M.jam;
+    if (env.outdoor && env.now != null && isDark(env.now)) m += NIGHT.mentalPerMin || 0; // chạy đêm: đường vắng, sợ
     if (env.waiting) m += M.wait;
     p *= Math.max(0, 1 + this.effect('physDrainPct') / 100);
     m *= Math.max(0, 1 + this.effect('mentalDrainPct') / 100);

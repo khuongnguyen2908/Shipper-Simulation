@@ -120,5 +120,11 @@
       1
     ],
     "complaintFine": 100
+  },
+  "night": {
+    "start": 21,
+    "end": 5,
+    "mentalPerMin": 0.02,
+    "potholeMul": 1.5
   }
 }

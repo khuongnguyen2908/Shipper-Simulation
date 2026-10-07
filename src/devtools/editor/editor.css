@@ -157,4 +157,11 @@ table.sim-table td { vertical-align: top; }
 .ranges { display: flex; flex-direction: column; gap: 6px; padding: 6px 0 2px 26px; }
 .range-row select.time-sel { width: 92px; }
 .hp-card .act-head b:last-child { flex: none; color: #9ec5ff; font-weight: 600; }
+/* nhu cầu đơn theo giờ */
+.dm-grid { display: grid; grid-template-columns: repeat(12, minmax(46px, 1fr)); gap: 4px; margin-bottom: 6px; }
+.dm-cell { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.dm-cell input { width: 100%; padding: 3px 2px; text-align: center; font-size: 12px; }
+.dm-cell small { color: #8b97a8; font-size: 11px; }
+.dm-col { display: flex; align-items: flex-end; height: 36px; width: 14px; background: #1f2733; border-radius: 3px; }
+.dm-bar { display: block; width: 100%; background: #00b14f; border-radius: 3px; }
 

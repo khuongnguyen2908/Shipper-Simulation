@@ -21,8 +21,18 @@ export const typeOpen = (t, now) => inHours(t.hours, now);
 export function isPeak(now, app = APP) {
   return (app.peakHours || []).some((hours) => inHours(hours, now));
 }
+// Khung giờ tính phụ phí đêm (không đặt = không có phụ phí đêm)
+export function isNightFare(now, app = APP) {
+  return app.nightHours != null && inHours(app.nightHours, now);
+}
+// Nhu cầu đơn theo giờ trong ngày: 1 = bình thường, 0,5 = thưa một nửa, 2 = dày gấp đôi (apps.json → demandByHour, 24 số)
+export function demandAt(now, app = APP) {
+  const h = Math.floor((((now % 1440) + 1440) % 1440) / 60);
+  const v = Array.isArray(app.demandByHour) ? app.demandByHour[h] : 1;
+  return Number.isFinite(v) && v >= 0 ? v : 1;
+}
 
-// Phụ phí cộng vào cước tại lúc có đơn
+// Phụ phí cộng vào cước tại lúc có đơn: mưa + giờ cao điểm + đêm
 export function surchargeAt(now, raining, app = APP) {
-  return (raining ? app.rainSurcharge || 0 : 0) + (isPeak(now, app) ? app.peakSurcharge || 0 : 0);
+  return (raining ? app.rainSurcharge || 0 : 0) + (isPeak(now, app) ? app.peakSurcharge || 0 : 0) + (isNightFare(now, app) ? app.nightSurcharge || 0 : 0);
 }

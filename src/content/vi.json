@@ -365,7 +365,7 @@
   "receipt.dist": "Thưởng quãng đường ({km} km)",
   "receipt.fee": "Phí nền tảng {pct}%",
   "receipt.tax": "Thuế {pct}%",
-  "receipt.surcharge": "Phụ phí (mưa / giờ cao điểm)",
+  "receipt.surcharge": "Phụ phí (mưa / cao điểm / đêm)",
   "receipt.noAppFee": "Khách quen gọi thẳng — không mất phí app",
   "receipt.notRated": "Khách quen — không chấm sao trên app",
   "receipt.cod": "Khách trả lại tiền hàng đã ứng",

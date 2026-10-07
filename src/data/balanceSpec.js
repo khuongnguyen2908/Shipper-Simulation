@@ -90,6 +90,16 @@ export const BALANCE_GROUPS = [
     ],
   },
   {
+    id: 'night', title: '🌙 Ban đêm',
+    note: 'Trời tối từ giờ "bắt đầu" tới giờ "kết thúc" (qua nửa đêm). Phụ phí đêm và nhu cầu đơn theo giờ ở thẻ 📱 App & Đơn.',
+    fields: [
+      ['night.start', 'Trời tối từ (giờ)', { min: 0, max: 24, step: 0.5, hint: 'Mặc định 21.' }],
+      ['night.end', 'Trời sáng lúc (giờ)', { min: 0, max: 24, step: 0.5, hint: 'Mặc định 5.' }],
+      ['night.mentalPerMin', 'Tinh thần: hao thêm khi chạy đêm (mỗi phút)', { min: 0, max: 2, step: 0.005, hint: 'Đường vắng, sợ. Mặc định 0,02 (3 tiếng ≈ −3,6).' }],
+      ['night.potholeMul', 'Ổ gà ban đêm xóc mạnh × mấy lần', { min: 1, max: 5, step: 0.1, hint: 'Tối khó thấy ổ gà → hàng dễ đổ / vỡ hơn. Mặc định ×1,5.' }],
+    ],
+  },
+  {
     id: 'wallet', title: '👛 Nhiệm vụ chiếc ví',
     fields: [
       ['walletQuest.reward', 'Thưởng khi trả ví (k)', { min: 0, max: 5000, step: 10, hint: 'Mặc định 150k.' }],

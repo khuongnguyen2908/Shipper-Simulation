@@ -119,6 +119,12 @@ export function validateApps(ad, items = {}, placesData = null) {
     if (!Array.isArray(a.tipByStars) || a.tipByStars.length !== 6 || a.tipByStars.some((v) => !num(v) || v < 0 || v > 500)) add('error', key, 'tipByStars', 'Tiền boa: đủ 1★ → 5★, mỗi mức 0–500k.');
     if (!Array.isArray(a.peakHours) || a.peakHours.some(badHours)) add('error', key, 'peakHours', 'Giờ cao điểm: mỗi khung là giờ bắt đầu < giờ kết thúc, trong 0–24.');
     if (hoursProblem(a.hours, presets)) add('error', key, 'hours', `Giờ app nhận đơn: ${hoursProblem(a.hours, presets)}`);
+    if (a.nightHours != null && hoursProblem(a.nightHours, presets)) add('error', key, 'nightHours', `Giờ phụ phí đêm: ${hoursProblem(a.nightHours, presets)}`);
+    if (a.nightSurcharge != null && (!num(a.nightSurcharge) || a.nightSurcharge < 0 || a.nightSurcharge > 1000)) add('error', key, 'nightSurcharge', 'Phụ phí đêm: số từ 0 đến 1000.');
+    if (a.demandByHour != null) {
+      if (!Array.isArray(a.demandByHour) || a.demandByHour.length !== 24 || a.demandByHour.some((v) => !num(v) || v < 0 || v > 5)) add('error', key, 'demandByHour', 'Nhu cầu theo giờ: 24 số từ 0 đến 5.');
+      else if (a.demandByHour.every((v) => v === 0)) add('warn', key, 'demandByHour', 'Giờ nào nhu cầu cũng bằng 0 → không bao giờ có đơn.');
+    }
     if (num(a.platformFee) && num(a.taxRate) && a.platformFee + a.taxRate > 0.6) add('warn', key, 'platformFee', 'Phí + thuế trên 60% cước — tài xế gần như không lời.');
     const acc = a.account || {};
     inRange(add, key, 'account.lockBelow', acc.lockBelow, 1, 5, 'Khóa tài khoản dưới');

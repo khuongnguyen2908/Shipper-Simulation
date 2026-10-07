@@ -55,6 +55,7 @@ export const ECONOMY = balanceData.economy; // tiền khởi đầu, tiền nhà
 export const ENERGY = balanceData.energy; // hao thể lực/tinh thần mỗi phút + các cú trừ tức thời
 export const ORDER = balanceData.order; // nhịp đơn, chờ quán, tỉ lệ sự cố
 export const WALLET_QUEST = balanceData.walletQuest; // nhiệm vụ chiếc ví
+export const NIGHT = balanceData.night; // ban đêm: trời tối từ start tới end giờ, hao tinh thần thêm, ổ gà xóc mạnh hơn
 
 // Tiền nhà trả theo KỲ (mỗi rentEveryDays ngày). Kỳ `period` (1, 2, 3…): có số tự đặt trong rentByPeriod thì dùng,
 // không thì = tiền kỳ 1 + tăng mỗi kỳ
@@ -79,5 +80,6 @@ export function applyBalance(data) {
   into(ENERGY, data.energy);
   into(ORDER, data.order);
   into(WALLET_QUEST, data.walletQuest);
+  into(NIGHT, data.night);
 }
 

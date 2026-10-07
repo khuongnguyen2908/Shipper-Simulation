@@ -58,11 +58,12 @@ export function render(root, ctx) {
   // ô số có thể bỏ trống (bỏ trống = như khách thường)
   const optNum = (k, label, o = {}) => field(label, numInput(x[k], (v) => { if (Number.isFinite(v)) x[k] = v; else delete x[k]; changed(); }, o), opt(k, { hint: o.hint }));
   // khung giờ: tick "Cả ngày" / một khung giờ mẫu (⏰, sửa ở thẻ Địa điểm → Khung giờ mẫu) / "Tự đặt"
-  const hoursRow = (label, hint) => field(label, hoursPicker({
-    value: x.hours,
+  const hoursRow = (label, hint, key = 'hours', emptyLabel = 'Cả ngày') => field(label, hoursPicker({
+    value: x[key],
     presets: ctx.data.places.hourPresets || {},
-    onChange: (v) => { if (v == null) delete x.hours; else x.hours = v; changed(); },
-  }), opt('hours', { hint, wide: true }));
+    emptyLabel,
+    onChange: (v) => { if (v == null) delete x[key]; else x[key] = v; changed(); },
+  }), opt(key, { hint, wide: true }));
 
   body.append(el('div', { class: 'body-head' }, el('h2', {}, `${cat === 'app' ? '📱' : x.icon || ''} ${x.name}`), cat === 'app' ? el('span', { class: 'pill' }, '🔒 App đang chạy') : el('span', { class: 'inline' }, entryButtons(ctx, cat, x.id), button('🗑 Xóa', () => doRemove(ctx, cat, x.id), 'danger small'))));
 
@@ -85,7 +86,10 @@ export function render(root, ctx) {
         num('cancelComp', 'Bù khi đơn bị hủy (k)', { step: 1, min: 0, hint: H.cancelComp }),
         num('rainSurcharge', 'Phụ phí mưa (k/đơn)', { step: 1, min: 0, hint: H.rainSurcharge }),
         num('peakSurcharge', 'Phụ phí giờ cao điểm (k/đơn)', { step: 1, min: 0, hint: H.peakSurcharge }),
+        num('nightSurcharge', 'Phụ phí đêm (k/đơn)', { step: 1, min: 0, hint: H.nightSurcharge }),
       ),
+      hoursRow('Giờ tính phụ phí đêm', H.nightHours, 'nightHours', 'Không có phụ phí đêm'),
+      demandField(),
       field('Tiền boa theo số sao (k)', el('span', { class: 'inline' }, [1, 2, 3, 4, 5].map((s) => el('label', {}, `${s}★ `, numInput(x.tipByStars?.[s], (v) => { x.tipByStars = x.tipByStars || [0, 0, 0, 0, 0, 0]; x.tipByStars[s] = v; changed(); }, { step: 1, min: 0 })))), opt('tipByStars', { wide: true, hint: H.tipByStars })),
       field('Giờ cao điểm', el('div', {}, (x.peakHours || []).map((h, i) => el('div', { class: 'inline' },
         numInput(h[0], (v) => { h[0] = v; changed(); }, { step: 0.5, min: 0, max: 24 }), el('span', {}, '→'), numInput(h[1], (v) => { h[1] = v; changed(); }, { step: 0.5, min: 0, max: 24 }),
@@ -106,6 +110,24 @@ export function render(root, ctx) {
     );
   }
 
+  // Nhu cầu đơn theo giờ: 24 ô số + thanh cao thấp (1 = bình thường)
+  function demandField() {
+    const DEF = [0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0.8, 0.6, 0.5];
+    const arr = Array.isArray(x.demandByHour) && x.demandByHour.length === 24 ? x.demandByHour : [...DEF];
+    const bars = [];
+    const cells = arr.map((v, h) => {
+      const bar = el('i', { class: 'dm-bar', style: `height:${Math.min(100, (v / 2) * 100)}%` });
+      bars.push(bar);
+      return el('label', { class: 'dm-cell' },
+        el('span', { class: 'dm-col' }, bar),
+        numInput(v, (n) => { x.demandByHour = x.demandByHour || arr; x.demandByHour[h] = n; bar.style.height = `${Math.min(100, ((n || 0) / 2) * 100)}%`; changed(); }, { step: 0.1, min: 0, max: 5 }),
+        el('small', {}, `${h}h`));
+    });
+    return field('Nhu cầu đơn theo giờ (1 = bình thường)', el('div', {},
+      el('div', { class: 'dm-grid' }, cells),
+      button('↺ Đặt lại mặc định', () => { x.demandByHour = [...DEF]; changed(); ctx.rerender(); }, 'small')), opt('demandByHour', { wide: true, hint: HINT.app.demandByHour }));
+  }
+
   // Ví dụ tính tiền một đơn mẫu (cập nhật khi đổi số)
   function example() {
     const box = el('div', { class: 'ref' });
@@ -113,7 +135,7 @@ export function render(root, ctx) {
       const f = Number(x.platformFee) || 0, t = Number(x.taxRate) || 0;
       const gross = 30 + 2.5 * (Number(x.distBonusPerKm) || 0);
       const net = gross * (1 - f - t);
-      box.innerHTML = `Ví dụ đơn cước 30k, 2,5 km, giao 5★: tổng cước <b>${gross.toFixed(1)}k</b> → phí ${(gross * f).toFixed(1)}k, thuế ${(gross * t).toFixed(1)}k → tài xế nhận <b>${(net + (x.tipByStars?.[5] || 0)).toFixed(1)}k</b> (gồm boa ${x.tipByStars?.[5] || 0}k). Mưa thêm ${x.rainSurcharge || 0}k, giờ cao điểm thêm ${x.peakSurcharge || 0}k (trước phí).`;
+      box.innerHTML = `Ví dụ đơn cước 30k, 2,5 km, giao 5★: tổng cước <b>${gross.toFixed(1)}k</b> → phí ${(gross * f).toFixed(1)}k, thuế ${(gross * t).toFixed(1)}k → tài xế nhận <b>${(net + (x.tipByStars?.[5] || 0)).toFixed(1)}k</b> (gồm boa ${x.tipByStars?.[5] || 0}k). Mưa thêm ${x.rainSurcharge || 0}k, giờ cao điểm thêm ${x.peakSurcharge || 0}k, đêm thêm ${x.nightSurcharge || 0}k (trước phí).`;
     };
     draw();
     body.addEventListener('input', draw);
