@@ -39,7 +39,7 @@ export function record(h, data, keys, now = Date.now()) {
   return true;
 }
 
-// Bước tiếp theo luôn là bước mới (dùng trước/sau các thao tác như nhân bản, xóa)
+// Bước tiếp theo luôn là bước mới (dùng trước/sau các thao tác như dán, xóa)
 export function breakStep(h) {
   h.lastAt = 0;
 }

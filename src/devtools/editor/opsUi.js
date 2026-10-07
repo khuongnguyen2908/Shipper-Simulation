@@ -1,7 +1,6 @@
 // Nối thao tác danh sách (ops.js) với giao diện: hỏi lại trước khi xóa, báo kết quả, clipboard, menu ⋯ / chuột phải.
 // Mỗi thao tác là MỘT bước hoàn tác (ctx.historyBreak trước và sau).
-import { KINDS, duplicate, makeClip, makeActivityClip, parseClip, paste, remove, removeInfo, currentEntry, pasteKindFor, uniqueId } from './ops.js';
-import { CHANGEABLE_KINDS } from './placeKind.js';
+import { KINDS, makeClip, makeActivityClip, parseClip, paste, remove, removeInfo, currentEntry, pasteKindFor, uniqueId } from './ops.js';
 import { button, openMenu } from './ui.js';
 
 const CLIP_KEY = 'shipper-editor-clip';
@@ -30,13 +29,6 @@ function finish(ctx, kind, r, msg) {
   ctx.notify(msg, 'ok', true);
 }
 
-export function doDuplicate(ctx, kind, id) {
-  ctx.historyBreak();
-  const r = duplicate(ctx.data, kind, id);
-  if (r.error) return ctx.notify(`⚠️ ${r.error}`, 'warn', true);
-  finish(ctx, kind, r, `📄 Đã nhân bản → <b>${r.id}</b>${r.where ? ` (${r.where})` : ''}. Hoàn tác: Ctrl+Z.`);
-}
-
 export function doCopy(ctx, kind, id) {
   const clip = makeClip(ctx.data, kind, id);
   if (!clip) return;
@@ -57,7 +49,7 @@ export function doPaste(ctx, clip) {
   const cur = currentEntry(ctx.tab, ctx.sel[ctx.tab]);
   const r = paste(ctx.data, clip, cur && cur.kind === clip.kind ? cur.id : null);
   if (r.error) return ctx.notify(`⚠️ ${r.error}`, 'warn', true);
-  finish(ctx, clip.kind, r, `📥 Đã dán → <b>${r.id}</b>${r.where ? ` (${r.where})` : ''}.${r.dropped.length ? ` Bỏ tham chiếu không có ở đây: ${r.dropped.join(', ')}.` : ''} Hoàn tác: Ctrl+Z.`);
+  finish(ctx, clip.kind, r, `📥 Đã dán → mã mới <b>${r.id}</b>${r.where ? ` (${r.where})` : ''}. Mọi thứ khác giữ như bản gốc.${r.dropped.length ? ` Bỏ tham chiếu không có ở đây: ${r.dropped.join(', ')}.` : ''} Hoàn tác: Ctrl+Z.`);
 }
 
 export function doRemove(ctx, kind, id) {
@@ -74,20 +66,6 @@ export function doRemove(ctx, kind, id) {
 
 // ---------- hoạt động trong một địa điểm ----------
 const actsOf = (ctx, placeId) => ctx.data.places.places.find((p) => p.id === placeId);
-export function doDuplicateActivity(ctx, placeId, i) {
-  const p = actsOf(ctx, placeId);
-  const src = p?.activities?.[i];
-  if (!src) return;
-  ctx.historyBreak();
-  const copy = JSON.parse(JSON.stringify(src));
-  copy.id = uniqueId(src.id, (x) => p.activities.some((a) => a.id === x));
-  copy.label = `${src.label} (bản sao)`;
-  p.activities.splice(i + 1, 0, copy);
-  ctx.changed('places');
-  ctx.historyBreak();
-  ctx.rerender();
-  ctx.notify(`📄 Đã nhân bản hoạt động → <b>${copy.id}</b>.`, 'ok', true);
-}
 export function doCopyActivity(ctx, act) {
   writeClip(makeActivityClip(act));
   ctx.notify(`📋 Đã sao chép hoạt động "${act.label}". Mở địa điểm khác → 📥 Dán hoạt động (hoặc Ctrl+V).`, 'ok', true);
@@ -114,11 +92,8 @@ export function rowMenu(ctx, kind) {
   return (id) => {
     const K = KINDS[kind];
     const locked = (K.lock || []).includes(id);
-    const p = kind === 'places' ? ctx.data.places.places.find((x) => x.id === id) : null;
-    const noDup = p && !CHANGEABLE_KINDS.includes(p.kind);
     const clip = readClip();
     return [
-      { label: '📄 Nhân bản', kbd: 'Ctrl+D', disabled: noDup, hint: noDup ? 'Địa điểm gắn cốt truyện chỉ có một' : null, onClick: () => doDuplicate(ctx, kind, id) },
       { label: '📋 Sao chép', kbd: 'Ctrl+C', onClick: () => doCopy(ctx, kind, id) },
       { label: '📥 Dán', kbd: 'Ctrl+V', disabled: !clip || clip.kind !== kind, hint: clip ? `Đang có ${label(clip.kind)} "${clip.data.name || clip.data.id}"` : 'Chưa sao chép gì', onClick: () => doPaste(ctx, readClip()) },
       null,
@@ -143,11 +118,7 @@ export function addButton(ctx, kind, adds) {
   return b;
 }
 
-// Nút ở đầu trang của mục đang mở: Nhân bản · Sao chép (nút Xóa giữ ở chỗ cũ, gọi doRemove)
+// Nút ở đầu trang của mục đang mở: Sao chép (dán ra bản giống hệt, chỉ khác mã). Nút Xóa giữ ở chỗ cũ, gọi doRemove.
 export function entryButtons(ctx, kind, id) {
-  const p = kind === 'places' ? ctx.data.places.places.find((x) => x.id === id) : null;
-  const out = [];
-  if (!p || CHANGEABLE_KINDS.includes(p.kind)) out.push(button('📄 Nhân bản', () => doDuplicate(ctx, kind, id), 'small'));
-  out.push(button('📋 Sao chép', () => doCopy(ctx, kind, id), 'small'));
-  return out;
+  return [button('📋 Sao chép', () => doCopy(ctx, kind, id), 'small')];
 }

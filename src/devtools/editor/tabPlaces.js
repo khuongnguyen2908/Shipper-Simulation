@@ -3,7 +3,7 @@
 import { CITY, HALF, blockBounds, lotInfo, LOT_SIZES, lotParts, lotSize, lotFaces, blockPlan, blockRect } from '../../sim/cityLayout.js';
 import { PROTECTED, ID_RE, LOTS, lotCells } from '../../data/validate.js';
 import { moveInArray } from './order.js';
-import { rowMenu, addButton, entryButtons, doRemove, doDuplicateActivity, doCopyActivity, doPasteActivity } from './opsUi.js';
+import { rowMenu, addButton, entryButtons, doRemove, doCopyActivity, doPasteActivity } from './opsUi.js';
 import { personPreview } from './personPreview.js';
 import { guessGender } from '../../sim/people.js';
 import { el, field, textInput, numInput, colorInput, selectInput, checkInput, button, sideList, areaInput, dragHandle, makeSortable, emojiInput, explain, openDayInput, subTabs, advanced } from './ui.js';
@@ -246,7 +246,6 @@ export function render(root, ctx) {
             }),
             act.needs ? numInput(act.needs.qty || 1, (v) => { act.needs.qty = Math.round(v); changedP(); }, { step: 1, min: 1, max: 10 }) : null), { hint: HINT.act.needs })), { ref, fieldKey: `activities.${act.id}`, wide: true }),
         el('span', { class: 'inline' },
-          button('📄 Nhân bản', () => doDuplicateActivity(ctx, p.id, i), 'small'),
           button('📋 Sao chép', () => doCopyActivity(ctx, act), 'small'),
           button('🗑 Xóa hoạt động', () => { ctx.historyBreak(); p.activities.splice(i, 1); if (!p.activities.length) delete p.activities; changedP(); ctx.historyBreak(); drawActs(); ctx.applyFieldIssues(); }, 'danger small'))));
     });

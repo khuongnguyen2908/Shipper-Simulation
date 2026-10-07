@@ -1,4 +1,5 @@
-// THAO TÁC DANH SÁCH của công cụ ?editor: nhân bản · sao chép · dán · xóa (thuần dữ liệu, chạy được trong bộ thử).
+// THAO TÁC DANH SÁCH của công cụ ?editor: sao chép · dán · xóa (thuần dữ liệu, chạy được trong bộ thử).
+// Dán = bản giống hệt bản gốc (tên, thông số, nơi bán / thực đơn…); chỉ MÃ mới (và lô, với địa điểm).
 // data = ctx.data (items, gear, goods, places, apps, content…). Mỗi hàm trả về { id?, files: [file đã đổi], … }
 // hoặc { error } — phần hỏi/báo người dùng nằm ở opsUi.js.
 import { PROTECTED, ID_RE, lotCells } from '../../data/validate.js';
@@ -83,7 +84,7 @@ export function findSpot(data, lot, near = [0, 0]) {
   return null;
 }
 
-// Đặt địa điểm (bản sao / bản dán) vào lô trống; bỏ hướng mặt tiền nếu lô mới không hợp
+// Đặt địa điểm (bản dán) vào lô trống; bỏ hướng mặt tiền nếu lô mới không hợp
 function placeSomewhere(data, p, near) {
   const spot = findSpot(data, p.lot, near);
   if (!spot) return false;
@@ -96,40 +97,58 @@ function placeSomewhere(data, p, near) {
 // Lời thoại riêng npc.<mã>.* của địa điểm
 const npcLines = (content, id) => Object.fromEntries(Object.entries(content).filter(([k]) => k.startsWith(`npc.${id}.`)).map(([k, v]) => [k.slice(`npc.${id}.`.length), v]));
 
-// ---------- NHÂN BẢN ----------
-export function duplicate(data, kind, id) {
-  const K = KINDS[kind];
-  const src = find(kind, data, id);
-  if (!src) return { error: 'Không tìm thấy mục để nhân bản.' };
-  if (kind === 'places' && !CHANGEABLE_KINDS.includes(src.kind)) return { error: `"${src.name}" gắn với cốt truyện (chỉ có một) — không nhân bản được.` };
-  const copy = clone(src);
-  copy.id = uniqueId(id, (x) => has(kind, data, x));
-  if (copy.name != null) copy.name = `${copy.name} (bản sao)`;
-  const files = new Set([K.file]);
-  if (kind === 'places') {
-    delete copy.hidden;
-    if (!placeSomewhere(data, copy, src.block)) return { error: `Hết lô trống cùng kích thước để đặt bản sao của "${src.name}".` };
-    for (const [k, v] of Object.entries(npcLines(data.content, id))) data.content[`npc.${copy.id}.${k}`] = v;
-    files.add('content');
-  }
-  insert(kind, data, copy, id);
-  // bản sao xuất hiện ở đúng những nơi bản gốc đang có
-  if (kind === 'items') {
-    for (const p of data.places.places) if ((p.menu || []).includes(id)) { p.menu.push(copy.id); files.add('places'); }
-    for (const t of Object.values(data.apps?.orderTypes || {})) if ((t.items || []).includes(id)) { t.items.push(copy.id); files.add('apps'); }
-  }
-  if (['vehicles', 'bags', 'goods'].includes(kind)) {
-    for (const p of data.places.places) if ((p.sells?.[kind] || []).includes(id)) { p.sells[kind].push(copy.id); files.add('places'); }
-  }
-  return { id: copy.id, files: [...files], where: kind === 'places' ? `khối ${copy.block.join(',')} lô ${copy.lot}` : null };
-}
-
 // ---------- SAO CHÉP / DÁN ----------
 export const CLIP_TAG = 'shipper-editor';
+
+// Mục này đang có mặt ở đâu (dữ liệu nằm NGOÀI mục): thực đơn quán, loại đơn, tiệm bán, loại khách xe ôm
+export function linksOf(data, kind, id) {
+  const places = data.places?.places || [];
+  if (kind === 'items') {
+    return {
+      menus: places.filter((p) => (p.menu || []).includes(id)).map((p) => p.id),
+      orderTypes: Object.values(data.apps?.orderTypes || {}).filter((t) => (t.items || []).includes(id)).map((t) => t.id),
+    };
+  }
+  if (['vehicles', 'bags', 'goods'].includes(kind)) return { sells: places.filter((p) => (p.sells?.[kind] || []).includes(id)).map((p) => p.id) };
+  if (kind === 'places') return { riders: Object.values(data.apps?.riderTypes || {}).filter((r) => (r.from || []).includes(id)).map((r) => r.id) };
+  return {};
+}
+
+// Gắn bản dán vào đúng những chỗ bản gốc đang có; chỗ không có ở dữ liệu này thì bỏ và báo
+function applyLinks(data, kind, newId, links = {}, files, dropped) {
+  const places = data.places?.places || [];
+  const placeById = (pid) => places.find((p) => p.id === pid);
+  for (const pid of links.menus || []) {
+    const p = placeById(pid);
+    if (!p || p.kind !== 'restaurant') { dropped.push(`thực đơn quán "${pid}"`); continue; }
+    if (!(p.menu = p.menu || []).includes(newId)) p.menu.push(newId);
+    files.add('places');
+  }
+  for (const tid of links.orderTypes || []) {
+    const t = data.apps?.orderTypes?.[tid];
+    if (!t) { dropped.push(`loại đơn "${tid}"`); continue; }
+    if (!(t.items = t.items || []).includes(newId)) t.items.push(newId);
+    files.add('apps');
+  }
+  for (const pid of links.sells || []) {
+    const p = placeById(pid);
+    if (!p) { dropped.push(`nơi bán "${pid}"`); continue; }
+    p.sells = p.sells || {};
+    if (!(p.sells[kind] = p.sells[kind] || []).includes(newId)) p.sells[kind].push(newId);
+    files.add('places');
+  }
+  for (const rid of links.riders || []) {
+    const r = data.apps?.riderTypes?.[rid];
+    if (!r) { dropped.push(`loại khách "${rid}"`); continue; }
+    if (!(r.from = r.from || []).includes(newId)) r.from.push(newId);
+    files.add('apps');
+  }
+}
+
 export function makeClip(data, kind, id) {
   const src = find(kind, data, id);
   if (!src) return null;
-  const clip = { [CLIP_TAG]: 1, kind, data: clone(src) };
+  const clip = { [CLIP_TAG]: 1, kind, data: clone(src), links: linksOf(data, kind, id) };
   if (kind === 'places') clip.npc = npcLines(data.content, id);
   return clip;
 }
@@ -173,6 +192,7 @@ export function paste(data, clip, afterId = null) {
   if (kind === 'orderTypes' && obj.items) obj.items = keep(obj.items, (x) => !!data.items[x], 'món');
   if (kind === 'riderTypes' && obj.from) obj.from = keep(obj.from, (x) => data.places.places.some((p) => p.id === x), 'địa điểm');
   insert(kind, data, obj, afterId);
+  applyLinks(data, kind, obj.id, clip.links, files, dropped);
   return { id: obj.id, files: [...files], dropped, where: kind === 'places' ? `khối ${obj.block.join(',')} lô ${obj.lot}` : null };
 }
 

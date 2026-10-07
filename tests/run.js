@@ -918,7 +918,7 @@ console.log('Cân bằng (balance.json, thẻ ⚖️)');
   });
 }
 
-console.log('Nhân bản · sao chép · dán · xóa · hoàn tác (công cụ ?editor)');
+console.log('Sao chép · dán · xóa · hoàn tác (công cụ ?editor)');
 {
   const H = await import('../src/devtools/editor/history.js');
   const O = await import('../src/devtools/editor/ops.js');
@@ -944,29 +944,46 @@ console.log('Nhân bản · sao chép · dán · xóa · hoàn tác (công cụ 
     assert.equal(data.items.a.name, 'ABC');
     assert.equal(H.undo(H.createHistory(), {}), null);
   });
-  test('Nhân bản món: mã mới không trùng, đứng ngay sau, có trong thực đơn quán gốc; dữ liệu vẫn hợp lệ', () => {
+  // dán = bản giống hệt bản gốc, chỉ khác mã (và lô với địa điểm), có mặt ở đúng những chỗ bản gốc có
+  const same = (a, b, skip) => assert.deepEqual({ ...a, ...Object.fromEntries(skip.map((k) => [k, 0])) }, { ...b, ...Object.fromEntries(skip.map((k) => [k, 0])) });
+  test('Sao chép → dán món: giữ nguyên tên + mọi thông số, mã mới; có trong thực đơn các quán + loại đơn như bản gốc', () => {
     const d = load();
-    // mã mới = pho_<số nhỏ nhất chưa dùng> (dữ liệu thật có thể đã có pho_2, pho_3… do người dùng nhân bản)
-    const nextFree = () => { let n = 2; while (d.items[`pho_${n}`]) n++; return `pho_${n}`; };
-    const want = nextFree();
-    const r = O.duplicate(d, 'items', 'pho');
-    assert.equal(r.id, want);
+    const r = O.paste(d, O.parseClip(JSON.stringify(O.makeClip(d, 'items', 'pho'))), 'pho');
+    assert.ok(r.id !== 'pho' && /^pho_\d+$/.test(r.id));
+    same(d.items[r.id], d.items.pho, ['id']);
+    assert.equal(d.items[r.id].name, d.items.pho.name, 'tên giữ nguyên, không thêm "(bản sao)"');
     const keys = Object.keys(d.items);
-    assert.equal(keys.indexOf(want), keys.indexOf('pho') + 1);
-    assert.ok(d.places.places.some((p) => (p.menu || []).includes(want)));
-    const want2 = nextFree();
-    assert.equal(O.duplicate(d, 'items', 'pho').id, want2);
+    assert.equal(keys.indexOf(r.id), keys.indexOf('pho') + 1, 'đứng ngay sau bản gốc');
+    const menus = (id) => d.places.places.filter((p) => (p.menu || []).includes(id)).map((p) => p.id);
+    assert.ok(menus('pho').length > 0);
+    assert.deepEqual(menus(r.id), menus('pho'));
+    const r2 = O.paste(d, O.makeClip(d, 'items', 'dienThoai'));
+    const types = (id) => Object.values(d.apps.orderTypes).filter((t) => (t.items || []).includes(id)).map((t) => t.id);
+    assert.deepEqual(types(r2.id), types('dienThoai'));
     assert.deepEqual(errs(d), []);
   });
-  test('Nhân bản địa điểm: đặt vào lô trống cùng cỡ, chép lời thoại; địa điểm cốt truyện thì không', () => {
+  test('Sao chép → dán đồ dùng / địa điểm: giữ tên, cùng nơi bán / cùng loại khách; địa điểm sang lô trống, chép lời thoại', () => {
     const d = load();
+    const r = O.paste(d, O.makeClip(d, 'goods', 'nhang'));
+    same(d.goods[r.id], d.goods.nhang, ['id']);
+    const sellers = (id) => d.places.places.filter((p) => (p.sells?.goods || []).includes(id)).map((p) => p.id);
+    assert.deepEqual(sellers(r.id), sellers('nhang'));
+    assert.ok(!d.places.places.some((p) => (p.activities || []).some((a) => a.needs?.id === r.id)), 'chùa vẫn cần đồ gốc');
     const src = d.places.places.find((p) => p.id === 'karaoke');
-    const r = O.duplicate(d, 'places', 'karaoke');
-    const c = d.places.places.find((p) => p.id === r.id);
+    const rp = O.paste(d, O.makeClip(d, 'places', 'karaoke'), 'karaoke');
+    const c = d.places.places.find((p) => p.id === rp.id);
+    same(c, src, ['id', 'block', 'lot', 'face']);
+    assert.equal(c.name, src.name);
     assert.equal(O.KINDS.places.get(d).indexOf(c), O.KINDS.places.get(d).indexOf(src) + 1);
-    assert.ok(d.content[`npc.${r.id}.greet`]);
-    assert.ok(O.duplicate(d, 'places', 'home').error);
-    assert.deepEqual(errs(d).filter((i) => i.field === 'lot'), [], 'bản sao đè lô khác');
+    assert.ok(d.content[`npc.${rp.id}.greet`]);
+    const riders = (id) => Object.values(d.apps.riderTypes).filter((x) => (x.from || []).includes(id)).map((x) => x.id);
+    assert.deepEqual(riders(rp.id), riders('karaoke'));
+    assert.ok(O.paste(d, O.makeClip(d, 'places', 'home')).error, 'địa điểm cốt truyện chỉ có một');
+    assert.deepEqual(errs(d).filter((i) => i.field === 'lot'), [], 'bản dán đè lô khác');
+    // dán sang dữ liệu không có quán / loại đơn đó → bỏ chỗ đó và báo
+    const clip = O.makeClip(d, 'items', 'pho');
+    clip.links.menus.push('quanKhongCo');
+    assert.ok(O.paste(d, clip).dropped.some((x) => x.includes('quanKhongCo')));
   });
   test('Sao chép → dán (kể cả sang dữ liệu khác): bỏ tham chiếu không có, mã không trùng', () => {
     const d = load();
@@ -978,7 +995,7 @@ console.log('Nhân bản · sao chép · dán · xóa · hoàn tác (công cụ 
     assert.equal(O.parseClip('{"khong":"phai"}'), null);
     assert.equal(O.parseClip('chữ thường'), null);
     const r2 = O.paste(d, O.makeClip(d, 'goods', 'nhang'));
-    assert.equal(r2.id, 'nhang_2');
+    assert.ok(r2.id !== 'nhang' && !!d.goods[r2.id]);
     assert.deepEqual(errs(d).filter((i) => i.field === 'lot'), []);
   });
   test('Xóa: dọn thực đơn / hàng bán / đồ cần; mục khóa và quán ăn cuối cùng không xóa được', () => {

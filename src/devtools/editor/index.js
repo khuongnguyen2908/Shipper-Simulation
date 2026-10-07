@@ -29,7 +29,7 @@ import { selKey, planScroll, selToSave } from './viewState.js';
 import { createHistory, syncMirror, record, breakStep, undo, redo } from './history.js';
 import { currentEntry, parseClip } from './ops.js';
 import { splitIgnored, addIgnore, removeIgnore } from './ignore.js';
-import { doDuplicate, doCopy, doRemove, doPaste } from './opsUi.js';
+import { doCopy, doRemove, doPaste } from './opsUi.js';
 
 const FILES = {
   items: { path: 'src/data/items.json', label: 'Vật phẩm', src: itemsJson },
@@ -440,8 +440,7 @@ export async function startEditor(root) {
     if (mod && (key === 'y' || (key === 'z' && e.shiftKey))) { e.preventDefault(); return stepHistory('redo'); }
     const cur = currentEntry(ctx.tab, ctx.sel[ctx.tab]);
     if (!cur) return;
-    if (mod && key === 'd') { e.preventDefault(); doDuplicate(ctx, cur.kind, cur.id); }
-    else if (mod && key === 'c' && !String(getSelection?.() || '')) { e.preventDefault(); doCopy(ctx, cur.kind, cur.id); }
+    if (mod && key === 'c' && !String(getSelection?.() || '')) { e.preventDefault(); doCopy(ctx, cur.kind, cur.id); }
     else if (key === 'delete' && !mod) { e.preventDefault(); doRemove(ctx, cur.kind, cur.id); }
   });
   // Ctrl+V: dán mục đã sao chép (đọc clipboard của máy → dán được cả từ máy khác / editor online)
