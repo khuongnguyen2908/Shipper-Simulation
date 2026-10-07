@@ -237,4 +237,16 @@ export function explain([title, html]) {
   return d;
 }
 
+// Ô "Mở từ ngày": 1 (hoặc trống) = có ngay từ ngày 1 → xóa trường khỏi dữ liệu cho gọn
+export function openDayInput(obj, onChange, { disabled = false } = {}) {
+  const inp = numInput(obj.openDay ?? 1, (v) => {
+    const d = Math.round(v);
+    if (!Number.isFinite(d) || d <= 1) delete obj.openDay;
+    else obj.openDay = d;
+    onChange();
+  }, { step: 1, min: 1, max: 60 });
+  inp.disabled = disabled;
+  return inp;
+}
+
 export const clone = (o) => JSON.parse(JSON.stringify(o));

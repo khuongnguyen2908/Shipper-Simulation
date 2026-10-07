@@ -83,7 +83,9 @@ export class MiniMap {
     for (const p of data.places) {
       const fs = Math.round((this.labels ? 15 : 11) * this.scale);
       g.font = `${fs}px "Segoe UI Emoji", "Segoe UI", sans-serif`;
+      g.globalAlpha = p.soon ? 0.3 : 1; // chưa khai trương
       g.fillText(p.icon || ICON[p.kind] || '•', X(p.door.x), Z(p.door.z));
+      g.globalAlpha = 1;
       if (this.labels) {
         g.font = `600 ${Math.round(9 * this.scale)}px "Segoe UI", sans-serif`;
         g.fillStyle = '#fff';

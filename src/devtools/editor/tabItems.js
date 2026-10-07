@@ -3,7 +3,7 @@
 import { DeliveryItem } from '../../sim/ItemPhysics.js';
 import { fmt } from '../../content/index.js';
 import { TRAIT_IDS, PROTECTED, ID_RE } from '../../data/validate.js';
-import { el, field, textInput, numInput, checkInput, button, sideList, selectInput, emojiInput, explain } from './ui.js';
+import { el, field, textInput, numInput, checkInput, button, sideList, selectInput, emojiInput, explain, openDayInput } from './ui.js';
 import { HINT, EXPLAIN } from './help.js';
 import { moveKey } from './order.js';
 
@@ -28,7 +28,7 @@ export function render(root, ctx) {
     side.append(
       el('div', { class: 'side-head' }, el('b', {}, `Món hàng (${ids.length})`), button('＋ Thêm món', addItem, 'small primary')),
       sideList(
-        Object.values(items).map((it) => ({ id: it.id, icon: it.icon, title: it.name || '(chưa đặt tên)', sub: `${it.id} · ${it.base}k` })),
+        Object.values(items).map((it) => ({ id: it.id, icon: it.icon, title: it.name || '(chưa đặt tên)', sub: `${it.id} · ${it.base}k${it.openDay > 1 ? ` · từ ngày ${it.openDay}` : ''}` })),
         sel.id,
         (id) => ctx.select('items', { id }),
         { issuesFor: (id) => ctx.issuesFor('items', id), onReorder: (a, b) => { moveKey(items, a, b); ctx.changed('items'); } },
@@ -61,6 +61,7 @@ export function render(root, ctx) {
       field('Tên hiển thị', textInput(it.name, (v) => { it.name = v; changed(); }), { ref, fieldKey: 'name', hint: HINT.item.name }),
       field('Biểu tượng (emoji)', emojiInput(it.icon, (v) => { it.icon = v; changed(); }), { ref, fieldKey: 'icon', hint: HINT.item.icon }),
       field('Giá cước (k)', numInput(it.base, (v) => { it.base = v; changed(); }, { step: 1, min: 1 }), { ref, fieldKey: 'base', hint: HINT.item.base }),
+      field('Có đơn từ ngày', openDayInput(it, changed, { disabled: protectedId }), { ref, fieldKey: 'openDay', hint: protectedId ? 'Món gắn với code → luôn có từ ngày 1.' : HINT.item.openDay }),
     ),
     explain(EXPLAIN.item),
   );

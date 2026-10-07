@@ -23,7 +23,7 @@ import { evaluateOrder } from './OrderCondition.js';
 import { computePayout, estimatePay, addTip } from './economy.js';
 import { routeDist, rideDoor } from './cityLayout.js';
 import { fmt } from '../content/index.js';
-import { isOpen, orderWeight } from './placeRules.js';
+import { isOpen, orderWeight, unlocked } from './placeRules.js';
 
 export const S = Object.freeze({
   OFFLINE: 'OFFLINE',
@@ -160,6 +160,12 @@ export class OrderManager {
   }
 
   // ---------- tạo đơn ----------
+  // Món có đơn được lúc này: đã tới ngày bắt đầu có đơn + chở được (túi giữ nhiệt, mũ cho khách)
+  itemOk(id) {
+    const def = ITEMS[id];
+    return !!def && unlocked(def, this.gs.day) && this.canCarry(def);
+  }
+
   canCarry(def) {
     if (def.traits.includes('cold')) return this.gs.bagSpec.insulation >= 0.5;
     if (def.traits.includes('passenger')) return this.gs.effect('passengerSeat');
@@ -192,8 +198,8 @@ export class OrderManager {
   makeFood(type, now, pos) {
     // chỉ quán đang mở cửa mới có đơn
     const options = this.layout.places
-      .filter((p) => p.kind === 'restaurant' && isOpen(p, now) && (p.menu || []).length)
-      .map((r) => ({ r, menu: r.menu.filter((id) => ITEMS[id] && this.canCarry(ITEMS[id])) }))
+      .filter((p) => p.kind === 'restaurant' && isOpen(p, now, this.gs.day) && (p.menu || []).length)
+      .map((r) => ({ r, menu: r.menu.filter((id) => this.itemOk(id)) }))
       .filter((o) => o.menu.length);
     if (!options.length) return null;
     // app giao đơn cho tài xế ở gần: quán gần được ưu tiên mạnh (gấp đôi khoảng cách → ít đơn hơn ~4 lần)
@@ -208,13 +214,13 @@ export class OrderManager {
 
   // Giao hàng / hỏa tốc: lấy hàng ở shop (nơi có "gửi hàng từ đây") hoặc nhà người gửi gần đó
   makeParcel(type, now, pos) {
-    const items = (type.items || []).filter((id) => ITEMS[id] && ITEMS[id].parcel && this.canCarry(ITEMS[id]));
+    const items = (type.items || []).filter((id) => ITEMS[id] && ITEMS[id].parcel && this.itemOk(id));
     if (!items.length) return null;
     const id = this.rng.pick(items);
     // lấy ở shop "gửi hàng từ đây" gần tài xế (trong ORDER.parcelShopMax m, ưu tiên gần); không có thì nhà người gửi gần đó
     let pickup = null;
     const shops = this.layout.places
-      .map((p) => ({ p, w: orderWeight(p, 'parcelWeight', now), d: routeDist(pos, p.door) }))
+      .map((p) => ({ p, w: orderWeight(p, 'parcelWeight', now, this.gs.day), d: routeDist(pos, p.door) }))
       .filter((c) => c.w > 0 && c.d <= ORDER.parcelShopMax);
     if (shops.length) {
       const { p } = this.rng.weighted(shops, shops.map((c) => c.w / near(c.d)));
@@ -237,7 +243,7 @@ export class OrderManager {
   // force: luôn chọn nếu có nơi đủ điều kiện. Trả về null nếu lần này không chọn địa điểm nào.
   // forRide: đơn xe ôm → địa điểm trong hẻm đi bộ thì đón/trả ở miệng hẻm
   placeDestination(key, now, excludeId = null, scale = 1, force = false, forRide = false) {
-    const cands = this.layout.places.filter((p) => p.id !== excludeId).map((p) => ({ p, w: orderWeight(p, key, now) })).filter((c) => c.w > 0);
+    const cands = this.layout.places.filter((p) => p.id !== excludeId).map((p) => ({ p, w: orderWeight(p, key, now, this.gs.day) })).filter((c) => c.w > 0);
     const W = cands.reduce((s, c) => s + c.w, 0);
     if (!W || (!force && !this.rng.chance((W / (W + ORDER.placeDestBase)) * scale))) return null;
     const { p } = this.rng.weighted(cands, cands.map((c) => c.w));
@@ -252,7 +258,7 @@ export class OrderManager {
     return this.rng.weighted(cands, cands.map((r) => r.weight));
   }
   riderPlaces(r, now) {
-    return (r.from || []).map((id) => this.layout.placeById[id]).filter((p) => p && isOpen(p, now));
+    return (r.from || []).map((id) => this.layout.placeById[id]).filter((p) => p && isOpen(p, now, this.gs.day));
   }
 
   makeRide(pos, story, now = 0, type = ORDER_TYPES.ride) {
@@ -447,7 +453,7 @@ export class OrderManager {
     }
     // gọi khách
     if (this.rng.chance(ORDER.substituteAcceptChance)) {
-      const menu = this.layout.placeById[o.pickup.placeId].menu.filter((id) => id !== o.missingItem && ITEMS[id] && this.canCarry(ITEMS[id]));
+      const menu = this.layout.placeById[o.pickup.placeId].menu.filter((id) => id !== o.missingItem && this.itemOk(id));
       const sub = menu.length ? this.rng.pick(menu) : o.missingItem;
       o.itemIds = o.itemIds.map((id) => (id === o.missingItem ? sub : id));
       o.flags.outOfStock = false;

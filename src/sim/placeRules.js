@@ -1,9 +1,16 @@
 // Luật chung cho địa điểm (thuần dữ liệu, chạy được trong Node):
 // giờ mở cửa, hoạt động làm được hôm nay, khung giờ làm điểm đến của đơn.
 
-// hours = [mở, đóng] tính bằng giờ (vd [16, 23]); không có = mở cả ngày
-export function isOpen(place, minutes) {
-  if (!place || !Array.isArray(place.hours)) return true;
+// Mở theo ngày: openDay = ngày khai trương (địa điểm) / ngày bắt đầu có đơn (món). Không có = ngày 1.
+export const openDayOf = (x) => (Number.isInteger(x?.openDay) && x.openDay > 1 ? x.openDay : 1);
+// day bỏ trống = không xét ngày (vd công cụ, bộ thử cũ)
+export const unlocked = (x, day = null) => day == null || openDayOf(x) <= day;
+
+// hours = [mở, đóng] tính bằng giờ (vd [16, 23]); không có = mở cả ngày. Chưa tới ngày khai trương = đóng.
+export function isOpen(place, minutes, day = null) {
+  if (!place) return true;
+  if (!unlocked(place, day)) return false;
+  if (!Array.isArray(place.hours)) return true;
   const h = minutes / 60;
   const [a, b] = place.hours;
   return h >= a && h < b;
@@ -12,7 +19,8 @@ export function isOpen(place, minutes) {
 export const fmtHours = (hours) => (Array.isArray(hours) ? `${String(hours[0]).padStart(2, '0')}:00–${String(hours[1]).padStart(2, '0')}:00` : '');
 
 // Trọng số làm điểm đến của đơn ('rideWeight' | 'foodWeight') tại thời điểm minutes
-export function orderWeight(place, key, minutes) {
+export function orderWeight(place, key, minutes, day = null) {
+  if (!unlocked(place, day)) return 0;
   const o = place.orders;
   if (!o || !(o[key] > 0)) return 0;
   const window = o.hours || place.hours;

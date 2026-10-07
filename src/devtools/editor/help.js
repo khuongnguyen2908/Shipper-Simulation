@@ -12,6 +12,7 @@ export const HINT = {
     coldStart: '−30 → 15°C. Ấm dần theo trời + nắng. Tham khảo: trà sữa 4, kem −8.',
     meltAt: 'Phải cao hơn nhiệt độ lúc nhận; cách càng xa càng lâu tan. Tham khảo: trà sữa 10 (nhận 4°C), kem −2 (nhận −8°C).',
     meltRate: '0–2. % mất mỗi phút cho mỗi °C vượt ngưỡng tan. Tham khảo: trà sữa 0,12 · kem 0,2.',
+    openDay: '1–60. Trước ngày này app không giao đơn món này (kể cả khi quán đã mở). Sáng ngày đó game báo "món mới trên app".',
   },
 
   // ---------- xe ----------
@@ -56,6 +57,7 @@ export const HINT = {
     short: 'Hiện trên bản đồ nhỏ — nên ngắn (1–2 chữ).',
     sign: 'Chữ in trên biển trước cửa; nên VIẾT HOA, ngắn.',
     floors: '1–15 tầng (chỉ là hình dáng nhà).',
+    openDay: '1–60. Trước ngày này tiệm hiện "Sắp khai trương": không vào được, không có đơn, không làm hoạt động, mờ trên bản đồ. Sáng ngày khai trương game báo cho người chơi. Xem tổng quan ở mục 📅 Lịch mở theo ngày.',
     kind: 'Quyết định địa điểm làm được gì: Quán ăn (có đơn đồ ăn, cần thực đơn) · Cây xăng (đổ xăng; hình mái che + trụ bơm, xe phải đậu gần) · Tiệm đồ nghề / Tiệm xe / Chợ / Dịch vụ (bán hàng, hoạt động; tiệm xe sửa được xe). Giờ mở cửa, hoạt động, hàng bán, NPC giữ nguyên khi đổi.',
   },
   act: {
@@ -139,6 +141,9 @@ export const HINT = {
 const T = (rows) => `<table class="ref"><tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
 
 export const EXPLAIN = {
+  schedule: ['Mở theo ngày dùng để làm gì', `
+    <p>Game chơi nối nhiều ngày; tiền nhà tăng mỗi ngày. Cho <b>mấy ngày đầu ít quán, ít món</b> (dễ làm quen), rồi <b>khai trương thêm</b> để có thêm đơn khi tiền nhà tăng.</p>
+    <p>Ít quán hơn = ít đơn đồ ăn hơn → ngày đó <b>khó hơn</b>. Muốn biết ngày nào quá khó, chạy bot nhiều ngày: <code>npm run sim -- 300 --days 7</code> (bảng tỉ lệ thắng từng ngày).</p>`],
   item: ['Món hàng hư thế nào, ảnh hưởng sao và tiền ra sao', `
     <p>Mỗi món bắt đầu <b>100%</b>. Trên đường mất dần tùy đặc tính (nguội, tan, đổ, vỡ, ướt). Lúc giao, số sao tính theo tình trạng trung bình:</p>
     ${T([['Tình trạng', '≥ 90%', '75–89%', '60–74%', '40–59%', '25–39%', '&lt; 25%'], ['Trừ sao', '0', '−0,5', '−1,5', '−2,5', '−3,5', 'khách từ chối, 1★, không có tiền']])}

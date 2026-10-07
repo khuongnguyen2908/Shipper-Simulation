@@ -5,7 +5,9 @@ import { PROTECTED, ID_RE, LOTS, lotCells } from '../../data/validate.js';
 import { moveInArray } from './order.js';
 import { personPreview } from './personPreview.js';
 import { guessGender } from '../../sim/people.js';
-import { el, field, textInput, numInput, colorInput, selectInput, checkInput, button, sideList, areaInput, dragHandle, makeSortable, emojiInput, explain } from './ui.js';
+import { el, field, textInput, numInput, colorInput, selectInput, checkInput, button, sideList, areaInput, dragHandle, makeSortable, emojiInput, explain, openDayInput } from './ui.js';
+import { openDayOf } from '../../sim/placeRules.js';
+import { ECONOMY } from '../../data/balance.js';
 import { HINT, EXPLAIN } from './help.js';
 import { CHANGEABLE_KINDS, canChangeKind, applyKind } from './placeKind.js';
 
@@ -30,7 +32,7 @@ export function render(root, ctx) {
   const pd = ctx.data.places;
   const places = pd.places;
   const sel = ctx.sel.places;
-  if (!sel.id || (sel.id !== '__streets' && !places.some((p) => p.id === sel.id))) sel.id = places[0].id;
+  if (!sel.id || (!['__streets', '__schedule'].includes(sel.id) && !places.some((p) => p.id === sel.id))) sel.id = places[0].id;
   const changedP = () => ctx.changed('places');
 
   const side = el('aside', { class: 'ed-side' });
@@ -39,10 +41,14 @@ export function render(root, ctx) {
     side.append(
       el('div', { class: 'side-head' }, el('b', {}, `Địa điểm (${places.length})`), el('span', { class: 'inline' }, button('＋ Quán ăn', () => addPlace('restaurant'), 'small primary'), button('＋ Dịch vụ', () => addPlace('service'), 'small primary'))),
       sideList(
-        [{ id: '__streets', icon: '🛣️', title: 'Tên đường & khách', sub: 'phố, khách hàng, người đi đường', fixed: true }, ...places.map((p) => ({ id: p.id, icon: p.icon || ICON[p.kind] || '•', title: p.name, sub: `${p.id} · khối ${p.block.join(',')} lô ${p.lot}` }))],
+        [
+          { id: '__streets', icon: '🛣️', title: 'Tên đường & khách', sub: 'phố, khách hàng, người đi đường', fixed: true },
+          { id: '__schedule', icon: '📅', title: 'Lịch mở theo ngày', sub: 'quán, món mở từ ngày nào', fixed: true },
+          ...places.map((p) => ({ id: p.id, icon: p.icon || ICON[p.kind] || '•', title: p.name, sub: `${p.id} · khối ${p.block.join(',')} lô ${p.lot}${p.openDay > 1 ? ` · mở ngày ${p.openDay}` : ''}` })),
+        ],
         sel.id,
         (id) => ctx.select('places', { id }),
-        { issuesFor: (id) => (id === '__streets' ? ctx.issuesFor('places', '') : ctx.issuesFor('places', id)), onReorder: (a, b) => { moveInArray(places, a, b); changedP(); } },
+        { issuesFor: (id) => (id === '__schedule' ? [] : id === '__streets' ? ctx.issuesFor('places', '') : ctx.issuesFor('places', id)), onReorder: (a, b) => { moveInArray(places, a, b); changedP(); } },
       ),
     );
   };
@@ -52,6 +58,7 @@ export function render(root, ctx) {
   const body = el('section', { class: 'ed-body' });
   root.append(el('div', { class: 'ed-split' }, side, body));
   if (sel.id === '__streets') return renderStreets(body, ctx);
+  if (sel.id === '__schedule') return renderSchedule(body, ctx);
 
   const p = places.find((x) => x.id === sel.id);
   const ref = p.id;
@@ -178,7 +185,9 @@ export function render(root, ctx) {
       on ? el('span', {}, '→') : null,
       on ? numInput(cur[1], (v) => { write().hours[1] = v; changedP(); }, { step: 1, min: 0, max: 24 }) : null), opt(fieldKey, { hint }));
   };
-  body.append(el('h3', {}, 'Giờ mở cửa'), el('div', { class: 'grid' }, hoursRow(() => p.hours, () => p, 'hours', 'Giờ mở cửa (giờ)', 'Ngoài giờ: không vào được, không có đơn từ quán, không làm hoạt động. Ngày chơi 6h → 22h.')));
+  body.append(el('h3', {}, 'Giờ mở cửa'), el('div', { class: 'grid' },
+    hoursRow(() => p.hours, () => p, 'hours', 'Giờ mở cửa (giờ)', 'Ngoài giờ: không vào được, không có đơn từ quán, không làm hoạt động. Ngày chơi 6h → 22h.'),
+    field('Mở từ ngày (khai trương)', openDayInput(p, changedP, { disabled: locked }), opt('openDay', { hint: locked ? 'Địa điểm gắn với cốt truyện → luôn mở từ ngày 1.' : HINT.place.openDay }))));
 
   // --- hoạt động ---
   const acts = () => p.activities || [];
@@ -492,6 +501,39 @@ function renderStreets(body, ctx) {
     el('p', { class: 'muted' }, `Đường chính hay kẹt xe: ${pd.mainRoads.map((r) => (r.axis === 'x' ? pd.streetsX[r.line] : pd.streetsZ[r.line])).join(', ')}. Lưu ý: vài câu thoại có nhắc tên đường cố định (ví dụ "Hai Bà Trưng") — đổi tên đường thì xem lại ở thẻ Chữ.`),
     field('Tên khách hàng (mỗi dòng 1 tên)', areaInput(lines(pd.customerNames), (v) => { pd.customerNames = toList(v); changedP(); }, 6), { ref: '', fieldKey: 'customerNames', wide: true }),
     field('Tên người đi đường (mỗi dòng 1 tên) — kho chữ ped.names', areaInput(lines(ctx.data.content['ped.names']), (v) => { ctx.data.content['ped.names'] = toList(v); ctx.changed('content'); }, 5), { ref: 'ped.names', fieldKey: 'text', wide: true }),
+  );
+}
+
+// Trang "📅 Lịch mở theo ngày": mỗi ngày tiền nhà bao nhiêu, quán/món nào khai trương, mấy quán có đơn
+function renderSchedule(body, ctx) {
+  const places = ctx.data.places.places;
+  const items = Object.values(ctx.data.items).filter((it) => !(it.traits || []).includes('passenger'));
+  const last = Math.max(3, ...places.map(openDayOf), ...items.map(openDayOf));
+  const link = (label, tab, id) => button(label, () => ctx.select(tab, { id }), 'small');
+  const rows = [];
+  for (let d = 1; d <= last; d++) {
+    const newPlaces = places.filter((p) => openDayOf(p) === d);
+    const newItems = items.filter((it) => openDayOf(it) === d);
+    // quán đã mở và có ít nhất 1 món đã có đơn tới ngày này
+    const food = places.filter((p) => p.kind === 'restaurant' && openDayOf(p) <= d && (p.menu || []).some((id) => ctx.data.items[id] && openDayOf(ctx.data.items[id]) <= d)).length;
+    const list = (arr, tab, icon) => (d === 1 && arr.length > 6
+      ? el('small', { class: 'muted' }, `${arr.length} mục có sẵn từ đầu`)
+      : arr.length ? el('div', { class: 'chips' }, arr.map((x) => link(`${x.icon || icon(x)} ${x.name}`, tab, x.id))) : el('small', { class: 'muted' }, '—'));
+    rows.push(el('tr', {},
+      el('td', {}, el('b', {}, `Ngày ${d}`)),
+      el('td', {}, `${ECONOMY.rentBase + ECONOMY.rentPerDay * (d - 1)}k`),
+      el('td', {}, String(food)),
+      el('td', {}, list(newPlaces, 'places', (x) => ICON[x.kind] || '📍')),
+      el('td', {}, list(newItems, 'items', () => '🍽️')),
+    ));
+  }
+  body.append(
+    el('div', { class: 'body-head' }, el('h2', {}, '📅 Lịch mở theo ngày')),
+    el('p', { class: 'muted' }, 'Đặt "Mở từ ngày" ở từng địa điểm và "Có đơn từ ngày" ở từng món (thẻ Vật phẩm). Bấm tên để sửa. Địa điểm gắn cốt truyện luôn mở từ ngày 1.'),
+    explain(EXPLAIN.schedule),
+    el('table', { class: 'cmp schedule' },
+      el('thead', {}, el('tr', {}, el('th', {}, 'Ngày'), el('th', {}, 'Tiền nhà'), el('th', {}, 'Quán có đơn'), el('th', {}, 'Khai trương'), el('th', {}, 'Món mới trên app'))),
+      el('tbody', {}, rows)),
   );
 }
 

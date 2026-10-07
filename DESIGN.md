@@ -186,7 +186,15 @@ tests/        run.js (25 bộ thử luật) · economy-sim.js (bot chơi headles
 - **Quãng đường thật** (`routeDist`): đi trong hẻm ra miệng hẻm → đường gần nhất → mạng đường (khoảng cách ngắn nhất giữa các ngã tư, vòng qua cầu). Dùng cho thời hạn đơn, thưởng km, chọn quán / nhà khách. App ưu tiên quán, shop gần tài xế (hệ số 1/(30 + d)²) và nhà khách gần (1/d).
 - Xe NPC, ổ gà (110), chốt CSGT, kẹt xe tránh sông; NPC ở xa người chơi (> 150 m) ẩn đi cho nhẹ máy.
 
-## 8. Giới hạn hiện tại
+## 8. Mở tiệm / món theo ngày (`openDay`)
+
+- Địa điểm có `openDay` (ô "Mở từ ngày" trong editor): trước ngày đó tiệm **sắp khai trương** — không vào được, không có đơn, không làm điểm đến, mờ trên bản đồ nhỏ. Địa điểm gắn cốt truyện (`PROTECTED.places`) luôn mở ngày 1.
+- Món có `openDay` (ô "Có đơn từ ngày"): trước ngày đó app không giao đơn món này.
+- Sáng ngày khai trương: thông báo + tin nhắn nhóm chat. Tổng quan ở editor → Địa điểm → 📅 Lịch mở theo ngày.
+- Luật nằm ở `src/sim/placeRules.js` (`openDayOf`, `unlocked`; `isOpen`/`orderWeight` nhận thêm tham số ngày).
+- Đo độ khó từng ngày: `npm run sim -- 300 --days 7` (bot chơi nối ngày, thắng thì mang tiền sang ngày sau).
+
+## 9. Giới hạn hiện tại
 
 - Xe NPC chưa có đèn giao thông, chưa có hầm chui.
 - Mỗi lúc chỉ nhận một đơn (chưa ghép đơn).

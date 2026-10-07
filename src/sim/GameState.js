@@ -229,7 +229,7 @@ export class GameState {
 
   // Hoạt động tại địa điểm (đọc sách, hát karaoke…). Trả về lý do nếu không làm được.
   activityStatus(place, act, now) {
-    if (!isOpen(place, now)) return 'closed';
+    if (!isOpen(place, now, this.day)) return 'closed';
     if (act.perDay > 0 && (this.activityUses[`${place.id}.${act.id}`] || 0) >= act.perDay) return 'usedUp';
     if (act.needs && this.countOf(act.needs.id) < (act.needs.qty || 1)) return 'needItem';
     if (this.money < (act.cost || 0)) return 'money';

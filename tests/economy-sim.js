@@ -28,9 +28,10 @@ export const STRATEGIES = {
   greedy: { speed: 10, eff: 0.7, bumpsPer100: 0.4, brakesPer100: 0.2, brakeMag: 0.4, buyGear: true, maxD1: 999, honest: false },
 };
 
-export function playDay(seed, strat, day = 1) {
+// carry: tiền, đồ, điểm… mang từ ngày trước (gs.carryOver()) — dùng khi chơi nối nhiều ngày
+export function playDay(seed, strat, day = 1, carry = null) {
   const rng = makeRng(seed);
-  const gs = new GameState({ day });
+  const gs = new GameState({ day, carry });
   const hz = new HazardManager(makeRng(seed * 7 + 1));
   const om = new OrderManager({ rng: makeRng(seed * 13 + 5), layout, gs, isRaining: (m) => hz.isRaining(m) });
   const st = STRATEGIES[strat];
@@ -155,7 +156,7 @@ export function playDay(seed, strat, day = 1) {
       if (res === 'noAnswer') {
         const c = om.callCustomer(now);
         pass(c.waitMin, 'idle');
-        if (c.answered) res = 'ready';
+        if (c.answered) res = om.arriveAtDropoff(now); // nghe máy rồi vẫn có thể bị bom (đơn thu hộ)
         else if (o.calls >= 2) { om.askNeighbor(now); drive(o.dropoff.door); res = om.arriveAtDropoff(now); }
       } else if (res === 'stairs') {
         const r = om.resolveStairs(gs.phys > 45 ? 'climb' : 'callDown');
@@ -176,7 +177,43 @@ export function playDay(seed, strat, day = 1) {
 
 // ---------- chạy & in bảng ----------
 const isMain = process.argv[1] && process.argv[1].replace(/\\/g, '/').endsWith('tests/economy-sim.js');
-if (isMain) {
+// Chơi nối từ ngày 1: thắng thì sang ngày sau với tiền/đồ còn lại; thua là dừng
+export function playRun(seed, strat, days) {
+  const out = [];
+  let carry = null;
+  for (let d = 1; d <= days; d++) {
+    const r = playDay(seed * 1000 + d, strat, d, carry);
+    out.push(r);
+    if (r.outcome.type !== 'win') break;
+    carry = r.gs.carryOver();
+  }
+  return out;
+}
+
+const daysArg = process.argv.indexOf('--days');
+if (isMain && daysArg > 0) {
+  // npm run sim -- 300 --days 7  → bảng tỉ lệ thắng từng ngày (trong số lượt chơi tới được ngày đó)
+  const N = Number(process.argv[2]) || 300;
+  const D = Number(process.argv[daysArg + 1]) || 7;
+  console.log(`Chơi nối ${D} ngày, ${N} lượt cho mỗi chiến thuật (thắng thì sang ngày sau, thua là dừng)
+`);
+  for (const strat of Object.keys(STRATEGIES)) {
+    const reach = Array(D + 1).fill(0), win = Array(D + 1).fill(0), orders = Array(D + 1).fill(0), money = Array(D + 1).fill(0);
+    for (let s = 1; s <= N; s++) {
+      playRun(s, strat, D).forEach((r, i) => {
+        const d = i + 1;
+        reach[d]++;
+        orders[d] += r.log.orders;
+        if (r.outcome.type === 'win') { win[d]++; money[d] += r.gs.money; }
+      });
+    }
+    const cells = [];
+    for (let d = 1; d <= D; d++) cells.push(reach[d] ? `N${d} ${String(Math.round((win[d] / reach[d]) * 100)).padStart(3)}% (${(orders[d] / reach[d]).toFixed(1)} đơn)` : `N${d}   —`);
+    console.log(`${strat.padEnd(8)} | ${cells.join(' | ')} | còn tới cuối: ${Math.round((win[D] / N) * 100)}%`);
+  }
+}
+
+if (isMain && daysArg < 0) {
   const N = Number(process.argv[2]) || 300;
   const fmtT = (m) => (m == null ? '—' : `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.round(m % 60)).padStart(2, '0')}`);
   console.log(`Mô phỏng ${N} ngày cho mỗi chiến thuật (ngày 1, tiền nhà 400k)\n`);

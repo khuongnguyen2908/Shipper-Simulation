@@ -37,7 +37,7 @@ Nguyên tắc:
 
 ## 4. Kiểm thử (bắt buộc trước mỗi lần giao)
 - `npm test`: luật vật phẩm, chấm sao, công thức tiền, máy trạng thái đơn, thắng/thua, bản đồ, dữ liệu JSON hợp lệ, mọi khóa chữ code dùng đều có trong vi.json.
-- `npm run sim`: bot chơi nhiều seed với nhiều chiến thuật; thay đổi ảnh hưởng kinh tế/cân bằng phải đo bằng bảng này (trước/sau).
+- `npm run sim`: bot chơi nhiều seed với nhiều chiến thuật; thay đổi ảnh hưởng kinh tế/cân bằng phải đo bằng bảng này (trước/sau). `npm run sim -- 300 --days 7`: chơi nối nhiều ngày (dùng khi đổi tiền nhà theo ngày, mở tiệm theo ngày).
 - Thay đổi nhìn thấy được thì kiểm tra trong trình duyệt (dùng `?debug` + `game.step()` khi tab bị ẩn).
 - `npm run build` = bộ thử + build.
 

@@ -9,6 +9,15 @@ import { ALLEY_TEMPLATES } from '../sim/blockPlan.js';
 import { EFFECTS, CONSUMABLE_FIELDS, OUTFIT_SLOTS } from './goods.js';
 import { ORDER_KINDS } from './apps.js';
 import { GENDERS, HAIR_STYLES } from '../sim/people.js';
+import { openDayOf } from '../sim/placeRules.js';
+
+const MAX_OPEN_DAY = 60;
+// "Mở từ ngày" / "Có đơn từ ngày": số nguyên 1–60, bỏ trống = ngày 1
+function openDayErr(add, ref, v, locked) {
+  if (v == null) return;
+  if (!Number.isInteger(v) || v < 1 || v > MAX_OPEN_DAY) add('error', ref, 'openDay', `Ngày mở phải là số nguyên 1–${MAX_OPEN_DAY}.`);
+  else if (locked && v > 1) add('error', ref, 'openDay', 'Mục này gắn với cốt truyện / code → phải có từ ngày 1.');
+}
 
 export const TRAIT_IDS = ['hot', 'cold', 'liquid', 'fragile', 'paper', 'passenger'];
 export const PROTECTED = {
@@ -48,6 +57,7 @@ export function validateItems(items, placesData, appsData = null) {
   const parcelUse = new Set(Object.values(appsData?.orderTypes || {}).filter((t) => t.kind === 'parcel').flatMap((t) => t.items || []));
   for (const id of PROTECTED.items) if (!items[id]) add('error', id, 'id', `Thiếu món bắt buộc "${id}" (code dùng trực tiếp).`);
   for (const [key, it] of Object.entries(items)) {
+    openDayErr(add, key, it.openDay, PROTECTED.items.includes(key));
     if (!ID_RE.test(key)) add('error', key, 'id', 'Mã chỉ gồm chữ không dấu, số, gạch dưới; bắt đầu bằng chữ.');
     if (it.id !== key) add('error', key, 'id', `Mã bên trong (${it.id}) khác khóa (${key}).`);
     if (!it.name || !String(it.name).trim()) add('error', key, 'name', 'Chưa có tên.');
@@ -303,6 +313,17 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null, m
     else arr.forEach((s, i) => !String(s).trim() && add('error', '', k, `Tên đường số ${i + 1} đang trống.`));
   }
   if (!pd.customerNames || !pd.customerNames.filter((s) => String(s).trim()).length) add('error', '', 'customerNames', 'Cần ít nhất 1 tên khách.');
+  // mở theo ngày
+  for (const p of places) {
+    openDayErr(add, p.id, p.openDay, PROTECTED.places.includes(p.id));
+    if (p.kind === 'restaurant' && items && (p.menu || []).length) {
+      const first = Math.min(...p.menu.filter((id) => items[id]).map((id) => openDayOf(items[id])));
+      if (Number.isFinite(first) && first > openDayOf(p)) add('warn', p.id, 'openDay', `Quán mở ngày ${openDayOf(p)} nhưng tới ngày ${first} mới có món nào có đơn.`);
+    }
+  }
+  if (items && !places.some((p) => p.kind === 'restaurant' && openDayOf(p) === 1 && (p.menu || []).some((id) => items[id] && openDayOf(items[id]) === 1))) {
+    add('warn', '', 'openDay', 'Ngày 1 không có quán ăn nào có món → ngày đầu không có đơn đồ ăn.');
+  }
   // nhà dân còn lại làm điểm giao hàng (tòa nhà lớn chiếm bớt)
   if (blockPlan(pd.alley.block[0], pd.alley.block[1], mapData)) add('error', '', 'alley', `Khối ${pd.alley.block.join(',')} chứa hẻm 42 (nhà cổng xanh) — phải để kiểu "không hẻm" ở thẻ Bản đồ.`);
   let allLots = 0;

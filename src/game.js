@@ -6,6 +6,7 @@ import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, BAGS } from './data/bala
 import { GOODS, outfitLook } from './data/goods.js';
 import { APP, RIDER_TYPES } from './data/apps.js';
 import { ITEMS } from './data/items.js';
+import { unlocked, openDayOf } from './sim/placeRules.js';
 import { buildLayout, segmentRect, roadPos } from './sim/cityLayout.js';
 import { makeRng } from './sim/rng.js';
 import { GameState } from './sim/GameState.js';
@@ -203,6 +204,14 @@ export class Game {
     this.paused = false;
     this.hud.show(true);
     this.hud.toast(fmt('toast.dayStart', { day, rent: this.gs.rent }), 'big', 7000);
+    // khai trương hôm nay (địa điểm / món có openDay = ngày này)
+    const opening = this.layout.places.filter((p) => openDayOf(p) === day && day > 1).map((p) => p.name);
+    const newItems = Object.values(ITEMS).filter((it) => openDayOf(it) === day && day > 1).map((it) => `${it.icon || ''} ${it.name}`);
+    if (opening.length) {
+      this.addChat(fmt('chat.admin'), fmt('chat.grandOpening', { names: opening.join(', ') }));
+      this.hud.toast(fmt('toast.grandOpening', { names: opening.join(', ') }), 'good', 7000);
+    }
+    if (newItems.length) this.addChat(fmt('chat.admin'), fmt('chat.newItems', { names: newItems.join(', ') }));
   }
 
   endGame(outcome) {
@@ -771,7 +780,9 @@ export class Game {
 
   mapData(tgt) {
     const gs = this.gs;
-    const places = this.layout.places.filter((p) => !p.hidden || (p.id === 'taphoa' && (gs.flags.wallet >= 2 || gs.flags.wallet === -1)) || (p.id === 'gate' && gs.flags.wallet >= 3));
+    const places = this.layout.places
+      .filter((p) => !p.hidden || (p.id === 'taphoa' && (gs.flags.wallet >= 2 || gs.flags.wallet === -1)) || (p.id === 'gate' && gs.flags.wallet >= 3))
+      .map((p) => (unlocked(p, gs.day) ? p : { ...p, soon: true })); // chưa khai trương → biểu tượng mờ
     const police = this.hz.activePolice(this.clockMin).filter((p) => this.knownPolice.has(p.id)).map((p) => ({ x: roadPos(p.node[0]), z: roadPos(p.node[1]) }));
     const pp = this.playerPos;
     return {

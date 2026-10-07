@@ -6,7 +6,7 @@
 import { ECONOMY, ENERGY, ORDER, VEHICLES, BAGS, WALLET_QUEST } from './data/balance.js';
 import { APP, ORDER_TYPES, RIDER_TYPES } from './data/apps.js';
 import { GOODS, OUTFIT_SLOTS } from './data/goods.js';
-import { isOpen, fmtHours, placesUsing, placesSelling } from './sim/placeRules.js';
+import { isOpen, fmtHours, placesUsing, placesSelling, unlocked, openDayOf } from './sim/placeRules.js';
 import { ITEMS } from './data/items.js';
 import { S } from './sim/OrderManager.js';
 import { fmtK } from './sim/economy.js';
@@ -421,6 +421,8 @@ function stairs(g) {
 
 function handOver(g) {
   const { om, gs } = g;
+  // khách nghe máy xong mới lộ ra bom hàng (đơn thu hộ) → xử lý bom thay vì bấm "Giao hàng" mà không có gì xảy ra
+  if (om.state === S.AT_DROPOFF && om.arriveAtDropoff(g.clockMin) === 'bom') return bom(g);
   const receipt = om.handOver(g.clockMin);
   if (!receipt) return;
   gs.applyReceipt(receipt);
@@ -508,8 +510,9 @@ export function viewWallet(g) {
 export function placeAction(g, pl) {
   const { gs } = g;
   const p = { place: pl.name, npc: pl.npc ? pl.npc.name : '' };
-  const open = isOpen(pl, g.clockMin);
-  const closed = open ? '' : fmt('act.closed', { hours: fmtHours(pl.hours) });
+  const open = isOpen(pl, g.clockMin, gs.day);
+  // chưa tới ngày khai trương → ghi "sắp khai trương", khác với ngoài giờ mở cửa
+  const closed = open ? '' : !unlocked(pl, gs.day) ? fmt('act.soon', { day: openDayOf(pl) }) : fmt('act.closed', { hours: fmtHours(pl.hours) });
   const generic = (key, extra = {}) => ({ label: fmt(key, p) + closed, needFoot: true, run: () => openPlace(g, pl), ...extra });
   switch (pl.kind) {
     case 'home': return { label: fmt('act.home', p), run: () => landlord(g, pl) };
@@ -531,6 +534,7 @@ const hasStock = (pl) => !!pl.sells && ['goods', 'bags', 'vehicles'].some((k) =>
 // Hộp thoại chung của một địa điểm. extra = lựa chọn riêng đặt lên đầu.
 function openPlace(g, pl, extra = [], text = null) {
   const n = npc(g, pl.id);
+  if (!unlocked(pl, g.gs.day)) return say(g, n.name, n.portrait, fmt('dlg.soon', { day: openDayOf(pl), name: pl.name }));
   if (!isOpen(pl, g.clockMin)) return say(g, n.name, n.portrait, fmt('dlg.closed', { hours: fmtHours(pl.hours) }));
   const choices = [...extra, ...activityChoices(g, pl)];
   if (hasStock(pl)) choices.push({ label: fmt('dlg.browseShop'), onSelect: () => shopDialog(g, pl) });

@@ -792,6 +792,73 @@ console.log('Bot mô phỏng (chạy thử 1 ngày)');
   });
 }
 
+console.log('Mở tiệm / món theo ngày');
+{
+  const { playRun } = await import('./economy-sim.js');
+  const { isOpen, orderWeight, unlocked, openDayOf } = await import('../src/sim/placeRules.js');
+  const { ITEMS: LIVE_ITEMS } = await import('../src/data/items.js');
+  const { validatePlaces, validateItems } = await import('../src/data/validate.js');
+  const require_json = (p) => JSON.parse(fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8'));
+  test('Luật chung: chưa tới ngày khai trương = đóng, không làm điểm đến', () => {
+    const pl = { openDay: 3, hours: [6, 22], orders: { rideWeight: 5 } };
+    assert.equal(openDayOf(pl), 3);
+    assert.equal(openDayOf({}), 1);
+    assert.equal(isOpen(pl, 600, 2), false);
+    assert.equal(isOpen(pl, 600, 3), true);
+    assert.equal(isOpen(pl, 600), true); // không xét ngày (công cụ)
+    assert.equal(orderWeight(pl, 'rideWeight', 600, 2), 0);
+    assert.equal(orderWeight(pl, 'rideWeight', 600, 4), 5);
+    assert.ok(unlocked({}, 1) && !unlocked({ openDay: 2 }, 1));
+  });
+  test('Quán chưa khai trương không có đơn; tới ngày thì có', () => {
+    const r = layout.places.find((p) => p.kind === 'restaurant' && !p.hours);
+    const r2 = r || layout.places.find((p) => p.kind === 'restaurant');
+    const saved = r2.openDay;
+    r2.openDay = 3;
+    const from = (day) => {
+      const { om } = mkOM(11, { day });
+      let n = 0;
+      for (let i = 0; i < 300; i++) { const o = om.makeFood({ id: 'food', kind: 'food', fareMult: 1, deadlineMult: 1 }, 12 * 60, r2.door); if (o && o.pickup.placeId === r2.id) n++; }
+      return n;
+    };
+    try {
+      assert.equal(from(2), 0, 'ngày 2 vẫn có đơn từ quán chưa mở');
+      assert.ok(from(3) > 0, 'ngày 3 không có đơn từ quán vừa khai trương');
+    } finally { if (saved === undefined) delete r2.openDay; else r2.openDay = saved; }
+  });
+  test('Món chưa tới ngày không có đơn (kể cả khi quán đã mở)', () => {
+    const r = layout.places.find((p) => p.kind === 'restaurant' && (p.menu || []).length >= 2 && p.menu.every((id) => LIVE_ITEMS[id] && !LIVE_ITEMS[id].traits.includes('cold')));
+    if (!r) return; // dữ liệu không có quán 2 món nóng
+    const id = r.menu[0], it = LIVE_ITEMS[id], saved = it.openDay;
+    it.openDay = 4;
+    const seen = (day) => {
+      const { om } = mkOM(5, { day });
+      for (let i = 0; i < 400; i++) { const o = om.makeFood({ id: 'food', kind: 'food', fareMult: 1, deadlineMult: 1 }, 12 * 60, r.door); if (o && o.itemIds.includes(id)) return true; }
+      return false;
+    };
+    try {
+      assert.equal(seen(3), false);
+      assert.equal(seen(4), true);
+    } finally { if (saved === undefined) delete it.openDay; else it.openDay = saved; }
+  });
+  test('Bộ kiểm tra: địa điểm cốt truyện phải mở ngày 1; ngày 1 không có quán thì cảnh báo', () => {
+    const fs2 = require_json('src/data/places.json'), items2 = require_json('src/data/items.json');
+    const home = fs2.places.find((p) => p.id === 'home');
+    home.openDay = 2;
+    for (const p of fs2.places) if (p.kind === 'restaurant') p.openDay = 2;
+    const iss = validatePlaces(fs2, items2);
+    assert.ok(iss.some((i) => i.ref === 'home' && i.field === 'openDay' && i.level === 'error'));
+    assert.ok(iss.some((i) => i.field === 'openDay' && i.level === 'warn' && /Ngày 1/.test(i.msg)));
+    items2.passenger.openDay = 3;
+    assert.ok(validateItems(items2, null).some((i) => i.ref === 'passenger' && i.field === 'openDay' && i.level === 'error'));
+  });
+  test('Bot chơi nối 3 ngày không lỗi; ngày sau mang tiền ngày trước', () => {
+    const run = playRun(2, 'rush', 3);
+    assert.ok(run.length >= 1);
+    for (let i = 1; i < run.length; i++) assert.equal(run[i].gs.day, i + 1);
+  });
+}
+
 console.log('Giữ chỗ đang xem khi vẽ lại / tải lại (công cụ ?editor)');
 {
   const { selKey, planScroll, selToSave } = await import('../src/devtools/editor/viewState.js');

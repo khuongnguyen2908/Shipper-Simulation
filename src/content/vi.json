@@ -667,5 +667,10 @@
   "phone.carryWhere": "· dùng ở {where}",
   "npc.clothestore.greet": "\"Thay bộ đồ sáng sủa, khách nó còn lên xe\"",
   "npc.goship.greet": "\"Chào bạn! Vào chơi nha.\"",
-  "npc.gas2.greet": "\"Chào bạn! Vào chơi nha.\""
+  "npc.gas2.greet": "\"Chào bạn! Vào chơi nha.\"",
+  "act.soon": " (sắp khai trương — ngày {day})",
+  "dlg.soon": "\"Tiệm đang sửa sang, <b>ngày {day}</b> mới khai trương. Hôm đó ghé ủng hộ nha!\"",
+  "toast.grandOpening": "🎉 Hôm nay khai trương: <b>{names}</b>!",
+  "chat.grandOpening": "🎉 Hôm nay khai trương: {names}. Anh em ghé chạy đơn nha!",
+  "chat.newItems": "🆕 Món mới trên app hôm nay: {names}."
 }

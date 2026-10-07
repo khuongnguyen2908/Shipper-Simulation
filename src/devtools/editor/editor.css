@@ -122,4 +122,6 @@ input.emoji { font-size: 18px; }
 table.ref { border-collapse: collapse; margin: 6px 0; font-size: 12px; }
 table.ref td { border: 1px solid #2d3644; padding: 3px 8px; }
 table.ref tr:first-child td { background: #1d2a3d; font-weight: 600; }
-
+/* lịch mở theo ngày */
+table.schedule td { vertical-align: top; }
+table.schedule .chips { gap: 4px; }
