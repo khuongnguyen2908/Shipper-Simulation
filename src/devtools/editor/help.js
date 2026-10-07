@@ -141,6 +141,10 @@ export const HINT = {
 const T = (rows) => `<table class="ref"><tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
 
 export const EXPLAIN = {
+  balance: ['Thẻ Cân bằng dùng thế nào', `
+    <p>Các con số chung của game: tiền, chi phí, tốc độ hao thể lực/tinh thần, nhịp đơn hàng. Phí app, thuế, boa ở thẻ 📱 App & Đơn; giá món, xe, túi ở các thẻ riêng.</p>
+    <p>Cách chỉnh độ khó: đổi vài số → mục <b>🤖 Chạy thử bot</b> → bấm chạy (khoảng 15 giây) → xem bảng tỉ lệ thắng từng ngày, so với lần trước → ưng thì bấm 💾 Lưu. Không cần lưu mới chạy thử được.</p>
+    <p>Gợi ý: muốn chơi được lâu thì tiền nhà mỗi ngày nên tăng chậm (hoặc tự đặt từng ngày), hoặc đơn đến dày hơn / thời hạn rộng hơn.</p>`],
   schedule: ['Mở theo ngày dùng để làm gì', `
     <p>Game chơi nối nhiều ngày; tiền nhà tăng mỗi ngày. Cho <b>mấy ngày đầu ít quán, ít món</b> (dễ làm quen), rồi <b>khai trương thêm</b> để có thêm đơn khi tiền nhà tăng.</p>
     <p>Ít quán hơn = ít đơn đồ ăn hơn → ngày đó <b>khó hơn</b>. Muốn biết ngày nào quá khó, chạy bot nhiều ngày: <code>npm run sim -- 300 --days 7</code> (bảng tỉ lệ thắng từng ngày).</p>`],

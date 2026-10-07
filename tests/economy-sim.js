@@ -176,7 +176,9 @@ export function playDay(seed, strat, day = 1, carry = null) {
 }
 
 // ---------- chạy & in bảng ----------
-const isMain = process.argv[1] && process.argv[1].replace(/\\/g, '/').endsWith('tests/economy-sim.js');
+// chạy bằng node (npm run sim); trong trình duyệt (nút Chạy thử bot của editor) không có process
+const ARGV = typeof process !== 'undefined' && Array.isArray(process.argv) ? process.argv : [];
+const isMain = !!ARGV[1] && ARGV[1].replace(/\\/g, '/').endsWith('tests/economy-sim.js');
 // Chơi nối từ ngày 1: thắng thì sang ngày sau với tiền/đồ còn lại; thua là dừng
 export function playRun(seed, strat, days) {
   const out = [];
@@ -190,11 +192,11 @@ export function playRun(seed, strat, days) {
   return out;
 }
 
-const daysArg = process.argv.indexOf('--days');
+const daysArg = ARGV.indexOf('--days');
 if (isMain && daysArg > 0) {
   // npm run sim -- 300 --days 7  → bảng tỉ lệ thắng từng ngày (trong số lượt chơi tới được ngày đó)
-  const N = Number(process.argv[2]) || 300;
-  const D = Number(process.argv[daysArg + 1]) || 7;
+  const N = Number(ARGV[2]) || 300;
+  const D = Number(ARGV[daysArg + 1]) || 7;
   console.log(`Chơi nối ${D} ngày, ${N} lượt cho mỗi chiến thuật (thắng thì sang ngày sau, thua là dừng)
 `);
   for (const strat of Object.keys(STRATEGIES)) {
@@ -214,7 +216,7 @@ if (isMain && daysArg > 0) {
 }
 
 if (isMain && daysArg < 0) {
-  const N = Number(process.argv[2]) || 300;
+  const N = Number(ARGV[2]) || 300;
   const fmtT = (m) => (m == null ? '—' : `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.round(m % 60)).padStart(2, '0')}`);
   console.log(`Mô phỏng ${N} ngày cho mỗi chiến thuật (ngày 1, tiền nhà 400k)\n`);
   const typeIds = Object.keys(ORDER_TYPES);

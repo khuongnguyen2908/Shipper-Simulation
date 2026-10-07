@@ -125,3 +125,15 @@ table.ref tr:first-child td { background: #1d2a3d; font-weight: 600; }
 /* lịch mở theo ngày */
 table.schedule td { vertical-align: top; }
 table.schedule .chips { gap: 4px; }
+/* thẻ Cân bằng */
+.stars-row { flex-wrap: wrap; gap: 10px; }
+.stars-row .mini { display: flex; align-items: center; gap: 4px; font-size: 13px; }
+.stars-row input { width: 64px; }
+table.rent input { width: 90px; }
+.sim-bar { height: 8px; background: #263040; border-radius: 6px; overflow: hidden; margin: 8px 0 4px; }
+.sim-bar i { display: block; height: 100%; background: #00b14f; transition: width .3s; }
+table.sim-table td { vertical-align: top; }
+.sim-cell.easy b { color: #2ecc71; } .sim-cell.mid b { color: #f1c40f; } .sim-cell.hard b { color: #e74c3c; }
+.sim-cell small.up { color: #2ecc71; } .sim-cell small.down { color: #e74c3c; }
+.sim-cell .muted { font-size: 11px; }
+

@@ -1,6 +1,6 @@
 // Màn hình toàn cảnh: tiêu đề, tạm dừng, kết thúc ngày. Chữ lấy từ kho chữ screen.*
 import { fmtK } from '../sim/economy.js';
-import { ECONOMY } from '../data/balance.js';
+import { rentFor } from '../data/balance.js';
 import { APP } from '../data/apps.js';
 import { fmt } from '../content/index.js';
 
@@ -86,7 +86,7 @@ export class Screens {
         ${stat('screen.statCrash', `${st.crashes} / ${st.fines}`)}
         ${stat('screen.statWallet', wallet)}
       </div>
-      <div class="row">${win ? `<button class="btn big primary" data-a="next">${fmt('screen.nextDay', { day: gs.day + 1, rent: gs.rent + ECONOMY.rentPerDay })}</button>` : ''}
+      <div class="row">${win ? `<button class="btn big primary" data-a="next">${fmt('screen.nextDay', { day: gs.day + 1, rent: rentFor(gs.day + 1) })}</button>` : ''}
       <button class="btn big ${win ? '' : 'primary'}" data-a="retry">${fmt('screen.retryDay', { day: gs.day })}</button><button class="btn big" data-a="title">${fmt('screen.mainMenu')}</button></div>`,
       (el) => {
         const n = el.querySelector('[data-a="next"]');

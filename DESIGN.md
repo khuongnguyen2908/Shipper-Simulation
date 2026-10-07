@@ -194,7 +194,13 @@ tests/        run.js (25 bộ thử luật) · economy-sim.js (bot chơi headles
 - Luật nằm ở `src/sim/placeRules.js` (`openDayOf`, `unlocked`; `isOpen`/`orderWeight` nhận thêm tham số ngày).
 - Đo độ khó từng ngày: `npm run sim -- 300 --days 7` (bot chơi nối ngày, thắng thì mang tiền sang ngày sau).
 
-## 9. Giới hạn hiện tại
+## 9. Thẻ ⚖️ Cân bằng (`src/data/balance.json`)
+
+- Số chung (tiền khởi đầu, tiền nhà ngày 1 + tăng mỗi ngày hoặc tự đặt từng ngày `rentByDay`, xăng, phạt, hao thể lực/tinh thần, nhịp đơn, tỉ lệ sự cố, nhiệm vụ ví) nằm ở `balance.json`; `balance.js` xuất lại đúng tên cũ (`ECONOMY`, `ENERGY`, `ORDER`, `WALLET_QUEST`) và `rentFor(day)`.
+- Danh sách ô, nhãn, phạm vi: `src/data/balanceSpec.js` (dùng chung cho editor và `validate.js`). Số nào chưa có ô riêng hiện ở mục "Nâng cao".
+- Nút **🤖 Chạy thử bot**: Web Worker (`devtools/editor/simWorker.js`) gọi `applyBalance(số đang sửa)` rồi `playRun` (bot nối ngày) — không cần lưu; chạy được cả trên bản build.
+
+## 10. Giới hạn hiện tại
 
 - Xe NPC chưa có đèn giao thông, chưa có hầm chui.
 - Mỗi lúc chỉ nhận một đơn (chưa ghép đơn).

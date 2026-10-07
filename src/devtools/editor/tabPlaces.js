@@ -7,7 +7,7 @@ import { personPreview } from './personPreview.js';
 import { guessGender } from '../../sim/people.js';
 import { el, field, textInput, numInput, colorInput, selectInput, checkInput, button, sideList, areaInput, dragHandle, makeSortable, emojiInput, explain, openDayInput } from './ui.js';
 import { openDayOf } from '../../sim/placeRules.js';
-import { ECONOMY } from '../../data/balance.js';
+import { rentFor } from '../../data/balance.js';
 import { HINT, EXPLAIN } from './help.js';
 import { CHANGEABLE_KINDS, canChangeKind, applyKind } from './placeKind.js';
 
@@ -521,7 +521,7 @@ function renderSchedule(body, ctx) {
       : arr.length ? el('div', { class: 'chips' }, arr.map((x) => link(`${x.icon || icon(x)} ${x.name}`, tab, x.id))) : el('small', { class: 'muted' }, '—'));
     rows.push(el('tr', {},
       el('td', {}, el('b', {}, `Ngày ${d}`)),
-      el('td', {}, `${ECONOMY.rentBase + ECONOMY.rentPerDay * (d - 1)}k`),
+      el('td', {}, `${rentFor(d, ctx.data.balance.economy)}k`),
       el('td', {}, String(food)),
       el('td', {}, list(newPlaces, 'places', (x) => ICON[x.kind] || '📍')),
       el('td', {}, list(newItems, 'items', () => '🍽️')),

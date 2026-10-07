@@ -10,7 +10,7 @@ Bạn là lập trình viên game web cho dự án **Shipper Simulation**: game 
 ## 2. Kiến trúc
 ```
 src/
-  data/      balance.js (mọi con số cân bằng) · items.json · gear.json (xe, túi) · goods.json + goods.js (đồ dùng: dùng 1 lần / trang bị / dùng tại địa điểm; danh sách tác dụng EFFECTS)
+  data/      balance.js + balance.json (con số cân bằng; số chung sửa ở thẻ ⚖️ Cân bằng, ô định nghĩa ở balanceSpec.js) · items.json · gear.json (xe, túi) · goods.json + goods.js (đồ dùng: dùng 1 lần / trang bị / dùng tại địa điểm; danh sách tác dụng EFFECTS)
              places.json (địa điểm: lô 1–3 ô, giờ mở cửa, hoạt động (có thể cần đồ mang theo), hàng bán, điểm đến đơn) · validate.js
              apps.json + apps.js (app giao hàng: phí, thuế, phụ phí, luật tài khoản · loại đơn · loại khách xe ôm)
              map.json + map.js (cỡ bản đồ, kiểu hẻm từng khối, sông + cầu; mặt bằng hẻm ở sim/blockPlan.js, đường đi ở cityLayout.routeDist)

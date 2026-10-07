@@ -13,6 +13,7 @@ import placesJson from '../../data/places.json' with { type: 'json' };
 import contentJson from '../../content/vi.json' with { type: 'json' };
 import appsJson from '../../data/apps.json' with { type: 'json' };
 import mapJson from '../../data/map.json' with { type: 'json' };
+import balanceJson from '../../data/balance.json' with { type: 'json' };
 import { validateAll } from '../../data/validate.js';
 import { setContentTable } from '../../content/index.js';
 import { el, button, clone } from './ui.js';
@@ -22,6 +23,7 @@ import * as tabPlaces from './tabPlaces.js';
 import * as tabText from './tabText.js';
 import * as tabApp from './tabApp.js';
 import * as tabMap from './tabMap.js';
+import * as tabBalance from './tabBalance.js';
 import { selKey, planScroll, selToSave } from './viewState.js';
 
 const FILES = {
@@ -32,6 +34,7 @@ const FILES = {
   content: { path: 'src/content/vi.json', label: 'Chữ & hội thoại', src: contentJson },
   apps: { path: 'src/data/apps.json', label: 'App & Đơn', src: appsJson },
   map: { path: 'src/data/map.json', label: 'Bản đồ', src: mapJson },
+  balance: { path: 'src/data/balance.json', label: 'Cân bằng', src: balanceJson },
 };
 const TABS = [
   { id: 'items', icon: '🍜', label: 'Vật phẩm', mod: tabItems },
@@ -39,6 +42,7 @@ const TABS = [
   { id: 'places', icon: '🏪', label: 'Địa điểm & NPC', mod: tabPlaces },
   { id: 'map', icon: '🗺️', label: 'Bản đồ', mod: tabMap },
   { id: 'app', icon: '📱', label: 'App & Đơn', mod: tabApp },
+  { id: 'balance', icon: '⚖️', label: 'Cân bằng', mod: tabBalance },
   { id: 'text', icon: '💬', label: 'Chữ & hội thoại', mod: tabText },
 ];
 const DRAFT_KEY = 'shipper-editor-draft-v1';
@@ -147,7 +151,7 @@ export async function startEditor(root) {
   ctx.issuesFor = (tab, ref, extra = {}) => ctx.issues.filter((i) => i.tab === tab && i.ref === ref && (!extra.cat || i.cat === extra.cat));
 
   function validate() {
-    ctx.issues = validateAll({ items: ctx.data.items, gear: ctx.data.gear, goods: ctx.data.goods, places: ctx.data.places, content: ctx.data.content, baseContent: ctx.base.content, apps: ctx.data.apps, map: ctx.data.map });
+    ctx.issues = validateAll({ items: ctx.data.items, gear: ctx.data.gear, goods: ctx.data.goods, places: ctx.data.places, content: ctx.data.content, baseContent: ctx.base.content, apps: ctx.data.apps, map: ctx.data.map, balance: ctx.data.balance });
   }
 
   // Gắn lỗi vào đúng ô nhập (theo data-ref / data-field / data-cat)
@@ -248,6 +252,7 @@ export async function startEditor(root) {
     else if (i.tab === 'text') ctx.select('text', { search: i.ref, group: '' });
     else if (i.tab === 'app') ctx.select('app', { cat: i.cat, id: i.ref || null });
     else if (i.tab === 'map') ctx.select('map', /^\d+,\d+$/.test(i.ref) ? { id: i.ref } : {});
+    else if (i.tab === 'balance') ctx.select('balance', { id: tabBalance.sectionOf(i.field) });
   }
 
   // ---------- lưu / xuất / nhập ----------

@@ -1,0 +1,111 @@
+{
+  "economy": {
+    "startMoney": 80,
+    "fuelPrice": 23,
+    "refuseBelow": 25,
+    "scaredFarePct": 0.5,
+    "rentBase": 400,
+    "rentPerDay": 150,
+    "policeFine": 150,
+    "repairCost": 40,
+    "parkingFee": 5,
+    "speedLimit": 11,
+    "rentByDay": []
+  },
+  "energy": {
+    "phys": {
+      "idle": 0.02,
+      "walk": 0.04,
+      "run": 0.2,
+      "drive": 0.045,
+      "push": 0.35,
+      "sun": 0.03,
+      "rain": 0.04,
+      "stairFloor": 3.5,
+      "crashPerMag": 6
+    },
+    "mental": {
+      "base": 0.015,
+      "jam": 0.3,
+      "rain": 0.08,
+      "wait": 0.05,
+      "police": 8,
+      "fine": 10,
+      "carCrash": 8,
+      "dogHit": 10,
+      "pedHit": 6,
+      "noAnswer": 3,
+      "cancel": 6,
+      "stars": [
+        0,
+        -12,
+        -8,
+        -3,
+        2,
+        5
+      ]
+    },
+    "meal": {
+      "cost": 35,
+      "phys": 45,
+      "mental": 5
+    },
+    "drink": {
+      "cost": 20,
+      "phys": 5,
+      "mental": 30
+    },
+    "nap": {
+      "minutes": 45,
+      "phys": 20,
+      "mental": 15
+    }
+  },
+  "order": {
+    "pingGap": [
+      3,
+      9
+    ],
+    "offerTimeoutSec": 25,
+    "queue": [
+      2,
+      9
+    ],
+    "queuePeak": [
+      7,
+      18
+    ],
+    "prepAllowance": 8,
+    "planSpeed": 6.5,
+    "slack": 6,
+    "outOfStockChance": 0.15,
+    "noAnswerChance": 0.2,
+    "vagueChance": 0.25,
+    "apartmentChance": 0.15,
+    "liftBrokenChance": 0.6,
+    "pickyChance": 0.2,
+    "twoItemChance": 0.3,
+    "callAnswerChance": 0.45,
+    "waitComeChance": 0.6,
+    "substituteAcceptChance": 0.7,
+    "dropDist": [
+      60,
+      200
+    ],
+    "parcelShopMax": 220,
+    "stairMinPerFloor": 1.5,
+    "callDownWait": 8,
+    "liftMin": 3,
+    "placeDestBase": 12
+  },
+  "walletQuest": {
+    "reward": 150,
+    "cash": 300,
+    "keepPenaltyStars": [
+      1,
+      1,
+      1
+    ],
+    "complaintFine": 100
+  }
+}

@@ -792,6 +792,52 @@ console.log('Bot mô phỏng (chạy thử 1 ngày)');
   });
 }
 
+console.log('Cân bằng (balance.json, thẻ ⚖️)');
+{
+  const { rentFor, applyBalance, ECONOMY, ORDER, ENERGY } = await import('../src/data/balance.js');
+  const { BALANCE_GROUPS, getPath } = await import('../src/data/balanceSpec.js');
+  const { validateBalance } = await import('../src/data/validate.js');
+  const bal = JSON.parse(fs.readFileSync(new URL('../src/data/balance.json', import.meta.url), 'utf8'));
+  test('Mọi ô của thẻ Cân bằng trỏ đúng số có trong balance.json', () => {
+    for (const g of BALANCE_GROUPS) {
+      for (const [path, , o] of g.fields) {
+        const v = getPath(bal, path);
+        assert.ok(o.pair ? Array.isArray(v) && v.length === 2 : typeof v === 'number', `${path} không có / sai kiểu`);
+      }
+      if (g.stars) assert.equal(getPath(bal, g.stars[0]).length, 6);
+    }
+    assert.deepEqual(validateBalance(bal), []);
+  });
+  test('Tiền nhà: theo công thức, hoặc số tự đặt từng ngày', () => {
+    const eco = { rentBase: 400, rentPerDay: 150, rentByDay: [] };
+    assert.deepEqual([1, 2, 3].map((d) => rentFor(d, eco)), [400, 550, 700]);
+    eco.rentByDay = [300, null, 500];
+    assert.deepEqual([1, 2, 3, 4].map((d) => rentFor(d, eco)), [300, 550, 500, 850]);
+  });
+  test('Thay số lúc chạy (bot thử trong editor) sửa thẳng vào số game đang dùng, rồi trả lại được', () => {
+    const keep = JSON.parse(JSON.stringify({ economy: ECONOMY, order: ORDER, energy: ENERGY }));
+    try {
+      applyBalance({ economy: { rentBase: 123 }, order: { pingGap: [1, 2] }, energy: { mental: { base: 0.5 } } });
+      assert.equal(ECONOMY.rentBase, 123);
+      assert.deepEqual(ORDER.pingGap, [1, 2]);
+      assert.equal(ENERGY.mental.base, 0.5);
+      assert.equal(ENERGY.mental.jam, keep.energy.mental.jam, 'số không đổi phải giữ nguyên');
+      assert.equal(new GameState({}).rent, 123);
+    } finally { applyBalance(keep); }
+    assert.equal(ECONOMY.rentBase, keep.economy.rentBase);
+  });
+  test('Bộ kiểm tra bắt số cân bằng hỏng', () => {
+    const bad = JSON.parse(JSON.stringify(bal));
+    bad.economy.rentBase = -5;
+    bad.order.pingGap = [9, 3];
+    bad.order.noAnswerChance = 2;
+    bad.economy.rentByDay = [400, -1];
+    bad.order.liftMin = 'ba';
+    const f = validateBalance(bad).filter((i) => i.level === 'error').map((i) => i.field);
+    for (const k of ['economy.rentBase', 'order.pingGap', 'order.noAnswerChance', 'economy.rentByDay', 'order.liftMin']) assert.ok(f.includes(k), `không bắt lỗi ${k}`);
+  });
+}
+
 console.log('Mở tiệm / món theo ngày');
 {
   const { playRun } = await import('./economy-sim.js');

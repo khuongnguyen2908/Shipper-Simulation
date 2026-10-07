@@ -3,7 +3,7 @@
 // Tiền, điểm đánh giá, thể lực, tinh thần, xăng, đồ đã mua, cờ nhiệm vụ,
 // điều kiện thắng/thua.
 // =============================================================
-import { ECONOMY, RATING, ENERGY, VEHICLES, BAGS, TIME, WALLET_QUEST } from '../data/balance.js';
+import { ECONOMY, RATING, ENERGY, VEHICLES, BAGS, TIME, WALLET_QUEST, rentFor } from '../data/balance.js';
 import { APP } from '../data/apps.js';
 import { GOODS, EFFECTS, OUTFIT_SLOTS, freeOutfit } from '../data/goods.js';
 import { isOpen } from './placeRules.js';
@@ -37,7 +37,7 @@ export class GameState {
     };
     this.phys = 100;
     this.mental = 100;
-    this.rent = ECONOMY.rentBase + ECONOMY.rentPerDay * (day - 1);
+    this.rent = rentFor(day);
     this.rentPaid = false;
     this.stats = { completed: 0, refused: 0, cancelled: 0, driverCancels: 0, bom: 0, stars: [], income: {}, expense: {}, distanceKm: 0, crashes: 0, fines: 0 };
     // Tài khoản tài xế (giữ qua các ngày): số đơn được mời / đã nhận, các lần mời gần đây (1 nhận · 0 bỏ),

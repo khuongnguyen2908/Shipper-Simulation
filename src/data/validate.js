@@ -10,6 +10,7 @@ import { EFFECTS, CONSUMABLE_FIELDS, OUTFIT_SLOTS } from './goods.js';
 import { ORDER_KINDS } from './apps.js';
 import { GENDERS, HAIR_STYLES } from '../sim/people.js';
 import { openDayOf } from '../sim/placeRules.js';
+import { BALANCE_GROUPS, KNOWN_PATHS, getPath } from './balanceSpec.js';
 
 const MAX_OPEN_DAY = 60;
 // "Mở từ ngày" / "Có đơn từ ngày": số nguyên 1–60, bỏ trống = ngày 1
@@ -467,8 +468,43 @@ export function validateMap(map, placesData = null) {
   return out;
 }
 
-export function validateAll({ items, gear, goods, places, content, baseContent, apps = null, map = undefined }) {
+// Cân bằng (balance.json): mọi ô đúng phạm vi; tiền nhà tự đặt từng ngày phải > 0
+export function validateBalance(b) {
+  const out = [];
+  const add = (level, field, msg) => out.push({ level, tab: 'balance', ref: '', field, msg });
+  const show = (v, o) => +(v * (o.scale || 1)).toFixed(2);
+  for (const g of BALANCE_GROUPS) {
+    for (const [path, label, o] of g.fields) {
+      const v = getPath(b, path);
+      const bad = (x) => !num(x) || x < o.min || x > o.max;
+      if (o.pair) {
+        if (!Array.isArray(v) || v.length !== 2 || v.some(bad)) add('error', path, `${label}: 2 số từ ${show(o.min, o)} đến ${show(o.max, o)}.`);
+        else if (v[0] > v[1]) add('error', path, `${label}: số đầu phải ≤ số sau.`);
+      } else if (bad(v)) add('error', path, `${label}: phải là số từ ${show(o.min, o)} đến ${show(o.max, o)}.`);
+    }
+    if (g.stars) {
+      const v = getPath(b, g.stars[0]);
+      if (!Array.isArray(v) || v.length !== 6 || v.slice(1).some((x) => !num(x) || x < -100 || x > 100)) add('error', g.stars[0], `${g.stars[1]}: 5 số từ −100 đến 100.`);
+    }
+  }
+  const rb = b.economy?.rentByDay;
+  if (rb != null && (!Array.isArray(rb) || rb.some((x) => x != null && (!num(x) || x <= 0 || x > 100000)))) add('error', 'economy.rentByDay', 'Tiền nhà tự đặt: số > 0 (bỏ trống = theo công thức).');
+  // mục Nâng cao: mọi giá trị lá phải là số (hoặc danh sách số)
+  const walk = (o, pre) => {
+    for (const [k, v] of Object.entries(o || {})) {
+      const path = pre ? `${pre}.${k}` : k;
+      if (KNOWN_PATHS.has(path)) continue;
+      if (v && typeof v === 'object' && !Array.isArray(v)) walk(v, path);
+      else if (Array.isArray(v) ? v.some((x) => !num(x)) : !num(v)) add('error', path, `${path}: phải là số.`);
+    }
+  };
+  walk(b, '');
+  return out;
+}
+
+export function validateAll({ items, gear, goods, places, content, baseContent, apps = null, map = undefined, balance = null }) {
   return [
+    ...(balance ? validateBalance(balance) : []),
     ...validateItems(items, places, apps),
     ...(apps ? validateApps(apps, items, places) : []),
     ...(map ? validateMap(map, places) : []),
