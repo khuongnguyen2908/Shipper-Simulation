@@ -147,6 +147,24 @@ function mkOM(seed = 1, gsOpts = {}) {
   const om = new OrderManager({ rng: makeRng(seed), layout, gs });
   return { gs, om };
 }
+test('Giao chung cư: tầng giao nằm trong số tầng chung cư (đặt trong editor)', () => {
+  const apt = layout.placeById.apartment, old = apt.floors;
+  try {
+    for (const [fl, lo, hi] of [[12, 3, 11], [5, 3, 4], [3, 2, 2]]) {
+      apt.floors = fl;
+      const om = new OrderManager({ rng: makeRng(fl), layout, gs: new GameState() });
+      const seen = [];
+      for (let i = 0; i < 600; i++) {
+        const d = om.pickDropoff({ x: 0, z: 0 });
+        if (d.apartment) seen.push(d.floor);
+      }
+      assert.ok(seen.length > 20, 'có đơn chung cư');
+      assert.ok(seen.every((f) => f >= lo && f <= hi), fl + ' tầng → ' + Math.min(...seen) + '–' + Math.max(...seen));
+    }
+  } finally {
+    apt.floors = old;
+  }
+});
 test('Chuyển trạng thái sai thì báo lỗi', () => {
   const { om } = mkOM();
   assert.throws(() => om.go(S.DELIVERING));

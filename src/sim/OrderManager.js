@@ -314,7 +314,9 @@ export class OrderManager {
     }
     const apt = this.layout.placeById.apartment;
     if (allowApartment && this.rng.chance(ORDER.apartmentChance)) {
-      return { name: apt.name, address: fmt('addr.apartment', { name: apt.name, address: apt.address }), door: apt.door, apartment: true, floor: this.rng.int(3, 11) };
+      // tầng giao theo số tầng chung cư đặt trong ?editor (tầng 2 → tầng áp chót; 12 tầng → 3–11 như cũ)
+      const top = Math.max(2, (apt.floors || 12) - 1);
+      return { name: apt.name, address: fmt('addr.apartment', { name: apt.name, address: apt.address }), door: apt.door, apartment: true, floor: this.rng.int(Math.min(3, top), top) };
     }
     const l = this.pickLotAround(from, ...ORDER.dropDist);
     return { name: l.address, address: l.address, door: forRide ? rideDoor(l) : l.door, apartment: false, lotKey: l.key };
