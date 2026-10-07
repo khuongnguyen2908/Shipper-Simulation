@@ -1,7 +1,7 @@
 // Thẻ ⚖️ CÂN BẰNG (balance.json): tiền & ngày (tiền nhà theo ngày), chi phí, thể lực/tinh thần, đơn hàng,
 // nhiệm vụ ví, mục Nâng cao (mọi số còn lại) + nút "Chạy thử bot" chạy ngầm bằng số đang sửa.
 import SimWorker from './simWorker.js?worker&inline';
-import { BALANCE_GROUPS, RENT_DAYS, KNOWN_PATHS, getPath, setPath } from '../../data/balanceSpec.js';
+import { BALANCE_GROUPS, RENT_PERIODS, KNOWN_PATHS, getPath, setPath } from '../../data/balanceSpec.js';
 import { rentFor } from '../../data/balance.js';
 import { el, field, numInput, button, sideList, explain, selectInput } from './ui.js';
 import { EXPLAIN } from './help.js';
@@ -24,14 +24,14 @@ const ADV_HINT = {
 };
 
 // ---------- trạng thái bot (giữ qua các lần vẽ lại) ----------
-const LAST_KEY = 'shipper-editor-sim-last';
+const LAST_KEY = 'shipper-editor-sim-last-v2'; // v2: bot chơi liên tục 24h
 const readLS = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } };
 const writeLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* chế độ riêng tư */ } };
-const sim = { worker: null, progress: null, error: null, last: readLS(LAST_KEY), prev: null, runs: 60, days: 5, redraw: null };
+const sim = { worker: null, progress: null, error: null, last: readLS(LAST_KEY), prev: null, runs: 30, days: 9, redraw: null };
 
 // Mục (trong danh sách bên trái) chứa ô có đường dẫn này — dùng khi bấm vào lỗi ở danh sách vấn đề
 export function sectionOf(path) {
-  return BALANCE_GROUPS.find((g) => g.fields.some((f) => f[0] === path) || g.stars?.[0] === path)?.id || (path === 'economy.rentByDay' ? 'money' : 'advanced');
+  return BALANCE_GROUPS.find((g) => g.fields.some((f) => f[0] === path) || g.stars?.[0] === path)?.id || (path === 'economy.rentByPeriod' ? 'money' : 'advanced');
 }
 
 export function render(root, ctx) {
@@ -91,34 +91,36 @@ export function render(root, ctx) {
       numInput(arr[n], (x) => { arr[n] = x; changed(); }, { step: 1, min: -100, max: 100 })))), opt(path, { hint, wide: true }));
   }
 
-  // Bảng tiền nhà 10 ngày: theo công thức hoặc tự đặt từng ngày
+  // Bảng tiền nhà 8 kỳ: theo công thức hoặc tự đặt từng kỳ
   function rentTable() {
     const eco = b.economy;
+    const every = Math.max(1, eco.rentEveryDays || 1);
+    const hh = `${String(Math.floor(eco.rentDueHour)).padStart(2, '0')}:${eco.rentDueHour % 1 ? '30' : '00'}`;
     const rows = [];
-    for (let d = 1; d <= RENT_DAYS; d++) {
-      const formula = eco.rentBase + eco.rentPerDay * (d - 1);
-      const own = Array.isArray(eco.rentByDay) ? eco.rentByDay[d - 1] : null;
-      const used = el('b', {}, `${rentFor(d, eco)}k`);
+    for (let k = 1; k <= RENT_PERIODS; k++) {
+      const formula = eco.rentBase + eco.rentStep * (k - 1);
+      const own = Array.isArray(eco.rentByPeriod) ? eco.rentByPeriod[k - 1] : null;
+      const used = el('b', {}, `${rentFor(k, eco)}k`);
       rows.push(el('tr', {},
-        el('td', {}, `Ngày ${d}`),
+        el('td', {}, `Kỳ ${k}`, el('small', { class: 'muted' }, ` · ngày ${(k - 1) * every + 1}–${k * every}, hạn ${hh} ngày ${k * every}`)),
         el('td', {}, `${formula}k`),
         el('td', {}, numInput(own ?? '', (x) => {
-          const list = Array.isArray(eco.rentByDay) ? [...eco.rentByDay] : [];
-          while (list.length < d) list.push(null);
-          list[d - 1] = Number.isFinite(x) && x > 0 ? x : null;
+          const list = Array.isArray(eco.rentByPeriod) ? [...eco.rentByPeriod] : [];
+          while (list.length < k) list.push(null);
+          list[k - 1] = Number.isFinite(x) && x > 0 ? x : null;
           while (list.length && list[list.length - 1] == null) list.pop(); // bỏ ô trống ở cuối cho gọn
-          eco.rentByDay = list;
-          used.textContent = `${rentFor(d, eco)}k`;
+          eco.rentByPeriod = list;
+          used.textContent = `${rentFor(k, eco)}k`;
           changed();
         }, { step: 10, min: 0 })),
         el('td', {}, used)));
     }
     return el('div', {},
-      el('h3', {}, 'Tiền nhà từng ngày'),
-      el('p', { class: 'muted' }, 'Ô "Tự đặt" bỏ trống = theo công thức (tiền ngày 1 + tăng mỗi ngày). Sau ngày 10 luôn theo công thức.'),
+      el('h3', {}, 'Tiền nhà từng kỳ'),
+      el('p', { class: 'muted' }, `Mỗi kỳ ${every} ngày. Ô "Tự đặt" bỏ trống = theo công thức (tiền kỳ 1 + tăng mỗi kỳ). Sau kỳ ${RENT_PERIODS} luôn theo công thức. Trễ hạn: nợ + phạt dồn sang kỳ sau.`),
       field('', el('table', { class: 'cmp rent' },
-        el('thead', {}, el('tr', {}, el('th', {}, 'Ngày'), el('th', {}, 'Theo công thức'), el('th', {}, 'Tự đặt (k)'), el('th', {}, 'Tiền nhà dùng'))),
-        el('tbody', {}, rows)), opt('economy.rentByDay', { wide: true })));
+        el('thead', {}, el('tr', {}, el('th', {}, 'Kỳ'), el('th', {}, 'Theo công thức'), el('th', {}, 'Tự đặt (k)'), el('th', {}, 'Tiền nhà dùng'))),
+        el('tbody', {}, rows)), opt('economy.rentByPeriod', { wide: true })));
   }
 
   // ---------- Nâng cao: mọi số chưa có ô riêng ----------
@@ -152,7 +154,7 @@ export function render(root, ctx) {
     const box = el('div', {});
     body.append(
       el('div', { class: 'body-head' }, el('h2', {}, '🤖 Chạy thử bot')),
-      el('p', { class: 'muted' }, 'Bot chơi nối từ ngày 1: thắng thì mang tiền, đồ sang ngày sau; thua là dừng. Dùng số Cân bằng ĐANG SỬA (chưa lưu cũng được); các thẻ khác theo bản đã lưu. Bot chưa biết dùng hoạt động/đồ dùng nên số chỉ là ước lượng. 60 lượt dao động khoảng ±7%.'),
+      el('p', { class: 'muted' }, 'Bot chơi liên tục 24h từ ngày 1: nhận đơn khi app mở, trả tiền nhà theo kỳ, ngủ khi app nghỉ / thức quá lâu, ăn uống khi mệt. Thua = bị đuổi (trễ tiền nhà) hoặc bị khóa tài khoản. Dùng số Cân bằng ĐANG SỬA (chưa lưu cũng được); các thẻ khác theo bản đã lưu. Bot chưa biết dùng hoạt động/đồ dùng nên số chỉ là ước lượng; 30 lượt dao động khoảng ±10%.'),
       box,
     );
     sim.redraw = () => { if (box.isConnected) drawSim(box); };
@@ -163,8 +165,8 @@ export function render(root, ctx) {
     box.innerHTML = '';
     const running = !!sim.worker;
     box.append(el('div', { class: 'pv-ctrl' },
-      el('label', {}, 'Số lượt mỗi kiểu chơi ', selectInput(sim.runs, [[30, '30 (nhanh)'], [60, '60'], [150, '150 (chính xác hơn)']], (v) => { sim.runs = +v; })),
-      el('label', {}, 'Số ngày ', selectInput(sim.days, [[3, '3'], [5, '5'], [7, '7']], (v) => { sim.days = +v; })),
+      el('label', {}, 'Số lượt mỗi kiểu chơi ', selectInput(sim.runs, [[15, '15 (nhanh)'], [30, '30'], [60, '60 (chính xác hơn)']], (v) => { sim.runs = +v; })),
+      el('label', {}, 'Số ngày ', selectInput(sim.days, [[6, '6'], [9, '9'], [12, '12']], (v) => { sim.days = +v; })),
       running ? button('■ Dừng', stopSim, 'danger') : button('▶ Chạy thử bot', startSim, 'primary'),
     ));
     if (running && sim.progress) {
@@ -180,7 +182,7 @@ export function render(root, ctx) {
     sim.error = null;
     sim.progress = { done: 0, total: 1 };
     const w = (sim.worker = new SimWorker());
-    const rents = Array.from({ length: sim.days }, (_, i) => rentFor(i + 1, b.economy));
+    const rents = Array.from({ length: 12 }, (_, i) => rentFor(i + 1, b.economy)); // tiền nhà từng kỳ (để hiện ở đầu cột)
     w.onmessage = (e) => {
       const m = e.data;
       if (m.type === 'progress') sim.progress = m;
@@ -208,29 +210,31 @@ export function render(root, ctx) {
   }
 }
 
-// Bảng kết quả: mỗi kiểu chơi × mỗi ngày: % thắng (trong số lượt chơi tới được ngày đó), so với lần chạy trước
+// Bảng kết quả: mỗi kiểu chơi × mỗi hạn tiền nhà: % lượt chơi còn trụ (chưa thua) qua ngày đó, so với lần chạy trước
 function resultTable(r, prev) {
-  const days = r.days;
-  const head = el('tr', {}, el('th', {}, 'Kiểu chơi'), Array.from({ length: days }, (_, i) => el('th', {}, `Ngày ${i + 1}`, el('small', {}, ` · ${r.rents?.[i] ?? '?'}k`))), el('th', {}, 'Qua hết'));
-  const rows = Object.entries(r.result).map(([strat, x]) => {
+  const strats = Object.entries(r.result);
+  if (!strats.length) return el('div', {});
+  const cps = strats[0][1].checkpoints;
+  const every = strats[0][1].every || 3;
+  const head = el('tr', {}, el('th', {}, 'Kiểu chơi'),
+    cps.map((c) => el('th', {}, `Qua ngày ${c.day}`, el('small', {}, c.day % every === 0 ? ` · kỳ ${c.day / every}: ${r.rents?.[c.day / every - 1] ?? '?'}k` : ''))),
+    el('th', {}, 'Đơn/ngày'), el('th', {}, 'Tiền cuối'), el('th', {}, 'Ngất · trễ'), el('th', {}, 'Thua vì'));
+  const rows = strats.map(([strat, x]) => {
     const p = prev?.result?.[strat];
-    const cells = [];
-    for (let d = 1; d <= days; d++) {
-      if (!x.reach[d]) { cells.push(el('td', { class: 'muted' }, '—')); continue; }
-      const v = Math.round((x.win[d] / x.reach[d]) * 100);
-      const pv = p && p.reach[d] ? Math.round((p.win[d] / p.reach[d]) * 100) : null;
-      const diff = pv == null ? null : v - pv;
-      cells.push(el('td', { class: `sim-cell ${v >= 70 ? 'easy' : v >= 35 ? 'mid' : 'hard'}` },
-        el('b', {}, `${v}%`),
-        diff ? el('small', { class: diff > 0 ? 'up' : 'down' }, ` ${diff > 0 ? '+' : ''}${diff}`) : null,
-        el('div', { class: 'muted' }, `${(x.orders[d] / x.reach[d]).toFixed(1)} đơn · ${x.reach[d]} lượt`)));
-    }
-    const survive = Math.round((x.win[days] / r.runs) * 100);
-    return el('tr', {}, el('td', {}, STRAT_LABEL[strat] || strat), cells, el('td', {}, el('b', {}, `${survive}%`)));
+    const cells = x.checkpoints.map((c, i) => {
+      const pv = p?.checkpoints?.[i]?.day === c.day ? p.checkpoints[i].pct : null;
+      const diff = pv == null ? null : c.pct - pv;
+      return el('td', { class: `sim-cell ${c.pct >= 70 ? 'easy' : c.pct >= 35 ? 'mid' : 'hard'}` },
+        el('b', {}, `${c.pct}%`), diff ? el('small', { class: diff > 0 ? 'up' : 'down' }, ` ${diff > 0 ? '+' : ''}${diff}`) : null);
+    });
+    return el('tr', {}, el('td', {}, STRAT_LABEL[strat] || strat), cells,
+      el('td', {}, x.ordersPerDay.toFixed(1)), el('td', {}, `${Math.round(x.endMoney)}k`),
+      el('td', {}, `${x.faints.toFixed(1)} · ${x.lates.toFixed(1)}`),
+      el('td', { class: 'muted' }, x.topReason ? `${x.topReason[0]}… (${x.topReason[1]})` : '—'));
   });
   return el('div', {},
-    el('h3', {}, `Kết quả: ${r.runs} lượt × ${days} ngày`),
-    el('small', { class: 'muted' }, `Chạy lúc ${new Date(r.at).toLocaleTimeString('vi-VN')}. % thắng tính trong số lượt chơi tới được ngày đó. Số nhỏ xanh/đỏ = so với lần chạy trước. "Qua hết" = % lượt thắng đủ ${days} ngày.`),
+    el('h3', {}, `Kết quả: ${r.runs} lượt × ${r.days} ngày`),
+    el('small', { class: 'muted' }, `Chạy lúc ${new Date(r.at).toLocaleTimeString('vi-VN')}. % = số lượt chơi còn trụ (chưa bị đuổi / khóa tài khoản) qua hết ngày đó. Số nhỏ xanh/đỏ = so với lần chạy trước. "Ngất · trễ" = trung bình mỗi lượt.`),
     el('table', { class: 'cmp sim-table' }, el('thead', {}, head), el('tbody', {}, rows)),
     el('small', { class: 'muted' }, 'Màu: xanh ≥ 70% (dễ) · vàng 35–69% · đỏ < 35% (khó).'),
   );

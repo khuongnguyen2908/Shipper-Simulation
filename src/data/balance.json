@@ -4,13 +4,18 @@
     "fuelPrice": 23,
     "refuseBelow": 25,
     "scaredFarePct": 0.5,
-    "rentBase": 400,
-    "rentPerDay": 50,
+    "rentBase": 1000,
+    "rentStep": 200,
+    "rentEveryDays": 3,
+    "rentDueHour": 22,
+    "lateFeePct": 0.2,
+    "maxLate": 2,
     "policeFine": 150,
     "repairCost": 40,
     "parkingFee": 5,
     "speedLimit": 11,
-    "rentByDay": []
+    "rentByPeriod": [],
+    "faintFee": 100
   },
   "energy": {
     "phys": {
@@ -55,10 +60,18 @@
       "phys": 5,
       "mental": 30
     },
-    "nap": {
-      "minutes": 45,
-      "phys": 20,
-      "mental": 15
+    "sleep": {
+      "physPerHour": 12,
+      "mentalPerHour": 10,
+      "tiredAfterH": 16,
+      "veryTiredAfterH": 22,
+      "tiredMul": 2,
+      "veryTiredMul": 3
+    },
+    "collapse": {
+      "hours": 6,
+      "phys": 40,
+      "mental": 40
     }
   },
   "order": {

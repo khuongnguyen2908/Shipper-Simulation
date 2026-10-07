@@ -15,7 +15,7 @@ src/
              apps.json + apps.js (app giao hàng: phí, thuế, phụ phí, luật tài khoản · loại đơn · loại khách xe ôm)
              map.json + map.js (cỡ bản đồ, kiểu hẻm từng khối, sông + cầu; mặt bằng hẻm ở sim/blockPlan.js, đường đi ở cityLayout.routeDist)
   content/   vi.json — MỌI chữ hiển thị; code gọi fmt(khóa, tham số) / pick / list
-  sim/       mô phỏng thuần (không Three.js, không DOM): OrderManager (máy trạng thái), ItemPhysics,
+  sim/       mô phỏng thuần (không Three.js, không DOM): clock (đồng hồ 24h liên tục), OrderManager (máy trạng thái), ItemPhysics,
              OrderCondition, economy, hazards, GameState, objectives, cityLayout, rng
   world/     Three.js: city, controllers (xe, đi bộ, camera), traffic, sky, models, textures, physics
   ui/        hud, phone (app GoShip), modal, packing (xếp túi), minimap, screens
@@ -37,7 +37,7 @@ Nguyên tắc:
 
 ## 4. Kiểm thử (bắt buộc trước mỗi lần giao)
 - `npm test`: luật vật phẩm, chấm sao, công thức tiền, máy trạng thái đơn, thắng/thua, bản đồ, dữ liệu JSON hợp lệ, mọi khóa chữ code dùng đều có trong vi.json.
-- `npm run sim`: bot chơi nhiều seed với nhiều chiến thuật; thay đổi ảnh hưởng kinh tế/cân bằng phải đo bằng bảng này (trước/sau). `npm run sim -- 300 --days 7`: chơi nối nhiều ngày (dùng khi đổi tiền nhà theo ngày, mở tiệm theo ngày).
+- `npm run sim`: bot chơi liên tục 24h nhiều ngày (ngủ, trả tiền nhà theo kỳ) với nhiều chiến thuật; thay đổi ảnh hưởng kinh tế/cân bằng phải đo bằng bảng này (trước/sau). `npm run sim -- 50 --days 12`: tự chọn số lượt / số ngày.
 - Thay đổi nhìn thấy được thì kiểm tra trong trình duyệt (dùng `?debug` + `game.step()` khi tab bị ẩn).
 - `npm run build` = bộ thử + build.
 

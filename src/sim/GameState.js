@@ -1,9 +1,10 @@
 // =============================================================
 // TRẠNG THÁI NGƯỜI CHƠI (thuần dữ liệu, chạy được trong Node)
 // Tiền, điểm đánh giá, thể lực, tinh thần, xăng, đồ đã mua, cờ nhiệm vụ,
-// điều kiện thắng/thua.
+// tiền nhà theo kỳ, ngủ / thức, kiệt sức, điều kiện thua (game chơi tự do 24h — không có "thắng").
 // =============================================================
-import { ECONOMY, RATING, ENERGY, VEHICLES, BAGS, TIME, WALLET_QUEST, rentFor } from '../data/balance.js';
+import { ECONOMY, RATING, ENERGY, VEHICLES, BAGS, WALLET_QUEST, rentFor, periodOfDay, dueDayOf } from '../data/balance.js';
+import { dayStartAt, atHour } from './clock.js';
 import { APP } from '../data/apps.js';
 import { GOODS, EFFECTS, OUTFIT_SLOTS, freeOutfit } from '../data/goods.js';
 import { isOpen } from './placeRules.js';
@@ -11,6 +12,9 @@ import { RatingBook } from './economy.js';
 import { fmt } from '../content/index.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const freshStats = () => ({ completed: 0, refused: 0, cancelled: 0, driverCancels: 0, bom: 0, stars: [], income: {}, expense: {}, distanceKm: 0, crashes: 0, fines: 0 });
+// Kỳ tiền nhà mới: tiền kỳ này + nợ kỳ trước (đã cộng phạt)
+const newRent = (period, debt, late) => ({ period, amount: rentFor(period), debt, paid: false, late });
 
 export class GameState {
   constructor({ day = 1, carry = null } = {}) {
@@ -35,11 +39,13 @@ export class GameState {
       wallet: 0, // 0 chưa có · 1 nhặt được ví · 2 biết tạp hóa ở đâu · 3 biết cổng xanh · 4 biết Minh ở quán cà phê · 5 đã trả · -1 giữ tiền
       ...(c.flags || {}),
     };
-    this.phys = 100;
-    this.mental = 100;
-    this.rent = rentFor(day);
-    this.rentPaid = false;
-    this.stats = { completed: 0, refused: 0, cancelled: 0, driverCancels: 0, bom: 0, stars: [], income: {}, expense: {}, distanceKm: 0, crashes: 0, fines: 0 };
+    this.phys = c.phys ?? 100;
+    this.mental = c.mental ?? 100;
+    this.awakeSince = c.awakeSince ?? dayStartAt(day); // thức dậy lúc nào (thức quá lâu → mệt nhanh)
+    // tiền nhà theo kỳ: { period, amount, debt (nợ kỳ trước + phạt), paid, late (số lần trễ liên tiếp) }
+    this.rentState = c.rentState ? { ...c.rentState } : newRent(periodOfDay(day), 0, 0);
+    this.stats = freshStats();
+    this.events = []; // sự kiện cho giao diện: trễ tiền nhà, sang kỳ mới, bị đuổi
     // Tài khoản tài xế (giữ qua các ngày): số đơn được mời / đã nhận, các lần mời gần đây (1 nhận · 0 bỏ),
     // tổng đơn hoàn thành, số chuyến xe ôm, số lần tự hủy, số đơn bị bom
     this.account = { offers: 0, accepted: 0, recent: [], completed: 0, rides: 0, driverCancels: 0, bom: 0, ...(c.account || {}) };
@@ -65,6 +71,19 @@ export class GameState {
 
   get rating() {
     return this.ratingBook.value;
+  }
+  // Tiền nhà phải trả kỳ này (gồm nợ + phạt kỳ trước) · đã trả chưa · hạn trả
+  get rent() {
+    return this.rentState.amount + this.rentState.debt;
+  }
+  get rentPaid() {
+    return this.rentState.paid;
+  }
+  get rentDueDay() {
+    return dueDayOf(this.rentState.period);
+  }
+  rentDueAt() {
+    return atHour(this.rentDueDay, ECONOMY.rentDueHour ?? 22);
   }
   // (dữ liệu có thể bị xóa trong ?editor → rơi về đồ khởi đầu)
   get vehicleSpec() {
@@ -150,8 +169,15 @@ export class GameState {
   }
 
   // Tiêu hao theo hoạt động mỗi dt phút game
-  // activity: 'idle' | 'walk' | 'run' | 'drive' | 'push'
+  // activity: 'idle' | 'walk' | 'run' | 'drive' | 'push' · 'sleep' (ngủ: hồi lại) · 'rest' (nằm bắt buộc khi kiệt sức: không đổi)
+  // env.now (phút tuyệt đối): để tính thức quá lâu
   drain(activity, dt, env) {
+    if (activity === 'sleep') {
+      const S = ENERGY.sleep;
+      this.addEnergy((S.physPerHour / 60) * dt, (S.mentalPerHour / 60) * dt);
+      return;
+    }
+    if (activity === 'rest') return;
     const P = ENERGY.phys, M = ENERGY.mental;
     let p = P[activity] ?? P.idle;
     let m = M.base;
@@ -164,7 +190,50 @@ export class GameState {
     if (env.waiting) m += M.wait;
     p *= Math.max(0, 1 + this.effect('physDrainPct') / 100);
     m *= Math.max(0, 1 + this.effect('mentalDrainPct') / 100);
-    this.addEnergy(-p * dt, -m * dt);
+    const tired = this.tiredMul(env.now);
+    this.addEnergy(-p * dt * tired, -m * dt * tired);
+  }
+
+  // ---------- ngủ / thức ----------
+  // Số giờ đã thức
+  awakeHours(now) {
+    return now == null ? 0 : Math.max(0, (now - this.awakeSince) / 60);
+  }
+  // Thức quá lâu → hao nhanh hơn (1 · tiredMul · veryTiredMul)
+  tiredMul(now) {
+    const S = ENERGY.sleep, h = this.awakeHours(now);
+    return h > S.veryTiredAfterH ? S.veryTiredMul : h > S.tiredAfterH ? S.tiredMul : 1;
+  }
+  // 0 tỉnh táo · 1 buồn ngủ · 2 rất buồn ngủ (để hiện trên màn hình)
+  tiredLevel(now) {
+    const S = ENERGY.sleep, h = this.awakeHours(now);
+    return h > S.veryTiredAfterH ? 2 : h > S.tiredAfterH ? 1 : 0;
+  }
+  wake(now) {
+    this.awakeSince = now;
+  }
+  // Kiệt sức: 'faint' (thể lực về 0) · 'burnout' (tinh thần về 0) · null
+  get collapsed() {
+    return this.phys <= 0 ? 'faint' : this.mental <= 0 ? 'burnout' : null;
+  }
+  // Sau khi nằm nghỉ bắt buộc: trả tiền thuốc (ngất), hồi thanh về mức tối thiểu
+  recoverCollapse(kind) {
+    const C = ENERGY.collapse;
+    let fee = 0;
+    if (kind === 'faint') {
+      fee = Math.min(Math.max(0, this.money), ECONOMY.faintFee || 0);
+      if (fee) this.spend(fee, 'medical');
+    }
+    if (this.phys <= 0 || kind === 'faint') this.phys = Math.max(this.phys, C.phys);
+    if (this.mental <= 0 || kind === 'burnout') this.mental = Math.max(this.mental, C.mental);
+    return { fee, hours: C.hours };
+  }
+
+  // Sang ngày mới (06:00): làm mới số liệu theo ngày
+  startDay(day) {
+    this.day = day;
+    this.activityUses = {};
+    this.stats = freshStats();
   }
 
   // ---------- mua bán ----------
@@ -311,30 +380,61 @@ export class GameState {
     this.addEnergy(0, -35);
   }
 
-  // ---------- thắng / thua ----------
-  payRent(now) {
-    if (this.rentPaid) return { ok: false, msg: fmt('gs.rentAlreadyPaid') };
-    if (now >= TIME.dayEnd) return { ok: false, msg: fmt('gs.tooLate') };
-    if (!this.spend(this.rent, 'rent')) return { ok: false, msg: fmt('gs.rentShort', { k: Math.ceil(this.rent - this.money) }) };
-    this.rentPaid = true;
-    this.outcome = { type: 'win', reason: fmt('end.win', { rent: this.rent }) };
-    return { ok: true };
+  // ---------- tiền nhà theo kỳ / thua ----------
+  // Trả đủ tiền nhà kỳ này (trả sớm lúc nào cũng được)
+  payRent() {
+    if (this.rentPaid) return { ok: false, msg: fmt('gs.rentAlreadyPaid', { day: this.rentDueDay }) };
+    const owed = this.rent;
+    if (!this.spend(owed, 'rent')) return { ok: false, msg: fmt('gs.rentShort', { k: Math.ceil(owed - this.money) }) };
+    this.rentState = { ...this.rentState, paid: true, debt: 0, late: 0 };
+    return { ok: true, paid: owed };
   }
 
+  // Qua hạn trả: đã trả → sang kỳ mới; chưa trả → trễ (phạt, nợ dồn kỳ sau); trễ đủ maxLate lần liên tiếp → bị đuổi
+  tickRent(now) {
+    const out = [];
+    while (!this.outcome && now >= this.rentDueAt()) {
+      const r = this.rentState;
+      if (r.paid) {
+        this.rentState = newRent(r.period + 1, 0, 0);
+        out.push({ type: 'newPeriod', rent: this.rent, dueDay: this.rentDueDay });
+        continue;
+      }
+      const late = r.late + 1;
+      if (late >= (ECONOMY.maxLate ?? 2)) {
+        this.outcome = { type: 'lose', reason: fmt('end.evicted', { n: late }) };
+        out.push({ type: 'evicted', late });
+        break;
+      }
+      const owed = r.amount + r.debt;
+      const debt = Math.round(owed * (1 + (ECONOMY.lateFeePct ?? 0)));
+      this.rentState = newRent(r.period + 1, debt, late);
+      out.push({ type: 'late', owed, fine: debt - owed, rent: this.rent, dueDay: this.rentDueDay, late });
+    }
+    this.events.push(...out);
+    return out;
+  }
+  takeEvents() {
+    const e = this.events;
+    this.events = [];
+    return e;
+  }
+
+  // Thua chỉ khi bị đuổi khỏi phòng (trễ tiền nhà) hoặc bị khóa tài khoản (điểm thấp)
   checkEnd(now) {
     if (this.outcome) return this.outcome;
-    let reason = null;
-    if (this.phys <= 0) reason = fmt('end.faint');
-    else if (this.mental <= 0) reason = fmt('end.burnout');
-    else if (this.rating < APP.account.lockBelow) reason = fmt('end.locked', { rating: this.rating.toFixed(2), limit: Number(APP.account.lockBelow).toFixed(1) });
-    else if (now >= TIME.dayEnd && !this.rentPaid) reason = fmt('end.evicted');
-    if (reason) this.outcome = { type: 'lose', reason };
+    this.tickRent(now);
+    if (!this.outcome && this.rating < APP.account.lockBelow) this.outcome = { type: 'lose', reason: fmt('end.locked', { rating: this.rating.toFixed(2), limit: Number(APP.account.lockBelow).toFixed(1) }) };
     return this.outcome;
   }
 
-  // Lưu sang ngày sau (thể lực, tinh thần, cờ hướng dẫn được làm mới)
+  // Lưu game (tiền, đồ, điểm, tiền nhà, thể lực/tinh thần, giờ thức dậy, cờ nhiệm vụ)
   carryOver() {
     return {
+      phys: this.phys,
+      mental: this.mental,
+      awakeSince: this.awakeSince,
+      rentState: { ...this.rentState },
       money: this.money,
       rating: this.ratingBook.toJSON(),
       owned: this.owned,

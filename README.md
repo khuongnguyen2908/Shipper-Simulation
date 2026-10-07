@@ -1,6 +1,6 @@
 # 🛵 Shipper Simulation
 
-Game mô phỏng một ngày làm shipper ở Sài Gòn, góc nhìn thứ ba, Three.js / WebGL 2.
+Game mô phỏng cuộc sống shipper ở Sài Gòn (chơi tự do, đồng hồ 24h), góc nhìn thứ ba, Three.js / WebGL 2.
 
 ## Chạy
 
@@ -8,8 +8,8 @@ Game mô phỏng một ngày làm shipper ở Sài Gòn, góc nhìn thứ ba, Th
 npm install
 npm run dev        # chơi thử ở http://localhost:5173
 npm test           # bộ thử luật
-npm run sim        # bot mô phỏng kinh tế (ngày 1)
-npm run sim -- 300 --days 7   # bot chơi nối 7 ngày: tỉ lệ thắng từng ngày
+npm run sim        # bot chơi liên tục 9 ngày (100 lượt, ~2 phút): % còn trụ qua từng hạn tiền nhà
+npm run sim -- 50 --days 12   # tự chọn số lượt / số ngày
 npm run build      # thử + build ra MỘT file dist/index.html (bấm đúp là chơi)
 ```
 

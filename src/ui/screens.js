@@ -1,8 +1,8 @@
 // Màn hình toàn cảnh: tiêu đề, tạm dừng, kết thúc ngày. Chữ lấy từ kho chữ screen.*
 import { fmtK } from '../sim/economy.js';
-import { rentFor } from '../data/balance.js';
 import { APP } from '../data/apps.js';
 import { fmt } from '../content/index.js';
+import { ECONOMY } from '../data/balance.js';
 
 export class Screens {
   constructor(root) {
@@ -30,15 +30,15 @@ export class Screens {
     this.render(
       `<div class="logo">${fmt('screen.logo')}</div>
       <div class="sub">${fmt('screen.sub')}</div>
-      <p class="story">${fmt('screen.story')}</p>
+      <p class="story">${fmt('screen.story', { rent: ECONOMY.rentBase, every: ECONOMY.rentEveryDays, money: ECONOMY.startMoney })}</p>
       <div class="rules">
-        <div>${fmt('screen.ruleWin')}</div>
-        <div>${fmt('screen.ruleLose', { limit: Number(APP.account.lockBelow).toFixed(1) })}</div>
+        <div>${fmt('screen.ruleWin', { every: ECONOMY.rentEveryDays, hour: ECONOMY.rentDueHour })}</div>
+        <div>${fmt('screen.ruleLose', { limit: Number(APP.account.lockBelow).toFixed(1), late: ECONOMY.maxLate })}</div>
         <div>${fmt('screen.ruleItems')}</div>
       </div>
       <div class="keys">${fmt('screen.keys')}</div>
       ${webgl2 ? '' : `<div class="warn">${fmt('screen.noWebgl')}</div>`}
-      <div class="row">${save ? `<button class="btn big primary" data-act="continue">${fmt('screen.continue', { day: save.day })}</button>` : ''}<button class="btn big ${save ? '' : 'primary'}" data-act="new">${fmt('screen.newGame')}</button></div>`,
+      <div class="row">${save ? `<button class="btn big primary" data-act="continue">${fmt('screen.continue', { day: save.day, time: save.time })}</button>` : ''}<button class="btn big ${save ? '' : 'primary'}" data-act="new">${fmt('screen.newGame')}</button></div>`,
       (el) => {
         el.querySelector('[data-act="new"]').addEventListener('click', onNew);
         const c = el.querySelector('[data-act="continue"]');
@@ -63,8 +63,9 @@ export class Screens {
     );
   }
 
-  end({ outcome, gs, timeStr, onNext, onRetry, onTitle }) {
-    const win = outcome.type === 'win';
+  // Thua (bị đuổi / khóa tài khoản): chơi lại từ lần lưu gần nhất, chơi lại từ đầu, về màn hình chính
+  end({ outcome, gs, timeStr, save, onRetry, onNew, onTitle }) {
+    const win = false;
     const st = gs.stats;
     const avg = st.stars.length ? (st.stars.reduce((a, b) => a + b, 0) / st.stars.length).toFixed(2) : '—';
     const income = Object.values(st.income).reduce((a, b) => a + b, 0);
@@ -86,12 +87,11 @@ export class Screens {
         ${stat('screen.statCrash', `${st.crashes} / ${st.fines}`)}
         ${stat('screen.statWallet', wallet)}
       </div>
-      <div class="row">${win ? `<button class="btn big primary" data-a="next">${fmt('screen.nextDay', { day: gs.day + 1, rent: rentFor(gs.day + 1) })}</button>` : ''}
-      <button class="btn big ${win ? '' : 'primary'}" data-a="retry">${fmt('screen.retryDay', { day: gs.day })}</button><button class="btn big" data-a="title">${fmt('screen.mainMenu')}</button></div>`,
+      <div class="row">${save ? `<button class="btn big primary" data-a="retry">${fmt('screen.retrySave', save)}</button>` : ''}
+      <button class="btn big ${save ? '' : 'primary'}" data-a="new">${fmt('screen.newGame')}</button><button class="btn big" data-a="title">${fmt('screen.mainMenu')}</button></div>`,
       (el) => {
-        const n = el.querySelector('[data-a="next"]');
-        if (n) n.addEventListener('click', onNext);
-        el.querySelector('[data-a="retry"]').addEventListener('click', onRetry);
+        el.querySelector('[data-a="retry"]')?.addEventListener('click', onRetry);
+        el.querySelector('[data-a="new"]').addEventListener('click', onNew);
         el.querySelector('[data-a="title"]').addEventListener('click', onTitle);
       },
     );

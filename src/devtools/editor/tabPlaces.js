@@ -195,7 +195,7 @@ export function render(root, ctx) {
     },
   }), opt(fieldKey, { hint, wide: true }));
   body.append(el('h3', {}, 'Giờ mở cửa'), el('div', { class: 'grid' },
-    hoursRow(() => p.hours, () => p, 'hours', 'Giờ mở cửa (giờ)', 'Ngoài giờ: không vào được, không có đơn từ quán, không làm hoạt động. Ngày chơi 6h → 22h.'),
+    hoursRow(() => p.hours, () => p, 'hours', 'Giờ mở cửa (giờ)', 'Ngoài giờ: không vào được, không có đơn từ quán, không làm hoạt động. Đồng hồ chạy 24h; app nhận đơn 06:00–24:00 (thẻ 📱 App & Đơn).'),
     field('Mở từ ngày (khai trương)', openDayInput(p, changedP, { disabled: locked }), opt('openDay', { hint: locked ? 'Địa điểm gắn với cốt truyện → luôn mở từ ngày 1.' : HINT.place.openDay }))));
 
   // --- hoạt động ---
@@ -510,7 +510,9 @@ function renderStreets(body, ctx) {
 function renderSchedule(body, ctx) {
   const places = ctx.data.places.places;
   const items = Object.values(ctx.data.items).filter((it) => !(it.traits || []).includes('passenger'));
-  const last = Math.max(3, ...places.map(openDayOf), ...items.map(openDayOf));
+  const eco = ctx.data.balance.economy;
+  const every = Math.max(1, eco.rentEveryDays || 1);
+  const last = Math.max(every * 3, ...places.map(openDayOf), ...items.map(openDayOf));
   const link = (label, tab, id) => button(label, () => ctx.select(tab, { id }), 'small');
   const rows = [];
   for (let d = 1; d <= last; d++) {
@@ -523,7 +525,7 @@ function renderSchedule(body, ctx) {
       : arr.length ? el('div', { class: 'chips' }, arr.map((x) => link(`${x.icon || icon(x)} ${x.name}`, tab, x.id))) : el('small', { class: 'muted' }, '—'));
     rows.push(el('tr', {},
       el('td', {}, el('b', {}, `Ngày ${d}`)),
-      el('td', {}, `${rentFor(d, ctx.data.balance.economy)}k`),
+      el('td', {}, d % every === 0 ? `kỳ ${d / every}: ${rentFor(d / every, eco)}k (hạn ${eco.rentDueHour}h)` : el('small', { class: 'muted' }, '—')),
       el('td', {}, String(food)),
       el('td', {}, list(newPlaces, 'places', (x) => ICON[x.kind] || '📍')),
       el('td', {}, list(newItems, 'items', () => '🍽️')),
@@ -534,7 +536,7 @@ function renderSchedule(body, ctx) {
     el('p', { class: 'muted' }, 'Đặt "Mở từ ngày" ở từng địa điểm và "Có đơn từ ngày" ở từng món (thẻ Vật phẩm). Bấm tên để sửa. Địa điểm gắn cốt truyện luôn mở từ ngày 1.'),
     explain(EXPLAIN.schedule),
     el('table', { class: 'cmp schedule' },
-      el('thead', {}, el('tr', {}, el('th', {}, 'Ngày'), el('th', {}, 'Tiền nhà'), el('th', {}, 'Quán có đơn'), el('th', {}, 'Khai trương'), el('th', {}, 'Món mới trên app'))),
+      el('thead', {}, el('tr', {}, el('th', {}, 'Ngày'), el('th', {}, 'Hạn tiền nhà'), el('th', {}, 'Quán có đơn'), el('th', {}, 'Khai trương'), el('th', {}, 'Món mới trên app'))),
       el('tbody', {}, rows)),
   );
 }

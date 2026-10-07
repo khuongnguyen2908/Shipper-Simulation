@@ -17,7 +17,7 @@ export function objectives(gs) {
   list.push({ id: 'orders', text: fmt('obj.orders', { goal: ORDERS_GOAL, n: Math.min(gs.stats.completed, ORDERS_GOAL) }), done: gs.stats.completed >= ORDERS_GOAL });
   const w = walletObjective(gs);
   if (w) list.push(w);
-  list.push({ id: 'rent', text: fmt('obj.rent', { rent: gs.rent }), done: gs.rentPaid, target: 'home', final: true });
+  list.push({ id: 'rent', text: fmt(gs.rentPaid ? 'obj.rentPaid' : 'obj.rent', { rent: gs.rent, day: gs.rentDueDay }), done: gs.rentPaid, target: 'home', final: true });
   return list;
 }
 

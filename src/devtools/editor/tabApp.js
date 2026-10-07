@@ -78,6 +78,7 @@ export function render(root, ctx) {
       el('div', { class: 'grid' },
         field('Tên app', textInput(x.name, (v) => { x.name = v; changed(); }), opt('name')),
         num('platformFee', 'Phí nền tảng (%)', { ...pct, min: 0, max: 90, hint: H.platformFee }),
+        hoursRow('Giờ app nhận đơn', 'Ngoài giờ này app nghỉ, không phát đơn nào (người chơi về ngủ). Mặc định 06:00–24:00.'),
         num('taxRate', 'Thuế (%)', { ...pct, min: 0, max: 50, hint: H.taxRate }),
         num('distBonusPerKm', 'Thưởng mỗi km (k)', { step: 0.5, min: 0, hint: H.distBonusPerKm }),
         num('extraItemFare', 'Cước mỗi món thêm (k)', { step: 1, min: 0, hint: H.extraItemFare }),
@@ -137,7 +138,7 @@ export function render(root, ctx) {
           ctx.rerender();
         }), opt('kind', { hint: H.kind })),
         num('weight', 'Mức thường xuyên', { step: 0.1, min: 0, max: 20, hint: H.weight }),
-        hoursRow('Khung giờ có đơn', 'Ngày chơi 6h → 22h; app ngừng phát đơn lúc 21h.'),
+        hoursRow('Khung giờ có đơn', 'Ngoài khung này loại đơn này không xuất hiện. App chỉ phát đơn trong "Giờ app nhận đơn" (mục 📱 App).'),
         num('fareMult', 'Hệ số cước', { step: 0.1, min: 0.2, max: 5, hint: H.fareMult }),
         num('deadlineMult', 'Hệ số thời hạn', { step: 0.05, min: 0.2, max: 3, hint: H.deadlineMult }),
         field('Cần trang bị', selectInput(x.requires || '', [['', 'Không cần'], ...boolEffects.map(([k, d]) => [k, d.label])], (v) => { if (v) x.requires = v; else delete x.requires; changed(); }), opt('requires', { hint: H.requires })),

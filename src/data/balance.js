@@ -15,10 +15,9 @@ export function colorsToNumbers(o) {
   return r;
 }
 
+// Đồng hồ chạy liên tục 24h (xem sim/clock.js); giờ app nhận đơn: apps.json → apps.<app>.hours
 export const TIME = {
-  dayStart: 6 * 60,        // 06:00 bắt đầu ngày
-  dayEnd: 22 * 60,         // 22:00 hết ngày
-  lastOfferAt: 21 * 60,    // sau giờ này app không phát đơn mới
+  dayStart: 6 * 60,        // 06:00 sang ngày mới
   gameMinPerRealSec: 1,    // 1 giây thật = 1 phút trong game (1 ngày ≈ 16 phút chơi)
   sunHarsh: [11 * 60, 15 * 60], // nắng gắt
 };
@@ -43,6 +42,7 @@ export const HAZARD = {
   drizzleChance: 0.35, drizzleStart: [8 * 60, 10 * 60], drizzleLen: [25, 45],
   policeFirst: 8 * 60, policeGap: [80, 140], policeLen: [40, 60], policeReportChance: 0.7,
   rush: [[7 * 60, 8.5 * 60], [17 * 60, 18.75 * 60]], jamSegments: 5,
+  policeEnd: 23 * 60,      // chốt CSGT cuối cùng trong ngày bắt đầu trước giờ này
   jamSpeedCap: 3.2,
   potholes: 110,           // bản đồ 8×8 (mật độ như bản 5×5 cũ: 46 ổ gà)
   dogDartChance: 0.4,
@@ -56,11 +56,15 @@ export const ENERGY = balanceData.energy; // hao thể lực/tinh thần mỗi p
 export const ORDER = balanceData.order; // nhịp đơn, chờ quán, tỉ lệ sự cố
 export const WALLET_QUEST = balanceData.walletQuest; // nhiệm vụ chiếc ví
 
-// Tiền nhà ngày `day`: có số tự đặt trong rentByDay thì dùng, không thì = tiền ngày 1 + tăng mỗi ngày
-export function rentFor(day, eco = ECONOMY) {
-  const own = Array.isArray(eco.rentByDay) ? eco.rentByDay[day - 1] : null;
-  return Number.isFinite(own) && own > 0 ? own : eco.rentBase + eco.rentPerDay * (day - 1);
+// Tiền nhà trả theo KỲ (mỗi rentEveryDays ngày). Kỳ `period` (1, 2, 3…): có số tự đặt trong rentByPeriod thì dùng,
+// không thì = tiền kỳ 1 + tăng mỗi kỳ
+export function rentFor(period, eco = ECONOMY) {
+  const own = Array.isArray(eco.rentByPeriod) ? eco.rentByPeriod[period - 1] : null;
+  return Number.isFinite(own) && own > 0 ? own : eco.rentBase + eco.rentStep * (period - 1);
 }
+// Ngày `day` thuộc kỳ tiền nhà thứ mấy; hạn trả của kỳ là ngày cuối kỳ lúc rentDueHour giờ
+export const periodOfDay = (day, eco = ECONOMY) => Math.ceil(day / Math.max(1, eco.rentEveryDays || 1));
+export const dueDayOf = (period, eco = ECONOMY) => period * Math.max(1, eco.rentEveryDays || 1);
 
 // Thay số cân bằng ngay lúc chạy (bot thử trong editor dùng số đang sửa, chưa lưu).
 // Sửa thẳng vào các đối tượng đã xuất để mọi nơi đang dùng đều thấy số mới.

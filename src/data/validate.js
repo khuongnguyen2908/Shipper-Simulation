@@ -118,6 +118,7 @@ export function validateApps(ad, items = {}, placesData = null) {
     inRange(add, key, 'peakSurcharge', a.peakSurcharge, 0, 100, 'Phụ phí giờ cao điểm');
     if (!Array.isArray(a.tipByStars) || a.tipByStars.length !== 6 || a.tipByStars.some((v) => !num(v) || v < 0 || v > 500)) add('error', key, 'tipByStars', 'Tiền boa: đủ 1★ → 5★, mỗi mức 0–500k.');
     if (!Array.isArray(a.peakHours) || a.peakHours.some(badHours)) add('error', key, 'peakHours', 'Giờ cao điểm: mỗi khung là giờ bắt đầu < giờ kết thúc, trong 0–24.');
+    if (hoursProblem(a.hours, presets)) add('error', key, 'hours', `Giờ app nhận đơn: ${hoursProblem(a.hours, presets)}`);
     if (num(a.platformFee) && num(a.taxRate) && a.platformFee + a.taxRate > 0.6) add('warn', key, 'platformFee', 'Phí + thuế trên 60% cước — tài xế gần như không lời.');
     const acc = a.account || {};
     inRange(add, key, 'account.lockBelow', acc.lockBelow, 1, 5, 'Khóa tài khoản dưới');
@@ -497,8 +498,12 @@ export function validateBalance(b) {
       if (!Array.isArray(v) || v.length !== 6 || v.slice(1).some((x) => !num(x) || x < -100 || x > 100)) add('error', g.stars[0], `${g.stars[1]}: 5 số từ −100 đến 100.`);
     }
   }
-  const rb = b.economy?.rentByDay;
-  if (rb != null && (!Array.isArray(rb) || rb.some((x) => x != null && (!num(x) || x <= 0 || x > 100000)))) add('error', 'economy.rentByDay', 'Tiền nhà tự đặt: số > 0 (bỏ trống = theo công thức).');
+  const rb = b.economy?.rentByPeriod;
+  if (rb != null && (!Array.isArray(rb) || rb.some((x) => x != null && (!num(x) || x <= 0 || x > 1000000)))) add('error', 'economy.rentByPeriod', 'Tiền nhà tự đặt: số > 0 (bỏ trống = theo công thức).');
+  if (num(b.economy?.rentEveryDays) && !Number.isInteger(b.economy.rentEveryDays)) add('error', 'economy.rentEveryDays', 'Số ngày mỗi kỳ phải là số nguyên.');
+  if (num(b.economy?.maxLate) && !Number.isInteger(b.economy.maxLate)) add('error', 'economy.maxLate', 'Số lần trễ phải là số nguyên.');
+  const S = b.energy?.sleep;
+  if (S && num(S.tiredAfterH) && num(S.veryTiredAfterH) && S.veryTiredAfterH < S.tiredAfterH) add('warn', 'energy.sleep.veryTiredAfterH', 'Mốc "rất buồn ngủ" nên sau mốc "buồn ngủ".');
   // mục Nâng cao: mọi giá trị lá phải là số (hoặc danh sách số)
   const walk = (o, pre) => {
     for (const [k, v] of Object.entries(o || {})) {

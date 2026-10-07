@@ -1,16 +1,20 @@
 // =============================================================
-// MÔ PHỎNG KINH TẾ: bot chơi headless 1 ngày, nhiều seed, nhiều chiến thuật.
+// MÔ PHỎNG KINH TẾ: bot chơi headless LIÊN TỤC nhiều ngày (đồng hồ 24h), nhiều seed, nhiều chiến thuật.
 // Dùng ĐÚNG OrderManager, GameState, HazardManager, ItemPhysics của game;
 // chỉ phần lái xe được thay bằng ước lượng thời gian + số lần xóc/phanh.
-// Chạy: npm run sim   (thêm số seed: node tests/economy-sim.js 500)
+// Bot: nhận đơn khi app mở, trả tiền nhà theo kỳ, ngủ khi app nghỉ / thức quá lâu, ăn uống khi mệt.
+// Chạy: npm run sim              (100 lượt × 9 ngày, ~2 phút)
+//       npm run sim -- 100 --days 6
 // =============================================================
 import { OrderManager, S } from '../src/sim/OrderManager.js';
 import { GameState } from '../src/sim/GameState.js';
 import { HazardManager } from '../src/sim/hazards.js';
 import { makeRng } from '../src/sim/rng.js';
 import { buildLayout, routeDist } from '../src/sim/cityLayout.js';
-import { TIME, ENERGY, DIST, ORDER } from '../src/data/balance.js';
-import { ORDER_TYPES, RIDER_TYPES } from '../src/data/apps.js';
+import { TIME, ENERGY, DIST, ORDER, ECONOMY, dueDayOf } from '../src/data/balance.js';
+import { APP, ORDER_TYPES, RIDER_TYPES } from '../src/data/apps.js';
+import { inHours } from '../src/sim/hours.js';
+import { dayOf, dayStartAt, minutesUntil } from '../src/sim/clock.js';
 
 const layout = buildLayout();
 const P = layout.placeById;
@@ -28,27 +32,47 @@ export const STRATEGIES = {
   greedy: { speed: 10, eff: 0.7, bumpsPer100: 0.4, brakesPer100: 0.2, brakeMag: 0.4, buyGear: true, maxD1: 999, honest: false },
 };
 
-// carry: tiền, đồ, điểm… mang từ ngày trước (gs.carryOver()) — dùng khi chơi nối nhiều ngày
-export function playDay(seed, strat, day = 1, carry = null) {
+// Bot chơi liên tục từ 06:00 ngày 1 tới 06:00 ngày (days + 1), hoặc tới khi thua.
+// Trả về { gs, log, outcome, now, lastDay } — outcome.type: 'lose' | 'alive'
+export function playRun(seed, strat, days = 9) {
   const rng = makeRng(seed);
-  const gs = new GameState({ day, carry });
-  const hz = new HazardManager(makeRng(seed * 7 + 1));
+  const gs = new GameState({ day: 1 });
+  let hz = new HazardManager(makeRng(seed * 7 + 1), 1);
   const om = new OrderManager({ rng: makeRng(seed * 13 + 5), layout, gs, isRaining: (m) => hz.isRaining(m) });
   const st = STRATEGIES[strat];
+  const end = dayStartAt(days + 1);
   let now = TIME.dayStart;
   let pos = { ...P.home.door };
-  const log = { idleMin: 0, orders: 0, winAt: null, purchases: [], byType: {}, quits: 0 };
+  const log = { idleMin: 0, orders: 0, purchases: [], byType: {}, quits: 0, faints: 0, burnouts: 0, sleeps: 0, lates: 0, rentPaid: 0, earned: 0, stars: 0, starN: 0, bom: 0, daily: [] };
+  let dayOrders = 0;
   om.on((e) => { if (e.type === 'cancelled') gs.applyCancel(e, now); });
+  const over = () => !!gs.outcome || now >= end;
 
+  // sang ngày mới lúc 06:00: số liệu theo ngày làm mới, lịch thời tiết / CSGT mới
+  const rollDay = () => {
+    const d = dayOf(now);
+    if (d === gs.day) return;
+    log.daily.push({ day: gs.day, orders: dayOrders, money: gs.money });
+    for (const t of Object.keys(ORDER_TYPES)) log.earned += gs.stats.income[t] || 0;
+    log.stars += gs.stats.stars.reduce((a, b) => a + b, 0);
+    log.starN += gs.stats.stars.length;
+    log.bom += gs.stats.bom;
+    dayOrders = 0;
+    gs.startDay(d);
+    hz = new HazardManager(makeRng(seed * 7 + d * 101), d);
+  };
   const envAt = (speed) => ({
     ambient: hz.ambient(now), sun: hz.sun(now), raining: hz.isRaining(now), exposed: true,
     speed, comfortSpeed: 11, suspension: gs.vehicleSpec.suspension, bag: gs.bagSpec, passengerRaincoat: gs.effect('rainProtect'),
   });
   const pass = (min, activity, speed = 0) => {
-    for (let i = 0; i < min && !gs.checkEnd(now); i++) {
+    for (let i = 0; i < min && !over(); i++) {
       now += 1;
-      gs.drain(activity, 1, { harshSun: hz.isHarshSun(now), raining: hz.isRaining(now), outdoor: true, inJam: false, waiting: activity === 'idle' });
+      rollDay();
+      gs.drain(activity, 1, { harshSun: hz.isHarshSun(now), raining: hz.isRaining(now), outdoor: activity !== 'sleep' && activity !== 'rest', inJam: false, waiting: activity === 'idle', now });
       om.tickItems(envAt(speed), 1);
+      for (const e of (gs.checkEnd(now), gs.takeEvents())) if (e.type === 'late') log.lates++;
+      if (gs.collapsed && activity !== 'rest') break; // kiệt sức → dừng để xử lý (đang nằm nghỉ thì thôi)
     }
   };
   const drive = (to) => {
@@ -67,16 +91,36 @@ export function playDay(seed, strat, day = 1, carry = null) {
     pass(Math.ceil(min), 'drive', st.speed);
     pos = { ...to };
   };
+  // kiệt sức: hủy đơn đang chạy, nằm nghỉ bắt buộc ở phòng trọ
+  const collapse = () => {
+    const k = gs.collapsed;
+    if (!k) return false;
+    if (om.order) om.cancel('collapse', now, { byDriver: false });
+    log[k === 'faint' ? 'faints' : 'burnouts']++;
+    pos = { ...P.home.door };
+    pass(ENERGY.collapse.hours * 60, 'rest');
+    gs.recoverCollapse(k);
+    gs.wake(now);
+    return true;
+  };
+  const sleep = (minutes) => {
+    drive(P.home.door);
+    log.sleeps++;
+    pass(minutes, 'sleep');
+    gs.wake(now);
+  };
+  // tiền nhà sắp tới hạn (trong 1 ngày) thì giữ lại, không tiêu
+  const rentReserve = () => (!gs.rentPaid && gs.rentDueAt() - now < 24 * 60 ? gs.rent : 0);
   const shop = () => {
     if (gs.fuel < 0.6) { drive(P.gas.door); gs.refuel(); pass(2, 'idle'); }
-    if (gs.phys < 40 && gs.money > 60) { drive(P.comtam.door); gs.spend(ENERGY.meal.cost, 'meal'); gs.addEnergy(ENERGY.meal.phys, ENERGY.meal.mental); pass(15, 'idle'); }
-    if (gs.mental < 40 && gs.money > 40) { drive(P.cafe.door); gs.spend(ENERGY.drink.cost, 'meal'); gs.addEnergy(ENERGY.drink.phys, ENERGY.drink.mental); pass(10, 'idle'); }
+    if (gs.phys < 40 && gs.money > 60 + rentReserve()) { drive(P.comtam.door); gs.spend(ENERGY.meal.cost, 'meal'); gs.addEnergy(ENERGY.meal.phys, ENERGY.meal.mental); pass(15, 'idle'); }
+    if (gs.mental < 40 && gs.money > 40 + rentReserve()) { drive(P.cafe.door); gs.spend(ENERGY.drink.cost, 'meal'); gs.addEnergy(ENERGY.drink.phys, ENERGY.drink.mental); pass(10, 'idle'); }
     if (!st.buyGear) return;
     const want = [['bags', 'thermal', 60], ['goods', 'spareHelmet', 60], ['goods', 'raincoat', 40]];
     for (const [cat, id, reserve] of want) {
       if (cat === 'goods' ? gs.has(id) : gs.owned[cat].includes(id)) continue;
       const price = { thermal: 120, spareHelmet: 50, raincoat: 40 }[id];
-      if (gs.money >= price + reserve + gs.rent * Math.max(0, (now - 17 * 60) / 300)) {
+      if (gs.money >= price + reserve + rentReserve()) {
         drive(P.gear.door);
         if (gs.buy(cat, id).ok) log.purchases.push(`${id}@${Math.round(now)}`);
       }
@@ -90,10 +134,18 @@ export function playDay(seed, strat, day = 1, carry = null) {
   gs.flags.mounted = gs.flags.online = true;
   om.goOnline();
 
-  while (!gs.checkEnd(now)) {
-    if (gs.money >= gs.rent && om.state === S.IDLE) {
-      drive(P.home.door);
-      if (gs.payRent(now).ok) { log.winAt = now; break; }
+  while (!over()) {
+    if (collapse()) continue;
+    if (om.state === S.IDLE || om.state === S.OFFLINE) {
+      // trả tiền nhà khi đủ (giữ lại chút tiền xăng)
+      if (!gs.rentPaid && gs.money >= gs.rent + 30) {
+        drive(P.home.door);
+        if (gs.payRent().ok) log.rentPaid++;
+        continue;
+      }
+      // ngủ: app nghỉ → ngủ tới sáng; thức quá lâu → ngủ 8 tiếng
+      if (!inHours(APP.hours, now)) { sleep(Math.min(9 * 60, minutesUntil(now, TIME.dayStart / 60))); continue; }
+      if (gs.awakeHours(now) > ENERGY.sleep.tiredAfterH) { sleep(8 * 60); continue; }
     }
     // nhiệm vụ ví (ngắn gọn: 4 chặng)
     if (gs.flags.wallet === 1 && om.state === S.IDLE) {
@@ -103,7 +155,6 @@ export function playDay(seed, strat, day = 1, carry = null) {
     }
     if (om.state === S.IDLE || om.state === S.OFFLINE) {
       shop();
-      if (now >= TIME.lastOfferAt) { pass(1, 'idle'); log.idleMin++; continue; }
       om.update(1, 1, now, pos);
       if (om.state !== S.OFFERED) { pass(1, 'idle'); log.idleMin++; continue; }
     }
@@ -112,8 +163,10 @@ export function playDay(seed, strat, day = 1, carry = null) {
       om.accept(now, pos);
     }
     const o = om.order;
+    if (!o) continue;
     log.byType[o.type] = (log.byType[o.type] || 0) + 1;
     drive(o.pickup.door);
+    if (collapse() || over()) continue;
     if (o.kind === 'food') {
       const r = om.arriveAtPickup(now);
       if (r.outOfStock) {
@@ -121,8 +174,9 @@ export function playDay(seed, strat, day = 1, carry = null) {
         if (res.cancelled) continue;
       }
       pass(Math.ceil(om.minutesUntilReady(now)), 'idle');
+      if (collapse() || over()) continue;
       const items = om.collectFood(now);
-      if (!items) break; // hết ngày khi đang chờ quán làm món
+      if (!items) continue;
       om.finishPacking(items.map(() => ({ upright: true })), now);
     } else if (o.kind === 'parcel') {
       const r = om.collectParcel(now);
@@ -132,6 +186,7 @@ export function playDay(seed, strat, day = 1, carry = null) {
     if (!o.revealed) { om.callCustomer(now); pass(1, 'idle'); }
     const from = { ...pos };
     drive(o.dropoff.door);
+    if (collapse() || over()) continue;
     // khách xe ôm sợ quá đòi xuống (bot coi như xuống ở giữa đường)
     const rider = o.rider && RIDER_TYPES[o.rider];
     if (o.kind === 'ride' && rider && o.items[0].condition < (rider.quitBelow || 0)) {
@@ -165,83 +220,64 @@ export function playDay(seed, strat, day = 1, carry = null) {
         res = 'ready';
       } else if (res === 'lift') { pass(ORDER.liftMin, 'walk'); res = 'ready'; }
     }
-    if (returned) continue;
+    if (returned || !om.order || collapse()) continue;
     const receipt = om.handOver(now);
+    if (!receipt) continue;
     gs.applyReceipt(receipt);
     log.orders++;
+    dayOrders++;
     if (o.story === 'wallet') gs.findWallet();
   }
-  const out = gs.checkEnd(now);
-  return { gs, log, outcome: out, now };
+  if (!gs.outcome) rollDay();
+  log.daily.push({ day: gs.day, orders: dayOrders, money: gs.money });
+  for (const t of Object.keys(ORDER_TYPES)) log.earned += gs.stats.income[t] || 0;
+  log.stars += gs.stats.stars.reduce((a, b) => a + b, 0);
+  log.starN += gs.stats.stars.length;
+  const lastDay = gs.outcome ? dayOf(now) : days;
+  return { gs, log, outcome: gs.outcome || { type: 'alive' }, now, lastDay };
+}
+
+// Bản cũ (1 ngày) — để bộ thử gọn
+export const playDay = (seed, strat) => playRun(seed, strat, 1);
+
+// Gom kết quả nhiều lượt: % còn trụ qua từng hạn tiền nhà (ngày 3, 6, 9…), đơn/ngày, tiền cuối, ngất, trễ, lý do thua
+export function summarize(runs, days) {
+  const every = Math.max(1, ECONOMY.rentEveryDays || 1);
+  const checkpoints = [];
+  for (let k = 1; dueDayOf(k) <= days; k++) checkpoints.push(dueDayOf(k));
+  if (!checkpoints.includes(days)) checkpoints.push(days);
+  const n = runs.length || 1;
+  // còn trụ qua ngày d = chưa thua trước 06:00 ngày d+1
+  const alive = (r, d) => !r.outcome || r.outcome.type !== 'lose' || r.lastDay > d;
+  const reasons = {};
+  for (const r of runs) if (r.outcome.type === 'lose') { const k = r.outcome.reason.slice(0, 32); reasons[k] = (reasons[k] || 0) + 1; }
+  const dayCount = runs.reduce((s, r) => s + r.log.daily.length, 0) || 1;
+  return {
+    every,
+    checkpoints: checkpoints.map((d) => ({ day: d, pct: Math.round((runs.filter((r) => alive(r, d)).length / n) * 100) })),
+    ordersPerDay: runs.reduce((s, r) => s + r.log.orders, 0) / dayCount,
+    endMoney: runs.reduce((s, r) => s + r.gs.money, 0) / n,
+    faints: runs.reduce((s, r) => s + r.log.faints + r.log.burnouts, 0) / n,
+    lates: runs.reduce((s, r) => s + r.log.lates, 0) / n,
+    stars: runs.reduce((s, r) => s + r.log.stars, 0) / Math.max(1, runs.reduce((s, r) => s + r.log.starN, 0)),
+    topReason: Object.entries(reasons).sort((a, b) => b[1] - a[1])[0] || null,
+  };
 }
 
 // ---------- chạy & in bảng ----------
 // chạy bằng node (npm run sim); trong trình duyệt (nút Chạy thử bot của editor) không có process
 const ARGV = typeof process !== 'undefined' && Array.isArray(process.argv) ? process.argv : [];
 const isMain = !!ARGV[1] && ARGV[1].replace(/\\/g, '/').endsWith('tests/economy-sim.js');
-// Chơi nối từ ngày 1: thắng thì sang ngày sau với tiền/đồ còn lại; thua là dừng
-export function playRun(seed, strat, days) {
-  const out = [];
-  let carry = null;
-  for (let d = 1; d <= days; d++) {
-    const r = playDay(seed * 1000 + d, strat, d, carry);
-    out.push(r);
-    if (r.outcome.type !== 'win') break;
-    carry = r.gs.carryOver();
-  }
-  return out;
-}
-
-const daysArg = ARGV.indexOf('--days');
-if (isMain && daysArg > 0) {
-  // npm run sim -- 300 --days 7  → bảng tỉ lệ thắng từng ngày (trong số lượt chơi tới được ngày đó)
-  const N = Number(ARGV[2]) || 300;
-  const D = Number(ARGV[daysArg + 1]) || 7;
-  console.log(`Chơi nối ${D} ngày, ${N} lượt cho mỗi chiến thuật (thắng thì sang ngày sau, thua là dừng)
-`);
+if (isMain) {
+  const N = Number(ARGV[2]) || 100;
+  const daysArg = ARGV.indexOf('--days');
+  const D = daysArg > 0 ? Number(ARGV[daysArg + 1]) || 9 : 9;
+  console.log(`Bot chơi liên tục ${D} ngày (24h), ${N} lượt mỗi kiểu chơi. Tiền nhà mỗi ${ECONOMY.rentEveryDays} ngày, hạn ${ECONOMY.rentDueHour}:00, trễ ${ECONOMY.maxLate} lần liên tiếp là bị đuổi.\n`);
   for (const strat of Object.keys(STRATEGIES)) {
-    const reach = Array(D + 1).fill(0), win = Array(D + 1).fill(0), orders = Array(D + 1).fill(0), money = Array(D + 1).fill(0);
-    for (let s = 1; s <= N; s++) {
-      playRun(s, strat, D).forEach((r, i) => {
-        const d = i + 1;
-        reach[d]++;
-        orders[d] += r.log.orders;
-        if (r.outcome.type === 'win') { win[d]++; money[d] += r.gs.money; }
-      });
-    }
-    const cells = [];
-    for (let d = 1; d <= D; d++) cells.push(reach[d] ? `N${d} ${String(Math.round((win[d] / reach[d]) * 100)).padStart(3)}% (${(orders[d] / reach[d]).toFixed(1)} đơn)` : `N${d}   —`);
-    console.log(`${strat.padEnd(8)} | ${cells.join(' | ')} | còn tới cuối: ${Math.round((win[D] / N) * 100)}%`);
-  }
-}
-
-if (isMain && daysArg < 0) {
-  const N = Number(ARGV[2]) || 300;
-  const fmtT = (m) => (m == null ? '—' : `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.round(m % 60)).padStart(2, '0')}`);
-  console.log(`Mô phỏng ${N} ngày cho mỗi chiến thuật (ngày 1, tiền nhà 400k)\n`);
-  const typeIds = Object.keys(ORDER_TYPES);
-  console.log(`Chiến thuật | Thắng | Giờ thắng TB | Đơn/ngày | Sao TB | Lãi/đơn | Điểm cuối | Phút rảnh | Bom/ngày | Tỉ lệ loại đơn (${typeIds.join('/')}) | Lý do thua chính`);
-  for (const strat of Object.keys(STRATEGIES)) {
-    let wins = 0, winT = 0, orders = 0, stars = 0, starN = 0, rating = 0, idle = 0, earned = 0, bom = 0;
-    const reasons = {}, byType = {};
-    for (let s = 1; s <= N; s++) {
-      const { gs, log, outcome } = playDay(s, strat);
-      if (outcome.type === 'win') { wins++; winT += log.winAt; }
-      else { const k = outcome.reason.slice(0, 28); reasons[k] = (reasons[k] || 0) + 1; }
-      orders += log.orders;
-      stars += gs.stats.stars.reduce((a, b) => a + b, 0);
-      starN += gs.stats.stars.length;
-      rating += gs.rating;
-      idle += log.idleMin;
-      bom += gs.stats.bom;
-      for (const t of typeIds) earned += gs.stats.income[t] || 0;
-      for (const [t, n] of Object.entries(log.byType)) byType[t] = (byType[t] || 0) + n;
-    }
-    const top = Object.entries(reasons).sort((a, b) => b[1] - a[1])[0];
-    const total = Object.values(byType).reduce((a, b) => a + b, 0) || 1;
-    const mix = typeIds.map((t) => Math.round(((byType[t] || 0) / total) * 100)).join('/');
-    console.log(
-      `${strat.padEnd(11)} | ${String(Math.round((wins / N) * 100)).padStart(4)}% | ${fmtT(wins ? winT / wins : null).padStart(12)} | ${(orders / N).toFixed(1).padStart(8)} | ${(stars / starN).toFixed(2).padStart(6)} | ${(earned / Math.max(1, orders)).toFixed(1).padStart(7)}k | ${(rating / N).toFixed(2).padStart(9)} | ${(idle / N).toFixed(0).padStart(9)} | ${(bom / N).toFixed(2).padStart(8)} | ${mix.padStart(13)} | ${top ? `${top[0]}… (${top[1]})` : '—'}`,
-    );
+    const runs = [];
+    for (let s = 1; s <= N; s++) runs.push(playRun(s, strat, D));
+    const r = summarize(runs, D);
+    const cps = r.checkpoints.map((c) => `qua ngày ${c.day}: ${String(c.pct).padStart(3)}%`).join(' · ');
+    console.log(`${strat.padEnd(8)} | ${cps} | ${r.ordersPerDay.toFixed(1)} đơn/ngày | sao ${r.stars.toFixed(2)} | tiền cuối ${Math.round(r.endMoney)}k | ngất/suy sụp ${r.faints.toFixed(2)} | trễ ${r.lates.toFixed(2)} | ${r.topReason ? `${r.topReason[0]}… (${r.topReason[1]})` : 'không ai thua'}`);
   }
 }

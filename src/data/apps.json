@@ -3,6 +3,10 @@
     "goship": {
       "id": "goship",
       "name": "GoShip",
+      "hours": [
+        6,
+        24
+      ],
       "platformFee": 0.2,
       "taxRate": 0.015,
       "distBonusPerKm": 6,

@@ -3,7 +3,7 @@
 // (lấy hàng, xếp túi, giao hàng, sự cố, cửa hàng, nhiệm vụ chiếc ví, CSGT…)
 // Mọi chữ lấy từ kho chữ qua fmt() — sửa bằng công cụ ?editor.
 // =============================================================
-import { ECONOMY, ENERGY, ORDER, VEHICLES, BAGS, WALLET_QUEST } from './data/balance.js';
+import { TIME, ECONOMY, ENERGY, ORDER, VEHICLES, BAGS, WALLET_QUEST } from './data/balance.js';
 import { APP, ORDER_TYPES, RIDER_TYPES } from './data/apps.js';
 import { GOODS, OUTFIT_SLOTS } from './data/goods.js';
 import { isOpen, fmtHours, placesUsing, placesSelling, unlocked, openDayOf } from './sim/placeRules.js';
@@ -12,6 +12,7 @@ import { S } from './sim/OrderManager.js';
 import { fmtK } from './sim/economy.js';
 import { intersectionName } from './sim/cityLayout.js';
 import { fmt, pick, has } from './content/index.js';
+import { fmtClock, minutesUntil } from './sim/clock.js';
 import { buildPacking } from './ui/packing.js';
 import { sfx } from './audio.js';
 
@@ -709,28 +710,49 @@ function shopDialog(g, pl) {
 function landlord(g, pl) {
   const { gs } = g;
   const busy = !!g.om.order;
-  const can = gs.money >= gs.rent && !busy;
+  const paid = gs.rentPaid;
+  const can = !paid && gs.money >= gs.rent && !busy;
   const extra = [
     {
-      label: fmt('dlg.payRent', { rent: gs.rent }),
+      label: paid ? fmt('dlg.rentPaid', { day: gs.rentDueDay }) : fmt('dlg.payRent', { rent: gs.rent, day: gs.rentDueDay }),
       disabled: !can,
-      hint: busy ? fmt('dlg.payRentBusy') : can ? fmt('dlg.payRentOk') : fmt('dlg.payRentShort', { k: Math.ceil(gs.rent - gs.money) }),
+      hint: paid ? '' : busy ? fmt('dlg.payRentBusy') : can ? fmt('dlg.payRentOk') : fmt('dlg.payRentShort', { k: Math.ceil(gs.rent - gs.money) }),
       primary: can,
       onSelect: () => {
-        const r = gs.payRent(g.clockMin);
-        if (r.ok) g.checkEnd();
+        const r = gs.payRent();
+        if (r.ok) {
+          sfx.cash();
+          g.hud.toast(fmt('toast.rentPaid', { rent: fmtK(r.paid), day: gs.rentDueDay }), 'good', 6000);
+        }
       },
     },
-    {
-      label: fmt('dlg.nap', { min: ENERGY.nap.minutes }),
-      hint: fmt('dlg.napHint', { phys: ENERGY.nap.phys, mental: ENERGY.nap.mental }),
-      disabled: !!g.om.hasCargo,
-      onSelect: () => { g.advance(ENERGY.nap.minutes, 'idle', { indoor: true, waiting: false }); gs.addEnergy(ENERGY.nap.phys + ENERGY.nap.minutes * 0.02, ENERGY.nap.mental); },
-    },
+    ...sleepChoices(g),
     { label: fmt('dlg.wardrobe'), hint: fmt('dlg.wardrobeHint'), onSelect: () => wardrobe(g) },
   ];
-  const text = can ? fmt('npc.home.greetCan', { rent: gs.rent }) : fmt('npc.home.greet', { rent: gs.rent, money: fmtK(gs.money) });
+  const text = paid ? fmt('npc.home.greetPaid', { day: gs.rentDueDay }) : can ? fmt('npc.home.greetCan', { rent: gs.rent, day: gs.rentDueDay }) : fmt('npc.home.greet', { rent: gs.rent, day: gs.rentDueDay, money: fmtK(gs.money) });
   openPlace(g, pl, extra, text);
+}
+
+// Ngủ: 2 / 4 / 6 / 8 tiếng hoặc tới 06:00 sáng. Đang chạy đơn thì không ngủ được.
+function sleepChoices(g) {
+  const { gs } = g;
+  const S = ENERGY.sleep;
+  const busy = !!g.om.order;
+  const opt = (min, key) => ({
+    label: fmt(key, { h: +(min / 60).toFixed(1), time: fmtClock(g.clockMin + min) }),
+    hint: busy ? fmt('dlg.sleepBusy') : fmt('dlg.sleepHint', { phys: Math.round((S.physPerHour * min) / 60), mental: Math.round((S.mentalPerHour * min) / 60) }),
+    disabled: busy,
+    onSelect: () => {
+      if (g.sleep(min) == null) return;
+      sfx.click();
+      g.hud.toast(fmt('toast.woke', { time: fmtClock(g.clockMin), phys: Math.round(gs.phys), mental: Math.round(gs.mental) }), 'good', 7000);
+    },
+  });
+  const untilMorning = minutesUntil(g.clockMin, TIME.dayStart / 60);
+  const list = [2, 4, 6, 8].map((h) => opt(h * 60, 'dlg.sleep'));
+  // "tới sáng" khi còn ≤ 10 tiếng nữa là 06:00 (đêm khuya)
+  if (untilMorning <= 10 * 60 && ![2, 4, 6, 8].includes(untilMorning / 60)) list.unshift({ ...opt(untilMorning, 'dlg.sleepUntil'), primary: !busy });
+  return list;
 }
 
 // "Áo thun xanh lá · Quần jean · Mũ bảo hiểm xanh lá"

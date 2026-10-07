@@ -12,8 +12,11 @@ Bật app → Có đơn (Y nhận / N bỏ) → Chạy tới quán → Chờ qu�
 (địa chỉ mơ hồ, khách không nghe máy, thang máy hư) → Trao hàng → Chấm sao + Hóa đơn
 ```
 
-- **Thắng:** trả đủ tiền nhà cho Cô Hai trước 22:00 (ngày 1: 400k, mỗi ngày sau +150k).
-- **Thua:** điểm đánh giá < 4.0 (khóa tài khoản) · thể lực = 0 (ngất) · tinh thần = 0 (bỏ nghề) · 22:00 chưa trả tiền nhà.
+- **Chơi tự do 24h** (đồng hồ chạy liên tục, `src/sim/clock.js`): không có "thắng"; ngày mới bắt đầu lúc 06:00 (tự lưu). App nhận đơn 06:00–24:00 (`apps.json → hours`).
+- **Tiền nhà theo kỳ:** mỗi 3 ngày trả một lần, hạn 22:00 ngày cuối kỳ (kỳ 1: 1.000k, mỗi kỳ +200k — số tạm, chỉnh ở thẻ ⚖️). Trả sớm lúc nào cũng được. Trễ lần 1: phạt 20%, nợ dồn kỳ sau; trễ 2 lần liên tiếp → bị đuổi.
+- **Ngủ** ở phòng trọ (2/4/6/8 tiếng hoặc tới 06:00): hồi 12 thể lực + 10 tinh thần mỗi giờ, app tự tắt, tự lưu khi dậy. Thức > 16 tiếng → hao ×2, > 22 tiếng → ×3.
+- **Kiệt sức** (thể lực / tinh thần về 0) không thua: hủy đơn đang chạy, về phòng trọ nằm 6 tiếng; ngất mất 100k tiền thuốc.
+- **Thua:** bị đuổi khỏi phòng (trễ tiền nhà 2 lần liên tiếp) · điểm đánh giá < 4.0 (khóa tài khoản). Màn hình thua: chơi lại từ lần lưu gần nhất / chơi mới.
 - **Ràng buộc mở khóa:** xăng → mới chạy được · Túi giữ nhiệt → đơn trà sữa/kem · Mũ cho khách → đơn xe ôm → nhiệm vụ chiếc ví · Áo mưa → hết bị phạt khi mưa · tiền → xe tốt hơn.
 - **Chuỗi manh mối:**
   - *Chiếc ví* (nhiệm vụ phụ): khách xe ôm bỏ quên ví → CMND ghi "cổng xanh, cạnh tạp hóa Cô Ba" → hỏi người đi đường → Cô Ba chỉ hẻm 42 → mẹ anh Minh nói anh ở quán cà phê → trả ví (+150k) **hoặc** lấy 300k (bị khiếu nại: −100k, thêm 3 đánh giá 1★).

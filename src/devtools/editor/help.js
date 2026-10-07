@@ -24,7 +24,7 @@ export const HINT = {
     suspension: '0–100%. Giảm hư hàng khi qua ổ gà. Tham khảo: Cub 20% · tay ga 60% · SH 80%.',
     fuelPer100km: '0,5–10 lít/100 km. Xăng 23k/lít. Tham khảo: Wave 2,2 · Cub 3,5 · mô tô 5.',
     tank: '0,5–20 lít. Hết xăng phải dắt xe (rất mệt). Tham khảo: Cub 3 · tay ga 4,5 · SH 7.',
-    price: '0–100 000k. Giá 0 = xe có sẵn lúc đầu. Tham khảo: Wave 200 · tay ga 1200 · SH 6000 (tiền nhà ngày 1 là 400k).',
+    price: '0–100 000k. Giá 0 = xe có sẵn lúc đầu. Tham khảo: Wave 200 · tay ga 1200 · SH 6000 (tiền nhà kỳ 1 — 3 ngày — là 1.000k).',
   },
 
   // ---------- túi ----------
@@ -63,7 +63,7 @@ export const HINT = {
   act: {
     label: 'Chữ trên nút trong hộp thoại, vd "Ăn một tô phở".',
     cost: '0–10 000k. Trừ tiền ngay khi làm. Tham khảo: cà phê 20k · phở 35k · karaoke 80k.',
-    minutes: '0–480 phút. Thời gian trôi trong lúc làm. Ngày chơi 6h → 22h (960 phút).',
+    minutes: '0–480 phút. Thời gian trôi trong lúc làm (đồng hồ chạy 24h; ngủ ở phòng trọ để hồi sức).',
     phys: '−100 → +100, cộng/trừ ngay. ⚠️ Thanh về 0 là THUA; −100 = thua chắc. Tham khảo: ăn phở +45 · hát karaoke −5.',
     mental: '−100 → +100, cộng/trừ ngay. ⚠️ Thanh về 0 là THUA. Tham khảo: cà phê +30 · hát karaoke +40.',
     perDay: '0 = không giới hạn. Vd hát karaoke 1 lần/ngày, đọc sách 3 lần/ngày.',
@@ -144,15 +144,15 @@ export const EXPLAIN = {
   balance: ['Thẻ Cân bằng dùng thế nào', `
     <p>Các con số chung của game: tiền, chi phí, tốc độ hao thể lực/tinh thần, nhịp đơn hàng. Phí app, thuế, boa ở thẻ 📱 App & Đơn; giá món, xe, túi ở các thẻ riêng.</p>
     <p>Cách chỉnh độ khó: đổi vài số → mục <b>🤖 Chạy thử bot</b> → bấm chạy (khoảng 15 giây) → xem bảng tỉ lệ thắng từng ngày, so với lần trước → ưng thì bấm 💾 Lưu. Không cần lưu mới chạy thử được.</p>
-    <p>Gợi ý: muốn chơi được lâu thì tiền nhà mỗi ngày nên tăng chậm (hoặc tự đặt từng ngày), hoặc đơn đến dày hơn / thời hạn rộng hơn.</p>`],
+    <p>Gợi ý: muốn chơi được lâu thì tiền nhà mỗi kỳ nên tăng chậm (hoặc tự đặt từng kỳ), hoặc đơn đến dày hơn / thời hạn rộng hơn.</p>`],
   schedule: ['Mở theo ngày dùng để làm gì', `
-    <p>Game chơi nối nhiều ngày; tiền nhà tăng mỗi ngày. Cho <b>mấy ngày đầu ít quán, ít món</b> (dễ làm quen), rồi <b>khai trương thêm</b> để có thêm đơn khi tiền nhà tăng.</p>
+    <p>Game chơi liên tục 24h; tiền nhà trả theo kỳ (mỗi 3 ngày) và tăng dần. Cho <b>mấy ngày đầu ít quán, ít món</b> (dễ làm quen), rồi <b>khai trương thêm</b> để có thêm đơn khi tiền nhà tăng.</p>
     <p>Ít quán hơn = ít đơn đồ ăn hơn → ngày đó <b>khó hơn</b>. Muốn biết ngày nào quá khó, chạy bot nhiều ngày: <code>npm run sim -- 300 --days 7</code> (bảng tỉ lệ thắng từng ngày).</p>`],
   item: ['Món hàng hư thế nào, ảnh hưởng sao và tiền ra sao', `
     <p>Mỗi món bắt đầu <b>100%</b>. Trên đường mất dần tùy đặc tính (nguội, tan, đổ, vỡ, ướt). Lúc giao, số sao tính theo tình trạng trung bình:</p>
     ${T([['Tình trạng', '≥ 90%', '75–89%', '60–74%', '40–59%', '25–39%', '&lt; 25%'], ['Trừ sao', '0', '−0,5', '−1,5', '−2,5', '−3,5', 'khách từ chối, 1★, không có tiền']])}
     <p>Trễ giờ cũng trừ sao (trễ ≤ 25%: −1, ≤ 50%: −2, hơn nữa: −3). Điểm đánh giá dưới <b>4,0</b> → app khóa tài khoản → thua.</p>
-    <p>Tiền mỗi đơn ≈ cước − 20% phí − 1,5% thuế + thưởng quãng đường (6k/km) + boa (4★: 3k, 5★: 8k). Bot chơi thử lãi trung bình ~39k/đơn → ngày 1 (tiền nhà 400k) cần khoảng 12 đơn.</p>`],
+    <p>Tiền mỗi đơn ≈ cước − 20% phí − 1,5% thuế + thưởng quãng đường (6k/km) + boa (4★: 3k, 5★: 8k). Bot chơi thử lãi trung bình ~39k/đơn → tiền nhà kỳ 1 (3 ngày, 1.000k) cần khoảng 26 đơn.</p>`],
   goods: ['Thể lực, tinh thần và đồ dùng', `
     <p>Hai thanh <b>thể lực</b> và <b>tinh thần</b> từ 0 đến 100, đầu ngày đầy. Về 0 là <b>thua</b> (ngất / suy sụp). Thanh không vượt quá 100.</p>
     ${T([['Thứ', 'Thể lực', 'Tinh thần'], ['Ăn phở / cơm tấm (35k)', '+45', '+5'], ['Cà phê / trà sữa (20k)', '+5', '+30'], ['Nước tăng lực (15k)', '+25', '+5'], ['Cả ngày tụt dần (chạy xe, nắng, chờ, kẹt xe)', '≈ −40 đến −60', '≈ −20 đến −40'], ['Leo thang chung cư (mỗi tầng)', '−3,5', ''], ['Bị CSGT phạt · bị 1★ · đơn bị hủy', '', '−10 · −12 · −6']])}
@@ -174,7 +174,7 @@ export const EXPLAIN = {
     <p><b>Tổng cước</b> = cước món × hệ số loại đơn × hệ số loại khách + thưởng km + phụ phí (mưa / giờ cao điểm).</p>
     <p><b>Tài xế nhận</b> = tổng cước − phí nền tảng − thuế + tiền boa. Tiền xăng trả ở cây xăng (hóa đơn vẫn ghi để biết lãi thực).</p>
     <p>Khách quen gọi thẳng: không phí, không thuế, không phụ phí, không chấm sao. Đơn thu hộ: tiền hàng tài xế ứng trước được khách trả lại riêng, không tính vào lãi.</p>
-    <p>Bot chơi thử (npm run sim) lãi trung bình ~39k/đơn → ngày 1 (tiền nhà 400k) cần ~11–12 đơn. Đổi phí / thuế ở đây ảnh hưởng thẳng tới tỉ lệ thắng.</p>`],
+    <p>Bot chơi thử (npm run sim) lãi trung bình ~39k/đơn, khoảng 14 đơn/ngày → mỗi kỳ 3 ngày kiếm ~1.600k (tiền nhà kỳ 1: 1.000k). Đổi phí / thuế ở đây ảnh hưởng thẳng tới tỉ lệ thắng.</p>`],
   orderTypes: ['Loại đơn hoạt động thế nào', `
     <p>Mỗi lần app có đơn, game xét các loại đơn <b>đang có</b> (đúng khung giờ, đủ trang bị yêu cầu, mức > 0) rồi chọn theo <b>mức thường xuyên</b>. Ví dụ đủ cả 4 loại mẫu: 6 + 2 + 2 + 1,2 = 11,2 → đồ ăn ≈ 54%, chở khách ≈ 18%, giao hàng ≈ 18%, hỏa tốc ≈ 11%.</p>
     <p><b>Giao hàng</b>: lấy hàng ở nơi có "Gửi hàng từ đây" (thẻ Địa điểm) hoặc nhà người gửi gần đó, xếp túi, giao. Đơn thu hộ phải ứng tiền hàng lúc lấy; bị bom thì năn nỉ (1 lần) hoặc mang trả shop để nhận lại tiền + phí hoàn hàng. Hàng hỏng bị từ chối thì mất tiền đã ứng.</p>`],

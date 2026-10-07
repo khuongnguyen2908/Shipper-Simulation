@@ -11,8 +11,12 @@ export const BALANCE_GROUPS = [
     id: 'money', title: '💰 Tiền & ngày',
     fields: [
       ['economy.startMoney', 'Tiền khởi đầu (k)', { min: 0, max: 5000, step: 10, hint: 'Tiền trong túi sáng ngày 1. Mặc định 80k.' }],
-      ['economy.rentBase', 'Tiền nhà ngày 1 (k)', { min: 50, max: 10000, step: 10, hint: 'Phải trả trước 22:00 mới thắng ngày. Mặc định 400k (bot thường kiếm ~400–500k/ngày).' }],
-      ['economy.rentPerDay', 'Tiền nhà tăng mỗi ngày (k)', { min: 0, max: 5000, step: 10, hint: 'Ngày 2 = ngày 1 + số này, ngày 3 = + 2 lần… Mặc định 150k. Ngày nào tự đặt ở bảng bên dưới thì lấy số tự đặt.' }],
+      ['economy.rentEveryDays', 'Tiền nhà trả mỗi … ngày (1 kỳ)', { min: 1, max: 30, step: 1, hint: 'Mặc định 3: hạn trả là ngày 3, 6, 9…' }],
+      ['economy.rentDueHour', 'Hạn trả lúc (giờ, ngày cuối kỳ)', { min: 0, max: 24, step: 0.5, hint: 'Mặc định 22 (22:00). Trả sớm lúc nào cũng được.' }],
+      ['economy.rentBase', 'Tiền nhà kỳ 1 (k)', { min: 50, max: 50000, step: 10, hint: 'Mặc định 1.000k. Bot thường kiếm ~450–600k/ngày.' }],
+      ['economy.rentStep', 'Tiền nhà tăng mỗi kỳ (k)', { min: 0, max: 20000, step: 10, hint: 'Kỳ 2 = kỳ 1 + số này… Mặc định 200k. Kỳ nào tự đặt ở bảng bên dưới thì lấy số tự đặt.' }],
+      ['economy.lateFeePct', 'Trễ hạn: phạt thêm (%)', { min: 0, max: 2, scale: 100, step: 1, hint: 'Nợ kỳ trễ × (1 + %) dồn sang kỳ sau. Mặc định 20%.' }],
+      ['economy.maxLate', 'Trễ mấy lần liên tiếp thì bị đuổi', { min: 1, max: 10, step: 1, hint: 'Bị đuổi = thua. Trả kịp kỳ sau thì xóa vết trễ. Mặc định 2.' }],
     ],
   },
   {
@@ -23,6 +27,7 @@ export const BALANCE_GROUPS = [
       ['economy.speedLimit', 'Qua chốt chạy quá … km/h thì bị phạt', { min: 4, max: 30, scale: 3.6, step: 1, hint: 'Mặc định 40 km/h. Cũng là tốc độ khách xe ôm bắt đầu sợ.' }],
       ['economy.repairCost', 'Sửa xe về 100% (k)', { min: 0, max: 2000, step: 5, hint: 'Mặc định 40k.' }],
       ['economy.parkingFee', 'Gửi xe ở chung cư (k)', { min: 0, max: 200, step: 1, hint: 'Mỗi lần giao lên chung cư. Mặc định 5k.' }],
+      ['economy.faintFee', 'Ngất (thể lực về 0): tiền thuốc (k)', { min: 0, max: 5000, step: 10, hint: 'Không đủ thì lấy hết tiền đang có. Mặc định 100k.' }],
     ],
   },
   {
@@ -49,6 +54,15 @@ export const BALANCE_GROUPS = [
       ['energy.mental.pedHit', 'Tinh thần: va người đi đường', { min: 0, max: 100, step: 1, hint: 'Mặc định 6.' }],
       ['energy.mental.noAnswer', 'Tinh thần: khách không nghe máy', { min: 0, max: 100, step: 1, hint: 'Mỗi lần gọi không ai nghe. Mặc định 3.' }],
       ['energy.mental.cancel', 'Tinh thần: đơn bị hủy', { min: 0, max: 100, step: 1, hint: 'Mặc định 6.' }],
+      ['energy.sleep.physPerHour', 'Ngủ: hồi thể lực mỗi giờ', { min: 0, max: 100, step: 1, hint: 'Ngủ ở phòng trọ. Mặc định 12 (8 tiếng ≈ +96).' }],
+      ['energy.sleep.mentalPerHour', 'Ngủ: hồi tinh thần mỗi giờ', { min: 0, max: 100, step: 1, hint: 'Mặc định 10.' }],
+      ['energy.sleep.tiredAfterH', 'Buồn ngủ sau … giờ thức', { min: 1, max: 48, step: 1, hint: 'Từ đây thể lực/tinh thần hao nhanh hơn. Mặc định 16.' }],
+      ['energy.sleep.tiredMul', 'Buồn ngủ: hao × mấy lần', { min: 1, max: 10, step: 0.5, hint: 'Mặc định ×2.' }],
+      ['energy.sleep.veryTiredAfterH', 'Rất buồn ngủ sau … giờ thức', { min: 1, max: 72, step: 1, hint: 'Mặc định 22.' }],
+      ['energy.sleep.veryTiredMul', 'Rất buồn ngủ: hao × mấy lần', { min: 1, max: 10, step: 0.5, hint: 'Mặc định ×3.' }],
+      ['energy.collapse.hours', 'Kiệt sức: nằm nghỉ bắt buộc (giờ)', { min: 0, max: 24, step: 0.5, hint: 'Ngất / suy sụp → về phòng trọ nằm, đơn đang chạy bị hủy. Mặc định 6.' }],
+      ['energy.collapse.phys', 'Sau khi ngất: thể lực còn', { min: 1, max: 100, step: 1, hint: 'Mặc định 40.' }],
+      ['energy.collapse.mental', 'Sau khi suy sụp: tinh thần còn', { min: 1, max: 100, step: 1, hint: 'Mặc định 40.' }],
     ],
     stars: ['energy.mental.stars', 'Tinh thần theo số sao nhận được', 'Âm = buồn, dương = vui. Mặc định 1★ −12 · 2★ −8 · 3★ −3 · 4★ +2 · 5★ +5.'],
   },
@@ -85,8 +99,8 @@ export const BALANCE_GROUPS = [
   },
 ];
 
-// Mục rentByDay: tự đặt tiền nhà từng ngày (bỏ trống = theo công thức)
-export const RENT_DAYS = 10;
+// Mục rentByPeriod: tự đặt tiền nhà từng kỳ (bỏ trống = theo công thức)
+export const RENT_PERIODS = 8;
 
 export const getPath = (obj, path) => path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
 export function setPath(obj, path, v) {
@@ -99,5 +113,5 @@ export function setPath(obj, path, v) {
 export const KNOWN_PATHS = new Set([
   ...BALANCE_GROUPS.flatMap((g) => g.fields.map((f) => f[0])),
   ...BALANCE_GROUPS.filter((g) => g.stars).map((g) => g.stars[0]),
-  'economy.rentByDay',
+  'economy.rentByPeriod',
 ]);

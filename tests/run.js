@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ITEMS as DATA_ITEMS } from '../src/data/items.js';
-import { ECONOMY, TIME, HAZARD as HAZARD_DATA } from '../src/data/balance.js';
+import { ECONOMY, TIME, ENERGY, HAZARD as HAZARD_DATA, rentFor } from '../src/data/balance.js';
 import { DeliveryItem } from '../src/sim/ItemPhysics.js';
 import { evaluateOrder } from '../src/sim/OrderCondition.js';
 import { computePayout } from '../src/sim/economy.js';
@@ -14,6 +14,8 @@ import { makeRng } from '../src/sim/rng.js';
 import { buildLayout, blockAt, HALF } from '../src/sim/cityLayout.js';
 import { objectives } from '../src/sim/objectives.js';
 import { ranges } from '../src/sim/hours.js';
+import { dayOf, dayStartAt, atHour, fmtClock, minutesUntil } from '../src/sim/clock.js';
+import { isOpen } from '../src/sim/placeRules.js';
 import * as CONTENT from '../src/content/index.js';
 
 let pass = 0, fail = 0;
@@ -235,25 +237,101 @@ test('Có mũ cho khách → đơn chở anh Minh (nhiệm vụ ví)', () => {
 });
 
 console.log('Trạng thái người chơi');
-test('Thắng khi trả đủ tiền nhà trước 22:00', () => {
-  const gs = new GameState({ carry: { money: 500 } });
-  assert.ok(gs.payRent(20 * 60).ok);
-  assert.equal(gs.checkEnd(20 * 60).type, 'win');
+test('Tiền nhà theo kỳ: trả sớm được; đúng hạn sang kỳ mới; trễ lần 1 phạt + dồn nợ; trễ 2 lần liên tiếp bị đuổi', () => {
+  const every = ECONOMY.rentEveryDays, due = (k) => atHour(k * every, ECONOMY.rentDueHour);
+  const gs = new GameState({ carry: { money: 1e6 } });
+  assert.equal(gs.rentDueDay, every);
+  assert.equal(gs.rent, rentFor(1));
+  assert.ok(gs.payRent().ok);
+  assert.ok(!gs.payRent().ok, 'đã trả kỳ này thì không trả nữa');
+  assert.equal(gs.checkEnd(due(1)), null, 'trả rồi → không thua');
+  assert.equal(gs.rentState.period, 2);
+  assert.equal(gs.rent, rentFor(2));
+  // kỳ 2 không trả → trễ lần 1: phạt, nợ dồn sang kỳ 3
+  assert.equal(gs.checkEnd(due(2)), null);
+  const lateEv = gs.takeEvents().find((e) => e.type === 'late');
+  assert.ok(lateEv && lateEv.fine === Math.round(rentFor(2) * ECONOMY.lateFeePct));
+  assert.equal(gs.rent, rentFor(3) + Math.round(rentFor(2) * (1 + ECONOMY.lateFeePct)));
+  // trả kịp kỳ 3 → xóa vết trễ
+  assert.ok(gs.payRent().ok);
+  assert.equal(gs.rentState.late, 0);
+  gs.checkEnd(due(3));
+  // kỳ 4, 5 không trả → bị đuổi
+  gs.checkEnd(due(4));
+  assert.equal(gs.outcome, null);
+  assert.equal(gs.checkEnd(due(5)).type, 'lose');
 });
-test('Thua khi 22:00 chưa trả tiền nhà', () => {
-  const gs = new GameState();
-  assert.equal(gs.checkEnd(TIME.dayEnd).type, 'lose');
-});
-test('Thua khi điểm dưới 4.0, khi kiệt sức, khi suy sụp', () => {
+test('Thua khi điểm dưới 4,0; kiệt sức không thua mà phải nằm nghỉ (ngất mất tiền thuốc)', () => {
   const a = new GameState();
   for (let i = 0; i < 4; i++) a.ratingBook.add(1);
   assert.equal(a.checkEnd(600).type, 'lose');
-  const b = new GameState();
+  const b = new GameState({ carry: { money: 500 } });
   b.phys = 0;
-  assert.equal(b.checkEnd(600).type, 'lose');
-  const c = new GameState();
+  assert.equal(b.checkEnd(600), null);
+  assert.equal(b.collapsed, 'faint');
+  const r = b.recoverCollapse('faint');
+  assert.equal(r.fee, ECONOMY.faintFee);
+  assert.equal(b.money, 500 - ECONOMY.faintFee);
+  assert.equal(b.phys, ENERGY.collapse.phys);
+  const c = new GameState({ carry: { money: 30 } });
   c.mental = 0;
-  assert.equal(c.checkEnd(600).type, 'lose');
+  assert.equal(c.collapsed, 'burnout');
+  c.recoverCollapse('burnout');
+  assert.ok(c.mental > 0 && c.money === 30, 'suy sụp không mất tiền');
+  const d = new GameState({ carry: { money: 20 } });
+  d.phys = 0;
+  d.recoverCollapse('faint');
+  assert.equal(d.money, 0, 'không đủ tiền thuốc thì lấy hết, không âm');
+});
+test('Ngủ hồi thanh; thức quá lâu thì hao nhanh hơn; sang ngày mới làm mới số liệu theo ngày', () => {
+  const S = ENERGY.sleep;
+  const gs = new GameState();
+  gs.phys = 10; gs.mental = 10;
+  gs.drain('sleep', 60, { now: 600 });
+  assert.ok(Math.abs(gs.phys - (10 + S.physPerHour)) < 1e-6 && Math.abs(gs.mental - (10 + S.mentalPerHour)) < 1e-6);
+  const t0 = gs.awakeSince;
+  assert.equal(gs.tiredMul(t0 + 60), 1);
+  assert.equal(gs.tiredMul(t0 + (S.tiredAfterH + 1) * 60), S.tiredMul);
+  assert.equal(gs.tiredMul(t0 + (S.veryTiredAfterH + 1) * 60), S.veryTiredMul);
+  const x = new GameState(), y = new GameState();
+  x.drain('drive', 10, { now: t0 + 60 });
+  y.drain('drive', 10, { now: t0 + (S.veryTiredAfterH + 1) * 60 });
+  assert.ok(100 - y.phys > (100 - x.phys) * (S.veryTiredMul - 0.01));
+  gs.wake(t0 + 999);
+  assert.equal(gs.tiredMul(t0 + 1000), 1);
+  gs.activityUses = { 'a.b': 1 };
+  gs.stats.driverCancels = 3;
+  gs.startDay(2);
+  assert.equal(gs.day, 2);
+  assert.deepEqual(gs.activityUses, {});
+  assert.equal(gs.stats.driverCancels, 0);
+});
+test('Lưu game giữ thể lực, tinh thần, giờ thức dậy, tiền nhà kỳ này', () => {
+  const gs = new GameState({ carry: { money: 5000 } });
+  gs.phys = 33; gs.mental = 44; gs.awakeSince = 777;
+  gs.payRent();
+  const b = new GameState({ day: 2, carry: JSON.parse(JSON.stringify(gs.carryOver())) });
+  assert.deepEqual([b.phys, b.mental, b.awakeSince, b.rentPaid, b.rentState.period], [33, 44, 777, true, 1]);
+});
+test('Đồng hồ 24h: đổi ngày lúc 06:00; giờ mở cửa tính theo giờ trong ngày', () => {
+  assert.equal(dayOf(TIME.dayStart), 1);
+  assert.equal(dayOf(dayStartAt(2) - 1), 1);
+  assert.equal(dayOf(dayStartAt(2)), 2);
+  assert.equal(atHour(3, 22), dayStartAt(3) + 16 * 60);
+  assert.equal(atHour(1, 2), dayStartAt(1) + 20 * 60, '02:00 vẫn thuộc ngày chơi hôm trước');
+  assert.equal(fmtClock(dayStartAt(2) + 17 * 60 + 5), '23:05');
+  assert.equal(minutesUntil(dayStartAt(1) + 22 * 60, 6), 2 * 60);
+  // quán 8–21: ngày 2 lúc 07:00 đóng, 08:00 mở
+  assert.equal(isOpen({ hours: [8, 21] }, dayStartAt(2) + 60), false);
+  assert.equal(isOpen({ hours: [8, 21] }, dayStartAt(2) + 120), true);
+});
+test('Lịch mưa / CSGT theo từng ngày: cùng giờ trong ngày ở ngày nào cũng tính đúng', () => {
+  const h1 = new HazardManager(makeRng(5), 1), h3 = new HazardManager(makeRng(5), 3);
+  const r = h1.rain[0];
+  const mid = (r.start + r.end) / 2;
+  assert.equal(h1.isRaining(mid), true);
+  assert.equal(h3.isRaining(dayStartAt(3) - TIME.dayStart + mid), true, 'cùng lịch → ngày 3 cũng mưa đúng giờ đó');
+  assert.equal(h3.isRaining(mid), false, 'giờ của ngày 1 không ảnh hưởng ngày 3');
 });
 test('Đổ xăng trừ tiền đúng giá', () => {
   const gs = new GameState();
@@ -810,11 +888,11 @@ console.log('Cân bằng (balance.json, thẻ ⚖️)');
     }
     assert.deepEqual(validateBalance(bal), []);
   });
-  test('Tiền nhà: theo công thức, hoặc số tự đặt từng ngày', () => {
-    const eco = { rentBase: 400, rentPerDay: 150, rentByDay: [] };
-    assert.deepEqual([1, 2, 3].map((d) => rentFor(d, eco)), [400, 550, 700]);
-    eco.rentByDay = [300, null, 500];
-    assert.deepEqual([1, 2, 3, 4].map((d) => rentFor(d, eco)), [300, 550, 500, 850]);
+  test('Tiền nhà theo kỳ: theo công thức, hoặc số tự đặt từng kỳ', () => {
+    const eco = { rentBase: 1000, rentStep: 200, rentByPeriod: [] };
+    assert.deepEqual([1, 2, 3].map((k) => rentFor(k, eco)), [1000, 1200, 1400]);
+    eco.rentByPeriod = [800, null, 1500];
+    assert.deepEqual([1, 2, 3, 4].map((k) => rentFor(k, eco)), [800, 1200, 1500, 1600]);
   });
   test('Thay số lúc chạy (bot thử trong editor) sửa thẳng vào số game đang dùng, rồi trả lại được', () => {
     const keep = JSON.parse(JSON.stringify({ economy: ECONOMY, order: ORDER, energy: ENERGY }));
@@ -833,10 +911,10 @@ console.log('Cân bằng (balance.json, thẻ ⚖️)');
     bad.economy.rentBase = -5;
     bad.order.pingGap = [9, 3];
     bad.order.noAnswerChance = 2;
-    bad.economy.rentByDay = [400, -1];
+    bad.economy.rentByPeriod = [400, -1];
     bad.order.liftMin = 'ba';
     const f = validateBalance(bad).filter((i) => i.level === 'error').map((i) => i.field);
-    for (const k of ['economy.rentBase', 'order.pingGap', 'order.noAnswerChance', 'economy.rentByDay', 'order.liftMin']) assert.ok(f.includes(k), `không bắt lỗi ${k}`);
+    for (const k of ['economy.rentBase', 'order.pingGap', 'order.noAnswerChance', 'economy.rentByPeriod', 'order.liftMin']) assert.ok(f.includes(k), `không bắt lỗi ${k}`);
   });
 }
 
@@ -1033,10 +1111,11 @@ console.log('Mở tiệm / món theo ngày');
     items2.passenger.openDay = 3;
     assert.ok(validateItems(items2, null).some((i) => i.ref === 'passenger' && i.field === 'openDay' && i.level === 'error'));
   });
-  test('Bot chơi nối 3 ngày không lỗi; ngày sau mang tiền ngày trước', () => {
-    const run = playRun(2, 'rush', 3);
-    assert.ok(run.length >= 1);
-    for (let i = 1; i < run.length; i++) assert.equal(run[i].gs.day, i + 1);
+  test('Bot chơi liên tục 3 ngày (24h) không lỗi: ngủ, sang ngày, tiền nhà theo kỳ', () => {
+    const run = playRun(2, 'normal', 3);
+    assert.ok(run.lastDay >= 1 && run.log.daily.length >= 1);
+    assert.ok(run.log.sleeps >= 1, 'bot phải ngủ');
+    if (run.outcome.type !== 'lose') assert.equal(run.lastDay, 3);
   });
 }
 

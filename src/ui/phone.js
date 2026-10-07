@@ -135,7 +135,7 @@ export class Phone {
     else if (online && gs.lockedUntil > d.now) h += `<div class="ph-lock">${fmt('phone.lockedNote', { time: hhmm(gs.lockedUntil) })}</div>`;
     else if (online) {
       h += `<div class="ph-wait"><div class="spinner"></div>${fmt('phone.searching')}</div>`;
-      if (d.now >= d.lastOfferAt) h += `<div class="ph-note">${fmt('phone.noMoreOrders')}</div>`;
+      if (d.appClosed) h += `<div class="ph-note">${fmt('phone.noMoreOrders')}</div>`;
     } else h += `<div class="ph-note">${fmt('phone.offlineNote')}</div>`;
     for (const t of d.lockedHints) h += `<div class="ph-lock">🔒 ${t}</div>`;
     return h;
@@ -195,7 +195,7 @@ export class Phone {
     const exp = Object.entries(gs.stats.expense).map(([k, v]) => `<div class="kv"><span>${label(k)}</span><b class="minus">−${fmtK(v)}</b></div>`).join('');
     const rec = d.receipts.slice(-8).reverse().map((r) => `<div class="kv"><span>#${r.order.id} ${r.order.customer} <small class="st">${stars(r.ev.stars)}</small></span><b>${r.ev.refused ? '0k' : fmtK(r.pay.walletCredit)}</b></div>`).join('');
     const none = `<small>${fmt('phone.none')}</small>`;
-    return `<div class="card"><div class="big">${fmtK(gs.money)}</div><small>${fmt('phone.rentToday', { rent: gs.rent })}${gs.rentPaid ? fmt('phone.rentPaid') : ''}</small>
+    return `<div class="card"><div class="big">${fmtK(gs.money)}</div><small>${fmt('phone.rentToday', { rent: gs.rent, day: gs.rentDueDay })}${gs.rentPaid ? fmt('phone.rentPaid') : ''}</small>
       <div class="kv"><span>${fmt('phone.rating')}</span><b>⭐ ${gs.rating.toFixed(2)}</b></div><small>${fmt('phone.ratingNote')}</small></div>
       <div class="card"><b>${fmt('phone.income')}</b>${inc || none}<b>${fmt('phone.expense')}</b>${exp || none}</div>
       <div class="card"><b>${fmt('phone.recent')}</b>${rec || `<small>${fmt('phone.noOrders')}</small>`}</div>`;

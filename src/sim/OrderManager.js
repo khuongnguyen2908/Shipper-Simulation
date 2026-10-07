@@ -15,7 +15,7 @@
 // Loại đơn, loại khách xe ôm, phí app đọc từ apps.json (sửa bằng ?editor, thẻ 📱 App & Đơn).
 // =============================================================
 import { ITEMS } from '../data/items.js';
-import { ORDER, DIST, TIME, ECONOMY } from '../data/balance.js';
+import { ORDER, DIST, ECONOMY } from '../data/balance.js';
 import { APP, ORDER_TYPES, RIDER_TYPES, ORDER_KINDS, typeOpen, isPeak, surchargeAt } from '../data/apps.js';
 import { CUSTOMER_NAMES } from '../data/places.js';
 import { DeliveryItem } from './ItemPhysics.js';
@@ -24,6 +24,7 @@ import { computePayout, estimatePay, addTip } from './economy.js';
 import { routeDist, rideDoor } from './cityLayout.js';
 import { fmt } from '../content/index.js';
 import { isOpen, orderWeight, unlocked } from './placeRules.js';
+import { inHours } from './hours.js';
 
 export const S = Object.freeze({
   OFFLINE: 'OFFLINE',
@@ -135,7 +136,7 @@ export class OrderManager {
   // dtMin: phút game, dtSec: giây thật (đếm ngược thẻ đơn theo thời gian thật)
   update(dtMin, dtSec, now, pos) {
     if (this.state === S.IDLE) {
-      if (now >= TIME.lastOfferAt) return;
+      if (!inHours(APP.hours, now)) return; // ngoài giờ app nhận đơn (apps.json → hours)
       if (this.gs.lockedUntil > now) return; // tài khoản đang bị tạm khóa nhận đơn
       this.nextPingIn -= dtMin;
       if (this.nextPingIn <= 0) {

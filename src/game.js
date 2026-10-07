@@ -7,6 +7,8 @@ import { GOODS, outfitLook } from './data/goods.js';
 import { APP, RIDER_TYPES } from './data/apps.js';
 import { ITEMS } from './data/items.js';
 import { unlocked, openDayOf } from './sim/placeRules.js';
+import { dayOf, dayStartAt, tod } from './sim/clock.js';
+import { inHours } from './sim/hours.js';
 import { buildLayout, segmentRect, roadPos } from './sim/cityLayout.js';
 import { makeRng } from './sim/rng.js';
 import { GameState } from './sim/GameState.js';
@@ -28,6 +30,7 @@ import { Screens } from './ui/screens.js';
 import * as act from './interactions.js';
 import { sfx, setEngine, setRain, unlockAudio, toggleMute } from './audio.js';
 import { fmt } from './content/index.js';
+import { fmtK } from './sim/economy.js';
 
 const SAVE_KEY = 'shipper-sim-save-v1';
 const SW_H = 0.15;
@@ -150,42 +153,50 @@ export class Game {
     this.hud.show(false);
     this.phone.toggle(false);
     this.modal.hide();
-    const save = this.loadSave();
+    const save = this.normSave(this.loadSave());
     this.screens.title({
-      save,
+      save: save && { ...save, day: dayOf(save.clock), time: fmtTime(save.clock) },
       webgl2: this.webgl2,
-      onNew: () => this.newDay(1, null, Math.floor(Math.random() * 1e6)),
-      onContinue: () => this.newDay(save.day, save.carry, save.seed),
+      onNew: () => this.newGame(),
+      onContinue: () => this.startGame(save),
     });
   }
 
-  newDay(day, carry, seed) {
+  // Bản lưu: { v: 2, clock (phút tuyệt đối), carry, seed }. Bản cũ { day, carry, seed } → 06:00 của ngày đó.
+  normSave(s) {
+    if (!s) return null;
+    if (s.v === 2 && Number.isFinite(s.clock)) return s;
+    if (Number.isInteger(s.day)) return { v: 2, clock: dayStartAt(s.day), carry: s.carry || null, seed: s.seed ?? 1 };
+    return null;
+  }
+  newGame() {
+    this.startGame({ clock: TIME.dayStart, carry: null, seed: Math.floor(Math.random() * 1e6) });
+  }
+  // Lưu tự động (06:00 mỗi ngày, mỗi lần ngủ dậy). Mở lại → đứng trước phòng trọ đúng giờ đã lưu.
+  saveGame() {
+    this.lastSave = { v: 2, clock: Math.floor(this.clockMin), carry: JSON.parse(JSON.stringify(this.gs.carryOver())), seed: this.seed };
+    this.writeSave(this.lastSave);
+  }
+
+  startGame({ clock, carry, seed }) {
     this.screens.hide();
     this.modal.hide();
     this.seed = seed;
+    const day = dayOf(clock);
     this.gs = new GameState({ day, carry });
-    this.hz = new HazardManager(makeRng(seed + day * 101));
+    if (!carry || carry.awakeSince == null) this.gs.wake(clock); // bản lưu cũ chưa có giờ thức dậy
+    this.hz = new HazardManager(makeRng(seed + day * 101), day);
     this.om = new OrderManager({ rng: makeRng(seed * 7 + day), layout: this.layout, gs: this.gs, isRaining: (m) => this.hz.isRaining(m) });
     this.om.on((e) => this.onOrderEvent(e));
-    this.clockMin = TIME.dayStart;
+    this.clockMin = clock;
     this.chat = [];
     this.knownPolice = new Set();
     this.policeChecked = new Set();
     this.cooldowns.clear();
-    this.daySave = { day, carry: carry ? JSON.parse(JSON.stringify(carry)) : null, seed };
-    this.writeSave(this.daySave);
+    this.collapsing = false;
+    this.saveGame();
 
-    // đặt người chơi trước phòng trọ, xe đậu sát lề
-    const home = this.layout.placeById.home;
-    const [nx, nz] = NORMAL[home.face];
-    if (this.mode === 'bike') this.walker.standUp(this.scene, this.bike);
-    this.mode = 'foot';
-    this.walker.pos.set(home.door.x + nx * 0.6, 0, home.door.z + nz * 0.6);
-    this.walker.heading = Math.atan2(nx, nz);
-    this.bike.pos.set(home.door.x + 1.8, 0, home.door.z + nz * 2.4);
-    this.bike.heading = Math.PI / 2;
-    this.bike.speed = 0;
-    this.bike.vel.set(0, 0);
+    this.placeAtHome();
     this.bike.setSpec(this.gs.vehicleSpec);
     this.bike.setBag(this.gs.bagSpec);
     this.lookKey = null; // dựng lại ngoại hình shipper theo đồ đang mặc
@@ -203,8 +214,43 @@ export class Game {
     this.state = 'play';
     this.paused = false;
     this.hud.show(true);
-    this.hud.toast(fmt('toast.dayStart', { day, rent: this.gs.rent }), 'big', 7000);
-    // khai trương hôm nay (địa điểm / món có openDay = ngày này)
+    this.hud.toast(fmt(day === 1 && clock === TIME.dayStart ? 'toast.dayStart' : 'toast.welcomeBack', { day, rent: this.gs.rent, dueDay: this.gs.rentDueDay, time: fmtTime(clock) }), 'big', 7000);
+    this.announceOpenings(day);
+  }
+
+  // đặt người chơi trước phòng trọ, xe đậu sát lề
+  placeAtHome() {
+    const home = this.layout.placeById.home;
+    const [nx, nz] = NORMAL[home.face];
+    if (this.mode === 'bike') this.walker.standUp(this.scene, this.bike);
+    this.mode = 'foot';
+    this.walker.pos.set(home.door.x + nx * 0.6, 0, home.door.z + nz * 0.6);
+    this.walker.heading = Math.atan2(nx, nz);
+    this.bike.pos.set(home.door.x + 1.8, 0, home.door.z + nz * 2.4);
+    this.bike.heading = Math.PI / 2;
+    this.bike.speed = 0;
+    this.bike.vel.set(0, 0);
+  }
+
+  // 06:00: sang ngày mới (không dừng game): số liệu theo ngày, thời tiết / CSGT mới, khai trương, tự lưu
+  beginDay(day) {
+    this.gs.startDay(day);
+    this.hz = new HazardManager(makeRng(this.seed + day * 101), day);
+    this.knownPolice = new Set();
+    this.policeChecked = new Set();
+    this.addChat(fmt('chat.group'), fmt('chat.forecast', { forecast: this.hz.forecastText() }));
+    this.hud.toast(fmt('toast.newDay', { day, rent: this.gs.rent, dueDay: this.gs.rentDueDay, paid: this.gs.rentPaid ? fmt('toast.rentPaidNote') : '' }), 'big', 6000);
+    this.announceOpenings(day);
+    this.saveGame();
+  }
+  // đồng hồ vừa qua 06:00 → sang ngày mới
+  rollDay() {
+    const d = dayOf(this.clockMin);
+    if (d !== this.gs.day) this.beginDay(d);
+  }
+
+  // khai trương hôm nay (địa điểm / món có openDay = ngày này)
+  announceOpenings(day) {
     const opening = this.layout.places.filter((p) => openDayOf(p) === day && day > 1).map((p) => p.name);
     const newItems = Object.values(ITEMS).filter((it) => openDayOf(it) === day && day > 1).map((it) => `${it.icon || ''} ${it.name}`);
     if (opening.length) {
@@ -221,15 +267,15 @@ export class Game {
     setRain(0);
     this.modal.hide();
     this.phone.toggle(false);
-    outcome.type === 'win' ? sfx.win() : sfx.lose();
+    sfx.lose();
     const gs = this.gs;
-    if (outcome.type === 'win') this.writeSave({ day: gs.day + 1, carry: gs.carryOver(), seed: this.seed });
     this.screens.end({
       outcome,
       gs,
-      timeStr: fmtTime(this.clockMin),
-      onNext: () => this.newDay(gs.day + 1, gs.carryOver(), this.seed),
-      onRetry: () => this.newDay(this.daySave.day, this.daySave.carry, this.daySave.seed),
+      timeStr: `${fmt('hud.day', { day: gs.day })} · ${fmtTime(this.clockMin)}`,
+      save: this.lastSave && { day: dayOf(this.lastSave.clock), time: fmtTime(this.lastSave.clock) },
+      onRetry: () => this.startGame(this.lastSave),
+      onNew: () => this.newGame(),
       onTitle: () => this.showTitle(),
     });
   }
@@ -240,7 +286,7 @@ export class Game {
     this.screens.pause({
       muted: this.muted,
       onResume: () => this.resume(),
-      onRestart: () => this.newDay(this.daySave.day, this.daySave.carry, this.daySave.seed),
+      onRestart: () => this.startGame(this.lastSave),
       onTitle: () => this.showTitle(),
       onMute: () => {
         this.muted = toggleMute();
@@ -387,7 +433,8 @@ export class Game {
     // ---- thời gian & năng lượng ----
     const dMin = dt * TIME.gameMinPerRealSec * this.timeScale;
     this.clockMin += dMin;
-    gs.drain(activity, dMin, { harshSun: hz.isHarshSun(now), raining: !!rain, outdoor: true, inJam: this.inJam, waiting: false });
+    gs.drain(activity, dMin, { harshSun: hz.isHarshSun(now), raining: !!rain, outdoor: true, inJam: this.inJam, waiting: false, now: this.clockMin });
+    this.rollDay();
 
     // ---- giao thông ----
     const f = bike.forward();
@@ -446,24 +493,73 @@ export class Game {
     this.checkEnd();
   }
 
+  // Thua (bị đuổi / khóa tài khoản) · sự kiện tiền nhà · kiệt sức
   checkEnd() {
-    const o = this.gs.checkEnd(this.clockMin);
-    if (o) this.endGame(o);
+    const gs = this.gs;
+    const o = gs.checkEnd(this.clockMin);
+    for (const e of gs.takeEvents()) this.onRentEvent(e);
+    if (o) return this.endGame(o);
+    if (gs.collapsed && !this.collapsing) this.collapse(gs.collapsed);
+  }
+
+  onRentEvent(e) {
+    if (e.type === 'late') {
+      sfx.bad();
+      this.hud.toast(fmt('toast.rentLate', { fine: fmtK(e.fine), rent: fmtK(e.rent), day: e.dueDay }), 'bad', 9000);
+      this.addChat(fmt('npc.home.name'), fmt('chat.rentLate', { fine: fmtK(e.fine), rent: fmtK(e.rent), day: e.dueDay }));
+    } else if (e.type === 'newPeriod') {
+      this.hud.toast(fmt('toast.rentNewPeriod', { rent: fmtK(e.rent), day: e.dueDay }), 'info', 6000);
+    }
+  }
+
+  // Kiệt sức: hủy đơn đang chạy, về phòng trọ nằm nghỉ bắt buộc, (ngất) mất tiền thuốc
+  collapse(kind) {
+    const { om, gs } = this;
+    this.collapsing = true;
+    if (om.order) om.cancel(fmt('cancel.collapse'), this.clockMin, { byDriver: false });
+    om.goOffline();
+    this.clearTempNpcs();
+    this.placeAtHome();
+    this.advance(ENERGY.collapse.hours * 60, 'rest', { indoor: true, waiting: false, quiet: true });
+    if (this.state !== 'play') return;
+    const r = gs.recoverCollapse(kind);
+    gs.wake(this.clockMin);
+    this.collapsing = false;
+    this.saveGame();
+    sfx.bad();
+    this.modal.show({
+      speaker: fmt('npc.home.name'),
+      portrait: '🏥',
+      text: fmt(kind === 'faint' ? 'dlg.faint' : 'dlg.burnout', { hours: ENERGY.collapse.hours, fee: fmtK(r.fee), time: fmtTime(this.clockMin) }),
+      choices: [{ label: fmt('dlg.ok'), primary: true }],
+    });
+  }
+
+  // Ngủ ở phòng trọ: tắt app, tua nhanh, hồi thể lực / tinh thần, tự lưu khi dậy
+  sleep(minutes) {
+    this.om.goOffline();
+    this.advance(minutes, 'sleep', { indoor: true, waiting: false, quiet: true });
+    if (this.state !== 'play') return null;
+    this.gs.wake(this.clockMin);
+    this.saveGame();
+    return this.clockMin;
   }
 
   // Cho thời gian trôi nhanh (chờ quán, leo cầu thang, ngủ…), tính đủ hao mòn & món hàng
-  advance(min, activity = 'idle', { indoor = false, waiting = true } = {}) {
+  advance(min, activity = 'idle', { indoor = false, waiting = true, quiet = false } = {}) {
     const n = Math.max(1, Math.round(min));
     for (let i = 0; i < n; i++) {
       this.clockMin += 1;
       const now = this.clockMin;
-      this.gs.drain(activity, 1, { harshSun: this.hz.isHarshSun(now), raining: this.hz.isRaining(now), outdoor: !indoor, inJam: false, waiting });
+      this.rollDay();
+      this.gs.drain(activity, 1, { harshSun: this.hz.isHarshSun(now), raining: this.hz.isRaining(now), outdoor: !indoor, inJam: false, waiting, now });
       this.om.tickItems(this.itemEnv(0, indoor), 1);
       this.om.update(1, 0, now, this.playerPos);
       for (const e of this.hz.poll(now)) this.onHazard(e);
       if (this.gs.checkEnd(now)) break;
+      if (this.gs.collapsed && activity !== 'rest') break; // kiệt sức giữa chừng → xử lý ngay
     }
-    this.hud.toast(fmt('toast.timeSkip', { min: n, time: fmtTime(this.clockMin) }), 'info', 2200);
+    if (!quiet) this.hud.toast(fmt('toast.timeSkip', { min: n, time: fmtTime(this.clockMin) }), 'info', 2200);
     this.checkEnd();
   }
 
@@ -597,6 +693,10 @@ export class Game {
       return { ...o.dropoff.door, text: fmt(o.kind === 'ride' ? 'goal.dropRide' : 'goal.dropFood', { address: o.dropoff.address }), sub: o.kind === 'ride' ? fmt('goal.dropRideHint', { kmh: act.comfortKmh(this, o) }) : fmt('goal.dropFoodHint'), color: '#2ecc71' };
     }
     const P = this.layout.placeById;
+    // buồn ngủ / app nghỉ ban đêm → nhắc về phòng trọ ngủ (ưu tiên hơn mua đồ)
+    const tired = gs.tiredLevel(this.clockMin);
+    if (tired && om.state !== S.OFFERED) return { ...P.home.door, text: fmt(tired > 1 ? 'goal.veryTired' : 'goal.tired', { h: Math.floor(gs.awakeHours(this.clockMin)) }), sub: fmt('goal.sleepHint'), color: '#8e7cc3' };
+    if (!inHours(APP.hours, this.clockMin) && om.state !== S.OFFERED) return { ...P.home.door, text: fmt('goal.appClosed'), sub: fmt('goal.sleepHint'), color: '#8e7cc3' };
     for (const ob of objectives(gs)) {
       if (ob.done) continue;
       if (ob.id === 'mount') return { x: this.bike.pos.x, z: this.bike.pos.z, text: fmt('goal.mount'), sub: fmt('goal.mountHint'), color: '#5dade2' };
@@ -608,10 +708,10 @@ export class Game {
       if (ob.id === 'helmet' && seat && gs.money >= seat.price && gs.bagSpec.insulation >= 0.5 && om.state !== S.OFFERED) return { ...P.gear.door, text: fmt('goal.helmet', { price: seat.price }), sub: fmt('goal.helmetHint'), color: '#5dade2' };
       if (ob.id === 'wallet' && ob.target) return { ...P[ob.target].door, text: fmt('goal.wallet', { text: ob.text }), sub: fmt('goal.walletHint'), color: '#bb8fce' };
       if (ob.id === 'wallet') return { text: fmt('goal.wallet', { text: ob.text }), sub: fmt('goal.walletHint') };
-      if (ob.id === 'rent' && gs.money >= gs.rent) return { ...P.home.door, text: fmt('goal.rent', { rent: gs.rent }), sub: fmt('goal.rentHint'), color: '#e74c3c' };
+      if (ob.id === 'rent' && gs.money >= gs.rent) return { ...P.home.door, text: fmt('goal.rent', { rent: gs.rent, day: gs.rentDueDay }), sub: fmt('goal.rentHint'), color: '#e74c3c' };
     }
     if (om.state === S.OFFLINE) return { text: fmt('goal.online'), sub: '' };
-    if (gs.money < gs.rent) return { text: fmt('goal.waiting', { k: Math.ceil(gs.rent - gs.money) }), sub: fmt('goal.waitingHint') };
+    if (!gs.rentPaid && gs.money < gs.rent) return { text: fmt('goal.waiting', { k: Math.ceil(gs.rent - gs.money), day: gs.rentDueDay }), sub: fmt('goal.waitingHint') };
     return null;
   }
 
@@ -707,7 +807,7 @@ export class Game {
     const rain = hz.rainAt(now);
     const pp = this.playerPos;
     this.applyLook();
-    const { night, wet } = this.sky.update(dt, now, rain, pp, this.camera);
+    const { night, wet } = this.sky.update(dt, tod(now), rain, pp, this.camera);
     this.city.setNight(night);
     this.city.setWet(wet);
     this.bike.setNight(night, this.mode === 'bike');
@@ -807,7 +907,7 @@ export class Game {
     this.phone.render({
       now: this.clockMin,
       timeStr: fmtTime(this.clockMin),
-      lastOfferAt: TIME.lastOfferAt,
+      appClosed: !inHours(APP.hours, this.clockMin),
       state: this.om.state,
       offer: this.om.offer,
       offerTimeLeft: this.om.offerTimeLeft,

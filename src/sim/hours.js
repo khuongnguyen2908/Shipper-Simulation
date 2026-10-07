@@ -28,7 +28,7 @@ export function ranges(h, presets = PRESETS) {
 export function inHours(h, minutes, presets = PRESETS) {
   const r = ranges(h, presets);
   if (!r) return true;
-  const x = minutes / 60;
+  const x = (((minutes % 1440) + 1440) % 1440) / 60; // đồng hồ chạy liên tục → lấy giờ trong ngày
   return r.some(([a, b]) => x >= a && x < b);
 }
 

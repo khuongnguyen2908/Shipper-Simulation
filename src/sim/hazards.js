@@ -1,9 +1,11 @@
 // =============================================================
 // QUẢN LÝ CHƯỚNG NGẠI MÔI TRƯỜNG (HazardManager)
-// Lập lịch theo seed cho cả ngày: mưa, chốt CSGT, kẹt xe giờ cao điểm, ổ gà.
+// Lập lịch theo seed cho MỘT ngày chơi (06:00 → 06:00 hôm sau): mưa, chốt CSGT, kẹt xe giờ cao điểm, ổ gà.
+// Đồng hồ game chạy liên tục (phút tuyệt đối) → mỗi hàm đổi về "phút kể từ 00:00 của ngày đó" (360…1800).
 // Chó băng qua đường do phần thế giới 3D kích hoạt (cần vị trí xe).
 // =============================================================
 import { HAZARD, TIME } from '../data/balance.js';
+import { dayStartAt } from './clock.js';
 import { MAIN_ROADS } from '../data/places.js';
 import { CITY, roadPos, intersectionName, segmentName, neighbors, isWaterSeg } from './cityLayout.js';
 import { fmt } from '../content/index.js';
@@ -11,8 +13,10 @@ import { fmt } from '../content/index.js';
 const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}`;
 
 export class HazardManager {
-  constructor(rng) {
+  // day: ngày chơi thứ mấy (lịch tính theo giờ trong ngày đó)
+  constructor(rng, day = 1) {
     this.rng = rng;
+    this.base = dayStartAt(day) - TIME.dayStart; // phút tuyệt đối lúc 00:00 của ngày này
     // Mưa: chiều nào cũng có cơn giông, sáng có thể mưa phùn
     this.rain = [];
     if (rng.chance(HAZARD.drizzleChance)) {
@@ -26,7 +30,7 @@ export class HazardManager {
     this.police = [];
     let t = HAZARD.policeFirst + rng.range(-30, 30);
     let id = 0;
-    while (t < TIME.dayEnd - 40) {
+    while (t < HAZARD.policeEnd - 40) {
       const len = rng.range(...HAZARD.policeLen);
       // chốt ở ngã tư bên trong có ≥ 3 ngả đường (không đặt trên cầu, mặt sông, đường cụt)
       let node = [rng.int(1, CITY.N - 1), rng.int(1, CITY.N - 1)];
@@ -49,33 +53,40 @@ export class HazardManager {
     this._active = new Set();
   }
 
+  rel(min) {
+    return min - this.base;
+  }
   rainAt(min) {
-    return this.rain.find((r) => min >= r.start && min < r.end) || null;
+    const m = this.rel(min);
+    return this.rain.find((r) => m >= r.start && m < r.end) || null;
   }
   isRaining(min) {
     return !!this.rainAt(min);
   }
   activePolice(min) {
-    return this.police.filter((p) => min >= p.start && min < p.end);
+    const m = this.rel(min);
+    return this.police.filter((p) => m >= p.start && m < p.end);
   }
   activeJams(min) {
-    return this.jams.filter((j) => min >= j.start && min < j.end).flatMap((j) => j.segments);
+    const m = this.rel(min);
+    return this.jams.filter((j) => m >= j.start && m < j.end).flatMap((j) => j.segments);
   }
   isHarshSun(min) {
-    return min >= TIME.sunHarsh[0] && min < TIME.sunHarsh[1] && !this.isRaining(min);
+    const m = this.rel(min);
+    return m >= TIME.sunHarsh[0] && m < TIME.sunHarsh[1] && !this.isRaining(min);
   }
   // Độ nắng 0..1
   sun(min) {
     if (this.isRaining(min)) return 0;
     if (this.isHarshSun(min)) return 1;
-    const h = min / 60;
+    const h = (((min % 1440) + 1440) % 1440) / 60; // giờ trong ngày
     return h >= 7 && h < 17.5 ? 0.5 : 0;
   }
   ambient(min) {
     const A = HAZARD.ambient;
     if (this.isRaining(min)) return A.rain;
     if (this.isHarshSun(min)) return A.harsh;
-    const h = min / 60;
+    const h = (((min % 1440) + 1440) % 1440) / 60; // giờ trong ngày
     return h < 9 || h > 19 ? A.night : A.morning;
   }
 
@@ -91,7 +102,7 @@ export class HazardManager {
     const r = this.rainAt(min);
     if (r) now.add('rain');
     for (const p of this.activePolice(min)) now.add(p.id);
-    for (const j of this.jams) if (min >= j.start && min < j.end) now.add(j.id);
+    for (const j of this.jams) if (this.rel(min) >= j.start && this.rel(min) < j.end) now.add(j.id);
     for (const k of now) {
       if (this._active.has(k)) continue;
       if (k === 'rain') events.push({ type: 'rainStart', heavy: r.heavy });
