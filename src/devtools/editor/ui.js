@@ -141,7 +141,8 @@ export function button(label, onClick, cls = '') {
 
 // Danh sách chọn bên trái (dùng chung cho các thẻ)
 // onReorder(from, to): có thì mỗi dòng có tay nắm ⠿ để kéo đổi thứ tự; dòng r.fixed đứng yên ở đầu
-export function sideList(rows, selected, onPick, { issuesFor, onReorder } = {}) {
+// menu(id): có thì mỗi dòng có nút ⋯ (và chuột phải) mở menu thao tác [{ label, onClick, disabled, danger }]
+export function sideList(rows, selected, onPick, { issuesFor, onReorder, menu } = {}) {
   const list = el(
     'div',
     { class: 'side-list' },
@@ -149,18 +150,52 @@ export function sideList(rows, selected, onPick, { issuesFor, onReorder } = {}) 
       const iss = issuesFor ? issuesFor(r.id) : [];
       const err = iss.some((i) => i.level === 'error'), warn = iss.length && !err;
       const sortable = onReorder && !r.fixed;
-      return el(
+      const hasMenu = menu && !r.fixed;
+      const row = el(
         'button',
         { class: `side-row${r.id === selected ? ' on' : ''}`, type: 'button', 'data-sort': sortable ? '' : null, onclick: () => onPick(r.id) },
         sortable ? dragHandle() : null,
         el('span', { class: 'sr-icon' }, r.icon || '•'),
         el('span', { class: 'sr-main' }, el('b', {}, r.title), el('small', {}, r.sub || '')),
         err ? el('span', { class: 'dot err', title: 'Có lỗi' }) : warn ? el('span', { class: 'dot warn', title: 'Có cảnh báo' }) : null,
+        hasMenu ? el('span', { class: 'sr-more', title: 'Thao tác (hoặc chuột phải)', onclick: (e) => { e.preventDefault(); e.stopPropagation(); const b = e.currentTarget.getBoundingClientRect(); openMenu(b.right, b.bottom, menu(r.id)); } }, '⋯') : null,
       );
+      if (hasMenu) row.addEventListener('contextmenu', (e) => { e.preventDefault(); openMenu(e.clientX, e.clientY, menu(r.id)); });
+      return row;
     }),
   );
   if (onReorder) makeSortable(list, '.side-row[data-sort]', onReorder);
   return list;
+}
+
+// Menu nổi (nút ⋯ / chuột phải). items: [{ label, kbd, onClick, disabled, danger, hint }] — mục null = vạch ngăn
+let openPop = null;
+export function openMenu(x, y, items) {
+  openPop?.remove();
+  const pop = el('div', { class: 'ctx-menu', role: 'menu' }, items.map((it) => (it
+    ? el('button', { type: 'button', class: `ctx-item${it.danger ? ' danger' : ''}`, disabled: it.disabled || null, title: it.hint || null, onclick: () => { close(); it.onClick(); } }, el('span', {}, it.label), it.kbd ? el('span', { class: 'kbd' }, it.kbd) : null)
+    : el('hr', {}))));
+  document.body.append(pop);
+  // giữ menu trong màn hình
+  const r = pop.getBoundingClientRect();
+  pop.style.left = `${Math.max(4, Math.min(x, innerWidth - r.width - 4))}px`;
+  pop.style.top = `${Math.max(4, Math.min(y, innerHeight - r.height - 4))}px`;
+  openPop = pop;
+  const outside = (e) => { if (!pop.contains(e.target)) close(); };
+  const esc = (e) => { if (e.key === 'Escape') close(); };
+  function close() {
+    pop.remove();
+    if (openPop === pop) openPop = null;
+    removeEventListener('pointerdown', outside, true);
+    removeEventListener('keydown', esc, true);
+    removeEventListener('scroll', close, true);
+  }
+  setTimeout(() => {
+    addEventListener('pointerdown', outside, true);
+    addEventListener('keydown', esc, true);
+    addEventListener('scroll', close, true);
+  });
+  pop.querySelector('.ctx-item:not([disabled])')?.focus();
 }
 
 // Tay nắm để kéo (bấm vào tay nắm không mở mục)

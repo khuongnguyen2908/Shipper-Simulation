@@ -3,6 +3,7 @@
 import { CITY, HALF, blockBounds, lotInfo, LOT_SIZES, lotParts, lotSize, lotFaces, blockPlan, blockRect } from '../../sim/cityLayout.js';
 import { PROTECTED, ID_RE, LOTS, lotCells } from '../../data/validate.js';
 import { moveInArray } from './order.js';
+import { rowMenu, pasteButton, entryButtons, doRemove, doDuplicateActivity, doCopyActivity, doPasteActivity } from './opsUi.js';
 import { personPreview } from './personPreview.js';
 import { guessGender } from '../../sim/people.js';
 import { el, field, textInput, numInput, colorInput, selectInput, checkInput, button, sideList, areaInput, dragHandle, makeSortable, emojiInput, explain, openDayInput } from './ui.js';
@@ -39,7 +40,7 @@ export function render(root, ctx) {
   const drawSide = () => {
     side.innerHTML = '';
     side.append(
-      el('div', { class: 'side-head' }, el('b', {}, `Địa điểm (${places.length})`), el('span', { class: 'inline' }, button('＋ Quán ăn', () => addPlace('restaurant'), 'small primary'), button('＋ Dịch vụ', () => addPlace('service'), 'small primary'))),
+      el('div', { class: 'side-head' }, el('b', {}, `Địa điểm (${places.length})`), el('span', { class: 'inline' }, pasteButton(ctx, 'places'), button('＋ Quán ăn', () => addPlace('restaurant'), 'small primary'), button('＋ Dịch vụ', () => addPlace('service'), 'small primary'))),
       sideList(
         [
           { id: '__streets', icon: '🛣️', title: 'Tên đường & khách', sub: 'phố, khách hàng, người đi đường', fixed: true },
@@ -48,7 +49,7 @@ export function render(root, ctx) {
         ],
         sel.id,
         (id) => ctx.select('places', { id }),
-        { issuesFor: (id) => (id === '__schedule' ? [] : id === '__streets' ? ctx.issuesFor('places', '') : ctx.issuesFor('places', id)), onReorder: (a, b) => { moveInArray(places, a, b); changedP(); } },
+        { issuesFor: (id) => (id === '__schedule' ? [] : id === '__streets' ? ctx.issuesFor('places', '') : ctx.issuesFor('places', id)), onReorder: (a, b) => { moveInArray(places, a, b); changedP(); }, menu: rowMenu(ctx, 'places') },
       ),
     );
   };
@@ -73,7 +74,7 @@ export function render(root, ctx) {
       el('h2', {}, `${p.icon || ICON[p.kind] || ''} ${p.name}`),
       el('span', { class: 'pill' }, KIND[p.kind] || p.kind),
       p.hidden ? el('span', { class: 'pill' }, '👁 Ẩn trên bản đồ tới khi nhiệm vụ tiết lộ') : null,
-      !locked ? button('🗑 Xóa địa điểm', () => removePlace(p), 'danger small') : null,
+      el('span', { class: 'inline' }, entryButtons(ctx, 'places', p.id), !locked ? button('🗑 Xóa địa điểm', () => doRemove(ctx, 'places', p.id), 'danger small') : null),
     ),
   );
 
@@ -224,7 +225,10 @@ export function render(root, ctx) {
               ctx.applyFieldIssues();
             }),
             act.needs ? numInput(act.needs.qty || 1, (v) => { act.needs.qty = Math.round(v); changedP(); }, { step: 1, min: 1, max: 10 }) : null), { hint: HINT.act.needs })), { ref, fieldKey: `activities.${act.id}`, wide: true }),
-        button('🗑 Xóa hoạt động', () => { p.activities.splice(i, 1); if (!p.activities.length) delete p.activities; changedP(); drawActs(); ctx.applyFieldIssues(); }, 'danger small')));
+        el('span', { class: 'inline' },
+          button('📄 Nhân bản', () => doDuplicateActivity(ctx, p.id, i), 'small'),
+          button('📋 Sao chép', () => doCopyActivity(ctx, act), 'small'),
+          button('🗑 Xóa hoạt động', () => { ctx.historyBreak(); p.activities.splice(i, 1); if (!p.activities.length) delete p.activities; changedP(); ctx.historyBreak(); drawActs(); ctx.applyFieldIssues(); }, 'danger small'))));
     });
     actBox.append(button('＋ Thêm hoạt động', () => {
       let n = 1;
@@ -233,7 +237,7 @@ export function render(root, ctx) {
       changedP();
       drawActs();
       ctx.applyFieldIssues();
-    }, 'small primary'));
+    }, 'small primary'), button('📥 Dán hoạt động', () => doPasteActivity(ctx, p.id), 'small'));
   };
   drawActs();
   makeSortable(actBox, '.act-card', (a, b) => { moveInArray(p.activities, a, b); changedP(); drawActs(); ctx.applyFieldIssues(); });
@@ -456,16 +460,6 @@ export function render(root, ctx) {
     ctx.changed('content');
     changedP();
     ctx.select('places', { id });
-  }
-
-  function removePlace(q) {
-    if (q.kind === 'restaurant' && places.filter((x) => x.kind === 'restaurant').length <= 1) return alert('Cần giữ ít nhất 1 quán ăn.');
-    if (!confirm(`Xóa "${q.name}"?`)) return;
-    pd.places = places.filter((x) => x !== q);
-    for (const k of Object.keys(ctx.data.content)) if (k.startsWith(`npc.${q.id}.`) && !(k in ctx.base.content)) delete ctx.data.content[k];
-    ctx.changed('content');
-    changedP();
-    ctx.select('places', { id: null });
   }
 
   function renamePlace(q, newId) {

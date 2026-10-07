@@ -5,6 +5,7 @@ import { EFFECTS } from '../../data/goods.js';
 import { el, field, textInput, numInput, button, sideList, selectInput, checkInput, emojiInput, explain, areaInput } from './ui.js';
 import { HINT, EXPLAIN } from './help.js';
 import { moveKey } from './order.js';
+import { rowMenu, pasteButton, entryButtons, doRemove } from './opsUi.js';
 
 const CATS = [
   ['app', '📱 App'],
@@ -29,7 +30,7 @@ export function render(root, ctx) {
     const total = Object.values(table).reduce((s, x) => s + (x.weight > 0 ? x.weight : 0), 0);
     side.append(
       el('div', { class: 'seg' }, CATS.map(([c, label]) => button(label, () => ctx.select('app', { cat: c, id: null }), cat === c ? 'on' : ''))),
-      el('div', { class: 'side-head' }, el('b', {}, `${Object.keys(table).length} mục`), cat === 'app' ? null : button('＋ Thêm', add, 'small primary')),
+      el('div', { class: 'side-head' }, el('b', {}, `${Object.keys(table).length} mục`), cat === 'app' ? null : el('span', { class: 'inline' }, pasteButton(ctx, cat), button('＋ Thêm', add, 'small primary'))),
       sideList(
         Object.values(table).map((x) => ({
           id: x.id,
@@ -39,7 +40,7 @@ export function render(root, ctx) {
         })),
         sel.id,
         (id) => ctx.select('app', { id }),
-        { issuesFor: (id) => ctx.issuesFor('app', id, { cat }), onReorder: cat === 'app' ? null : (a, b) => { moveKey(table, a, b); changed(); } },
+        { issuesFor: (id) => ctx.issuesFor('app', id, { cat }), onReorder: cat === 'app' ? null : (a, b) => { moveKey(table, a, b); changed(); }, menu: cat === 'app' ? null : rowMenu(ctx, cat) },
       ),
     );
   };
@@ -60,7 +61,7 @@ export function render(root, ctx) {
     checkInput(!Array.isArray(x.hours), (v) => { if (v) delete x.hours; else x.hours = [8, 21]; changed(); ctx.rerender(); }, 'Cả ngày'),
     Array.isArray(x.hours) ? [numInput(x.hours[0], (v) => { x.hours[0] = v; changed(); }, { step: 1, min: 0, max: 24 }), el('span', {}, '→'), numInput(x.hours[1], (v) => { x.hours[1] = v; changed(); }, { step: 1, min: 0, max: 24 })] : null), opt('hours', { hint }));
 
-  body.append(el('div', { class: 'body-head' }, el('h2', {}, `${cat === 'app' ? '📱' : x.icon || ''} ${x.name}`), cat === 'app' ? el('span', { class: 'pill' }, '🔒 App đang chạy') : button('🗑 Xóa', remove, 'danger small')));
+  body.append(el('div', { class: 'body-head' }, el('h2', {}, `${cat === 'app' ? '📱' : x.icon || ''} ${x.name}`), cat === 'app' ? el('span', { class: 'pill' }, '🔒 App đang chạy') : el('span', { class: 'inline' }, entryButtons(ctx, cat, x.id), button('🗑 Xóa', () => doRemove(ctx, cat, x.id), 'danger small'))));
 
   if (cat === 'app') renderApp();
   else if (cat === 'orderTypes') renderOrderType();
@@ -210,12 +211,5 @@ export function render(root, ctx) {
       : { id, name: 'Loại khách mới', icon: '🙂', weight: 1, viaApp: true, comfortKmh: 40, fareMult: 1, deadlineMult: 1, quitBelow: 10 };
     changed();
     ctx.select('app', { id });
-  }
-
-  function remove() {
-    if (!confirm(`Xóa "${x.name}"?`)) return;
-    delete table[ref];
-    changed();
-    ctx.select('app', { id: null });
   }
 }

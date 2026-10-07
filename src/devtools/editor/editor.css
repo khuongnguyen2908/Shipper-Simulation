@@ -136,4 +136,16 @@ table.sim-table td { vertical-align: top; }
 .sim-cell.easy b { color: #2ecc71; } .sim-cell.mid b { color: #f1c40f; } .sim-cell.hard b { color: #e74c3c; }
 .sim-cell small.up { color: #2ecc71; } .sim-cell small.down { color: #e74c3c; }
 .sim-cell .muted { font-size: 11px; }
+/* menu thao tác (⋯ / chuột phải) */
+.sr-more { margin-left: auto; padding: 0 6px; border-radius: 6px; color: #8b97a8; font-size: 16px; line-height: 1.2; cursor: pointer; }
+.sr-more:hover { background: #2d3644; color: #fff; }
+.ctx-menu { position: fixed; z-index: 50; min-width: 220px; background: #1a202b; border: 1px solid #3a4558; border-radius: 10px; padding: 4px; box-shadow: 0 10px 30px #0009; display: flex; flex-direction: column; }
+.ctx-item { text-align: left; background: transparent; border: 0; color: #e8ecf2; padding: 7px 10px; border-radius: 6px; font: inherit; font-size: 13px; cursor: pointer; display: flex; justify-content: space-between; gap: 16px; }
+.ctx-item:hover:not([disabled]), .ctx-item:focus { background: #2c3544; outline: none; }
+.ctx-item[disabled] { opacity: .4; cursor: default; }
+.ctx-item.danger { color: #ff8a80; }
+.ctx-menu hr { border: 0; border-top: 1px solid #2d3644; margin: 4px 2px; }
+.kbd { color: #8b97a8; font-size: 11px; }
+.btn.dim { opacity: .55; }
+.btn.icon-btn { padding: 7px 10px; font-size: 15px; }
 

@@ -25,6 +25,9 @@ import * as tabApp from './tabApp.js';
 import * as tabMap from './tabMap.js';
 import * as tabBalance from './tabBalance.js';
 import { selKey, planScroll, selToSave } from './viewState.js';
+import { createHistory, syncMirror, record, breakStep, undo, redo } from './history.js';
+import { currentEntry, parseClip } from './ops.js';
+import { doDuplicate, doCopy, doRemove, doPaste } from './opsUi.js';
 
 const FILES = {
   items: { path: 'src/data/items.json', label: 'Vật phẩm', src: itemsJson },
@@ -100,8 +103,15 @@ export async function startEditor(root) {
 
   const dirtyFiles = () => Object.keys(FILES).filter((k) => JSON.stringify(ctx.data[k]) !== JSON.stringify(ctx.base[k]));
 
+  // hoàn tác / làm lại: mọi thay đổi đi qua ctx.changed đều được ghi lại
+  const hist = createHistory();
+  syncMirror(hist, ctx.data, Object.keys(FILES));
+  let replaying = false;
+  ctx.historyBreak = () => breakStep(hist);
+
   let draftTimer = 0;
   ctx.changed = (fileKey) => {
+    if (!replaying) record(hist, ctx.data, fileKey ? [fileKey] : Object.keys(FILES));
     if (fileKey === 'content') setContentTable(ctx.data.content);
     validate();
     renderHeader();
@@ -200,6 +210,8 @@ export async function startEditor(root) {
           ? button(dirty.length ? `💾 Lưu (${dirty.length} file)` : '💾 Đã lưu', save, `primary${!dirty.length || errors ? ' off' : ''}`)
           : button('⬇️ Xuất JSON', exportFiles, dirty.length ? 'primary' : ''),
         button('⬆️ Nhập JSON', importFiles),
+        Object.assign(button('↶', () => stepHistory('undo'), hist.undo.length ? 'icon-btn' : 'icon-btn off'), { title: `Hoàn tác (Ctrl+Z) — còn ${hist.undo.length} bước` }),
+        Object.assign(button('↷', () => stepHistory('redo'), hist.redo.length ? 'icon-btn' : 'icon-btn off'), { title: `Làm lại (Ctrl+Y) — ${hist.redo.length} bước` }),
         button('↺ Bỏ thay đổi', revertAll, dirty.length ? '' : 'off'),
         el('a', { class: 'btn', href: './?debug', target: '_blank', title: 'Game chỉ thấy thay đổi đã lưu' }, '▶ Thử trong game'),
       ),
@@ -323,17 +335,57 @@ export async function startEditor(root) {
     ctx.rerender();
   }
 
+  // Hoàn tác / làm lại một bước
+  function stepHistory(which) {
+    const keys = (which === 'undo' ? undo : redo)(hist, ctx.data);
+    if (!keys) return ctx.notify(which === 'undo' ? 'Không còn gì để hoàn tác.' : 'Không còn gì để làm lại.', 'warn', true);
+    replaying = true;
+    if (keys.includes('content')) setContentTable(ctx.data.content);
+    ctx.changed();
+    replaying = false;
+    ctx.rerender();
+    ctx.notify(`${which === 'undo' ? '↶ Đã hoàn tác' : '↷ Đã làm lại'} (${keys.map((k) => FILES[k].label).join(', ')}). Còn ${hist.undo.length} bước hoàn tác.`, 'ok', true);
+  }
+
+  // Báo ngắn ở thanh trên (auto = tự ẩn sau vài giây)
+  let notifyTimer = 0;
+  ctx.notify = (html, kind = 'ok', auto = false) => {
+    showBanner(html, kind);
+    clearTimeout(notifyTimer);
+    if (auto) notifyTimer = setTimeout(() => (banner.className = 'ed-banner hidden'), 6000);
+  };
+
   function showBanner(html, kind = 'ok', actions = []) {
+    clearTimeout(notifyTimer);
     banner.className = `ed-banner ${kind}`;
     banner.innerHTML = '';
     banner.append(el('span', { html }), ...actions, button('✕', () => (banner.className = 'ed-banner hidden'), 'small'));
   }
 
   window.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+    const mod = e.ctrlKey || e.metaKey, key = e.key.toLowerCase();
+    if (mod && key === 's') {
       e.preventDefault();
       ctx.canSave ? save() : exportFiles();
+      return;
     }
+    // đang gõ trong ô nhập → để trình duyệt tự xử lý (Ctrl+Z trong ô = hoàn tác chữ vừa gõ)
+    if (e.target.closest?.('input, textarea, select, [contenteditable]')) return;
+    if (mod && key === 'z' && !e.shiftKey) { e.preventDefault(); return stepHistory('undo'); }
+    if (mod && (key === 'y' || (key === 'z' && e.shiftKey))) { e.preventDefault(); return stepHistory('redo'); }
+    const cur = currentEntry(ctx.tab, ctx.sel[ctx.tab]);
+    if (!cur) return;
+    if (mod && key === 'd') { e.preventDefault(); doDuplicate(ctx, cur.kind, cur.id); }
+    else if (mod && key === 'c' && !String(getSelection?.() || '')) { e.preventDefault(); doCopy(ctx, cur.kind, cur.id); }
+    else if (key === 'delete' && !mod) { e.preventDefault(); doRemove(ctx, cur.kind, cur.id); }
+  });
+  // Ctrl+V: dán mục đã sao chép (đọc clipboard của máy → dán được cả từ máy khác / editor online)
+  document.addEventListener('paste', (e) => {
+    if (e.target.closest?.('input, textarea, select, [contenteditable]')) return;
+    const clip = parseClip(e.clipboardData?.getData('text') || '');
+    if (!clip) return;
+    e.preventDefault();
+    doPaste(ctx, clip);
   });
   window.addEventListener('beforeunload', (e) => {
     if (dirtyFiles().length) e.preventDefault();

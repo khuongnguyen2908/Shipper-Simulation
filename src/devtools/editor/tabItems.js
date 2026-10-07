@@ -6,6 +6,7 @@ import { TRAIT_IDS, PROTECTED, ID_RE } from '../../data/validate.js';
 import { el, field, textInput, numInput, checkInput, button, sideList, selectInput, emojiInput, explain, openDayInput } from './ui.js';
 import { HINT, EXPLAIN } from './help.js';
 import { moveKey } from './order.js';
+import { rowMenu, pasteButton, entryButtons, doRemove } from './opsUi.js';
 
 const TRAIT_INFO = {
   hot: ['🔥 Nóng', 'Nguội dần; dưới 60°C bắt đầu mất điểm'],
@@ -26,12 +27,12 @@ export function render(root, ctx) {
   const drawSide = () => {
     side.innerHTML = '';
     side.append(
-      el('div', { class: 'side-head' }, el('b', {}, `Món hàng (${ids.length})`), button('＋ Thêm món', addItem, 'small primary')),
+      el('div', { class: 'side-head' }, el('b', {}, `Món hàng (${ids.length})`), el('span', { class: 'inline' }, pasteButton(ctx, 'items'), button('＋ Thêm món', addItem, 'small primary'))),
       sideList(
         Object.values(items).map((it) => ({ id: it.id, icon: it.icon, title: it.name || '(chưa đặt tên)', sub: `${it.id} · ${it.base}k${it.openDay > 1 ? ` · từ ngày ${it.openDay}` : ''}` })),
         sel.id,
         (id) => ctx.select('items', { id }),
-        { issuesFor: (id) => ctx.issuesFor('items', id), onReorder: (a, b) => { moveKey(items, a, b); ctx.changed('items'); } },
+        { issuesFor: (id) => ctx.issuesFor('items', id), onReorder: (a, b) => { moveKey(items, a, b); ctx.changed('items'); }, menu: rowMenu(ctx, 'items') },
       ),
     );
   };
@@ -53,7 +54,7 @@ export function render(root, ctx) {
   const idInput = textInput(it.id, () => {}, { disabled: protectedId, class: 'mono' });
   idInput.addEventListener('change', () => renameItem(it.id, idInput.value.trim()));
   body.append(
-    el('div', { class: 'body-head' }, el('h2', {}, `${it.icon || ''} ${it.name || ''}`), protectedId ? el('span', { class: 'pill' }, '🔒 Món bắt buộc') : button('🗑 Xóa món', () => removeItem(it.id), 'danger small')),
+    el('div', { class: 'body-head' }, el('h2', {}, `${it.icon || ''} ${it.name || ''}`), el('span', { class: 'inline' }, entryButtons(ctx, 'items', it.id), protectedId ? el('span', { class: 'pill' }, '🔒 Món bắt buộc') : button('🗑 Xóa món', () => doRemove(ctx, 'items', it.id), 'danger small'))),
     el(
       'div',
       { class: 'grid' },
@@ -167,18 +168,6 @@ export function render(root, ctx) {
     items[id] = { id, name: 'Món mới', icon: '🥡', traits: ['hot'], base: 25, startTemp: 80 };
     ctx.changed('items');
     ctx.select('items', { id });
-  }
-
-  function removeItem(id) {
-    const using = restaurants.filter((p) => (p.menu || []).includes(id));
-    if (!confirm(`Xóa món "${items[id].name}"?${using.length ? `\nMón này sẽ bị gỡ khỏi thực đơn: ${using.map((p) => p.name).join(', ')}.` : ''}`)) return;
-    delete items[id];
-    for (const p of using) p.menu = p.menu.filter((m) => m !== id);
-    for (const t of Object.values(ctx.data.apps.orderTypes)) if ((t.items || []).includes(id)) t.items = t.items.filter((x) => x !== id);
-    ctx.changed('apps');
-    ctx.changed('places');
-    ctx.changed('items');
-    ctx.select('items', { id: Object.keys(items)[0] });
   }
 
   function renameItem(oldId, newId) {

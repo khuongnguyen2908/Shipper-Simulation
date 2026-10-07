@@ -838,6 +838,79 @@ console.log('Cân bằng (balance.json, thẻ ⚖️)');
   });
 }
 
+console.log('Nhân bản · sao chép · dán · xóa · hoàn tác (công cụ ?editor)');
+{
+  const H = await import('../src/devtools/editor/history.js');
+  const O = await import('../src/devtools/editor/ops.js');
+  const { validateAll } = await import('../src/data/validate.js');
+  const rd = (p) => JSON.parse(fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8'));
+  const load = () => ({ items: rd('src/data/items.json'), gear: rd('src/data/gear.json'), goods: rd('src/data/goods.json'), places: rd('src/data/places.json'), content: rd('src/content/vi.json'), apps: rd('src/data/apps.json'), map: rd('src/data/map.json') });
+  const errs = (d) => validateAll({ ...d, baseContent: d.content }).filter((i) => i.level === 'error');
+  test('Hoàn tác / làm lại: gõ liền gộp 1 bước; thao tác tách bước; làm lại sau hoàn tác', () => {
+    const data = { items: { a: { name: 'A' } } };
+    const h = H.createHistory({ mergeMs: 700 });
+    H.syncMirror(h, data, ['items']);
+    data.items.a.name = 'AB'; H.record(h, data, ['items'], 1000);
+    data.items.a.name = 'ABC'; H.record(h, data, ['items'], 1300); // gõ tiếp trong 0,7 giây → cùng bước
+    assert.equal(h.undo.length, 1);
+    H.breakStep(h);
+    data.items.b = { name: 'B' }; H.record(h, data, ['items'], 1400);
+    assert.equal(h.undo.length, 2);
+    assert.deepEqual(H.undo(h, data), ['items']);
+    assert.ok(!data.items.b && data.items.a.name === 'ABC');
+    H.undo(h, data);
+    assert.equal(data.items.a.name, 'A');
+    H.redo(h, data);
+    assert.equal(data.items.a.name, 'ABC');
+    assert.equal(H.undo(H.createHistory(), {}), null);
+  });
+  test('Nhân bản món: mã mới không trùng, đứng ngay sau, có trong thực đơn quán gốc; dữ liệu vẫn hợp lệ', () => {
+    const d = load();
+    const r = O.duplicate(d, 'items', 'pho');
+    assert.equal(r.id, 'pho_2');
+    const keys = Object.keys(d.items);
+    assert.equal(keys.indexOf('pho_2'), keys.indexOf('pho') + 1);
+    assert.ok(d.places.places.some((p) => (p.menu || []).includes('pho_2')));
+    assert.equal(O.duplicate(d, 'items', 'pho').id, 'pho_3');
+    assert.deepEqual(errs(d), []);
+  });
+  test('Nhân bản địa điểm: đặt vào lô trống cùng cỡ, chép lời thoại; địa điểm cốt truyện thì không', () => {
+    const d = load();
+    const src = d.places.places.find((p) => p.id === 'karaoke');
+    const r = O.duplicate(d, 'places', 'karaoke');
+    const c = d.places.places.find((p) => p.id === r.id);
+    assert.equal(O.KINDS.places.get(d).indexOf(c), O.KINDS.places.get(d).indexOf(src) + 1);
+    assert.ok(d.content[`npc.${r.id}.greet`]);
+    assert.ok(O.duplicate(d, 'places', 'home').error);
+    assert.deepEqual(errs(d).filter((i) => i.field === 'lot'), [], 'bản sao đè lô khác');
+  });
+  test('Sao chép → dán (kể cả sang dữ liệu khác): bỏ tham chiếu không có, mã không trùng', () => {
+    const d = load();
+    const clip = O.parseClip(JSON.stringify(O.makeClip(d, 'places', 'chua')));
+    assert.ok(clip && clip.kind === 'places');
+    clip.data.menu = ['monKhongCo'];
+    const r = O.paste(d, clip);
+    assert.ok(r.id !== 'chua' && r.dropped.some((x) => x.includes('monKhongCo')));
+    assert.equal(O.parseClip('{"khong":"phai"}'), null);
+    assert.equal(O.parseClip('chữ thường'), null);
+    const r2 = O.paste(d, O.makeClip(d, 'goods', 'nhang'));
+    assert.equal(r2.id, 'nhang_2');
+    assert.deepEqual(errs(d).filter((i) => i.field === 'lot'), []);
+  });
+  test('Xóa: dọn thực đơn / hàng bán / đồ cần; mục khóa và quán ăn cuối cùng không xóa được', () => {
+    const d = load(), base = load();
+    assert.ok(O.remove(d, base, 'vehicles', 'cub').error);
+    assert.ok(O.remove(d, base, 'places', 'home').error);
+    O.remove(d, base, 'items', 'pho');
+    assert.ok(!d.items.pho && !d.places.places.some((p) => (p.menu || []).includes('pho')));
+    O.remove(d, base, 'goods', 'nhang');
+    assert.ok(!d.places.places.some((p) => (p.sells?.goods || []).includes('nhang') || (p.activities || []).some((a) => a.needs?.id === 'nhang')));
+    const rest = d.places.places.filter((p) => p.kind === 'restaurant');
+    for (const p of rest.slice(1)) O.remove(d, base, 'places', p.id);
+    assert.ok(O.remove(d, base, 'places', rest[0].id).error, 'phải giữ ít nhất 1 quán ăn');
+  });
+}
+
 console.log('Mở tiệm / món theo ngày');
 {
   const { playRun } = await import('./economy-sim.js');

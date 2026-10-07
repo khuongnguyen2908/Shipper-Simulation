@@ -1,6 +1,7 @@
 // Thẻ XE · TÚI · ĐỒ DÙNG: chỉ số, giá, mô tả, tác dụng + nơi bán + bảng so sánh.
 import { PROTECTED, ID_RE, VEHICLE_MODELS } from '../../data/validate.js';
 import { moveKey } from './order.js';
+import { rowMenu, pasteButton, entryButtons, doRemove } from './opsUi.js';
 import { EFFECTS, CONSUMABLE_FIELDS, OUTFIT_SLOTS, freeOutfit, outfitLook } from '../../data/goods.js';
 import { el, field, textInput, numInput, colorInput, button, sideList, areaInput, selectInput, checkInput, emojiInput, explain } from './ui.js';
 import { HINT, EXPLAIN } from './help.js';
@@ -51,7 +52,7 @@ export function render(root, ctx) {
     side.innerHTML = '';
     side.append(
       el('div', { class: 'seg' }, CATS.map(([c, label]) => button(label, () => ctx.select('gear', { cat: c, id: null }), cat === c ? 'on' : ''))),
-      el('div', { class: 'side-head' }, el('b', {}, `${Object.keys(table).length} mục`), button('＋ Thêm', add, 'small primary')),
+      el('div', { class: 'side-head' }, el('b', {}, `${Object.keys(table).length} mục`), el('span', { class: 'inline' }, pasteButton(ctx, cat), button('＋ Thêm', add, 'small primary'))),
       sideList(
         Object.values(table).map((s) => ({
           id: s.id,
@@ -61,7 +62,7 @@ export function render(root, ctx) {
         })),
         sel.id,
         (id) => ctx.select('gear', { id }),
-        { issuesFor: (id) => ctx.issuesFor('gear', id, { cat }), onReorder: (a, b) => { moveKey(table, a, b); changed(); } },
+        { issuesFor: (id) => ctx.issuesFor('gear', id, { cat }), onReorder: (a, b) => { moveKey(table, a, b); changed(); }, menu: rowMenu(ctx, cat) },
       ),
     );
   };
@@ -82,7 +83,7 @@ export function render(root, ctx) {
   const bikePrev = cat === 'vehicles' ? personPreview(`bike-${s.id}`) : null;
   const drawBike = () => bikePrev && bikePrev.showBike(s.color, s.model || 'underbone');
   body.append(
-    el('div', { class: 'body-head' }, el('h2', {}, `${cat === 'goods' ? s.icon || '' : ''} ${s.name}`), locked ? el('span', { class: 'pill' }, '🔒 Đồ khởi đầu') : button('🗑 Xóa', remove, 'danger small')),
+    el('div', { class: 'body-head' }, el('h2', {}, `${cat === 'goods' ? s.icon || '' : ''} ${s.name}`), el('span', { class: 'inline' }, entryButtons(ctx, cat, s.id), locked ? el('span', { class: 'pill' }, '🔒 Đồ khởi đầu') : button('🗑 Xóa', () => doRemove(ctx, cat, s.id), 'danger small'))),
     el(
       'div',
       { class: 'grid' },
@@ -133,18 +134,6 @@ export function render(root, ctx) {
     }[cat];
     changed();
     ctx.select('gear', { id });
-  }
-
-  function remove() {
-    const users = places.filter((p) => (p.sells?.[cat] || []).includes(ref));
-    const needers = cat === 'goods' ? places.filter((p) => (p.activities || []).some((a) => a.needs?.id === ref)) : [];
-    if (!confirm(`Xóa "${s.name}"?${users.length ? `\nSẽ gỡ khỏi hàng của: ${users.map((p) => p.name).join(', ')}.` : ''}${needers.length ? `\nHoạt động ở ${needers.map((p) => p.name).join(', ')} sẽ không cần món này nữa.` : ''}\nNgười chơi đã mua sẽ không còn tác dụng của món này.`)) return;
-    delete table[ref];
-    for (const p of users) p.sells[cat] = p.sells[cat].filter((x) => x !== ref);
-    for (const p of needers) for (const a of p.activities) if (a.needs?.id === ref) delete a.needs;
-    if (users.length || needers.length) ctx.changed('places');
-    changed();
-    ctx.select('gear', { id: null });
   }
 
   function rename(oldId, newId) {

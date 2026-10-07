@@ -5,7 +5,7 @@
     "refuseBelow": 25,
     "scaredFarePct": 0.5,
     "rentBase": 400,
-    "rentPerDay": 150,
+    "rentPerDay": 50,
     "policeFine": 150,
     "repairCost": 40,
     "parkingFee": 5,
