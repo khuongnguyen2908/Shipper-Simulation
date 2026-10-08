@@ -28,6 +28,8 @@ export const LOOKS = {
   izakaya: { label: '🏮 Nhà hàng Nhật (izakaya)', floors: null },
   // đồn công an: căn nhà công an + bãi giữ xe vi phạm (cần ít nhất 2 lô)
   police: { label: '🚓 Đồn công an', floors: [2, 3], only: 'police' },
+  // sân bay: dựng đầy đủ (đường trên cao cong, sàn ga đi) khi đặt vào lô gộp 2 khối; lô nhỏ chỉ có nhà ga
+  airport: { label: '✈️ Sân bay (lô gộp 2 khối)', floors: null },
 };
 // Kiểu dùng được cho loại địa điểm: cảnh quan ↔ kiểu cảnh quan; đồn công an ↔ kiểu đồn; loại khác ↔ kiểu nhà thường
 export const looksFor = (kind) => Object.keys(LOOKS).filter((k) => {
@@ -72,6 +74,7 @@ export function guessLook(p) {
       if (/công trình|đang xây/.test(n)) return 'construction';
       return 'park';
     case 'service':
+      if (/sân bay|airport|cảng hàng không/.test(n)) return 'airport';
       if (/chùa/.test(n)) return 'pagoda';
       if (/karaoke/.test(n)) return 'karaoke';
       if (/võng/.test(n)) return 'hammock';

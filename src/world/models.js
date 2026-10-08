@@ -44,7 +44,25 @@ const SHOULDER_Y = 1.405, HEAD_Y = 1.6, THIGH = 0.44, UPPER_ARM = 0.29;
 export const sitY = (scale = 1, seat = 0.98) => seat - HIP_Y * scale;
 
 const PERSON_MAT = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.78, metalness: 0.03 });
-const RAINCOAT_MAT = new THREE.MeshStandardMaterial({ color: RAINCOAT_COLOR, roughness: 0.25, metalness: 0.05, transparent: true, opacity: 0.88, side: THREE.DoubleSide });
+const RAINCOAT_MAT = new THREE.MeshStandardMaterial({ color: RAINCOAT_COLOR, roughness: 0.45, metalness: 0.02, transparent: true, opacity: 0.84, side: THREE.DoubleSide, flatShading: true });
+// Hình áo mưa cánh dơi (dựng 1 lần, dùng chung): tiện tròn theo mặt cắt cổ → vai → gối, gợn nếp gấp ở phần rủ,
+// rồi kéo ngang ×1,3 (cánh dơi che tay) và ép trước/sau ×0,92 (vẫn che tay khi chạy). Mép dưới ở ~0,58 m (ngang gối).
+let PONCHO = null;
+export const PONCHO_SCALE = [1.3, 0.92];
+function ponchoGeo() {
+  if (PONCHO) return PONCHO;
+  const prof = [[0.075, 1.53], [0.12, 1.5], [0.24, 1.45], [0.33, 1.38], [0.4, 1.25], [0.46, 1.0], [0.5, 0.76], [0.52, 0.58]];
+  const g = new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)).reverse(), 18);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const fold = 1 + 0.035 * Math.sin(Math.atan2(z, x) * 9) * Math.max(0, Math.min(1, (1.3 - y) / 0.5)); // nếp gấp ở phần rủ
+    p.setXYZ(i, x * fold * PONCHO_SCALE[0], y, z * fold * PONCHO_SCALE[1]);
+  }
+  g.computeVertexNormals();
+  PONCHO = g;
+  return g;
+}
 const _col = new THREE.Color(), _mtx = new THREE.Matrix4(), _q = new THREE.Quaternion(), _eul = new THREE.Euler(), _pos = new THREE.Vector3(), _one = new THREE.Vector3(1, 1, 1);
 
 // Gom các mảnh (hình + màu + chỗ đặt) rồi gộp thành một hình duy nhất
@@ -264,12 +282,10 @@ export function makePerson({ shirt = 0x3498db, pants = 0x2c3e50, skin = SKINS[0]
     mesh(foreArmGeo(shirt, skin, short, s), el);
     return [sh, el];
   });
-  // áo mưa cánh dơi: tấm nhựa hình nón trùm từ cổ xuống gối, rộng ngang che cả hai tay
+  // áo mưa cánh dơi: tấm nhựa ôm cổ, phủ qua vai rồi rủ tới gối; xòe ngang che kín 2 tay, trước/sau dẹt hơn
   let overlayMesh = null;
   if (overlay === 'raincoat') {
-    overlayMesh = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.95, 14, 1, true), RAINCOAT_MAT);
-    overlayMesh.position.set(0, 1.0, 0);
-    overlayMesh.scale.set(1.45, 1, 0.95);
+    overlayMesh = new THREE.Mesh(ponchoGeo(), RAINCOAT_MAT);
     overlayMesh.castShadow = true;
     body.add(overlayMesh);
   }
@@ -334,6 +350,11 @@ export function setSitting(g, sitting) {
   p.armL.rotation.x = p.armR.rotation.x = sitting ? -0.95 : 0;
   p.elbowL.rotation.x = p.elbowR.rotation.x = sitting ? -0.35 : -0.15;
   p.body.position.y = 0;
+  // áo mưa khi ngồi xe: vạt trước phủ lên đùi (kéo dài + đẩy ra trước), không để gối thò ra
+  if (p.overlay) {
+    p.overlay.scale.set(1, sitting ? 0.92 : 1, sitting ? 1.45 : 1);
+    p.overlay.position.set(0, sitting ? 0.1 : 0, sitting ? 0.16 : 0);
+  }
 }
 
 // ======================== XE (phong cách A+) ========================

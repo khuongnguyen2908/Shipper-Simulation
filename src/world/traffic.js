@@ -4,7 +4,7 @@
 //  - Chó lang thang, thỉnh thoảng lao qua đường trước mũi xe
 //  - Chốt CSGT, đoàn xe kẹt giờ cao điểm
 import * as THREE from 'three';
-import { CITY, roadPos, blockBounds, segmentRect, neighbors, traitAtBlock } from '../sim/cityLayout.js';
+import { CITY, roadPos, blockBounds, segmentRect, neighbors, traitAtBlock, isJoinedBlock } from '../sim/cityLayout.js';
 import { HAZARD } from '../data/balance.js';
 import { makeCar, makeNpcMoto, makePerson, makeDog, makeCone, animatePerson, randomPersonOpts, jamCarGeo, jamMotoGeo } from './models.js';
 import { guessGender } from '../sim/people.js';
@@ -109,7 +109,8 @@ export class Traffic {
     // khối có người đi bộ đông / vắng theo khu phố ("traffic")
     if (!this.pedBlocks) {
       this.pedBlocks = [];
-      for (let bz = 0; bz < CITY.N; bz++) for (let bx = 0; bx < CITY.N; bx++) this.pedBlocks.push([bx, bz]);
+      // khối đã gộp (sân bay…) không có vòng vỉa hè riêng → người đi bộ, chó không đi vòng khối đó
+      for (let bz = 0; bz < CITY.N; bz++) for (let bx = 0; bx < CITY.N; bx++) if (!isJoinedBlock(bx, bz)) this.pedBlocks.push([bx, bz]);
       this.pedW = this.pedBlocks.map(([bx, bz]) => traitAtBlock(bx, bz, 'traffic') + 1e-3);
     }
     const [pbx, pbz] = rng.weighted(this.pedBlocks, this.pedW);
@@ -120,7 +121,9 @@ export class Traffic {
     const rng = this.rng;
     const mesh = makeDog(rng.pick([0xb5651d, 0x3b2a1a, 0xe0c9a6, 0x7b5e3b]));
     this.scene.add(mesh);
-    this.dogs.push({ mesh, bx: rng.int(0, CITY.N - 1), bz: rng.int(0, CITY.N - 1), t: rng.range(0, 140), speed: 0.8, dir: 1, state: 'wander', vx: 0, vz: 0, timer: 0, armed: true, x: 0, z: 0, phase: 0, pause: 0 });
+    let bx = rng.int(0, CITY.N - 1), bz = rng.int(0, CITY.N - 1);
+    for (let k = 0; k < 20 && isJoinedBlock(bx, bz); k++) [bx, bz] = [rng.int(0, CITY.N - 1), rng.int(0, CITY.N - 1)];
+    this.dogs.push({ mesh, bx, bz, t: rng.range(0, 140), speed: 0.8, dir: 1, state: 'wander', vx: 0, vz: 0, timer: 0, armed: true, x: 0, z: 0, phase: 0, pause: 0 });
   }
 
   // ---------------- kẹt xe ----------------

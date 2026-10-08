@@ -427,5 +427,227 @@
     "base": 30,
     "startTemp": 70,
     "group": "food"
+  },
+  "banhXeo": {
+    "id": "banhXeo",
+    "name": "Bánh xèo tôm thịt",
+    "icon": "🥞",
+    "traits": [
+      "hot",
+      "paper"
+    ],
+    "base": 35,
+    "group": "food",
+    "startTemp": 75
+  },
+  "huTieu": {
+    "id": "huTieu",
+    "name": "Hủ tiếu Nam Vang",
+    "icon": "🍜",
+    "traits": [
+      "hot",
+      "liquid"
+    ],
+    "base": 35,
+    "group": "food",
+    "startTemp": 85
+  },
+  "miVit": {
+    "id": "miVit",
+    "name": "Mì vịt tiềm",
+    "icon": "🍜",
+    "traits": [
+      "hot",
+      "liquid"
+    ],
+    "base": 45,
+    "group": "food",
+    "startTemp": 85
+  },
+  "haCao": {
+    "id": "haCao",
+    "name": "Há cảo tôm",
+    "icon": "🥟",
+    "traits": [
+      "hot"
+    ],
+    "base": 30,
+    "group": "food",
+    "startTemp": 75
+  },
+  "xiuMaiHap": {
+    "id": "xiuMaiHap",
+    "name": "Xíu mại hấp",
+    "icon": "🥟",
+    "traits": [
+      "hot"
+    ],
+    "base": 30,
+    "group": "food",
+    "startTemp": 75
+  },
+  "xoiGa": {
+    "id": "xoiGa",
+    "name": "Xôi gà xé",
+    "icon": "🍙",
+    "traits": [
+      "hot",
+      "paper"
+    ],
+    "base": 25,
+    "group": "food",
+    "startTemp": 65
+  },
+  "cheBaMau": {
+    "id": "cheBaMau",
+    "name": "Chè ba màu",
+    "icon": "🍧",
+    "traits": [
+      "cold",
+      "liquid"
+    ],
+    "base": 20,
+    "group": "food",
+    "startTemp": 4,
+    "meltAt": 10,
+    "meltRate": 0.12
+  },
+  "banhTrangNuong": {
+    "id": "banhTrangNuong",
+    "name": "Bánh tráng nướng",
+    "icon": "🌮",
+    "traits": [
+      "hot",
+      "paper"
+    ],
+    "base": 20,
+    "group": "food",
+    "startTemp": 70
+  },
+  "lauDe": {
+    "id": "lauDe",
+    "name": "Lẩu dê (phần mang về)",
+    "icon": "🍲",
+    "traits": [
+      "hot",
+      "liquid"
+    ],
+    "base": 120,
+    "group": "food",
+    "startTemp": 85
+  },
+  "boNuong": {
+    "id": "boNuong",
+    "name": "Bò nướng lá lốt",
+    "icon": "🍢",
+    "traits": [
+      "hot"
+    ],
+    "base": 60,
+    "group": "food",
+    "startTemp": 70
+  },
+  "suonNuong": {
+    "id": "suonNuong",
+    "name": "Sườn nướng mật ong",
+    "icon": "🍖",
+    "traits": [
+      "hot"
+    ],
+    "base": 70,
+    "group": "food",
+    "startTemp": 70
+  },
+  "cheThai": {
+    "id": "cheThai",
+    "name": "Chè Thái sầu riêng",
+    "icon": "🍨",
+    "traits": [
+      "cold",
+      "liquid"
+    ],
+    "base": 30,
+    "group": "food",
+    "startTemp": 4,
+    "meltAt": 10,
+    "meltRate": 0.12
+  },
+  "khoMuc": {
+    "id": "khoMuc",
+    "name": "Khô mực nướng",
+    "icon": "🦑",
+    "traits": [
+      "paper"
+    ],
+    "base": 50,
+    "group": "food"
+  },
+  "comTron": {
+    "id": "comTron",
+    "name": "Cơm trộn Hàn Quốc",
+    "icon": "🍚",
+    "traits": [
+      "hot"
+    ],
+    "base": 55,
+    "group": "food",
+    "startTemp": 70
+  },
+  "miCay": {
+    "id": "miCay",
+    "name": "Mì cay 7 cấp",
+    "icon": "🍜",
+    "traits": [
+      "hot",
+      "liquid"
+    ],
+    "base": 50,
+    "group": "food",
+    "startTemp": 85
+  },
+  "miY": {
+    "id": "miY",
+    "name": "Mì Ý sốt bò bằm",
+    "icon": "🍝",
+    "traits": [
+      "hot"
+    ],
+    "base": 90,
+    "group": "food",
+    "startTemp": 75
+  },
+  "bitTet": {
+    "id": "bitTet",
+    "name": "Bít tết bò Úc",
+    "icon": "🥩",
+    "traits": [
+      "hot"
+    ],
+    "base": 150,
+    "group": "food",
+    "startTemp": 75
+  },
+  "croissant": {
+    "id": "croissant",
+    "name": "Bánh sừng bò",
+    "icon": "🥐",
+    "traits": [
+      "fragile",
+      "paper"
+    ],
+    "base": 35,
+    "group": "food"
+  },
+  "lauCaKeo": {
+    "id": "lauCaKeo",
+    "name": "Lẩu cá kèo",
+    "icon": "🍲",
+    "traits": [
+      "hot",
+      "liquid"
+    ],
+    "base": 110,
+    "group": "food",
+    "startTemp": 85
   }
 }

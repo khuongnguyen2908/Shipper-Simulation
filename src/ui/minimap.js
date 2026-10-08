@@ -1,5 +1,5 @@
 // Bản đồ nhỏ (góc màn hình) và bản đồ lớn trong điện thoại — vẽ bằng canvas 2D.
-import { CITY, HALF, roadPos, blockBounds, segmentRect, roadGraph } from '../sim/cityLayout.js';
+import { CITY, HALF, roadPos, blockBounds, segmentRect, roadGraph, joinList, joinGap } from '../sim/cityLayout.js';
 import { STREETS_X, STREETS_Z } from '../data/places.js';
 import { lookOf } from '../data/looks.js';
 
@@ -33,6 +33,15 @@ export class MiniMap {
         g.fillStyle = '#7d8a74';
         g.fillRect(X(b.x0 + 3), Z(b.z0 + 3), (CITY.BLOCK - 6) * k, (CITY.BLOCK - 6) * k);
       }
+    }
+    // khối đã gộp (sân bay…): lòng đường cũ tô như khối
+    for (const j of joinList()) {
+      const r = joinGap(j);
+      g.fillStyle = '#5c6b5a';
+      g.fillRect(X(r.x0), Z(r.z0), (r.x1 - r.x0) * k, (r.z1 - r.z0) * k);
+      g.fillStyle = '#7d8a74';
+      const e = j[2] === 'E' ? [0, 3, 0, -3] : [3, 0, -3, 0]; // bỏ phần vỉa hè ở 2 đầu dải
+      g.fillRect(X(r.x0 + e[0]), Z(r.z0 + e[1]), (r.x1 - r.x0 + e[2] - e[0]) * k, (r.z1 - r.z0 + e[3] - e[1]) * k);
     }
     // sông (mặt nước) và cầu
     const G = roadGraph();

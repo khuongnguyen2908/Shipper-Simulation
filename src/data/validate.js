@@ -4,7 +4,7 @@
 //  - error: game sẽ chạy sai → công cụ không cho lưu
 //  - warn : chạy được nhưng nên xem lại
 // =============================================================
-import { CITY, LOT_IDS, MULTI_LOTS, lotParts, lotFaces, blockPlan, blockLotIds, roadGraph, neighbors, cutCell } from '../sim/cityLayout.js';
+import { CITY, LOT_IDS, MULTI_LOTS, lotParts, lotFaces, blockPlan, blockLotIds, roadGraph, neighbors, cutCell, joinList, joinSeg, joinPartner, isJoinLot, riverInfo } from '../sim/cityLayout.js';
 import { ALLEY_TEMPLATES } from '../sim/blockPlan.js';
 import { EFFECTS, CONSUMABLE_FIELDS, OUTFIT_SLOTS } from './goods.js';
 import { ORDER_KINDS } from './apps.js';
@@ -54,7 +54,10 @@ const num = (v) => typeof v === 'number' && Number.isFinite(v);
 export function lotCells(p) {
   if (!isPlaced(p)) return []; // chưa đặt trên bản đồ
   const [bx, bz] = p.block;
-  return lotParts(p.lot).map((id) => `${bx},${bz},${id}`);
+  const out = lotParts(p.lot).map((id) => `${bx},${bz},${id}`);
+  const q = joinPartner(bx, bz, p.lot); // lô gộp 2 khối: chiếm cả khối thứ 2
+  if (q) for (const id of MULTI_LOTS.B) out.push(`${q[0]},${q[1]},${id}`);
+  return out;
 }
 
 export function validateItems(items, placesData, appsData = null) {
@@ -257,6 +260,10 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null, m
     const [bx, bz] = p.block || [];
     if (isPlaced(p) && (!Number.isInteger(bx) || !Number.isInteger(bz) || bx < 0 || bz < 0 || bx >= CITY.N || bz >= CITY.N)) add('error', p.id, 'block', `Khối phải từ 0 đến ${CITY.N - 1}.`);
     const plan = Number.isInteger(bx) && Number.isInteger(bz) ? blockPlan(bx, bz, mapData) : null;
+    // lô gộp 2 khối (sân bay…): bản đồ phải có gộp đúng cặp khối đó
+    if (isJoinLot(p.lot) && !joinList(mapData).some(([x, z, d]) => x === bx && z === bz && d === (p.lot === 'JE' ? 'E' : 'S'))) {
+      add('error', p.id, 'lot', `Lô gộp 2 khối cần gộp khối ${bx},${bz} với khối bên ${p.lot === 'JE' ? 'phải' : 'dưới'} (thẻ Bản đồ → Gộp khối).`);
+    }
     if (!isPlaced(p)) {
       /* chưa đặt: bỏ qua kiểm tra vị trí */
     } else if (plan) {
@@ -492,6 +499,23 @@ export function validateMap(map, placesData = null) {
     if (!ALLEY_TEMPLATES[s.alley]) add('error', key, 'alley', `Kiểu hẻm phải là: ${Object.keys(ALLEY_TEMPLATES).join(', ')}.`);
     if (s.rot != null && (!Number.isInteger(s.rot) || s.rot < 0 || s.rot > 3)) add('error', key, 'rot', 'Hướng xoay 0–3.');
     if (s.walk != null && typeof s.walk !== 'boolean') add('error', key, 'walk', 'Hẻm đi bộ phải là có/không.');
+  }
+  // gộp khối: [bx, bz, 'E' | 'S'], 2 khối trong bản đồ, không có hẻm, không gộp 1 khối 2 lần, không gộp qua sông
+  const sz = Number.isInteger(map.size) ? map.size : CITY.N;
+  const usedJ = new Set(), water = riverInfo(map).waterSegs;
+  for (const j of map.joins || []) {
+    const ok = Array.isArray(j) && Number.isInteger(j[0]) && Number.isInteger(j[1]) && (j[2] === 'E' || j[2] === 'S');
+    const ref = `join:${Array.isArray(j) ? j.join(',') : '?'}`;
+    if (!ok) { add('error', ref, 'joins', 'Gộp khối phải dạng [cột, hàng, "E" (gộp khối bên phải) | "S" (gộp khối bên dưới)].'); continue; }
+    const [bx, bz, d] = j, px = d === 'E' ? bx + 1 : bx, pz = d === 'S' ? bz + 1 : bz;
+    if (bx < 0 || bz < 0 || px >= sz || pz >= sz) { add('error', ref, 'joins', `Gộp khối ${bx},${bz} với ${px},${pz}: ra ngoài bản đồ.`); continue; }
+    for (const k of [`${bx},${bz}`, `${px},${pz}`]) {
+      if (usedJ.has(k)) add('error', ref, 'joins', `Khối ${k} đã gộp với khối khác (mỗi khối chỉ gộp 1 lần).`);
+      usedJ.add(k);
+      if (map.blocks && map.blocks[k]) add('error', ref, 'joins', `Khối ${k} có hẻm — bỏ hẻm trước khi gộp.`);
+    }
+    if (water.has(joinSeg(j))) add('error', ref, 'joins', 'Giữa 2 khối là sông — không gộp được.');
+    if (placesData && !(placesData.places || []).some((p) => Array.isArray(p.block) && isJoinLot(p.lot) && p.block[0] === bx && p.block[1] === bz && p.lot === (d === 'E' ? 'JE' : 'JS'))) add('warn', ref, 'joins', `Đã gộp khối ${bx},${bz} + ${px},${pz} nhưng chưa có địa điểm nào đặt vào lô gộp (vd sân bay) → nhà dân sẽ quay ra khoảng đất trống.`);
   }
   // khu phố: tên, màu; khối gán khu phố phải nằm trong bản đồ và trỏ tới khu phố có thật
   const size = Number.isInteger(map.size) ? map.size : CITY.N;

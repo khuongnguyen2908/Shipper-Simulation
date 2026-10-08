@@ -1,5 +1,5 @@
 // Thẻ 🗺️ BẢN ĐỒ (map.json): kiểu hẻm của từng khối (bấm khối trên bản đồ để chọn) · sông và cầu.
-import { CITY, HALF, blockBounds, blockPlan, blockRect, roadPos, roadGraph, segmentRect } from '../../sim/cityLayout.js';
+import { CITY, HALF, blockBounds, blockPlan, blockRect, roadPos, roadGraph, segmentRect, joinList, joinGap } from '../../sim/cityLayout.js';
 import { ALLEY_TEMPLATES } from '../../sim/blockPlan.js';
 import { isPlaced } from '../../data/places.js';
 import { el, field, button, selectInput, checkInput, numInput, explain, textInput, colorInput } from './ui.js';
@@ -93,6 +93,7 @@ export function render(root, ctx) {
     dBox,
     explain(EXPLAIN.map),
     riversBox(),
+    joinsBox(),
   );
   drawDistricts();
   drawMap();
@@ -249,6 +250,27 @@ export function render(root, ctx) {
     return box;
   }
 
+  // ---------- gộp khối (sân bay…) ----------
+  function joinsBox() {
+    map.joins = map.joins || [];
+    const box = el('div', {}, el('h3', {}, 'Gộp khối'), el('p', { class: 'muted' }, HINT.map.join));
+    map.joins.forEach((j, i) => {
+      const ref = `join:${j.join(',')}`, o = (k) => ({ ref, fieldKey: k });
+      const set = (k, v) => { map.joins[i] = [k === 0 ? v : j[0], k === 1 ? v : j[1], k === 2 ? v : j[2]]; changed(); ctx.rerender(); };
+      const other = j[2] === 'E' ? `${j[0] + 1},${j[1]}` : `${j[0]},${j[1] + 1}`;
+      box.append(el('div', { class: 'act-card' },
+        el('div', { class: 'act-head' }, el('b', {}, `🧱 Khối ${j[0]},${j[1]} + ${other}`), button('🗑 Bỏ gộp', () => { map.joins.splice(i, 1); if (!map.joins.length) delete map.joins; changed(); ctx.rerender(); }, 'danger small')),
+        el('div', { class: 'grid tight' },
+          field('Cột (x)', numInput(j[0], (v) => set(0, Math.round(v)), { step: 1, min: 0, max: CITY.N - 1 }), o('joins')),
+          field('Hàng (z)', numInput(j[1], (v) => set(1, Math.round(v)), { step: 1, min: 0, max: CITY.N - 1 }), o('joins')),
+          field('Gộp với', selectInput(j[2], [['E', 'Khối bên phải (đông)'], ['S', 'Khối bên dưới (nam)']], (v) => set(2, v)), o('joins')),
+        ),
+      ));
+    });
+    box.append(button('＋ Gộp 2 khối', () => { map.joins.push([0, 0, 'E']); changed(); ctx.rerender(); }, 'small primary'));
+    return box;
+  }
+
   function blockStats() {
     const plan = blockPlan(sbx, sbz, map);
     if (!plan) return null;
@@ -313,6 +335,8 @@ export function render(root, ctx) {
     }
     for (const key of G.waterNodes) { const [i, j] = key.split(',').map(Number); R({ x0: roadPos(i) - H, x1: roadPos(i) + H, z0: roadPos(j) - H, z1: roadPos(j) + H }, '#3d7ea6'); }
     for (const key of G.bridgeNodes) { const [i, j] = key.split(',').map(Number); R({ x0: roadPos(i) - H * 0.7, x1: roadPos(i) + H * 0.7, z0: roadPos(j) - H * 0.7, z1: roadPos(j) + H * 0.7 }, '#c9ccce'); }
+    // khối đã gộp: lòng đường cũ tô như khối
+    for (const j of joinList(map)) R(joinGap(j), '#8a7f6e');
     // tên địa điểm
     g.textAlign = 'center';
     g.textBaseline = 'middle';

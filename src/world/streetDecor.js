@@ -2,7 +2,7 @@
 // lanterns = dây đèn lồng đỏ giăng ngang đường · chochin = cột đèn lồng giấy trên vỉa hè (khối phố Nhật) · vendors = xe hàng rong
 // Mọi thứ dựng bằng toạ độ thế giới vào 1 bộ gom rồi gộp theo vật liệu (vài khối vẽ cho cả thành phố).
 import * as THREE from 'three';
-import { CITY, LOT_W, blockBounds, districtAt, riverInfo } from '../sim/cityLayout.js';
+import { CITY, LOT_W, blockBounds, districtAt, riverInfo, joinedSide } from '../sim/cityLayout.js';
 import { makeKit, mergeKits, kitLantern } from './placeBuildings.js';
 
 const W = LOT_W;
@@ -78,7 +78,7 @@ export function buildStreetDecor(scene, { map, rng, addBox, blockStyle, isPlaceD
           ['E', bx + 1, bz, `x${bx + 1}:${bz}`, 1, 0],
         ];
         for (const [side, nx, nz, seg, dx, dz] of sides) {
-          if (!inMap(nx, nz) || waterSegs.has(seg)) continue;
+          if (!inMap(nx, nz) || waterSegs.has(seg) || joinedSide(bx, bz, side, map)) continue; // sông / khối đã gộp: không có đường
           const other = has(districtAt(nx, nz, map), 'lanterns');
           if ((side === 'S' || side === 'E') && other) continue; // khối bên kia đã giăng
           for (const kk of [0.75, 2.25]) {
@@ -93,6 +93,7 @@ export function buildStreetDecor(scene, { map, rng, addBox, blockStyle, isPlaceD
       const chochin = has(d, 'chochin') && blockStyle(bx, bz) === 'japanese';
       if (chochin) {
         for (const side of ['N', 'S', 'W', 'E']) {
+          if (joinedSide(bx, bz, side, map)) continue; // cạnh giáp khối đã gộp
           for (const kk of [0.75, 1.25, 1.75, 2.25]) {
             const [x, z] = sidePoint(b, side, kk, 1.0);
             chochinPost(k, x, z, rng.next() < 0.4, addBox);
@@ -103,6 +104,7 @@ export function buildStreetDecor(scene, { map, rng, addBox, blockStyle, isPlaceD
       // xe hàng rong: 0–2 xe mỗi cạnh, lệch khỏi cửa nhà và cây (khối đã có đèn lồng giấy thì thôi)
       if (has(d, 'vendors') && !chochin) {
         for (const side of ['N', 'S', 'W', 'E']) {
+          if (joinedSide(bx, bz, side, map)) continue; // cạnh giáp khối đã gộp
           for (const kk of [0.75, 2.25]) {
             if (rng.next() > 0.3) continue;
             const [x, z] = sidePoint(b, side, kk, 1.1);

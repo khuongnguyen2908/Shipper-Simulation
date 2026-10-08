@@ -1389,7 +1389,8 @@ console.log('Tòa nhà nhiều lô');
 console.log('Ngoại hình nam/nữ');
 {
   const { guessGender } = await import('../src/sim/people.js');
-  const { makePerson, npcLook, randomPersonOpts, setSitting, sitY, HIP_Y } = await import('../src/world/models.js');
+  const MODELS = await import('../src/world/models.js');
+  const { makePerson, npcLook, randomPersonOpts, setSitting, sitY, HIP_Y } = MODELS;
   const THREE = await import('three');
   test('Đoán giới tính theo cách xưng hô đầu tên', () => {
     assert.equal(guessGender('Chị Lan'), 'f');
@@ -1506,6 +1507,40 @@ console.log('Ngoại hình nam/nữ');
       assert.ok(jamCarGeo().attributes.color && jamMotoGeo().attributes.color, 'xe kẹt có màu kính/lốp riêng');
     });
   }
+  test('Áo mưa cánh dơi che kín vai và 2 tay khi đứng, đi, chạy (không thò ra ngoài)', () => {
+    const { animatePerson } = MODELS;
+    const p = makePerson({ hat: 'helmet', overlay: 'raincoat' });
+    const parts = p.userData.parts, pon = parts.overlay;
+    for (const [phase, amt] of [[0, 0], [1.2, 0.7], [1.57, 1], [4.7, 1]]) {
+      animatePerson(p, phase, amt);
+      p.updateMatrixWorld(true);
+      // khung áo theo từng lát cao 5 cm (thế giới)
+      const bins = new Map(), v = new THREE.Vector3(), pos = pon.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(pon.matrixWorld);
+        const k = Math.round(v.y / 0.05), b = bins.get(k) || { x: 0, z: 0 };
+        b.x = Math.max(b.x, Math.abs(v.x));
+        b.z = Math.max(b.z, Math.abs(v.z));
+        bins.set(k, b);
+      }
+      for (const key of ['armL', 'armR']) {
+        parts[key].traverse((m) => {
+          if (!m.isMesh) return;
+          const ap = m.geometry.attributes.position;
+          for (let i = 0; i < ap.count; i++) {
+            v.fromBufferAttribute(ap, i).applyMatrix4(m.matrixWorld);
+            const b = bins.get(Math.round(v.y / 0.05));
+            if (!b) continue; // dưới mép áo
+            assert.ok(Math.abs(v.x) <= b.x + 0.02 && Math.abs(v.z) <= b.z + 0.02, `pha ${phase}: ${key} thò ra ở cao ${v.y.toFixed(2)} m`);
+          }
+        });
+      }
+    }
+    setSitting(p, true);
+    assert.ok(pon.scale.z > 1, 'ngồi xe: vạt trước phủ lên đùi');
+    setSitting(p, false);
+    assert.equal(pon.scale.z, 1);
+  });
   test('Dựng hình 3D trang phục: tay ngắn, quần short, mũ fullface, áo mưa, áo khoác', () => {
     const skin = 0xf1c27d, pants = 0x2c3e50, shirt = 0x3498db;
     const upper = (p) => meshOf(p.userData.parts.armL).geometry;
@@ -1613,6 +1648,67 @@ console.log('Kiểu nhà địa điểm (src/data/looks.js, src/world/placeBuild
     assert.ok(VALIDATE.validatePlaces(pd, DATA.items).some((i) => i.level === 'error' && i.field === 'floors' && i.ref === p.id));
     p.floors = 2;
     assert.ok(!VALIDATE.validatePlaces(pd, DATA.items).some((i) => i.ref === p.id && (i.field === 'floors' || i.field === 'look')));
+  });
+}
+
+console.log('Gộp 2 khối (sân bay)');
+{
+  const CL = await import('../src/sim/cityLayout.js');
+  const { buildPlace, airportPath, AIRPORT_UP } = await import('../src/world/placeBuildings.js');
+  const base = JSON.parse(JSON.stringify(readJson('src/data/map.json')));
+  delete base.joins;
+  const mapJ = { ...base, joins: [[1, 0, 'E']] };
+  test('Gộp khối: bỏ đúng 1 đoạn đường giữa 2 khối, mạng đường vẫn liền, xe vẫn đi vòng được', () => {
+    const g0 = CL.roadGraph(base), g1 = CL.roadGraph(mapJ);
+    assert.equal(g0.segs.length - g1.segs.length, 1);
+    assert.ok(g1.closedSegs.has('x2:0') && !g1.segs.some((s) => s.axis === 'x' && s.line === 2 && s.from === 0));
+    assert.ok(!CL.neighbors(2, 0, mapJ).some(([i, j]) => i === 2 && j === 1), 'ngã tư 2,0 không còn nối xuống 2,1');
+    const a = { x: CL.roadPos(2), z: CL.roadPos(0) }, b = { x: CL.roadPos(2), z: CL.roadPos(1) };
+    assert.ok(CL.routeDist(a, b, mapJ) > CL.routeDist(a, b, base) + 50, 'phải đi vòng');
+  });
+  test('Lô gộp JE: khung 2 khối (~86 × 34 m), mặt tiền quay ra 1 trong 2 cạnh dài; chiếm hết ô cả 2 khối', () => {
+    const info = CL.lotInfo(1, 0, 'JE', null, mapJ);
+    assert.ok(Math.abs(info.x1 - info.x0 - 86) < 0.01 && Math.abs(info.z1 - info.z0 - 34) < 0.01);
+    assert.equal(info.face, 'S');
+    assert.deepEqual(CL.lotFaces('JE'), ['S', 'N']);
+    assert.equal(CL.lotInfo(1, 0, 'JE', 'N', mapJ).face, 'N');
+    const cells = CL.placeCells({ block: [1, 0], lot: 'JE' });
+    assert.equal(cells.length, 18);
+    assert.ok(cells.some(([x, z]) => x === 2 && z === 0));
+  });
+  test('Gộp khối: lòng đường cũ là mặt bằng (đứng trên đó không còn là "dưới đường")', () => {
+    const r = CL.joinGap([1, 0, 'E']);
+    assert.ok(Math.abs(r.x1 - r.x0 - 12) < 0.01);
+    // blockAt đọc bản đồ của game → chỉ kiểm khi dữ liệu thật có gộp 1,0 + 2,0
+    if (CL.joinList().some(([x, z, d]) => x === 1 && z === 0 && d === 'E')) assert.deepEqual(CL.blockAt((r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2), [1, 0]);
+    assert.ok(CL.joinedSide(1, 0, 'E', mapJ) && CL.joinedSide(2, 0, 'W', mapJ) && !CL.joinedSide(1, 0, 'N', mapJ));
+  });
+  test('Kiểm tra dữ liệu gộp khối: ra ngoài bản đồ, gộp 1 khối 2 lần, có hẻm, qua sông → lỗi; lô JE mà chưa gộp → lỗi', () => {
+    const errs = (m) => VALIDATE.validateMap(m).filter((i) => i.level === 'error' && i.field === 'joins');
+    assert.equal(errs(mapJ).length, 0);
+    assert.ok(errs({ ...base, joins: [[base.size - 1, 0, 'E']] }).length, 'ra ngoài');
+    assert.ok(errs({ ...base, joins: [[1, 0, 'E'], [2, 0, 'S']] }).length, 'gộp 2 lần');
+    const k = Object.keys(base.blocks || {})[0];
+    if (k) {
+      const [x, z] = k.split(',').map(Number);
+      assert.ok(errs({ ...base, joins: [[x, z, x + 1 < base.size ? 'E' : 'S']] }).length, 'khối có hẻm');
+    }
+    const r = (base.rivers || [])[0];
+    if (r && r.axis === 'x' && r.line > 0) assert.ok(errs({ ...base, joins: [[r.line - 1, r.from, 'E']] }).length, 'qua sông');
+    const pd = JSON.parse(JSON.stringify(DATA.places));
+    pd.places = pd.places.filter((p) => !(Array.isArray(p.block) && ((p.block[0] === 1 || p.block[0] === 2) && p.block[1] === 0)));
+    pd.places.push({ id: 'thuSanBay', name: 'Sân bay thử', short: 'SB', kind: 'service', block: [1, 0], lot: 'JE', color: '#ffffff', sign: 'SB', look: 'airport' });
+    assert.ok(VALIDATE.validatePlaces(pd, DATA.items, null, null, base).some((i) => i.level === 'error' && i.ref === 'thuSanBay' && i.field === 'lot'), 'chưa gộp');
+    assert.ok(!VALIDATE.validatePlaces(pd, DATA.items, null, null, mapJ).some((i) => i.level === 'error' && i.ref === 'thuSanBay'), 'đã gộp');
+  });
+  test('Sân bay dựng được: lô 2 khối có đường trên cao cong (lên ở mép phải, xuống ở mép trái, cao 4,6 m giữa); lô nhỏ chỉ có nhà ga', () => {
+    const big = buildPlace({ look: 'airport', W: 85.5, D: 33.5, color: '#e0e0e0', sign: 'SÂN BAY', kind: 'service', seed: 3 });
+    assert.ok(big.upPath && Array.isArray(big.colliders) && big.colliders.length > 5);
+    const p = airportPath(85.5);
+    assert.ok(p.getPoint(0).y < 0.2 && p.getPoint(1).y < 0.2 && Math.abs(p.getPoint(0.5).y - AIRPORT_UP) < 0.05);
+    assert.ok(p.getPoint(0).x > 40 && p.getPoint(1).x < -40);
+    const small = buildPlace({ look: 'airport', W: 10.8, D: 10.8, color: '#e0e0e0', sign: 'SB', kind: 'service', seed: 3 });
+    assert.equal(small.upPath, null);
   });
 }
 
@@ -1923,6 +2019,7 @@ console.log('Cảnh quan (công viên, đất trống, sân bóng, bãi giữ xe
     const placed = data.places.places.filter((p) => p.block && p.lot);
     const used = new Set(placed.map((p) => p.block.join(',')));
     used.add(data.places.alley.block.join(','));
+    for (const [x, z, s] of data.map.joins || []) used.add(s === 'E' ? `${x + 1},${z}` : `${x},${z + 1}`); // khối thứ 2 của lô gộp
     const center = (bx, bz) => { const r = blockBounds(bx, bz); return [(r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2]; };
     let freeBlock = null, busyBlock = placed.find((p) => !blockPlan(p.block[0], p.block[1], data.map))?.block;
     for (let z = 0; z < CITY.N && !freeBlock; z++) for (let x = 0; x < CITY.N && !freeBlock; x++) if (!used.has(`${x},${z}`) && !blockPlan(x, z, data.map)) freeBlock = [x, z];
@@ -2075,6 +2172,7 @@ console.log('Chùa tứ hợp viện (cả khối chừa góc) + quán trà');
     const pd = rd('src/data/places.json'), items = rd('src/data/items.json'), map = rd('src/data/map.json');
     const used = new Set(pd.places.filter((p) => p.block).map((p) => p.block.join(',')));
     used.add(pd.alley.block.join(','));
+    for (const [x, z, s] of map.joins || []) used.add(s === 'E' ? `${x + 1},${z}` : `${x},${z + 1}`); // khối thứ 2 của lô gộp
     let blk = null;
     for (let z = 0; z < CL.CITY.N && !blk; z++) for (let x = 0; x < CL.CITY.N && !blk; x++) if (!used.has(`${x},${z}`) && !CL.blockPlan(x, z, map)) blk = [x, z];
     assert.ok(blk, 'cần 1 khối trống');
@@ -2120,6 +2218,7 @@ console.log('Ô giữa khối (M) cho cảnh quan');
     const pd = rd('src/data/places.json'), items = rd('src/data/items.json'), map = rd('src/data/map.json');
     const used = new Set(pd.places.filter((p) => p.block).map((p) => p.block.join(',')));
     used.add(pd.alley.block.join(','));
+    for (const [x, z, s] of map.joins || []) used.add(s === 'E' ? `${x + 1},${z}` : `${x},${z + 1}`); // khối thứ 2 của lô gộp
     let blk = null;
     for (let z = 0; z < CL.CITY.N && !blk; z++) for (let x = 0; x < CL.CITY.N && !blk; x++) if (!used.has(`${x},${z}`) && !CL.blockPlan(x, z, map)) blk = [x, z];
     const cv = { id: 'cvGiua', name: 'CV', short: 'CV', kind: 'scenery', look: 'park', color: '#5f9e45', block: blk, lot: 'M' };

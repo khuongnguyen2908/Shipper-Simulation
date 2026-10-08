@@ -25,14 +25,16 @@ const LOT_LABEL = {
   N01: 'N0+N1 · bắc, bên trái', N12: 'N1+N2 · bắc, bên phải', S01: 'S0+S1 · nam, bên trái', S12: 'S1+S2 · nam, bên phải',
   W01: 'N0+W1 · cột tây, phía trên', W12: 'W1+S0 · cột tây, phía dưới', E01: 'N2+E1 · cột đông, phía trên', E12: 'E1+S2 · cột đông, phía dưới',
   M: 'M · ô giữa khối (không ra đường — chỉ cảnh quan)', B: 'B · cả khối (9 ô)', BN0: 'BN0 · cả khối, chừa góc tây-bắc', BN2: 'BN2 · cả khối, chừa góc đông-bắc', BS0: 'BS0 · cả khối, chừa góc tây-nam', BS2: 'BS2 · cả khối, chừa góc đông-nam', N: 'N · cả dãy bắc', S: 'S · cả dãy nam', W: 'W · cả cột tây (N0+W1+S0)', E: 'E · cả cột đông (N2+E1+S2)', C: 'C · sân trong hẻm',
+  JE: 'JE · khối này + khối bên phải (đã gộp)', JS: 'JS · khối này + khối bên dưới (đã gộp)',
 };
 const DIR = { N: 'Bắc', S: 'Nam', E: 'Đông', W: 'Tây' };
-const SIZE_LABEL = { one: '1 lô', two: '2 lô ngang', vtwo: '2 lô dọc', row: 'Cả dãy (3 lô ngang)', col: 'Cả cột (3 lô dọc)', block: 'Cả khối (9 ô)', blockCut: 'Cả khối, chừa 1 góc (8 ô)' };
+const SIZE_LABEL = { one: '1 lô', two: '2 lô ngang', vtwo: '2 lô dọc', row: 'Cả dãy (3 lô ngang)', col: 'Cả cột (3 lô dọc)', block: 'Cả khối (9 ô)', blockCut: 'Cả khối, chừa 1 góc (8 ô)', join: 'Gộp 2 khối (sân bay…)' };
 // cỡ chọn được theo loại: "Cả khối" chỉ dành cho cảnh quan (công viên lớn…)
 // cỡ chọn được theo loại + kiểu nhà: đồn công an ≥ 2 lô · cả khối: cảnh quan / chùa tứ hợp viện · chừa góc: chỉ chùa tứ hợp viện
 const sizesFor = (p) => {
   const court = lookOf(p) === 'pagodaCourtyard';
   return Object.entries(SIZE_LABEL).filter(([k]) => {
+    if (k === 'join') return lookOf(p) === 'airport'; // lô gộp 2 khối: chỉ sân bay (cần gộp khối ở thẻ Bản đồ)
     if (k === 'block') return p.kind === 'scenery' || court;
     if (k === 'blockCut') return court;
     if (court) return false;

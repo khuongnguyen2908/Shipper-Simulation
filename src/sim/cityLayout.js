@@ -28,16 +28,21 @@ export const MULTI_LOTS = {
   BS0: ['N0', 'N1', 'N2', 'W1', 'C', 'E1', 'S1', 'S2'], BS2: ['N0', 'N1', 'N2', 'W1', 'C', 'E1', 'S0', 'S1'],
   // ô giữa khối (không chạm đường) — chỉ cảnh quan đặt vào được (đi xuyên qua lô xung quanh). Khác 'C' của nhà cổng xanh.
   M: ['C'],
+  // gộp 2 khối (map.json → joins): JE = khối này + khối bên phải, JS = khối này + khối bên dưới (ô của khối thứ 2 tính riêng, xem joinedCells)
+  JE: ['N0', 'N1', 'N2', 'W1', 'C', 'E1', 'S0', 'S1', 'S2'], JS: ['N0', 'N1', 'N2', 'W1', 'C', 'E1', 'S0', 'S1', 'S2'],
 };
 // Kích thước → các lô cùng cỡ
-export const LOT_SIZES = { one: LOT_IDS, two: ['N01', 'N12', 'S01', 'S12'], vtwo: ['W01', 'W12', 'E01', 'E12'], row: ['N', 'S'], col: ['W', 'E'], block: ['B'], blockCut: ['BN0', 'BN2', 'BS0', 'BS2'] };
+export const LOT_SIZES = { one: LOT_IDS, two: ['N01', 'N12', 'S01', 'S12'], vtwo: ['W01', 'W12', 'E01', 'E12'], row: ['N', 'S'], col: ['W', 'E'], block: ['B'], blockCut: ['BN0', 'BN2', 'BS0', 'BS2'], join: ['JE', 'JS'] };
+export const isJoinLot = (lot) => lot === 'JE' || lot === 'JS';
+// khối thứ 2 của lô gộp (JE → khối bên phải, JS → khối bên dưới)
+export const joinPartner = (bx, bz, lot) => (lot === 'JE' ? [bx + 1, bz] : lot === 'JS' ? [bx, bz + 1] : null);
 // lô cả khối chừa góc → ô góc bị chừa (vd 'BN0' → 'N0'), không phải → null
 export const cutCell = (lot) => (/^B[NS][02]$/.test(lot) ? lot.slice(1) : null);
 export const lotParts = (lot) => MULTI_LOTS[lot] || [lot];
 export const lotSize = (lot) => Object.keys(LOT_SIZES).find((k) => LOT_SIZES[k].includes(lot)) || null;
 const CELL = { N0: [0, 0], N1: [1, 0], N2: [2, 0], W1: [0, 1], C: [1, 1], E1: [2, 1], S0: [0, 2], S1: [1, 2], S2: [2, 2] };
 // hướng mặt tiền mặc định theo lô (cả khối 'B' → bắc; chừa góc 'BS2' → phía có góc: nam)
-const defaultFace = (lot) => (lot === 'B' || lot === 'M' ? 'N' : cutCell(lot) ? lot[1] : lot[0]);
+const defaultFace = (lot) => (lot === 'B' || lot === 'M' ? 'N' : lot === 'JE' ? 'S' : lot === 'JS' ? 'E' : cutCell(lot) ? lot[1] : lot[0]);
 
 // Các hướng mặt tiền chọn được: những cạnh của lô chạm ra đường. Hướng mặc định (theo lô) đứng đầu.
 export function lotFaces(lot) {
@@ -45,6 +50,8 @@ export function lotFaces(lot) {
   const cut = cutCell(lot);
   if (cut) return [cut[0], cut[1] === '0' ? 'W' : 'E'];
   if (lot === 'M') return ['N', 'E', 'S', 'W']; // ô giữa: chỉ là hướng quay của cảnh quan
+  if (lot === 'JE') return ['S', 'N']; // 2 khối ngang: quay ra 1 trong 2 cạnh dài
+  if (lot === 'JS') return ['E', 'W'];
   const cells = lotParts(lot).map((id) => CELL[id]);
   if (lot === 'C' || !cells.length || !cells.every(Boolean)) return ['E'];
   const out = [defaultFace(lot)];
@@ -81,9 +88,36 @@ export function blockAt(x, z) {
   if (bx < 0 || bz < 0 || bx >= CITY.N || bz >= CITY.N) return null;
   const lx = x - off - bx * CITY.PITCH;
   const lz = z - off - bz * CITY.PITCH;
-  if (lx < 0 || lz < 0 || lx > CITY.BLOCK || lz > CITY.BLOCK) return null;
+  if (lx < 0 || lz < 0 || lx > CITY.BLOCK || lz > CITY.BLOCK) {
+    // lòng đường cũ giữa 2 khối đã gộp → cũng là mặt bằng của khối
+    for (const j of joinList()) {
+      const r = joinGap(j);
+      if (x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1) return [j[0], j[1]];
+    }
+    return null;
+  }
   return [bx, bz];
 }
+
+// ---------- gộp 2 khối (map.json → joins: [[bx, bz, 'E' | 'S'], …]) ----------
+// Khối (bx, bz) gộp với khối bên phải ('E') hoặc bên dưới ('S'): đoạn đường giữa 2 khối bỏ đi (như sông),
+// lòng đường cũ thành mặt bằng → 1 lô lớn (lô JE / JS) cho công trình to như sân bay.
+export function joinList(map = MAP) {
+  return ((map && map.joins) || []).filter((j) => Array.isArray(j) && Number.isInteger(j[0]) && Number.isInteger(j[1]) && (j[2] === 'E' || j[2] === 'S'));
+}
+// mã đoạn đường bị bỏ của một cặp gộp
+export const joinSeg = ([bx, bz, d]) => (d === 'E' ? `x${bx + 1}:${bz}` : `z${bz + 1}:${bx}`);
+// dải lòng đường cũ giữa 2 khối gộp (toạ độ thế giới)
+export function joinGap([bx, bz, d]) {
+  const a = blockBounds(bx, bz);
+  return d === 'E' ? { x0: a.x1, x1: a.x1 + CITY.ROAD, z0: a.z0, z1: a.z1 } : { x0: a.x0, x1: a.x1, z0: a.z1, z1: a.z1 + CITY.ROAD };
+}
+// cạnh `side` (N/E/S/W) của khối có quay vào khối đã gộp không (cạnh đó không còn đường → không đèn, cây, cột điện…)
+export function joinedSide(bx, bz, side, map = MAP) {
+  return joinList(map).some(([x, z, d]) => (d === 'E' && ((side === 'E' && x === bx && z === bz) || (side === 'W' && x + 1 === bx && z === bz)))
+    || (d === 'S' && ((side === 'S' && x === bx && z === bz) || (side === 'N' && x === bx && z + 1 === bz))));
+}
+export const isJoinedBlock = (bx, bz, map = MAP) => ['N', 'E', 'S', 'W'].some((s) => joinedSide(bx, bz, s, map));
 
 // ---------- khu phố (map.json → districts { mã: { name, color } } + districtBlocks { "bx,bz": mã }) ----------
 // Khu phố của khối, hoặc null (khối chưa gán khu phố)
@@ -175,6 +209,7 @@ function alleyLotInfo(bx, bz, plan, l) {
 
 // face: hướng mặt tiền người dùng chọn (không hợp lệ hoặc bỏ trống → theo lô) · map: dữ liệu bản đồ (công cụ truyền bản đang sửa)
 export function lotInfo(bx, bz, lot, wantFace = null, map = MAP) {
+  if (isJoinLot(lot)) return joinLotInfo(bx, bz, lot, wantFace);
   const plan = blockPlan(bx, bz, map);
   if (plan) {
     const l = plan.lots.find((x) => x.id === lot);
@@ -213,16 +248,34 @@ export function lotInfo(bx, bz, lot, wantFace = null, map = MAP) {
   return { ...r, cx, cz, face, door, street, number, address };
 }
 
+// Lô gộp 2 khối: khung bao từ mép trong vỉa hè khối đầu tới khối sau, cửa ở giữa cạnh dài quay ra đường
+function joinLotInfo(bx, bz, lot, wantFace) {
+  const a = blockBounds(bx, bz), [px, pz] = joinPartner(bx, bz, lot), b = blockBounds(px, pz);
+  const r = { x0: a.x0 + CITY.SW, x1: b.x1 - CITY.SW, z0: a.z0 + CITY.SW, z1: b.z1 - CITY.SW };
+  const face = lotFaces(lot).includes(wantFace) ? wantFace : defaultFace(lot);
+  const cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2;
+  const door = face === 'N' ? { x: cx, z: a.z0 + 1.4 } : face === 'S' ? { x: cx, z: b.z1 - 1.4 } : face === 'W' ? { x: a.x0 + 1.4, z: cz } : { x: b.x1 - 1.4, z: cz };
+  const street = face === 'N' ? STREETS_Z[bz] : face === 'S' ? STREETS_Z[pz + 1] : face === 'W' ? STREETS_X[bx] : STREETS_X[px + 1];
+  const along = face === 'N' || face === 'S' ? cx : cz;
+  const number = houseNumber(along, face);
+  return { ...r, cx, cz, face, door, street, number, address: fmt('addr.house', { number, street }) };
+}
+// Các ô (khối, ô) mà một địa điểm chiếm — lô gộp chiếm trọn cả 2 khối
+export function placeCells(p) {
+  const [bx, bz] = p.block;
+  const out = lotParts(p.lot).map((id) => [bx, bz, id]);
+  const q = joinPartner(bx, bz, p.lot);
+  if (q) for (const id of MULTI_LOTS.B) out.push([q[0], q[1], id]);
+  return out;
+}
+
 const key = (bx, bz, lot) => `${bx},${bz},${lot}`;
 
 // Dựng danh sách địa điểm đặc biệt + các lô nhà dân (khách hàng) + mặt bằng các khối có hẻm
 export function buildLayout(placesData = PLACES, map = MAP) {
   const places = placesData.filter(isPlaced).map((p) => ({ ...p, ...lotInfo(p.block[0], p.block[1], p.lot, p.face, map) }));
   const taken = new Set();
-  for (const p of places) {
-    const [bx, bz] = p.block;
-    for (const id of lotParts(p.lot)) taken.add(key(bx, bz, id));
-  }
+  for (const p of places) for (const [bx, bz, id] of placeCells(p)) taken.add(key(bx, bz, id));
   taken.add(key(ALLEY.block[0], ALLEY.block[1], ALLEY.lot));
   const lots = [];
   const alleyBlocks = []; // khối có hẻm: hẻm, nhà phía sau (không cửa), cột chắn — toạ độ thế giới
@@ -272,13 +325,14 @@ export function riverInfo(map = MAP) {
 }
 // Mạng đường: ngã tư đi được, đoạn đi được, khoảng cách ngắn nhất giữa mọi cặp ngã tư (Floyd), ngã tư kế tiếp để dựng đường đi
 export function roadGraph(map = MAP) {
-  const key = JSON.stringify((map && map.rivers) || []);
+  const key = JSON.stringify([(map && map.rivers) || [], joinList(map)]);
   if (graphCache.has(key)) return graphCache.get(key);
   const { waterSegs, waterNodes, bridgeNodes } = riverInfo(map);
   const M = CITY.N + 1, n = M * M;
   const nodeOk = (i, j) => i >= 0 && j >= 0 && i <= CITY.N && j <= CITY.N && !waterNodes.has(`${i},${j}`);
   // đoạn đường hợp lệ: không phải sông, và 2 đầu là ngã tư đi được (đường cụt sát sông vẫn chạy được nhưng không nối mạng)
-  const segOk = (s) => !waterSegs.has(segId(s.axis, s.line, s.from));
+  const closedSegs = new Set(joinList(map).map(joinSeg)); // đoạn giữa 2 khối gộp: không còn đường
+  const segOk = (s) => !waterSegs.has(segId(s.axis, s.line, s.from)) && !closedSegs.has(segId(s.axis, s.line, s.from));
   const segs = [];
   for (let line = 0; line <= CITY.N; line++) for (let from = 0; from < CITY.N; from++) for (const axis of ['x', 'z']) {
     const s = { axis, line, from };
@@ -303,7 +357,7 @@ export function roadGraph(map = MAP) {
       if (d < D[i * n + j]) { D[i * n + j] = d; next[i * n + j] = next[i * n + k]; }
     }
   }
-  const g = { segs, D, next, n, nodeOk, segOk, waterSegs, waterNodes, bridgeNodes };
+  const g = { segs, D, next, n, nodeOk, segOk, waterSegs, waterNodes, bridgeNodes, closedSegs };
   graphCache.set(key, g);
   return g;
 }

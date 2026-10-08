@@ -15,29 +15,82 @@ function toTexture(c, srgb = true) {
   return t;
 }
 
+// Gạch lát vỉa hè: 8 × 8 viên mỗi lần lặp (viên 0,5 m khi lặp mỗi 4 m), màu lệch từng viên, ron vữa, vài viên nứt / ố
 export function makeTileTexture() {
-  const [c, g] = canvas(128, 128);
-  g.fillStyle = '#c9bfb3';
-  g.fillRect(0, 0, 128, 128);
-  g.strokeStyle = 'rgba(80,60,40,0.18)';
-  g.lineWidth = 2;
-  for (let i = 0; i <= 128; i += 32) {
-    g.beginPath(); g.moveTo(i, 0); g.lineTo(i, 128); g.stroke();
-    g.beginPath(); g.moveTo(0, i); g.lineTo(128, i); g.stroke();
+  const S = 256, n = 8, s = S / n;
+  const [c, g] = canvas(S, S);
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      const v = 182 + rnd() * 26, warm = (i + j) % 5 === 0 ? 18 : 0; // thỉnh thoảng một viên ngả đỏ gạch
+      g.fillStyle = `rgb(${v + 10 + warm},${v - 2},${v - 16 - warm / 2})`;
+      g.fillRect(i * s, j * s, s, s);
+      if (rnd() < 0.12) {
+        g.fillStyle = 'rgba(70,55,40,0.15)'; // viên ố
+        g.fillRect(i * s + 3, j * s + 3, s - 6, s - 6);
+      }
+      if (rnd() < 0.08) {
+        g.strokeStyle = 'rgba(60,50,40,0.35)'; // viên nứt
+        g.lineWidth = 1;
+        g.beginPath();
+        g.moveTo(i * s + rnd() * s, j * s);
+        g.lineTo(i * s + rnd() * s, j * s + s);
+        g.stroke();
+      }
+    }
+  }
+  g.fillStyle = 'rgba(90,75,60,0.45)';
+  for (let k = 0; k <= n; k++) {
+    g.fillRect(k * s - 1, 0, 2, S);
+    g.fillRect(0, k * s - 1, S, 2);
+  }
+  for (let i = 0; i < 900; i++) {
+    g.fillStyle = rnd() < 0.5 ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)';
+    g.fillRect(rnd() * S, rnd() * S, 2, 2);
   }
   const t = toTexture(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   return t;
 }
 
+// Nhựa đường: hạt đá, mảng màu loang, vết nứt mảnh, vệt dầu
 export function makeAsphaltTexture() {
-  const [c, g] = canvas(256, 256);
+  const S = 512;
+  const [c, g] = canvas(S, S);
+  let seed = 11;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   g.fillStyle = '#4a4c52';
-  g.fillRect(0, 0, 256, 256);
-  for (let i = 0; i < 2500; i++) {
-    const v = 60 + Math.random() * 40;
-    g.fillStyle = `rgba(${v},${v},${v + 4},0.35)`;
-    g.fillRect(Math.random() * 256, Math.random() * 256, 2, 2);
+  g.fillRect(0, 0, S, S);
+  for (let i = 0; i < 40; i++) {
+    const r = 30 + rnd() * 90, x = rnd() * S, y = rnd() * S;
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    const dark = rnd() < 0.5;
+    gr.addColorStop(0, dark ? 'rgba(20,20,24,0.18)' : 'rgba(120,120,126,0.12)');
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr;
+    g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  for (let i = 0; i < 9000; i++) {
+    const v = 55 + rnd() * 55;
+    g.fillStyle = `rgba(${v},${v},${v + 4},0.4)`;
+    g.fillRect(rnd() * S, rnd() * S, 2, 2);
+  }
+  g.strokeStyle = 'rgba(25,25,28,0.55)';
+  g.lineWidth = 1.2;
+  for (let i = 0; i < 14; i++) {
+    let x = rnd() * S, y = rnd() * S;
+    g.beginPath();
+    g.moveTo(x, y);
+    for (let k = 0; k < 8; k++) g.lineTo((x += (rnd() - 0.5) * 30), (y += (rnd() - 0.5) * 30));
+    g.stroke();
+  }
+  for (let i = 0; i < 6; i++) {
+    const x = rnd() * S, y = rnd() * S, r = 8 + rnd() * 16;
+    g.fillStyle = 'rgba(15,15,20,0.22)'; // vệt dầu
+    g.beginPath();
+    g.ellipse(x, y, r, r * 0.6, rnd() * 3, 0, 7);
+    g.fill();
   }
   const t = toTexture(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;

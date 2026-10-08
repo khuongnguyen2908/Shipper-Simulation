@@ -87,6 +87,7 @@ export const HINT = {
   map: {
     alley: 'Kiểu mạng hẻm bên trong khối. Game tự xếp nhà mặt phố + nhà trong hẻm (địa chỉ "số hẻm/số nhà"). Khối có hẻm 42 (nhà cổng xanh) phải để "Không hẻm".',
     walk: 'Hẻm đi bộ hẹp 2 m, có cột chắn ở miệng hẻm: phải đậu xe ngoài đường rồi đi bộ vào. Khách xe ôm ở nhà trong hẻm đi bộ được đón/trả ở miệng hẻm.',
+    join: 'Gộp 2 khối liền nhau thành 1 lô lớn (cho sân bay…): đoạn đường giữa 2 khối bỏ đi, xe đi vòng. Sau khi gộp, đặt địa điểm vào lô "Gộp 2 khối" ở thẻ Địa điểm (kích thước). Khối có hẻm phải bỏ hẻm trước; không gộp qua sông.',
     river: 'Sông thay cho một con đường (từ ngã tư a tới b): xe không chạy dọc / băng qua được, trừ ở ngã tư có cầu. Quãng đường và thời hạn đơn tự tính vòng qua cầu. Sông không được cắt rời thành phố (bộ kiểm tra sẽ báo).',
   },
 

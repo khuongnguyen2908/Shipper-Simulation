@@ -2,7 +2,8 @@
 // đường nhựa, vạch kẻ, vỉa hè, nhà ống (instancing), địa điểm đặc biệt có biển hiệu,
 // đèn đường, cây xanh, ổ gà. Trả về lưới va chạm + hàm đổi ngày/đêm, mưa.
 import * as THREE from 'three';
-import { CITY, LOT_W, HALF, roadPos, blockBounds, roadGraph, segmentRect, cutSide, districtAt } from '../sim/cityLayout.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { CITY, LOT_W, HALF, roadPos, blockBounds, roadGraph, segmentRect, cutSide, districtAt, joinList, joinGap, joinedSide } from '../sim/cityLayout.js';
 import { MAP } from '../data/map.js';
 import { pickHouseStyle, blockHouseStyle, treesOf } from '../data/districtTraits.js';
 import { buildStreetDecor } from './streetDecor.js';
@@ -49,7 +50,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   scene.add(ground);
 
   const asphalt = makeAsphaltTexture();
-  asphalt.repeat.set((34 * HALF) / 136, (34 * HALF) / 136); // giữ cỡ hạt nhựa đường khi bản đồ to ra
+  asphalt.repeat.set(HALF / 8, HALF / 8); // mỗi lần lặp 16 m, giữ cỡ hạt nhựa đường khi bản đồ to ra
   const roadMat = new THREE.MeshStandardMaterial({ map: asphalt, color: 0xffffff, roughness: 0.92, metalness: 0 });
   const road = new THREE.Mesh(new THREE.PlaneGeometry(HALF * 2, HALF * 2), roadMat);
   road.rotation.x = -Math.PI / 2;
@@ -57,7 +58,9 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   scene.add(road);
 
   // vạch giữa đường + vạch qua đường (không vẽ trên mặt sông, trên cầu)
+  const mapData = opts.map || MAP;
   const G = roadGraph(opts.map);
+  const noRoad = (id) => G.waterSegs.has(id) || G.closedSegs.has(id); // sông hoặc đoạn đã gộp khối
   const segIdx = (a) => Math.floor((a - CITY.ORIGIN) / CITY.PITCH);
   const dashGeo = new THREE.PlaneGeometry(1, 1);
   dashGeo.rotateX(-Math.PI / 2);
@@ -69,20 +72,22 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   for (let i = 0; i <= CITY.N; i++) {
     for (let a = -HALF; a <= HALF; a += 6) {
       if (nearCross(a, 9)) continue;
-      if (!G.waterSegs.has(`x${i}:${segIdx(a)}`)) dashes.push([roadPos(i), a, 0.18, 3]); // đường dọc
-      if (!G.waterSegs.has(`z${i}:${segIdx(a)}`)) dashes.push([a, roadPos(i), 3, 0.18]); // đường ngang
+      if (!noRoad(`x${i}:${segIdx(a)}`)) dashes.push([roadPos(i), a, 0.18, 3]); // đường dọc
+      if (!noRoad(`z${i}:${segIdx(a)}`)) dashes.push([a, roadPos(i), 3, 0.18]); // đường ngang
     }
     for (let j = 0; j <= CITY.N; j++) {
       if (G.waterNodes.has(`${i},${j}`) || G.bridgeNodes.has(`${i},${j}`)) continue;
       for (const s of [-1, 1]) {
+        // vạch qua đường ở mỗi nhánh của ngã tư (nhánh nào là đoạn đã gộp khối thì bỏ)
+        const crossV = !G.closedSegs.has(`x${i}:${s < 0 ? j - 1 : j}`), crossH = !G.closedSegs.has(`z${j}:${s < 0 ? i - 1 : i}`);
         for (let t = -5.2; t <= 5.2; t += 1.3) {
-          dashes.push([roadPos(i) + t, roadPos(j) + s * 7.6, 0.55, 2.4]);
-          dashes.push([roadPos(i) + s * 7.6, roadPos(j) + t, 2.4, 0.55]);
+          if (crossV) dashes.push([roadPos(i) + t, roadPos(j) + s * 7.6, 0.55, 2.4]);
+          if (crossH) dashes.push([roadPos(i) + s * 7.6, roadPos(j) + t, 2.4, 0.55]);
         }
       }
     }
   }
-  const dashMesh = new THREE.InstancedMesh(dashGeo, new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.8 }), dashes.length);
+  const dashMesh = new THREE.InstancedMesh(dashGeo, new THREE.MeshStandardMaterial({ color: 0xdedcd2, roughness: 0.85 }), dashes.length); // vạch sơn hơi phai
   dashes.forEach(([x, z, w, d], k) => {
     dummy.position.set(x, 0.012, z);
     dummy.rotation.set(0, 0, 0);
@@ -92,6 +97,47 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   });
   dashMesh.receiveShadow = true;
   scene.add(dashMesh);
+
+  // mặt đường: vết vá nhựa sẫm màu + nắp cống tròn dọc lề (vẽ hàng loạt, không đặt trên mặt sông / gần ngã tư)
+  {
+    const prng = makeRng(seed * 7 + 3);
+    const patches = [], holes = [];
+    for (let i = 0; i <= CITY.N; i++) {
+      for (let j = 0; j < CITY.N; j++) {
+        const a0 = roadPos(j) + 10, a1 = roadPos(j + 1) - 10;
+        for (const axis of ['x', 'z']) {
+          if (noRoad(`${axis}${i}:${j}`)) continue;
+          const at = (along, lat) => (axis === 'x' ? [roadPos(i) + lat, along] : [along, roadPos(i) + lat]);
+          for (let k = prng.int(1, 3); k > 0; k--) {
+            const [x, z] = at(a0 + prng.next() * (a1 - a0), (prng.next() - 0.5) * (CITY.ROAD - 3));
+            patches.push([x, z, 1 + prng.next() * 2.5, 0.8 + prng.next() * 1.6, prng.next() * 0.5 - 0.25]);
+          }
+          for (const side of [-1, 1]) {
+            for (let a = a0 + prng.next() * 8; a < a1; a += 14 + prng.next() * 8) holes.push(at(a, side * (CITY.ROAD / 2 - 1.1)));
+          }
+        }
+      }
+    }
+    const pm = new THREE.InstancedMesh(dashGeo, new THREE.MeshStandardMaterial({ color: 0x35363b, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -1 }), patches.length);
+    patches.forEach(([x, z, w, d, r], k) => {
+      dummy.position.set(x, 0.008, z);
+      dummy.rotation.set(0, r, 0);
+      dummy.scale.set(w, 1, d);
+      dummy.updateMatrix();
+      pm.setMatrixAt(k, dummy.matrix);
+    });
+    pm.receiveShadow = true;
+    const hm = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.42, 0.42, 0.03, 14), mat(0x56585d, { roughness: 0.6, metalness: 0.4 }), holes.length);
+    holes.forEach(([x, z], k) => {
+      dummy.position.set(x, 0.012, z);
+      dummy.rotation.set(0, 0, 0);
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix();
+      hm.setMatrixAt(k, dummy.matrix);
+    });
+    hm.receiveShadow = true;
+    scene.add(pm, hm);
+  }
 
   // ---------- sông, kè, cầu ----------
   const waterMat = new THREE.MeshStandardMaterial({ color: 0x2f6f8f, roughness: 0.15, metalness: 0.35 });
@@ -162,6 +208,36 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
       scene.add(m);
     }
   }
+  // lòng đường cũ giữa 2 khối đã gộp → mặt bằng cao như vỉa hè
+  const joins = joinList(mapData);
+  for (const j of joins) {
+    const r = joinGap(j);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(r.x1 - r.x0, SW_H, r.z1 - r.z0), swMat);
+    m.position.set((r.x0 + r.x1) / 2, SW_H / 2, (r.z0 + r.z1) / 2);
+    m.receiveShadow = true;
+    scene.add(m);
+  }
+  // bó vỉa: dải đá xám cao hơn mặt gạch một chút chạy quanh mép mỗi khối (gộp 1 khối vẽ cho cả thành phố)
+  {
+    const CW = 0.28, CH = SW_H + 0.04, parts = [];
+    for (let bz = 0; bz < CITY.N; bz++) {
+      for (let bx = 0; bx < CITY.N; bx++) {
+        const b = blockBounds(bx, bz), L = CITY.BLOCK + 0.02;
+        for (const [side, w, d, x, z] of [['N', L, CW, (b.x0 + b.x1) / 2, b.z0 + CW / 2 - 0.01], ['S', L, CW, (b.x0 + b.x1) / 2, b.z1 - CW / 2 + 0.01], ['W', CW, L, b.x0 + CW / 2 - 0.01, (b.z0 + b.z1) / 2], ['E', CW, L, b.x1 - CW / 2 + 0.01, (b.z0 + b.z1) / 2]]) {
+          if (joinedSide(bx, bz, side, mapData)) continue; // cạnh quay vào khối đã gộp: không còn mép đường
+          parts.push(new THREE.BoxGeometry(w, CH, d).translate(x, CH / 2, z));
+        }
+      }
+    }
+    for (const j of joins) {
+      const r = joinGap(j);
+      if (j[2] === 'E') for (const z of [r.z0 + CW / 2 - 0.01, r.z1 - CW / 2 + 0.01]) parts.push(new THREE.BoxGeometry(r.x1 - r.x0 + 0.02, CH, CW).translate((r.x0 + r.x1) / 2, CH / 2, z));
+      else for (const x of [r.x0 + CW / 2 - 0.01, r.x1 - CW / 2 + 0.01]) parts.push(new THREE.BoxGeometry(CW, CH, r.z1 - r.z0 + 0.02).translate(x, CH / 2, (r.z0 + r.z1) / 2));
+    }
+    const curb = new THREE.Mesh(mergeGeometries(parts), mat(0xb7b2a8, { roughness: 0.9 }));
+    curb.receiveShadow = true;
+    scene.add(curb);
+  }
 
   // ---------- nhà ống A+ (gộp theo từng khối phố, 1 vật liệu chung) ----------
   const houseMat = houseMaterial();
@@ -184,7 +260,6 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     return top;
   };
   // nhà dân theo khu phố (map.json → districts[mã].houses): kiểu khác nhà ống dựng riêng rồi gộp cả thành phố
-  const mapData = opts.map || MAP;
   const styleRng = makeRng(seed * 7 + 11);
   const resKits = [];
   const _q = new THREE.Quaternion(), _e = new THREE.Euler(), _v = new THREE.Vector3(), _one = new THREE.Vector3(1, 1, 1);
@@ -333,14 +408,18 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   for (let bz = 0; bz < CITY.N; bz++) {
     for (let bx = 0; bx < CITY.N; bx++) {
       const b = blockBounds(bx, bz);
-      for (const [x, z, dx, dz] of [[b.x0 + 0.8, b.z0 + 0.8, -1, -1], [b.x1 - 0.8, b.z0 + 0.8, 1, -1], [b.x0 + 0.8, b.z1 - 0.8, -1, 1], [b.x1 - 0.8, b.z1 - 0.8, 1, 1]]) lamps.push({ x, z, dx, dz });
+      for (const [x, z, dx, dz] of [[b.x0 + 0.8, b.z0 + 0.8, -1, -1], [b.x1 - 0.8, b.z0 + 0.8, 1, -1], [b.x0 + 0.8, b.z1 - 0.8, -1, 1], [b.x1 - 0.8, b.z1 - 0.8, 1, 1]]) {
+        if (joinedSide(bx, bz, dx > 0 ? 'E' : 'W', mapData) || joinedSide(bx, bz, dz > 0 ? 'S' : 'N', mapData)) continue; // góc giáp khối đã gộp
+        lamps.push({ x, z, dx, dz });
+      }
       const ax = b.x0 + CITY.SW, az = b.z0 + CITY.SW;
       // cây xanh theo khu ("trees": 0 = không cây, 1 = như cũ 8 cây, 2 = gấp đôi): giữ / thêm theo tỉ lệ
       const t = treesOf(districtAt(bx, bz, mapData));
       // [vị trí theo bề rộng lô, bậc]: bậc 1 = 2 cây cũ mỗi cạnh (giữ khi t < 1), bậc 2 = thêm 2 cây (khi t > 1), lệch khỏi cửa nhà
       for (const [k, tier] of [[1, 1], [2, 1], [1 / 4, 2], [11 / 4, 2]]) {
         const need = tier === 1 ? Math.min(1, t) : Math.min(1, Math.max(0, t - 1));
-        for (const p of [[ax + k * W, b.z0 + 0.9], [ax + k * W, b.z1 - 0.9], [b.x0 + 0.9, az + k * W], [b.x1 - 0.9, az + k * W]]) {
+        for (const [side, ...p] of [['N', ax + k * W, b.z0 + 0.9], ['S', ax + k * W, b.z1 - 0.9], ['W', b.x0 + 0.9, az + k * W], ['E', b.x1 - 0.9, az + k * W]]) {
+          if (joinedSide(bx, bz, side, mapData)) continue;
           if (need >= 1 || (need > 0 && styleRng.next() < need)) trees.push(p);
         }
       }
@@ -372,24 +451,54 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   poles.castShadow = true;
   scene.add(poles, heads, pools);
 
-  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.13, 0.18, 3, 6), mat(0x6e4b2a), trees.length);
-  const crowns = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1.5, 0), new THREE.MeshStandardMaterial({ roughness: 0.9, flatShading: true }), trees.length);
+  // Cây: thân + tán nhiều cụm, 2 dáng (tán tròn xòe / tán cao), màu lá lệch từng cây; ô đất có viền quanh gốc
+  const crownOf = (parts) => mergeGeometries(parts.map(([r, x, y, z]) => new THREE.IcosahedronGeometry(r, 0).translate(x, y, z)));
+  const CROWNS = [
+    crownOf([[1.25, 0, 0, 0], [0.95, 0.9, 0.15, 0.3], [0.9, -0.85, 0.1, -0.35], [0.85, 0.1, 0.55, -0.85], [0.8, -0.25, 0.7, 0.85]]),
+    crownOf([[0.95, 0, -0.35, 0], [0.85, 0.2, 0.55, 0.15], [0.7, -0.1, 1.3, -0.1], [0.75, 0.45, 0.15, -0.45], [0.6, -0.35, 0.9, 0.35]]),
+  ];
+  const kindOf = trees.map(() => 0);
+  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.11, 0.18, 3, 6), mat(0x6e4b2a), trees.length);
+  const pitFrame = new THREE.InstancedMesh(new THREE.BoxGeometry(1.25, 0.05, 1.25), mat(0xb9b4ab), trees.length);
+  const pitSoil = new THREE.InstancedMesh(new THREE.BoxGeometry(1.0, 0.05, 1.0), mat(0x4a3a2c, { roughness: 1 }), trees.length);
+  const crownMat = new THREE.MeshStandardMaterial({ roughness: 0.9, flatShading: true });
+  const crownMats = [];
   trees.forEach(([x, z], k) => {
-    dummy.rotation.set(0, rng.next() * 6, 0);
+    const rot = rng.next() * 6;
+    kindOf[k] = rot > 4.2 ? 1 : 0; // ~30% cây tán cao
+    dummy.rotation.set(0, rot, 0);
     dummy.scale.set(1, 1, 1);
     dummy.position.set(x, 1.5 + SW_H, z);
     dummy.updateMatrix();
     trunks.setMatrixAt(k, dummy.matrix);
+    dummy.position.set(x, SW_H + 0.01, z);
+    dummy.updateMatrix();
+    pitFrame.setMatrixAt(k, dummy.matrix);
+    dummy.position.set(x, SW_H + 0.025, z);
+    dummy.updateMatrix();
+    pitSoil.setMatrixAt(k, dummy.matrix);
     const s = 0.85 + rng.next() * 0.5;
     dummy.scale.set(s, s * 1.1, s);
     dummy.position.set(x, 3.6 + SW_H + s * 0.3, z);
     dummy.updateMatrix();
-    crowns.setMatrixAt(k, dummy.matrix);
-    crowns.setColorAt(k, col.setHSL(0.28 + rng.next() * 0.06, 0.45, 0.28 + rng.next() * 0.1));
+    crownMats.push(dummy.matrix.clone());
+    crownMats[k].color = col.setHSL(0.27 + rng.next() * 0.07, 0.45, 0.27 + rng.next() * 0.1).clone();
     addBox(x - 0.22, z - 0.22, x + 0.22, z + 0.22, 3, 'tree');
   });
-  trunks.castShadow = crowns.castShadow = true;
-  scene.add(trunks, crowns);
+  for (const v of [0, 1]) {
+    const idx = trees.map((_, k) => k).filter((k) => kindOf[k] === v);
+    if (!idx.length) continue;
+    const cm = new THREE.InstancedMesh(CROWNS[v], crownMat, idx.length);
+    idx.forEach((k, i) => {
+      cm.setMatrixAt(i, crownMats[k]);
+      cm.setColorAt(i, crownMats[k].color);
+    });
+    cm.castShadow = true;
+    scene.add(cm);
+  }
+  trunks.castShadow = true;
+  pitFrame.receiveShadow = pitSoil.receiveShadow = true;
+  scene.add(trunks, pitFrame, pitSoil);
 
   // ---------- cột điện + dây điện chằng chịt ----------
   // Mỗi cạnh khối 2 cột sát mép vỉa hè (né đèn đường ở góc, cây ở 1/3 cạnh, miệng hẻm ở giữa).
@@ -398,10 +507,8 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   for (let bz = 0; bz < CITY.N; bz++) {
     for (let bx = 0; bx < CITY.N; bx++) {
       const b = blockBounds(bx, bz), e = 0.45;
-      polePos.set(`${bx},${bz},N`, [[b.x0 + 8, b.z0 + e], [b.x1 - 8, b.z0 + e]]);
-      polePos.set(`${bx},${bz},S`, [[b.x0 + 8, b.z1 - e], [b.x1 - 8, b.z1 - e]]);
-      polePos.set(`${bx},${bz},W`, [[b.x0 + e, b.z0 + 8], [b.x0 + e, b.z1 - 8]]);
-      polePos.set(`${bx},${bz},E`, [[b.x1 - e, b.z0 + 8], [b.x1 - e, b.z1 - 8]]);
+      const sides = { N: [[b.x0 + 8, b.z0 + e], [b.x1 - 8, b.z0 + e]], S: [[b.x0 + 8, b.z1 - e], [b.x1 - 8, b.z1 - e]], W: [[b.x0 + e, b.z0 + 8], [b.x0 + e, b.z1 - 8]], E: [[b.x1 - e, b.z0 + 8], [b.x1 - e, b.z1 - 8]] };
+      for (const [side, pts] of Object.entries(sides)) if (!joinedSide(bx, bz, side, mapData)) polePos.set(`${bx},${bz},${side}`, pts); // cạnh giáp khối gộp: không còn đường
     }
   }
   const poleList = [...polePos.values()].flat();
@@ -459,6 +566,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   for (let bz = 0; bz < CITY.N; bz++) {
     for (let bx = 0; bx < CITY.N; bx++) {
       for (const side of ['N', 'S', 'W', 'E']) {
+        if (!polePos.has(`${bx},${bz},${side}`)) continue;
         const [a, b] = polePos.get(`${bx},${bz},${side}`);
         wire(a, b);
         // vắt qua ngã tư sang cột đầu tiên của khối kế bên trên cùng dãy phố

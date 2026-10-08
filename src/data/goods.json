@@ -257,5 +257,27 @@
     "slot": "helmet",
     "style": "full",
     "color": "#1c1c1c"
+  },
+  "aoDaiTrang": {
+    "id": "aoDaiTrang",
+    "name": "Áo dài trắng",
+    "icon": "👘",
+    "price": 250,
+    "desc": "Áo dài lụa trắng may đo.",
+    "type": "outfit",
+    "slot": "shirt",
+    "style": "long",
+    "color": "#f4f1ea"
+  },
+  "aoDaiDo": {
+    "id": "aoDaiDo",
+    "name": "Áo dài đỏ",
+    "icon": "👘",
+    "price": 250,
+    "desc": "Áo dài đỏ mặc ngày Tết.",
+    "type": "outfit",
+    "slot": "shirt",
+    "style": "long",
+    "color": "#c0392b"
   }
 }

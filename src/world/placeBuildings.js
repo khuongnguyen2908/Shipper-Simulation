@@ -6,7 +6,7 @@
 // Nhà có thân giống nhà ống thì lấy thân nhà ống A+ (houses.js) rồi gắn thêm đồ riêng của từng kiểu.
 // =============================================================
 import * as THREE from 'three';
-import { PartList, sideGeo, rodGeo, makeBike } from './models.js';
+import { PartList, sideGeo, rodGeo, makeBike, makePerson } from './models.js';
 import { HouseGeo, buildHouse, houseMaterial, houseTop } from './houses.js';
 import { makeSignTexture } from './textures.js';
 import { fmt, list } from '../content/index.js';
@@ -209,6 +209,17 @@ class Kit {
       group.add(m);
     }
   }
+}
+
+// ---------- sân bay: đường trên cao ----------
+export const AIRPORT_UP = 4.6; // cao độ sàn ga đi (mặt đường trên cao)
+// Đường tâm của đường trên cao (toạ độ riêng của lô: mặt tiền z = 0 quay ra đường, lùi vào tới z ≈ −34; [x, z, độ cao]).
+// Vào ở mép phải (x = +W/2) phía sau → dốc cong lên → sàn ga đi dọc mặt tiền (z ≈ −9,2) → dốc cong xuống → ra mép trái.
+export function airportPath(W) {
+  const X = W / 2, U = AIRPORT_UP;
+  const pts = [[X - 0.5, -30, 0], [X - 6, -30.5, 0.1], [X - 11, -27, 1.0], [X - 13.5, -20, 2.6], [X - 15, -13.5, 3.9], [X - 19, -9.4, U], [X - 28, -9.2, U], [0, -9.2, U]];
+  const all = [...pts, ...pts.slice(0, -1).reverse().map(([x, z, y]) => [-x, z, y])];
+  return new THREE.CatmullRomCurve3(all.map(([x, z, y]) => new THREE.Vector3(x, y, z)), false, 'catmullrom', 0.3);
 }
 
 const hexNum = (c, fb) => (typeof c === 'number' ? c : /^#[0-9a-f]{6}$/i.test(c || '') ? parseInt(c.slice(1), 16) : fb);
@@ -663,6 +674,116 @@ const BUILD = {
       for (let i = 0; i < 6; i++) k.ball(0.3, s * (W / 2 - 2.2) - 0.9 + i * 0.36, 0.7, 1.4, 0x4f9a3a);
     }
     return { sign: { y: H - 1.2, z: 0.15, w: Math.min(12, W - 2), glow: 0.5 }, height: H + 0.5, colliders: 'full' };
+  },
+
+  // Sân bay (lô gộp 2 khối, ~86 × 34 m): nhà ga 2 tầng — lầu = ga đi quốc tế, trệt = ga quốc nội + ga đến quốc tế.
+  // Đường trên cao cong hình móng ngựa: vào từ mép phải lên dốc → sàn ga đi dọc mặt tiền → xuống dốc ra mép trái.
+  // Dưới gầm sàn là làn đón khách tầng trệt. Lô nhỏ (< 60 m) thì chỉ dựng nhà ga, không có đường trên cao.
+  airport(k, o, r) {
+    const W = o.W, D = o.D, X = W / 2, UP = AIRPORT_UP;
+    const big = W >= 60;
+    const tx = big ? X - 17 : X - 1, zt = big ? -13.2 : -3, zb = -D + 1.5, H = 13;
+    const gg = 'tex:' + T.glassGrid();
+    // mặt sân (nhựa) + lề đi bộ sát nhà ga
+    k.box(W, 0.04, D, 0, 0.02, -D / 2, 0x4a4c52);
+    k.box(2 * tx, 0.18, 2, 0, 0.09, zt + 1, 0xc9c2b6);
+    // nhà ga: thân + vách kính 2 tầng (texture lặp ô 2,5–3 m)
+    k.box(2 * tx, H, zt - zb, 0, H / 2, (zt + zb) / 2, 0x55616b);
+    k.plane(2 * tx, UP - 0.3, 0, (UP - 0.3) / 2, zt + 0.02, 0xffffff, gg, [0, 0, 0], 2.5);
+    k.plane(2 * tx, H - UP, 0, UP + (H - UP) / 2, zt + 0.02, 0xffffff, gg, [0, 0, 0], 3);
+    for (const s of [-1, 1]) k.plane(zt - zb, H, s * (tx + 0.01), H / 2, (zt + zb) / 2, 0xffffff, gg, [0, (s * PI) / 2, 0], 3);
+    // mái gấp nếp đua ra trước (che sàn ga đi) + viền xanh; vòm giữa nhô cao
+    const r0 = big ? -5.2 : zt + 2, n = Math.max(4, Math.round((2 * tx + 4) / 4.2)), pw = (2 * tx + 4) / n;
+    for (let i = 0; i < n; i++) {
+      const x = -tx - 2 + pw * (i + 0.5);
+      k.box(pw + 0.05, 0.3, r0 - zb, x, H + 1.4, (r0 + zb) / 2, 0xe8e8e8, 'metal', [0, 0, (i % 2 ? 1 : -1) * 0.17]);
+      k.box(pw, 0.45, 0.3, x, H + 1.4, r0, 0x2e6fb0);
+    }
+    const vw = Math.min(22, tx), span = zt - 1 - (zb + 2), rise = 2.6, rad = (span * span / 4 + rise * rise) / (2 * rise), arc = 2 * Math.asin(Math.min(1, span / 2 / rad));
+    k.add(new THREE.CylinderGeometry(rad, rad, vw, 24, 1, true, PI / 2 - arc / 2, arc).rotateZ(PI / 2), 0xc9ced3, 'metal', 0, H + 5.2 - rad, (zt - 1 + zb + 2) / 2);
+    // cột đỡ mái phía trước (đứng trên sàn ga đi)
+    if (big) for (let x = -tx + 2; x <= tx - 2; x += 6) k.cyl(0.42, 0.5, H + 1.3 - UP, x, UP + (H + 1.3 - UP) / 2, -5.8, 0xf2f2f2, '', 12);
+    // biển các ga (chữ trong vi.json → city.airportSigns, "CHỮ|dòng phụ")
+    const signs = list('city.airportSigns').map((s) => String(s).split('|'));
+    const board = (i, w, h, x, y, bg) => {
+      const [a, b] = signs[i] || ['', ''];
+      k.plane(w, h, x, y, zt + 0.05, 0xffffff, 'tex:' + textTex(b ? `${a} · ${b}` : a, { bg, w: 1024, h: 128 }));
+    };
+    board(0, Math.min(18, tx * 1.2), 1.6, -tx * 0.4, H - 1.6, '#1d5fa8');
+    board(1, Math.min(13, tx), 1.1, -tx * 0.45, UP - 1.15, '#c0392b');
+    board(2, Math.min(11, tx * 0.8), 1.1, tx * 0.45, UP - 1.15, '#16a085');
+    k.plane(Math.min(16, tx * 1.1), 0.9, 0, H + 2.3, zt - 3.02, 0xffffff, 'tex:' + textTex(fmt('city.airportSub'), { bg: '#2b2b2b', w: 1024, h: 96 }));
+    // tháp điều khiển phía sau
+    const twx = 0, twz = zb + 1.5, th = 21;
+    k.cyl(1.3, 1.6, th, twx, th / 2, twz, 0xe8e8e8, '', 14);
+    k.cyl(2.4, 1.6, 0.8, twx, th + 0.4, twz, 0xe8e8e8, '', 14);
+    k.cyl(2.4, 2.4, 2.2, twx, th + 1.9, twz, 0x2a4a63, '', 14);
+    k.cyl(2.7, 2.5, 0.35, twx, th + 3.15, twz, 0x555555, 'metal', 14);
+    for (let i = 0; i < 4; i++) k.cyl(0.06, 0.06, 0.9, twx, th + 3.8 + i * 0.9, twz, i % 2 ? 0xffffff : 0xd62d20, '', 6);
+    // quảng trường cờ 2 góc trước
+    if (big) for (const s of [-1, 1]) for (let i = 0; i < 4; i++) {
+      const x = s * (tx - 12 + i * 2.2);
+      k.cyl(0.06, 0.08, 8, x, 4, -2.2, 0xdddddd, 'metal', 6);
+      k.box(1.6, 1.0, 0.04, x + 0.82, 7.3, -2.2, [0xd62d20, 0x1d5fa8, 0x27ae60, 0xf1c40f][i]);
+    }
+    const cols = [{ x0: -tx, z0: zb, x1: tx, z1: zt, h: H }, { x0: twx - 1.7, z0: twz - 1.7, x1: twx + 1.7, z1: twz + 1.7, h: th }];
+    // đường trên cao cong (vào phải → sàn ga đi → ra trái)
+    if (big) {
+      const path = airportPath(W);
+      const pts = path.getSpacedPoints(160), up = new THREE.Vector3(0, 1, 0), RW = 7;
+      const side = pts.map((p, i) => new THREE.Vector3().crossVectors(up, pts[Math.min(160, i + 1)].clone().sub(pts[Math.max(0, i - 1)]).setY(0).normalize()).normalize());
+      const strip = (oa, ob, dy, th2, color) => {
+        const pos = [], idx = [];
+        pts.forEach((p, i) => {
+          const s = side[i];
+          for (const [o2, h] of [[oa, dy], [ob, dy], [ob, dy - th2], [oa, dy - th2]]) pos.push(p.x + s.x * o2, p.y + h, p.z + s.z * o2);
+        });
+        for (let i = 0; i < 160; i++) {
+          const a = i * 4, b = a + 4;
+          for (const [u, v] of [[0, 1], [1, 2], [2, 3], [3, 0]]) idx.push(a + u, b + u, b + v, a + u, b + v, a + v);
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        geo.setIndex(idx);
+        geo.computeVertexNormals();
+        k.add(geo, color, 'double', 0, 0, 0, 0, 0, 0, 1);
+      };
+      strip(-RW / 2, RW / 2, 0, 0.55, 0xd2cfc8); // thân cầu
+      strip(-RW / 2 + 0.35, RW / 2 - 0.35, 0.02, 0.02, 0x4a4c52); // mặt nhựa
+      strip(-RW / 2, -RW / 2 + 0.3, 0.95, 0.95, 0xd2cfc8); // lan can
+      strip(RW / 2 - 0.3, RW / 2, 0.95, 0.95, 0xd2cfc8);
+      for (let i = 2; i < 158; i += 3) {
+        const p = pts[i], q = pts[i + 1];
+        k.add(new THREE.BoxGeometry(0.15, 0.03, p.distanceTo(q) * 0.6).lookAt(new THREE.Vector3(q.x - p.x, 0, q.z - p.z)), 0xf1c40f, '', (p.x + q.x) / 2, (p.y + q.y) / 2 + 0.04, (p.z + q.z) / 2, 0, 0, 0, 1);
+      }
+      for (let i = 4; i < 160; i += 8) {
+        const p = pts[i];
+        if (p.y > 1.6) {
+          k.cyl(0.45, 0.45, p.y - 0.5, p.x, (p.y - 0.5) / 2, p.z, 0xd2cfc8, '', 12);
+          cols.push({ x0: p.x - 0.5, z0: p.z - 0.5, x1: p.x + 0.5, z1: p.z + 0.5, h: p.y });
+        } else if (i > 0) cols.push({ x0: p.x - 1.8, z0: p.z - 1.8, x1: p.x + 1.8, z1: p.z + 1.8, h: Math.max(0.6, p.y + 1) }); // đoạn dốc thấp: chắn đi dưới
+      }
+      // lề đi bộ trên sàn cầu sát nhà ga
+      k.box(2 * tx + 2, 0.6, 2.4, 0, UP - 0.3, -12, 0xd2cfc8);
+      k.box(2 * tx + 2, 0.18, 2.4, 0, UP + 0.09, -12, 0xc9c2b6);
+    }
+    // khách đứng chờ với vali (trên lầu ga đi và dưới trệt)
+    const extra = [];
+    const people = (x0, x1, y, z, n) => {
+      for (let i = 0; i < n; i++) {
+        const x = x0 + ((x1 - x0) * (i + 0.5)) / n + (r.next() - 0.5);
+        const p = makePerson({ shirt: [0xe74c3c, 0x3498db, 0xf1c40f, 0x9b59b6, 0xecf0f1, 0x34495e][i % 6], pants: 0x2c3e50, gender: i % 2 ? 'f' : 'm' });
+        p.position.set(x, y, z + (r.next() - 0.5) * 0.6);
+        p.rotation.y = r.next() * 2 - 1;
+        extra.push(p);
+        k.box(0.4, 0.6, 0.25, x + 0.45, y + 0.3, z, [0x2c3e50, 0xc0392b, 0x16a085][i % 3], 'metal');
+      }
+    };
+    if (big) {
+      people(-tx + 3, tx - 3, UP + 0.18, -12.2, 4);
+      people(-tx + 2, tx - 2, 0.18, zt + 1, 4);
+    }
+    return { sign: { y: H + 3.6, z: zt - 3, w: Math.min(22, tx * 1.5), glow: 0.4 }, height: H + 6, colliders: cols, extra, upPath: big ? airportPath(W) : null };
   },
 
   karaoke(k, o) {
@@ -1342,5 +1463,6 @@ export function buildPlace(o) {
     s.position.set(res.sign.x ?? 0, res.sign.y, res.sign.z ?? 0.08);
     group.add(s);
   }
-  return { group, glow, colliders: res.colliders ?? 'full', height: res.height, look };
+  for (const e of res.extra || []) group.add(e); // người đứng chờ…
+  return { group, glow, colliders: res.colliders ?? 'full', height: res.height, look, upPath: res.upPath || null };
 }

@@ -776,5 +776,11 @@
   "npc.chua_2.greet": "\"A Di Đà Phật. Thí chủ có mang nhang thì vào thắp một nén cầu an nhé.\"",
   "npc.chua_3.greet": "\"A Di Đà Phật. Thí chủ có mang nhang thì vào thắp một nén cầu an nhé.\"",
   "hud.district": "📍 {name}",
-  "toast.enterDistrict": "📍 Vào {name}"
+  "toast.enterDistrict": "📍 Vào {name}",
+  "city.airportSigns": [
+    "GA ĐI QUỐC TẾ|INTERNATIONAL DEPARTURES",
+    "GA QUỐC NỘI|GA ĐI · GA ĐẾN",
+    "GA ĐẾN QUỐC TẾ|ARRIVALS"
+  ],
+  "city.airportSub": "SAIGON AIRPORT"
 }
