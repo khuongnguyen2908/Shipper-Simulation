@@ -189,6 +189,7 @@ tests/        run.js (25 bộ thử luật) · economy-sim.js (bot chơi headles
 ## 7. Bản đồ (`src/data/map.json`, `src/sim/cityLayout.js`, `src/sim/blockPlan.js`)
 
 - Lưới **8×8 khối** (cỡ ở `map.json → size`), đường lớn giữa các khối; thành phố cũ 5×5 nằm giữa (khối 1–5).
+- **Quận** (map.json → `districts` { mã: { name, color } } + `districtBlocks` { "bx,bz": mã }): đặt tên / màu / tô khối ở thẻ 🗺️ Bản đồ (cọ 🖌), lớp màu quận ở thẻ 🏗️ Xây dựng; trong game góc màn hình hiện quận đang đứng, đổi quận thì báo (`districtAt`, `districtAtPoint` trong cityLayout).
 - **Hẻm trong khối** (`blocks["bx,bz"] = { alley, rot, walk }`): kiểu hẻm thẳng / cụt / chữ L / chữ T / xương cá, xoay 4 hướng. Game tự xếp nhà mặt phố (sâu 9 m) + nhà trong hẻm (sâu 6 m, địa chỉ "số hẻm/số nhà đường") + nhà phía sau. Hẻm xe máy rộng 4 m; hẻm đi bộ 2 m có 2 cột chắn ở miệng hẻm (khe 0,9 m: người qua được, xe máy không). Địa điểm đặt được vào nhà trong hẻm (lô `f…` mặt phố, `h…` trong hẻm). Khách xe ôm ở nhà trong hẻm đi bộ được đón/trả ở miệng hẻm.
 - **Sông** (`rivers: [{ axis, line, from, to, bridges }]`) thay cho một con đường; ngã tư có cầu thì đường cắt ngang đi qua, không cầu thì là mặt nước (đường cụt). Bộ kiểm tra báo lỗi nếu sông cắt rời thành phố.
 - **Quãng đường thật** (`routeDist`): đi trong hẻm ra miệng hẻm → đường gần nhất → mạng đường (khoảng cách ngắn nhất giữa các ngã tư, vòng qua cầu). Dùng cho thời hạn đơn, thưởng km, chọn quán / nhà khách. App ưu tiên quán, shop gần tài xế (hệ số 1/(30 + d)²) và nhà khách gần (1/d).

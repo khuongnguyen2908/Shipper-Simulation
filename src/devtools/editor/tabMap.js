@@ -2,8 +2,18 @@
 import { CITY, HALF, blockBounds, blockPlan, blockRect, roadPos, roadGraph, segmentRect } from '../../sim/cityLayout.js';
 import { ALLEY_TEMPLATES } from '../../sim/blockPlan.js';
 import { isPlaced } from '../../data/places.js';
-import { el, field, button, selectInput, checkInput, numInput, explain } from './ui.js';
+import { el, field, button, selectInput, checkInput, numInput, explain, textInput, colorInput } from './ui.js';
 import { HINT, EXPLAIN } from './help.js';
+
+// cọ tô quận đang chọn: null = không tô (bấm khối để chọn) · '' = xóa quận khỏi khối · mã quận = tô quận đó
+let brush = null;
+// đang kéo tô (giữ ctx để chốt bước hoàn tác khi thả chuột) — nghe "thả chuột" một lần cho cả trang
+let painting = null;
+addEventListener('pointerup', () => {
+  painting?.historyBreak();
+  painting = null;
+});
+const PALETTE = ['#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#16a085', '#3498db', '#9b59b6', '#e84393', '#795548', '#607d8b'];
 
 export function render(root, ctx) {
   const map = ctx.data.map;
@@ -50,6 +60,10 @@ export function render(root, ctx) {
     ctx.rerender();
   };
 
+  map.districts = map.districts || {};
+  map.districtBlocks = map.districtBlocks || {};
+  if (brush && !map.districts[brush]) brush = null;
+  const dBox = el('div');
   body.append(
     el('div', { class: 'body-head' }, el('h2', {}, `🗺️ Bản đồ ${CITY.N}×${CITY.N} khối`)),
     el('div', { class: 'two' },
@@ -63,13 +77,72 @@ export function render(root, ctx) {
         spec ? field('Hướng', el('span', { class: 'inline' }, [0, 1, 2, 3].map((r) => button(['↑', '→', '↓', '←'][r], () => setSpec({ rot: r }), (spec.rot || 0) === r ? 'small on' : 'small'))), opt('rot', { hint: 'Xoay mạng hẻm 90° mỗi nấc.' })) : null,
         spec ? field('Loại hẻm', checkInput(!!spec.walk, (v) => setSpec({ walk: v }), '🚶 Hẻm đi bộ (xe máy không vào được)'), opt('walk', { hint: HINT.map.walk })) : null,
         spec ? blockStats() : null,
+        field('Quận của khối', selectInput(map.districtBlocks[sel.id] || '', [['', '(chưa gán quận)'], ...Object.entries(map.districts).map(([id, d]) => [id, d.name])], (v) => {
+          if (v) map.districtBlocks[sel.id] = v;
+          else delete map.districtBlocks[sel.id];
+          changed();
+          drawMap();
+          drawDistricts();
+        }), opt('district', { hint: 'Hoặc chọn cọ 🖌 ở mục Quận bên dưới rồi bấm / kéo trên bản đồ để tô nhiều khối.' })),
       ),
       canvasBox,
     ),
+    dBox,
     explain(EXPLAIN.map),
     riversBox(),
   );
+  drawDistricts();
   drawMap();
+
+  // ---------- quận ----------
+  function drawDistricts() {
+    const count = {};
+    for (const id of Object.values(map.districtBlocks)) count[id] = (count[id] || 0) + 1;
+    const unset = CITY.N * CITY.N - Object.keys(map.districtBlocks).length;
+    const rows = Object.entries(map.districts).map(([id, d]) => el('div', { class: `dist-row${brush === id ? ' on' : ''}` },
+      colorInput(d.color || '#888888', (v) => { d.color = v; changed(); drawMap(); }),
+      textInput(d.name, (v) => { d.name = v; changed(); drawMap(); }, { class: 'dist-name' }),
+      el('small', { class: 'muted' }, `${count[id] || 0} khối`),
+      button(brush === id ? '✔ Đang tô' : '🖌 Tô', () => { brush = brush === id ? null : id; drawDistricts(); }, brush === id ? 'small primary' : 'small'),
+      button('🗑', () => {
+        if (count[id] && !confirm(`Xóa "${d.name}"? ${count[id]} khối sẽ thành chưa gán quận.`)) return;
+        ctx.historyBreak();
+        delete map.districts[id];
+        for (const [k, v] of Object.entries(map.districtBlocks)) if (v === id) delete map.districtBlocks[k];
+        if (brush === id) brush = null;
+        changed();
+        ctx.historyBreak();
+        drawDistricts();
+        drawMap();
+      }, 'small danger')));
+    dBox.innerHTML = '';
+    dBox.append(
+      el('h3', {}, '🏙️ Quận'),
+      el('p', { class: 'muted' }, `Đặt tên / màu cho từng quận. Bấm 🖌 Tô rồi bấm hoặc kéo chuột trên bản đồ để gán khối vào quận (bấm lại để thôi tô). ${unset ? `Còn ${unset} khối chưa gán quận.` : 'Mọi khối đã có quận.'}`),
+      el('div', { class: 'dist-list' }, rows),
+      el('span', { class: 'inline' },
+        button('＋ Thêm quận', () => {
+          let n = 1;
+          while (map.districts[`quan${n}`]) n++;
+          map.districts[`quan${n}`] = { name: 'Quận mới', color: PALETTE[Object.keys(map.districts).length % PALETTE.length] };
+          brush = `quan${n}`;
+          changed();
+          drawDistricts();
+        }, 'small primary'),
+        button(brush === '' ? '✔ Đang xóa quận khỏi khối' : '🧽 Xóa quận khỏi khối', () => { brush = brush === '' ? null : ''; drawDistricts(); }, brush === '' ? 'small primary' : 'small')),
+    );
+  }
+  // tô 1 khối bằng cọ đang chọn
+  function paint(key) {
+    if (brush === null) return;
+    const cur = map.districtBlocks[key] || '';
+    if (cur === brush) return;
+    if (brush) map.districtBlocks[key] = brush;
+    else delete map.districtBlocks[key];
+    changed();
+    drawMap();
+    drawDistricts();
+  }
 
   // ---------- sông & cầu ----------
   function riversBox() {
@@ -142,6 +215,21 @@ export function render(root, ctx) {
         g.fillText(key, X(b.x0) + 3, Z(b.z0) + 12);
       }
     }
+    // màu quận (phủ mờ) + tâm các khối của quận (để ghi tên)
+    const sums = {};
+    for (const [key, id] of Object.entries(map.districtBlocks || {})) {
+      const d = map.districts?.[id];
+      const [bx, bz] = key.split(',').map(Number);
+      if (!d || bx >= CITY.N || bz >= CITY.N) continue;
+      const b = blockBounds(bx, bz);
+      g.globalAlpha = 0.38;
+      R(b, d.color || '#888');
+      g.globalAlpha = 1;
+      const s = (sums[id] = sums[id] || { x: 0, z: 0, n: 0 });
+      s.x += (b.x0 + b.x1) / 2;
+      s.z += (b.z0 + b.z1) / 2;
+      s.n++;
+    }
     // sông & cầu (bản đang sửa)
     const G = roadGraph(map);
     const H = CITY.ROAD / 2;
@@ -163,13 +251,40 @@ export function render(root, ctx) {
       g.fillStyle = '#fff';
       g.fillText((p.short || p.id).slice(0, 9), X((b.x0 + b.x1) / 2), Z(b.z0) + 26 + n * 12);
     }
-    c.addEventListener('click', (e) => {
+    // tên quận (viền tối cho dễ đọc)
+    g.font = '800 15px "Segoe UI", sans-serif';
+    g.lineWidth = 4;
+    g.strokeStyle = 'rgba(0,0,0,0.75)';
+    for (const [id, s] of Object.entries(sums)) {
+      const name = map.districts[id].name;
+      g.strokeText(name, X(s.x / s.n), Z(s.z / s.n));
+      g.fillStyle = '#fff';
+      g.fillText(name, X(s.x / s.n), Z(s.z / s.n));
+    }
+    const blockAtEvent = (e) => {
       const bb = c.getBoundingClientRect();
       const wx = ((e.clientX - bb.left) / bb.width) * S / k - HALF - 2;
       const wz = ((e.clientY - bb.top) / bb.height) * S / k - HALF - 2;
       const bx = Math.floor((wx - roadPos(0) - CITY.ROAD / 2) / CITY.PITCH), bz = Math.floor((wz - roadPos(0) - CITY.ROAD / 2) / CITY.PITCH);
-      if (bx < 0 || bz < 0 || bx >= CITY.N || bz >= CITY.N) return;
-      ctx.select('map', { id: `${bx},${bz}` });
+      return bx < 0 || bz < 0 || bx >= CITY.N || bz >= CITY.N ? null : `${bx},${bz}`;
+    };
+    // có cọ: bấm / kéo để tô quận · không cọ: bấm để chọn khối
+    c.addEventListener('pointerdown', (e) => {
+      if (brush === null) return;
+      painting = ctx;
+      ctx.historyBreak();
+      const key = blockAtEvent(e);
+      if (key) paint(key);
+    });
+    c.addEventListener('pointermove', (e) => {
+      if (!painting || !e.buttons) return;
+      const key = blockAtEvent(e);
+      if (key) paint(key);
+    });
+    c.addEventListener('click', (e) => {
+      if (brush !== null) return;
+      const key = blockAtEvent(e);
+      if (key) ctx.select('map', { id: key });
     });
     canvasBox.append(c, el('small', { class: 'muted' }, 'Vàng = khối đang chọn · xám sáng = khối có địa điểm · nâu = hẻm xe máy · be = hẻm đi bộ · xanh rêu = nhà trong hẻm'));
   }

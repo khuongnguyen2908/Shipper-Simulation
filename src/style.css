@@ -28,6 +28,7 @@ kbd { display: inline-block; min-width: 1.6em; padding: 1px 6px; border-radius: 
 .hud-tl .r1 { display: flex; gap: 10px; align-items: baseline; }
 .hud-tl .r1 b { font-size: 24px; letter-spacing: 1px; }
 .hud-tl .r1 span { color: var(--muted); }
+.hud-tl .r-dist { font-size: 13px; font-weight: 700; color: #ffe08a; margin-top: 1px; min-height: 16px; }
 .hud-tl .r2 { display: flex; justify-content: space-between; margin: 4px 0 8px; font-size: 15px; }
 .bar { display: grid; grid-template-columns: 92px 1fr; align-items: center; gap: 6px; margin: 4px 0; }
 .bar label { font-size: 12px; color: var(--muted); }

@@ -10,7 +10,7 @@ import { ITEMS } from './data/items.js';
 import { unlocked, openDayOf } from './sim/placeRules.js';
 import { dayOf, dayStartAt, tod, isDark } from './sim/clock.js';
 import { inHours } from './sim/hours.js';
-import { buildLayout, segmentRect, roadPos } from './sim/cityLayout.js';
+import { buildLayout, segmentRect, roadPos, districtAtPoint } from './sim/cityLayout.js';
 import { makeRng } from './sim/rng.js';
 import { GameState } from './sim/GameState.js';
 import { OrderManager, S } from './sim/OrderManager.js';
@@ -201,6 +201,7 @@ export class Game {
     this.bike.setSpec(this.gs.vehicleSpec);
     this.bike.setBag(this.gs.bagSpec);
     this.parkRng = makeRng(this.seed * 13 + day);
+    this.lastDistrict = undefined; // lần đầu vào game không báo "Vào quận…"
     const towLot = this.gs.towed && this.layout.placeById[this.gs.towed.placeId];
     if (towLot) this.towBikeTo(towLot, this.gs.towed.fee);
     else {
@@ -984,9 +985,16 @@ export class Game {
     const firstOpen = objs.find((x) => !x.done && !x.optional);
     const amb = hz.ambient(now);
     const weather = rain ? (rain.heavy ? '⛈️' : '🌦️') : hz.isHarshSun(now) ? '☀️🔥' : night > 0.5 ? '🌙' : '⛅';
+    // quận đang đứng (map.json → districts); đổi quận thì báo
+    const dist = districtAtPoint(this.playerPos.x, this.playerPos.z);
+    if (dist && dist.id !== this.lastDistrict) {
+      if (this.lastDistrict !== undefined) this.hud.toast(fmt('toast.enterDistrict', { name: dist.name }), 'info', 2500);
+      this.lastDistrict = dist.id;
+    }
     this.hud.update({
       time: fmtTime(now),
       day: gs.day,
+      district: dist?.name || '',
       weather: `${weather} ${amb}°C`,
       money: gs.money,
       rating: gs.rating,

@@ -769,5 +769,7 @@
   "goal.fines": "💸 Nộp phạt nguội {fine}k ở {place}",
   "goal.finesHint": "Quá hạn thì tiền tăng, CSGT gặp là giữ xe",
   "phone.fines": "Phạt nguội (hạn ngày {day})",
-  "phone.finesLate": "⚠️ Phạt nguội QUÁ HẠN"
+  "phone.finesLate": "⚠️ Phạt nguội QUÁ HẠN",
+  "hud.district": "📍 {name}",
+  "toast.enterDistrict": "📍 Vào {name}"
 }

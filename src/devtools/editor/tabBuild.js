@@ -104,6 +104,21 @@ function rebuild(data) {
   const group = new THREE.Group();
   const lay = buildLayout(data.places.places, data.map);
   buildCity(group, lay, [], 7, { map: data.map, alley: data.places.alley, items: data.items });
+  // lớp màu quận (phủ mờ trên mặt khối, bật / tắt ở thanh công cụ)
+  const dg = new THREE.Group();
+  for (const [key, id] of Object.entries(data.map.districtBlocks || {})) {
+    const d = data.map.districts?.[id];
+    const [bx, bz] = key.split(',').map(Number);
+    if (!d || bx >= CITY.N || bz >= CITY.N) continue;
+    const b = blockBounds(bx, bz);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(b.x1 - b.x0, b.z1 - b.z0).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: d.color || '#888888', transparent: true, opacity: 0.32, depthWrite: false }));
+    m.position.set((b.x0 + b.x1) / 2, 0.4, (b.z0 + b.z1) / 2);
+    m.renderOrder = 2;
+    dg.add(m);
+  }
+  dg.visible = R.showDistricts !== false;
+  group.add(dg);
+  R.districtLayer = dg;
   group.updateMatrixWorld(true); // để bấm chọn nhà được ngay cả trước khung hình đầu tiên
   R.city = group;
   R.layout = lay;
@@ -162,7 +177,8 @@ export function render(root, ctx) {
       el('b', {}, '🏗️ Xây dựng'),
       button('⬇️ Nhìn từ trên', () => topView(false), 'small'),
       button('↘️ Nhìn chéo', () => topView(true), 'small'),
-      checkInput(sel.labels !== false, (v) => { sel.labels = v; R.dirty = true; }, '🏷️ Tên địa điểm')),
+      checkInput(sel.labels !== false, (v) => { sel.labels = v; R.dirty = true; }, '🏷️ Tên địa điểm'),
+      checkInput(R.showDistricts !== false, (v) => { R.showDistricts = v; if (R.districtLayer) R.districtLayer.visible = v; R.dirty = true; }, '🏙️ Quận')),
     view,
   );
   root.append(el('div', { class: 'ed-split' }, side, body));
@@ -190,8 +206,23 @@ export function render(root, ctx) {
   const v3 = new THREE.Vector3();
   R.labels = () => {
     labels.innerHTML = '';
-    if (sel.labels === false || !R.layout) return;
+    if (!R.layout) return;
     const w = view.clientWidth, h = view.clientHeight;
+    if (R.showDistricts !== false) {
+      const sums = {};
+      for (const [key, id] of Object.entries(data.map.districtBlocks || {})) {
+        if (!data.map.districts?.[id]) continue;
+        const [bx, bz] = key.split(',').map(Number);
+        const b = blockBounds(bx, bz), s = (sums[id] = sums[id] || { x: 0, z: 0, n: 0 });
+        s.x += (b.x0 + b.x1) / 2; s.z += (b.z0 + b.z1) / 2; s.n++;
+      }
+      for (const [id, s] of Object.entries(sums)) {
+        v3.set(s.x / s.n, 2, s.z / s.n).project(R.camera);
+        if (v3.z > 1 || Math.abs(v3.x) > 1.05 || Math.abs(v3.y) > 1.05) continue;
+        labels.append(el('span', { class: 'build-label dist', style: `left:${((v3.x + 1) / 2) * w}px;top:${((1 - v3.y) / 2) * h}px;border-color:${data.map.districts[id].color}` }, data.map.districts[id].name));
+      }
+    }
+    if (sel.labels === false) return;
     for (const p of R.layout.places) {
       v3.set((p.x0 + p.x1) / 2, 9, (p.z0 + p.z1) / 2).project(R.camera);
       if (v3.z > 1 || Math.abs(v3.x) > 1.05 || Math.abs(v3.y) > 1.05) continue;

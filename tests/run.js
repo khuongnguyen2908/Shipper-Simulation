@@ -751,8 +751,8 @@ console.log('Bản đồ 8×8, hẻm trong khối (map.json)');
       assert.equal(new Set(p.lots.map((l) => l.id)).size, p.lots.length);
     }
   });
-  test('Bản đồ 8×8: thành phố cũ ở giữa; nhà trong hẻm có địa chỉ "số hẻm/số nhà", cửa ra hẻm (không nằm trong nhà nào)', () => {
-    assert.equal(CITY.N, 8);
+  test('Bản đồ theo map.json (cỡ đọc từ dữ liệu); nhà trong hẻm có địa chỉ "số hẻm/số nhà", cửa ra hẻm (không nằm trong nhà nào)', () => {
+    assert.equal(CITY.N, MAPD.size);
     for (const p of layout.places) assert.ok(p.block.every((v) => v >= 0 && v < CITY.N), `${p.id} nằm ngoài bản đồ`);
     const inner = layout.lots.filter((l) => l.inAlley);
     assert.ok(inner.length > 60, `chỉ có ${inner.length} nhà trong hẻm`);
@@ -798,10 +798,11 @@ console.log('Bản đồ 8×8, hẻm trong khối (map.json)');
   test('Bộ kiểm tra bản đồ: kiểu hẻm lạ, hướng sai, khối ngoài bản đồ, thiếu tên đường → lỗi', () => {
     assert.equal(validateMap(MAPD, DATA.places).filter((i) => i.level === 'error').length, 0);
     const bad = JSON.parse(JSON.stringify(MAPD));
-    bad.blocks['9,9'] = { alley: 'I' };
+    const out = `${MAPD.size},${MAPD.size}`; // khối ngoài bản đồ
+    bad.blocks[out] = { alley: 'I' };
     bad.blocks['0,0'] = { alley: 'xoanoc', rot: 7 };
     const fields = validateMap(bad, DATA.places).filter((i) => i.level === 'error').map((i) => `${i.ref}.${i.field}`);
-    for (const f of ['9,9.block', '0,0.alley', '0,0.rot']) assert.ok(fields.includes(f), `không bắt lỗi ${f}`);
+    for (const f of [`${out}.block`, '0,0.alley', '0,0.rot']) assert.ok(fields.includes(f), `không bắt lỗi ${f}`);
     const pd = JSON.parse(JSON.stringify(DATA.places));
     pd.streetsX.pop();
     assert.ok(validateMap(MAPD, pd).some((i) => i.field === 'size' && i.level === 'error'));
@@ -2129,6 +2130,28 @@ console.log('Ô giữa khối (M) cho cảnh quan');
     assert.ok(t.ok, t.why);
     const q = B.dropTarget({ places: pd, map }, { id: 'q', kind: 'restaurant' }, (m.x0 + m.x1) / 2, (m.z0 + m.z1) / 2);
     assert.notEqual(q.lot, 'M', 'quán không bao giờ được gợi ý ô giữa');
+  });
+}
+
+console.log('Quận (map.json → districts)');
+{
+  const CL = await import('../src/sim/cityLayout.js');
+  const { validateMap } = await import('../src/data/validate.js');
+  const rd = (p) => JSON.parse(fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8'));
+  test('Quận của khối / của một điểm; bộ kiểm tra bắt tên trống, màu sai, khối ngoài bản đồ, quận không có', () => {
+    const map = { size: 4, districts: { q1: { name: 'Quận 1', color: '#ff0000' } }, districtBlocks: { '1,1': 'q1' } };
+    assert.equal(CL.districtAt(1, 1, map).name, 'Quận 1');
+    assert.equal(CL.districtAt(0, 0, map), null);
+    const b = CL.blockBounds(1, 1);
+    assert.equal(CL.districtAtPoint((b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2, map)?.id, 'q1');
+    const real = rd('src/data/map.json');
+    assert.ok(!validateMap(real, rd('src/data/places.json')).some((i) => i.level === 'error' && String(i.ref).startsWith('district:')), 'dữ liệu quận hiện tại hợp lệ');
+    const bad = JSON.parse(JSON.stringify(real));
+    bad.districts.xx = { name: ' ', color: 'đỏ' };
+    bad.districtBlocks[`${real.size},0`] = 'q1';
+    bad.districtBlocks['0,0'] = 'khongCo';
+    const f = validateMap(bad, rd('src/data/places.json')).filter((i) => i.level === 'error').map((i) => `${i.ref}.${i.field}`);
+    for (const k of ['district:xx.name', 'district:xx.color', 'district:q1.blocks', 'district:khongCo.blocks']) assert.ok(f.includes(k), `không bắt lỗi ${k}`);
   });
 }
 

@@ -12,6 +12,7 @@ export class Hud {
     this.el.innerHTML = `
       <div class="hud-tl panel">
         <div class="r1"><b id="hTime">06:00</b><span id="hDay">Ngày 1</span><span id="hWeather">☀️</span></div>
+        <div class="r-dist" id="hDistrict"></div>
         <div class="r2"><span>💰 <b id="hMoney"></b></span><span>⭐ <b id="hRating"></b></span></div>
         <div class="bar"><label>${fmt('hud.phys')}</label><div class="track"><div id="bPhys" class="fill phys"></div></div></div>
         <div class="bar"><label>${fmt('hud.mental')}</label><div class="track"><div id="bMental" class="fill mental"></div></div></div>
@@ -52,6 +53,7 @@ export class Hud {
     this.set('hTime', d.time);
     this.set('hDay', fmt('hud.day', { day: d.day }));
     this.set('hWeather', d.weather);
+    this.set('hDistrict', d.district ? fmt('hud.district', { name: d.district }) : '');
     this.set('hMoney', fmtK(d.money));
     this.set('hRating', d.rating.toFixed(2));
     this.bar('bPhys', d.phys);

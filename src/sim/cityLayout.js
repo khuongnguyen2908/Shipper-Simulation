@@ -84,6 +84,20 @@ export function blockAt(x, z) {
   return [bx, bz];
 }
 
+// ---------- quận (map.json → districts { mã: { name, color } } + districtBlocks { "bx,bz": mã }) ----------
+// Quận của khối, hoặc null (khối chưa gán quận)
+export function districtAt(bx, bz, map = MAP) {
+  const id = map?.districtBlocks?.[`${bx},${bz}`];
+  const d = id && map.districts?.[id];
+  return d ? { id, ...d } : null;
+}
+// Quận tại điểm (x, z) — đang đứng trên đường thì lấy khối gần nhất
+export function districtAtPoint(x, z, map = MAP) {
+  const off = CITY.ORIGIN + CITY.ROAD / 2;
+  const c = (v) => Math.max(0, Math.min(CITY.N - 1, Math.floor((v - off) / CITY.PITCH)));
+  return districtAt(c(x), c(z), map);
+}
+
 // ---------- khối có hẻm (map.json → blocks) ----------
 // Kiểu hẻm của khối, hoặc null (khối thường: 8 lô quanh mép + sân giữa như cũ)
 export function blockSpec(bx, bz, map = MAP) {

@@ -241,3 +241,9 @@ body.show-hints .fld-i { display: none; }
 .build-chip.on { display: block; }
 .build-chip.bad { background: #c0392b; }
 .unplaced-card { background: #2a2414; border: 1px dashed #b8860b; border-radius: 10px; padding: 14px; }
+/* quận (thẻ Bản đồ) */
+.dist-list { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 8px; }
+.dist-row { display: grid; grid-template-columns: auto 1fr auto auto auto; gap: 8px; align-items: center; padding: 4px 6px; border-radius: 8px; border: 1px solid transparent; }
+.dist-row.on { border-color: #00b14f; background: #1f2a24; }
+.dist-row .color-in input[type=text] { display: none; }
+.build-label.dist { font-size: 14px; padding: 2px 10px; background: #000a; border: 2px solid; }
