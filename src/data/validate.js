@@ -286,6 +286,7 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null, m
     // cỡ cả khối: cảnh quan hoặc chùa tứ hợp viện · cả khối chừa góc: chỉ chùa tứ hợp viện (cảnh quan phủ kín khối)
     const courtyard = lookOf(p) === 'pagodaCourtyard';
     if (p.lot === 'B' && p.kind !== 'scenery' && !courtyard) add('error', p.id, 'lot', 'Cỡ "Cả khối" chỉ dành cho cảnh quan hoặc chùa tứ hợp viện.');
+    if (p.lot === 'M' && p.kind !== 'scenery') add('error', p.id, 'lot', 'Ô giữa khối (M) không chạm đường — chỉ đặt cảnh quan (công viên, đất trống…).');
     if (cutCell(p.lot || '') && !courtyard) add('error', p.id, 'lot', 'Cỡ "Cả khối, chừa 1 góc" chỉ dành cho chùa tứ hợp viện.');
     if (courtyard && isPlaced(p) && p.lot !== 'B' && !cutCell(p.lot)) add('error', p.id, 'lot', 'Chùa tứ hợp viện chiếm cả khối — chọn kích thước "Cả khối" hoặc "Cả khối, chừa 1 góc" (khối không hẻm).');
     if (p.look != null && LOOKS[p.look] && !looksFor(p.kind).includes(p.look)) add('error', p.id, 'look', p.kind === 'scenery' ? 'Cảnh quan chỉ dùng kiểu cảnh quan (công viên, đất trống, sân bóng, bãi giữ xe, công trình).' : LOOKS[p.look].scenery ? `Kiểu "${LOOKS[p.look].label}" chỉ dành cho loại Cảnh quan.` : `Loại này không dùng được kiểu "${LOOKS[p.look].label}".`);

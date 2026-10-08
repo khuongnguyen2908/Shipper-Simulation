@@ -25,6 +25,8 @@ export const MULTI_LOTS = {
   // cả khối chừa 1 ô góc (BN0 = chừa N0) — ô góc là lô thường để đặt địa điểm khác (vd quán trà cạnh chùa)
   BN0: ['N1', 'N2', 'W1', 'C', 'E1', 'S0', 'S1', 'S2'], BN2: ['N0', 'N1', 'W1', 'C', 'E1', 'S0', 'S1', 'S2'],
   BS0: ['N0', 'N1', 'N2', 'W1', 'C', 'E1', 'S1', 'S2'], BS2: ['N0', 'N1', 'N2', 'W1', 'C', 'E1', 'S0', 'S1'],
+  // ô giữa khối (không chạm đường) — chỉ cảnh quan đặt vào được (đi xuyên qua lô xung quanh). Khác 'C' của nhà cổng xanh.
+  M: ['C'],
 };
 // Kích thước → các lô cùng cỡ
 export const LOT_SIZES = { one: LOT_IDS, two: ['N01', 'N12', 'S01', 'S12'], vtwo: ['W01', 'W12', 'E01', 'E12'], row: ['N', 'S'], col: ['W', 'E'], block: ['B'], blockCut: ['BN0', 'BN2', 'BS0', 'BS2'] };
@@ -34,13 +36,14 @@ export const lotParts = (lot) => MULTI_LOTS[lot] || [lot];
 export const lotSize = (lot) => Object.keys(LOT_SIZES).find((k) => LOT_SIZES[k].includes(lot)) || null;
 const CELL = { N0: [0, 0], N1: [1, 0], N2: [2, 0], W1: [0, 1], C: [1, 1], E1: [2, 1], S0: [0, 2], S1: [1, 2], S2: [2, 2] };
 // hướng mặt tiền mặc định theo lô (cả khối 'B' → bắc; chừa góc 'BS2' → phía có góc: nam)
-const defaultFace = (lot) => (lot === 'B' ? 'N' : cutCell(lot) ? lot[1] : lot[0]);
+const defaultFace = (lot) => (lot === 'B' || lot === 'M' ? 'N' : cutCell(lot) ? lot[1] : lot[0]);
 
 // Các hướng mặt tiền chọn được: những cạnh của lô chạm ra đường. Hướng mặc định (theo lô) đứng đầu.
 export function lotFaces(lot) {
   // chừa góc: chỉ quay ra 2 con đường chạm góc chừa → góc chừa luôn ở phía trước (quán bên cạnh cổng)
   const cut = cutCell(lot);
   if (cut) return [cut[0], cut[1] === '0' ? 'W' : 'E'];
+  if (lot === 'M') return ['N', 'E', 'S', 'W']; // ô giữa: chỉ là hướng quay của cảnh quan
   const cells = lotParts(lot).map((id) => CELL[id]);
   if (lot === 'C' || !cells.length || !cells.every(Boolean)) return ['E'];
   const out = [defaultFace(lot)];

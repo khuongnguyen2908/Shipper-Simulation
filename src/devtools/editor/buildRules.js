@@ -25,7 +25,8 @@ export function dropTarget(data, p, x, z, sizeHint = 'one') {
   let size = isPlaced(p) ? lotSize(p.lot) || 'one' : LOT_SIZES[sizeHint] ? sizeHint : 'one';
   if (p.kind === 'police' && size === 'one') size = 'two'; // đồn công an: ít nhất 2 lô
   if (lookOf(p) === 'pagodaCourtyard' && size === 'one') size = 'blockCut'; // chùa tứ hợp viện: cả khối chừa góc
-  const cands = plan ? plan.lots.map((l) => l.id) : LOT_SIZES[size];
+  // cảnh quan 1 ô: thêm ô giữa khối 'M' (không ra đường nhưng đi xuyên qua được)
+  const cands = plan ? plan.lots.map((l) => l.id) : size === 'one' && p.kind === 'scenery' ? [...LOT_SIZES.one, 'M'] : LOT_SIZES[size];
   let best = null, bestD = Infinity;
   for (const lot of cands) {
     const r = lotInfo(bx, bz, lot, null, map);

@@ -24,7 +24,7 @@ const LOT_LABEL = {
   N0: 'N0 · bắc trái', N1: 'N1 · bắc giữa', N2: 'N2 · bắc phải', S0: 'S0 · nam trái', S1: 'S1 · nam giữa', S2: 'S2 · nam phải', E1: 'E1 · đông', W1: 'W1 · tây',
   N01: 'N0+N1 · bắc, bên trái', N12: 'N1+N2 · bắc, bên phải', S01: 'S0+S1 · nam, bên trái', S12: 'S1+S2 · nam, bên phải',
   W01: 'N0+W1 · cột tây, phía trên', W12: 'W1+S0 · cột tây, phía dưới', E01: 'N2+E1 · cột đông, phía trên', E12: 'E1+S2 · cột đông, phía dưới',
-  B: 'B · cả khối (9 ô)', BN0: 'BN0 · cả khối, chừa góc tây-bắc', BN2: 'BN2 · cả khối, chừa góc đông-bắc', BS0: 'BS0 · cả khối, chừa góc tây-nam', BS2: 'BS2 · cả khối, chừa góc đông-nam', N: 'N · cả dãy bắc', S: 'S · cả dãy nam', W: 'W · cả cột tây (N0+W1+S0)', E: 'E · cả cột đông (N2+E1+S2)', C: 'C · sân trong hẻm',
+  M: 'M · ô giữa khối (không ra đường — chỉ cảnh quan)', B: 'B · cả khối (9 ô)', BN0: 'BN0 · cả khối, chừa góc tây-bắc', BN2: 'BN2 · cả khối, chừa góc đông-bắc', BS0: 'BS0 · cả khối, chừa góc tây-nam', BS2: 'BS2 · cả khối, chừa góc đông-nam', N: 'N · cả dãy bắc', S: 'S · cả dãy nam', W: 'W · cả cột tây (N0+W1+S0)', E: 'E · cả cột đông (N2+E1+S2)', C: 'C · sân trong hẻm',
 };
 const DIR = { N: 'Bắc', S: 'Nam', E: 'Đông', W: 'Tây' };
 const SIZE_LABEL = { one: '1 lô', two: '2 lô ngang', vtwo: '2 lô dọc', row: 'Cả dãy (3 lô ngang)', col: 'Cả cột (3 lô dọc)', block: 'Cả khối (9 ô)', blockCut: 'Cả khối, chừa 1 góc (8 ô)' };
@@ -109,7 +109,7 @@ export function render(root, ctx) {
   const plan = placed ? blockPlan(p.block[0], p.block[1], map) : null; // khối đang đặt có hẻm?
   const size = lotSize(p.lot) || 'one';
   // khối có hẻm: chọn một nhà (mặt phố hoặc trong hẻm); khối thường: lô theo kích thước
-  const lotOptions = plan ? plan.lots.map((l) => l.id) : p.kind === 'gate' ? ['C'] : LOT_SIZES[size];
+  const lotOptions = plan ? plan.lots.map((l) => l.id) : p.kind === 'gate' ? ['C'] : size === 'one' && p.kind === 'scenery' ? [...LOT_SIZES.one, 'M'] : LOT_SIZES[size];
   const lotLabel = (l) => {
     if (!plan) return LOT_LABEL[l] || l;
     const info = lotInfo(p.block[0], p.block[1], l, null, map);
@@ -440,7 +440,14 @@ export function render(root, ctx) {
         changedP();
         return ctx.rerender();
       }
-      if (hit.lot === 'C') return alert('Lô C (sân trong hẻm) chỉ dành cho nhà cổng xanh.');
+      if (hit.lot === 'C' && p.kind === 'scenery' && (lotSize(p.lot) || 'one') === 'one') {
+        // cảnh quan 1 ô vào ô giữa khối
+        p.block = [hit.bx, hit.bz];
+        p.lot = 'M';
+        changedP();
+        return ctx.rerender();
+      }
+      if (hit.lot === 'C') return alert('Ô giữa khối không chạm đường — chỉ đặt cảnh quan (công viên, đất trống…) 1 ô vào đây.');
       const lot = lotForCell(lotSize(p.lot) || 'one', hit.lot); // (đang ở khối có hẻm → về lô 1 ô)
       if (!lot) return alert(`Ô ${hit.lot} không vừa kích thước "${SIZE_LABEL[lotSize(p.lot)]}". ${['col', 'vtwo'].includes(lotSize(p.lot)) ? 'Lô dọc chỉ đặt ở cột trái (N0, W1, S0) hoặc cột phải (N2, E1, S2).' : 'Chọn ô ở dãy bắc (N…) hoặc dãy nam (S…).'}`);
       p.block = [hit.bx, hit.bz];

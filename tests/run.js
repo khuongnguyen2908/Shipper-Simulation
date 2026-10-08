@@ -2104,5 +2104,33 @@ console.log('Chùa tứ hợp viện (cả khối chừa góc) + quán trà');
   });
 }
 
+console.log('Ô giữa khối (M) cho cảnh quan');
+{
+  const CL = await import('../src/sim/cityLayout.js');
+  const { validatePlaces } = await import('../src/data/validate.js');
+  const B = await import('../src/devtools/editor/buildRules.js');
+  const rd = (p) => JSON.parse(fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8'));
+  test('Ô giữa khối: đúng ô giữa, quay 4 hướng; chỉ cảnh quan đặt được; kéo cảnh quan vào giữa khối → M', () => {
+    const r = CL.lotInfo(2, 2, 'M'), b = CL.blockBounds(2, 2), w = CL.LOT_W;
+    assert.ok(Math.abs(r.x0 - (b.x0 + CL.CITY.SW + w)) < 1e-6 && Math.abs(r.x1 - (b.x0 + CL.CITY.SW + 2 * w)) < 1e-6);
+    assert.deepEqual(CL.lotFaces('M'), ['N', 'E', 'S', 'W']);
+    const pd = rd('src/data/places.json'), items = rd('src/data/items.json'), map = rd('src/data/map.json');
+    const used = new Set(pd.places.filter((p) => p.block).map((p) => p.block.join(',')));
+    used.add(pd.alley.block.join(','));
+    let blk = null;
+    for (let z = 0; z < CL.CITY.N && !blk; z++) for (let x = 0; x < CL.CITY.N && !blk; x++) if (!used.has(`${x},${z}`) && !CL.blockPlan(x, z, map)) blk = [x, z];
+    const cv = { id: 'cvGiua', name: 'CV', short: 'CV', kind: 'scenery', look: 'park', color: '#5f9e45', block: blk, lot: 'M' };
+    const errs = (p) => validatePlaces({ ...pd, places: [...pd.places, p] }, items, null, null, map).filter((i) => i.ref === p.id && i.level === 'error');
+    assert.deepEqual(errs(cv), []);
+    assert.ok(errs({ ...cv, kind: 'service', look: 'tube', sign: 'X', npc: { name: 'A' } }).some((i) => i.field === 'lot'), 'quán vào ô giữa → lỗi');
+    const m = CL.lotInfo(blk[0], blk[1], 'M');
+    const t = B.dropTarget({ places: pd, map }, { id: 'cv2', kind: 'scenery' }, (m.x0 + m.x1) / 2, (m.z0 + m.z1) / 2);
+    assert.equal(t.lot, 'M');
+    assert.ok(t.ok, t.why);
+    const q = B.dropTarget({ places: pd, map }, { id: 'q', kind: 'restaurant' }, (m.x0 + m.x1) / 2, (m.z0 + m.z1) / 2);
+    assert.notEqual(q.lot, 'M', 'quán không bao giờ được gợi ý ô giữa');
+  });
+}
+
 console.log(`\n${pass} đạt, ${fail} lỗi`);
 if (fail) process.exit(1);
