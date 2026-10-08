@@ -1,40 +1,44 @@
 {
   "streetsX": [
-    "Cách Mạng Tháng Tám",
-    "Nguyễn Du",
-    "Pasteur",
-    "Hai Bà Trưng",
-    "Đồng Khởi",
-    "Nam Kỳ Khởi Nghĩa",
-    "Tôn Đức Thắng",
-    "Nguyễn Huệ",
-    "Tôn Thất Thiệp"
+    "Đường số 1",
+    "Đường số 2",
+    "Đường số 3",
+    "Đường số 4",
+    "Đường số 5",
+    "Đường số 6",
+    "Đường số 7",
+    "Đường số 8",
+    "Đường số 9",
+    "Đường số 10",
+    "Đường số 11"
   ],
   "streetsZ": [
-    "Nguyễn Thị Minh Khai",
-    "Lý Tự Trọng",
-    "Lê Thánh Tôn",
-    "Điện Biên Phủ",
-    "Lê Lợi",
-    "Võ Văn Tần",
-    "Hàm Nghi",
-    "Bến Chương Dương",
-    "Trần Hưng Đạo"
+    "Đường số 12",
+    "Đường số 13",
+    "Đường số 14",
+    "Đường số 15",
+    "Đường số 16",
+    "Đường số 17",
+    "Đường số 18",
+    "Đường số 19",
+    "Đường số 20",
+    "Đường số 21",
+    "Đường số 22"
   ],
   "mainRoads": [
     {
       "axis": "x",
-      "line": 3
+      "line": 4
     },
     {
       "axis": "z",
-      "line": 3
+      "line": 4
     }
   ],
   "alley": {
     "block": [
-      2,
-      1
+      3,
+      2
     ],
     "lot": "E1"
   },
@@ -141,8 +145,8 @@
       "short": "Nhà",
       "kind": "home",
       "block": [
-        4,
-        3
+        5,
+        4
       ],
       "lot": "f6",
       "floors": 3,
@@ -163,8 +167,8 @@
       "short": "Ăn",
       "kind": "restaurant",
       "block": [
-        2,
-        3
+        3,
+        4
       ],
       "lot": "S2",
       "floors": 2,
@@ -191,8 +195,8 @@
       "short": "Ăn",
       "kind": "restaurant",
       "block": [
-        4,
-        4
+        5,
+        5
       ],
       "lot": "N1",
       "floors": 1,
@@ -227,8 +231,8 @@
       "short": "Ăn",
       "kind": "restaurant",
       "block": [
-        1,
-        3
+        2,
+        4
       ],
       "lot": "N0",
       "floors": 2,
@@ -262,8 +266,8 @@
       "short": "Ăn",
       "kind": "restaurant",
       "block": [
-        4,
-        4
+        5,
+        5
       ],
       "lot": "N2",
       "floors": 2,
@@ -297,8 +301,8 @@
       "short": "Ăn",
       "kind": "restaurant",
       "block": [
-        1,
-        3
+        2,
+        4
       ],
       "lot": "E1",
       "floors": 2,
@@ -334,8 +338,8 @@
       "short": "Ăn",
       "kind": "restaurant",
       "block": [
-        1,
-        2
+        2,
+        3
       ],
       "lot": "E1",
       "floors": 2,
@@ -380,10 +384,10 @@
       "short": "Ăn",
       "kind": "restaurant",
       "block": [
-        3,
-        2
+        4,
+        3
       ],
-      "lot": "S1",
+      "lot": "S0",
       "floors": 2,
       "color": "#f4c095",
       "sign": "CƠM TẤM THÈM",
@@ -426,8 +430,8 @@
       "short": "Ăn",
       "kind": "restaurant",
       "block": [
-        6,
-        5
+        7,
+        6
       ],
       "lot": "N0",
       "floors": 2,
@@ -472,8 +476,8 @@
       "short": "Uống",
       "kind": "restaurant",
       "block": [
-        4,
-        4
+        5,
+        5
       ],
       "lot": "N0",
       "floors": 3,
@@ -524,8 +528,8 @@
       "short": "Uống",
       "kind": "restaurant",
       "block": [
-        3,
-        2
+        4,
+        3
       ],
       "lot": "S2",
       "floors": 2,
@@ -559,10 +563,10 @@
       "short": "Uống",
       "kind": "restaurant",
       "block": [
-        6,
-        5
+        7,
+        6
       ],
-      "lot": "N2",
+      "lot": "N1",
       "floors": 2,
       "color": "#f4c095",
       "sign": "ĐÔNG GIA",
@@ -594,8 +598,8 @@
       "short": "Ăn",
       "kind": "restaurant",
       "block": [
-        5,
-        3
+        6,
+        4
       ],
       "lot": "W1",
       "floors": 2,
@@ -632,10 +636,10 @@
       "short": "Uống",
       "kind": "restaurant",
       "block": [
-        7,
-        4
+        8,
+        8
       ],
-      "lot": "S0",
+      "lot": "N2",
       "floors": 2,
       "color": "#f4c095",
       "sign": "A DI ĐÀ TRÀ",
@@ -665,7 +669,8 @@
         "goods": [
           "nhang"
         ]
-      }
+      },
+      "look": "teahouse"
     },
     {
       "id": "gas",
@@ -673,8 +678,8 @@
       "short": "Xăng",
       "kind": "gas",
       "block": [
-        3,
-        4
+        4,
+        5
       ],
       "lot": "N2",
       "color": "#ffffff",
@@ -701,8 +706,8 @@
       "kind": "gas",
       "icon": "⛽",
       "block": [
-        2,
-        7
+        3,
+        8
       ],
       "lot": "N2",
       "floors": 1,
@@ -736,8 +741,8 @@
       "kind": "gas",
       "icon": "⛽",
       "block": [
-        6,
-        1
+        7,
+        2
       ],
       "lot": "S2",
       "floors": 1,
@@ -770,8 +775,8 @@
       "short": "Đồ",
       "kind": "shop",
       "block": [
-        4,
-        5
+        5,
+        6
       ],
       "lot": "S1",
       "floors": 2,
@@ -808,8 +813,8 @@
       "short": "Xe",
       "kind": "garage",
       "block": [
-        4,
-        2
+        5,
+        3
       ],
       "lot": "W1",
       "floors": 2,
@@ -842,8 +847,8 @@
       "short": "Uống",
       "kind": "restaurant",
       "block": [
-        4,
-        3
+        5,
+        4
       ],
       "lot": "f5",
       "floors": 2,
@@ -877,7 +882,8 @@
         "cafe_2",
         "cafe_3"
       ],
-      "icon": "☕"
+      "icon": "☕",
+      "look": "cafe"
     },
     {
       "id": "cafe",
@@ -885,8 +891,8 @@
       "short": "Uống",
       "kind": "cafe",
       "block": [
-        4,
-        1
+        5,
+        2
       ],
       "lot": "S0",
       "floors": 2,
@@ -917,7 +923,8 @@
           4,
           21
         ]
-      }
+      },
+      "look": "cafe"
     },
     {
       "id": "cafevong",
@@ -925,10 +932,60 @@
       "short": "Uống",
       "kind": "service",
       "block": [
-        7,
-        6
+        6,
+        8
       ],
-      "lot": "N2",
+      "lot": "E",
+      "floors": 2,
+      "color": "#c8a27a",
+      "sign": "CÀ PHÊ VÕNG",
+      "signBg": "#4e342e",
+      "npc": {
+        "name": "Chị chủ quán",
+        "shirt": "#ff7142",
+        "pants": "#ffffff",
+        "hat": null,
+        "portrait": "☕",
+        "skin": "#ffdbac",
+        "gender": "f",
+        "hairStyle": "long",
+        "skirt": true,
+        "hair": "#d4a94f"
+      },
+      "icon": "☕",
+      "hours": "sangDenToi",
+      "nap": true,
+      "activities": [
+        {
+          "id": "drink",
+          "label": "Uống cà phê ",
+          "cost": 20,
+          "minutes": 10,
+          "phys": 5,
+          "mental": 30,
+          "perDay": 0
+        },
+        {
+          "id": "fun",
+          "label": "Làm gì đó vui vẻ",
+          "cost": 200,
+          "minutes": 15,
+          "phys": -5,
+          "mental": 30,
+          "perDay": 0
+        }
+      ]
+    },
+    {
+      "id": "cafevong_2",
+      "name": "Cà phê Võng",
+      "short": "Uống",
+      "kind": "service",
+      "block": [
+        7,
+        2
+      ],
+      "lot": "S1",
       "floors": 2,
       "color": "#c8a27a",
       "sign": "CÀ PHÊ VÕNG",
@@ -975,8 +1032,8 @@
       "short": "Tạp hóa",
       "kind": "taphoa",
       "block": [
-        2,
-        1
+        3,
+        2
       ],
       "lot": "S2",
       "floors": 2,
@@ -1010,7 +1067,8 @@
       "orders": {
         "parcelWeight": 3
       },
-      "hours": "caNgay"
+      "hours": "caNgay",
+      "look": "tube"
     },
     {
       "id": "gate",
@@ -1018,8 +1076,8 @@
       "short": "Cổng xanh",
       "kind": "gate",
       "block": [
-        2,
-        1
+        3,
+        2
       ],
       "lot": "C",
       "floors": 2,
@@ -1040,8 +1098,8 @@
       "short": "Chung cư",
       "kind": "apartment",
       "block": [
-        5,
-        5
+        6,
+        6
       ],
       "lot": "N",
       "floors": 12,
@@ -1067,8 +1125,8 @@
       "short": "TTTM",
       "kind": "market",
       "block": [
-        1,
-        5
+        6,
+        0
       ],
       "lot": "N",
       "floors": 10,
@@ -1082,7 +1140,8 @@
         "parcelWeight": 3
       },
       "icon": "🏬",
-      "hours": "caNgay"
+      "hours": "caNgay",
+      "look": "tower"
     },
     {
       "id": "nhasach",
@@ -1091,8 +1150,8 @@
       "kind": "service",
       "icon": "📚",
       "block": [
-        2,
-        4
+        3,
+        5
       ],
       "lot": "N0",
       "floors": 2,
@@ -1157,8 +1216,8 @@
       "kind": "service",
       "icon": "🎤",
       "block": [
-        4,
-        6
+        5,
+        7
       ],
       "lot": "S12",
       "floors": 4,
@@ -1210,8 +1269,8 @@
       "kind": "service",
       "icon": "🏢",
       "block": [
-        3,
-        5
+        4,
+        6
       ],
       "lot": "E12",
       "floors": 5,
@@ -1246,15 +1305,15 @@
     },
     {
       "id": "chua",
-      "name": "Chùa Rất Linh",
+      "name": "Chùa Rất Linh cổng A",
       "short": "Chùa",
       "kind": "service",
       "icon": "🛕",
       "block": [
-        7,
-        4
+        8,
+        8
       ],
-      "lot": "S12",
+      "lot": "BN2",
       "floors": 2,
       "color": "#843a1a",
       "sign": "CHÙA RẤT LINH",
@@ -1299,7 +1358,8 @@
           19
         ],
         "rideWeight": 1
-      }
+      },
+      "look": "pagodaCourtyard"
     },
     {
       "id": "clothestore",
@@ -1308,8 +1368,8 @@
       "kind": "service",
       "icon": "👕",
       "block": [
-        1,
-        5
+        2,
+        6
       ],
       "lot": "S2",
       "floors": 2,
@@ -1353,8 +1413,8 @@
       "kind": "service",
       "icon": "🏢",
       "block": [
-        4,
-        5
+        5,
+        6
       ],
       "lot": "S0",
       "floors": 2,
@@ -1393,6 +1453,259 @@
           "aoDongPhuc"
         ]
       }
+    },
+    {
+      "id": "dichvu1",
+      "name": "Triangle K",
+      "short": "Tiện lợi",
+      "kind": "service",
+      "floors": 2,
+      "color": "#ffffff",
+      "sign": "TRIANGLE K",
+      "signBg": "#ff1a1a",
+      "npc": {
+        "name": "Nhân viên",
+        "shirt": "#c22e2e",
+        "pants": "#333344",
+        "hat": null,
+        "portrait": "🙂",
+        "gender": "m",
+        "hairStyle": "short"
+      },
+      "hours": "haiTuGio",
+      "activities": [
+        {
+          "id": "nghi",
+          "label": "Ngồi nghỉ",
+          "cost": 0,
+          "minutes": 15,
+          "phys": 5,
+          "mental": 5,
+          "perDay": 0
+        }
+      ],
+      "look": "modern",
+      "orders": {
+        "rideWeight": 3,
+        "foodWeight": 3,
+        "parcelWeight": 3
+      },
+      "block": [
+        5,
+        4
+      ],
+      "lot": "f8"
+    },
+    {
+      "id": "canhquan2",
+      "name": "Bãi xe công viên",
+      "short": "Bãi xe",
+      "kind": "scenery",
+      "icon": "🅿️",
+      "look": "parkingLot",
+      "color": "#91e36d",
+      "block": [
+        4,
+        5
+      ],
+      "lot": "N0",
+      "hours": "caNgay"
+    },
+    {
+      "id": "congan1",
+      "name": "Công an phường",
+      "short": "Công an",
+      "kind": "police",
+      "icon": "🚓",
+      "look": "police",
+      "floors": 2,
+      "color": "#f2d16b",
+      "sign": "CÔNG AN PHƯỜNG",
+      "signBg": "#b03a2e",
+      "npc": {
+        "name": "Anh công an",
+        "shirt": "#c8b560",
+        "pants": "#3d4a2f",
+        "hat": "police",
+        "portrait": "👮"
+      },
+      "hours": "hanhChinh",
+      "activities": [
+        {
+          "id": "hd1",
+          "label": "Làm giấy tờ xe",
+          "cost": 10,
+          "minutes": 15,
+          "phys": -5,
+          "mental": -5,
+          "perDay": 0
+        }
+      ],
+      "orders": {
+        "rideWeight": 2,
+        "foodWeight": 2
+      },
+      "block": [
+        8,
+        6
+      ],
+      "lot": "E12"
+    },
+    {
+      "id": "canhquan1",
+      "name": "Công viên tinh hà",
+      "short": "Công viên",
+      "kind": "scenery",
+      "icon": "🌳",
+      "look": "park",
+      "color": "#5f9e45",
+      "block": [
+        4,
+        4
+      ],
+      "lot": "B",
+      "orders": {
+        "rideWeight": 4
+      }
+    },
+    {
+      "id": "canhquan3",
+      "name": "Công viên nhân hậu khu A",
+      "short": "",
+      "kind": "scenery",
+      "icon": "🌳",
+      "color": "#5f9e45",
+      "look": "park",
+      "orders": {
+        "rideWeight": 3
+      },
+      "block": [
+        8,
+        7
+      ],
+      "lot": "E01"
+    },
+    {
+      "id": "canhquan7",
+      "name": "Công viên nhân hậu khu A",
+      "short": "Công viên",
+      "kind": "scenery",
+      "icon": "🌳",
+      "look": "park",
+      "color": "#5f9e45",
+      "block": [
+        8,
+        7
+      ],
+      "lot": "W"
+    },
+    {
+      "id": "canhquan8",
+      "name": "Công viên nhân hậu khu A",
+      "short": "",
+      "kind": "scenery",
+      "icon": "🌳",
+      "look": "park",
+      "color": "#5f9e45",
+      "block": [
+        8,
+        7
+      ],
+      "lot": "M",
+      "face": "S"
+    },
+    {
+      "id": "canhquan9",
+      "name": "Công viên nhân hậu khu A",
+      "short": "",
+      "kind": "scenery",
+      "icon": "🌳",
+      "look": "park",
+      "color": "#5f9e45",
+      "block": [
+        8,
+        7
+      ],
+      "lot": "N1"
+    },
+    {
+      "id": "canhquan4",
+      "name": "Công viên nhân hậu khu B",
+      "short": "Công viên",
+      "kind": "scenery",
+      "icon": "🌳",
+      "look": "park",
+      "color": "#5f9e45",
+      "orders": {
+        "rideWeight": 2
+      },
+      "block": [
+        7,
+        8
+      ],
+      "lot": "B"
+    },
+    {
+      "id": "canhquan5",
+      "name": "Bãi xe công viên",
+      "short": "Bãi xe",
+      "kind": "scenery",
+      "icon": "🌳",
+      "look": "parkingLot",
+      "color": "#5f9e45",
+      "orders": {
+        "rideWeight": 2
+      },
+      "block": [
+        8,
+        7
+      ],
+      "lot": "S12"
+    },
+    {
+      "id": "canhquan6",
+      "name": "Công viên nhỏ cạnh chùa",
+      "short": "Công viên",
+      "kind": "scenery",
+      "icon": "🌳",
+      "look": "park",
+      "color": "#5f9e45",
+      "orders": {
+        "rideWeight": 1
+      },
+      "block": [
+        7,
+        4
+      ],
+      "lot": "E12"
+    },
+    {
+      "id": "canhquan10",
+      "name": "Công viên nhân hậu khu C",
+      "short": "Công viên",
+      "kind": "scenery",
+      "icon": "🌳",
+      "look": "park",
+      "color": "#5f9e45",
+      "block": [
+        7,
+        7
+      ],
+      "lot": "B"
+    },
+    {
+      "id": "canhquan11",
+      "name": "Công viên ",
+      "short": "Công viên",
+      "kind": "scenery",
+      "icon": "🌳",
+      "look": "park",
+      "color": "#5f9e45",
+      "block": [
+        8,
+        6
+      ],
+      "lot": "S01"
     }
   ]
 }

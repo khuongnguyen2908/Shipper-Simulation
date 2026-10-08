@@ -5,6 +5,30 @@
       "ref": "vanphong",
       "field": "activities.dilam",
       "msg": "Hoạt động hơn 2 tiếng — tốn nhiều thời gian trong ngày."
+    },
+    {
+      "tab": "places",
+      "ref": "canhquan8",
+      "field": "short",
+      "msg": "Chưa có tên ngắn (hiện trên bản đồ)."
+    },
+    {
+      "tab": "places",
+      "ref": "canhquan9",
+      "field": "short",
+      "msg": "Chưa có tên ngắn (hiện trên bản đồ)."
+    },
+    {
+      "tab": "places",
+      "ref": "canhquan3",
+      "field": "short",
+      "msg": "Chưa có tên ngắn (hiện trên bản đồ)."
+    },
+    {
+      "tab": "places",
+      "ref": "canhquan10",
+      "field": "short",
+      "msg": "Chưa có tên ngắn (hiện trên bản đồ)."
     }
   ]
 }

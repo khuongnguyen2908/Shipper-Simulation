@@ -1,165 +1,495 @@
 {
-  "size": 8,
+  "size": 10,
   "rivers": [
     {
       "axis": "z",
-      "line": 6,
+      "line": 7,
       "from": 0,
-      "to": 8,
+      "to": 10,
       "bridges": [
-        1,
         3,
-        5,
-        8
-      ]
+        7,
+        9
+      ],
+      "name": "Kênh Bến Mây"
     },
     {
       "axis": "x",
-      "line": 7,
+      "line": 8,
       "from": 0,
-      "to": 8,
+      "to": 10,
       "bridges": [
-        1,
-        4,
-        7
-      ]
+        2,
+        5,
+        8
+      ],
+      "name": "Sông Ngân"
     }
   ],
   "blocks": {
-    "2,2": {
+    "3,3": {
       "alley": "T",
       "rot": 0,
       "walk": false
     },
-    "4,3": {
+    "5,4": {
       "alley": "fish",
       "rot": 1,
       "walk": true
     },
-    "3,1": {
+    "4,2": {
       "alley": "dead",
       "rot": 2,
       "walk": false
     },
-    "5,2": {
+    "6,3": {
       "alley": "L",
       "rot": 1,
       "walk": false
     },
-    "2,5": {
+    "3,6": {
       "alley": "I",
       "rot": 0,
       "walk": true
     },
-    "0,0": {
+    "1,1": {
       "alley": "T",
       "rot": 2,
       "walk": false
     },
-    "2,0": {
+    "3,1": {
       "alley": "I",
       "rot": 1,
       "walk": false
     },
-    "4,0": {
+    "5,1": {
       "alley": "dead",
       "rot": 0,
       "walk": true
     },
-    "6,0": {
+    "7,1": {
       "alley": "T",
       "rot": 1,
       "walk": false
     },
-    "7,1": {
+    "8,2": {
       "alley": "I",
       "rot": 0,
       "walk": false
     },
-    "0,2": {
+    "1,3": {
       "alley": "dead",
       "rot": 3,
       "walk": true
     },
-    "0,4": {
-      "alley": "I",
-      "rot": 0,
-      "walk": false
-    },
-    "0,6": {
-      "alley": "T",
-      "rot": 1,
-      "walk": false
-    },
-    "6,2": {
-      "alley": "I",
-      "rot": 1,
-      "walk": true
-    },
-    "7,3": {
-      "alley": "L",
-      "rot": 0,
-      "walk": false
-    },
-    "6,4": {
-      "alley": "fish",
-      "rot": 2,
-      "walk": false
-    },
-    "7,5": {
-      "alley": "dead",
-      "rot": 1,
-      "walk": false
-    },
-    "6,6": {
-      "alley": "T",
-      "rot": 0,
-      "walk": true
-    },
-    "1,6": {
-      "alley": "L",
-      "rot": 0,
-      "walk": false
-    },
-    "3,6": {
-      "alley": "fish",
-      "rot": 1,
-      "walk": true
-    },
-    "5,6": {
+    "1,5": {
       "alley": "I",
       "rot": 0,
       "walk": false
     },
     "1,7": {
       "alley": "T",
+      "rot": 1,
+      "walk": false
+    },
+    "7,3": {
+      "alley": "I",
+      "rot": 0,
+      "walk": true
+    },
+    "8,4": {
+      "alley": "L",
       "rot": 0,
       "walk": false
     },
-    "3,7": {
+    "7,5": {
+      "alley": "fish",
+      "rot": 2,
+      "walk": false
+    },
+    "2,7": {
+      "alley": "L",
+      "rot": 0,
+      "walk": false
+    },
+    "4,7": {
+      "alley": "fish",
+      "rot": 1,
+      "walk": true
+    },
+    "6,7": {
+      "alley": "I",
+      "rot": 0,
+      "walk": false
+    },
+    "2,8": {
+      "alley": "T",
+      "rot": 0,
+      "walk": false
+    },
+    "4,8": {
       "alley": "dead",
       "rot": 2,
       "walk": false
     },
-    "5,7": {
-      "alley": "L",
-      "rot": 1,
-      "walk": true
-    },
-    "7,7": {
-      "alley": "fish",
-      "rot": 0,
-      "walk": false
-    },
-    "1,0": {
+    "2,1": {
       "alley": "dead",
       "rot": 3,
       "walk": false
     },
-    "7,2": {
+    "8,3": {
       "alley": "I",
       "rot": 0,
       "walk": false
     }
+  },
+  "districts": {
+    "trungtam": {
+      "name": "Khu Trung Tâm",
+      "color": "#e74c3c",
+      "orders": 1.4,
+      "ordersNight": 1.1,
+      "tips": 1.1,
+      "potholes": 0.8,
+      "police": 2,
+      "jam": 2,
+      "traffic": 1.6,
+      "tow": 2,
+      "theft": 0.7,
+      "houses": {
+        "tube": 0.5,
+        "tower": 0.3,
+        "japanese": 0.2
+      },
+      "decor": {
+        "chochin": true,
+        "vendors": true
+      },
+      "trees": 1
+    },
+    "phoco": {
+      "name": "Khu Phố Cũ",
+      "color": "#e67e22",
+      "orders": 1.1,
+      "ordersNight": 0.9,
+      "tips": 1,
+      "potholes": 1.2,
+      "police": 1,
+      "jam": 1.2,
+      "traffic": 1.1,
+      "tow": 1,
+      "theft": 1,
+      "houses": {
+        "tube": 1
+      },
+      "decor": {
+        "vendors": true
+      },
+      "trees": 1.3
+    },
+    "trunghoa": {
+      "name": "Khu Phố Trung Hoa (China Town)",
+      "color": "#c0392b",
+      "orders": 1.2,
+      "ordersNight": 0.9,
+      "tips": 1,
+      "potholes": 1.1,
+      "police": 1.2,
+      "jam": 1.4,
+      "traffic": 1.4,
+      "tow": 1.2,
+      "theft": 0.9,
+      "houses": {
+        "chinese": 0.8,
+        "tube": 0.2
+      },
+      "decor": {
+        "lanterns": true,
+        "vendors": true
+      },
+      "trees": 0.7
+    },
+    "chohoa": {
+      "name": "Khu Chợ Hoa",
+      "color": "#d35400",
+      "orders": 1.1,
+      "ordersNight": 0.8,
+      "tips": 1,
+      "potholes": 1,
+      "police": 1,
+      "jam": 1.3,
+      "traffic": 1.3,
+      "tow": 1,
+      "theft": 1,
+      "houses": {
+        "tube": 0.8,
+        "chinese": 0.2
+      },
+      "decor": {
+        "vendors": true
+      },
+      "trees": 1
+    },
+    "sanbay": {
+      "name": "Khu Sân Bay",
+      "color": "#2e86c1",
+      "orders": 1,
+      "ordersNight": 1.2,
+      "tips": 1.1,
+      "potholes": 0.8,
+      "police": 1.3,
+      "jam": 1.2,
+      "traffic": 1.2,
+      "tow": 1.2,
+      "theft": 0.8,
+      "houses": {
+        "tube": 0.7,
+        "tin": 0.3
+      },
+      "decor": {},
+      "trees": 0.8
+    },
+    "amthuc": {
+      "name": "Khu Ẩm Thực",
+      "color": "#f1c40f",
+      "orders": 1.2,
+      "ordersNight": 1.6,
+      "tips": 1,
+      "potholes": 1,
+      "police": 1,
+      "jam": 1.1,
+      "traffic": 1.2,
+      "tow": 0.8,
+      "theft": 1,
+      "houses": {
+        "tube": 0.4,
+        "japanese": 0.15
+      },
+      "decor": {
+        "vendors": true
+      },
+      "trees": 1
+    },
+    "caooc": {
+      "name": "Khu Cao Ốc",
+      "color": "#8e44ad",
+      "orders": 1.4,
+      "ordersNight": 0.7,
+      "tips": 1.1,
+      "potholes": 0.7,
+      "police": 1.3,
+      "jam": 1.8,
+      "traffic": 1.4,
+      "tow": 1.5,
+      "theft": 0.7,
+      "houses": {
+        "tower": 0.6,
+        "condo": 0.3,
+        "tube": 0.1
+      },
+      "decor": {},
+      "trees": 1.2
+    },
+    "cang": {
+      "name": "Khu Bến Cảng",
+      "color": "#16a085",
+      "orders": 0.9,
+      "ordersNight": 1.4,
+      "tips": 0.9,
+      "potholes": 1.8,
+      "police": 0.7,
+      "jam": 0.9,
+      "traffic": 0.9,
+      "tow": 0.6,
+      "theft": 1.5,
+      "houses": {
+        "tin": 0.6,
+        "tube": 0.4
+      },
+      "decor": {
+        "vendors": true
+      },
+      "trees": 0.5
+    },
+    "venkenh": {
+      "name": "Khu Ven Kênh",
+      "color": "#7f8c8d",
+      "orders": 0.8,
+      "ordersNight": 1,
+      "tips": 0.7,
+      "potholes": 2.2,
+      "police": 0.5,
+      "jam": 0.7,
+      "traffic": 0.8,
+      "tow": 0.4,
+      "theft": 1.8,
+      "houses": {
+        "tin": 0.8,
+        "tube": 0.2
+      },
+      "decor": {},
+      "trees": 0.5
+    },
+    "dothimoi": {
+      "name": "Khu Đô Thị Mới",
+      "color": "#2980b9",
+      "orders": 1,
+      "ordersNight": 0.8,
+      "tips": 1.2,
+      "potholes": 0.3,
+      "police": 0.8,
+      "jam": 0.6,
+      "traffic": 0.7,
+      "tow": 0.8,
+      "theft": 0.6,
+      "houses": {
+        "condo": 0.7,
+        "villa": 0.15,
+        "tube": 0.15
+      },
+      "decor": {},
+      "trees": 1.6
+    },
+    "bietthu": {
+      "name": "Khu Biệt Thự Ven Sông",
+      "color": "#27ae60",
+      "orders": 0.7,
+      "ordersNight": 0.6,
+      "tips": 1.6,
+      "potholes": 0.5,
+      "police": 0.6,
+      "jam": 0.5,
+      "traffic": 0.5,
+      "tow": 0.5,
+      "theft": 0.8,
+      "houses": {
+        "villa": 0.85,
+        "tube": 0.15
+      },
+      "decor": {},
+      "trees": 2
+    },
+    "bandao": {
+      "name": "Khu Bán Đảo",
+      "color": "#1abc9c",
+      "orders": 0.6,
+      "ordersNight": 0.5,
+      "tips": 1.2,
+      "potholes": 0.6,
+      "police": 0.5,
+      "jam": 0.4,
+      "traffic": 0.4,
+      "tow": 0.4,
+      "theft": 1,
+      "houses": {
+        "condo": 0.45,
+        "villa": 0.2,
+        "tube": 0.35
+      },
+      "decor": {},
+      "trees": 1.2
+    }
+  },
+  "districtBlocks": {
+    "0,0": "sanbay",
+    "1,0": "sanbay",
+    "2,0": "sanbay",
+    "3,0": "sanbay",
+    "4,0": "amthuc",
+    "5,0": "amthuc",
+    "6,0": "caooc",
+    "7,0": "caooc",
+    "8,0": "bietthu",
+    "9,0": "bietthu",
+    "0,1": "sanbay",
+    "1,1": "sanbay",
+    "2,1": "sanbay",
+    "3,1": "sanbay",
+    "4,1": "amthuc",
+    "5,1": "amthuc",
+    "6,1": "caooc",
+    "7,1": "caooc",
+    "8,1": "bietthu",
+    "9,1": "bietthu",
+    "0,2": "chohoa",
+    "1,2": "sanbay",
+    "2,2": "chohoa",
+    "3,2": "phoco",
+    "4,2": "phoco",
+    "5,2": "phoco",
+    "6,2": "caooc",
+    "7,2": "caooc",
+    "8,2": "bietthu",
+    "9,2": "bietthu",
+    "0,3": "chohoa",
+    "1,3": "chohoa",
+    "2,3": "chohoa",
+    "3,3": "phoco",
+    "4,3": "phoco",
+    "5,3": "trungtam",
+    "6,3": "trungtam",
+    "7,3": "trungtam",
+    "8,3": "bietthu",
+    "9,3": "bietthu",
+    "0,4": "chohoa",
+    "1,4": "chohoa",
+    "2,4": "chohoa",
+    "3,4": "phoco",
+    "4,4": "trungtam",
+    "5,4": "trungtam",
+    "6,4": "trungtam",
+    "7,4": "trungtam",
+    "8,4": "bandao",
+    "9,4": "bandao",
+    "0,5": "trunghoa",
+    "1,5": "trunghoa",
+    "2,5": "trunghoa",
+    "3,5": "trunghoa",
+    "4,5": "trungtam",
+    "5,5": "trungtam",
+    "6,5": "trungtam",
+    "7,5": "trungtam",
+    "8,5": "bandao",
+    "9,5": "bandao",
+    "0,6": "trunghoa",
+    "1,6": "trunghoa",
+    "2,6": "trunghoa",
+    "3,6": "trunghoa",
+    "4,6": "trunghoa",
+    "5,6": "trungtam",
+    "6,6": "trungtam",
+    "7,6": "trungtam",
+    "8,6": "bandao",
+    "9,6": "bandao",
+    "0,7": "trunghoa",
+    "1,7": "venkenh",
+    "2,7": "venkenh",
+    "3,7": "venkenh",
+    "4,7": "cang",
+    "5,7": "cang",
+    "6,7": "cang",
+    "7,7": "cang",
+    "8,7": "bandao",
+    "9,7": "bandao",
+    "0,8": "venkenh",
+    "1,8": "venkenh",
+    "2,8": "venkenh",
+    "3,8": "venkenh",
+    "4,8": "dothimoi",
+    "5,8": "dothimoi",
+    "6,8": "dothimoi",
+    "7,8": "cang",
+    "8,8": "bandao",
+    "9,8": "bandao",
+    "0,9": "venkenh",
+    "1,9": "venkenh",
+    "2,9": "dothimoi",
+    "3,9": "dothimoi",
+    "4,9": "dothimoi",
+    "5,9": "dothimoi",
+    "6,9": "dothimoi",
+    "7,9": "dothimoi",
+    "8,9": "bandao",
+    "9,9": "bandao"
   }
 }
