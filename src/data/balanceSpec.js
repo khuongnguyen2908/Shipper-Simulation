@@ -94,6 +94,24 @@ export const BALANCE_GROUPS = [
     ],
   },
   {
+    id: 'parking', title: '🅿️ Đậu xe',
+    note: 'Xuống xe ngoài đường: sau "Được để yên" phút bắt đầu có rủi ro (tính theo xác suất mỗi giờ). Gửi ở bãi giữ xe (cảnh quan kiểu Bãi giữ xe), đậu gần phòng trọ, gửi bảo vệ chung cư → an toàn. Bản đồ chưa có bãi giữ xe nào thì không bị cẩu.',
+    fields: [
+      ['parking.fee', 'Tiền gửi ở bãi giữ xe (k/lần)', { min: 0, max: 200, step: 1, hint: 'Trừ khi xuống xe trong bãi. Mặc định 5k.' }],
+      ['parking.graceMin', 'Được để yên ngoài đường (phút)', { min: 0, max: 600, step: 5, hint: 'Ghé quán lấy món nhanh thì không sao. Mặc định 20.' }],
+      ['parking.homeSafeM', 'Đậu gần phòng trọ trong vòng (m) = an toàn', { min: 0, max: 60, step: 1, hint: 'Mặc định 12 m.' }],
+      ['parking.ticketPerHour', 'Bị dán phạt: xác suất mỗi giờ', { min: 0, max: 0.99, step: 0.05, hint: '0,3 = để 1 tiếng (sau thời gian được để yên) khoảng 26% bị phạt. Mỗi lần đậu phạt tối đa 1 lần. Chỉ ban ngày.' }],
+      ['parking.ticketFine', 'Tiền phạt (k)', { min: 0, max: 2000, step: 10, hint: 'Mặc định 50k (không đủ tiền thì lấy hết tiền đang có).' }],
+      ['parking.towPerHour', 'Bị cẩu xe: xác suất mỗi giờ', { min: 0, max: 0.99, step: 0.05, hint: 'Chỉ trong giờ phường làm, khi xe không chở hàng. Xe về bãi giữ xe gần nhất. Mặc định 0,15.' }],
+      ['parking.towFrom', 'Phường cẩu xe từ (giờ)', { min: 0, max: 24, step: 1, hint: 'Mặc định 7.' }],
+      ['parking.towTo', 'Phường cẩu xe tới (giờ)', { min: 0, max: 24, step: 1, hint: 'Mặc định 18.' }],
+      ['parking.towFee', 'Tiền chuộc xe bị cẩu (k)', { min: 0, max: 5000, step: 10, hint: 'Mặc định 150k.' }],
+      ['parking.theftPerHour', 'Ban đêm bị trộm: xác suất mỗi giờ', { min: 0, max: 0.99, step: 0.05, hint: 'Lúc trời tối (mục Ban đêm), khi xe không chở hàng. Mỗi lần đậu tối đa 1 lần. Mặc định 0,25.' }],
+      ['parking.theftFuelPct', 'Bị trộm: mất bao nhiêu xăng (%)', { min: 0, max: 1, step: 5, scale: 100, hint: 'Mặc định 60%.' }],
+      ['parking.theftHp', 'Bị trộm: xe hư thêm (%)', { min: 0, max: 100, step: 1, hint: 'Bẻ gương, cắt dây… Mặc định 15.' }],
+    ],
+  },
+  {
     id: 'night', title: '🌙 Ban đêm',
     note: 'Trời tối từ giờ "bắt đầu" tới giờ "kết thúc" (qua nửa đêm). Phụ phí đêm và nhu cầu đơn theo giờ ở thẻ 📱 App & Đơn.',
     fields: [

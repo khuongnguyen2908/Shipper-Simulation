@@ -44,7 +44,11 @@ export function gatherInteractions(g) {
   const slow = Math.abs(bike.speed) < 1.2;
   const out = [];
   // F: lên / xuống xe
-  if (foot && dist(p, bike.pos) < 3.2) out.push({ key: 'F', label: fmt('act.mount'), dist: 0, run: () => mount(g) });
+  if (foot && dist(p, bike.pos) < 3.2) {
+    // xe bị cẩu về bãi → chuộc rồi mới lấy được
+    if (g.gs.towed) out.push({ key: 'F', label: fmt('act.redeemBike', { fee: g.gs.towed.fee }), dist: 0, run: () => redeemBike(g) });
+    else out.push({ key: 'F', label: fmt('act.mount'), dist: 0, run: () => mount(g) });
+  }
   if (!foot) out.push({ key: 'F', label: fmt('act.dismount'), dist: 0, disabled: !slow, run: () => dismount(g) });
 
   const E = [];
@@ -87,6 +91,7 @@ export function gatherInteractions(g) {
 }
 
 function mount(g) {
+  g.gs.parked = null; // hết lần đậu
   g.mode = 'bike';
   g.walker.sitOn(g.bike);
   g.gs.flags.mounted = true;
@@ -98,6 +103,18 @@ function dismount(g) {
   g.walker.standUp(g.scene, g.bike);
   g.bike.speed = 0;
   g.bike.vel.set(0, 0);
+  g.startParking(); // bãi giữ xe: gửi (trả tiền) · ngoài đường: để lâu có rủi ro
+}
+
+// Chuộc xe bị cẩu: trả phí (không đủ thì lấy hết tiền đang có) rồi lên xe
+function redeemBike(g) {
+  const { gs } = g;
+  const fee = Math.min(Math.max(0, gs.money), gs.towed.fee);
+  gs.spend(fee, 'tow', true);
+  gs.towed = null;
+  sfx.cash();
+  g.hud.toast(fmt('toast.redeemed', { fee }), 'info', 5000);
+  mount(g);
 }
 
 // ======================== ĐIỆN THOẠI ========================
@@ -282,6 +299,7 @@ export function dropoff(g) {
   if (res === 'stairs') return stairs(g);
   if (res === 'lift') {
     gs.spend(ECONOMY.parkingFee, 'parking', true);
+    g.markParkedSafe(); // đã gửi xe cho bảo vệ
     const n = npc(g, 'apartment');
     say(g, n.name, n.portrait, fmt('dlg.liftGuard', { fee: ECONOMY.parkingFee, floor: o.dropoff.floor }), [{ label: fmt('dlg.liftGo'), onSelect: () => { g.advance(ORDER.liftMin, 'walk', { indoor: true }); handOver(g); } }], { dismissible: false });
     return;
@@ -399,6 +417,7 @@ function stairs(g) {
       hint: gs.phys < cost + 5 ? fmt('dlg.climbTired') : fmt('dlg.climbHint'),
       onSelect: () => {
         gs.spend(ECONOMY.parkingFee, 'parking', true);
+        g.markParkedSafe(); // đã gửi xe cho bảo vệ
         const r = om.resolveStairs('climb');
         gs.addEnergy(-cost, -2);
         const env = g.itemEnv(0, true);
@@ -412,6 +431,7 @@ function stairs(g) {
       hint: fmt('dlg.callDownHint'),
       onSelect: () => {
         gs.spend(ECONOMY.parkingFee, 'parking', true);
+        g.markParkedSafe(); // đã gửi xe cho bảo vệ
         const r = om.resolveStairs('callDown');
         sfx.phone();
         g.advance(r.minutes, 'idle');

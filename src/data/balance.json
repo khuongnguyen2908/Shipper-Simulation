@@ -130,5 +130,19 @@
     "end": 5,
     "mentalPerMin": 0.02,
     "potholeMul": 1.5
+  },
+  "parking": {
+    "graceMin": 20,
+    "fee": 5,
+    "homeSafeM": 12,
+    "ticketPerHour": 0.3,
+    "ticketFine": 50,
+    "towPerHour": 0.15,
+    "towFrom": 7,
+    "towTo": 18,
+    "towFee": 150,
+    "theftPerHour": 0.25,
+    "theftFuelPct": 0.6,
+    "theftHp": 15
   }
 }

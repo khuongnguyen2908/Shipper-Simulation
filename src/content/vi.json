@@ -737,5 +737,18 @@
     "KHAI TRƯƠNG",
     "MUA 1 TẶNG 1"
   ],
-  "act.scenery": "Vào {place}"
+  "act.scenery": "Vào {place}",
+  "toast.parkLot": "🅿️ Đã gửi xe ở {place} ({fee}k) — xe được trông, yên tâm đi bộ giao hàng.",
+  "toast.parkNoMoney": "🅿️ Không đủ {fee}k gửi xe — xe vẫn đậu nhưng không ai trông.",
+  "toast.parkHint": "🛵 Xe đậu ngoài đường: để quá {min} phút có thể bị phường dán phạt / cẩu xe, đêm dễ bị trộm. Gửi ở bãi giữ xe cho chắc.",
+  "toast.parkTicket": "📩 Xe đậu sai chỗ bị phường lập biên bản: phạt {fine}k.",
+  "toast.parkTheft": "🌙 Xe để ngoài đường ban đêm bị trộm hút xăng, bẻ gương: xăng còn ít, xe hư thêm {hp}%.",
+  "toast.parkTow": "🚛 Xe bị phường cẩu về {place}! Tới đó chuộc xe ({fee}k).",
+  "toast.redeemed": "🔑 Đã chuộc xe ({fee}k). Lần sau gửi bãi cho chắc!",
+  "act.redeemBike": "Chuộc xe bị cẩu ({fee}k)",
+  "goal.towed": "🚛 Xe bị cẩu về {place} — tới chuộc ({fee}k)",
+  "goal.towedHint": "Đi bộ tới bãi, bấm F ở xe để trả tiền chuộc",
+  "chat.ward": "Phường (tin nhắn)",
+  "money.parkingTicket": "Phạt đậu xe",
+  "money.tow": "Chuộc xe bị cẩu"
 }

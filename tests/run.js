@@ -1942,5 +1942,49 @@ console.log('Cảnh quan (công viên, đất trống, sân bóng, bãi giữ xe
   });
 }
 
+console.log('Đậu xe: gửi bãi, dán phạt, cẩu xe, trộm đêm');
+{
+  const PK = await import('../src/sim/parking.js');
+  const { PARKING } = await import('../src/data/balance.js');
+  const { atHour } = await import('../src/sim/clock.js');
+  const always = { next: () => 0 }, never = { next: () => 0.9999 };
+  const parkedAt = (h) => ({ since: atHour(1, h), safe: false, ticketed: false, robbed: false });
+  test('Để xe ngoài đường: trong thời gian được để yên thì không sao; quá giờ → ban ngày phạt / cẩu, ban đêm trộm', () => {
+    const p = parkedAt(10);
+    assert.equal(PK.parkingRoll(always, p.since + PARKING.graceMin - 1, p), null, 'chưa quá thời gian được để yên');
+    const t = p.since + PARKING.graceMin + 1;
+    assert.equal(PK.parkingRoll(always, t, p, { canTow: true }), 'tow', 'giờ hành chính, có bãi → cẩu');
+    assert.equal(PK.parkingRoll(always, t, p, { canTow: false }), 'ticket', 'chưa có bãi giữ xe → chỉ phạt');
+    assert.equal(PK.parkingRoll(always, t, p, { canTow: true, hasCargo: true }), 'ticket', 'đang chở hàng → không cẩu');
+    assert.equal(PK.parkingRoll(always, t, { ...p, ticketed: true }, { canTow: false }), null, 'mỗi lần đậu phạt 1 lần');
+    assert.equal(PK.parkingRoll(never, t, p), null);
+    assert.equal(PK.parkingRoll(always, t, { ...p, safe: true }), null, 'xe gửi bãi / gần nhà: an toàn');
+    const night = parkedAt(23);
+    assert.equal(PK.parkingRoll(always, night.since + PARKING.graceMin + 5, night), 'theft');
+    assert.equal(PK.parkingRoll(always, night.since + PARKING.graceMin + 5, { ...night, robbed: true }), null);
+  });
+  test('Xác suất mỗi giờ khớp số trong thẻ Cân bằng (giả lập 1 giờ nhiều lần)', () => {
+    const rng = makeRng(42);
+    let hit = 0;
+    const N = 4000;
+    for (let i = 0; i < N; i++) {
+      const p = parkedAt(9);
+      for (let m = 1; m <= 60; m++) if (PK.parkingRoll(rng, p.since + PARKING.graceMin + m, p, { canTow: false }) === 'ticket') { hit++; break; }
+    }
+    assert.ok(Math.abs(hit / N - PARKING.ticketPerHour) < 0.03, `${hit / N} so với ${PARKING.ticketPerHour}`);
+  });
+  test('Bãi giữ xe: nhận ra xe đậu trong bãi, tìm bãi gần nhất; gần phòng trọ là an toàn', () => {
+    const lot = { id: 'bai', kind: 'scenery', look: 'parkingLot', x0: 0, x1: 10, z0: 0, z1: 10 };
+    const park = { id: 'cv', kind: 'scenery', look: 'park', x0: 20, x1: 30, z0: 0, z1: 10 };
+    const home = { id: 'home', kind: 'home', door: { x: 100, z: 100 } };
+    const places = [lot, park, home];
+    assert.equal(PK.parkingLotAt(places, 5, 5), lot);
+    assert.equal(PK.parkingLotAt(places, 25, 5), null, 'công viên không phải bãi giữ xe');
+    assert.equal(PK.nearestParkingLot(places, 50, 50), lot);
+    assert.equal(PK.nearestParkingLot([park, home], 50, 50), null);
+    assert.ok(PK.safeSpot(places, 105, 100) && !PK.safeSpot(places, 150, 100));
+  });
+}
+
 console.log(`\n${pass} đạt, ${fail} lỗi`);
 if (fail) process.exit(1);

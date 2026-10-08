@@ -31,6 +31,10 @@ export class GameState {
     this.consumables = { ...(c.consumables || {}) }; // đồ dùng 1 lần + đồ mang theo (dùng tại địa điểm): mã → số lượng
     this.outfit = { ...(c.outfit || {}) }; // trang phục đang mặc: chỗ mặc → mã (trống = đồ có sẵn)
     this.activityUses = {}; // số lần làm hoạt động hôm nay: 'địaĐiểm.hoạtĐộng' → lần
+    // đậu xe (src/sim/parking.js): parked = lần đậu hiện tại { since, safe, ticketed, robbed } (null khi đang chạy xe)
+    // towed = xe bị cẩu về bãi { placeId, fee } — chuộc rồi mới lấy được (lưu qua các lần chơi)
+    this.parked = null;
+    this.towed = c.towed ?? null;
     const tutorialDone = day > 1;
     this.flags = {
       mounted: tutorialDone,
@@ -454,6 +458,7 @@ export class GameState {
       outfit: this.outfit,
       account: this.account,
       flags: { wallet: this.flags.wallet, walletDay: this.flags.walletDay },
+      towed: this.towed,
     };
   }
 }

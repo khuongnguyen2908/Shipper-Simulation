@@ -2,7 +2,8 @@
 // GAME — điều phối: vòng lặp, nối mô phỏng (src/sim) với thế giới 3D (src/world) và giao diện (src/ui)
 // =============================================================
 import * as THREE from 'three';
-import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, BAGS, NIGHT } from './data/balance.js';
+import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, BAGS, NIGHT, PARKING } from './data/balance.js';
+import { parkingRoll, parkingLotAt, nearestParkingLot, safeSpot } from './sim/parking.js';
 import { GOODS, outfitLook } from './data/goods.js';
 import { APP, RIDER_TYPES } from './data/apps.js';
 import { ITEMS } from './data/items.js';
@@ -199,6 +200,13 @@ export class Game {
     this.placeAtHome();
     this.bike.setSpec(this.gs.vehicleSpec);
     this.bike.setBag(this.gs.bagSpec);
+    this.parkRng = makeRng(this.seed * 13 + day);
+    const towLot = this.gs.towed && this.layout.placeById[this.gs.towed.placeId];
+    if (towLot) this.towBikeTo(towLot, this.gs.towed.fee);
+    else {
+      this.gs.towed = null;
+      this.startParking(true);
+    }
     this.lookKey = null; // dựng lại ngoại hình shipper theo đồ đang mặc
     this.bike.update(0.016, {}, { mounted: false, fuel: 1, hp: 100, wet: false, grid: this.city.grid, potholes: [], emit: () => {} });
     this.walker.update(0.016, {}, 0, { grid: this.city.grid, phys: 100 });
@@ -226,10 +234,12 @@ export class Game {
     this.mode = 'foot';
     this.walker.pos.set(home.door.x + nx * 0.6, 0, home.door.z + nz * 0.6);
     this.walker.heading = Math.atan2(nx, nz);
+    if (this.gs?.towed) return; // xe đang ở bãi cẩu → để nguyên, phải tới chuộc
     this.bike.pos.set(home.door.x + 1.8, 0, home.door.z + nz * 2.4);
     this.bike.heading = Math.PI / 2;
     this.bike.speed = 0;
     this.bike.vel.set(0, 0);
+    if (this.gs && this.parkRng) this.startParking(true); // xe để trước phòng trọ: an toàn
   }
 
   // 06:00: sang ngày mới (không dừng game): số liệu theo ngày, thời tiết / CSGT mới, khai trương, tự lưu
@@ -433,6 +443,7 @@ export class Game {
     // ---- thời gian & năng lượng ----
     const dMin = dt * TIME.gameMinPerRealSec * this.timeScale;
     this.clockMin += dMin;
+    this.parkTick();
     gs.drain(activity, dMin, { harshSun: hz.isHarshSun(now), raining: !!rain, outdoor: true, inJam: this.inJam, waiting: false, now: this.clockMin });
     this.rollDay();
 
@@ -570,6 +581,7 @@ export class Game {
       this.om.tickItems(this.itemEnv(0, indoor), 1);
       this.om.update(1, 0, now, this.playerPos);
       for (const e of this.hz.poll(now)) this.onHazard(e);
+      this.parkTick();
       if (this.gs.checkEnd(now)) break;
       if (this.gs.collapsed && activity !== 'rest') break; // kiệt sức giữa chừng → xử lý ngay
       if (stopOnOffer && this.om.state === S.OFFERED) break; // điện thoại reo có đơn
@@ -693,10 +705,82 @@ export class Game {
     this.hud.toast(html, kind, 3500);
   }
 
+  // ======================== ĐẬU XE (src/sim/parking.js) ========================
+  // Xuống xe: bắt đầu một lần đậu. Trong bãi giữ xe → trả tiền gửi, xe được trông; gần phòng trọ → an toàn.
+  startParking(quiet = false) {
+    const { gs, bike } = this;
+    const places = this.layout.places;
+    const lot = parkingLotAt(places, bike.pos.x, bike.pos.z);
+    let safe = safeSpot(places, bike.pos.x, bike.pos.z);
+    if (lot && !safe) {
+      const fee = PARKING.fee ?? 5;
+      if (gs.spend(fee, 'parking')) {
+        safe = true;
+        if (!quiet) this.hud.toast(fmt('toast.parkLot', { place: lot.name, fee }), 'good', 4000);
+      } else if (!quiet) this.hud.toast(fmt('toast.parkNoMoney', { fee }), 'warn', 4000);
+    }
+    gs.parked = { since: this.clockMin, safe, ticketed: false, robbed: false, checked: Math.floor(this.clockMin) };
+    if (!safe && !quiet) this.toastOnce('parkHint', fmt('toast.parkHint', { min: PARKING.graceMin }), 'info', 600);
+  }
+  // Gửi bảo vệ (chung cư…) → xe được trông tới khi lấy
+  markParkedSafe() {
+    if (this.gs.parked) this.gs.parked.safe = true;
+  }
+  // Mỗi phút xe đứng ngoài đường (người chơi đang đi bộ): xét rủi ro dán phạt / cẩu / trộm
+  parkTick() {
+    const p = this.gs.parked;
+    if (!p || p.safe || this.mode !== 'foot' || !this.parkRng) return;
+    const to = Math.floor(this.clockMin);
+    for (let m = p.checked + 1; m <= to && this.gs.parked === p; m++) {
+      p.checked = m;
+      const canTow = !!nearestParkingLot(this.layout.places, this.bike.pos.x, this.bike.pos.z);
+      const ev = parkingRoll(this.parkRng, m, p, { canTow, hasCargo: this.om.hasCargo });
+      if (ev) this.onParkingEvent(ev);
+    }
+  }
+  onParkingEvent(ev) {
+    const { gs } = this;
+    const P = PARKING;
+    let msg = '';
+    if (ev === 'ticket') {
+      const fine = Math.min(Math.max(0, gs.money), P.ticketFine ?? 50);
+      gs.spend(fine, 'parkingTicket', true);
+      gs.parked.ticketed = true;
+      msg = fmt('toast.parkTicket', { fine: P.ticketFine ?? 50 });
+    } else if (ev === 'theft') {
+      gs.fuel = Math.max(0, gs.fuel * (1 - (P.theftFuelPct ?? 0.6)));
+      gs.bikeHp = Math.max(0, gs.bikeHp - (P.theftHp ?? 15));
+      gs.parked.robbed = true;
+      msg = fmt('toast.parkTheft', { hp: P.theftHp ?? 15 });
+    } else if (ev === 'tow') {
+      const lot = nearestParkingLot(this.layout.places, this.bike.pos.x, this.bike.pos.z);
+      if (!lot) return;
+      this.towBikeTo(lot, P.towFee ?? 150);
+      msg = fmt('toast.parkTow', { place: lot.name, fee: P.towFee ?? 150 });
+    }
+    sfx.bad();
+    this.hud.toast(msg, 'bad', 8000);
+    this.addChat(fmt('chat.ward'), msg);
+  }
+  // Xe bị cẩu: đặt ở vỉa hè trước bãi giữ xe, phải chuộc mới lấy được
+  towBikeTo(lot, fee) {
+    const { bike, gs } = this;
+    bike.pos.set(lot.door.x, 0, lot.door.z);
+    bike.speed = 0;
+    bike.vel.set(0, 0);
+    this.bike.update(0.016, {}, { mounted: false, fuel: 1, hp: 100, wet: false, grid: this.city.grid, potholes: [], emit: () => {} });
+    gs.towed = { placeId: lot.id, fee };
+    gs.parked = { since: this.clockMin, safe: true, ticketed: true, robbed: true, checked: Math.floor(this.clockMin) };
+  }
+
   // ======================== MỤC TIÊU / CHỈ ĐƯỜNG ========================
   currentTarget() {
     const { om, gs } = this;
     const o = om.order;
+    if (gs.towed && this.mode === 'foot') {
+      const lot = this.layout.placeById[gs.towed.placeId];
+      return { x: this.bike.pos.x, z: this.bike.pos.z, text: fmt('goal.towed', { place: lot?.name || '', fee: gs.towed.fee }), sub: fmt('goal.towedHint'), color: '#e74c3c' };
+    }
     if (o) {
       if ([S.TO_PICKUP, S.WAITING_FOOD, S.OUT_OF_STOCK, S.PACKING].includes(om.state)) {
         const wait = om.state === S.WAITING_FOOD ? Math.ceil(om.minutesUntilReady(this.clockMin)) : 0;
