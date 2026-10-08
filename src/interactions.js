@@ -26,6 +26,7 @@ function say(g, speaker, portrait, text, choices = [{ label: fmt('dlg.ok') }], e
 // NPC của một địa điểm (tên + chân dung)
 function npc(g, placeId) {
   const pl = g.layout.placeById[placeId];
+  if (pl && !pl.npc && pl.kind === 'scenery') return { name: pl.name, portrait: pl.icon || '🌳' }; // cảnh quan: không có người, lời là của nơi đó
   return pl && pl.npc ? pl.npc : { name: fmt('npc.default.name'), portrait: '🙂' };
 }
 
@@ -526,6 +527,8 @@ export function placeAction(g, pl) {
     case 'gate': return { label: fmt('act.gate', p), needFoot: true, run: () => gate(g) };
     case 'apartment': return { label: fmt('act.apartment', p), run: () => openPlace(g, pl) };
     case 'market': return (pl.activities || []).length || hasStock(pl) ? generic('act.market') : null;
+    // cảnh quan (công viên, đất trống…): chỉ có nút E khi đã thêm hoạt động / hàng bán ở thẻ Địa điểm
+    case 'scenery': return (pl.activities || []).length || hasStock(pl) ? generic('act.scenery') : null;
     default: return generic('act.service'); // 'service' và mọi loại mới tạo trong công cụ
   }
 }

@@ -34,7 +34,7 @@ export const PROTECTED = {
 export const LOTS = [...LOT_IDS, ...Object.keys(MULTI_LOTS), 'C'];
 // Kiểu dáng xe (khớp BIKE_MODELS trong src/world/models.js — có bộ thử kiểm tra)
 export const VEHICLE_MODELS = { cub: 'Xe số cổ (Cub)', underbone: 'Xe số (Wave)', scooter: 'Tay ga (Vision, SH)', sport: 'Tay côn / mô tô' };
-export const PLACE_KINDS =['home', 'restaurant', 'gas', 'shop', 'garage', 'cafe', 'taphoa', 'gate', 'apartment', 'market', 'service'];
+export const PLACE_KINDS = ['home', 'restaurant', 'gas', 'shop', 'garage', 'cafe', 'taphoa', 'gate', 'apartment', 'market', 'service', 'scenery'];
 export const ID_RE = /^[a-zA-Z][a-zA-Z0-9_]*$/;
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
@@ -282,7 +282,9 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null, m
       }
     }
     if (!COLOR_RE.test(p.color || '')) add('error', p.id, 'color', 'Màu tường phải dạng #rrggbb.');
-    if (p.kind !== 'gas' && p.kind !== 'gate' && p.kind !== 'market' && p.sign == null) add('warn', p.id, 'sign', 'Chưa có biển hiệu.');
+    if (p.kind !== 'gas' && p.kind !== 'gate' && p.kind !== 'market' && p.kind !== 'scenery' && p.sign == null) add('warn', p.id, 'sign', 'Chưa có biển hiệu.');
+    if (p.lot === 'B' && p.kind !== 'scenery') add('error', p.id, 'lot', 'Cỡ "Cả khối" chỉ dành cho cảnh quan (công viên lớn…).');
+    if (p.look != null && LOOKS[p.look] && !!LOOKS[p.look].scenery !== (p.kind === 'scenery')) add('error', p.id, 'look', p.kind === 'scenery' ? 'Cảnh quan chỉ dùng kiểu cảnh quan (công viên, đất trống, sân bóng, bãi giữ xe, công trình).' : `Kiểu "${LOOKS[p.look].label}" chỉ dành cho loại Cảnh quan.`);
     if (p.signBg && !COLOR_RE.test(p.signBg)) add('error', p.id, 'signBg', 'Màu biển phải dạng #rrggbb.');
     if (p.floors != null && (!Number.isInteger(p.floors) || p.floors < 1 || p.floors > 15)) add('error', p.id, 'floors', 'Số tầng 1–15.');
     // kiểu nhà (hình dáng) + số tầng cho phép theo kiểu

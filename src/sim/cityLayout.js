@@ -21,18 +21,21 @@ export const MULTI_LOTS = {
   W01: ['N0', 'W1'], W12: ['W1', 'S0'], E01: ['N2', 'E1'], E12: ['E1', 'S2'], // 2 lô dọc (mặt tiền tây/đông)
   N: ['N0', 'N1', 'N2'], S: ['S0', 'S1', 'S2'], // cả dãy
   W: ['N0', 'W1', 'S0'], E: ['N2', 'E1', 'S2'], // cả cột
+  B: ['N0', 'N1', 'N2', 'W1', 'C', 'E1', 'S0', 'S1', 'S2'], // cả khối (chỉ cảnh quan: công viên lớn…)
 };
 // Kích thước → các lô cùng cỡ
-export const LOT_SIZES = { one: LOT_IDS, two: ['N01', 'N12', 'S01', 'S12'], vtwo: ['W01', 'W12', 'E01', 'E12'], row: ['N', 'S'], col: ['W', 'E'] };
+export const LOT_SIZES = { one: LOT_IDS, two: ['N01', 'N12', 'S01', 'S12'], vtwo: ['W01', 'W12', 'E01', 'E12'], row: ['N', 'S'], col: ['W', 'E'], block: ['B'] };
 export const lotParts = (lot) => MULTI_LOTS[lot] || [lot];
 export const lotSize = (lot) => Object.keys(LOT_SIZES).find((k) => LOT_SIZES[k].includes(lot)) || null;
-const CELL = { N0: [0, 0], N1: [1, 0], N2: [2, 0], W1: [0, 1], E1: [2, 1], S0: [0, 2], S1: [1, 2], S2: [2, 2] };
+const CELL = { N0: [0, 0], N1: [1, 0], N2: [2, 0], W1: [0, 1], C: [1, 1], E1: [2, 1], S0: [0, 2], S1: [1, 2], S2: [2, 2] };
+// hướng mặt tiền mặc định theo lô (cả khối 'B' → quay ra đường phía bắc)
+const defaultFace = (lot) => (lot === 'B' ? 'N' : lot[0]);
 
 // Các hướng mặt tiền chọn được: những cạnh của lô chạm ra đường. Hướng mặc định (theo lô) đứng đầu.
 export function lotFaces(lot) {
   const cells = lotParts(lot).map((id) => CELL[id]);
   if (lot === 'C' || !cells.length || !cells.every(Boolean)) return ['E'];
-  const out = [lot[0]];
+  const out = [defaultFace(lot)];
   const touch = { N: cells.some((c) => c[1] === 0), E: cells.some((c) => c[0] === 2), S: cells.some((c) => c[1] === 2), W: cells.some((c) => c[0] === 0) };
   for (const f of ['N', 'E', 'S', 'W']) if (touch[f] && !out.includes(f)) out.push(f);
   return out;
@@ -136,7 +139,7 @@ export function lotInfo(bx, bz, lot, wantFace = null, map = MAP) {
   }
   const b = blockBounds(bx, bz);
   const ax = b.x0 + CITY.SW, az = b.z0 + CITY.SW, W = LOT_W;
-  let r, face = lot[0];
+  let r, face = defaultFace(lot);
   const cells = lotParts(lot).map((id) => CELL[id]);
   if (lot !== 'C' && cells.length && cells.every(Boolean)) {
     // khung bao các ô của lô (1 ô, 2 ô ngang, cả dãy, cả cột)

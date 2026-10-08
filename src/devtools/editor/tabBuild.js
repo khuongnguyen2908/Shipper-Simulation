@@ -12,12 +12,13 @@ import { blockUnder, dropTarget, lotProblem } from './buildRules.js';
 import { ALLEY_TEMPLATES } from '../../sim/blockPlan.js';
 import { isPlaced } from '../../data/places.js';
 import { PROTECTED } from '../../data/validate.js';
-import { LOOKS, lookOf } from '../../data/looks.js';
+import { LOOKS, lookOf, looksFor } from '../../data/looks.js';
 import { el, button, selectInput, checkInput } from './ui.js';
 
-const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', service: '⭐' };
+const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', service: '⭐', scenery: '🌳' };
 const DIR = { N: 'Bắc', S: 'Nam', E: 'Đông', W: 'Tây' };
-const SIZE_LABEL = { one: '1 lô', two: '2 lô ngang', vtwo: '2 lô dọc', row: 'Cả dãy (3 lô ngang)', col: 'Cả cột (3 lô dọc)' };
+const SIZE_LABEL = { one: '1 lô', two: '2 lô ngang', vtwo: '2 lô dọc', row: 'Cả dãy (3 lô ngang)', col: 'Cả cột (3 lô dọc)', block: 'Cả khối (9 ô)' };
+const sizesFor = (kind) => Object.entries(SIZE_LABEL).filter(([k]) => k !== 'block' || kind === 'scenery'); // cả khối: chỉ cảnh quan
 
 // Kích thước của địa điểm vừa cất vào danh sách (để kéo ra lại vẫn đúng cỡ cũ)
 const stashSize = new Map();
@@ -399,8 +400,8 @@ export function render(root, ctx) {
         placed ? el('div', { class: 'inline wrap' },
           button('🔄 Xoay (R)', () => rotatePlace(p), `small${faces.length > 1 ? '' : ' dim'}`),
           !PROTECTED.places.includes(p.id) ? button('📦 Cất vào danh sách (Delete)', () => stashPlace(p), 'small') : null) : null,
-        placed && !plan && p.kind !== 'gate' ? el('label', { class: 'bp-row' }, 'Kích thước ', selectInput(lotSize(p.lot) || 'one', Object.entries(SIZE_LABEL), (v) => resizePlace(p, v))) : null,
-        el('label', { class: 'bp-row' }, 'Kiểu nhà ', selectInput(p.look || '', [['', `Tự chọn (${LOOKS[lookOf(p)]?.label || '—'})`], ...Object.entries(LOOKS).map(([k, l]) => [k, l.label])], (v) => commit(() => { if (v) p.look = v; else delete p.look; }))),
+        placed && !plan && p.kind !== 'gate' ? el('label', { class: 'bp-row' }, 'Kích thước ', selectInput(lotSize(p.lot) || 'one', sizesFor(p.kind), (v) => resizePlace(p, v))) : null,
+        el('label', { class: 'bp-row' }, p.kind === 'scenery' ? 'Kiểu ' : 'Kiểu nhà ', selectInput(p.look || '', [['', `Tự chọn (${LOOKS[lookOf(p)]?.label || '—'})`], ...looksFor(p.kind).map((k) => [k, LOOKS[k].label])], (v) => commit(() => { if (v) p.look = v; else delete p.look; }))),
         button('✏️ Sửa chi tiết ở thẻ Địa điểm', () => ctx.select('places', { id: p.id }), 'small'),
       );
       panel.hidden = false;

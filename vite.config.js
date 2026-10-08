@@ -35,12 +35,13 @@ function editorSavePlugin() {
           res.statusCode = 405;
           return res.end('POST only');
         }
-        let body = '';
-        req.on('data', (c) => (body += c));
+        // gom các mảnh dạng byte rồi mới đổi sang chữ: đổi từng mảnh riêng sẽ làm vỡ chữ có dấu nằm ở chỗ cắt mảnh (file lớn như vi.json)
+        const chunks = [];
+        req.on('data', (c) => chunks.push(c));
         req.on('end', () => {
           res.setHeader('Content-Type', 'application/json');
           try {
-            const { files } = JSON.parse(body);
+            const { files } = JSON.parse(Buffer.concat(chunks).toString('utf8'));
             const written = [];
             for (const f of files) {
               if (!EDITABLE.includes(f.path)) throw new Error(`Không được ghi file: ${f.path}`);

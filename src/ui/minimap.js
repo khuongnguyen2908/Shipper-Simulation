@@ -1,8 +1,11 @@
 // Bản đồ nhỏ (góc màn hình) và bản đồ lớn trong điện thoại — vẽ bằng canvas 2D.
 import { CITY, HALF, roadPos, blockBounds, segmentRect, roadGraph } from '../sim/cityLayout.js';
 import { STREETS_X, STREETS_Z } from '../data/places.js';
+import { lookOf } from '../data/looks.js';
 
-const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺' };
+const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', scenery: '🌳' };
+// màu mảng cảnh quan trên bản đồ nhỏ
+const SCENERY_COLOR = { park: '#4f8a3a', emptyLot: '#8b6f4e', soccer: '#3d9a48', parkingLot: '#8a8a85', construction: '#b08a4a' };
 
 export class MiniMap {
   constructor(canvas, { scale = 1, labels = false } = {}) {
@@ -80,7 +83,14 @@ export class MiniMap {
     // địa điểm
     g.textAlign = 'center';
     g.textBaseline = 'middle';
+    // cảnh quan: mảng màu theo kiểu (không biểu tượng / tên, trừ khi có hoạt động)
     for (const p of data.places) {
+      if (p.kind !== 'scenery') continue;
+      g.fillStyle = SCENERY_COLOR[lookOf(p)] || '#4f8a3a';
+      g.fillRect(X(p.x0), Z(p.z0), (p.x1 - p.x0) * k, (p.z1 - p.z0) * k);
+    }
+    for (const p of data.places) {
+      if (p.kind === 'scenery' && !(p.activities || []).length) continue;
       const fs = Math.round((this.labels ? 15 : 11) * this.scale);
       g.font = `${fs}px "Segoe UI Emoji", "Segoe UI", sans-serif`;
       g.globalAlpha = p.soon ? 0.3 : 1; // chưa khai trương

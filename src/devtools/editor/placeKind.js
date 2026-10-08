@@ -5,7 +5,7 @@
 export const CHANGEABLE_KINDS = ['restaurant', 'gas', 'shop', 'garage', 'market', 'service'];
 
 // Biểu tượng mặc định theo loại (trùng với bản đồ) — đổi loại thì bỏ biểu tượng mặc định cũ để lấy cái mới
-const DEFAULT_ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', service: '⭐' };
+const DEFAULT_ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', service: '⭐', scenery: '🌳' };
 
 // locked: địa điểm có khóa (PROTECTED) → không đổi loại được
 export function canChangeKind(p, locked) {

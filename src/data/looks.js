@@ -17,7 +17,15 @@ export const LOOKS = {
   apartment: { label: 'Chung cư cũ', floors: [4, 15] },
   tower: { label: 'Tòa nhà kính (TTTM, văn phòng)', floors: [3, 15] },
   karaoke: { label: 'Karaoke', floors: [2, 6] },
+  // cảnh quan (loại địa điểm "scenery"): không nhà, đi xuyên qua được — chỉ cây, ghế, hàng rào là vật cản
+  park: { label: '🌳 Công viên', floors: null, scenery: true },
+  emptyLot: { label: '🟫 Đất trống', floors: null, scenery: true },
+  soccer: { label: '⚽ Sân bóng mini', floors: null, scenery: true },
+  parkingLot: { label: '🅿️ Bãi giữ xe', floors: null, scenery: true },
+  construction: { label: '🏗️ Công trình đang xây', floors: null, scenery: true },
 };
+// Kiểu dùng được cho loại địa điểm: cảnh quan ↔ chỉ kiểu cảnh quan; loại khác ↔ chỉ kiểu nhà
+export const looksFor = (kind) => Object.keys(LOOKS).filter((k) => !!LOOKS[k].scenery === (kind === 'scenery'));
 
 // Kiểu nhà tự đoán khi chưa chọn
 export function guessLook(p) {
@@ -42,6 +50,12 @@ export function guessLook(p) {
       if (/cà phê|cafe/.test(n)) return 'cafe';
       if (/trà|bánh|kem|sinh tố/.test(n)) return 'modern';
       return 'eatery';
+    case 'scenery':
+      if (/đất trống|bãi đất/.test(n)) return 'emptyLot';
+      if (/sân bóng|bóng đá/.test(n)) return 'soccer';
+      if (/giữ xe|gửi xe|đậu xe/.test(n)) return 'parkingLot';
+      if (/công trình|đang xây/.test(n)) return 'construction';
+      return 'park';
     case 'service':
       if (/chùa/.test(n)) return 'pagoda';
       if (/karaoke/.test(n)) return 'karaoke';

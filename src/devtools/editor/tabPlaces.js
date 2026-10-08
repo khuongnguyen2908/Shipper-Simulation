@@ -6,7 +6,7 @@ import { moveInArray } from './order.js';
 import { rowMenu, addButton, entryButtons, doRemove, doCopyActivity, doPasteActivity } from './opsUi.js';
 import { personPreview } from './personPreview.js';
 import { housePreview } from './housePreview.js';
-import { LOOKS, guessLook, lookOf } from '../../data/looks.js';
+import { LOOKS, guessLook, lookOf, looksFor } from '../../data/looks.js';
 import { guessGender } from '../../sim/people.js';
 import { el, field, textInput, numInput, colorInput, selectInput, checkInput, button, sideList, areaInput, dragHandle, makeSortable, emojiInput, explain, openDayInput, subTabs, advanced } from './ui.js';
 import { openDayOf } from '../../sim/placeRules.js';
@@ -18,16 +18,18 @@ import { hoursPicker, rangesEditor, presetUsers } from './hoursUi.js';
 import { ranges, packRanges, fmtHours } from '../../sim/hours.js';
 import { CHANGEABLE_KINDS, canChangeKind, applyKind } from './placeKind.js';
 
-const KIND = { home: '🏠 Nhà trọ', restaurant: '🍴 Quán ăn', gas: '⛽ Cây xăng', shop: '🎒 Tiệm đồ nghề', garage: '🔧 Tiệm xe', cafe: '☕ Quán cà phê', taphoa: '🛒 Tạp hóa', gate: '🟩 Nhà cổng xanh', apartment: '🏢 Chung cư', market: '🧺 Chợ', service: '⭐ Dịch vụ' };
-const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', service: '⭐' };
+const KIND = { home: '🏠 Nhà trọ', restaurant: '🍴 Quán ăn', gas: '⛽ Cây xăng', shop: '🎒 Tiệm đồ nghề', garage: '🔧 Tiệm xe', cafe: '☕ Quán cà phê', taphoa: '🛒 Tạp hóa', gate: '🟩 Nhà cổng xanh', apartment: '🏢 Chung cư', market: '🧺 Chợ', service: '⭐ Dịch vụ', scenery: '🌳 Cảnh quan' };
+const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', service: '⭐', scenery: '🌳' };
 const LOT_LABEL = {
   N0: 'N0 · bắc trái', N1: 'N1 · bắc giữa', N2: 'N2 · bắc phải', S0: 'S0 · nam trái', S1: 'S1 · nam giữa', S2: 'S2 · nam phải', E1: 'E1 · đông', W1: 'W1 · tây',
   N01: 'N0+N1 · bắc, bên trái', N12: 'N1+N2 · bắc, bên phải', S01: 'S0+S1 · nam, bên trái', S12: 'S1+S2 · nam, bên phải',
   W01: 'N0+W1 · cột tây, phía trên', W12: 'W1+S0 · cột tây, phía dưới', E01: 'N2+E1 · cột đông, phía trên', E12: 'E1+S2 · cột đông, phía dưới',
-  N: 'N · cả dãy bắc', S: 'S · cả dãy nam', W: 'W · cả cột tây (N0+W1+S0)', E: 'E · cả cột đông (N2+E1+S2)', C: 'C · sân trong hẻm',
+  B: 'B · cả khối (9 ô)', N: 'N · cả dãy bắc', S: 'S · cả dãy nam', W: 'W · cả cột tây (N0+W1+S0)', E: 'E · cả cột đông (N2+E1+S2)', C: 'C · sân trong hẻm',
 };
 const DIR = { N: 'Bắc', S: 'Nam', E: 'Đông', W: 'Tây' };
-const SIZE_LABEL = { one: '1 lô', two: '2 lô ngang', vtwo: '2 lô dọc', row: 'Cả dãy (3 lô ngang)', col: 'Cả cột (3 lô dọc)' };
+const SIZE_LABEL = { one: '1 lô', two: '2 lô ngang', vtwo: '2 lô dọc', row: 'Cả dãy (3 lô ngang)', col: 'Cả cột (3 lô dọc)', block: 'Cả khối (9 ô — chỉ cảnh quan)' };
+// cỡ chọn được theo loại: "Cả khối" chỉ dành cho cảnh quan (công viên lớn…)
+const sizesFor = (kind) => Object.entries(SIZE_LABEL).filter(([k]) => k !== 'block' || kind === 'scenery');
 // Lô cùng cỡ có chứa ô vừa bấm (ưu tiên lô bắt đầu từ ô đó)
 const lotForCell = (size, cell) => {
   const fits = LOT_SIZES[size].filter((l) => lotParts(l).includes(cell));
@@ -50,7 +52,7 @@ export function render(root, ctx) {
   const drawSide = () => {
     side.innerHTML = '';
     side.append(
-      el('div', { class: 'side-head' }, el('b', {}, `Địa điểm (${places.length})`), addButton(ctx, 'places', [['🍴 Quán ăn mới', () => addPlace('restaurant')], ['⭐ Địa điểm dịch vụ mới', () => addPlace('service')]])),
+      el('div', { class: 'side-head' }, el('b', {}, `Địa điểm (${places.length})`), addButton(ctx, 'places', [['🍴 Quán ăn mới', () => addPlace('restaurant')], ['⭐ Địa điểm dịch vụ mới', () => addPlace('service')], ['🌳 Cảnh quan mới (công viên, đất trống…)', () => addPlace('scenery')]])),
       sideList(
         [
           { id: '__streets', icon: '🛣️', title: 'Tên đường & khách', sub: 'phố, khách hàng, người đi đường', fixed: true },
@@ -127,12 +129,12 @@ export function render(root, ctx) {
         lookField(),
         floorsField(),
         field('Biểu tượng bản đồ', emojiInput(p.icon ?? '', (v) => { if (v) p.icon = v; else delete p.icon; changedP(); }, { placeholder: ICON[p.kind] || '📍' }), opt('icon', { hint: 'Emoji; để trống = theo loại' })),
-        p.kind !== 'gate' ? field('Chữ trên biển hiệu', textInput(p.sign, (v) => { p.sign = v; changedP(); }), opt('sign', { hint: HINT.place.sign })) : null,
+        p.kind !== 'gate' && p.kind !== 'scenery' ? field('Chữ trên biển hiệu', textInput(p.sign, (v) => { p.sign = v; changedP(); }), opt('sign', { hint: HINT.place.sign })) : null,
         placed ? null : unplacedField(),
         placed && field('Khối (cột x, hàng z)', el('span', { class: 'inline' },
           numInput(p.block[0], (v) => { p.block[0] = Math.round(v); changedP(); drawMap(); }, { step: 1, min: 0, max: CITY.N - 1 }),
           numInput(p.block[1], (v) => { p.block[1] = Math.round(v); changedP(); drawMap(); }, { step: 1, min: 0, max: CITY.N - 1 })), opt('block', { hint: `0–${CITY.N - 1}, từ tây-bắc` })),
-        placed && p.kind !== 'gate' && !plan ? field('Kích thước', selectInput(size, Object.entries(SIZE_LABEL), (v) => {
+        placed && p.kind !== 'gate' && !plan ? field('Kích thước', selectInput(size, sizesFor(p.kind), (v) => {
           // giữ chỗ cũ nếu được: lấy lô cỡ mới chứa ô đầu của lô hiện tại
           p.lot = lotForCell(v, lotParts(p.lot)[0]) || lotParts(p.lot).map((c) => lotForCell(v, c)).find(Boolean) || LOT_SIZES[v][0];
           fixFace();
@@ -144,7 +146,7 @@ export function render(root, ctx) {
       ),
       advanced('Nâng cao: mã, màu',
         field('Mã (không dấu)', idInput, opt('id', { hint: locked ? 'Code dùng trực tiếp mã này' : 'Đổi mã sẽ đổi cả khóa lời thoại npc.<mã>.*' })),
-        p.signBg != null || p.kind !== 'gate' ? field('Màu biển hiệu', colorInput(p.signBg, (v) => { p.signBg = v; changedP(); }), opt('signBg')) : null,
+        p.signBg != null || (p.kind !== 'gate' && p.kind !== 'scenery') ? field('Màu biển hiệu', colorInput(p.signBg, (v) => { p.signBg = v; changedP(); }), opt('signBg')) : null,
         field('Màu tường', colorInput(p.color, (v) => { p.color = v; changedP(); }), opt('color')),
       ), houseBox()),
       mapBox,
@@ -453,6 +455,7 @@ export function render(root, ctx) {
     });
     s.disabled = !can;
     return field('Loại địa điểm', s, opt('kind', { hint: can ? HINT.place.kind
+      : p.kind === 'scenery' ? 'Cảnh quan (công viên, đất trống…) tạo riêng — không đổi sang loại khác. Muốn có việc làm ở đây thì thêm hoạt động.'
       : locked ? 'Địa điểm có khóa 🔒 (code gọi thẳng) — không đổi loại được.'
       : 'Loại này gắn với cốt truyện (quán cà phê, tạp hóa: nhiệm vụ chiếc ví) hoặc chỉ có một (nhà trọ, nhà cổng xanh, chung cư) — không đổi được.' }));
   }
@@ -460,7 +463,7 @@ export function render(root, ctx) {
   // ---------- kiểu nhà + số tầng + xem trước ----------
   function lookField() {
     const guess = LOOKS[guessLook(p)].label;
-    const s = selectInput(p.look && LOOKS[p.look] ? p.look : '', [['', `Tự đoán theo loại — ${guess}`], ...Object.entries(LOOKS).map(([k, v]) => [k, v.label])], (v) => {
+    const s = selectInput(p.look && LOOKS[p.look] ? p.look : '', [['', `Tự đoán theo loại — ${guess}`], ...looksFor(p.kind).map((k) => [k, LOOKS[k].label])], (v) => {
       if (v) p.look = v;
       else delete p.look;
       const r = LOOKS[lookOf(p)].floors;
@@ -468,7 +471,7 @@ export function render(root, ctx) {
       changedP();
       ctx.rerender();
     });
-    return field('Kiểu nhà', s, opt('look', { hint: HINT.place.look }));
+    return field(p.kind === 'scenery' ? 'Kiểu cảnh quan' : 'Kiểu nhà', s, opt('look', { hint: p.kind === 'scenery' ? HINT.place.sceneryLook : HINT.place.look }));
   }
   function floorsField() {
     const r = LOOKS[lookOf(p)].floors;
@@ -520,11 +523,17 @@ export function render(root, ctx) {
   // Địa điểm mới nằm chờ trong danh sách (chưa có khối / lô) → kéo vào bản đồ ở thẻ 🏗️ Xây dựng
   function addPlace(kind) {
     const spot = {};
-    const prefix = kind === 'restaurant' ? 'quan' : 'dichvu';
+    const prefix = kind === 'restaurant' ? 'quan' : kind === 'scenery' ? 'canhquan' : 'dichvu';
     let n = 1;
     while (places.some((x) => x.id === `${prefix}${n}`)) n++;
     const id = `${prefix}${n}`;
     const firstItem = Object.values(ctx.data.items).find((it) => !it.traits.includes('passenger'));
+    if (kind === 'scenery') {
+      // cảnh quan: không NPC, không biển hiệu, không giờ — thêm hoạt động sau nếu muốn có việc làm ở đây
+      places.push({ id, name: 'Công viên mới', short: 'Công viên', kind, icon: '🌳', ...spot, look: 'park', color: '#5f9e45' });
+      changedP();
+      return ctx.select('places', { id });
+    }
     if (kind === 'restaurant') {
       places.push({ id, name: 'Quán mới', short: 'Quán', kind, ...spot, floors: 2, color: '#f4c095', sign: 'QUÁN MỚI', signBg: '#b03a2e', menu: firstItem ? [firstItem.id] : [], npc: { name: 'Chủ quán', shirt: '#ffffff', pants: '#333344', hat: null, portrait: '🧑‍🍳' } });
       ctx.data.content[`npc.${id}.greet`] = '"Chào em! Đơn của em đây."';

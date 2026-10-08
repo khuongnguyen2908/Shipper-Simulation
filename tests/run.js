@@ -12,6 +12,7 @@ import { GameState } from '../src/sim/GameState.js';
 import { HazardManager } from '../src/sim/hazards.js';
 import { makeRng } from '../src/sim/rng.js';
 import { buildLayout, blockAt, HALF } from '../src/sim/cityLayout.js';
+import * as CITYLAYOUT from '../src/sim/cityLayout.js';
 import { objectives } from '../src/sim/objectives.js';
 import { ranges } from '../src/sim/hours.js';
 import { dayOf, dayStartAt, atHour, fmtClock, minutesUntil } from '../src/sim/clock.js';
@@ -689,9 +690,19 @@ console.log('App giao hàng, loại đơn, tài khoản, loại khách (apps.jso
     const o = forceOffer(om, () => om.makeRide({ x: 0, z: 0 }, false, 600));
     u();
     om.boardPassenger(600);
-    const mid = { x: (o.pickup.door.x + o.dropoff.door.x) / 2, z: (o.pickup.door.z + o.dropoff.door.z) / 2 };
+    // điểm giữa trên đường đi thật (đường chim bay có thể rơi sang bờ sông bên kia khi chuyến phải vòng qua cầu)
+    const { routeNodes, nodePos } = CITYLAYOUT;
+    const path = routeNodes(o.pickup.door, o.dropoff.door);
+    // điểm ở nửa quãng trên đường gấp khúc: cửa đón → các ngã tư → cửa trả
+    const pts = [o.pickup.door, ...path.map((n) => nodePos(...n)), o.dropoff.door];
+    const seg = pts.slice(1).map((q, i) => Math.abs(q.x - pts[i].x) + Math.abs(q.z - pts[i].z));
+    let half = seg.reduce((a2, b2) => a2 + b2, 0) / 2, mid = pts[0];
+    for (let i = 0; i < seg.length; i++) {
+      if (half <= seg[i]) { const t = half / Math.max(1e-6, seg[i]); mid = { x: pts[i].x + (pts[i + 1].x - pts[i].x) * t, z: pts[i].z + (pts[i + 1].z - pts[i].z) * t }; break; }
+      half -= seg[i];
+    }
     const rec = om.quitRide(605, mid);
-    assert.ok(rec.quit && rec.ev.stars === 1 && rec.traveled > 0.2 && rec.traveled < 0.8, `đi được ${rec.traveled}`);
+    assert.ok(rec.quit && rec.ev.stars === 1 && rec.traveled > 0.2 && rec.traveled < 0.8, `đi được ${rec.traveled} · đón ${JSON.stringify(o.pickup.door)} trả ${JSON.stringify(o.dropoff.door)} d2 ${o.d2} giữa ${JSON.stringify(mid)} còn ${CITYLAYOUT.routeDist(mid, o.dropoff.door)} · ${path.length} nút`);
     const full = computePayout({ baseFare: o.baseFare, distanceKm: o.distanceKm, stars: 1, surcharge: o.surcharge });
     assert.ok(rec.pay.gross < full.gross);
     const u2 = withRider(om, 'drunk');
@@ -1867,6 +1878,67 @@ console.log('Thẻ 🏗️ Xây dựng: địa điểm chưa đặt, kéo thả 
       assert.equal(t.ok, false);
     }
     assert.equal(B.lotProblem(data, { id: 'g', kind: 'gate' }, 0, 0, 'N1') !== '', true, 'nhà cổng xanh không dời');
+  });
+}
+
+console.log('Cảnh quan (công viên, đất trống, sân bóng, bãi giữ xe, công trình) + cỡ cả khối');
+{
+  const { lotInfo, lotFaces, blockPlan, blockBounds, CITY } = await import('../src/sim/cityLayout.js');
+  const { validatePlaces } = await import('../src/data/validate.js');
+  const { buildPlace } = await import('../src/world/placeBuildings.js');
+  const { LOOKS, looksFor, lookOf } = await import('../src/data/looks.js');
+  const B = await import('../src/devtools/editor/buildRules.js');
+  const rd = (p) => JSON.parse(fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8'));
+  test('Cả khối: lô B phủ cả khối, quay ra 4 hướng; chỉ cảnh quan được dùng', () => {
+    const r = lotInfo(1, 1, 'B'), b = blockBounds(1, 1);
+    assert.ok(Math.abs(r.x0 - (b.x0 + CITY.SW)) < 1e-6 && Math.abs(r.x1 - (b.x1 - CITY.SW)) < 1e-6 && Math.abs(r.z1 - (b.z1 - CITY.SW)) < 1e-6);
+    assert.equal(r.face, 'N');
+    assert.deepEqual(lotFaces('B').slice().sort(), ['E', 'N', 'S', 'W']);
+    const pd = rd('src/data/places.json');
+    const base = { name: 'Công viên', short: 'CV', kind: 'scenery', color: '#5f9e45' };
+    const run = (extra) => validatePlaces({ ...pd, places: [...pd.places, { id: 'cv', ...base, ...extra }] }, rd('src/data/items.json')).filter((i) => i.ref === 'cv' && i.level === 'error');
+    assert.deepEqual(run({ look: 'park' }), [], 'cảnh quan không cần NPC, biển hiệu');
+    assert.ok(run({ look: 'tube' }).some((i) => i.field === 'look'), 'cảnh quan dùng kiểu nhà thường → lỗi');
+    const shop = pd.places.find((p) => p.kind === 'restaurant');
+    assert.ok(validatePlaces({ ...pd, places: pd.places.map((p) => (p === shop ? { ...p, look: 'park' } : p)) }, rd('src/data/items.json')).some((i) => i.ref === shop.id && i.field === 'look' && i.level === 'error'));
+    assert.ok(validatePlaces({ ...pd, places: pd.places.map((p) => (p === shop ? { ...p, lot: 'B' } : p)) }, rd('src/data/items.json')).some((i) => i.ref === shop.id && i.field === 'lot' && i.level === 'error'));
+    assert.deepEqual(looksFor('scenery').sort(), Object.keys(LOOKS).filter((k) => LOOKS[k].scenery).sort());
+    assert.equal(lookOf({ kind: 'scenery', name: 'Bãi giữ xe chợ' }), 'parkingLot');
+  });
+  test('Dựng 5 mẫu cảnh quan (1 lô, 2 lô, cả khối): đi xuyên qua được — chỉ vật nhỏ chắn', () => {
+    for (const look of Object.keys(LOOKS).filter((k) => LOOKS[k].scenery)) {
+      for (const [W, D] of [[11, 9], [22, 9], [34, 34]]) {
+        const b = buildPlace({ look, W, D, seed: 3 });
+        assert.ok(Array.isArray(b.colliders), `${look}: không chắn kín cả lô`);
+        const area = b.colliders.reduce((s, c) => s + (c.x1 - c.x0) * (c.z1 - c.z0), 0);
+        assert.ok(area < W * D * 0.85, `${look} ${W}×${D}: vật cản phủ gần hết lô`);
+      }
+    }
+  });
+  test('Kéo cảnh quan cả khối: vào khối trống thì được, khối có địa điểm / có hẻm thì không', () => {
+    const data = { places: rd('src/data/places.json'), map: rd('src/data/map.json') };
+    const placed = data.places.places.filter((p) => p.block && p.lot);
+    const used = new Set(placed.map((p) => p.block.join(',')));
+    used.add(data.places.alley.block.join(','));
+    const center = (bx, bz) => { const r = blockBounds(bx, bz); return [(r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2]; };
+    let freeBlock = null, busyBlock = placed.find((p) => !blockPlan(p.block[0], p.block[1], data.map))?.block;
+    for (let z = 0; z < CITY.N && !freeBlock; z++) for (let x = 0; x < CITY.N && !freeBlock; x++) if (!used.has(`${x},${z}`) && !blockPlan(x, z, data.map)) freeBlock = [x, z];
+    const cv = { id: 'cv', kind: 'scenery' };
+    if (freeBlock) {
+      const t = B.dropTarget(data, cv, ...center(...freeBlock), 'block');
+      assert.equal(t.lot, 'B');
+      assert.ok(t.ok, t.why);
+    }
+    if (busyBlock) assert.equal(B.dropTarget(data, cv, ...center(...busyBlock), 'block').ok, false);
+    const ak = Object.keys(data.map.blocks || {})[0];
+    if (ak) assert.equal(B.dropTarget(data, cv, ...center(...ak.split(',').map(Number)), 'block').ok, false);
+  });
+  test('Không file dữ liệu / chữ nào chứa ký tự vỡ "�" (lỗi lưu file cắt đôi chữ có dấu)', () => {
+    for (const f of ['src/content/vi.json', 'src/data/items.json', 'src/data/places.json', 'src/data/gear.json', 'src/data/goods.json', 'src/data/apps.json', 'src/data/map.json', 'src/data/balance.json', 'src/data/editor.json']) {
+      const t = fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
+      const i = t.indexOf('�');
+      assert.equal(i, -1, `${f}: có ký tự vỡ quanh "${t.slice(Math.max(0, i - 30), i + 10)}"`);
+    }
   });
 }
 

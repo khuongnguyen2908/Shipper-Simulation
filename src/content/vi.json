@@ -384,7 +384,7 @@
   "receipt.titleRide": "🧾 Hoàn tất chuyến #{id}",
   "receipt.comfort": "Khách thoải mái",
   "receipt.noDamageRide": "Khách thoải mái suốt chuyến 👍",
-  "receipt.scaredNote": "Khách sợ quá, chỉ trả {pct}% c��ớc",
+  "receipt.scaredNote": "Khách sợ quá, chỉ trả {pct}% cước",
   "comment.ride.1": [
     "\"Chạy như đua xe vậy, tim muốn rớt ra ngoài!\"",
     "\"Lần sau đi bộ còn hơn.\""
@@ -736,5 +736,6 @@
     "GIẢM GIÁ",
     "KHAI TRƯƠNG",
     "MUA 1 TẶNG 1"
-  ]
+  ],
+  "act.scenery": "Vào {place}"
 }
