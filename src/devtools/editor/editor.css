@@ -218,3 +218,26 @@ body.show-hints .fld-i { display: none; }
 .iss-ignored .iss { cursor: default; color: #8b97a8; }
 /* nhóm vật phẩm */
 .group-seg .btn { flex: 1 1 auto; }
+/* thẻ 🏗️ Xây dựng */
+.build-body { padding: 10px 12px; }
+.build-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.build-view { position: relative; height: calc(100vh - 250px); min-height: 420px; border-radius: 10px; overflow: hidden; background: #9cc7e6; touch-action: none; user-select: none; }
+.build-view canvas { display: block; }
+.build-labels { position: absolute; inset: 0; pointer-events: none; }
+.build-label { position: absolute; transform: translate(-50%, -100%); background: #0f141bcc; color: #fff; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 6px; white-space: nowrap; }
+.build-label.on { background: #b8860b; }
+.build-tip { position: absolute; left: 8px; bottom: 8px; right: 8px; color: #fff; font-size: 11.5px; background: #0f141b99; padding: 4px 8px; border-radius: 6px; pointer-events: none; }
+.build-panel { position: absolute; top: 10px; right: 10px; width: 270px; display: flex; flex-direction: column; gap: 8px; background: #1a202bf0; border: 1px solid #3a4558; border-radius: 10px; padding: 10px; box-shadow: 0 8px 24px #0008; }
+.bp-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.bp-row { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #a9b3c4; }
+.bp-row select { flex: 1; }
+.inline.wrap { flex-wrap: wrap; }
+.build-side .side-list { gap: 2px; }
+.build-sec { font-size: 12px; font-weight: 700; color: #a9b3c4; margin: 8px 4px 2px; }
+.build-empty { padding: 2px 8px 6px; display: block; }
+.build-row { cursor: grab; touch-action: none; user-select: none; }
+.build-row.waiting { background: #2a2414; border-color: #6b5520; }
+.build-chip { position: fixed; z-index: 60; display: none; pointer-events: none; background: #00b14f; color: #fff; font: 600 12.5px 'Segoe UI', sans-serif; padding: 4px 10px; border-radius: 8px; box-shadow: 0 6px 18px #0008; white-space: nowrap; }
+.build-chip.on { display: block; }
+.build-chip.bad { background: #c0392b; }
+.unplaced-card { background: #2a2414; border: 1px dashed #b8860b; border-radius: 10px; padding: 14px; }

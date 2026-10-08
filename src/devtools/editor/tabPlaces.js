@@ -10,6 +10,8 @@ import { LOOKS, guessLook, lookOf } from '../../data/looks.js';
 import { guessGender } from '../../sim/people.js';
 import { el, field, textInput, numInput, colorInput, selectInput, checkInput, button, sideList, areaInput, dragHandle, makeSortable, emojiInput, explain, openDayInput, subTabs, advanced } from './ui.js';
 import { openDayOf } from '../../sim/placeRules.js';
+import { isPlaced } from '../../data/places.js';
+import { findSpot } from './ops.js';
 import { rentFor } from '../../data/balance.js';
 import { HINT, EXPLAIN } from './help.js';
 import { hoursPicker, rangesEditor, presetUsers } from './hoursUi.js';
@@ -54,7 +56,7 @@ export function render(root, ctx) {
           { id: '__streets', icon: '🛣️', title: 'Tên đường & khách', sub: 'phố, khách hàng, người đi đường', fixed: true },
           { id: '__schedule', icon: '📅', title: 'Lịch mở theo ngày', sub: 'quán, món mở từ ngày nào', fixed: true },
           { id: '__hours', icon: '⏰', title: 'Khung giờ mẫu', sub: `${Object.keys(pd.hourPresets || {}).length} mẫu · tick ở giờ mở cửa / có đơn`, fixed: true },
-          ...places.map((p) => ({ id: p.id, icon: p.icon || ICON[p.kind] || '•', title: p.name, sub: `${p.id} · khối ${p.block.join(',')} lô ${p.lot}${p.openDay > 1 ? ` · mở ngày ${p.openDay}` : ''}` })),
+          ...places.map((p) => ({ id: p.id, icon: p.icon || ICON[p.kind] || '•', title: p.name, sub: `${p.id} · ${isPlaced(p) ? `khối ${p.block.join(',')} lô ${p.lot}` : '📦 chưa đặt trên bản đồ'}${p.openDay > 1 ? ` · mở ngày ${p.openDay}` : ''}` })),
         ],
         sel.id,
         (id) => ctx.select('places', { id }),
@@ -92,7 +94,8 @@ export function render(root, ctx) {
   const idInput = textInput(p.id, () => {}, { class: 'mono', disabled: locked });
   idInput.addEventListener('change', () => renamePlace(p, idInput.value.trim()));
   const map = ctx.data.map;
-  const plan = blockPlan(p.block[0], p.block[1], map); // khối đang đặt có hẻm?
+  const placed = isPlaced(p); // false = mới tạo, nằm chờ trong danh sách (kéo vào bản đồ ở thẻ 🏗️ Xây dựng)
+  const plan = placed ? blockPlan(p.block[0], p.block[1], map) : null; // khối đang đặt có hẻm?
   const size = lotSize(p.lot) || 'one';
   // khối có hẻm: chọn một nhà (mặt phố hoặc trong hẻm); khối thường: lô theo kích thước
   const lotOptions = plan ? plan.lots.map((l) => l.id) : p.kind === 'gate' ? ['C'] : LOT_SIZES[size];
@@ -125,18 +128,19 @@ export function render(root, ctx) {
         floorsField(),
         field('Biểu tượng bản đồ', emojiInput(p.icon ?? '', (v) => { if (v) p.icon = v; else delete p.icon; changedP(); }, { placeholder: ICON[p.kind] || '📍' }), opt('icon', { hint: 'Emoji; để trống = theo loại' })),
         p.kind !== 'gate' ? field('Chữ trên biển hiệu', textInput(p.sign, (v) => { p.sign = v; changedP(); }), opt('sign', { hint: HINT.place.sign })) : null,
-        field('Khối (cột x, hàng z)', el('span', { class: 'inline' },
+        placed ? null : unplacedField(),
+        placed && field('Khối (cột x, hàng z)', el('span', { class: 'inline' },
           numInput(p.block[0], (v) => { p.block[0] = Math.round(v); changedP(); drawMap(); }, { step: 1, min: 0, max: CITY.N - 1 }),
           numInput(p.block[1], (v) => { p.block[1] = Math.round(v); changedP(); drawMap(); }, { step: 1, min: 0, max: CITY.N - 1 })), opt('block', { hint: `0–${CITY.N - 1}, từ tây-bắc` })),
-        p.kind !== 'gate' && !plan ? field('Kích thước', selectInput(size, Object.entries(SIZE_LABEL), (v) => {
+        placed && p.kind !== 'gate' && !plan ? field('Kích thước', selectInput(size, Object.entries(SIZE_LABEL), (v) => {
           // giữ chỗ cũ nếu được: lấy lô cỡ mới chứa ô đầu của lô hiện tại
           p.lot = lotForCell(v, lotParts(p.lot)[0]) || lotParts(p.lot).map((c) => lotForCell(v, c)).find(Boolean) || LOT_SIZES[v][0];
           fixFace();
           changedP();
           ctx.rerender();
         }), opt('lotSize', { hint: 'Tòa nhà lớn chiếm nhiều lô (mỗi lô bớt 1 nhà khách). Mặt tiền: lô ngang quay ra đường phía bắc/nam; lô dọc quay ra đường phía tây/đông.' })) : null,
-        field('Lô trong khối', selectInput(lotOptions.includes(p.lot) ? p.lot : '', [...(lotOptions.includes(p.lot) ? [] : [['', `(${p.lot} — không có trong khối này)`]]), ...lotOptions.map((l) => [l, lotLabel(l)])], (v) => { if (!v) return; p.lot = v; if (plan) delete p.face; else fixFace(); changedP(); ctx.rerender(); }), opt('lot', { hint: plan ? 'Khối có hẻm: chọn một nhà (mặt tiền cố định theo nhà). Hoặc bấm vào nhà trên bản đồ.' : 'Hoặc bấm vào ô trên bản đồ (giữ nguyên kích thước)' })),
-        p.kind !== 'gate' && !plan ? faceField() : null,
+        placed && field('Lô trong khối', selectInput(lotOptions.includes(p.lot) ? p.lot : '', [...(lotOptions.includes(p.lot) ? [] : [['', `(${p.lot} — không có trong khối này)`]]), ...lotOptions.map((l) => [l, lotLabel(l)])], (v) => { if (!v) return; p.lot = v; if (plan) delete p.face; else fixFace(); changedP(); ctx.rerender(); }), opt('lot', { hint: plan ? 'Khối có hẻm: chọn một nhà (mặt tiền cố định theo nhà). Hoặc bấm vào nhà trên bản đồ.' : 'Hoặc bấm vào ô trên bản đồ (giữ nguyên kích thước)' })),
+        placed && p.kind !== 'gate' && !plan ? faceField() : null,
       ),
       advanced('Nâng cao: mã, màu',
         field('Mã (không dấu)', idInput, opt('id', { hint: locked ? 'Code dùng trực tiếp mã này' : 'Đổi mã sẽ đổi cả khóa lời thoại npc.<mã>.*' })),
@@ -325,7 +329,8 @@ export function render(root, ctx) {
   }
 
   T.done();
-  drawMap();
+  if (placed) drawMap();
+  else mapBox.append(el('div', { class: 'unplaced-card' }, el('b', {}, '📦 Chưa đặt trên bản đồ'), el('p', { class: 'muted' }, 'Game chưa có địa điểm này. Mở thẻ 🏗️ Xây dựng, kéo địa điểm từ danh sách thả vào một lô trên bản đồ 3D.')));
 
   // ---------- bản đồ khối/lô ----------
   function drawMap() {
@@ -478,6 +483,20 @@ export function render(root, ctx) {
     return el('div', { class: 'house-wrap' }, hp.el, el('small', { class: 'muted' }, 'Xem trước nhà trong game (đổi kiểu nhà, số tầng, màu, biển, lô… là thấy ngay)'));
   }
 
+  // ô "Vị trí" của địa điểm chưa đặt: mở thẻ Xây dựng, hoặc đặt nhanh vào lô trống đầu tiên
+  function unplacedField() {
+    return field('Vị trí', el('span', { class: 'inline' },
+      button('🏗️ Kéo vào bản đồ (thẻ Xây dựng)', () => ctx.select('build', { id: p.id }), 'small primary'),
+      button('📍 Đặt nhanh vào lô trống', () => {
+        const spot = findSpot(ctx.data, 'N1');
+        if (!spot) return alert('Hết lô trống.');
+        p.block = spot.block;
+        p.lot = spot.lot;
+        changedP();
+        ctx.rerender();
+      }, 'small')), opt('block', { wide: true, hint: 'Địa điểm mới tạo nằm chờ trong danh sách. Kéo vào bản đồ ở thẻ 🏗️ Xây dựng, hoặc bấm "Đặt nhanh" rồi dời sau.' }));
+  }
+
   // ---------- mặt tiền ----------
   // Bỏ hướng đã chọn nếu lô mới không còn chạm đường hướng đó
   function fixFace() {
@@ -498,12 +517,9 @@ export function render(root, ctx) {
   }
 
   // ---------- thao tác ----------
+  // Địa điểm mới nằm chờ trong danh sách (chưa có khối / lô) → kéo vào bản đồ ở thẻ 🏗️ Xây dựng
   function addPlace(kind) {
-    const taken = new Set(places.flatMap(lotCells));
-    taken.add(`${pd.alley.block[0]},${pd.alley.block[1]},${pd.alley.lot}`);
-    let spot = null;
-    for (let bz = 0; bz < CITY.N && !spot; bz++) for (let bx = 0; bx < CITY.N && !spot; bx++) for (const lot of SINGLE_LOTS) if (!spot && !taken.has(`${bx},${bz},${lot}`)) spot = { block: [bx, bz], lot };
-    if (!spot) return alert('Hết lô trống.');
+    const spot = {};
     const prefix = kind === 'restaurant' ? 'quan' : 'dichvu';
     let n = 1;
     while (places.some((x) => x.id === `${prefix}${n}`)) n++;

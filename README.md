@@ -58,6 +58,7 @@ Chạy `npm run dev -- --port 5180` rồi mở `http://localhost:5180/?editor`.
 
 - **Lưu (Ctrl+S)** ghi thẳng vào file JSON; game đang mở tự tải lại. Còn lỗi ⛔ thì không lưu được.
 - **↶ Hoàn tác (Ctrl+Z) / ↷ Làm lại (Ctrl+Y)** mọi thay đổi chưa lưu, kể cả xóa và "Bỏ thay đổi" (khi đang gõ trong ô thì Ctrl+Z chỉ hoàn tác chữ trong ô).
+- Thẻ **🏗️ Xây dựng**: bản đồ 3D đúng hình trong game. Tạo địa điểm ở thẻ Địa điểm → nó nằm chờ trong danh sách "Chưa đặt" → kéo thả vào lô. Kéo nhà sang lô khác, **R** xoay mặt tiền, **Delete** cất vào danh sách, bấm khối để đổi kiểu hẻm. Chuột trái kéo = dời bản đồ, chuột phải = xoay, lăn = phóng to.
 - Mỗi dòng ở danh sách bên trái có nút **⋯** (hoặc chuột phải): **📋 Sao chép (Ctrl+C) · 📥 Dán (Ctrl+V) · 🗑 Xóa (Delete)**. Bản dán giống hệt bản gốc (tên, thông số, quán bán / thực đơn / loại đơn…), chỉ khác mã. Sao chép xong dán được ở máy khác / editor online. Thẻ hoạt động trong địa điểm cũng có Sao chép / Dán.
 - Thay đổi chưa lưu được giữ làm **bản nháp** trong trình duyệt, mở lại sẽ hỏi khôi phục.
 - Không có máy chủ dev (bản build) → chỉ **Xuất JSON** để chép tay vào dự án.

@@ -25,6 +25,7 @@ import * as tabText from './tabText.js';
 import * as tabApp from './tabApp.js';
 import * as tabMap from './tabMap.js';
 import * as tabBalance from './tabBalance.js';
+import * as tabBuild from './tabBuild.js';
 import { selKey, planScroll, selToSave } from './viewState.js';
 import { createHistory, syncMirror, record, breakStep, undo, redo } from './history.js';
 import { currentEntry, parseClip } from './ops.js';
@@ -47,6 +48,7 @@ const TABS = [
   { id: 'gear', icon: '🛵', label: 'Xe · Túi · Đồ dùng', mod: tabGear },
   { id: 'places', icon: '🏪', label: 'Địa điểm & NPC', mod: tabPlaces },
   { id: 'map', icon: '🗺️', label: 'Bản đồ', mod: tabMap },
+  { id: 'build', icon: '🏗️', label: 'Xây dựng', mod: tabBuild },
   { id: 'app', icon: '📱', label: 'App & Đơn', mod: tabApp },
   { id: 'balance', icon: '⚖️', label: 'Cân bằng', mod: tabBalance },
   { id: 'text', icon: '💬', label: 'Chữ & hội thoại', mod: tabText },
@@ -218,7 +220,7 @@ export async function startEditor(root) {
         { class: 'ed-tabs' },
         TABS.map((t) => {
           const n = ctx.issues.filter((i) => i.tab === t.id && i.level === 'error').length;
-          const fileKeys = t.id === 'text' ? ['content'] : t.id === 'gear' ? ['gear', 'goods'] : t.id === 'app' ? ['apps'] : [t.id];
+          const fileKeys = t.id === 'text' ? ['content'] : t.id === 'gear' ? ['gear', 'goods'] : t.id === 'app' ? ['apps'] : t.id === 'build' ? ['places', 'map'] : [t.id];
           return el(
             'button',
             { class: `ed-tab${ctx.tab === t.id ? ' on' : ''}`, type: 'button', onclick: () => ctx.select(t.id) },

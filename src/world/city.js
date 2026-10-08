@@ -27,7 +27,10 @@ export function frontOf(r, face) {
   return { x: r.x0, z: cz, rotY: -Math.PI / 2, width: r.z1 - r.z0, nx: -1, nz: 0 };
 }
 
-export function buildCity(scene, layout, potholes, seed = 7) {
+// opts (công cụ 🏗️ Xây dựng dùng dữ liệu đang sửa, chưa lưu): map, alley (hẻm 42), items (tên món cho biển quán)
+export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
+  const alleySpec = opts.alley || ALLEY;
+  const itemTable = opts.items || ITEMS;
   const rng = makeRng(seed);
   const grid = new SpatialGrid(16);
   const addBox = (x0, z0, x1, z1, h, tag) => grid.add({ x0, z0, x1, z1, h, tag });
@@ -51,7 +54,7 @@ export function buildCity(scene, layout, potholes, seed = 7) {
   scene.add(road);
 
   // vạch giữa đường + vạch qua đường (không vẽ trên mặt sông, trên cầu)
-  const G = roadGraph();
+  const G = roadGraph(opts.map);
   const segIdx = (a) => Math.floor((a - CITY.ORIGIN) / CITY.PITCH);
   const dashGeo = new THREE.PlaneGeometry(1, 1);
   dashGeo.rotateX(-Math.PI / 2);
@@ -243,8 +246,9 @@ export function buildCity(scene, layout, potholes, seed = 7) {
     const depth = f.nx ? r.x1 - r.x0 : r.z1 - r.z0;
     const b = buildPlace({
       look: lookOf(p), W: f.width, D: depth, floors: lookFloors(p), color: p.color, signBg: p.signBg, sign: p.sign, short: p.short, kind: p.kind,
-      menu: (p.menu || []).map((id) => ITEMS[id]?.name).filter(Boolean), seed: hashStr(p.id), inAlley: p.inAlley,
+      menu: (p.menu || []).map((id) => itemTable[id]?.name).filter(Boolean), seed: hashStr(p.id), inAlley: p.inAlley,
     });
+    b.group.userData.placeId = p.id; // để công cụ Xây dựng bấm chọn nhà
     b.group.position.set(f.x, SW_H, f.z);
     b.group.rotation.y = f.rotY;
     scene.add(b.group);
@@ -276,7 +280,7 @@ export function buildCity(scene, layout, potholes, seed = 7) {
 
   // biển hẻm 42
   {
-    const l = { ...lotRect(ALLEY) };
+    const l = { ...lotRect(alleySpec) };
     const alleyMat = new THREE.MeshStandardMaterial({ color: 0x8d8478, roughness: 0.95 });
     // lối hẻm: từ mép đường vào tới trước cổng xanh ở sân giữa
     const sx0 = l.x0 - 0.5 * W, sx1 = l.x1 + CITY.SW;

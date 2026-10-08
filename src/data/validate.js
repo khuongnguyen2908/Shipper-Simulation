@@ -14,6 +14,7 @@ import { LOOKS, lookOf } from './looks.js';
 import { hoursProblem, totalHours } from '../sim/hours.js';
 import { BALANCE_GROUPS, KNOWN_PATHS, getPath } from './balanceSpec.js';
 import { ITEM_GROUP_IDS } from './itemGroups.js';
+import { isPlaced } from './places.js';
 
 const MAX_OPEN_DAY = 60;
 // "Mở từ ngày" / "Có đơn từ ngày": số nguyên 1–60, bỏ trống = ngày 1
@@ -50,6 +51,7 @@ const num = (v) => typeof v === 'number' && Number.isFinite(v);
 
 // Các ô lô mà một địa điểm chiếm (tòa nhà lớn chiếm nhiều lô — xem MULTI_LOTS)
 export function lotCells(p) {
+  if (!isPlaced(p)) return []; // chưa đặt trên bản đồ
   const [bx, bz] = p.block;
   return lotParts(p.lot).map((id) => `${bx},${bz},${id}`);
 }
@@ -246,10 +248,17 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null, m
     ids.add(p.id);
     if (!p.name || !String(p.name).trim()) add('error', p.id, 'name', 'Chưa có tên.');
     if (!p.short) add('warn', p.id, 'short', 'Chưa có tên ngắn (hiện trên bản đồ).');
+    if (!isPlaced(p)) {
+      // nằm chờ trong danh sách, chưa kéo vào bản đồ → game chưa có địa điểm này
+      if (PROTECTED.places.includes(p.id)) add('error', p.id, 'block', 'Địa điểm bắt buộc — phải đặt trên bản đồ (thẻ 🏗️ Xây dựng).');
+      else add('warn', p.id, 'block', 'Chưa đặt trên bản đồ — game chưa có địa điểm này. Kéo vào bản đồ ở thẻ 🏗️ Xây dựng.');
+    }
     const [bx, bz] = p.block || [];
-    if (!Number.isInteger(bx) || !Number.isInteger(bz) || bx < 0 || bz < 0 || bx >= CITY.N || bz >= CITY.N) add('error', p.id, 'block', `Khối phải từ 0 đến ${CITY.N - 1}.`);
+    if (isPlaced(p) && (!Number.isInteger(bx) || !Number.isInteger(bz) || bx < 0 || bz < 0 || bx >= CITY.N || bz >= CITY.N)) add('error', p.id, 'block', `Khối phải từ 0 đến ${CITY.N - 1}.`);
     const plan = Number.isInteger(bx) && Number.isInteger(bz) ? blockPlan(bx, bz, mapData) : null;
-    if (plan) {
+    if (!isPlaced(p)) {
+      /* chưa đặt: bỏ qua kiểm tra vị trí */
+    } else if (plan) {
       // khối có hẻm: chỉ đặt được vào lô có cửa của mặt bằng hẻm (1 lô, mặt tiền theo lô)
       const l = plan.lots.find((x) => x.id === p.lot);
       if (p.kind === 'gate') add('error', p.id, 'lot', 'Nhà cổng xanh phải ở khối không hẻm (lô C của hẻm 42).');

@@ -47,7 +47,9 @@ export function housePreview() {
   host.append(renderer.domElement);
   const show = (p, items, map) => {
     clear();
-    const info = lotInfo(p.block[0], p.block[1], p.lot, p.face, map);
+    // chưa đặt trên bản đồ → xem trước như nhà 1 lô mặt phố
+    const placed = Array.isArray(p.block) && typeof p.lot === 'string';
+    const info = placed ? lotInfo(p.block[0], p.block[1], p.lot, p.face, map) : lotInfo(0, 0, 'N1', null, map);
     if (!info) return;
     const r = { x0: info.x0 + 0.25, x1: info.x1 - 0.25, z0: info.z0 + 0.25, z1: info.z1 - 0.25 };
     const ns = info.face === 'N' || info.face === 'S';

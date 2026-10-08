@@ -6,6 +6,7 @@ import { PROTECTED, ID_RE, lotCells } from '../../data/validate.js';
 import { CITY, LOT_SIZES, lotSize, lotParts, lotFaces, blockPlan } from '../../sim/cityLayout.js';
 import { CHANGEABLE_KINDS } from './placeKind.js';
 import { moveKey } from './order.js';
+import { isPlaced } from '../../data/places.js';
 
 // Các loại mục: ở thẻ nào, file nào, bảng nào, mã nào bị khóa
 export const KINDS = {
@@ -178,7 +179,8 @@ export function paste(data, clip, afterId = null) {
   if (kind === 'places') {
     if (!CHANGEABLE_KINDS.includes(obj.kind)) return { error: `Địa điểm loại "${obj.kind}" gắn với cốt truyện — không dán thêm được.` };
     delete obj.hidden;
-    if (!placeSomewhere(data, obj, obj.block || [0, 0])) return { error: 'Hết lô trống cùng kích thước để dán địa điểm này.' };
+    // bản gốc đã đặt trên bản đồ → bản dán vào lô trống gần đó; bản gốc đang chờ → bản dán cũng nằm chờ
+    if (isPlaced(obj) && !placeSomewhere(data, obj, obj.block)) return { error: 'Hết lô trống cùng kích thước để dán địa điểm này.' };
     if (obj.menu) obj.menu = keep(obj.menu, (x) => !!data.items[x], 'món');
     if (obj.sells) {
       if (obj.sells.goods) obj.sells.goods = keep(obj.sells.goods, (x) => !!data.goods[x], 'đồ dùng');
@@ -193,7 +195,7 @@ export function paste(data, clip, afterId = null) {
   if (kind === 'riderTypes' && obj.from) obj.from = keep(obj.from, (x) => data.places.places.some((p) => p.id === x), 'địa điểm');
   insert(kind, data, obj, afterId);
   applyLinks(data, kind, obj.id, clip.links, files, dropped);
-  return { id: obj.id, files: [...files], dropped, where: kind === 'places' ? `khối ${obj.block.join(',')} lô ${obj.lot}` : null };
+  return { id: obj.id, files: [...files], dropped, where: kind === 'places' ? (isPlaced(obj) ? `khối ${obj.block.join(',')} lô ${obj.lot}` : 'chưa đặt trên bản đồ') : null };
 }
 
 // ---------- XÓA ----------

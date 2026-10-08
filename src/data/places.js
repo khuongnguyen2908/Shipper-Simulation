@@ -11,7 +11,10 @@ export const STREETS_X = raw.streetsX; // đường dọc, tây → đông
 export const STREETS_Z = raw.streetsZ; // đường ngang, bắc → nam
 export const MAIN_ROADS = raw.mainRoads; // đường chính hay kẹt giờ cao điểm
 export const ALLEY = raw.alley; // hẻm 42: lô bỏ trống làm lối vào sân giữa
-export const PLACES = colorsToNumbers(raw.places);
+// Địa điểm đã đặt trên bản đồ (có khối + lô). Địa điểm mới tạo trong ?editor nằm "chờ" trong danh sách,
+// game bỏ qua cho tới khi được kéo vào bản đồ ở thẻ 🏗️ Xây dựng.
+export const isPlaced = (p) => Array.isArray(p?.block) && p.block.length === 2 && typeof p.lot === 'string';
+export const PLACES = colorsToNumbers(raw.places.filter(isPlaced));
 export const CUSTOMER_NAMES = raw.customerNames;
 
 // Địa điểm mà code gọi thẳng theo mã → không được xóa/đổi mã trong công cụ

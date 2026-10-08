@@ -1,6 +1,7 @@
 // Thẻ 🗺️ BẢN ĐỒ (map.json): kiểu hẻm của từng khối (bấm khối trên bản đồ để chọn) · sông và cầu.
 import { CITY, HALF, blockBounds, blockPlan, blockRect, roadPos, roadGraph, segmentRect } from '../../sim/cityLayout.js';
 import { ALLEY_TEMPLATES } from '../../sim/blockPlan.js';
+import { isPlaced } from '../../data/places.js';
 import { el, field, button, selectInput, checkInput, numInput, explain } from './ui.js';
 import { HINT, EXPLAIN } from './help.js';
 
@@ -13,6 +14,7 @@ export function render(root, ctx) {
   // khối có địa điểm (địa điểm trong khối có hẻm phải nằm trên lô của hẻm)
   const placeBlocks = new Map();
   for (const p of places) {
+    if (!isPlaced(p)) continue; // chưa đặt trên bản đồ
     const k = p.block.join(',');
     placeBlocks.set(k, [...(placeBlocks.get(k) || []), p]);
   }
@@ -155,6 +157,7 @@ export function render(root, ctx) {
     g.textBaseline = 'middle';
     g.font = '700 11px "Segoe UI", sans-serif';
     for (const p of places) {
+      if (!isPlaced(p)) continue;
       const b = blockBounds(p.block[0], p.block[1]);
       const n = placeBlocks.get(p.block.join(',')).indexOf(p);
       g.fillStyle = '#fff';

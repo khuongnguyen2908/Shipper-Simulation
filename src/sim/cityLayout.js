@@ -1,6 +1,6 @@
 // Hình học thành phố dạng dữ liệu thuần (không phụ thuộc Three.js) —
 // dùng chung cho phần dựng hình 3D và phần mô phỏng/bộ thử.
-import { STREETS_X, STREETS_Z, PLACES, ALLEY } from '../data/places.js';
+import { STREETS_X, STREETS_Z, PLACES, ALLEY, isPlaced } from '../data/places.js';
 import { MAP } from '../data/map.js';
 import { fmt } from '../content/index.js';
 import { planBlock, ALLEY_TEMPLATES } from './blockPlan.js';
@@ -167,7 +167,7 @@ const key = (bx, bz, lot) => `${bx},${bz},${lot}`;
 
 // Dựng danh sách địa điểm đặc biệt + các lô nhà dân (khách hàng) + mặt bằng các khối có hẻm
 export function buildLayout(placesData = PLACES, map = MAP) {
-  const places = placesData.map((p) => ({ ...p, ...lotInfo(p.block[0], p.block[1], p.lot, p.face, map) }));
+  const places = placesData.filter(isPlaced).map((p) => ({ ...p, ...lotInfo(p.block[0], p.block[1], p.lot, p.face, map) }));
   const taken = new Set();
   for (const p of places) {
     const [bx, bz] = p.block;

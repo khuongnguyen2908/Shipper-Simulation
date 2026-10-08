@@ -1818,5 +1818,57 @@ console.log('Công cụ ?editor: bỏ qua cảnh báo, nhóm vật phẩm');
   });
 }
 
+console.log('Thẻ 🏗️ Xây dựng: địa điểm chưa đặt, kéo thả vào lô');
+{
+  const { buildLayout, lotInfo, blockPlan, CITY } = await import('../src/sim/cityLayout.js');
+  const { validatePlaces } = await import('../src/data/validate.js');
+  const B = await import('../src/devtools/editor/buildRules.js');
+  const rd = (p) => JSON.parse(fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8'));
+  const center = (r) => [(r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2];
+  test('Địa điểm chưa đặt: game bỏ qua; bộ kiểm tra nhắc; địa điểm bắt buộc thì báo lỗi', () => {
+    const pd = rd('src/data/places.json');
+    const src = pd.places.find((p) => p.kind === 'restaurant');
+    pd.places.push({ ...JSON.parse(JSON.stringify(src)), id: 'quanCho', block: undefined, lot: undefined });
+    delete pd.places.at(-1).block; delete pd.places.at(-1).lot;
+    assert.ok(!buildLayout(pd.places).placeById.quanCho, 'game không dựng địa điểm chưa đặt');
+    const iss = validatePlaces(pd, rd('src/data/items.json'));
+    assert.ok(iss.some((i) => i.ref === 'quanCho' && i.level === 'warn' && i.field === 'block'));
+    assert.ok(!iss.some((i) => i.ref === 'quanCho' && i.level === 'error'), 'chưa đặt không phải lỗi');
+    const home = pd.places.find((p) => p.id === 'home');
+    delete home.block; delete home.lot;
+    assert.ok(validatePlaces(pd, rd('src/data/items.json')).some((i) => i.ref === 'home' && i.level === 'error' && i.field === 'block'));
+  });
+  test('Kéo thả: lô trống thì được; lô có địa điểm khác / khối hẻm với nhà nhiều lô thì không', () => {
+    const data = { places: rd('src/data/places.json'), map: rd('src/data/map.json') };
+    const placed = data.places.places.filter((p) => p.block && p.lot);
+    const a = placed.find((p) => p.kind === 'restaurant' && !blockPlan(p.block[0], p.block[1], data.map));
+    const b = placed.find((p) => p !== a && p.kind !== 'gate' && !blockPlan(p.block[0], p.block[1], data.map));
+    // thả a lên chỗ của b → không được
+    const [bx, bz] = center(lotInfo(b.block[0], b.block[1], b.lot, null, data.map));
+    const onB = B.dropTarget(data, { ...a, lot: 'N1' }, bx, bz);
+    assert.equal(onB.ok, false);
+    assert.match(onB.why, /đã có/);
+    // một lô 1 ô trống nào đó → được
+    let free = null;
+    for (let z = 0; z < CITY.N && !free; z++) for (let x = 0; x < CITY.N && !free; x++) {
+      if (blockPlan(x, z, data.map)) continue;
+      for (const lot of ['N0', 'N1', 'N2', 'S0', 'S1', 'S2']) {
+        const t = B.dropTarget(data, { id: 'moi', kind: 'restaurant' }, ...center(lotInfo(x, z, lot, null, data.map)));
+        if (t.ok && t.lot === lot && t.bx === x && t.bz === z) { free = t; break; }
+      }
+    }
+    assert.ok(free, 'phải có lô trống đặt được');
+    // nhà 2 lô thả vào khối có hẻm → không được
+    const alleyKey = Object.keys(data.map.blocks || {})[0];
+    if (alleyKey) {
+      const [ax, az] = alleyKey.split(',').map(Number);
+      const l = blockPlan(ax, az, data.map).lots[0];
+      const t = B.dropTarget(data, { id: 'to', kind: 'service' }, ...center(lotInfo(ax, az, l.id, null, data.map)), 'two');
+      assert.equal(t.ok, false);
+    }
+    assert.equal(B.lotProblem(data, { id: 'g', kind: 'gate' }, 0, 0, 'N1') !== '', true, 'nhà cổng xanh không dời');
+  });
+}
+
 console.log(`\n${pass} đạt, ${fail} lỗi`);
 if (fail) process.exit(1);
