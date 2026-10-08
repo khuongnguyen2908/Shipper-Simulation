@@ -601,7 +601,7 @@ function renderStreets(body, ctx) {
     el('div', { class: 'body-head' }, el('h2', {}, '🛣️ Tên đường & khách')),
     streetFields('streetsX', `Đường dọc (tây → đông, ${CITY.N + 1} tên)`),
     streetFields('streetsZ', `Đường ngang (bắc → nam, ${CITY.N + 1} tên)`),
-    el('p', { class: 'muted' }, `Đường chính hay kẹt xe: ${pd.mainRoads.map((r) => (r.axis === 'x' ? pd.streetsX[r.line] : pd.streetsZ[r.line])).join(', ')}. Lưu ý: vài câu thoại có nhắc tên đường cố định (ví dụ "Hai Bà Trưng") — đổi tên đường thì xem lại ở thẻ Chữ.`),
+    el('p', { class: 'muted' }, `Đường chính hay kẹt xe: ${pd.mainRoads.map((r) => (r.axis === 'x' ? pd.streetsX[r.line] : pd.streetsZ[r.line])).join(', ')}. Lưu ý: vài câu thoại có nhắc tên đường cố định (ví dụ "Đường số 5") — đổi tên đường thì xem lại ở thẻ Chữ.`),
     field('Tên khách hàng (mỗi dòng 1 tên)', areaInput(lines(pd.customerNames), (v) => { pd.customerNames = toList(v); changedP(); }, 6), { ref: '', fieldKey: 'customerNames', wide: true }),
     field('Tên người đi đường (mỗi dòng 1 tên) — kho chữ ped.names', areaInput(lines(ctx.data.content['ped.names']), (v) => { ctx.data.content['ped.names'] = toList(v); ctx.changed('content'); }, 5), { ref: 'ped.names', fieldKey: 'text', wide: true }),
   );

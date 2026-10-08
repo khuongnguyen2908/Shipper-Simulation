@@ -104,7 +104,7 @@ function rebuild(data) {
   const group = new THREE.Group();
   const lay = buildLayout(data.places.places, data.map);
   buildCity(group, lay, [], 7, { map: data.map, alley: data.places.alley, items: data.items });
-  // lớp màu quận (phủ mờ trên mặt khối, bật / tắt ở thanh công cụ)
+  // lớp màu khu phố (phủ mờ trên mặt khối, bật / tắt ở thanh công cụ)
   const dg = new THREE.Group();
   for (const [key, id] of Object.entries(data.map.districtBlocks || {})) {
     const d = data.map.districts?.[id];
@@ -178,7 +178,7 @@ export function render(root, ctx) {
       button('⬇️ Nhìn từ trên', () => topView(false), 'small'),
       button('↘️ Nhìn chéo', () => topView(true), 'small'),
       checkInput(sel.labels !== false, (v) => { sel.labels = v; R.dirty = true; }, '🏷️ Tên địa điểm'),
-      checkInput(R.showDistricts !== false, (v) => { R.showDistricts = v; if (R.districtLayer) R.districtLayer.visible = v; R.dirty = true; }, '🏙️ Quận')),
+      checkInput(R.showDistricts !== false, (v) => { R.showDistricts = v; if (R.districtLayer) R.districtLayer.visible = v; R.dirty = true; }, '🏙️ Khu phố')),
     view,
   );
   root.append(el('div', { class: 'ed-split' }, side, body));

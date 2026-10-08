@@ -36,14 +36,14 @@ const GROUPS = {
 
 // Giá trị mẫu để xem trước
 const SAMPLE = {
-  customer: 'Chị Lan', place: 'Phở Bà Tư', address: '95 Lê Lợi', rent: 400, k: 25, min: 8, day: 1, id: 3,
+  customer: 'Chị Lan', place: 'Phở Bà Tư', address: '95 Đường số 17', rent: 400, k: 25, min: 8, day: 1, id: 3,
   what: 'lấy hàng ở <b>Phở Bà Tư</b>', name: 'Túi giữ nhiệt', item: 'Phở bò', other: 'Kem dừa', bag: 'Túi giữ nhiệt',
   cost: 35, phys: 45, mental: 30, money: '120k', liters: '0.08', km: '2.40', floor: 7, fee: 5, calls: 1, cash: 300,
   fine: 150, n: 3, rating: '4.75', kmh: 42, hp: 80, susp: 20, fuel: 3.5, desc: 'Xe ông nội để lại.', time: '14:30',
-  roads: 'Hai Bà Trưng', reason: 'Khách không nghe máy', msg: 'Đã mua Áo mưa', text: 'Đến Tạp hóa Cô Ba hỏi về nhà cổng xanh',
+  roads: 'Đường số 5', reason: 'Khách không nghe máy', msg: 'Đã mua Áo mưa', text: 'Đến Tạp hóa Cô Ba hỏi về nhà cổng xanh',
   hint: 'Xuống xe trước cửa rồi bấm E', forecast: 'Dự báo hôm nay: nắng gắt 11:00–15:00, mưa to 14:30–16:00.',
   rains: 'mưa to 14:30–16:00', from: '14:30', to: '16:00', goal: 5, limit: 4, pct: 20, allowed: 45, sec: 20,
-  street: 'Lê Lợi', number: 95, npc: 'Cô Hai', left: '12 phút', error: 'WebGL không khả dụng', price: 120, sub: '',
+  street: 'Đường số 17', number: 95, npc: 'Cô Hai', left: '12 phút', error: 'WebGL không khả dụng', price: 120, sub: '',
   forecastText: '',
   worn: '👕 Áo thun xanh lá · 👖 Quần jean · ⛑️ Mũ bảo hiểm xanh lá', slot: 'Áo',
   mouth: 34, kmh: 40, stars: 2, type: 'Giao hàng', cod: 450, refund: 450, icon: '📦', booker: 'Chị Lan',

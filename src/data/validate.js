@@ -492,22 +492,23 @@ export function validateMap(map, placesData = null) {
     if (s.rot != null && (!Number.isInteger(s.rot) || s.rot < 0 || s.rot > 3)) add('error', key, 'rot', 'Hướng xoay 0–3.');
     if (s.walk != null && typeof s.walk !== 'boolean') add('error', key, 'walk', 'Hẻm đi bộ phải là có/không.');
   }
-  // quận: tên, màu; khối gán quận phải nằm trong bản đồ và trỏ tới quận có thật
+  // khu phố: tên, màu; khối gán khu phố phải nằm trong bản đồ và trỏ tới khu phố có thật
   const size = Number.isInteger(map.size) ? map.size : CITY.N;
   for (const [id, d] of Object.entries(map.districts || {})) {
-    if (!ID_RE.test(id)) add('error', `district:${id}`, 'id', 'Mã quận chỉ gồm chữ không dấu, số, gạch dưới.');
-    if (!d || !String(d.name || '').trim()) add('error', `district:${id}`, 'name', 'Quận chưa có tên.');
-    if (d && d.color != null && !/^#[0-9a-f]{6}$/i.test(d.color)) add('error', `district:${id}`, 'color', 'Màu quận phải dạng #rrggbb.');
+    if (!ID_RE.test(id)) add('error', `district:${id}`, 'id', 'Mã khu phố chỉ gồm chữ không dấu, số, gạch dưới.');
+    if (!d || !String(d.name || '').trim()) add('error', `district:${id}`, 'name', 'Khu phố chưa có tên.');
+    if (d && d.color != null && !/^#[0-9a-f]{6}$/i.test(d.color)) add('error', `district:${id}`, 'color', 'Màu khu phố phải dạng #rrggbb.');
   }
   for (const [key, id] of Object.entries(map.districtBlocks || {})) {
     const m = /^(\d+),(\d+)$/.exec(key);
     if (!m || +m[1] >= size || +m[2] >= size) add('error', `district:${id}`, 'blocks', `Khối ${key} nằm ngoài bản đồ.`);
-    else if (!map.districts?.[id]) add('error', `district:${id}`, 'blocks', `Khối ${key} gán vào quận "${id}" không có.`);
+    else if (!map.districts?.[id]) add('error', `district:${id}`, 'blocks', `Khối ${key} gán vào khu phố "${id}" không có.`);
   }
   // sông
   (map.rivers || []).forEach((r, i) => {
     const ref = `river${i}`;
     const int = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+    if (r.name != null && typeof r.name !== 'string') add('error', ref, 'name', 'Tên sông phải là chữ.');
     if (!['x', 'z'].includes(r.axis)) add('error', ref, 'axis', 'Hướng sông: chạy dọc đường dọc (x) hoặc đường ngang (z).');
     if (!int(r.line, 0, size)) add('error', ref, 'line', `Đường số 0–${size}.`);
     if (!int(r.from, 0, size) || !int(r.to, 0, size) || r.from >= r.to) add('error', ref, 'from', `Đoạn sông: từ ngã tư a tới b, 0 ≤ a < b ≤ ${size}.`);
