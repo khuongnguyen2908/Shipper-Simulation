@@ -1986,5 +1986,64 @@ console.log('Đậu xe: gửi bãi, dán phạt, cẩu xe, trộm đêm');
   });
 }
 
+console.log('Đồn công an: phạt nguội, giữ xe');
+{
+  const PK = await import('../src/sim/parking.js');
+  const { PARKING } = await import('../src/data/balance.js');
+  const { validatePlaces } = await import('../src/data/validate.js');
+  const { looksFor, lookOf } = await import('../src/data/looks.js');
+  const { buildPlace } = await import('../src/world/placeBuildings.js');
+  const B = await import('../src/devtools/editor/buildRules.js');
+  const { lotInfo, blockPlan, CITY } = await import('../src/sim/cityLayout.js');
+  const rd = (p) => JSON.parse(fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8'));
+  test('Phạt nguội: ghi sổ, quá hạn tăng tiền một lần, đủ tiền mới nộp được, lưu qua lần chơi', () => {
+    const gs = new GameState({ carry: { money: 30 } });
+    gs.addFine(50, 'parking', 1000);
+    assert.equal(gs.finesTotal, 50);
+    assert.equal(gs.updateFines(1000 + PARKING.fineDays * 1440).length, 0, 'đúng hạn chưa tính quá hạn');
+    assert.equal(gs.updateFines(1001 + PARKING.fineDays * 1440).length, 1);
+    assert.equal(gs.finesTotal, Math.round(50 * (1 + PARKING.overduePct)));
+    assert.equal(gs.updateFines(99999).length, 0, 'chỉ tăng một lần');
+    assert.ok(gs.hasOverdueFines);
+    assert.equal(gs.payFines(), null, 'thiếu tiền thì chưa nộp được');
+    const back = new GameState({ day: 2, carry: gs.carryOver() });
+    assert.equal(back.finesTotal, gs.finesTotal);
+    back.money = 500;
+    assert.equal(back.payFines(), gs.finesTotal);
+    assert.equal(back.fines.length, 0);
+  });
+  test('Xe bị cẩu về đồn công an gần nhất; chưa có đồn thì về bãi giữ xe', () => {
+    const lot = { id: 'bai', kind: 'scenery', look: 'parkingLot', x0: 0, x1: 10, z0: 0, z1: 10 };
+    const st1 = { id: 'ca1', kind: 'police', door: { x: 200, z: 0 } }, st2 = { id: 'ca2', kind: 'police', door: { x: -200, z: 0 } };
+    assert.equal(PK.towTarget([lot, st1, st2], -150, 0), st2);
+    assert.equal(PK.towTarget([lot], 50, 50), lot);
+    assert.equal(PK.towTarget([], 0, 0), null);
+  });
+  test('Đồn công an: chỉ dùng kiểu đồn, cần ít nhất 2 lô; dựng được nhà + bãi (không chắn kín)', () => {
+    assert.deepEqual(looksFor('police'), ['police']);
+    assert.ok(!looksFor('restaurant').includes('police') && !looksFor('scenery').includes('police'));
+    assert.equal(lookOf({ kind: 'police' }), 'police');
+    const pd = rd('src/data/places.json'), items = rd('src/data/items.json'), map = rd('src/data/map.json');
+    const base = { name: 'Công an phường', short: 'CA', kind: 'police', color: '#f2d16b', sign: 'CÔNG AN', npc: { name: 'Anh công an' } };
+    let free = null;
+    for (let z = 0; z < CITY.N && !free; z++) for (let x = 0; x < CITY.N && !free; x++) {
+      if (blockPlan(x, z, map)) continue;
+      if (!B.lotProblem({ places: pd, map }, base, x, z, 'S01')) free = [x, z];
+    }
+    assert.ok(free, 'phải có chỗ trống 2 lô');
+    const err = (lot) => validatePlaces({ ...pd, places: [...pd.places, { id: 'ca', ...base, block: free, lot }] }, items, null, null, map).filter((i) => i.ref === 'ca' && i.level === 'error');
+    assert.deepEqual(err('S01'), []);
+    assert.ok(err('S0').some((i) => i.field === 'lot'), '1 lô → lỗi');
+    assert.equal(B.lotProblem({ places: pd, map }, base, free[0], free[1], 'S0') !== '', true);
+    const r = lotInfo(free[0], free[1], 'S0');
+    const t = B.dropTarget({ places: pd, map }, { id: 'caMoi', kind: 'police' }, (r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2);
+    assert.ok(['S01', 'S12'].includes(t.lot), `chưa đặt → kéo ra mặc định 2 lô (được ${t.lot})`);
+    for (const [W, D] of [[22.2, 10.8], [10.8, 22.2], [33.6, 10.8]]) {
+      const b = buildPlace({ look: 'police', W, D, seed: 2, sign: 'CA', color: '#f2d16b' });
+      assert.ok(Array.isArray(b.colliders) && b.colliders.length > 3, 'nhà + rào + xe là vật cản riêng');
+    }
+  });
+}
+
 console.log(`\n${pass} đạt, ${fail} lỗi`);
 if (fail) process.exit(1);

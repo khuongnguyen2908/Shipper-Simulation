@@ -23,9 +23,18 @@ export const LOOKS = {
   soccer: { label: '⚽ Sân bóng mini', floors: null, scenery: true },
   parkingLot: { label: '🅿️ Bãi giữ xe', floors: null, scenery: true },
   construction: { label: '🏗️ Công trình đang xây', floors: null, scenery: true },
+  // đồn công an: căn nhà công an + bãi giữ xe vi phạm (cần ít nhất 2 lô)
+  police: { label: '🚓 Đồn công an', floors: [2, 3], only: 'police' },
 };
-// Kiểu dùng được cho loại địa điểm: cảnh quan ↔ chỉ kiểu cảnh quan; loại khác ↔ chỉ kiểu nhà
-export const looksFor = (kind) => Object.keys(LOOKS).filter((k) => !!LOOKS[k].scenery === (kind === 'scenery'));
+// Kiểu dùng được cho loại địa điểm: cảnh quan ↔ kiểu cảnh quan; đồn công an ↔ kiểu đồn; loại khác ↔ kiểu nhà thường
+export const looksFor = (kind) => Object.keys(LOOKS).filter((k) => {
+  const L = LOOKS[k];
+  if (kind === 'scenery') return !!L.scenery;
+  if (L.only) return L.only === kind;
+  return !L.scenery && !LOOKS_ONLY_FOR(kind);
+});
+// loại địa điểm có kiểu nhà riêng (chỉ dùng kiểu đó)
+const LOOKS_ONLY_FOR = (kind) => Object.values(LOOKS).some((l) => l.only === kind);
 
 // Kiểu nhà tự đoán khi chưa chọn
 export function guessLook(p) {
@@ -50,6 +59,8 @@ export function guessLook(p) {
       if (/cà phê|cafe/.test(n)) return 'cafe';
       if (/trà|bánh|kem|sinh tố/.test(n)) return 'modern';
       return 'eatery';
+    case 'police':
+      return 'police';
     case 'scenery':
       if (/đất trống|bãi đất/.test(n)) return 'emptyLot';
       if (/sân bóng|bóng đá/.test(n)) return 'soccer';

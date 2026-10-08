@@ -644,6 +644,62 @@ const BUILD = {
     return { shell: sh, sign: { y: 3.0, z: 0.12, w: Math.min(6, W - 1.2), glow: 0.9 }, height: top };
   },
 
+  // ======================= ĐỒN CÔNG AN: nhà công an + bãi giữ xe vi phạm =======================
+  // Lô rộng (≥ 14 m mặt tiền): nhà bên trái, bãi bên phải. Lô hẹp sâu: nhà phía trước, bãi phía sau.
+  police(k, o, r) {
+    const { W, D } = o;
+    const cols = [];
+    const wide = W >= 14;
+    const bw = wide ? Math.min(12, W * 0.48) : W, bd = wide ? Math.min(D, 10) : Math.min(D * 0.55, 10);
+    const bx = wide ? -W / 2 + bw / 2 : 0;
+    const floors = Math.max(2, Math.min(3, o.floors || 2));
+    const g = new HouseGeo();
+    buildHouse(g, { x: bx, y: 0, z: 0, nx: 0, nz: 1, W: bw, D: bd, floors, color: hexNum(o.color, 0xf2d16b), seed: o.seed, ground: 'home', place: true }); // tầng trệt: cửa ra vào (không phải kệ hàng)
+    const top = houseTop(floors);
+    cols.push({ x0: bx - bw / 2, z0: -bd, x1: bx + bw / 2, z1: 0, h: top });
+    // mái ngói đỏ + quốc huy (tròn đỏ, sao vàng) trên cửa + cột cờ
+    tileRoof(k, bw * 0.9, Math.min(bd, 6), 1.6, bx, top, -Math.min(bd, 6) / 2 - 0.2);
+    k.cyl(0.55, 0.55, 0.08, bx, top - 1.0, 0.06, 0xc0392b, '', 20, [PI / 2, 0, 0]);
+    k.plane(0.7, 0.7, bx, top - 1.0, 0.11, 0xffffff, 'tex:' + textTex('★', { bg: '#c0392b', fg: '#f1c40f', w: 128, h: 128 }));
+    const fx = bx + bw / 2 - 0.8;
+    k.cyl(0.05, 0.06, 7, fx, 3.5, 1.2, 0xd9d9d9, 'metal', 8);
+    k.plane(1.5, 1.0, fx + 0.8, 6.4, 1.2, 0xffffff, 'tex:' + textTex('★', { bg: '#da251d', fg: '#ffde00', w: 192, h: 128 }), [0, 0, 0]);
+    k.box(0.5, 0.3, 0.5, fx, 0.15, 1.2, 0x9e9a92);
+    cols.push({ x0: fx - 0.25, z0: 0.95, x1: fx + 0.25, z1: 1.45, h: 7 });
+    // ---- bãi giữ xe vi phạm ----
+    const yard = wide ? { x0: bx + bw / 2 + 0.3, x1: W / 2 - 0.15, z0: -D + 0.15, z1: -0.15 } : { x0: -W / 2 + 0.15, x1: W / 2 - 0.15, z0: -D + 0.15, z1: -bd - 0.3 };
+    const yw = yard.x1 - yard.x0, yd = yard.z1 - yard.z0, ycx = (yard.x0 + yard.x1) / 2, ycz = (yard.z0 + yard.z1) / 2;
+    if (yw > 2 && yd > 2) {
+      k.box(yw, 0.05, yd, ycx, 0.025, ycz, 0x8f8f8a);
+      // rào lưới quanh bãi (cổng ở mặt trước khi bãi nằm cạnh nhà)
+      const fence = (x0, z0, x1, z1) => {
+        const len = Math.hypot(x1 - x0, z1 - z0), ry = Math.atan2(x1 - x0, z1 - z0) - PI / 2;
+        if (len < 0.3) return;
+        k.add(new THREE.PlaneGeometry(len, 2.2), 0x9aa3a8, 'glass', (x0 + x1) / 2, 1.1, (z0 + z1) / 2, 0, ry, 0);
+        for (let t = 0; t <= len + 0.01; t += 2.5) k.cyl(0.05, 0.05, 2.3, x0 + ((x1 - x0) * Math.min(t, len)) / len, 1.15, z0 + ((z1 - z0) * Math.min(t, len)) / len, 0x55606a, 'metal', 6);
+        cols.push({ x0: Math.min(x0, x1) - 0.1, z0: Math.min(z0, z1) - 0.1, x1: Math.max(x0, x1) + 0.1, z1: Math.max(z0, z1) + 0.1, h: 2.2 });
+      };
+      fence(yard.x0, yard.z0, yard.x1, yard.z0);
+      fence(yard.x1, yard.z0, yard.x1, yard.z1);
+      if (wide) {
+        fence(yard.x0, yard.z0, yard.x0, yard.z1);
+        fence(yard.x0, yard.z1, ycx - 1.4, yard.z1);
+        fence(ycx + 1.4, yard.z1, yard.x1, yard.z1);
+        k.plane(Math.min(4, yw - 1), 0.7, yard.x1 - Math.min(4, yw - 1) / 2 - 0.3, 2.5, yard.z1 + 0.05, 0xffffff, 'tex:' + textTex('BÃI GIỮ XE VI PHẠM', { bg: '#1f3a93', w: 1024, h: 192 }));
+      } else {
+        fence(yard.x0, yard.z0, yard.x0, yard.z1);
+        k.plane(Math.min(4, yw - 1), 0.7, ycx, 2.5, yard.z0 + 0.06, 0xffffff, 'tex:' + textTex('BÃI GIỮ XE VI PHẠM', { bg: '#1f3a93', w: 1024, h: 192 }));
+      }
+      // xe bị tạm giữ: xếp hàng sát nhau, màu cũ bụi
+      const cs = [0x7f8c8d, 0x8e2b2b, 0x2c3e50, 0x6e5a3a, 0x34495e, 0x556b2f];
+      for (let z = yard.z0 + 1.3; z < yard.z1 - 1.6; z += 2.6) {
+        for (let x = yard.x0 + 0.6; x < yard.x1 - 0.5; x += 0.8) if (r.next() < 0.8) parkedBike(k, x, z, cs[Math.floor(r.next() * cs.length)]);
+        cols.push({ x0: yard.x0 + 0.2, z0: z - 1.0, x1: yard.x1 - 0.2, z1: z + 1.0, h: 1.1 });
+      }
+    }
+    return { shell: g, sign: { y: 3.1, z: 0.12, x: bx, w: Math.min(7, bw - 1) }, height: top + 1.6, colliders: cols };
+  },
+
   // ======================= CẢNH QUAN (không nhà, đi xuyên qua được) =======================
   // Chỉ cây, ghế, hàng rào, xe đậu… là vật cản (colliders); mặt đất phủ cả lô.
   park(k, o, r) {

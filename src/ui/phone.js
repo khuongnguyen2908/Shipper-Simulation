@@ -8,6 +8,7 @@ import { GOODS } from '../data/goods.js';
 import { PLACES } from '../data/places.js';
 import { placesUsing } from '../sim/placeRules.js';
 import { fmtK } from '../sim/economy.js';
+import { dayOf } from '../sim/clock.js';
 import { fmt, list, has } from '../content/index.js';
 import { MiniMap } from './minimap.js';
 
@@ -196,6 +197,7 @@ export class Phone {
     const rec = d.receipts.slice(-8).reverse().map((r) => `<div class="kv"><span>#${r.order.id} ${r.order.customer} <small class="st">${stars(r.ev.stars)}</small></span><b>${r.ev.refused ? '0k' : fmtK(r.pay.walletCredit)}</b></div>`).join('');
     const none = `<small>${fmt('phone.none')}</small>`;
     return `<div class="card"><div class="big">${fmtK(gs.money)}</div><small>${fmt('phone.rentToday', { rent: gs.rent, day: gs.rentDueDay })}${gs.rentPaid ? fmt('phone.rentPaid') : ''}</small>
+      ${gs.fines.length ? `<div class="kv"><span>${fmt(gs.hasOverdueFines ? 'phone.finesLate' : 'phone.fines', { day: dayOf(gs.finesDueAt) })}</span><b class="minus">${fmtK(gs.finesTotal)}</b></div>` : ''}
       <div class="kv"><span>${fmt('phone.rating')}</span><b>⭐ ${gs.rating.toFixed(2)}</b></div><small>${fmt('phone.ratingNote')}</small></div>
       <div class="card"><b>${fmt('phone.income')}</b>${inc || none}<b>${fmt('phone.expense')}</b>${exp || none}</div>
       <div class="card"><b>${fmt('phone.recent')}</b>${rec || `<small>${fmt('phone.noOrders')}</small>`}</div>`;

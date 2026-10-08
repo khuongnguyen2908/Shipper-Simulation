@@ -18,8 +18,8 @@ import { hoursPicker, rangesEditor, presetUsers } from './hoursUi.js';
 import { ranges, packRanges, fmtHours } from '../../sim/hours.js';
 import { CHANGEABLE_KINDS, canChangeKind, applyKind } from './placeKind.js';
 
-const KIND = { home: '🏠 Nhà trọ', restaurant: '🍴 Quán ăn', gas: '⛽ Cây xăng', shop: '🎒 Tiệm đồ nghề', garage: '🔧 Tiệm xe', cafe: '☕ Quán cà phê', taphoa: '🛒 Tạp hóa', gate: '🟩 Nhà cổng xanh', apartment: '🏢 Chung cư', market: '🧺 Chợ', service: '⭐ Dịch vụ', scenery: '🌳 Cảnh quan' };
-const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', service: '⭐', scenery: '🌳' };
+const KIND = { home: '🏠 Nhà trọ', restaurant: '🍴 Quán ăn', gas: '⛽ Cây xăng', shop: '🎒 Tiệm đồ nghề', garage: '🔧 Tiệm xe', cafe: '☕ Quán cà phê', taphoa: '🛒 Tạp hóa', gate: '🟩 Nhà cổng xanh', apartment: '🏢 Chung cư', market: '🧺 Chợ', service: '⭐ Dịch vụ', scenery: '🌳 Cảnh quan', police: '🚓 Đồn công an' };
+const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', service: '⭐', scenery: '🌳', police: '🚓' };
 const LOT_LABEL = {
   N0: 'N0 · bắc trái', N1: 'N1 · bắc giữa', N2: 'N2 · bắc phải', S0: 'S0 · nam trái', S1: 'S1 · nam giữa', S2: 'S2 · nam phải', E1: 'E1 · đông', W1: 'W1 · tây',
   N01: 'N0+N1 · bắc, bên trái', N12: 'N1+N2 · bắc, bên phải', S01: 'S0+S1 · nam, bên trái', S12: 'S1+S2 · nam, bên phải',
@@ -29,7 +29,8 @@ const LOT_LABEL = {
 const DIR = { N: 'Bắc', S: 'Nam', E: 'Đông', W: 'Tây' };
 const SIZE_LABEL = { one: '1 lô', two: '2 lô ngang', vtwo: '2 lô dọc', row: 'Cả dãy (3 lô ngang)', col: 'Cả cột (3 lô dọc)', block: 'Cả khối (9 ô — chỉ cảnh quan)' };
 // cỡ chọn được theo loại: "Cả khối" chỉ dành cho cảnh quan (công viên lớn…)
-const sizesFor = (kind) => Object.entries(SIZE_LABEL).filter(([k]) => k !== 'block' || kind === 'scenery');
+// đồn công an: ít nhất 2 lô (nhà + bãi giữ xe vi phạm)
+const sizesFor = (kind) => Object.entries(SIZE_LABEL).filter(([k]) => (k !== 'block' || kind === 'scenery') && (k !== 'one' || kind !== 'police'));
 // Lô cùng cỡ có chứa ô vừa bấm (ưu tiên lô bắt đầu từ ô đó)
 const lotForCell = (size, cell) => {
   const fits = LOT_SIZES[size].filter((l) => lotParts(l).includes(cell));
@@ -52,7 +53,7 @@ export function render(root, ctx) {
   const drawSide = () => {
     side.innerHTML = '';
     side.append(
-      el('div', { class: 'side-head' }, el('b', {}, `Địa điểm (${places.length})`), addButton(ctx, 'places', [['🍴 Quán ăn mới', () => addPlace('restaurant')], ['⭐ Địa điểm dịch vụ mới', () => addPlace('service')], ['🌳 Cảnh quan mới (công viên, đất trống…)', () => addPlace('scenery')]])),
+      el('div', { class: 'side-head' }, el('b', {}, `Địa điểm (${places.length})`), addButton(ctx, 'places', [['🍴 Quán ăn mới', () => addPlace('restaurant')], ['⭐ Địa điểm dịch vụ mới', () => addPlace('service')], ['🌳 Cảnh quan mới (công viên, đất trống…)', () => addPlace('scenery')], ['🚓 Đồn công an mới', () => addPlace('police')]])),
       sideList(
         [
           { id: '__streets', icon: '🛣️', title: 'Tên đường & khách', sub: 'phố, khách hàng, người đi đường', fixed: true },
@@ -456,6 +457,7 @@ export function render(root, ctx) {
     s.disabled = !can;
     return field('Loại địa điểm', s, opt('kind', { hint: can ? HINT.place.kind
       : p.kind === 'scenery' ? 'Cảnh quan (công viên, đất trống…) tạo riêng — không đổi sang loại khác. Muốn có việc làm ở đây thì thêm hoạt động.'
+      : p.kind === 'police' ? 'Đồn công an tạo riêng (nhận xe bị cẩu, nộp phạt nguội) — không đổi sang loại khác. Cần lô 2 ô trở lên.'
       : locked ? 'Địa điểm có khóa 🔒 (code gọi thẳng) — không đổi loại được.'
       : 'Loại này gắn với cốt truyện (quán cà phê, tạp hóa: nhiệm vụ chiếc ví) hoặc chỉ có một (nhà trọ, nhà cổng xanh, chung cư) — không đổi được.' }));
   }
@@ -523,7 +525,7 @@ export function render(root, ctx) {
   // Địa điểm mới nằm chờ trong danh sách (chưa có khối / lô) → kéo vào bản đồ ở thẻ 🏗️ Xây dựng
   function addPlace(kind) {
     const spot = {};
-    const prefix = kind === 'restaurant' ? 'quan' : kind === 'scenery' ? 'canhquan' : 'dichvu';
+    const prefix = kind === 'restaurant' ? 'quan' : kind === 'scenery' ? 'canhquan' : kind === 'police' ? 'congan' : 'dichvu';
     let n = 1;
     while (places.some((x) => x.id === `${prefix}${n}`)) n++;
     const id = `${prefix}${n}`;
@@ -531,6 +533,14 @@ export function render(root, ctx) {
     if (kind === 'scenery') {
       // cảnh quan: không NPC, không biển hiệu, không giờ — thêm hoạt động sau nếu muốn có việc làm ở đây
       places.push({ id, name: 'Công viên mới', short: 'Công viên', kind, icon: '🌳', ...spot, look: 'park', color: '#5f9e45' });
+      changedP();
+      return ctx.select('places', { id });
+    }
+    if (kind === 'police') {
+      // đồn công an: nhận xe bị cẩu, nộp phạt nguội (đặt vào lô 2 ô trở lên)
+      places.push({ id, name: 'Công an phường', short: 'Công an', kind, icon: '🚓', ...spot, look: 'police', floors: 2, color: '#f2d16b', sign: 'CÔNG AN PHƯỜNG', signBg: '#b03a2e', npc: { name: 'Anh công an', shirt: '#c8b560', pants: '#3d4a2f', hat: 'police', portrait: '👮' } });
+      ctx.data.content[`npc.${id}.greet`] = '"Chào anh/chị. Nộp phạt nguội hay lấy xe bị giữ?"';
+      ctx.changed('content');
       changedP();
       return ctx.select('places', { id });
     }

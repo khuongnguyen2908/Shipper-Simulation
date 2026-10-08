@@ -15,10 +15,11 @@ import { PROTECTED } from '../../data/validate.js';
 import { LOOKS, lookOf, looksFor } from '../../data/looks.js';
 import { el, button, selectInput, checkInput } from './ui.js';
 
-const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', service: '⭐', scenery: '🌳' };
+const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', service: '⭐', scenery: '🌳', police: '🚓' };
 const DIR = { N: 'Bắc', S: 'Nam', E: 'Đông', W: 'Tây' };
 const SIZE_LABEL = { one: '1 lô', two: '2 lô ngang', vtwo: '2 lô dọc', row: 'Cả dãy (3 lô ngang)', col: 'Cả cột (3 lô dọc)', block: 'Cả khối (9 ô)' };
-const sizesFor = (kind) => Object.entries(SIZE_LABEL).filter(([k]) => k !== 'block' || kind === 'scenery'); // cả khối: chỉ cảnh quan
+// cả khối: chỉ cảnh quan · đồn công an: ít nhất 2 lô
+const sizesFor = (kind) => Object.entries(SIZE_LABEL).filter(([k]) => (k !== 'block' || kind === 'scenery') && (k !== 'one' || kind !== 'police'));
 
 // Kích thước của địa điểm vừa cất vào danh sách (để kéo ra lại vẫn đúng cỡ cũ)
 const stashSize = new Map();

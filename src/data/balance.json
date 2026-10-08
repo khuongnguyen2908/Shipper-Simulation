@@ -143,6 +143,8 @@
     "towFee": 150,
     "theftPerHour": 0.25,
     "theftFuelPct": 0.6,
-    "theftHp": 15
+    "theftHp": 15,
+    "fineDays": 3,
+    "overduePct": 0.5
   }
 }

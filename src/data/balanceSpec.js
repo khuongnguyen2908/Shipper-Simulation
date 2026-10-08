@@ -109,6 +109,8 @@ export const BALANCE_GROUPS = [
       ['parking.theftPerHour', 'Ban đêm bị trộm: xác suất mỗi giờ', { min: 0, max: 0.99, step: 0.05, hint: 'Lúc trời tối (mục Ban đêm), khi xe không chở hàng. Mỗi lần đậu tối đa 1 lần. Mặc định 0,25.' }],
       ['parking.theftFuelPct', 'Bị trộm: mất bao nhiêu xăng (%)', { min: 0, max: 1, step: 5, scale: 100, hint: 'Mặc định 60%.' }],
       ['parking.theftHp', 'Bị trộm: xe hư thêm (%)', { min: 0, max: 100, step: 1, hint: 'Bẻ gương, cắt dây… Mặc định 15.' }],
+      ['parking.fineDays', 'Phạt nguội: hạn nộp (ngày)', { min: 1, max: 30, step: 1, hint: 'Có đồn công an trên bản đồ thì phạt đậu xe thành phạt nguội, nộp ở đồn. Không có đồn → trừ tiền ngay. Mặc định 3 ngày.' }],
+      ['parking.overduePct', 'Phạt nguội quá hạn: tăng thêm (%)', { min: 0, max: 5, step: 5, scale: 100, hint: 'Quá hạn thì tiền phạt tăng; bị CSGT dừng xe khi còn phạt quá hạn → giữ xe về đồn. Mặc định 50%.' }],
     ],
   },
   {

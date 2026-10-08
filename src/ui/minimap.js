@@ -3,7 +3,7 @@ import { CITY, HALF, roadPos, blockBounds, segmentRect, roadGraph } from '../sim
 import { STREETS_X, STREETS_Z } from '../data/places.js';
 import { lookOf } from '../data/looks.js';
 
-const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', scenery: '🌳' };
+const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', scenery: '🌳', police: '🚓' };
 // màu mảng cảnh quan trên bản đồ nhỏ
 const SCENERY_COLOR = { park: '#4f8a3a', emptyLot: '#8b6f4e', soccer: '#3d9a48', parkingLot: '#8a8a85', construction: '#b08a4a' };
 

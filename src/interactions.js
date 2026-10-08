@@ -3,7 +3,7 @@
 // (lấy hàng, xếp túi, giao hàng, sự cố, cửa hàng, nhiệm vụ chiếc ví, CSGT…)
 // Mọi chữ lấy từ kho chữ qua fmt() — sửa bằng công cụ ?editor.
 // =============================================================
-import { TIME, ECONOMY, ENERGY, ORDER, VEHICLES, BAGS, WALLET_QUEST } from './data/balance.js';
+import { TIME, ECONOMY, ENERGY, ORDER, VEHICLES, BAGS, WALLET_QUEST, PARKING } from './data/balance.js';
 import { APP, ORDER_TYPES, RIDER_TYPES } from './data/apps.js';
 import { GOODS, OUTFIT_SLOTS } from './data/goods.js';
 import { isOpen, fmtHours, placesUsing, placesSelling, unlocked, openDayOf } from './sim/placeRules.js';
@@ -46,7 +46,7 @@ export function gatherInteractions(g) {
   // F: lên / xuống xe
   if (foot && dist(p, bike.pos) < 3.2) {
     // xe bị cẩu về bãi → chuộc rồi mới lấy được
-    if (g.gs.towed) out.push({ key: 'F', label: fmt('act.redeemBike', { fee: g.gs.towed.fee }), dist: 0, run: () => redeemBike(g) });
+    if (g.gs.towed) out.push({ key: 'F', label: redeemLabel(g), dist: 0, run: () => redeemBike(g) });
     else out.push({ key: 'F', label: fmt('act.mount'), dist: 0, run: () => mount(g) });
   }
   if (!foot) out.push({ key: 'F', label: fmt('act.dismount'), dist: 0, disabled: !slow, run: () => dismount(g) });
@@ -106,15 +106,66 @@ function dismount(g) {
   g.startParking(); // bãi giữ xe: gửi (trả tiền) · ngoài đường: để lâu có rủi ro
 }
 
-// Chuộc xe bị cẩu: trả phí (không đủ thì lấy hết tiền đang có) rồi lên xe
-function redeemBike(g) {
+// Xe đang bị giữ ở đồn công an? (khác bãi giữ xe thường)
+const towedAtStation = (g) => g.gs.towed && g.layout.placeById[g.gs.towed.placeId]?.kind === 'police';
+function redeemLabel(g) {
   const { gs } = g;
-  const fee = Math.min(Math.max(0, gs.money), gs.towed.fee);
-  gs.spend(fee, 'tow', true);
-  gs.towed = null;
-  sfx.cash();
-  g.hud.toast(fmt('toast.redeemed', { fee }), 'info', 5000);
-  mount(g);
+  return towedAtStation(g)
+    ? fmt('act.redeemBikePolice', { total: gs.towed.fee + gs.finesTotal })
+    : fmt('act.redeemBike', { fee: gs.towed.fee });
+}
+// Chuộc xe bị cẩu rồi lên xe.
+//  - ở đồn công an: phải đóng đủ tiền chuộc + mọi phạt nguội (thiếu thì chưa lấy được, đi bộ kiếm thêm)
+//  - ở bãi giữ xe thường: trả phí (không đủ thì lấy hết tiền đang có)
+function redeemBike(g, { ride = true } = {}) {
+  const { gs } = g;
+  if (towedAtStation(g)) {
+    const total = gs.towed.fee + gs.finesTotal;
+    if (gs.money < total) return g.hud.toast(fmt('toast.redeemShort', { total, need: Math.ceil(total - gs.money) }), 'warn', 6000);
+    gs.spend(gs.towed.fee, 'tow');
+    const fines = gs.payFines() || 0;
+    gs.towed = null;
+    sfx.cash();
+    g.hud.toast(fmt('toast.redeemedPolice', { total, fines }), 'info', 6000);
+  } else {
+    const fee = Math.min(Math.max(0, gs.money), gs.towed.fee);
+    gs.spend(fee, 'tow', true);
+    gs.towed = null;
+    sfx.cash();
+    g.hud.toast(fmt('toast.redeemed', { fee }), 'info', 5000);
+  }
+  if (ride && dist(g.playerPos, g.bike.pos) < 3.2) mount(g);
+}
+
+// Đồn công an: nộp phạt nguội, lấy xe bị giữ
+function policeChoices(g, pl) {
+  const { gs } = g;
+  const out = [];
+  if (gs.towed && gs.towed.placeId === pl.id) {
+    const total = gs.towed.fee + gs.finesTotal;
+    out.push({
+      label: fmt('dlg.policeRedeem', { total }),
+      hint: gs.money >= total ? fmt('dlg.policeRedeemHint', { fee: gs.towed.fee, fines: gs.finesTotal }) : fmt('dlg.policeShort', { need: Math.ceil(total - gs.money) }),
+      disabled: gs.money < total,
+      primary: gs.money >= total,
+      onSelect: () => redeemBike(g, { ride: false }),
+    });
+  } else if (gs.fines.length) {
+    const total = gs.finesTotal;
+    out.push({
+      label: fmt('dlg.policeFines', { total }),
+      hint: gs.money >= total ? fmt(gs.hasOverdueFines ? 'dlg.policeFinesLate' : 'dlg.policeFinesHint', { n: gs.fines.length }) : fmt('dlg.policeShort', { need: Math.ceil(total - gs.money) }),
+      disabled: gs.money < total,
+      primary: gs.money >= total,
+      onSelect: () => {
+        const paid = gs.payFines();
+        if (paid == null) return;
+        sfx.cash();
+        g.hud.toast(fmt('toast.finePaid', { fine: paid }), 'good', 5000);
+      },
+    });
+  }
+  return out;
 }
 
 // ======================== ĐIỆN THOẠI ========================
@@ -547,6 +598,7 @@ export function placeAction(g, pl) {
     case 'gate': return { label: fmt('act.gate', p), needFoot: true, run: () => gate(g) };
     case 'apartment': return { label: fmt('act.apartment', p), run: () => openPlace(g, pl) };
     case 'market': return (pl.activities || []).length || hasStock(pl) ? generic('act.market') : null;
+    case 'police': return generic('act.police', { run: () => openPlace(g, pl, policeChoices(g, pl)) });
     // cảnh quan (công viên, đất trống…): chỉ có nút E khi đã thêm hoạt động / hàng bán ở thẻ Địa điểm
     case 'scenery': return (pl.activities || []).length || hasStock(pl) ? generic('act.scenery') : null;
     default: return generic('act.service'); // 'service' và mọi loại mới tạo trong công cụ
@@ -903,6 +955,21 @@ export function policeStop(g, p, speed) {
   bike.vel.set(0, 0);
   sfx.whistle();
   const kmh = Math.round(speed * 3.6);
+  // còn phạt nguội quá hạn → tạm giữ xe về đồn công an gần nhất (đóng hết mới lấy lại)
+  const station = gs.hasOverdueFines && !g.om.hasCargo && g.nearestStation();
+  if (station) {
+    say(g, fmt('dlg.police'), '👮', fmt('dlg.policeImpound', { fine: gs.finesTotal, place: station.name }), [{
+      label: fmt('dlg.policeImpoundOk'),
+      onSelect: () => {
+        dismount(g);
+        g.towBikeTo(station, PARKING.towFee ?? 150);
+        gs.addEnergy(0, -ENERGY.mental.fine);
+        sfx.bad();
+        g.advance(10, 'idle');
+      },
+    }], { dismissible: false });
+    return;
+  }
   say(g, fmt('dlg.police'), '👮', speeding ? fmt('dlg.policeSpeeding', { kmh, fine: ECONOMY.policeFine }) : fmt('dlg.policeCheck'), [
     {
       label: speeding ? fmt('dlg.policePay', { fine: ECONOMY.policeFine }) : fmt('dlg.policeShow'),

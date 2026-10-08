@@ -3,7 +3,7 @@
 // Tiền, điểm đánh giá, thể lực, tinh thần, xăng, đồ đã mua, cờ nhiệm vụ,
 // tiền nhà theo kỳ, ngủ / thức, kiệt sức, điều kiện thua (game chơi tự do 24h — không có "thắng").
 // =============================================================
-import { ECONOMY, RATING, ENERGY, VEHICLES, BAGS, WALLET_QUEST, NIGHT, rentFor, periodOfDay, dueDayOf } from '../data/balance.js';
+import { ECONOMY, RATING, ENERGY, VEHICLES, BAGS, WALLET_QUEST, NIGHT, PARKING, rentFor, periodOfDay, dueDayOf } from '../data/balance.js';
 import { dayStartAt, atHour, isDark } from './clock.js';
 import { APP } from '../data/apps.js';
 import { GOODS, EFFECTS, OUTFIT_SLOTS, freeOutfit } from '../data/goods.js';
@@ -35,6 +35,8 @@ export class GameState {
     // towed = xe bị cẩu về bãi { placeId, fee } — chuộc rồi mới lấy được (lưu qua các lần chơi)
     this.parked = null;
     this.towed = c.towed ?? null;
+    // phạt nguội (nộp ở đồn công an): [{ amount, reason, dueAt (phút tuyệt đối), overdue }]
+    this.fines = (c.fines || []).map((f) => ({ ...f }));
     const tutorialDone = day > 1;
     this.flags = {
       mounted: tutorialDone,
@@ -165,6 +167,41 @@ export class GameState {
     this.money -= k;
     this.stats.expense[reason] = (this.stats.expense[reason] || 0) + k;
     return true;
+  }
+
+  // ---------- phạt nguội ----------
+  addFine(amount, reason, now) {
+    this.fines.push({ amount, reason, dueAt: now + (PARKING.fineDays ?? 3) * 1440, overdue: false });
+    this.stats.fines += 1;
+  }
+  // Quá hạn → tiền phạt tăng overduePct (một lần). Trả về các khoản vừa quá hạn.
+  updateFines(now) {
+    const out = [];
+    for (const f of this.fines) {
+      if (f.overdue || now <= f.dueAt) continue;
+      f.overdue = true;
+      f.amount = Math.round(f.amount * (1 + (PARKING.overduePct ?? 0.5)));
+      out.push(f);
+    }
+    return out;
+  }
+  get finesTotal() {
+    return this.fines.reduce((s, f) => s + f.amount, 0);
+  }
+  get hasOverdueFines() {
+    return this.fines.some((f) => f.overdue);
+  }
+  // hạn nộp sớm nhất (phút tuyệt đối) hoặc null
+  get finesDueAt() {
+    return this.fines.length ? Math.min(...this.fines.map((f) => f.dueAt)) : null;
+  }
+  // Nộp hết phạt nguội (đủ tiền mới nộp được). Trả về số đã nộp hoặc null
+  payFines() {
+    const t = this.finesTotal;
+    if (!t || this.money < t) return null;
+    this.spend(t, 'fine');
+    this.fines = [];
+    return t;
   }
 
   addEnergy(phys = 0, mental = 0) {
@@ -459,6 +496,7 @@ export class GameState {
       account: this.account,
       flags: { wallet: this.flags.wallet, walletDay: this.flags.walletDay },
       towed: this.towed,
+      fines: this.fines.map((f) => ({ ...f })),
     };
   }
 }

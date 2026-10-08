@@ -21,7 +21,8 @@ export function dropTarget(data, p, x, z, sizeHint = 'one') {
   const [bx, bz] = blockNear(x, z);
   const map = data.map;
   const plan = blockPlan(bx, bz, map);
-  const size = isPlaced(p) ? lotSize(p.lot) || 'one' : LOT_SIZES[sizeHint] ? sizeHint : 'one';
+  let size = isPlaced(p) ? lotSize(p.lot) || 'one' : LOT_SIZES[sizeHint] ? sizeHint : 'one';
+  if (p.kind === 'police' && size === 'one') size = 'two'; // đồn công an: ít nhất 2 lô
   const cands = plan ? plan.lots.map((l) => l.id) : LOT_SIZES[size];
   let best = null, bestD = Infinity;
   for (const lot of cands) {
@@ -45,7 +46,8 @@ export function lotProblem(data, p, bx, bz, lot, multiInAlley = false) {
   for (const q of pd.places) if (q.id !== p.id) for (const c of lotCells(q)) owner.set(c, q);
   const hit = cells.map((c) => owner.get(c)).find(Boolean);
   if (p.kind === 'gate') return 'Nhà cổng xanh gắn với hẻm 42 — không dời được.';
-  if (multiInAlley) return 'Khối có hẻm chỉ đặt được nhà 1 lô. Đổi kích thước về "1 lô" trước.';
+  if (multiInAlley) return p.kind === 'police' ? 'Đồn công an cần ít nhất 2 lô — khối có hẻm chỉ có nhà 1 lô.' : 'Khối có hẻm chỉ đặt được nhà 1 lô. Đổi kích thước về "1 lô" trước.';
+  if (p.kind === 'police' && cells.length < 2) return 'Đồn công an cần ít nhất 2 lô.';
   if (hit) return `Lô này đã có "${hit.name}".`;
   if (cells.includes(alleyKey)) return 'Lô này là lối vào hẻm 42.';
   return '';

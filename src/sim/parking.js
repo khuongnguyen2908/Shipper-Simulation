@@ -25,6 +25,19 @@ export function nearestParkingLot(places, x, z) {
   }
   return best;
 }
+// Đồn công an gần điểm (x, z) nhất (xe bị cẩu về đây, nộp phạt nguội ở đây), hoặc null
+export function nearestStation(places, x, z) {
+  let best = null, bd = Infinity;
+  for (const p of places) {
+    if (p.kind !== 'police') continue;
+    const d = Math.hypot(p.door.x - x, p.door.z - z);
+    if (d < bd) { bd = d; best = p; }
+  }
+  return best;
+}
+// Nơi cẩu xe về: đồn công an gần nhất, chưa có đồn thì bãi giữ xe gần nhất
+export const towTarget = (places, x, z) => nearestStation(places, x, z) || nearestParkingLot(places, x, z);
+
 // Đậu ở đây có an toàn không (không tính bãi giữ xe — bãi phải trả tiền gửi)
 export function safeSpot(places, x, z, P = PARKING) {
   const home = places.find((p) => p.kind === 'home');

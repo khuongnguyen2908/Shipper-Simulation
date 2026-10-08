@@ -3,7 +3,7 @@
 // =============================================================
 import * as THREE from 'three';
 import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, BAGS, NIGHT, PARKING } from './data/balance.js';
-import { parkingRoll, parkingLotAt, nearestParkingLot, safeSpot } from './sim/parking.js';
+import { parkingRoll, parkingLotAt, nearestStation, towTarget, safeSpot } from './sim/parking.js';
 import { GOODS, outfitLook } from './data/goods.js';
 import { APP, RIDER_TYPES } from './data/apps.js';
 import { ITEMS } from './data/items.js';
@@ -444,6 +444,7 @@ export class Game {
     const dMin = dt * TIME.gameMinPerRealSec * this.timeScale;
     this.clockMin += dMin;
     this.parkTick();
+    this.fineTick();
     gs.drain(activity, dMin, { harshSun: hz.isHarshSun(now), raining: !!rain, outdoor: true, inJam: this.inJam, waiting: false, now: this.clockMin });
     this.rollDay();
 
@@ -582,6 +583,7 @@ export class Game {
       this.om.update(1, 0, now, this.playerPos);
       for (const e of this.hz.poll(now)) this.onHazard(e);
       this.parkTick();
+      this.fineTick();
       if (this.gs.checkEnd(now)) break;
       if (this.gs.collapsed && activity !== 'rest') break; // kiệt sức giữa chừng → xử lý ngay
       if (stopOnOffer && this.om.state === S.OFFERED) break; // điện thoại reo có đơn
@@ -733,7 +735,7 @@ export class Game {
     const to = Math.floor(this.clockMin);
     for (let m = p.checked + 1; m <= to && this.gs.parked === p; m++) {
       p.checked = m;
-      const canTow = !!nearestParkingLot(this.layout.places, this.bike.pos.x, this.bike.pos.z);
+      const canTow = !!towTarget(this.layout.places, this.bike.pos.x, this.bike.pos.z);
       const ev = parkingRoll(this.parkRng, m, p, { canTow, hasCargo: this.om.hasCargo });
       if (ev) this.onParkingEvent(ev);
     }
@@ -743,17 +745,24 @@ export class Game {
     const P = PARKING;
     let msg = '';
     if (ev === 'ticket') {
-      const fine = Math.min(Math.max(0, gs.money), P.ticketFine ?? 50);
-      gs.spend(fine, 'parkingTicket', true);
+      const station = nearestStation(this.layout.places, this.bike.pos.x, this.bike.pos.z);
       gs.parked.ticketed = true;
-      msg = fmt('toast.parkTicket', { fine: P.ticketFine ?? 50 });
+      if (station) {
+        // có đồn công an → phạt nguội, nộp ở đồn trước hạn
+        gs.addFine(P.ticketFine ?? 50, 'parking', this.clockMin);
+        msg = fmt('toast.parkTicketFine', { fine: P.ticketFine ?? 50, days: P.fineDays ?? 3, place: station.name });
+      } else {
+        const fine = Math.min(Math.max(0, gs.money), P.ticketFine ?? 50);
+        gs.spend(fine, 'parkingTicket', true);
+        msg = fmt('toast.parkTicket', { fine: P.ticketFine ?? 50 });
+      }
     } else if (ev === 'theft') {
       gs.fuel = Math.max(0, gs.fuel * (1 - (P.theftFuelPct ?? 0.6)));
       gs.bikeHp = Math.max(0, gs.bikeHp - (P.theftHp ?? 15));
       gs.parked.robbed = true;
       msg = fmt('toast.parkTheft', { hp: P.theftHp ?? 15 });
     } else if (ev === 'tow') {
-      const lot = nearestParkingLot(this.layout.places, this.bike.pos.x, this.bike.pos.z);
+      const lot = towTarget(this.layout.places, this.bike.pos.x, this.bike.pos.z);
       if (!lot) return;
       this.towBikeTo(lot, P.towFee ?? 150);
       msg = fmt('toast.parkTow', { place: lot.name, fee: P.towFee ?? 150 });
@@ -762,7 +771,20 @@ export class Game {
     this.hud.toast(msg, 'bad', 8000);
     this.addChat(fmt('chat.ward'), msg);
   }
-  // Xe bị cẩu: đặt ở vỉa hè trước bãi giữ xe, phải chuộc mới lấy được
+  // Phạt nguội quá hạn → tiền tăng, báo một lần
+  fineTick() {
+    for (const f of this.gs.updateFines(this.clockMin)) {
+      const msg = fmt('toast.fineOverdue', { fine: f.amount });
+      this.hud.toast(msg, 'bad', 7000);
+      this.addChat(fmt('chat.ward'), msg);
+    }
+  }
+  nearestStation() {
+    const p = this.playerPos;
+    return nearestStation(this.layout.places, p.x, p.z);
+  }
+
+  // Xe bị cẩu: đặt ở vỉa hè trước bãi giữ xe / đồn công an, phải chuộc mới lấy được
   towBikeTo(lot, fee) {
     const { bike, gs } = this;
     bike.pos.set(lot.door.x, 0, lot.door.z);
@@ -779,7 +801,8 @@ export class Game {
     const o = om.order;
     if (gs.towed && this.mode === 'foot') {
       const lot = this.layout.placeById[gs.towed.placeId];
-      return { x: this.bike.pos.x, z: this.bike.pos.z, text: fmt('goal.towed', { place: lot?.name || '', fee: gs.towed.fee }), sub: fmt('goal.towedHint'), color: '#e74c3c' };
+      const fee = gs.towed.fee + (lot?.kind === 'police' ? gs.finesTotal : 0); // ở đồn: đóng cả phạt nguội
+      return { x: this.bike.pos.x, z: this.bike.pos.z, text: fmt('goal.towed', { place: lot?.name || '', fee }), sub: fmt('goal.towedHint'), color: '#e74c3c' };
     }
     if (o) {
       if ([S.TO_PICKUP, S.WAITING_FOOD, S.OUT_OF_STOCK, S.PACKING].includes(om.state)) {
@@ -809,6 +832,10 @@ export class Game {
       if (ob.id === 'wallet' && ob.target) return { ...P[ob.target].door, text: fmt('goal.wallet', { text: ob.text }), sub: fmt('goal.walletHint'), color: '#bb8fce' };
       if (ob.id === 'wallet') return { text: fmt('goal.wallet', { text: ob.text }), sub: fmt('goal.walletHint') };
       if (ob.id === 'rent' && gs.money >= gs.rent) return { ...P.home.door, text: fmt('goal.rent', { rent: gs.rent, day: gs.rentDueDay }), sub: fmt('goal.rentHint'), color: '#e74c3c' };
+    }
+    if (gs.fines.length && gs.money >= gs.finesTotal && (gs.hasOverdueFines || gs.finesDueAt - this.clockMin < 1440)) {
+      const st = this.nearestStation();
+      if (st) return { ...st.door, text: fmt('goal.fines', { fine: gs.finesTotal, place: st.name }), sub: fmt('goal.finesHint'), color: '#e67e22' };
     }
     if (om.state === S.OFFLINE) return { text: fmt('goal.online'), sub: '' };
     if (!gs.rentPaid && gs.money < gs.rent) return { text: fmt('goal.waiting', { k: Math.ceil(gs.rent - gs.money), day: gs.rentDueDay }), sub: fmt('goal.waitingHint') };
