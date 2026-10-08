@@ -7,7 +7,9 @@
 import { HAZARD, TIME } from '../data/balance.js';
 import { dayStartAt } from './clock.js';
 import { MAIN_ROADS } from '../data/places.js';
-import { CITY, roadPos, intersectionName, segmentName, neighbors, isWaterSeg } from './cityLayout.js';
+import { MAP } from '../data/map.js';
+import { traitOf } from '../data/districtTraits.js';
+import { CITY, roadPos, intersectionName, segmentName, neighbors, isWaterSeg, traitAt, traitAtBlock } from './cityLayout.js';
 import { fmt } from '../content/index.js';
 
 const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}`;
@@ -26,27 +28,45 @@ export class HazardManager {
     const st = rng.range(...HAZARD.stormStart);
     this.rain.push({ start: st, end: st + rng.range(...HAZARD.stormLen), heavy: true });
 
-    // Chốt CSGT ở các ngã tư bên trong
+    // Chốt CSGT ở các ngã tư bên trong có ≥ 3 ngả đường (không đặt trên cầu, mặt sông, đường cụt);
+    // khu phố "police" cao thì hay có chốt (trung bình 4 khối quanh ngã tư)
+    const nodes = [];
+    for (let i = 1; i < CITY.N; i++) for (let j = 1; j < CITY.N; j++) if (neighbors(i, j).length >= 3) nodes.push([i, j]);
+    const nodeW = nodes.map(([i, j]) => (traitAtBlock(i - 1, j - 1, 'police') + traitAtBlock(i, j - 1, 'police') + traitAtBlock(i - 1, j, 'police') + traitAtBlock(i, j, 'police')) / 4 + 1e-3);
     this.police = [];
     let t = HAZARD.policeFirst + rng.range(-30, 30);
     let id = 0;
     while (t < HAZARD.policeEnd - 40) {
       const len = rng.range(...HAZARD.policeLen);
-      // chốt ở ngã tư bên trong có ≥ 3 ngả đường (không đặt trên cầu, mặt sông, đường cụt)
-      let node = [rng.int(1, CITY.N - 1), rng.int(1, CITY.N - 1)];
-      for (let k = 0; k < 40 && neighbors(...node).length < 3; k++) node = [rng.int(1, CITY.N - 1), rng.int(1, CITY.N - 1)];
+      const node = nodes.length ? rng.weighted(nodes, nodeW) : [rng.int(1, CITY.N - 1), rng.int(1, CITY.N - 1)];
       this.police.push({ id: `p${id++}`, start: t, end: t + len, node, reported: rng.chance(HAZARD.policeReportChance), name: intersectionName(...node) });
       t += len + rng.range(...HAZARD.policeGap);
     }
 
-    // Kẹt xe giờ cao điểm trên đường chính
-    const allSegs = [];
-    for (const r of MAIN_ROADS) for (let f = 0; f < CITY.N; f++) if (!isWaterSeg(r.axis, r.line, f)) allSegs.push({ axis: r.axis, line: r.line, from: f });
+    // Kẹt xe giờ cao điểm: đường chính hay kẹt nhất; đoạn khác kẹt theo khu phố ("jam")
+    const allSegs = [], segW = [];
+    const isMain = (axis, line) => MAIN_ROADS.some((r) => r.axis === axis && r.line === line);
+    for (const axis of ['x', 'z']) for (let line = 0; line <= CITY.N; line++) for (let f = 0; f < CITY.N; f++) {
+      if (isWaterSeg(axis, line, f)) continue;
+      const a = roadPos(line), b = roadPos(f) + CITY.PITCH / 2; // giữa đoạn
+      const jam = axis === 'x' ? traitAt(a, b, 'jam') : traitAt(b, a, 'jam');
+      allSegs.push({ axis, line, from: f });
+      segW.push((isMain(axis, line) ? 4 : 0.25) * jam);
+    }
+    const pickSegs = () => {
+      const left = allSegs.map((s, i) => i), out = [];
+      while (out.length < HAZARD.jamSegments && left.length) {
+        const k = rng.weighted(left.map((_, n) => n), left.map((i) => segW[i] + 1e-6));
+        out.push(allSegs[left[k]]);
+        left.splice(k, 1);
+      }
+      return out;
+    };
     this.jams = HAZARD.rush.map(([s, e], k) => ({
       id: `j${k}`,
       start: s + rng.range(-15, 15),
       end: e + rng.range(-15, 15),
-      segments: rng.shuffle(allSegs).slice(0, HAZARD.jamSegments),
+      segments: pickSegs(),
     }));
 
     this.potholes = makePotholes(rng);
@@ -125,9 +145,10 @@ export class HazardManager {
 
 function makePotholes(rng) {
   const out = [];
+  const maxPot = Math.max(1, ...Object.values(MAP.districts || {}).map((d) => traitOf(d, 'potholes')));
   const lim = -CITY.ORIGIN - 6;
   let guard = 0;
-  while (out.length < HAZARD.potholes && guard++ < 2000) {
+  while (out.length < HAZARD.potholes && guard++ < 8000) {
     const axis = rng.chance(0.5) ? 'x' : 'z';
     const line = rng.int(0, CITY.N);
     const along = rng.range(-lim, lim);
@@ -138,6 +159,8 @@ function makePotholes(rng) {
     const lat = rng.range(-4.6, 4.6);
     const x = axis === 'x' ? roadPos(line) + lat : along;
     const z = axis === 'x' ? along : roadPos(line) + lat;
+    // khu phố nhiều ổ gà giữ lại nhiều chỗ hơn (tổng số ổ gà không đổi, chỉ dồn về khu "potholes" cao)
+    if (rng.next() * maxPot > traitAt(x, z, 'potholes')) continue;
     out.push({ x, z, r: rng.range(0.5, 0.85), depth: rng.range(0.7, 1.2) });
   }
   return out;

@@ -247,3 +247,4 @@ body.show-hints .fld-i { display: none; }
 .dist-row.on { border-color: #00b14f; background: #1f2a24; }
 .dist-row .color-in input[type=text] { display: none; }
 .build-label.dist { font-size: 14px; padding: 2px 10px; background: #000a; border: 2px solid; }
+.dist-traits { margin: 0 0 8px 46px; padding: 8px 10px; border-left: 3px solid #00b14f; background: #121821; border-radius: 0 8px 8px 0; }

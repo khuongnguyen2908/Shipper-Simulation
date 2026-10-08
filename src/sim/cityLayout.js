@@ -4,6 +4,7 @@ import { STREETS_X, STREETS_Z, PLACES, ALLEY, isPlaced } from '../data/places.js
 import { MAP } from '../data/map.js';
 import { fmt } from '../content/index.js';
 import { planBlock, ALLEY_TEMPLATES } from './blockPlan.js';
+import { traitOf } from '../data/districtTraits.js';
 
 // Lưới N × N khối (N lấy từ map.json), mỗi khối 40 m, đường 12 m; tâm bản đồ ở (0, 0)
 const N = Number.isInteger(MAP.size) && MAP.size >= 3 ? MAP.size : 8;
@@ -97,6 +98,11 @@ export function districtAtPoint(x, z, map = MAP) {
   const c = (v) => Math.max(0, Math.min(CITY.N - 1, Math.floor((v - off) / CITY.PITCH)));
   return districtAt(c(x), c(z), map);
 }
+
+// Hệ số tính cách khu phố tại điểm (x, z) — 1 nếu khối chưa có khu hoặc khu chưa đặt số (src/data/districtTraits.js)
+export const traitAt = (x, z, k, map = MAP) => traitOf(districtAtPoint(x, z, map), k);
+// … tại khối (bx, bz)
+export const traitAtBlock = (bx, bz, k, map = MAP) => traitOf(districtAt(bx, bz, map), k);
 
 // ---------- khối có hẻm (map.json → blocks) ----------
 // Kiểu hẻm của khối, hoặc null (khối thường: 8 lô quanh mép + sân giữa như cũ)

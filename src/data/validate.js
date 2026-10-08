@@ -14,6 +14,7 @@ import { LOOKS, lookOf, looksFor } from './looks.js';
 import { hoursProblem, totalHours } from '../sim/hours.js';
 import { BALANCE_GROUPS, KNOWN_PATHS, getPath } from './balanceSpec.js';
 import { ITEM_GROUP_IDS } from './itemGroups.js';
+import { DISTRICT_TRAITS, TRAIT_RANGE } from './districtTraits.js';
 import { isPlaced } from './places.js';
 
 const MAX_OPEN_DAY = 60;
@@ -497,6 +498,10 @@ export function validateMap(map, placesData = null) {
   for (const [id, d] of Object.entries(map.districts || {})) {
     if (!ID_RE.test(id)) add('error', `district:${id}`, 'id', 'Mã khu phố chỉ gồm chữ không dấu, số, gạch dưới.');
     if (!d || !String(d.name || '').trim()) add('error', `district:${id}`, 'name', 'Khu phố chưa có tên.');
+    for (const [k, label] of DISTRICT_TRAITS) {
+      const v = d?.[k];
+      if (v != null && (!num(v) || v < TRAIT_RANGE[0] || v > TRAIT_RANGE[1])) add('error', `district:${id}`, k, `${label}: số từ ${TRAIT_RANGE[0]} đến ${TRAIT_RANGE[1]} (1 = bình thường).`);
+    }
     if (d && d.color != null && !/^#[0-9a-f]{6}$/i.test(d.color)) add('error', `district:${id}`, 'color', 'Màu khu phố phải dạng #rrggbb.');
   }
   for (const [key, id] of Object.entries(map.districtBlocks || {})) {

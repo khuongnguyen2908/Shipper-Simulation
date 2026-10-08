@@ -10,7 +10,7 @@ import { ITEMS } from './data/items.js';
 import { unlocked, openDayOf } from './sim/placeRules.js';
 import { dayOf, dayStartAt, tod, isDark } from './sim/clock.js';
 import { inHours } from './sim/hours.js';
-import { buildLayout, segmentRect, roadPos, districtAtPoint } from './sim/cityLayout.js';
+import { buildLayout, segmentRect, roadPos, districtAtPoint, traitAt } from './sim/cityLayout.js';
 import { makeRng } from './sim/rng.js';
 import { GameState } from './sim/GameState.js';
 import { OrderManager, S } from './sim/OrderManager.js';
@@ -737,7 +737,8 @@ export class Game {
     for (let m = p.checked + 1; m <= to && this.gs.parked === p; m++) {
       p.checked = m;
       const canTow = !!towTarget(this.layout.places, this.bike.pos.x, this.bike.pos.z);
-      const ev = parkingRoll(this.parkRng, m, p, { canTow, hasCargo: this.om.hasCargo });
+      const bx = this.bike.pos.x, bz = this.bike.pos.z;
+      const ev = parkingRoll(this.parkRng, m, p, { canTow, hasCargo: this.om.hasCargo, towMul: traitAt(bx, bz, 'tow'), theftMul: traitAt(bx, bz, 'theft') });
       if (ev) this.onParkingEvent(ev);
     }
   }

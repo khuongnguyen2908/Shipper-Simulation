@@ -4,7 +4,7 @@
 //  - Chó lang thang, thỉnh thoảng lao qua đường trước mũi xe
 //  - Chốt CSGT, đoàn xe kẹt giờ cao điểm
 import * as THREE from 'three';
-import { CITY, roadPos, blockBounds, segmentRect, neighbors } from '../sim/cityLayout.js';
+import { CITY, roadPos, blockBounds, segmentRect, neighbors, traitAtBlock } from '../sim/cityLayout.js';
 import { HAZARD } from '../data/balance.js';
 import { makeCar, makeNpcMoto, makePerson, makeDog, makeCone, animatePerson, randomPersonOpts, jamCarGeo, jamMotoGeo } from './models.js';
 import { guessGender } from '../sim/people.js';
@@ -106,7 +106,14 @@ export class Traffic {
     const name = rng.pick(list('ped.names'));
     const mesh = makePerson(randomPersonOpts(rng, guessGender(name)));
     this.scene.add(mesh);
-    this.peds.push({ id: i, mesh, bx: rng.int(0, CITY.N - 1), bz: rng.int(0, CITY.N - 1), t: rng.range(0, 140), speed: rng.range(0.9, 1.4), dir: rng.chance(0.5) ? 1 : -1, pause: 0, talk: 0, knock: 0, phase: rng.range(0, 6), name, x: 0, z: 0, asked: false });
+    // khối có người đi bộ đông / vắng theo khu phố ("traffic")
+    if (!this.pedBlocks) {
+      this.pedBlocks = [];
+      for (let bz = 0; bz < CITY.N; bz++) for (let bx = 0; bx < CITY.N; bx++) this.pedBlocks.push([bx, bz]);
+      this.pedW = this.pedBlocks.map(([bx, bz]) => traitAtBlock(bx, bz, 'traffic') + 1e-3);
+    }
+    const [pbx, pbz] = rng.weighted(this.pedBlocks, this.pedW);
+    this.peds.push({ id: i, mesh, bx: pbx, bz: pbz, t: rng.range(0, 140), speed: rng.range(0.9, 1.4), dir: rng.chance(0.5) ? 1 : -1, pause: 0, talk: 0, knock: 0, phase: rng.range(0, 6), name, x: 0, z: 0, asked: false });
   }
 
   spawnDog() {

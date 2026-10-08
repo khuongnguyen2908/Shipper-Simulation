@@ -512,7 +512,9 @@ console.log('Đồ dùng, hoạt động, điểm đến (luật bằng dữ li�
       om.arriveAtDropoff(495);
       const r = om.handOver(495);
       assert.equal(r.ev.stars, 5);
-      assert.equal(r.pay.tip, 8 + 4);
+      // boa theo sao × hệ số khu phố nơi giao ("tips") + boa thêm của trang bị
+      const tm = CITYLAYOUT.traitAt(om.history.at(-1).order.dropoff.door.x, om.history.at(-1).order.dropoff.door.z, 'tips');
+      assert.equal(r.pay.tip, Math.round(8 * tm * 10) / 10 + 4);
       delete GOODS.__tip;
       return;
     }
@@ -2152,6 +2154,58 @@ console.log('Quận (map.json → districts)');
     bad.districtBlocks['0,0'] = 'khongCo';
     const f = validateMap(bad, rd('src/data/places.json')).filter((i) => i.level === 'error').map((i) => `${i.ref}.${i.field}`);
     for (const k of ['district:xx.name', 'district:xx.color', 'district:q1.blocks', 'district:khongCo.blocks']) assert.ok(f.includes(k), `không bắt lỗi ${k}`);
+  });
+}
+
+console.log('Tính cách khu phố (hệ số theo khu)');
+{
+  const DT = await import('../src/data/districtTraits.js');
+  const CL = await import('../src/sim/cityLayout.js');
+  const { HazardManager } = await import('../src/sim/hazards.js');
+  const PK = await import('../src/sim/parking.js');
+  const { MAP } = await import('../src/data/map.js');
+  test('Hệ số khu: thiếu / sai → 1; mẫu khu đủ mọi thông số trong khoảng cho phép', () => {
+    assert.equal(DT.traitOf(null, 'tips'), 1);
+    assert.equal(DT.traitOf({ tips: -2 }, 'tips'), 1);
+    assert.equal(DT.traitOf({ tips: 1.6 }, 'tips'), 1.6);
+    for (const p of Object.values(DT.DISTRICT_PRESETS)) for (const k of DT.TRAIT_IDS) assert.ok(p[k] >= DT.TRAIT_RANGE[0] && p[k] <= DT.TRAIT_RANGE[1], `${p.label}.${k}`);
+  });
+  test('Khách đặt đơn theo khu: khu hệ số 0 không bao giờ là điểm giao; khu cao được chọn nhiều hơn', () => {
+    const ids = Object.keys(MAP.districts || {});
+    if (ids.length < 2) return;
+    const saved = JSON.parse(JSON.stringify(MAP.districts));
+    const [zero, hi] = ids;
+    MAP.districts[zero].orders = 0;
+    MAP.districts[hi].orders = 5;
+    try {
+      const { om } = mkOM(3);
+      om.now = 600; // ban ngày
+      const cnt = { zero: 0, hi: 0 };
+      for (let i = 0; i < 400; i++) {
+        const l = om.pickLotAround({ x: 0, z: 0 }, 0, 9999);
+        const d = CL.districtAtPoint(l.door.x, l.door.z)?.id;
+        if (d === zero) cnt.zero++;
+        if (d === hi) cnt.hi++;
+      }
+      assert.equal(cnt.zero, 0);
+      assert.ok(cnt.hi > 20, `khu hệ số 5 chỉ được ${cnt.hi} lần`);
+    } finally { for (const id of ids) MAP.districts[id] = saved[id]; }
+  });
+  test('Ổ gà dồn về khu xóc; rủi ro đậu xe nhân theo khu', () => {
+    const ids = Object.keys(MAP.districts || {});
+    if (!ids.length) return;
+    const saved = JSON.parse(JSON.stringify(MAP.districts));
+    for (const id of ids) MAP.districts[id].potholes = id === ids[0] ? 5 : 0;
+    try {
+      const h = new HazardManager(makeRng(9), 1);
+      const own = h.potholes.filter((p) => CL.districtAtPoint(p.x, p.z)?.id === ids[0]).length;
+      assert.ok(h.potholes.length > 0 && own / h.potholes.length > 0.6, `chỉ ${own}/${h.potholes.length} ổ gà ở khu xóc`);
+    } finally { for (const id of ids) MAP.districts[id] = saved[id]; }
+    // dán phạt: hệ số 0 → không bao giờ; hệ số cao → nhiều hơn
+    const always = { next: () => 0.0001 };
+    const p = { since: 600, safe: false, ticketed: false, robbed: false };
+    assert.equal(PK.parkingRoll(always, 700, p, { canTow: false, towMul: 0 }), null);
+    assert.equal(PK.parkingRoll(always, 700, p, { canTow: false, towMul: 2 }), 'ticket');
   });
 }
 

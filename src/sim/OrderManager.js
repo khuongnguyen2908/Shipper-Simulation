@@ -21,7 +21,8 @@ import { CUSTOMER_NAMES } from '../data/places.js';
 import { DeliveryItem } from './ItemPhysics.js';
 import { evaluateOrder } from './OrderCondition.js';
 import { computePayout, estimatePay, addTip } from './economy.js';
-import { routeDist, rideDoor } from './cityLayout.js';
+import { routeDist, rideDoor, traitAt } from './cityLayout.js';
+import { isDark } from './clock.js';
 import { fmt } from '../content/index.js';
 import { isOpen, orderWeight, unlocked } from './placeRules.js';
 import { inHours } from './hours.js';
@@ -136,6 +137,7 @@ export class OrderManager {
 
   // dtMin: phút game, dtSec: giây thật (đếm ngược thẻ đơn theo thời gian thật)
   update(dtMin, dtSec, now, pos) {
+    this.now = now; // giờ hiện tại (chọn nhà khách theo khu ngày / đêm)
     if (this.state === S.IDLE) {
       if (!inHours(APP.hours, now)) return; // ngoài giờ app nhận đơn (apps.json → hours)
       if (demandAt(now) <= 0) return; // giờ này không có ai đặt
@@ -331,7 +333,9 @@ export class OrderManager {
       if (d >= a && d <= b) cands.push({ l, d });
     }
     if (!cands.length) return this.rng.pick(this.layout.lots);
-    return this.rng.weighted(cands, cands.map((c) => 1 / c.d)).l;
+    // khu phố có khách đặt nhiều / ít (thẻ Bản đồ → Khu phố): ban ngày "orders", trời tối "ordersNight"
+    const k = isDark(this.now ?? 600) ? 'ordersNight' : 'orders';
+    return this.rng.weighted(cands, cands.map((c) => traitAt(c.l.door.x, c.l.door.z, k) / c.d)).l;
   }
 
   buildOrder({ type, pickup, dropoff, itemIds, pos, now = 0, rider = null }) {
@@ -673,6 +677,9 @@ export class OrderManager {
     const farePct = noPay ? 0 : ev.scared ? ECONOMY.scaredFarePct : 1;
     const pay = computePayout({ baseFare: o.baseFare, distanceKm: o.distanceKm, litersUsed: o.liters, stars: ev.stars, refused: ev.refused, farePct, surcharge: o.surcharge, viaApp: o.viaApp });
     const good = !ev.refused && !ev.scared && !noPay;
+    // khu phố nơi giao: boa nhiều / ít (nhân phần boa theo sao)
+    const tm = traitAt(o.dropoff.door.x, o.dropoff.door.z, 'tips');
+    if (pay.tip > 0 && tm !== 1) addTip(pay, r1(pay.tip * (tm - 1)));
     // trang bị "boa thêm" (vd. sách giao tiếp) cho đơn 4–5 sao
     const bonus = good && ev.stars >= 4 ? this.gs.effect('tipBonus') : 0;
     addTip(pay, bonus);

@@ -4,7 +4,10 @@ import { ALLEY_TEMPLATES } from '../../sim/blockPlan.js';
 import { isPlaced } from '../../data/places.js';
 import { el, field, button, selectInput, checkInput, numInput, explain, textInput, colorInput } from './ui.js';
 import { HINT, EXPLAIN } from './help.js';
+import { DISTRICT_TRAITS, DISTRICT_PRESETS, TRAIT_IDS, TRAIT_RANGE, traitOf } from '../../data/districtTraits.js';
 
+// khu phố đang mở bảng "tính cách" (⚙️)
+let openKhu = null;
 // cọ tô khu phố đang chọn: null = không tô (bấm khối để chọn) · '' = xóa khu phố khỏi khối · mã khu phố = tô khu phố đó
 let brush = null;
 // đang kéo tô (giữ ctx để chốt bước hoàn tác khi thả chuột) — nghe "thả chuột" một lần cho cả trang
@@ -99,10 +102,11 @@ export function render(root, ctx) {
     const count = {};
     for (const id of Object.values(map.districtBlocks)) count[id] = (count[id] || 0) + 1;
     const unset = CITY.N * CITY.N - Object.keys(map.districtBlocks).length;
-    const rows = Object.entries(map.districts).map(([id, d]) => el('div', { class: `dist-row${brush === id ? ' on' : ''}` },
+    const rows = Object.entries(map.districts).map(([id, d]) => [el('div', { class: `dist-row${brush === id ? ' on' : ''}` },
       colorInput(d.color || '#888888', (v) => { d.color = v; changed(); drawMap(); }),
       textInput(d.name, (v) => { d.name = v; changed(); drawMap(); }, { class: 'dist-name' }),
       el('small', { class: 'muted' }, `${count[id] || 0} khối`),
+      button(openKhu === id ? '⚙️ Đóng' : '⚙️ Tính cách', () => { openKhu = openKhu === id ? null : id; drawDistricts(); }, openKhu === id ? 'small primary' : 'small'),
       button(brush === id ? '✔ Đang tô' : '🖌 Tô', () => { brush = brush === id ? null : id; drawDistricts(); }, brush === id ? 'small primary' : 'small'),
       button('🗑', () => {
         if (count[id] && !confirm(`Xóa "${d.name}"? ${count[id]} khối sẽ thành chưa gán khu phố.`)) return;
@@ -114,7 +118,7 @@ export function render(root, ctx) {
         ctx.historyBreak();
         drawDistricts();
         drawMap();
-      }, 'small danger')));
+      }, 'small danger')), openKhu === id ? traitsPanel(id, d) : null]);
     dBox.innerHTML = '';
     dBox.append(
       el('h3', {}, '🏙️ Khu phố'),
@@ -132,6 +136,39 @@ export function render(root, ctx) {
         button(brush === '' ? '✔ Đang xóa khu phố khỏi khối' : '🧽 Xóa khu phố khỏi khối', () => { brush = brush === '' ? null : ''; drawDistricts(); }, brush === '' ? 'small primary' : 'small')),
     );
   }
+  // Bảng "tính cách" của một khu phố: mẫu khu + các hệ số (1 = bình thường như mọi nơi)
+  function traitsPanel(id, d) {
+    const box = el('div', { class: 'dist-traits' });
+    const draw = () => {
+      box.innerHTML = '';
+      const preset = selectInput('', [['', '— Áp dụng mẫu khu —'], ...Object.entries(DISTRICT_PRESETS).map(([k, p]) => [k, p.label])], (v) => {
+        if (!v) return;
+        ctx.historyBreak();
+        for (const k of TRAIT_IDS) d[k] = DISTRICT_PRESETS[v][k];
+        changed();
+        ctx.historyBreak();
+        draw();
+      });
+      box.append(
+        el('div', { class: 'inline wrap' }, preset, button('↺ Về bình thường (tất cả = 1)', () => {
+          ctx.historyBreak();
+          for (const k of TRAIT_IDS) delete d[k];
+          changed();
+          ctx.historyBreak();
+          draw();
+        }, 'small')),
+        el('div', { class: 'grid tight' }, DISTRICT_TRAITS.map(([k, label, hint]) => field(label, numInput(traitOf(d, k), (v) => {
+          if (Number.isFinite(v) && v !== 1) d[k] = v;
+          else delete d[k];
+          changed();
+        }, { step: 0.1, min: TRAIT_RANGE[0], max: TRAIT_RANGE[1] }), { ref: `district:${id}`, fieldKey: k, hint: `${hint} 1 = bình thường, 0 = không có, 2 = gấp đôi.` }))),
+      );
+      ctx.applyFieldIssues();
+    };
+    draw();
+    return box;
+  }
+
   // tô 1 khối bằng cọ đang chọn
   function paint(key) {
     if (brush === null) return;

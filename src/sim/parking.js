@@ -46,15 +46,16 @@ export function safeSpot(places, x, z, P = PARKING) {
 
 // Mỗi phút xe đứng ngoài đường: trả về 'ticket' | 'tow' | 'theft' | null
 // parked: { since, safe, ticketed, robbed } · canTow: bản đồ có bãi để cẩu về và xe không chở hàng
-export function parkingRoll(rng, now, parked, { canTow = true, hasCargo = false } = {}, P = PARKING) {
+// towMul / theftMul: hệ số khu phố nơi đậu (thẻ Bản đồ → Khu phố: "tow", "theft")
+export function parkingRoll(rng, now, parked, { canTow = true, hasCargo = false, towMul = 1, theftMul = 1 } = {}, P = PARKING) {
   if (!parked || parked.safe) return null;
   if (now - parked.since < (P.graceMin ?? 20)) return null;
   const h = tod(now) / 60;
   if (isDark(now)) {
-    if (!parked.robbed && !hasCargo && rng.next() < perMin(P.theftPerHour)) return 'theft';
+    if (!parked.robbed && !hasCargo && rng.next() < perMin(P.theftPerHour * theftMul)) return 'theft';
     return null;
   }
-  if (canTow && !hasCargo && h >= (P.towFrom ?? 7) && h < (P.towTo ?? 18) && rng.next() < perMin(P.towPerHour)) return 'tow';
-  if (!parked.ticketed && rng.next() < perMin(P.ticketPerHour)) return 'ticket';
+  if (canTow && !hasCargo && h >= (P.towFrom ?? 7) && h < (P.towTo ?? 18) && rng.next() < perMin(P.towPerHour * towMul)) return 'tow';
+  if (!parked.ticketed && rng.next() < perMin(P.ticketPerHour * towMul)) return 'ticket';
   return null;
 }

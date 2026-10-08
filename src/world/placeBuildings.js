@@ -813,6 +813,57 @@ const BUILD = {
     return { sign: { y: 6.2, z: 0.12, x: gx, w: Math.min(6, gw / 3 + 1.4) }, height: 10.8, colliders: cols };
   },
 
+  // ======================= NHÀ HÀNG NHẬT (izakaya kiểu phố Nhật) =======================
+  // mặt tiền gỗ tối, cửa lùa song gỗ, rèm noren, đèn lồng đỏ, mái hiên ngói, lầu có cửa sổ giấy sáng đèn, biển dọc, chậu tre
+  izakaya(k, o, r) {
+    const { W, D } = o;
+    const cols = [];
+    const bw = W - 0.4, bd = Math.max(3, Math.min(D - 1.0, 9)), h1 = 3.2, h2 = 3.0;
+    const wood = 'tex:' + T.wood();
+    const zf = -0.3; // mặt tiền lùi vào chút cho đèn lồng, chậu tre
+    k.box(bw, h1 + h2, bd, 0, (h1 + h2) / 2, zf - bd / 2, hexNum(o.color, 0x3b2a1e));
+    // tầng trệt: cửa lùa song gỗ
+    const nd = Math.max(3, Math.round(bw / 1.4));
+    for (let i = 0; i < nd; i++) {
+      const x = -bw / 2 + ((i + 0.5) * bw) / nd, w = bw / nd - 0.1;
+      k.box(w, 2.5, 0.06, x, 1.3, zf + 0.04, 0xffffff, wood);
+      k.box(w - 0.3, 1.0, 0.03, x, 1.9, zf + 0.08, 0xf3e3c3, 'light'); // ô giấy phía trên sáng đèn
+      for (let j = 1; j < 3; j++) k.box(0.03, 1.0, 0.04, x - (w - 0.3) / 2 + (j * (w - 0.3)) / 3, 1.9, zf + 0.1, 0x2b1d14);
+    }
+    // rèm noren chữ 居酒屋 ở cửa giữa
+    k.plane(Math.min(2.4, bw * 0.4), 0.85, 0, 2.02, zf + 0.12, 0xffffff, 'tex:' + textTex('居酒屋', { bg: '#1b2a4a', fg: '#ffffff', w: 512, h: 180 }));
+    // mái hiên ngói giữa 2 tầng
+    tileRoof(k, bw + 0.6, 1.5, 0.35, 0, h1 + 0.05, zf + 0.3);
+    // lầu: cửa sổ giấy (shoji) sáng đèn + song gỗ
+    const nw = Math.max(2, Math.round(bw / 2.2));
+    for (let i = 0; i < nw; i++) {
+      const x = -bw / 2 + ((i + 0.5) * bw) / nw;
+      k.box(1.5, 1.2, 0.04, x, h1 + 1.45, zf + 0.03, 0xf6eedb, 'light');
+      for (let j = 0; j <= 3; j++) k.box(0.04, 1.2, 0.05, x - 0.75 + j * 0.5, h1 + 1.45, zf + 0.06, 0x2b1d14);
+      k.box(1.5, 0.04, 0.05, x, h1 + 1.45, zf + 0.06, 0x2b1d14);
+    }
+    tileRoof(k, bw + 0.4, bd + 0.6, 1.2, 0, h1 + h2, zf - bd / 2);
+    // đèn lồng đỏ (chōchin) hai bên cửa
+    for (const s of [-1, 1]) {
+      const x = s * (bw / 2 - 0.55);
+      k.rod([x, 3.05, zf + 0.45], [x, 2.85, zf + 0.45], 0.012, 0x111111);
+      k.cyl(0.3, 0.3, 0.7, x, 2.45, zf + 0.45, 0xd62d20, 'light', 12);
+      for (const y of [2.1, 2.8]) k.cyl(0.31, 0.31, 0.06, x, y, zf + 0.45, 0x111111, '', 12);
+    }
+    // biển dọc ở mép phải
+    k.box(0.55, 2.2, 0.08, bw / 2 - 0.05, h1 + 1.3, zf + 0.25, 0x111111);
+    k.plane(0.45, 2.0, bw / 2 - 0.05, h1 + 1.3, zf + 0.3, 0xffffff, 'tex:' + textTex('居酒屋', { bg: '#f6eedb', fg: '#1b1b1b', w: 96, h: 512, vertical: true }));
+    // chậu tre + đèn đá trước cửa
+    for (const s of [-1, 1]) {
+      const x = s * (bw / 2 - 0.3);
+      k.box(0.5, 0.35, 0.5, x, 0.18, zf + 0.9, 0x6b5a48);
+      for (let i = 0; i < 5; i++) k.cyl(0.03, 0.035, 2.2 + r.next() * 0.6, x + (r.next() - 0.5) * 0.3, 1.3, zf + 0.9 + (r.next() - 0.5) * 0.3, 0x5c8f3a, '', 5);
+      cols.push({ x0: x - 0.3, z0: zf + 0.6, x1: x + 0.3, z1: zf + 1.2, h: 2.5 });
+    }
+    cols.push({ x0: -bw / 2, z0: zf - bd, x1: bw / 2, z1: zf + 0.1, h: h1 + h2 });
+    return { sign: { y: 2.95, z: zf + 0.16, w: Math.min(4, bw - 2.4) }, height: h1 + h2 + 1.2, colliders: cols };
+  },
+
   // ======================= QUÁN TRÀ (nhà gỗ mái ngói, hiên, đèn lồng) =======================
   teahouse(k, o, r) {
     const { W, D } = o;

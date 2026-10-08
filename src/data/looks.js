@@ -25,6 +25,7 @@ export const LOOKS = {
   construction: { label: '🏗️ Công trình đang xây', floors: null, scenery: true },
   pagodaCourtyard: { label: '🛕 Chùa tứ hợp viện (cả khối)', floors: null },
   teahouse: { label: '🍵 Quán trà', floors: null },
+  izakaya: { label: '🏮 Nhà hàng Nhật (izakaya)', floors: null },
   // đồn công an: căn nhà công an + bãi giữ xe vi phạm (cần ít nhất 2 lô)
   police: { label: '🚓 Đồn công an', floors: [2, 3], only: 'police' },
 };
@@ -56,6 +57,7 @@ export function guessLook(p) {
     case 'cafe':
       return /võng/.test(n) ? 'hammock' : 'cafe';
     case 'restaurant':
+      if (/nhật|sushi|ramen|izakaya|udon/.test(n)) return 'izakaya';
       if (/bánh mì/.test(n)) return 'banhmi';
       if (/bánh tráng|bánh canh|bánh xèo/.test(n)) return 'eatery';
       if (/cà phê|cafe/.test(n)) return 'cafe';
