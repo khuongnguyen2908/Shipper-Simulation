@@ -4,7 +4,7 @@
 //  - error: game sẽ chạy sai → công cụ không cho lưu
 //  - warn : chạy được nhưng nên xem lại
 // =============================================================
-import { CITY, LOT_IDS, MULTI_LOTS, lotParts, lotFaces, blockPlan, blockLotIds, roadGraph, neighbors } from '../sim/cityLayout.js';
+import { CITY, LOT_IDS, MULTI_LOTS, lotParts, lotFaces, blockPlan, blockLotIds, roadGraph, neighbors, cutCell } from '../sim/cityLayout.js';
 import { ALLEY_TEMPLATES } from '../sim/blockPlan.js';
 import { EFFECTS, CONSUMABLE_FIELDS, OUTFIT_SLOTS } from './goods.js';
 import { ORDER_KINDS } from './apps.js';
@@ -283,7 +283,11 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null, m
     }
     if (!COLOR_RE.test(p.color || '')) add('error', p.id, 'color', 'Màu tường phải dạng #rrggbb.');
     if (p.kind !== 'gas' && p.kind !== 'gate' && p.kind !== 'market' && p.kind !== 'scenery' && p.sign == null) add('warn', p.id, 'sign', 'Chưa có biển hiệu.');
-    if (p.lot === 'B' && p.kind !== 'scenery') add('error', p.id, 'lot', 'Cỡ "Cả khối" chỉ dành cho cảnh quan (công viên lớn…).');
+    // cỡ cả khối: cảnh quan hoặc chùa tứ hợp viện · cả khối chừa góc: chỉ chùa tứ hợp viện (cảnh quan phủ kín khối)
+    const courtyard = lookOf(p) === 'pagodaCourtyard';
+    if (p.lot === 'B' && p.kind !== 'scenery' && !courtyard) add('error', p.id, 'lot', 'Cỡ "Cả khối" chỉ dành cho cảnh quan hoặc chùa tứ hợp viện.');
+    if (cutCell(p.lot || '') && !courtyard) add('error', p.id, 'lot', 'Cỡ "Cả khối, chừa 1 góc" chỉ dành cho chùa tứ hợp viện.');
+    if (courtyard && isPlaced(p) && p.lot !== 'B' && !cutCell(p.lot)) add('error', p.id, 'lot', 'Chùa tứ hợp viện chiếm cả khối — chọn kích thước "Cả khối" hoặc "Cả khối, chừa 1 góc" (khối không hẻm).');
     if (p.look != null && LOOKS[p.look] && !looksFor(p.kind).includes(p.look)) add('error', p.id, 'look', p.kind === 'scenery' ? 'Cảnh quan chỉ dùng kiểu cảnh quan (công viên, đất trống, sân bóng, bãi giữ xe, công trình).' : LOOKS[p.look].scenery ? `Kiểu "${LOOKS[p.look].label}" chỉ dành cho loại Cảnh quan.` : `Loại này không dùng được kiểu "${LOOKS[p.look].label}".`);
     if (p.kind === 'police' && isPlaced(p) && lotParts(p.lot).length < 2) add('error', p.id, 'lot', 'Đồn công an cần ít nhất 2 lô (nhà công an + bãi giữ xe vi phạm) — đổi kích thước 2 lô / cả dãy, đặt ở khối không hẻm.');
     if (p.signBg && !COLOR_RE.test(p.signBg)) add('error', p.id, 'signBg', 'Màu biển phải dạng #rrggbb.');

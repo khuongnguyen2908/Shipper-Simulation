@@ -7,7 +7,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { buildCity } from '../../world/city.js';
-import { buildLayout, CITY, LOT_SIZES, lotParts, lotSize, lotFaces, lotInfo, blockPlan, blockBounds } from '../../sim/cityLayout.js';
+import { buildLayout, CITY, LOT_SIZES, lotParts, lotSize, lotFaces, lotInfo, blockPlan, blockBounds, cutCell } from '../../sim/cityLayout.js';
 import { blockUnder, dropTarget, lotProblem } from './buildRules.js';
 import { ALLEY_TEMPLATES } from '../../sim/blockPlan.js';
 import { isPlaced } from '../../data/places.js';
@@ -17,9 +17,18 @@ import { el, button, selectInput, checkInput } from './ui.js';
 
 const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', service: '⭐', scenery: '🌳', police: '🚓' };
 const DIR = { N: 'Bắc', S: 'Nam', E: 'Đông', W: 'Tây' };
-const SIZE_LABEL = { one: '1 lô', two: '2 lô ngang', vtwo: '2 lô dọc', row: 'Cả dãy (3 lô ngang)', col: 'Cả cột (3 lô dọc)', block: 'Cả khối (9 ô)' };
-// cả khối: chỉ cảnh quan · đồn công an: ít nhất 2 lô
-const sizesFor = (kind) => Object.entries(SIZE_LABEL).filter(([k]) => (k !== 'block' || kind === 'scenery') && (k !== 'one' || kind !== 'police'));
+const SIZE_LABEL = { one: '1 lô', two: '2 lô ngang', vtwo: '2 lô dọc', row: 'Cả dãy (3 lô ngang)', col: 'Cả cột (3 lô dọc)', block: 'Cả khối (9 ô)', blockCut: 'Cả khối, chừa 1 góc' };
+const CUT_LABEL = { BN0: 'Góc tây-bắc', BN2: 'Góc đông-bắc', BS0: 'Góc tây-nam', BS2: 'Góc đông-nam' };
+// cỡ chọn được theo loại + kiểu nhà: đồn công an ≥ 2 lô · cả khối: cảnh quan / chùa tứ hợp viện · chừa góc: chỉ chùa tứ hợp viện
+const sizesFor = (p) => {
+  const court = lookOf(p) === 'pagodaCourtyard';
+  return Object.entries(SIZE_LABEL).filter(([k]) => {
+    if (k === 'block') return p.kind === 'scenery' || court;
+    if (k === 'blockCut') return court;
+    if (court) return false;
+    return k !== 'one' || p.kind !== 'police';
+  });
+};
 
 // Kích thước của địa điểm vừa cất vào danh sách (để kéo ra lại vẫn đúng cỡ cũ)
 const stashSize = new Map();
@@ -365,6 +374,14 @@ export function render(root, ctx) {
     stashSize.set(p.id, lotSize(p.lot) || 'one');
     commit(() => { delete p.block; delete p.lot; delete p.face; }, `📦 Đã cất "${p.name}" vào danh sách (game chưa có địa điểm này tới khi đặt lại).`);
   }
+  // Đổi góc chừa (cả khối chừa góc): giữ khối, đổi ô góc để trống; hướng mặt tiền về phía góc mới
+  function moveCut(p, lot) {
+    const [bx, bz] = p.block;
+    const why = lotProblem(data, p, bx, bz, lot);
+    if (why) { drawPanel(); return ctx.notify(`⛔ ${why}`, 'warn', true); }
+    commit(() => { p.lot = lot; if (p.face && !lotFaces(lot).includes(p.face)) delete p.face; }, `↩️ "${p.name}" giờ chừa ${CUT_LABEL[lot].toLowerCase()}.`);
+  }
+
   // Đổi kích thước: lấy lô cỡ mới có chứa ô của lô hiện tại và còn trống
   function resizePlace(p, size) {
     const mine = lotParts(p.lot);
@@ -401,7 +418,8 @@ export function render(root, ctx) {
         placed ? el('div', { class: 'inline wrap' },
           button('🔄 Xoay (R)', () => rotatePlace(p), `small${faces.length > 1 ? '' : ' dim'}`),
           !PROTECTED.places.includes(p.id) ? button('📦 Cất vào danh sách (Delete)', () => stashPlace(p), 'small') : null) : null,
-        placed && !plan && p.kind !== 'gate' ? el('label', { class: 'bp-row' }, 'Kích thước ', selectInput(lotSize(p.lot) || 'one', sizesFor(p.kind), (v) => resizePlace(p, v))) : null,
+        placed && !plan && p.kind !== 'gate' ? el('label', { class: 'bp-row' }, 'Kích thước ', selectInput(lotSize(p.lot) || 'one', sizesFor(p), (v) => resizePlace(p, v))) : null,
+        placed && cutCell(p.lot) ? el('label', { class: 'bp-row' }, 'Góc chừa ', selectInput(p.lot, Object.entries(CUT_LABEL), (v) => moveCut(p, v))) : null,
         el('label', { class: 'bp-row' }, p.kind === 'scenery' ? 'Kiểu ' : 'Kiểu nhà ', selectInput(p.look || '', [['', `Tự chọn (${LOOKS[lookOf(p)]?.label || '—'})`], ...looksFor(p.kind).map((k) => [k, LOOKS[k].label])], (v) => commit(() => { if (v) p.look = v; else delete p.look; }))),
         button('✏️ Sửa chi tiết ở thẻ Địa điểm', () => ctx.select('places', { id: p.id }), 'small'),
       );

@@ -2045,5 +2045,64 @@ console.log('Đồn công an: phạt nguội, giữ xe');
   });
 }
 
+console.log('Chùa tứ hợp viện (cả khối chừa góc) + quán trà');
+{
+  const CL = await import('../src/sim/cityLayout.js');
+  const { validatePlaces } = await import('../src/data/validate.js');
+  const { buildPlace } = await import('../src/world/placeBuildings.js');
+  const B = await import('../src/devtools/editor/buildRules.js');
+  const rd = (p) => JSON.parse(fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8'));
+  test('Cả khối chừa góc: 8 ô, mặt tiền chỉ quay ra 2 đường chạm góc chừa, cổng ở giữa phần mặt tiền còn lại', () => {
+    assert.equal(CL.lotParts('BN0').length, 8);
+    assert.ok(!CL.lotParts('BN0').includes('N0') && CL.lotParts('BN0').includes('C'));
+    assert.equal(CL.cutCell('BS2'), 'S2');
+    assert.equal(CL.cutCell('B'), null);
+    assert.deepEqual(CL.lotFaces('BN0'), ['N', 'W']);
+    assert.deepEqual(CL.lotFaces('BS2'), ['S', 'E']);
+    // cổng (cửa) dời về phía 2 ô mặt tiền còn lại
+    const full = CL.lotInfo(2, 2, 'B'), cut = CL.lotInfo(2, 2, 'BN0');
+    assert.ok(cut.door.x > full.door.x + 5, 'chừa góc tây-bắc → cổng lệch sang đông');
+    // góc chừa nằm bên nào khi nhìn từ đường (khớp với cách xoay nhà trong city.js)
+    assert.equal(CL.cutSide('BN0', 'N'), 'FR');
+    assert.equal(CL.cutSide('BN0', 'W'), 'FL');
+    assert.equal(CL.cutSide('BS2', 'S'), 'FR');
+    assert.equal(CL.cutSide('B', 'N'), null);
+  });
+  test('Dữ liệu: chừa góc chỉ cho chùa tứ hợp viện; chùa tứ hợp viện phải cả khối; ô góc chừa đặt được địa điểm khác', () => {
+    const pd = rd('src/data/places.json'), items = rd('src/data/items.json'), map = rd('src/data/map.json');
+    const used = new Set(pd.places.filter((p) => p.block).map((p) => p.block.join(',')));
+    used.add(pd.alley.block.join(','));
+    let blk = null;
+    for (let z = 0; z < CL.CITY.N && !blk; z++) for (let x = 0; x < CL.CITY.N && !blk; x++) if (!used.has(`${x},${z}`) && !CL.blockPlan(x, z, map)) blk = [x, z];
+    assert.ok(blk, 'cần 1 khối trống');
+    const chua = { id: 'chuaT', name: 'Chùa', short: 'Chùa', kind: 'service', look: 'pagodaCourtyard', color: '#e2b85c', sign: 'CHÙA', npc: { name: 'Sư' }, block: blk, lot: 'BN0' };
+    const tra = { id: 'traT', name: 'Trà', short: 'Trà', kind: 'service', look: 'teahouse', color: '#f3e3c3', sign: 'TRÀ', npc: { name: 'Cô' }, block: blk, lot: 'N0' };
+    const errs = (extra) => validatePlaces({ ...pd, places: [...pd.places, ...extra] }, items, null, null, map).filter((i) => ['chuaT', 'traT'].includes(i.ref) && i.level === 'error');
+    assert.deepEqual(errs([chua, tra]), [], 'chùa chừa góc + quán trà ở ô góc: hợp lệ');
+    assert.ok(errs([{ ...chua, lot: 'N1' }]).some((i) => i.field === 'lot'), 'chùa tứ hợp viện 1 lô → lỗi');
+    assert.ok(errs([{ ...chua, look: 'park', kind: 'scenery' }]).some((i) => i.field === 'lot'), 'cảnh quan không dùng chừa góc');
+    assert.ok(errs([chua, { ...tra, lot: 'N1' }]).some((i) => i.field === 'lot'), 'quán trà đè lên chùa → lỗi');
+    // kéo chùa (chưa đặt) vào khối trống → mặc định cả khối chừa góc
+    const r = CL.lotInfo(blk[0], blk[1], 'B');
+    const t = B.dropTarget({ places: pd, map }, { id: 'moi', kind: 'service', look: 'pagodaCourtyard' }, (r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2);
+    assert.ok(CL.cutCell(t.lot) && t.ok, `${t.lot} ${t.why}`);
+  });
+  test('Dựng chùa tứ hợp viện (chừa góc trái / phải / không chừa) và quán trà: đi được trong sân', () => {
+    for (const cut of ['FR', 'FL', null]) {
+      const b = buildPlace({ look: 'pagodaCourtyard', W: 33.6, D: 33.6, seed: 4, sign: 'CHÙA', color: '#e2b85c', cut });
+      assert.ok(Array.isArray(b.colliders), 'sân đi bộ được (không chắn kín)');
+      const area = b.colliders.reduce((s, c) => s + (c.x1 - c.x0) * (c.z1 - c.z0), 0);
+      assert.ok(area < 33.6 * 33.6 * 0.6, `cut ${cut}: vật cản phủ quá nhiều`);
+      if (cut) {
+        // không có vật cản nào lấn vào ô góc chừa (để quán bên cạnh đứng được)
+        const s = cut === 'FL' ? -1 : 1, x0 = s > 0 ? 33.6 / 2 - 11.2 : -33.6 / 2, x1 = x0 + 11.2;
+        assert.ok(!b.colliders.some((c) => c.x1 > x0 + 0.5 && c.x0 < x1 - 0.5 && c.z1 > -11.2 + 0.5 && c.z0 < -0.5), `cut ${cut}: vật cản lấn vào góc chừa`);
+      }
+    }
+    const t = buildPlace({ look: 'teahouse', W: 10.8, D: 10.8, seed: 1, sign: 'TRÀ' });
+    assert.ok(Array.isArray(t.colliders) && t.colliders.length >= 1);
+  });
+}
+
 console.log(`\n${pass} đạt, ${fail} lỗi`);
 if (fail) process.exit(1);

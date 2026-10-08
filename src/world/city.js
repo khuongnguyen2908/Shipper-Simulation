@@ -2,7 +2,7 @@
 // đường nhựa, vạch kẻ, vỉa hè, nhà ống (instancing), địa điểm đặc biệt có biển hiệu,
 // đèn đường, cây xanh, ổ gà. Trả về lưới va chạm + hàm đổi ngày/đêm, mưa.
 import * as THREE from 'three';
-import { CITY, LOT_W, HALF, roadPos, blockBounds, roadGraph, segmentRect } from '../sim/cityLayout.js';
+import { CITY, LOT_W, HALF, roadPos, blockBounds, roadGraph, segmentRect, cutSide } from '../sim/cityLayout.js';
 import { ALLEY } from '../data/places.js';
 import { makeRng } from '../sim/rng.js';
 import { SpatialGrid } from './physics.js';
@@ -247,6 +247,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     const b = buildPlace({
       look: lookOf(p), W: f.width, D: depth, floors: lookFloors(p), color: p.color, signBg: p.signBg, sign: p.sign, short: p.short, kind: p.kind,
       menu: (p.menu || []).map((id) => itemTable[id]?.name).filter(Boolean), seed: hashStr(p.id), inAlley: p.inAlley,
+      cut: cutSide(p.lot, p.face), // cả khối chừa góc: góc chừa bên trái / phải nhìn từ đường
     });
     b.group.userData.placeId = p.id; // để công cụ Xây dựng bấm chọn nhà
     b.group.position.set(f.x, SW_H, f.z);

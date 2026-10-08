@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { buildPlace } from '../../world/placeBuildings.js';
 import { lookOf, lookFloors } from '../../data/looks.js';
-import { lotInfo } from '../../sim/cityLayout.js';
+import { lotInfo, cutSide } from '../../sim/cityLayout.js';
 import { hashStr } from '../../sim/people.js';
 
 const W = 300, H = 220;
@@ -55,7 +55,7 @@ export function housePreview() {
     const ns = info.face === 'N' || info.face === 'S';
     const b = buildPlace({
       look: lookOf(p), W: ns ? r.x1 - r.x0 : r.z1 - r.z0, D: ns ? r.z1 - r.z0 : r.x1 - r.x0, floors: lookFloors(p), color: p.color, signBg: p.signBg, sign: p.sign, short: p.short, kind: p.kind,
-      menu: (p.menu || []).map((id) => items?.[id]?.name).filter(Boolean), seed: hashStr(p.id), inAlley: info.inAlley,
+      menu: (p.menu || []).map((id) => items?.[id]?.name).filter(Boolean), seed: hashStr(p.id), inAlley: info.inAlley, cut: placed ? cutSide(p.lot, info.face) : null,
     });
     for (const m of b.glow) m.emissiveIntensity = m.userData.glowBase ?? 0.15;
     // đặt tâm nhà vào giữa khung, camera lùi theo cỡ nhà

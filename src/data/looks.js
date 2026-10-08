@@ -23,6 +23,8 @@ export const LOOKS = {
   soccer: { label: '⚽ Sân bóng mini', floors: null, scenery: true },
   parkingLot: { label: '🅿️ Bãi giữ xe', floors: null, scenery: true },
   construction: { label: '🏗️ Công trình đang xây', floors: null, scenery: true },
+  pagodaCourtyard: { label: '🛕 Chùa tứ hợp viện (cả khối)', floors: null },
+  teahouse: { label: '🍵 Quán trà', floors: null },
   // đồn công an: căn nhà công an + bãi giữ xe vi phạm (cần ít nhất 2 lô)
   police: { label: '🚓 Đồn công an', floors: [2, 3], only: 'police' },
 };

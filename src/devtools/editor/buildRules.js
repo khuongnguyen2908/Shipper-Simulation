@@ -1,6 +1,7 @@
 // Luật đặt địa điểm vào lô của thẻ 🏗️ Xây dựng (thuần dữ liệu, chạy được trong bộ thử).
 import { CITY, LOT_SIZES, lotSize, lotInfo, blockPlan, blockBounds } from '../../sim/cityLayout.js';
 import { isPlaced } from '../../data/places.js';
+import { lookOf } from '../../data/looks.js';
 import { lotCells } from '../../data/validate.js';
 
 const OFF = CITY.ORIGIN + CITY.ROAD / 2; // mép tây-bắc của khối đầu tiên
@@ -23,6 +24,7 @@ export function dropTarget(data, p, x, z, sizeHint = 'one') {
   const plan = blockPlan(bx, bz, map);
   let size = isPlaced(p) ? lotSize(p.lot) || 'one' : LOT_SIZES[sizeHint] ? sizeHint : 'one';
   if (p.kind === 'police' && size === 'one') size = 'two'; // đồn công an: ít nhất 2 lô
+  if (lookOf(p) === 'pagodaCourtyard' && size === 'one') size = 'blockCut'; // chùa tứ hợp viện: cả khối chừa góc
   const cands = plan ? plan.lots.map((l) => l.id) : LOT_SIZES[size];
   let best = null, bestD = Infinity;
   for (const lot of cands) {

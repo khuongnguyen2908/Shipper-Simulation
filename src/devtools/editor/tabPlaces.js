@@ -24,13 +24,21 @@ const LOT_LABEL = {
   N0: 'N0 · bắc trái', N1: 'N1 · bắc giữa', N2: 'N2 · bắc phải', S0: 'S0 · nam trái', S1: 'S1 · nam giữa', S2: 'S2 · nam phải', E1: 'E1 · đông', W1: 'W1 · tây',
   N01: 'N0+N1 · bắc, bên trái', N12: 'N1+N2 · bắc, bên phải', S01: 'S0+S1 · nam, bên trái', S12: 'S1+S2 · nam, bên phải',
   W01: 'N0+W1 · cột tây, phía trên', W12: 'W1+S0 · cột tây, phía dưới', E01: 'N2+E1 · cột đông, phía trên', E12: 'E1+S2 · cột đông, phía dưới',
-  B: 'B · cả khối (9 ô)', N: 'N · cả dãy bắc', S: 'S · cả dãy nam', W: 'W · cả cột tây (N0+W1+S0)', E: 'E · cả cột đông (N2+E1+S2)', C: 'C · sân trong hẻm',
+  B: 'B · cả khối (9 ô)', BN0: 'BN0 · cả khối, chừa góc tây-bắc', BN2: 'BN2 · cả khối, chừa góc đông-bắc', BS0: 'BS0 · cả khối, chừa góc tây-nam', BS2: 'BS2 · cả khối, chừa góc đông-nam', N: 'N · cả dãy bắc', S: 'S · cả dãy nam', W: 'W · cả cột tây (N0+W1+S0)', E: 'E · cả cột đông (N2+E1+S2)', C: 'C · sân trong hẻm',
 };
 const DIR = { N: 'Bắc', S: 'Nam', E: 'Đông', W: 'Tây' };
-const SIZE_LABEL = { one: '1 lô', two: '2 lô ngang', vtwo: '2 lô dọc', row: 'Cả dãy (3 lô ngang)', col: 'Cả cột (3 lô dọc)', block: 'Cả khối (9 ô — chỉ cảnh quan)' };
+const SIZE_LABEL = { one: '1 lô', two: '2 lô ngang', vtwo: '2 lô dọc', row: 'Cả dãy (3 lô ngang)', col: 'Cả cột (3 lô dọc)', block: 'Cả khối (9 ô)', blockCut: 'Cả khối, chừa 1 góc (8 ô)' };
 // cỡ chọn được theo loại: "Cả khối" chỉ dành cho cảnh quan (công viên lớn…)
-// đồn công an: ít nhất 2 lô (nhà + bãi giữ xe vi phạm)
-const sizesFor = (kind) => Object.entries(SIZE_LABEL).filter(([k]) => (k !== 'block' || kind === 'scenery') && (k !== 'one' || kind !== 'police'));
+// cỡ chọn được theo loại + kiểu nhà: đồn công an ≥ 2 lô · cả khối: cảnh quan / chùa tứ hợp viện · chừa góc: chỉ chùa tứ hợp viện
+const sizesFor = (p) => {
+  const court = lookOf(p) === 'pagodaCourtyard';
+  return Object.entries(SIZE_LABEL).filter(([k]) => {
+    if (k === 'block') return p.kind === 'scenery' || court;
+    if (k === 'blockCut') return court;
+    if (court) return false;
+    return k !== 'one' || p.kind !== 'police';
+  });
+};
 // Lô cùng cỡ có chứa ô vừa bấm (ưu tiên lô bắt đầu từ ô đó)
 const lotForCell = (size, cell) => {
   const fits = LOT_SIZES[size].filter((l) => lotParts(l).includes(cell));
@@ -135,7 +143,7 @@ export function render(root, ctx) {
         placed && field('Khối (cột x, hàng z)', el('span', { class: 'inline' },
           numInput(p.block[0], (v) => { p.block[0] = Math.round(v); changedP(); drawMap(); }, { step: 1, min: 0, max: CITY.N - 1 }),
           numInput(p.block[1], (v) => { p.block[1] = Math.round(v); changedP(); drawMap(); }, { step: 1, min: 0, max: CITY.N - 1 })), opt('block', { hint: `0–${CITY.N - 1}, từ tây-bắc` })),
-        placed && p.kind !== 'gate' && !plan ? field('Kích thước', selectInput(size, sizesFor(p.kind), (v) => {
+        placed && p.kind !== 'gate' && !plan ? field('Kích thước', selectInput(size, sizesFor(p), (v) => {
           // giữ chỗ cũ nếu được: lấy lô cỡ mới chứa ô đầu của lô hiện tại
           p.lot = lotForCell(v, lotParts(p.lot)[0]) || lotParts(p.lot).map((c) => lotForCell(v, c)).find(Boolean) || LOT_SIZES[v][0];
           fixFace();
