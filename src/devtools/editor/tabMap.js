@@ -4,7 +4,7 @@ import { ALLEY_TEMPLATES } from '../../sim/blockPlan.js';
 import { isPlaced } from '../../data/places.js';
 import { el, field, button, selectInput, checkInput, numInput, explain, textInput, colorInput } from './ui.js';
 import { HINT, EXPLAIN } from './help.js';
-import { DISTRICT_TRAITS, DISTRICT_PRESETS, TRAIT_IDS, TRAIT_RANGE, traitOf } from '../../data/districtTraits.js';
+import { DISTRICT_TRAITS, DISTRICT_PRESETS, TRAIT_IDS, TRAIT_RANGE, traitOf, HOUSE_STYLES, DECOR, LOOK_PRESETS, TREES_RANGE, treesOf } from '../../data/districtTraits.js';
 
 // khu phố đang mở bảng "tính cách" (⚙️)
 let openKhu = null;
@@ -145,6 +145,8 @@ export function render(root, ctx) {
         if (!v) return;
         ctx.historyBreak();
         for (const k of TRAIT_IDS) d[k] = DISTRICT_PRESETS[v][k];
+        const look = LOOK_PRESETS[v]; // mẫu khu điền luôn kiểu nhà / trang trí / cây
+        if (look) Object.assign(d, JSON.parse(JSON.stringify(look)));
         changed();
         ctx.historyBreak();
         draw();
@@ -162,11 +164,44 @@ export function render(root, ctx) {
           else delete d[k];
           changed();
         }, { step: 0.1, min: TRAIT_RANGE[0], max: TRAIT_RANGE[1] }), { ref: `district:${id}`, fieldKey: k, hint: `${hint} 1 = bình thường, 0 = không có, 2 = gấp đôi.` }))),
+        lookPanel(id, d),
       );
       ctx.applyFieldIssues();
     };
     draw();
     return box;
+  }
+
+  // Nhà dân + trang trí + cây của khu (chỉ hình dáng, không đổi luật chơi)
+  function lookPanel(id, d) {
+    const houses = d.houses && typeof d.houses === 'object' ? d.houses : {};
+    const setHouse = (k, v) => {
+      const h = { ...(d.houses || {}) };
+      if (Number.isFinite(v) && v > 0) h[k] = v;
+      else delete h[k];
+      if (Object.keys(h).length) d.houses = h;
+      else delete d.houses;
+      changed();
+    };
+    const setDecor = (k, on) => {
+      const dc = { ...(d.decor || {}) };
+      if (on) dc[k] = true;
+      else delete dc[k];
+      if (Object.keys(dc).length) d.decor = dc;
+      else delete d.decor;
+      changed();
+    };
+    return el('div', {},
+      el('h4', {}, '🏘️ Nhà dân & trang trí (chỉ hình dáng)'),
+      explain(['Cách chỉnh', 'Tỉ lệ các kiểu nhà dân trong khu (số tương đối, vd Phố Hoa 0,8 + Nhà ống 0,2). Mỗi khối chọn 1 kiểu chủ đạo nên nhà cùng kiểu tụ thành dãy phố. Nhà trong hẻm chỉ dùng kiểu nhỏ (nhà ống, mái tôn, phố Hoa, phố Nhật). Để trống hết = toàn nhà ống như cũ. Đổi xong tải lại game để thấy.']),
+      el('div', { class: 'grid tight' }, HOUSE_STYLES.map(([k, label]) => field(label, numInput(houses[k] ?? null, (v) => setHouse(k, v), { step: 0.05, min: 0 }), { ref: `district:${id}`, fieldKey: 'houses' }))),
+      el('div', { class: 'inline wrap' }, DECOR.map(([k, label]) => checkInput(d.decor?.[k], (on) => setDecor(k, on), label))),
+      field('🌳 Cây xanh vỉa hè', numInput(treesOf(d), (v) => {
+        if (Number.isFinite(v) && v !== 1) d.trees = v;
+        else delete d.trees;
+        changed();
+      }, { step: 0.1, min: TREES_RANGE[0], max: TREES_RANGE[1] }), { ref: `district:${id}`, fieldKey: 'trees', hint: '0 = không cây · 1 = như cũ (8 cây mỗi khối) · 2 = gấp đôi.' }),
+    );
   }
 
   // tô 1 khối bằng cọ đang chọn

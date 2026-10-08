@@ -2,13 +2,16 @@
 // đường nhựa, vạch kẻ, vỉa hè, nhà ống (instancing), địa điểm đặc biệt có biển hiệu,
 // đèn đường, cây xanh, ổ gà. Trả về lưới va chạm + hàm đổi ngày/đêm, mưa.
 import * as THREE from 'three';
-import { CITY, LOT_W, HALF, roadPos, blockBounds, roadGraph, segmentRect, cutSide } from '../sim/cityLayout.js';
+import { CITY, LOT_W, HALF, roadPos, blockBounds, roadGraph, segmentRect, cutSide, districtAt } from '../sim/cityLayout.js';
+import { MAP } from '../data/map.js';
+import { pickHouseStyle, blockHouseStyle, treesOf } from '../data/districtTraits.js';
+import { buildStreetDecor } from './streetDecor.js';
 import { ALLEY } from '../data/places.js';
 import { makeRng } from '../sim/rng.js';
 import { SpatialGrid } from './physics.js';
 import { makeTileTexture, makeAsphaltTexture, makeSignTexture, makeGlowTexture } from './textures.js';
 import { HouseGeo, buildHouse, housesForLot, houseMaterial, houseTop } from './houses.js';
-import { buildPlace } from './placeBuildings.js';
+import { buildPlace, buildResidential, mergeKits } from './placeBuildings.js';
 import { lookOf, lookFloors } from '../data/looks.js';
 import { ITEMS } from '../data/items.js';
 import { hashStr } from '../sim/people.js';
@@ -180,12 +183,39 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     }
     return top;
   };
+  // nhà dân theo khu phố (map.json → districts[mã].houses): kiểu khác nhà ống dựng riêng rồi gộp cả thành phố
+  const mapData = opts.map || MAP;
+  const styleRng = makeRng(seed * 7 + 11);
+  const resKits = [];
+  const _q = new THREE.Quaternion(), _e = new THREE.Euler(), _v = new THREE.Vector3(), _one = new THREE.Vector3(1, 1, 1);
+  const primary = new Map(); // kiểu nhà chủ đạo của từng khối (nhà cùng kiểu tụ thành dãy)
+  const blockStyle = (bx, bz) => {
+    const key = bx + ',' + bz;
+    if (!primary.has(key)) primary.set(key, blockHouseStyle(districtAt(bx, bz, mapData), makeRng(seed * 131 + bz * 977 + bx * 31 + 5)));
+    return primary.get(key);
+  };
   for (const l of layout.lots) {
     const floors = l.inAlley ? rng.int(1, 4) : rng.int(2, 6); // nhà trong hẻm thấp hơn nhà mặt phố
     const r = { x0: l.x0 + 0.25, x1: l.x1 - 0.25, z0: l.z0 + 0.25, z1: l.z1 - 0.25 };
+    const style = pickHouseStyle(districtAt(l.block[0], l.block[1], mapData), styleRng, l.inAlley, blockStyle(l.block[0], l.block[1]));
+    if (style !== 'tube') {
+      const f = frontOf(r, l.face);
+      const depth = f.nx ? r.x1 - r.x0 : r.z1 - r.z0;
+      const { kit, height } = buildResidential(style, { W: f.width, D: depth }, styleRng.int(1, 1e9));
+      resKits.push({ kit, matrix: new THREE.Matrix4().compose(_v.set(f.x, SW_H, f.z), _q.setFromEuler(_e.set(0, f.rotY, 0)), _one) });
+      addBox(r.x0, r.z0, r.x1, r.z1, height + SW_H, 'house');
+      continue;
+    }
     const top = addLotHouses(r, l.face, floors, { alley: l.inAlley });
     addBox(r.x0, r.z0, r.x1, r.z1, top + SW_H, 'house');
   }
+  if (resKits.length) mergeKits(resKits, scene);
+  // trang trí đường phố theo khu (dây đèn lồng, đèn lồng giấy, xe hàng rong)
+  const doors = layout.places.map((p) => p.door).filter(Boolean);
+  buildStreetDecor(scene, {
+    map: mapData, rng: styleRng, addBox, blockStyle, swH: SW_H,
+    isPlaceDoor: (x, z) => doors.some((d) => Math.hypot(d.x - x, d.z - z) < 2.4),
+  });
   // ---------- khối có hẻm: nhà phía sau (không cửa), mặt hẻm, cột chắn hẻm đi bộ ----------
   const alleyGeo = new THREE.PlaneGeometry(1, 1);
   alleyGeo.rotateX(-Math.PI / 2);
@@ -305,8 +335,14 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
       const b = blockBounds(bx, bz);
       for (const [x, z, dx, dz] of [[b.x0 + 0.8, b.z0 + 0.8, -1, -1], [b.x1 - 0.8, b.z0 + 0.8, 1, -1], [b.x0 + 0.8, b.z1 - 0.8, -1, 1], [b.x1 - 0.8, b.z1 - 0.8, 1, 1]]) lamps.push({ x, z, dx, dz });
       const ax = b.x0 + CITY.SW, az = b.z0 + CITY.SW;
-      for (const k of [1, 2]) {
-        trees.push([ax + k * W, b.z0 + 0.9], [ax + k * W, b.z1 - 0.9], [b.x0 + 0.9, az + k * W], [b.x1 - 0.9, az + k * W]);
+      // cây xanh theo khu ("trees": 0 = không cây, 1 = như cũ 8 cây, 2 = gấp đôi): giữ / thêm theo tỉ lệ
+      const t = treesOf(districtAt(bx, bz, mapData));
+      // [vị trí theo bề rộng lô, bậc]: bậc 1 = 2 cây cũ mỗi cạnh (giữ khi t < 1), bậc 2 = thêm 2 cây (khi t > 1), lệch khỏi cửa nhà
+      for (const [k, tier] of [[1, 1], [2, 1], [1 / 4, 2], [11 / 4, 2]]) {
+        const need = tier === 1 ? Math.min(1, t) : Math.min(1, Math.max(0, t - 1));
+        for (const p of [[ax + k * W, b.z0 + 0.9], [ax + k * W, b.z1 - 0.9], [b.x0 + 0.9, az + k * W], [b.x1 - 0.9, az + k * W]]) {
+          if (need >= 1 || (need > 0 && styleRng.next() < need)) trees.push(p);
+        }
       }
     }
   }

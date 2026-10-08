@@ -11,6 +11,7 @@ import { HouseGeo, buildHouse, houseMaterial, houseTop } from './houses.js';
 import { makeSignTexture } from './textures.js';
 import { fmt, list } from '../content/index.js';
 import { makeRng } from '../sim/rng.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const PI = Math.PI;
 const hasDOM = typeof document !== 'undefined';
@@ -1155,6 +1156,155 @@ const BUILD = {
   },
 };
 export const BUILT_LOOKS = Object.keys(BUILD);
+
+// ======================= NHÀ DÂN THEO KHU PHỐ (map.json → districts[mã].houses) =======================
+// Cùng hệ toạ độ với nhà địa điểm: mặt tiền z = 0 quay ra +z, lô x ∈ [−W/2, W/2], z ∈ [−D, 0].
+// Trả về { kit, height } — city.js gộp kit của mọi lô theo vật liệu (cả thành phố chỉ vài khối vẽ).
+const CN_WORDS = ['金', '福', '酒家', '藥房', '茶樓', '金行'];
+const JP_WORDS = ['居酒屋', 'ラーメン', '寿司', '焼鳥'];
+const RES = {
+  // cao ốc kính: đế 1 tầng tiệm + thân kính nhiều tầng, vạch ngang mỗi tầng, đồ trên mái
+  tower(k, o, r) {
+    const { W, D } = o;
+    const ph = 4.2, n = r.int(6, 14), fh = 3.2;
+    k.box(W - 0.4, ph, D - 0.4, 0, ph / 2, -D / 2, 0x9a9a95);
+    k.box(W - 0.8, 2.8, 0.05, 0, 1.6, -0.18, 0x9fc3d6, 'glass');
+    const tw = Math.max(3, W - 1.6), td = Math.max(3, D - 2), tz = -D / 2 - 0.3, th = n * fh;
+    const glass = r.pick([0x8fb4cc, 0x7fa6bf, 0x9cc0d4, 0x86a9b5]);
+    k.box(tw, th, td, 0, ph + th / 2, tz, glass);
+    for (let i = 1; i < n; i++) k.box(tw + 0.05, 0.14, td + 0.05, 0, ph + i * fh, tz, 0x4d6070);
+    // khung kính dọc ở mặt trước và 2 bên
+    const cols = Math.max(2, Math.round(tw / 1.6));
+    for (let c = 0; c <= cols; c++) k.box(0.1, th, 0.06, -tw / 2 + (c * tw) / cols, ph + th / 2, tz + td / 2 + 0.02, 0x4d6070);
+    for (const s of [-1, 1]) for (let c = 1; c < 4; c++) k.box(0.06, th, 0.1, s * (tw / 2 + 0.02), ph + th / 2, tz - td / 2 + (c * td) / 4, 0x4d6070);
+    // vài ô sáng đèn (ban đêm nhìn thấy)
+    for (let i = 0; i < Math.round(n * 0.5); i++) {
+      const c = r.int(0, cols - 1);
+      k.box(tw / cols - 0.2, fh - 0.5, 0.03, -tw / 2 + ((c + 0.5) * tw) / cols, ph + r.int(0, n - 1) * fh + fh / 2, tz + td / 2 + 0.03, 0xf3e3b5, 'light');
+    }
+    k.box(tw * 0.4, 1.4, td * 0.4, (r.next() - 0.5) * tw * 0.3, ph + n * fh + 0.7, tz, 0x7f8c8d);
+    return ph + n * fh + 1.4;
+  },
+  // nhà thấp mái tôn: 1–2 tầng, tường bạc màu, cửa gỗ, song cửa sổ, mái tôn dốc, mảng rỉ
+  tin(k, o, r) {
+    const { W, D } = o;
+    const fl = r.int(1, 2), h = fl * 3 - 0.2;
+    const wall = r.pick([0xc9b79c, 0xb8c4b0, 0xd6c8a8, 0xa9b4b8, 0xc7a98f]);
+    k.box(W - 0.3, h, D - 0.6, 0, h / 2, -D / 2 - 0.1, wall);
+    k.box(1.0, 2.1, 0.06, -W / 4, 1.05, -0.38, 0x5d4037);
+    k.box(1.3, 0.9, 0.05, W / 5, 1.6, -0.38, 0x2c3e50);
+    for (let i = 0; i < 4; i++) k.box(0.03, 0.9, 0.06, W / 5 - 0.5 + i * 0.33, 1.6, -0.34, 0x555555);
+    if (fl > 1) k.box(1.4, 0.9, 0.05, 0, h - 1.4, -0.38, 0x2c3e50);
+    k.box(W, 0.06, D - 0.3, 0, h + 0.35, -D / 2 - 0.05, 0xffffff, 'tex:' + T.corr(), [0.12, 0, 0]);
+    // mảng rỉ bám theo dốc mái (mái nghiêng 0,12 rad quanh tâm z = −D/2 − 0,05)
+    for (let i = 0; i < 3; i++) {
+      const x = (r.next() - 0.5) * (W - 2), z = -1 - r.next() * (D - 2.2);
+      k.box(0.6 + r.next(), 0.02, 0.5 + r.next(), x, h + 0.39 - (z + D / 2 + 0.05) * Math.sin(0.12), z, 0x8e5a3a, '', [0.12, 0, 0]);
+    }
+    return h + 0.9;
+  },
+  // phố Hoa: nhà ống 2–4 tầng sơn đỏ / vàng / xanh, mái ngói đầu hồi trước, biển dọc chữ Hoa, đèn lồng đỏ
+  chinese(k, o, r) {
+    const { W, D } = o;
+    const fl = r.int(2, 4), h = fl * 3.2;
+    const wall = r.pick([0xb03a2e, 0xd4ac0d, 0x7d9a5b, 0xe8d5b7, 0xc0763a]);
+    k.box(W - 0.2, h, D - 0.4, 0, h / 2, -D / 2 - 0.1, wall);
+    k.box(W - 0.8, 2.6, 0.06, 0, 1.4, -0.28, 0x3b2a1e);
+    for (let f = 1; f < fl; f++) {
+      const y = f * 3.2;
+      k.box(W - 0.4, 0.12, 0.8, 0, y, 0.15, 0x7f2a1f); // ban công
+      k.box(W - 0.4, 0.8, 0.04, 0, y + 0.45, 0.52, 0x5d2a1a);
+      k.box(W * 0.5, 1.4, 0.05, 0, y + 1.5, -0.28, 0x2c3e50);
+      if (r.next() < 0.7) k.ball(0.22, (r.next() - 0.5) * (W - 1), y + 1.0, 0.45, 0xd62d20, 'light', [1, 1.25, 1]);
+    }
+    tileRoof(k, W - 0.4, 0.9, 0.55, 0, h, -0.45);
+    tileRoofZ(k, D - 1.6, W - 0.4, 1.1, 0, h, -D / 2 - 0.5); // mái ngói dốc 2 bên (nhìn từ trên)
+    const word = r.pick(CN_WORDS);
+    k.plane(0.5, 2.2, W / 2 - 0.4, Math.min(h - 1.4, 4.6), 0.12, 0xffffff, 'tex:' + textTex(word, { bg: '#a8261c', fg: '#f2c94c', w: 96, h: 512, vertical: true }));
+    return h + 0.8;
+  },
+  // phố Nhật: nhà gỗ tối 2–3 tầng, cửa sổ giấy sáng đèn, rèm noren, đèn lồng giấy, mái hiên ngói, biển dọc chữ Nhật
+  japanese(k, o, r) {
+    const { W, D } = o;
+    const fl = r.int(2, 3), h = fl * 3.1;
+    const wood = 'tex:' + T.wood();
+    k.box(W - 0.3, h, D - 0.6, 0, h / 2, -D / 2 - 0.2, r.pick([0x3b2a1e, 0x4a3426, 0x2e2420]));
+    k.box(W - 0.9, 2.4, 0.05, 0, 1.25, -0.48, 0xffffff, wood);
+    k.plane(Math.min(2, W * 0.4), 0.7, 0, 2.05, -0.42, 0xffffff, 'tex:' + textTex(r.pick(JP_WORDS), { bg: '#1b2a4a', fg: '#ffffff', w: 384, h: 140 }));
+    tileRoof(k, W - 0.4, 1.3, 0.3, 0, 3.05, -0.2);
+    for (let f = 1; f < fl; f++) k.box(Math.min(2.4, W - 1.6), 1.1, 0.04, 0, f * 3.1 + 1.45, -0.48, 0xf6eedb, 'light');
+    k.cyl(0.24, 0.24, 0.55, W / 2 - 0.6, 2.4, 0.1, r.chance(0.5) ? 0xd62d20 : 0xf6eedb, 'light', 10);
+    k.plane(0.4, 1.8, -W / 2 + 0.45, h - 1.6, -0.4, 0xffffff, 'tex:' + textTex(r.pick(JP_WORDS), { bg: '#f6eedb', fg: '#1b1b1b', w: 96, h: 512, vertical: true }));
+    tileRoof(k, W - 0.4, D - 0.8, 1.0, 0, h, -D / 2 - 0.1);
+    return h + 1.2;
+  },
+  // biệt thự sân vườn: hàng rào + cổng, sân cỏ, nhà lùi vào, 2–3 tầng sơn sáng, mái ngói, ban công, cây
+  villa(k, o, r) {
+    const { W, D } = o;
+    k.box(W, 0.06, D, 0, 0.03, -D / 2, 0x5f9e45);
+    // rào trước (chừa cổng giữa) + rào hai bên
+    for (const s of [-1, 1]) {
+      k.box(W / 2 - 1.2, 0.6, 0.25, s * (W / 4 + 0.6), 0.3, -0.15, 0xf2f2f2);
+      k.box(W / 2 - 1.2, 0.9, 0.05, s * (W / 4 + 0.6), 1.05, -0.15, 0x2c3e50);
+      k.box(0.2, 1.5, D - 0.2, s * (W / 2 - 0.1), 0.75, -D / 2, 0xf2f2f2);
+    }
+    const fl = r.int(2, 3), h = fl * 3.2, hw = Math.max(3, W * 0.72), hd = Math.max(3, D * 0.55), hz = -D + 0.6 + hd / 2;
+    k.box(hw, h, hd, 0, h / 2, hz, r.pick([0xf4f1ea, 0xfbe9c6, 0xe8eef2, 0xf2dcd0]));
+    k.box(hw * 0.6, 0.12, 1.2, 0, 3.2, hz + hd / 2 + 0.6, 0xdcdcdc);
+    k.box(hw * 0.6, 0.9, 0.05, 0, 3.7, hz + hd / 2 + 1.18, 0x2c3e50);
+    for (let f = 0; f < fl; f++) for (const s of [-1, 1]) k.box(1.2, 1.4, 0.05, s * hw * 0.3, f * 3.2 + 1.6, hz + hd / 2 + 0.03, 0x34495e);
+    tileRoof(k, hw + 1, hd + 1.2, 1.6, 0, h, hz);
+    tree(k, -W / 2 + 1.6, -1.6, 2.6, r, 0.9);
+    if (W > 9) tree(k, W / 2 - 1.6, -1.8, 2.2, r, 0.8);
+    return h + 1.8;
+  },
+  // chung cư mới: 6–12 tầng, ban công đều tăm tắp, bồn nước trên mái
+  condo(k, o, r) {
+    const { W, D } = o;
+    const n = r.int(6, 12), fh = 3, h = n * fh;
+    const bw = W - 0.6, bd = D - 1.2, bz = -D / 2 - 0.3;
+    k.box(bw, h, bd, 0, h / 2, bz, r.pick([0xeceff1, 0xdfe6e9, 0xf5f0e6]));
+    for (let i = 1; i < n; i++) {
+      k.box(bw - 0.4, 0.14, 0.9, 0, i * fh, bz + bd / 2 + 0.45, 0xbfc5c9);
+      k.box(bw - 0.4, 0.8, 0.04, 0, i * fh + 0.5, bz + bd / 2 + 0.88, 0x9fb3c8, 'glass');
+    }
+    for (let i = 0; i < Math.round(n * 0.5); i++) k.box(1.4, 1.5, 0.03, (r.next() - 0.5) * (bw - 2), r.int(1, n - 1) * fh + 1.5, bz + bd / 2 + 0.02, 0xfff1c2, 'light');
+    k.cyl(0.8, 0.8, 1.6, bw / 4, h + 0.8, bz, 0xb0b8bd, 'metal', 10);
+    return h + 1.8;
+  },
+};
+export const RES_STYLES = Object.keys(RES);
+
+// Bộ gom mảnh trống (vẽ trang trí đường phố bằng toạ độ thế giới rồi gộp bằng mergeKits)
+export const makeKit = () => new Kit();
+export { parkedBike };
+export const kitLantern = (k, x, y, z, color = 0xd62d20, s = 1) => k.ball(0.22 * s, x, y, z, color, 'light', [1, 1.25, 1]);
+
+// Dựng 1 căn nhà dân kiểu `style` → { kit (gộp theo vật liệu), height }
+export function buildResidential(style, o, seed = 1) {
+  const k = new Kit();
+  const r = makeRng((seed >>> 0) || 1);
+  const height = (RES[style] || RES.tin)(k, o, r);
+  return { kit: k, height };
+}
+// Gộp các kit đã đặt vào thế giới (mỗi kit kèm ma trận) thành vài khối vẽ (mỗi vật liệu 1 khối)
+export function mergeKits(entries, group) {
+  const byKind = new Map();
+  for (const { kit, matrix } of entries) {
+    for (const [kind, L] of kit.parts) {
+      const g = L.build();
+      g.applyMatrix4(matrix);
+      if (!byKind.has(kind)) byKind.set(kind, []);
+      byKind.get(kind).push(g);
+    }
+  }
+  for (const [kind, geos] of byKind) {
+    const m = new THREE.Mesh(mergeGeometries(geos), matFor(kind));
+    m.castShadow = kind !== 'light' && kind !== 'glass';
+    m.receiveShadow = true;
+    group.add(m);
+  }
+}
 
 // Dựng nhà địa điểm → { group (toạ độ riêng), glow: [vật liệu biển phát sáng ban đêm], colliders, height }
 // o: { look, W, D, floors, color (#hex hoặc số), signBg, sign, short, kind, menu, seed, inAlley }

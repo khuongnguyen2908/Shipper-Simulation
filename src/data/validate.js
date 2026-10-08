@@ -14,7 +14,7 @@ import { LOOKS, lookOf, looksFor } from './looks.js';
 import { hoursProblem, totalHours } from '../sim/hours.js';
 import { BALANCE_GROUPS, KNOWN_PATHS, getPath } from './balanceSpec.js';
 import { ITEM_GROUP_IDS } from './itemGroups.js';
-import { DISTRICT_TRAITS, TRAIT_RANGE } from './districtTraits.js';
+import { DISTRICT_TRAITS, TRAIT_RANGE, HOUSE_STYLE_IDS, DECOR_IDS, TREES_RANGE } from './districtTraits.js';
 import { isPlaced } from './places.js';
 
 const MAX_OPEN_DAY = 60;
@@ -503,6 +503,22 @@ export function validateMap(map, placesData = null) {
       if (v != null && (!num(v) || v < TRAIT_RANGE[0] || v > TRAIT_RANGE[1])) add('error', `district:${id}`, k, `${label}: số từ ${TRAIT_RANGE[0]} đến ${TRAIT_RANGE[1]} (1 = bình thường).`);
     }
     if (d && d.color != null && !/^#[0-9a-f]{6}$/i.test(d.color)) add('error', `district:${id}`, 'color', 'Màu khu phố phải dạng #rrggbb.');
+    // nhà dân / trang trí / cây xanh (chỉ hình dáng)
+    if (d && d.houses != null) {
+      if (typeof d.houses !== 'object' || Array.isArray(d.houses)) add('error', `district:${id}`, 'houses', 'Tỉ lệ kiểu nhà phải là bảng { kiểu: số }.');
+      else {
+        for (const [k, w] of Object.entries(d.houses)) {
+          if (!HOUSE_STYLE_IDS.includes(k)) add('error', `district:${id}`, 'houses', `Kiểu nhà lạ: ${k}.`);
+          else if (!num(w) || w < 0) add('error', `district:${id}`, 'houses', `Tỉ lệ kiểu nhà ${k} phải là số ≥ 0.`);
+        }
+        if (Object.values(d.houses).every((w) => !(w > 0))) add('warn', `district:${id}`, 'houses', 'Mọi tỉ lệ kiểu nhà đều 0 → khu sẽ dùng toàn nhà ống.');
+      }
+    }
+    if (d && d.decor != null) {
+      if (typeof d.decor !== 'object' || Array.isArray(d.decor)) add('error', `district:${id}`, 'decor', 'Trang trí phải là bảng { mã: true }.');
+      else for (const k of Object.keys(d.decor)) if (!DECOR_IDS.includes(k)) add('error', `district:${id}`, 'decor', `Trang trí lạ: ${k}.`);
+    }
+    if (d && d.trees != null && (!num(d.trees) || d.trees < TREES_RANGE[0] || d.trees > TREES_RANGE[1])) add('error', `district:${id}`, 'trees', `Cây xanh: số từ ${TREES_RANGE[0]} đến ${TREES_RANGE[1]} (1 = như cũ).`);
   }
   for (const [key, id] of Object.entries(map.districtBlocks || {})) {
     const m = /^(\d+),(\d+)$/.exec(key);

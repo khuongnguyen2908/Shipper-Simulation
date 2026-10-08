@@ -2209,5 +2209,61 @@ console.log('Tính cách khu phố (hệ số theo khu)');
   });
 }
 
+console.log('Nhà dân & trang trí theo khu phố');
+{
+  const THREE = await import('three');
+  const DT = await import('../src/data/districtTraits.js');
+  const { buildResidential, mergeKits, RES_STYLES } = await import('../src/world/placeBuildings.js');
+  const { validateMap } = await import('../src/data/validate.js');
+  const rd = (p) => JSON.parse(fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8'));
+  test('Mọi kiểu nhà dân dựng được, nằm trong lô; gộp cả loạt còn vài khối vẽ', () => {
+    // số khối = số vật liệu + số biển chữ khác nhau (có hạn), không tăng theo số căn
+    for (const [k] of DT.HOUSE_STYLES) if (k !== 'tube') assert.ok(RES_STYLES.includes(k), `thiếu kiểu nhà ${k}`);
+    const entries = [];
+    for (const style of RES_STYLES) {
+      for (const [W, D] of [[5.2, 5.2], [10.8, 10.8]]) {
+        for (const seed of [1, 7, 99]) {
+          const { kit, height } = buildResidential(style, { W, D }, seed);
+          const g = new THREE.Group();
+          mergeKits([{ kit, matrix: new THREE.Matrix4() }], g);
+          const box = new THREE.Box3().setFromObject(g);
+          const where = `${style} ${W}×${D} #${seed}`;
+          assert.ok(box.min.z >= -D - 0.3 && box.max.z <= 1.3, `${where}: z ${box.min.z.toFixed(2)}…${box.max.z.toFixed(2)}`);
+          assert.ok(box.min.x >= -W / 2 - 0.3 && box.max.x <= W / 2 + 0.3, `${where}: x ${box.min.x.toFixed(2)}…${box.max.x.toFixed(2)}`);
+          assert.ok(height > 0 && height >= box.max.y - 0.5, `${where}: cao ${height} < ${box.max.y.toFixed(1)}`);
+          entries.push({ kit, matrix: new THREE.Matrix4().makeTranslation(entries.length * 12, 0, 0) });
+        }
+      }
+    }
+    const all = new THREE.Group();
+    mergeKits(entries, all);
+    assert.ok(all.children.length <= 30, `${entries.length} căn gộp còn ${all.children.length} khối`);
+  });
+  test('Chọn kiểu nhà: không đặt → nhà ống; trong hẻm chỉ kiểu nhỏ; kiểu chủ đạo của khối chiếm đa số', () => {
+    const rng = makeRng(3);
+    assert.equal(DT.pickHouseStyle(null, rng), 'tube');
+    assert.equal(DT.pickHouseStyle({ houses: { tower: 0 } }, rng), 'tube');
+    for (let i = 0; i < 200; i++) assert.ok(DT.ALLEY_STYLES.includes(DT.pickHouseStyle({ houses: { tower: 1, villa: 1, japanese: 0.1 } }, rng, true, 'tower')));
+    let same = 0;
+    for (let i = 0; i < 400; i++) same += DT.pickHouseStyle({ houses: { chinese: 0.5, tube: 0.5 } }, rng, false, 'chinese') === 'chinese';
+    assert.ok(same > 300, `kiểu chủ đạo chỉ ${same}/400`);
+    assert.equal(DT.treesOf({ trees: 9 }), 2);
+    assert.equal(DT.treesOf({}), 1);
+    for (const [id, L] of Object.entries(DT.LOOK_PRESETS)) {
+      assert.ok(DT.DISTRICT_PRESETS[id], `mẫu nhà ${id} không có mẫu khu tương ứng`);
+      for (const k of Object.keys(L.houses)) assert.ok(DT.HOUSE_STYLE_IDS.includes(k), `${id}: kiểu ${k}`);
+      for (const k of Object.keys(L.decor)) assert.ok(DT.DECOR_IDS.includes(k), `${id}: trang trí ${k}`);
+    }
+  });
+  test('Bộ kiểm tra bắt kiểu nhà lạ, tỉ lệ âm, trang trí lạ, cây ngoài khoảng', () => {
+    const bad = rd('src/data/map.json');
+    bad.districts = { xx: { name: 'X', houses: { lauDai: 1, tin: -1 }, decor: { phaoHoa: true }, trees: 7 } };
+    bad.districtBlocks = {};
+    const f = validateMap(bad, rd('src/data/places.json')).filter((i) => i.level === 'error').map((i) => `${i.ref}.${i.field}`);
+    for (const k of ['district:xx.houses', 'district:xx.decor', 'district:xx.trees']) assert.ok(f.includes(k), `không bắt lỗi ${k}`);
+    assert.equal(f.filter((x) => x === 'district:xx.houses').length, 2);
+  });
+}
+
 console.log(`\n${pass} đạt, ${fail} lỗi`);
 if (fail) process.exit(1);

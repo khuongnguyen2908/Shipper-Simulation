@@ -33,3 +33,59 @@ export const DISTRICT_PRESETS = {
   bietthu: { label: 'Biệt thự (vắng, boa cao)', orders: 0.7, ordersNight: 0.6, tips: 1.6, potholes: 0.5, police: 0.6, jam: 0.5, traffic: 0.5, tow: 0.5, theft: 0.8 },
   bandao: { label: 'Bán đảo / đất mới (rất vắng)', orders: 0.6, ordersNight: 0.5, tips: 1.2, potholes: 0.6, police: 0.5, jam: 0.4, traffic: 0.4, tow: 0.4, theft: 1 },
 };
+
+// ---------- NHÀ DÂN & TRANG TRÍ THEO KHU (chỉ là hình dáng, không đổi luật chơi) ----------
+// districts[mã].houses = { kiểu: tỉ lệ } (không đặt = toàn nhà ống như cũ) · decor = { mã: true } · trees = hệ số cây xanh
+export const HOUSE_STYLES = [
+  ['tube', '🏠 Nhà ống (như cũ)'],
+  ['tower', '🏢 Cao ốc kính'],
+  ['condo', '🏬 Chung cư mới'],
+  ['tin', '🏚️ Nhà thấp mái tôn'],
+  ['chinese', '🏮 Phố Hoa'],
+  ['japanese', '🎏 Phố Nhật'],
+  ['villa', '🏡 Biệt thự sân vườn'],
+];
+export const HOUSE_STYLE_IDS = HOUSE_STYLES.map(([k]) => k);
+// kiểu nhà vừa với nhà trong hẻm (nhỏ, thấp) — kiểu khác gặp nhà trong hẻm thì dùng nhà ống
+export const ALLEY_STYLES = ['tube', 'tin', 'chinese', 'japanese'];
+export const DECOR = [
+  ['lanterns', '🏮 Dây đèn lồng đỏ giăng ngang đường (phố Hoa)'],
+  ['chochin', '🎏 Đèn lồng giấy dọc vỉa hè (phố Nhật)'],
+  ['vendors', '🛒 Xe hàng rong trên vỉa hè'],
+];
+export const DECOR_IDS = DECOR.map(([k]) => k);
+
+// Chọn kiểu nhà theo tỉ lệ của khu (rng: bộ ngẫu nhiên cố định theo seed)
+function pickByMix(d, rng, inAlley) {
+  const mix = d && d.houses && typeof d.houses === 'object' ? d.houses : null;
+  if (!mix) return 'tube';
+  const ok = Object.entries(mix).filter(([k, w]) => HOUSE_STYLE_IDS.includes(k) && w > 0 && (!inAlley || ALLEY_STYLES.includes(k)));
+  if (!ok.length) return 'tube';
+  return rng.weighted(ok.map(([k]) => k), ok.map(([, w]) => w));
+}
+// Kiểu chủ đạo của một khối: nhà cùng kiểu tụ thành dãy phố (vd vài khối phố Nhật trong khu Trung Tâm) thay vì rải lẻ
+export const blockHouseStyle = (d, rng) => pickByMix(d, rng, false);
+export const BLOCK_STYLE_SHARE = 0.75; // 3/4 lô trong khối theo kiểu chủ đạo, còn lại chọn theo tỉ lệ khu
+// Kiểu nhà cho một lô: theo kiểu chủ đạo của khối (nếu có), nhà trong hẻm chỉ dùng kiểu nhỏ
+export function pickHouseStyle(d, rng, inAlley = false, primary = null) {
+  if (primary && rng.next() < BLOCK_STYLE_SHARE && (!inAlley || ALLEY_STYLES.includes(primary))) return primary;
+  return pickByMix(d, rng, inAlley);
+}
+export const TREES_RANGE = [0, 2]; // 0 = không cây · 1 = như cũ · 2 = gấp đôi
+export const treesOf = (d) => (d && Number.isFinite(d.trees) && d.trees >= 0 ? Math.min(d.trees, TREES_RANGE[1]) : 1);
+
+// mẫu nhà dân + trang trí cho từng mẫu khu (đi kèm DISTRICT_PRESETS)
+export const LOOK_PRESETS = {
+  trungtam: { houses: { tube: 0.5, tower: 0.3, japanese: 0.2 }, decor: { chochin: true, vendors: true }, trees: 1 },
+  phoco: { houses: { tube: 1 }, decor: { vendors: true }, trees: 1.3 },
+  trunghoa: { houses: { chinese: 0.8, tube: 0.2 }, decor: { lanterns: true, vendors: true }, trees: 0.7 },
+  chohoa: { houses: { tube: 0.8, chinese: 0.2 }, decor: { vendors: true }, trees: 1 },
+  sanbay: { houses: { tube: 0.7, tin: 0.3 }, decor: {}, trees: 0.8 },
+  amthuc: { houses: { tube: 0.85, japanese: 0.15 }, decor: { vendors: true }, trees: 1 },
+  caooc: { houses: { tower: 0.6, condo: 0.3, tube: 0.1 }, decor: {}, trees: 1.2 },
+  cang: { houses: { tin: 0.6, tube: 0.4 }, decor: { vendors: true }, trees: 0.5 },
+  venkenh: { houses: { tin: 0.8, tube: 0.2 }, decor: {}, trees: 0.5 },
+  dothimoi: { houses: { condo: 0.7, villa: 0.15, tube: 0.15 }, decor: {}, trees: 1.6 },
+  bietthu: { houses: { villa: 0.85, tube: 0.15 }, decor: {}, trees: 2 },
+  bandao: { houses: { condo: 0.45, villa: 0.2, tube: 0.35 }, decor: {}, trees: 1.2 },
+};
