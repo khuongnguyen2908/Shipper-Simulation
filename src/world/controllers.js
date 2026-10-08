@@ -27,6 +27,7 @@ export class Bike {
     this.yawRate = 0;
     this.lean = 0;
     this.raised = false;
+    this.deckY = null; // đang chạy trên mặt cao (dốc / sàn ga sân bay): cao độ mặt; null = dưới đất
     this.potholeCd = new Map();
     this.headlight = new THREE.SpotLight(0xfff1c8, 0, 28, 0.55, 0.5, 1.2);
     this.headlight.position.set(0, 1, 0.7);
@@ -112,8 +113,10 @@ export class Bike {
     const lat = Math.abs(this.speed * this.yawRate);
     if (lat > 6) emit('swerve', ((lat - 6) / 6) * dt * 1.5);
 
-    // đâm tường / cột
-    const normals = resolveCircle(this.pos, 0.7, ctx.grid);
+    // mặt đi trên cao (src/world/elevated.js): lên dốc, giữ trong lan can; rồi đâm tường / cột (bỏ qua vật thấp hơn mặt cầu)
+    const floorY = blockAt(this.pos.x, this.pos.z) ? SW_H : 0;
+    const el = ctx.elev ? ctx.elev.settle(this, 0.7, floorY, 2.4) : { y: floorY, normals: [] };
+    const normals = [...el.normals, ...resolveCircle(this.pos, 0.7, ctx.grid, el.y)];
     for (const n of normals) {
       const into = -(this.vel.x * n.x + this.vel.y * n.z);
       if (into > 1.5) {
@@ -142,16 +145,23 @@ export class Bike {
         }
       }
     }
-    // lề đường
-    const raised = !!blockAt(this.pos.x, this.pos.z);
-    if (raised !== this.raised && sp > 2.5) emit('bump', 0.3 * (sp / 12.5), { what: 'curb' });
+    // lề đường (trên cầu thì không có)
+    const raised = this.deckY == null && !!blockAt(this.pos.x, this.pos.z);
+    if (this.deckY == null && raised !== this.raised && sp > 2.5) emit('bump', 0.3 * (sp / 12.5), { what: 'curb' });
     this.raised = raised;
+    // ngóc đầu / chúi xuống theo dốc
+    let pitch = 0;
+    if (this.deckY != null && ctx.elev) {
+      const hf = ctx.elev.heightAt(this.pos.x + f.x * 0.8, this.pos.z + f.z * 0.8, this.deckY) ?? this.deckY;
+      const hb = ctx.elev.heightAt(this.pos.x - f.x * 0.8, this.pos.z - f.z * 0.8, this.deckY) ?? this.deckY;
+      pitch = Math.atan2(hf - hb, 1.6);
+    }
 
     // hình ảnh: nghiêng khi cua, bánh xe quay
     const targetLean = Math.max(-0.4, Math.min(0.4, -this.yawRate * this.speed * 0.045));
     this.lean += (targetLean - this.lean) * (1 - Math.exp(-8 * dt));
-    this.mesh.position.set(this.pos.x, raised ? SW_H : 0, this.pos.z);
-    this.mesh.rotation.set(0, this.heading, this.lean);
+    this.mesh.position.set(this.pos.x, el.y, this.pos.z);
+    this.mesh.rotation.set(-pitch, this.heading, this.lean, 'YXZ');
     const ud = this.mesh.userData;
     ud.wheelF.rotation.x += (this.speed * dt) / ud.wheelRadius;
     ud.wheelR.rotation.x += (this.speed * dt) / ud.wheelRadius;
@@ -175,6 +185,7 @@ export class Walker {
     this.heading = 0;
     this.phase = 0;
     this.speed = 0;
+    this.deckY = null; // như xe: đang đứng trên mặt cao
   }
 
   // camYaw: hướng camera; trả về hoạt động ('idle' | 'walk' | 'run')
@@ -200,11 +211,12 @@ export class Walker {
       this.speed = v;
       activity = run ? 'run' : 'walk';
     } else this.speed = 0;
-    resolveCircle(this.pos, 0.35, ctx.grid);
+    const floorY = blockAt(this.pos.x, this.pos.z) ? SW_H : 0;
+    const el = ctx.elev ? ctx.elev.settle(this, 0.35, floorY, 2.0) : { y: floorY };
+    resolveCircle(this.pos, 0.35, ctx.grid, el.y);
     this.phase += dt * this.speed * 2.6;
     animatePerson(this.mesh, this.phase, Math.min(1, this.speed / 4));
-    const raised = !!blockAt(this.pos.x, this.pos.z);
-    this.mesh.position.set(this.pos.x, raised ? SW_H : 0, this.pos.z);
+    this.mesh.position.set(this.pos.x, el.y, this.pos.z);
     this.mesh.rotation.set(0, this.heading, 0);
     return activity;
   }
@@ -241,6 +253,9 @@ export class Walker {
     const f = bike.forward();
     this.pos.set(bike.pos.x + f.z * 0.9, 0, bike.pos.z - f.x * 0.9);
     this.heading = bike.heading;
+    this.deckY = bike.deckY; // xuống xe trên cầu thì đứng trên cầu
+    this._ex = this.pos.x;
+    this._ez = this.pos.z;
   }
 }
 

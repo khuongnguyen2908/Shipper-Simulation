@@ -44,7 +44,7 @@ export function gatherInteractions(g) {
   const slow = Math.abs(bike.speed) < 1.2;
   const out = [];
   // F: lên / xuống xe
-  if (foot && dist(p, bike.pos) < 3.2) {
+  if (foot && dist(p, bike.pos) < 3.2 && Math.abs(g.walker.mesh.position.y - bike.mesh.position.y) < 1.5) {
     // xe bị cẩu về bãi → chuộc rồi mới lấy được
     if (g.gs.towed) out.push({ key: 'F', label: redeemLabel(g), dist: 0, run: () => redeemBike(g) });
     else out.push({ key: 'F', label: fmt('act.mount'), dist: 0, run: () => mount(g) });
@@ -101,6 +101,11 @@ function mount(g) {
 function dismount(g) {
   g.mode = 'foot';
   g.walker.standUp(g.scene, g.bike);
+  const w = g.walker, el = g.city.elev;
+  if (w.deckY != null && el && el.heightAt(w.pos.x, w.pos.z, w.deckY, 0.35) == null) {
+    w.pos.x = w._ex = g.bike.pos.x;
+    w.pos.z = w._ez = g.bike.pos.z;
+  }
   g.bike.speed = 0;
   g.bike.vel.set(0, 0);
   g.startParking(); // bãi giữ xe: gửi (trả tiền) · ngoài đường: để lâu có rủi ro

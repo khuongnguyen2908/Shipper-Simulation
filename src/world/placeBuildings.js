@@ -213,6 +213,8 @@ class Kit {
 
 // ---------- sân bay: đường trên cao ----------
 export const AIRPORT_UP = 4.6; // cao độ sàn ga đi (mặt đường trên cao)
+const RW_AIR = 7; // bề rộng đường trên cao (cả lan can)
+export const AIRPORT_MIN_W = 60; // lô hẹp hơn thì sân bay chỉ có nhà ga, không có đường trên cao
 // Đường tâm của đường trên cao (toạ độ riêng của lô: mặt tiền z = 0 quay ra đường, lùi vào tới z ≈ −34; [x, z, độ cao]).
 // Vào ở mép phải (x = +W/2) phía sau → dốc cong lên → sàn ga đi dọc mặt tiền (z ≈ −9,2) → dốc cong xuống → ra mép trái.
 export function airportPath(W) {
@@ -681,7 +683,7 @@ const BUILD = {
   // Dưới gầm sàn là làn đón khách tầng trệt. Lô nhỏ (< 60 m) thì chỉ dựng nhà ga, không có đường trên cao.
   airport(k, o, r) {
     const W = o.W, D = o.D, X = W / 2, UP = AIRPORT_UP;
-    const big = W >= 60;
+    const big = W >= AIRPORT_MIN_W;
     const tx = big ? X - 17 : X - 1, zt = big ? -13.2 : -3, zb = -D + 1.5, H = 13;
     const gg = 'tex:' + T.glassGrid();
     // mặt sân (nhựa) + lề đi bộ sát nhà ga
@@ -728,17 +730,21 @@ const BUILD = {
     }
     const cols = [{ x0: -tx, z0: zb, x1: tx, z1: zt, h: H }, { x0: twx - 1.7, z0: twz - 1.7, x1: twx + 1.7, z1: twz + 1.7, h: th }];
     // đường trên cao cong (vào phải → sàn ga đi → ra trái)
+    let walk = null;
     if (big) {
       const path = airportPath(W);
-      const pts = path.getSpacedPoints(160), up = new THREE.Vector3(0, 1, 0), RW = 7;
+      const pts = path.getSpacedPoints(160), up = new THREE.Vector3(0, 1, 0), RW = RW_AIR;
       const side = pts.map((p, i) => new THREE.Vector3().crossVectors(up, pts[Math.min(160, i + 1)].clone().sub(pts[Math.max(0, i - 1)]).setY(0).normalize()).normalize());
-      const strip = (oa, ob, dy, th2, color) => {
+      // dải chạy dọc tim cầu, mép trong / ngoài lệch oa…ob (số, hoặc hàm theo điểm i để bề rộng thay đổi)
+      const strip = (oa, ob, dy, th2, color, keep = () => true) => {
         const pos = [], idx = [];
+        const at = (o, i) => (typeof o === 'function' ? o(i) : o);
         pts.forEach((p, i) => {
-          const s = side[i];
-          for (const [o2, h] of [[oa, dy], [ob, dy], [ob, dy - th2], [oa, dy - th2]]) pos.push(p.x + s.x * o2, p.y + h, p.z + s.z * o2);
+          const s = side[i], a = at(oa, i), b = at(ob, i);
+          for (const [o2, h] of [[a, dy], [b, dy], [b, dy - th2], [a, dy - th2]]) pos.push(p.x + s.x * o2, p.y + h, p.z + s.z * o2);
         });
         for (let i = 0; i < 160; i++) {
+          if (!keep(i)) continue;
           const a = i * 4, b = a + 4;
           for (const [u, v] of [[0, 1], [1, 2], [2, 3], [3, 0]]) idx.push(a + u, b + u, b + v, a + u, b + v, a + v);
         }
@@ -750,7 +756,21 @@ const BUILD = {
       };
       strip(-RW / 2, RW / 2, 0, 0.55, 0xd2cfc8); // thân cầu
       strip(-RW / 2 + 0.35, RW / 2 - 0.35, 0.02, 0.02, 0x4a4c52); // mặt nhựa
-      strip(-RW / 2, -RW / 2 + 0.3, 0.95, 0.95, 0xd2cfc8); // lan can
+      // lề đi bộ sát nhà ga chạy theo đường cong của cầu: giữa sàn ga đi rộng (xe dừng sát lề thả khách),
+      // 2 đầu thu hẹp dần thành mũi tròn rồi nhập vào lan can phía trong
+      const onDeck = (i) => pts[i].y > UP - 0.05 && Math.abs(pts[i].x) <= tx + 1;
+      const i0 = pts.findIndex((_, i) => onDeck(i)), i1 = pts.length - 1 - [...pts].reverse().findIndex((_, j) => onDeck(pts.length - 1 - j));
+      const TAPER = 7, CURB_IN = -RW / 2 - 0.5, CURB_W = 1.9;
+      const wide = (i) => {
+        if (i < i0 || i > i1) return 0;
+        const t = Math.min(1, Math.min(i - i0, i1 - i) / TAPER);
+        return Math.sqrt(1 - (1 - t) * (1 - t)); // cung tròn 1/4: mũi bo tròn
+      };
+      const curbOut = (i) => -RW / 2 + CURB_W * wide(i);
+      const inWalk = (i) => i >= i0 && i < i1;
+      strip(CURB_IN, curbOut, 0.18, 0.78, 0xc9c2b6, inWalk);
+      // lan can; đoạn lề đi bộ đã rộng thì bỏ lan can phía trong
+      strip(-RW / 2, -RW / 2 + 0.3, 0.95, 0.95, 0xd2cfc8, (i) => !(wide(i) > 0.5 && wide(i + 1) > 0.5));
       strip(RW / 2 - 0.3, RW / 2, 0.95, 0.95, 0xd2cfc8);
       for (let i = 2; i < 158; i += 3) {
         const p = pts[i], q = pts[i + 1];
@@ -761,11 +781,10 @@ const BUILD = {
         if (p.y > 1.6) {
           k.cyl(0.45, 0.45, p.y - 0.5, p.x, (p.y - 0.5) / 2, p.z, 0xd2cfc8, '', 12);
           cols.push({ x0: p.x - 0.5, z0: p.z - 0.5, x1: p.x + 0.5, z1: p.z + 0.5, h: p.y });
-        } else if (i > 0) cols.push({ x0: p.x - 1.8, z0: p.z - 1.8, x1: p.x + 1.8, z1: p.z + 1.8, h: Math.max(0.6, p.y + 1) }); // đoạn dốc thấp: chắn đi dưới
+        }
       }
-      // lề đi bộ trên sàn cầu sát nhà ga
-      k.box(2 * tx + 2, 0.6, 2.4, 0, UP - 0.3, -12, 0xd2cfc8);
-      k.box(2 * tx + 2, 0.18, 2.4, 0, UP + 0.09, -12, 0xc9c2b6);
+      // mặt lề đi bộ cho bộ va chạm (src/world/elevated.js): dải theo tim cầu, lệch từ CURB_IN tới mép ngoài
+      walk = { pts: pts.slice(i0, i1 + 1).map((p) => [p.x, p.y + 0.18, p.z]), lo: CURB_IN, hi: pts.slice(i0, i1 + 1).map((_, j) => curbOut(i0 + j)) };
     }
     // khách đứng chờ với vali (trên lầu ga đi và dưới trệt)
     const extra = [];
@@ -783,7 +802,9 @@ const BUILD = {
       people(-tx + 3, tx - 3, UP + 0.18, -12.2, 4);
       people(-tx + 2, tx - 2, 0.18, zt + 1, 4);
     }
-    return { sign: { y: H + 3.6, z: zt - 3, w: Math.min(22, tx * 1.5), glow: 0.4 }, height: H + 6, colliders: cols, extra, upPath: big ? airportPath(W) : null };
+    return { sign: { y: H + 3.6, z: zt - 3, w: Math.min(22, tx * 1.5), glow: 0.4 }, height: H + 6, colliders: cols, extra,
+      // mặt đi trên cao (src/world/elevated.js): dải cầu + lề đi bộ sát nhà ga; điểm dừng thả khách (theo x) và hướng khách đi vào ga
+      ramp: big ? { path: airportPath(W), halfW: RW_AIR / 2 - 0.3, dy: 0.02, walk, stops: [tx * 0.55, 0, -tx * 0.55], toTerminal: [0, -1] } : null };
   },
 
   karaoke(k, o) {
@@ -1464,5 +1485,5 @@ export function buildPlace(o) {
     group.add(s);
   }
   for (const e of res.extra || []) group.add(e); // người đứng chờ…
-  return { group, glow, colliders: res.colliders ?? 'full', height: res.height, look, upPath: res.upPath || null };
+  return { group, glow, colliders: res.colliders ?? 'full', height: res.height, look, ramp: res.ramp || null };
 }

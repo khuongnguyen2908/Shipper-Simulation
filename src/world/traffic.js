@@ -56,6 +56,8 @@ export class Traffic {
     this.scene = scene;
     this.rng = rng;
     this.agents = [];
+    this.loopCars = []; // xe chạy vòng cố định (lên đường trên cao sân bay thả khách)
+    this.riders = []; // khách vừa xuống xe đi vào ga (dùng lại người cũ)
     this.peds = [];
     this.dogs = [];
     this.police = new Map();
@@ -83,6 +85,146 @@ export class Traffic {
     this.scene.add(mesh);
     const maxSpeed = kind === 'car' ? rng.range(7, 10) : rng.range(8, 11.5);
     this.agents.push({ kind, mesh, from, to, t: rng.range(5, CITY.PITCH - 5), speed: maxSpeed * 0.5, maxSpeed, lane: kind === 'car' ? 2.8 : 4.4, stop: 0, x: 0, z: 0, dx: 0, dz: 0, heading: 0, honk: 0 });
+  }
+
+  // ---------------- xe chạy vòng cố định ----------------
+  // loop: { pts: [{x,y,z}] khép kín, cách đều ~1 m (điểm 0 = đầu dốc lên); stops: [chỉ số điểm dừng thả khách];
+  //         toTerminal: [x, z] hướng khách xuống xe đi vào ga }
+  addLoop(loop, n = 4) {
+    const rng = this.rng, N = loop.pts.length;
+    if (N < 10) return;
+    for (let i = 0; i < n; i++) {
+      const mesh = makeCar(rng.pick(CAR_COLORS), rng.pick(['taxi', 'taxi', 'sedan', 'suv']));
+      mesh.rotation.order = 'YXZ'; // quay theo hướng chạy rồi mới ngóc / chúi theo dốc
+      this.scene.add(mesh);
+      const a = { kind: 'car', loop, mesh, s: (i * N) / n, speed: 0, maxSpeed: rng.range(6.5, 8.5), wait: 0, stop: 0, honk: 0, yieldT: 0, cool: 0, done: false, stopAt: loop.stops.length ? rng.pick(loop.stops) : -1, x: 0, y: 0, z: 0, dx: 0, dz: 1, heading: 0 };
+      this.placeLoopCar(a);
+      a.heading = Math.atan2(a.dx, a.dz);
+      this.loopCars.push(a);
+    }
+  }
+
+  // Vị trí, hướng, độ dốc của xe chạy vòng theo quãng đường đã chạy s
+  placeLoopCar(a) {
+    const P = a.loop.pts, N = P.length;
+    const i = Math.floor(a.s) % N, k = a.s - Math.floor(a.s);
+    const p = P[i], q = P[(i + 1) % N], ahead = P[(i + 2) % N], back = P[(i + N - 1) % N];
+    a.x = p.x + (q.x - p.x) * k;
+    a.y = p.y + (q.y - p.y) * k;
+    a.z = p.z + (q.z - p.z) * k;
+    const dx = ahead.x - back.x, dz = ahead.z - back.z, L = Math.hypot(dx, dz) || 1;
+    a.dx = dx / L;
+    a.dz = dz / L;
+    a.pitch = Math.atan2(ahead.y - back.y, L);
+  }
+
+  updateLoops(dt, ctx, far, events) {
+    for (const a of this.loopCars) {
+      const P = a.loop.pts, N = P.length;
+      let v = a.maxSpeed;
+      const i = Math.floor(a.s) % N;
+      if (Math.abs(P[(i + 2) % N].y - P[i].y) > 0.05) v = Math.min(v, 5.5); // lên / xuống dốc chạy chậm
+      const hidden = far(a.x, a.z);
+      a.mesh.visible = !hidden;
+      if (!hidden) {
+        // xe cùng vòng phía trước: giữ khoảng cách
+        for (const b of this.loopCars) {
+          if (b === a || b.loop !== a.loop) continue;
+          const gap = (b.s - a.s + N) % N;
+          if (gap > 0 && gap < 11) v = Math.min(v, Math.max(0, (gap - 6) * 1.5));
+        }
+        // người chơi (cùng tầng) chắn trước → dừng, bóp còi; xe NPC ngoài đường chắn → nhường (nhường lâu quá thì đi tiếp, tránh kẹt cứng)
+        const ahead = (x, z, len) => {
+          const ox = x - a.x, oz = z - a.z, along = ox * a.dx + oz * a.dz, lat = -ox * a.dz + oz * a.dx;
+          return along > 0 && along < len && Math.abs(lat) < 1.8;
+        };
+        if (Math.abs((ctx.py ?? 0) - a.y) < 1.5 && ahead(ctx.px, ctx.pz, 7)) {
+          v = 0;
+          if (a.honk <= 0 && a.speed < 1) {
+            a.honk = 4 + this.rng.next() * 4;
+            if (this.honkCd <= 0 && Math.hypot(ctx.px - a.x, ctx.pz - a.z) < 14) {
+              events.push({ type: 'honk', kind: 'car' });
+              this.honkCd = 1.5;
+            }
+          }
+        }
+        if (a.cool > 0) a.cool -= dt;
+        else if (a.y < 1 && this.agents.some((b) => b.mesh.visible && ahead(b.x, b.z, 6))) {
+          v = 0;
+          a.yieldT += dt;
+          if (a.yieldT > 2) {
+            a.cool = 2;
+            a.yieldT = 0;
+          }
+        } else a.yieldT = 0;
+        // chạy chậm lại rồi dừng ở điểm thả khách (mỗi vòng một lần)
+        if (!a.done && a.stopAt >= 0) {
+          const d = (a.stopAt - a.s + N) % N;
+          if (d < 14) v = Math.min(v, Math.max(0.6, d * 0.6));
+          if (d < 0.4) {
+            a.done = true;
+            a.wait = this.rng.range(3.5, 5.5);
+            this.dropRider(a);
+          }
+        }
+      }
+      a.honk -= dt;
+      if (a.wait > 0) {
+        a.wait -= dt;
+        v = 0;
+      }
+      if (a.stop > 0) {
+        a.stop -= dt;
+        v = 0;
+      }
+      a.speed = hidden ? v : a.speed + Math.max(-8 * dt, Math.min(3 * dt, v - a.speed));
+      a.s += a.speed * dt;
+      if (a.s >= N) {
+        // hết một vòng (về đầu dốc): chọn chỗ thả khách cho vòng sau
+        a.s -= N;
+        a.done = false;
+        if (a.loop.stops.length) a.stopAt = this.rng.pick(a.loop.stops);
+      }
+      this.placeLoopCar(a);
+      if (hidden) continue;
+      const hd = Math.atan2(a.dx, a.dz);
+      let d = hd - a.heading;
+      d = ((d + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+      a.heading += d * Math.min(1, dt * 8);
+      a.mesh.position.set(a.x, a.y, a.z);
+      a.mesh.rotation.set(-a.pitch, a.heading, 0);
+    }
+    // khách xuống xe: kéo vali đi vào ga rồi khuất
+    for (const r of this.riders) {
+      if (r.t <= 0) continue;
+      r.t -= dt;
+      r.phase += dt * 6;
+      r.mesh.position.x += r.vx * dt;
+      r.mesh.position.z += r.vz * dt;
+      animatePerson(r.mesh, r.phase, 0.6);
+      if (r.t <= 0) r.mesh.visible = false;
+    }
+  }
+
+  dropRider(a) {
+    let r = this.riders.find((x) => x.t <= 0);
+    if (!r && this.riders.length < 6) {
+      const mesh = makePerson(randomPersonOpts(this.rng));
+      const bag = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.55, 0.22), new THREE.MeshStandardMaterial({ color: this.rng.pick([0x2c3e50, 0xc0392b, 0x16a085, 0x8e44ad]), roughness: 0.5 }));
+      bag.position.set(0.42, 0.3, -0.25);
+      mesh.add(bag);
+      this.scene.add(mesh);
+      r = { mesh, t: 0, phase: 0, vx: 0, vz: 0 };
+      this.riders.push(r);
+    }
+    if (!r) return;
+    const [tx, tz] = a.loop.toTerminal;
+    r.mesh.visible = true;
+    r.mesh.position.set(a.x + tx * 1.3, a.y + 0.16, a.z + tz * 1.3);
+    r.mesh.rotation.y = Math.atan2(tx, tz);
+    r.vx = tx * 1.1;
+    r.vz = tz * 1.1;
+    r.t = 2.4;
   }
 
   pickNext(node, prev) {
@@ -303,6 +445,7 @@ export class Traffic {
         w.wheelR.rotation.x += (a.speed * dt) / 0.32;
       }
     }
+    this.updateLoops(dt, ctx, far, events);
 
     // người đi bộ
     for (const p of this.peds) {
@@ -394,7 +537,8 @@ export class Traffic {
   }
 
   // Va chạm giữa người chơi (xe hoặc đi bộ) với xe NPC, người, chó, xe kẹt
-  collidePlayer(pos, r, vel, onBike) {
+  // py: cao độ người chơi (đang trên cầu) — xe chạy vòng khác tầng thì không chạm
+  collidePlayer(pos, r, vel, onBike, py = 0) {
     const hits = [];
     const speed = Math.hypot(vel.x, vel.y);
     const test = (cx, cz, cr, avx, avz, what, obj) => {
@@ -409,6 +553,12 @@ export class Traffic {
         test(a.x + a.dx * 1.1, a.z + a.dz * 1.1, 1.05, avx, avz, 'car', a);
         test(a.x - a.dx * 1.1, a.z - a.dz * 1.1, 1.05, avx, avz, 'car', a);
       } else test(a.x, a.z, 0.55, avx, avz, 'moto', a);
+    }
+    for (const a of this.loopCars) {
+      if (!a.mesh.visible || Math.abs(a.y - py) > 1.5) continue;
+      const avx = a.dx * a.speed, avz = a.dz * a.speed;
+      test(a.x + a.dx * 1.1, a.z + a.dz * 1.1, 1.05, avx, avz, 'car', a);
+      test(a.x - a.dx * 1.1, a.z - a.dz * 1.1, 1.05, avx, avz, 'car', a);
     }
     for (const c of this.jamCircles) test(c.x, c.z, c.r, 0, 0, 'car', null);
     for (const p of this.peds) {

@@ -1655,6 +1655,7 @@ console.log('Gộp 2 khối (sân bay)');
 {
   const CL = await import('../src/sim/cityLayout.js');
   const { buildPlace, airportPath, AIRPORT_UP } = await import('../src/world/placeBuildings.js');
+  const { Elevated } = await import('../src/world/elevated.js');
   const base = JSON.parse(JSON.stringify(readJson('src/data/map.json')));
   delete base.joins;
   const mapJ = { ...base, joins: [[1, 0, 'E']] };
@@ -1703,12 +1704,60 @@ console.log('Gộp 2 khối (sân bay)');
   });
   test('Sân bay dựng được: lô 2 khối có đường trên cao cong (lên ở mép phải, xuống ở mép trái, cao 4,6 m giữa); lô nhỏ chỉ có nhà ga', () => {
     const big = buildPlace({ look: 'airport', W: 85.5, D: 33.5, color: '#e0e0e0', sign: 'SÂN BAY', kind: 'service', seed: 3 });
-    assert.ok(big.upPath && Array.isArray(big.colliders) && big.colliders.length > 5);
+    assert.ok(big.ramp && big.ramp.path && big.ramp.walk && big.ramp.walk.pts.length > 20 && big.ramp.stops.length === 3 && Array.isArray(big.colliders) && big.colliders.length > 5);
     const p = airportPath(85.5);
     assert.ok(p.getPoint(0).y < 0.2 && p.getPoint(1).y < 0.2 && Math.abs(p.getPoint(0.5).y - AIRPORT_UP) < 0.05);
     assert.ok(p.getPoint(0).x > 40 && p.getPoint(1).x < -40);
     const small = buildPlace({ look: 'airport', W: 10.8, D: 10.8, color: '#e0e0e0', sign: 'SB', kind: 'service', seed: 3 });
-    assert.equal(small.upPath, null);
+    assert.equal(small.ramp, null);
+  });
+  test('Mặt đi trên cao: vào đầu dốc lên cao dần, lan can giữ lại, gầm thấp chắn, gầm cao đi qua, ra cuối dốc xuống đất', () => {
+    const el = new Elevated();
+    // dốc thẳng dọc trục x: 0 → 20 m lên 0 → 5 m, rồi sàn phẳng 20 → 40 m, rồi xuống 40 → 60 m
+    const pts = [];
+    for (let x = 0; x <= 60; x++) pts.push({ x, y: x < 20 ? x / 4 : x <= 40 ? 5 : (60 - x) / 4, z: 0 });
+    el.addRamp(pts, 3);
+    el.addPad([[25, -3], [35, -3], [35, -6], [25, -6]], 5.15); // lề đi bộ sát sàn
+    const body = { pos: { x: -1, z: 0 }, deckY: null };
+    const go = (x, z) => {
+      body.pos.x = x;
+      body.pos.z = z;
+      return el.settle(body, 0.4, 0, 2.2);
+    };
+    assert.equal(go(-1, 0).y, 0);
+    for (let x = 0; x <= 12; x += 0.5) go(x, 0);
+    assert.ok(body.deckY != null && Math.abs(go(12.5, 0).y - 12.5 / 4) < 0.05, 'đang lên dốc');
+    for (let x = 12.5; x <= 30; x += 0.5) go(x, 0);
+    assert.ok(Math.abs(body.deckY - 5) < 0.01, 'trên sàn');
+    // lan can: bước ra ngoài mép (z = 4) bị giữ lại, có pháp tuyến chạm
+    const hit = go(30, 3.5);
+    assert.ok(body.pos.z < 3 && hit.normals.length, 'lan can');
+    // bước lên lề đi bộ (cao hơn 0,15 m) được
+    go(30, -1.5);
+    go(30, -2.9);
+    go(30, -4);
+    assert.ok(Math.abs(body.deckY - 5.15) < 0.01, 'lên lề');
+    go(30, -2);
+    go(30, 0);
+    for (let x = 30; x <= 61; x += 0.5) go(x, 0);
+    assert.equal(body.deckY, null, 'ra khỏi cuối dốc thì xuống đất');
+    // dưới đất: đi ngang qua đoạn dốc thấp (cao 1,25 m) bị chắn; đi dưới sàn cao 5 m thì qua được
+    const g = { pos: { x: 5, z: -6 }, deckY: null };
+    const walk = (x, z) => {
+      g.pos.x = x;
+      g.pos.z = z;
+      return el.settle(g, 0.4, 0, 2.2);
+    };
+    for (let z = -6; z <= 0; z += 0.5) walk(5, z);
+    assert.ok(g.pos.z < -3 && g.deckY == null, 'gầm thấp chắn');
+    walk(30, -8);
+    for (let z = -8; z <= 6; z += 0.5) walk(30, z);
+    assert.ok(g.pos.z > 5 && g.deckY == null, 'gầm cao đi qua');
+    // dịch chuyển tức thì (về nhà) thì về mặt đất
+    body.deckY = 5;
+    body._ex = 30;
+    body._ez = 0;
+    assert.equal(go(-50, 50).y, 0);
   });
 }
 

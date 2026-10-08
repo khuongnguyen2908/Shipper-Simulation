@@ -66,6 +66,7 @@ export class Game {
     this.city = buildCity(this.scene, this.layout, this.potholes, this.worldSeed);
     this.sky = new Sky(this.scene);
     this.traffic = new Traffic(this.scene, makeRng(99));
+    for (const l of this.city.loops || []) this.traffic.addLoop(l); // xe bot chạy vòng lên sàn ga đi sân bay
     this.bike = new Bike(this.scene, VEHICLES.cub);
     this.walker = new Walker(this.scene);
     this.beacon = makeBeacon();
@@ -209,8 +210,8 @@ export class Game {
       this.startParking(true);
     }
     this.lookKey = null; // dựng lại ngoại hình shipper theo đồ đang mặc
-    this.bike.update(0.016, {}, { mounted: false, fuel: 1, hp: 100, wet: false, grid: this.city.grid, potholes: [], emit: () => {} });
-    this.walker.update(0.016, {}, 0, { grid: this.city.grid, phys: 100 });
+    this.bike.update(0.016, {}, { mounted: false, fuel: 1, hp: 100, wet: false, grid: this.city.grid, elev: this.city.elev, potholes: [], emit: () => {} });
+    this.walker.update(0.016, {}, 0, { grid: this.city.grid, elev: this.city.elev, phys: 100 });
     this.rig.yaw = -0.75 * Math.PI; // camera đứng giữa đường phía tây-bắc, nhìn về nhà trọ và xe
     this.rig.init = false;
     this.clearTempNpcs();
@@ -423,7 +424,7 @@ export class Game {
     let activity = 'idle';
     const env = this.itemEnv(speed);
     const emit = (type, mag, info) => this.onBikeEvent(type, mag, info, env);
-    const moved = bike.update(dt, mounted ? inp.state : {}, { mounted, fuel: gs.fuel, hp: gs.bikeHp, wet: !!rain, speedCap: this.inJam ? HAZARD.jamSpeedCap : 0, grid: this.city.grid, potholes: this.potholes, emit });
+    const moved = bike.update(dt, mounted ? inp.state : {}, { mounted, fuel: gs.fuel, hp: gs.bikeHp, wet: !!rain, speedCap: this.inJam ? HAZARD.jamSpeedCap : 0, grid: this.city.grid, elev: this.city.elev, potholes: this.potholes, emit });
     if (mounted) {
       if (gs.fuel > 0) {
         const liters = ((moved * DIST.displayPerUnit) / 1000) * (gs.vehicleSpec.fuelPer100km / 100) * Math.max(0.1, 1 + gs.effect('fuelUsePct') / 100);
@@ -433,10 +434,10 @@ export class Game {
         else if (gs.fuel < 0.25) this.toastOnce('lowfuel', fmt('toast.lowFuel'), 'warn', 40);
       }
       activity = speed > 0.5 ? (gs.fuel <= 0 ? 'push' : 'drive') : 'idle';
-      for (const h of this.traffic.collidePlayer(bike.pos, 0.75, bike.vel, true)) this.onTrafficHit(h, env);
+      for (const h of this.traffic.collidePlayer(bike.pos, 0.75, bike.vel, true, bike.mesh.position.y)) this.onTrafficHit(h, env);
     } else {
-      activity = this.walker.update(dt, inp.state, this.rig.yaw, { grid: this.city.grid, phys: gs.phys });
-      this.traffic.collidePlayer(this.walker.pos, 0.35, { x: 0, y: 0 }, false);
+      activity = this.walker.update(dt, inp.state, this.rig.yaw, { grid: this.city.grid, elev: this.city.elev, phys: gs.phys });
+      this.traffic.collidePlayer(this.walker.pos, 0.35, { x: 0, y: 0 }, false, this.walker.mesh.position.y);
       this.walker.mesh.position.set(this.walker.pos.x, this.walker.mesh.position.y, this.walker.pos.z);
       // bước chân ra lề / vào nhà không tính, chỉ cập nhật vị trí
     }
@@ -452,7 +453,8 @@ export class Game {
     // ---- giao thông ----
     const f = bike.forward();
     const pp = this.playerPos;
-    for (const e of this.traffic.update(dt, { px: pp.x, pz: pp.z, onBike: mounted, speed, fx: f.x, fz: f.z })) {
+    const py = (mounted ? bike.mesh : this.walker.mesh).position.y;
+    for (const e of this.traffic.update(dt, { px: pp.x, pz: pp.z, py, onBike: mounted, speed, fx: f.x, fz: f.z })) {
       if (e.type === 'honk' && Math.random() < 0.5) {
         sfx.horn();
         this.toastOnce('honk', fmt('toast.honk'), 'info', 15);
@@ -792,7 +794,7 @@ export class Game {
     bike.pos.set(lot.door.x, 0, lot.door.z);
     bike.speed = 0;
     bike.vel.set(0, 0);
-    this.bike.update(0.016, {}, { mounted: false, fuel: 1, hp: 100, wet: false, grid: this.city.grid, potholes: [], emit: () => {} });
+    this.bike.update(0.016, {}, { mounted: false, fuel: 1, hp: 100, wet: false, grid: this.city.grid, elev: this.city.elev, potholes: [], emit: () => {} });
     gs.towed = { placeId: lot.id, fee };
     gs.parked = { since: this.clockMin, safe: true, ticketed: true, robbed: true, checked: Math.floor(this.clockMin) };
   }

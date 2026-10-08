@@ -41,9 +41,11 @@ export class SpatialGrid {
 }
 
 // Đẩy hình tròn (pos: {x,z}) ra khỏi các hộp. Trả về danh sách pháp tuyến va chạm.
-export function resolveCircle(pos, r, grid) {
+// y: cao độ chân (đang trên cầu) — hộp thấp hơn chân (cột đỡ cầu, cây dưới đất…) thì bỏ qua
+export function resolveCircle(pos, r, grid, y = 0) {
   const normals = [];
   for (const c of grid.query(pos.x, pos.z, r + 1)) {
+    if (y > 0.5 && c.h <= y + 0.3) continue;
     const px = Math.max(c.x0, Math.min(pos.x, c.x1));
     const pz = Math.max(c.z0, Math.min(pos.z, c.z1));
     let dx = pos.x - px, dz = pos.z - pz;

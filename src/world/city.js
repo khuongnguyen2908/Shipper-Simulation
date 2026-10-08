@@ -12,7 +12,8 @@ import { makeRng } from '../sim/rng.js';
 import { SpatialGrid } from './physics.js';
 import { makeTileTexture, makeAsphaltTexture, makeSignTexture, makeGlowTexture } from './textures.js';
 import { HouseGeo, buildHouse, housesForLot, houseMaterial, houseTop } from './houses.js';
-import { buildPlace, buildResidential, mergeKits } from './placeBuildings.js';
+import { buildPlace, buildResidential, mergeKits, airportPath, AIRPORT_MIN_W } from './placeBuildings.js';
+import { Elevated } from './elevated.js';
 import { lookOf, lookFloors } from '../data/looks.js';
 import { ITEMS } from '../data/items.js';
 import { hashStr } from '../sim/people.js';
@@ -285,11 +286,24 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     addBox(r.x0, r.z0, r.x1, r.z1, top + SW_H, 'house');
   }
   if (resKits.length) mergeKits(resKits, scene);
+  // lối xe lên dốc sân bay cắt qua vỉa hè (giữa vỉa hè, 2 đầu dốc): không đặt cây, cột điện, xe hàng rong chắn lối
+  const driveways = [];
+  for (const p of layout.places) {
+    if (lookOf(p) !== 'airport') continue;
+    const fr = placeFrame(p);
+    if (fr.W < AIRPORT_MIN_W) continue;
+    const path = airportPath(fr.W);
+    for (const t of [0, 1]) {
+      const q = path.getPointAt(t);
+      driveways.push(fr.toWorld(q.x + Math.sign(q.x) * (0.75 + CITY.SW / 2), q.z));
+    }
+  }
+  const nearDrive = (x, z, d = 4) => driveways.some(([a, b]) => Math.hypot(a - x, b - z) < d);
   // trang trí đường phố theo khu (dây đèn lồng, đèn lồng giấy, xe hàng rong)
   const doors = layout.places.map((p) => p.door).filter(Boolean);
   buildStreetDecor(scene, {
     map: mapData, rng: styleRng, addBox, blockStyle, swH: SW_H,
-    isPlaceDoor: (x, z) => doors.some((d) => Math.hypot(d.x - x, d.z - z) < 2.4),
+    isPlaceDoor: (x, z) => doors.some((d) => Math.hypot(d.x - x, d.z - z) < 2.4) || nearDrive(x, z),
   });
   // ---------- khối có hẻm: nhà phía sau (không cửa), mặt hẻm, cột chắn hẻm đi bộ ----------
   const alleyGeo = new THREE.PlaneGeometry(1, 1);
@@ -345,6 +359,46 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     scene.add(s);
     return s;
   };
+  // mặt đi trên cao (dốc + sàn ga đi sân bay) và đường vòng cho xe bot chạy lên thả khách
+  const elev = new Elevated();
+  const loops = [];
+  const addRamp = (p, rp) => {
+    const fr = placeFrame(p);
+    const lift = SW_H + (rp.dy || 0);
+    const local = rp.path.getSpacedPoints(Math.max(2, Math.ceil(rp.path.getLength()))).map((q) => [q.x, q.y + lift, q.z]);
+    const toW = ([x, y, z]) => {
+      const [wx, wz] = fr.toWorld(x, z);
+      return { x: wx, y, z: wz };
+    };
+    elev.addRamp(local.map(toW), rp.halfW);
+    if (rp.walk) elev.addRamp(rp.walk.pts.map(([x, y, z]) => toW([x, y + SW_H, z])), rp.walk.lo, rp.walk.hi); // lề đi bộ sát nhà ga (bề rộng đổi dần)
+    // đường vòng (toạ độ riêng của lô): đầu dốc bên trái → ra đường hông trái → đường phía sau → đường hông phải → vào đầu dốc bên phải.
+    // Làn xe bám lề phía lô (xe chạy bên phải), tim đường dò theo lưới đường thật.
+    const lane = 2.8, a = local[0], e = local[local.length - 1];
+    const alongX = Math.abs(fr.c) > 0.5; // trục x riêng trùng trục x thế giới
+    const snapRoad = (wx, wz, onX) => (onX ? [nearestRoad(wx), wz] : [wx, nearestRoad(wz)]);
+    const xs = Math.abs(fr.toLocal(...snapRoad(...fr.toWorld(Math.abs(a[0]) + CITY.SW + CITY.ROAD / 2, a[2]), alongX))[0]) - lane;
+    const zs = -fr.toLocal(...snapRoad(...fr.toWorld(0, -(fr.D + CITY.SW + CITY.ROAD / 2)), !alongX))[1] - lane;
+    const corners = [[-xs, 0, e[2]], [-xs, 0, -zs], [xs, 0, -zs], [xs, 0, a[2]]];
+    const all = [...local, ...corners];
+    const poly = [...local];
+    for (let k = 0; k < corners.length; k++) {
+      const i = local.length + k;
+      poly.push(...roundCorner(all[i - 1], all[i], all[(i + 1) % all.length], 5));
+    }
+    const pts = resample(poly, 1);
+    // điểm dừng thả khách: trên sàn ga đi, gần các vị trí x cho trước
+    const top = Math.max(...local.map((q) => q[1]));
+    const stops = (rp.stops || []).map((sx) => {
+      let best = -1;
+      pts.forEach((q, i) => {
+        if (q[1] >= top - 0.05 && (best < 0 || Math.abs(q[0] - sx) < Math.abs(pts[best][0] - sx))) best = i;
+      });
+      return best;
+    }).filter((i) => i >= 0);
+    const [tx, tz] = rp.toTerminal || [0, -1];
+    loops.push({ pts: pts.map(toW), stops, toTerminal: [tx * fr.c + tz * fr.s, -tx * fr.s + tz * fr.c] });
+  };
   for (const p of layout.places) {
     const r = { x0: p.x0 + 0.25, x1: p.x1 - 0.25, z0: p.z0 + 0.25, z1: p.z1 - 0.25 };
     const f = frontOf(r, p.face);
@@ -358,6 +412,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     b.group.position.set(f.x, SW_H, f.z);
     b.group.rotation.y = f.rotY;
     scene.add(b.group);
+    if (b.ramp) addRamp(p, b.ramp);
     signMats.push(...b.glow);
     if (b.colliders === 'full') addBox(r.x0, r.z0, r.x1, r.z1, b.height + SW_H, 'place');
     else {
@@ -410,6 +465,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
       const b = blockBounds(bx, bz);
       for (const [x, z, dx, dz] of [[b.x0 + 0.8, b.z0 + 0.8, -1, -1], [b.x1 - 0.8, b.z0 + 0.8, 1, -1], [b.x0 + 0.8, b.z1 - 0.8, -1, 1], [b.x1 - 0.8, b.z1 - 0.8, 1, 1]]) {
         if (joinedSide(bx, bz, dx > 0 ? 'E' : 'W', mapData) || joinedSide(bx, bz, dz > 0 ? 'S' : 'N', mapData)) continue; // góc giáp khối đã gộp
+        if (nearDrive(x, z)) continue; // lối xe lên dốc
         lamps.push({ x, z, dx, dz });
       }
       const ax = b.x0 + CITY.SW, az = b.z0 + CITY.SW;
@@ -420,6 +476,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
         const need = tier === 1 ? Math.min(1, t) : Math.min(1, Math.max(0, t - 1));
         for (const [side, ...p] of [['N', ax + k * W, b.z0 + 0.9], ['S', ax + k * W, b.z1 - 0.9], ['W', b.x0 + 0.9, az + k * W], ['E', b.x1 - 0.9, az + k * W]]) {
           if (joinedSide(bx, bz, side, mapData)) continue;
+          if (nearDrive(...p)) continue; // lối xe lên dốc
           if (need >= 1 || (need > 0 && styleRng.next() < need)) trees.push(p);
         }
       }
@@ -508,7 +565,15 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     for (let bx = 0; bx < CITY.N; bx++) {
       const b = blockBounds(bx, bz), e = 0.45;
       const sides = { N: [[b.x0 + 8, b.z0 + e], [b.x1 - 8, b.z0 + e]], S: [[b.x0 + 8, b.z1 - e], [b.x1 - 8, b.z1 - e]], W: [[b.x0 + e, b.z0 + 8], [b.x0 + e, b.z1 - 8]], E: [[b.x1 - e, b.z0 + 8], [b.x1 - e, b.z1 - 8]] };
-      for (const [side, pts] of Object.entries(sides)) if (!joinedSide(bx, bz, side, mapData)) polePos.set(`${bx},${bz},${side}`, pts); // cạnh giáp khối gộp: không còn đường
+      for (const [side, pts] of Object.entries(sides)) {
+        if (joinedSide(bx, bz, side, mapData)) continue; // cạnh giáp khối gộp: không còn đường
+        // cột vướng lối xe lên dốc: dời dọc cạnh vào phía giữa khối
+        for (const pt of pts) {
+          const i = side === 'W' || side === 'E' ? 1 : 0, mid = i ? (b.z0 + b.z1) / 2 : (b.x0 + b.x1) / 2;
+          for (let k = 0; k < 12 && nearDrive(pt[0], pt[1]); k++) pt[i] += pt[i] < mid ? 1 : -1;
+        }
+        polePos.set(`${bx},${bz},${side}`, pts);
+      }
     }
   }
   const poleList = [...polePos.values()].flat();
@@ -595,6 +660,8 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   const dryColor = new THREE.Color(0xffffff), wetColor = new THREE.Color(0x9fa4ad);
   return {
     grid,
+    elev, // mặt đi trên cao (xe / người chạy lên dốc sân bay)
+    loops, // đường vòng cho xe bot (traffic.addLoop)
     setNight(n) {
       headMat.emissiveIntensity = 0.2 + 3 * n;
       poolMat.opacity = 0.85 * n;
@@ -607,6 +674,50 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
       roadMat.metalness = 0.25 * w;
     },
   };
+}
+
+// Khung toạ độ riêng của địa điểm (như lúc dựng nhà): gốc giữa mặt tiền, x dọc mặt tiền, z âm đi vào trong lô
+function placeFrame(p) {
+  const r = { x0: p.x0 + 0.25, x1: p.x1 - 0.25, z0: p.z0 + 0.25, z1: p.z1 - 0.25 };
+  const f = frontOf(r, p.face);
+  const c = Math.cos(f.rotY), s = Math.sin(f.rotY);
+  return {
+    W: f.width, D: f.nx ? r.x1 - r.x0 : r.z1 - r.z0, c, s,
+    toWorld: (x, z) => [f.x + x * c + z * s, f.z - x * s + z * c],
+    toLocal: (wx, wz) => {
+      const dx = wx - f.x, dz = wz - f.z;
+      return [dx * c - dz * s, dx * s + dz * c];
+    },
+  };
+}
+// Tim đường gần nhất (toạ độ một trục)
+function nearestRoad(v) {
+  const i = Math.max(0, Math.min(CITY.N, Math.round((v - CITY.ORIGIN) / CITY.PITCH)));
+  return roadPos(i);
+}
+// Bo tròn góc C (giữa P và N) bằng cung bậc hai bán kính ~R; điểm dạng [x, y, z]
+function roundCorner(P, C, N, R) {
+  const l1 = Math.hypot(C[0] - P[0], C[2] - P[2]) || 1e-6, l2 = Math.hypot(N[0] - C[0], N[2] - C[2]) || 1e-6;
+  const r = Math.min(R, l1 / 2, l2 / 2);
+  const A = C.map((v, k) => v + ((P[k] - v) * r) / l1), B = C.map((v, k) => v + ((N[k] - v) * r) / l2);
+  const out = [];
+  for (let i = 0; i <= 6; i++) {
+    const t = i / 6;
+    out.push(A.map((v, k) => (1 - t) * (1 - t) * v + 2 * (1 - t) * t * C[k] + t * t * B[k]));
+  }
+  return out;
+}
+// Chia lại đường khép kín thành các điểm cách đều ~step m
+function resample(poly, step) {
+  const pts = [...poly, poly[0]];
+  const out = [];
+  let d = 0; // vị trí điểm kế tiếp tính từ đầu đoạn hiện tại
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1], L = Math.hypot(b[0] - a[0], b[2] - a[2]);
+    for (; d < L; d += step) out.push(a.map((v, k) => v + ((b[k] - v) * d) / L));
+    d -= L;
+  }
+  return out;
 }
 
 function lotRect(spec) {
