@@ -682,27 +682,27 @@
   "busRoutes": [
     {
       "id": "t1",
-      "name": "Tuyến 1 · Vòng trung tâm",
+      "name": "Tuyến 1 · Trung tâm – Chợ Hòa Bình - Sân Bay - Khu Cao Ốc",
       "color": "#1e8449",
       "buses": 5,
       "via": [
         "benXeBuyt",
-        "congan1",
-        "market",
         "choTruyenThong",
-        "tiemVang"
+        "sanbay",
+        "market"
       ]
     },
     {
       "id": "t2",
-      "name": "Tuyến 2 · Sân bay – Đô thị mới",
+      "name": "Tuyến 2 · Trung tâm – China Town – Đô thị mới - Bán Đảo",
       "color": "#2e86c1",
       "buses": 5,
       "via": [
         "benXeBuyt",
-        "sanbay",
+        "dhMyThuat",
+        "tennisDoThi",
         "rmit",
-        "garageNamRau"
+        "congan1"
       ]
     }
   ],
