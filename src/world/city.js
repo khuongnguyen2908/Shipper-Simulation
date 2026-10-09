@@ -12,13 +12,14 @@ import { makeRng } from '../sim/rng.js';
 import { SpatialGrid } from './physics.js';
 import { makeTileTexture, makeAsphaltTexture, makeSignTexture, makeGlowTexture } from './textures.js';
 import { HouseGeo, buildHouse, housesForLot, houseMaterial, houseTop } from './houses.js';
-import { buildPlace, buildResidential, mergeKits, airportPath, AIRPORT_MIN_W } from './placeBuildings.js';
+import { buildPlace, buildResidential, mergeKits, makeKit, airportPath, AIRPORT_MIN_W } from './placeBuildings.js';
 import { Elevated } from './elevated.js';
 import { lotFrame, airportZones } from '../sim/airport.js';
 import { lookOf, lookFloors } from '../data/looks.js';
 import { ITEMS } from '../data/items.js';
 import { hashStr } from '../sim/people.js';
 import { mat } from './models.js';
+import { tierOf, TIER_GEO, allSegments } from '../sim/roads.js';
 
 const WALL_COLORS = [0xe8d5b7, 0xf4c095, 0x9fd8cb, 0xf6e27f, 0xe7a9a9, 0xb8d8e8, 0xd9c3e8, 0xf2f2f2, 0xc9e4a6, 0xf7b267, 0xffe0b5, 0xa9cce3];
 const AWNING_COLORS = [0xc0392b, 0x2980b9, 0x27ae60, 0xf39c12, 0x8e44ad, 0x16a085];
@@ -71,11 +72,15 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     for (let k = 0; k <= CITY.N; k++) if (Math.abs(v - roadPos(k)) < m) return true;
     return false;
   };
+  // cấp đường (map.json → roadTiers, src/sim/roads.js): đường thường vạch giữa · đại lộ vạch chia 2 làn mỗi chiều (giữa là dải phân cách) · đường nhỏ không vạch
+  const tierAt = (id) => tierOf(id, mapData);
+  const laneDashes = (id) => (tierAt(id) === 'big' ? [-3.4, 3.4] : tierAt(id) === 'small' ? [] : [0]);
   for (let i = 0; i <= CITY.N; i++) {
     for (let a = -HALF; a <= HALF; a += 6) {
       if (nearCross(a, 9)) continue;
-      if (!noRoad(`x${i}:${segIdx(a)}`)) dashes.push([roadPos(i), a, 0.18, 3]); // đường dọc
-      if (!noRoad(`z${i}:${segIdx(a)}`)) dashes.push([a, roadPos(i), 3, 0.18]); // đường ngang
+      const vx = `x${i}:${segIdx(a)}`, hz = `z${i}:${segIdx(a)}`;
+      if (!noRoad(vx)) for (const o of laneDashes(vx)) dashes.push([roadPos(i) + o, a, 0.18, 3]); // đường dọc
+      if (!noRoad(hz)) for (const o of laneDashes(hz)) dashes.push([a, roadPos(i) + o, 3, 0.18]); // đường ngang
     }
     for (let j = 0; j <= CITY.N; j++) {
       if (G.waterNodes.has(`${i},${j}`) || G.bridgeNodes.has(`${i},${j}`)) continue;
@@ -110,12 +115,17 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
         for (const axis of ['x', 'z']) {
           if (noRoad(`${axis}${i}:${j}`)) continue;
           const at = (along, lat) => (axis === 'x' ? [roadPos(i) + lat, along] : [along, roadPos(i) + lat]);
-          for (let k = prng.int(1, 3); k > 0; k--) {
-            const [x, z] = at(a0 + prng.next() * (a1 - a0), (prng.next() - 0.5) * (CITY.ROAD - 3));
+          // đường nhỏ mặt cũ nhiều vá; đại lộ mới trải, ít vá (không vá trên dải phân cách)
+          const tier = tierAt(`${axis}${i}:${j}`), tg = TIER_GEO[tier];
+          const nPatch = tier === 'small' ? prng.int(3, 6) : tier === 'big' ? prng.int(0, 1) : prng.int(1, 3);
+          for (let k = nPatch; k > 0; k--) {
+            let lat = (prng.next() - 0.5) * (2 * tg.half - 3);
+            if (tg.median && Math.abs(lat) < tg.median + 1) lat = Math.sign(lat || 1) * (tg.median + 1.5);
+            const [x, z] = at(a0 + prng.next() * (a1 - a0), lat);
             patches.push([x, z, 1 + prng.next() * 2.5, 0.8 + prng.next() * 1.6, prng.next() * 0.5 - 0.25]);
           }
           for (const side of [-1, 1]) {
-            for (let a = a0 + prng.next() * 8; a < a1; a += 14 + prng.next() * 8) holes.push(at(a, side * (CITY.ROAD / 2 - 1.1)));
+            for (let a = a0 + prng.next() * 8; a < a1; a += 14 + prng.next() * 8) holes.push(at(a, side * (tg.half - 1.1)));
           }
         }
       }
@@ -210,6 +220,64 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
       scene.add(m);
     }
   }
+  // ---------- cấp đường: dải phân cách đại lộ · lề rộng đường nhỏ (gạch như vỉa hè, xe máy đậu, cây) ----------
+  // dựng dọc mỗi đoạn, chừa 9 m ở 2 đầu (vạch qua đường, ngã tư để nguyên)
+  const roadExtras = { medians: [], verges: [], vergeTrees: [] };
+  {
+    const vrng = makeRng(seed * 13 + 5);
+    const bikes = makeKit(); // xe máy đậu trên lề đường nhỏ: khối hộp đơn giản, toạ độ thế giới, gộp 1 lần
+    const BIKE_COLS = [0xc0392b, 0x2c3e50, 0xecf0f1, 0x8e44ad, 0x2980b9, 0x7f8c8d, 0xd35400];
+    for (const s of allSegments(mapData)) {
+      const tier = tierAt(s.id);
+      if (tier === 'normal') continue;
+      const tg = TIER_GEO[tier], c = roadPos(s.line), a0 = roadPos(s.from) + 9, a1 = roadPos(s.from + 1) - 9;
+      // hình chữ nhật theo (dọc đường a, ngang l) → toạ độ thế giới
+      const rect = (la, lb, aa, ab) => (s.axis === 'x' ? { x0: c + la, x1: c + lb, z0: aa, z1: ab } : { x0: aa, x1: ab, z0: c + la, z1: c + lb });
+      const pt = (a, l) => (s.axis === 'x' ? [c + l, a] : [a, c + l]);
+      if (tier === 'big') {
+        const r = rect(-tg.median, tg.median, a0, a1);
+        roadExtras.medians.push(r);
+        addBox(r.x0, r.z0, r.x1, r.z1, 0.6, 'median');
+        for (let a = a0 + 4; a < a1 - 2; a += 8) roadExtras.vergeTrees.push(pt(a, 0)); // hàng cây giữa dải phân cách
+      } else {
+        for (const side of [-1, 1]) {
+          const r = side < 0 ? rect(-CITY.ROAD / 2, -tg.half, a0, a1) : rect(tg.half, CITY.ROAD / 2, a0, a1);
+          roadExtras.verges.push(r);
+          const mid = side * (tg.half + CITY.ROAD / 2) / 2;
+          // xe máy đậu xếp hàng trên lề, thân xe vuông góc với đường (đầu xe quay ra lòng đường)
+          for (let a = a0 + 1.5; a < a1 - 1; a += 1.1) {
+            if (vrng.next() < 0.62) continue;
+            const [x, z] = pt(a, mid);
+            const along = s.axis === 'x'; // đường dọc → thân xe nằm theo trục x
+            const B = (lx, ly, lz, w, h, d, col) => bikes.box(along ? lx : w, h, along ? w : lx, x + (along ? ly : 0), SW_H + lz, z + (along ? 0 : ly), col);
+            const col = BIKE_COLS[vrng.int(0, BIKE_COLS.length - 1)];
+            B(1.0, 0, 0.55, 0.28, 0.35, 0, col); // thân
+            B(0.55, -0.15, 0.78, 0.26, 0.1, 0, 0x222222); // yên
+            for (const o of [-0.55, 0.55]) B(0.55, o, 0.28, 0.08, 0.55, 0, 0x1b1b1b); // bánh
+            addBox(x - 0.4, z - 0.4, x + 0.4, z + 0.4, 1.0, 'bike');
+          }
+          for (let a = a0 + 4 + vrng.next() * 4; a < a1 - 2; a += 9 + vrng.next() * 5) roadExtras.vergeTrees.push(pt(a, side * (CITY.ROAD / 2 - 0.6)));
+        }
+      }
+    }
+    // gộp: dải phân cách (bó vỉa xám + mặt cỏ), lề đường nhỏ (gạch vỉa hè)
+    const mGeo = [], gGeo = [], vGeo = [];
+    for (const r of roadExtras.medians) {
+      const w = r.x1 - r.x0, d = r.z1 - r.z0, cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2;
+      mGeo.push(new THREE.BoxGeometry(w, 0.22, d).translate(cx, 0.11, cz));
+      gGeo.push(new THREE.BoxGeometry(Math.max(0.1, w - (w < d ? 0.3 : 0)), 0.02, Math.max(0.1, d - (d < w ? 0.3 : 0))).translate(cx, 0.23, cz));
+    }
+    for (const r of roadExtras.verges) vGeo.push(new THREE.BoxGeometry(r.x1 - r.x0, SW_H, r.z1 - r.z0).translate((r.x0 + r.x1) / 2, SW_H / 2, (r.z0 + r.z1) / 2));
+    for (const [geos, m] of [[mGeo, mat(0xb8b5ad)], [gGeo, mat(0x5f8f3f)], [vGeo, swMat]]) {
+      if (!geos.length) continue;
+      const mesh = new THREE.Mesh(mergeGeometries(geos), m);
+      mesh.receiveShadow = true;
+      mesh.castShadow = m !== swMat;
+      scene.add(mesh);
+    }
+    mergeKits([{ kit: bikes, matrix: new THREE.Matrix4() }], scene);
+  }
+
   // lòng đường cũ giữa 2 khối đã gộp → mặt bằng cao như vỉa hè
   const joins = joinList(mapData);
   for (const j of joins) {
@@ -482,7 +550,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
 
   // ---------- đèn đường, cây xanh ----------
   const lamps = [];
-  const trees = [];
+  const trees = [...roadExtras.vergeTrees]; // + cây trên dải phân cách đại lộ, lề đường nhỏ
   for (let bz = 0; bz < CITY.N; bz++) {
     for (let bx = 0; bx < CITY.N; bx++) {
       const b = blockBounds(bx, bz);

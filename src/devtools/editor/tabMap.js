@@ -5,11 +5,15 @@ import { isPlaced } from '../../data/places.js';
 import { el, field, button, selectInput, checkInput, numInput, explain, textInput, colorInput } from './ui.js';
 import { HINT, EXPLAIN } from './help.js';
 import { DISTRICT_TRAITS, DISTRICT_PRESETS, TRAIT_IDS, TRAIT_RANGE, traitOf, HOUSE_STYLES, DECOR, LOOK_PRESETS, TREES_RANGE, treesOf } from '../../data/districtTraits.js';
+import { ROAD_TIERS, TIER_IDS, tierOf, roadSegAt, allSegments, suggestRoadTiers } from '../../sim/roads.js';
 
 // khu phố đang mở bảng "tính cách" (⚙️)
 let openKhu = null;
 // cọ tô khu phố đang chọn: null = không tô (bấm khối để chọn) · '' = xóa khu phố khỏi khối · mã khu phố = tô khu phố đó
 let brush = null;
+// cọ tô cấp đường: null = không tô · 'big' | 'normal' | 'small'
+let roadBrush = null;
+const TIER_COLOR = { big: '#e0b84a', normal: '#7d8794', small: '#a1785c' };
 // đang kéo tô (giữ ctx để chốt bước hoàn tác khi thả chuột) — nghe "thả chuột" một lần cho cả trang
 let painting = null;
 addEventListener('pointerup', () => {
@@ -67,6 +71,7 @@ export function render(root, ctx) {
   map.districtBlocks = map.districtBlocks || {};
   if (brush && !map.districts[brush]) brush = null;
   const dBox = el('div');
+  let drawRoads = null; // vẽ lại mục Đường to / nhỏ (đếm số đoạn)
   body.append(
     el('div', { class: 'body-head' }, el('h2', {}, `🗺️ Bản đồ ${CITY.N}×${CITY.N} khối`)),
     el('div', { class: 'two' },
@@ -92,6 +97,7 @@ export function render(root, ctx) {
     ),
     dBox,
     explain(EXPLAIN.map),
+    roadsBox(),
     riversBox(),
     joinsBox(),
   );
@@ -108,7 +114,7 @@ export function render(root, ctx) {
       textInput(d.name, (v) => { d.name = v; changed(); drawMap(); }, { class: 'dist-name' }),
       el('small', { class: 'muted' }, `${count[id] || 0} khối`),
       button(openKhu === id ? '⚙️ Đóng' : '⚙️ Tính cách', () => { openKhu = openKhu === id ? null : id; drawDistricts(); }, openKhu === id ? 'small primary' : 'small'),
-      button(brush === id ? '✔ Đang tô' : '🖌 Tô', () => { brush = brush === id ? null : id; drawDistricts(); }, brush === id ? 'small primary' : 'small'),
+      button(brush === id ? '✔ Đang tô' : '🖌 Tô', () => { brush = brush === id ? null : id; roadBrush = null; drawRoads?.(); drawDistricts(); }, brush === id ? 'small primary' : 'small'),
       button('🗑', () => {
         if (count[id] && !confirm(`Xóa "${d.name}"? ${count[id]} khối sẽ thành chưa gán khu phố.`)) return;
         ctx.historyBreak();
@@ -131,10 +137,11 @@ export function render(root, ctx) {
           while (map.districts[`khu${n}`]) n++;
           map.districts[`khu${n}`] = { name: 'Khu phố mới', color: PALETTE[Object.keys(map.districts).length % PALETTE.length] };
           brush = `khu${n}`;
+          roadBrush = null;
           changed();
           drawDistricts();
         }, 'small primary'),
-        button(brush === '' ? '✔ Đang xóa khu phố khỏi khối' : '🧽 Xóa khu phố khỏi khối', () => { brush = brush === '' ? null : ''; drawDistricts(); }, brush === '' ? 'small primary' : 'small')),
+        button(brush === '' ? '✔ Đang xóa khu phố khỏi khối' : '🧽 Xóa khu phố khỏi khối', () => { brush = brush === '' ? null : ''; roadBrush = null; drawRoads?.(); drawDistricts(); }, brush === '' ? 'small primary' : 'small')),
     );
   }
   // Bảng "tính cách" của một khu phố: mẫu khu + các hệ số (1 = bình thường như mọi nơi)
@@ -202,7 +209,64 @@ export function render(root, ctx) {
         else delete d.trees;
         changed();
       }, { step: 0.1, min: TREES_RANGE[0], max: TREES_RANGE[1] }), { ref: `district:${id}`, fieldKey: 'trees', hint: '0 = không cây · 1 = như cũ (8 cây mỗi khối) · 2 = gấp đôi.' }),
+      el('h4', {}, '🛣️ Tỉ lệ cấp đường trong khu'),
+      el('p', { class: 'muted' }, 'Dùng khi bấm "🔄 Chia lại theo khu phố" ở mục Đường to / nhỏ: mỗi tuyến đường trong khu chọn 1 cấp theo tỉ lệ này (cả tuyến cùng cấp, không loang lổ); đoạn giáp 2 khu lấy mức giữa. Đường chính (thẻ Địa điểm) luôn là đại lộ.'),
+      el('div', { class: 'grid tight' }, ROAD_TIERS.map(([k, label]) => field(label, numInput(d.roads?.[k] ?? null, (v) => {
+        const r = { ...(d.roads || {}) };
+        if (Number.isFinite(v) && v > 0) r[k] = v;
+        else delete r[k];
+        if (Object.keys(r).length) d.roads = r;
+        else delete d.roads;
+        changed();
+      }, { step: 0.05, min: 0 }), { ref: `district:${id}`, fieldKey: 'roads' }))),
     );
+  }
+
+  // ---------- đường to / nhỏ (map.json → roadTiers) ----------
+  function roadsBox() {
+    const box = el('div');
+    const draw = () => {
+      box.innerHTML = '';
+      const segs = allSegments(map), cnt = { big: 0, normal: 0, small: 0 };
+      for (const s of segs) cnt[tierOf(s.id, map)]++;
+      box.append(
+        el('h3', {}, '🛣️ Đường to / nhỏ'),
+        el('p', { class: 'muted' }, 'Mỗi đoạn đường giữa 2 ngã tư là Đại lộ (dải phân cách, 4 làn, nhiều ô tô, hay kẹt, hay có chốt CSGT, chạy nhanh hơn), Đường thường, hoặc Đường nhỏ (mặt nhựa hẹp, lề rộng đậu xe máy, nhiều ổ gà, ít kẹt, phải chạy chậm). Số luật chơi ở thẻ ⚖️ Cân bằng → 🛣️ Cấp đường. Chọn cọ rồi bấm / kéo lên đường trên bản đồ để tô.'),
+        el('div', { class: 'inline wrap' },
+          ...ROAD_TIERS.map(([k, label]) => button(`${roadBrush === k ? '✔ Đang tô ' : '🖌 '}${label} (${cnt[k]})`, () => {
+            roadBrush = roadBrush === k ? null : k;
+            if (roadBrush) brush = null; // không tô khu phố cùng lúc
+            draw();
+            drawDistricts();
+            drawMap();
+          }, roadBrush === k ? 'small primary' : 'small')),
+          button('🔄 Chia lại theo khu phố', () => {
+            if (!confirm('Chia lại cấp đường cho cả bản đồ theo tỉ lệ của từng khu phố (và đường chính = đại lộ). Các đoạn đã tô tay sẽ bị ghi đè. Tiếp tục?')) return;
+            ctx.historyBreak();
+            map.roadTiers = suggestRoadTiers(map, ctx.data.places.mainRoads || []);
+            changed();
+            ctx.historyBreak();
+            draw();
+            drawMap();
+          }, 'small'),
+        ),
+      );
+    };
+    draw();
+    drawRoads = draw;
+    return box;
+  }
+  // tô 1 đoạn đường bằng cọ cấp đường
+  function paintRoad(wx, wz) {
+    const s = roadSegAt(wx, wz);
+    if (!s || !allSegments(map).some((x) => x.id === s.id)) return;
+    if (tierOf(s.id, map) === roadBrush) return;
+    map.roadTiers = map.roadTiers || {};
+    if (roadBrush === 'normal') delete map.roadTiers[s.id];
+    else map.roadTiers[s.id] = roadBrush;
+    changed();
+    drawMap();
+    drawRoads?.();
   }
 
   // tô 1 khối bằng cọ đang chọn
@@ -325,6 +389,14 @@ export function render(root, ctx) {
       s.z += (b.z0 + b.z1) / 2;
       s.n++;
     }
+    // cấp đường: đại lộ vàng đậm cả bề rộng · đường thường xám mảnh · đường nhỏ nâu hẹp
+    for (const sg of allSegments(map)) {
+      const t = tierOf(sg.id, map), r = segmentRect(sg);
+      const f = t === 'big' ? 0.9 : t === 'small' ? 0.35 : 0.5; // phần bề rộng tô
+      const cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2;
+      const rr = sg.axis === 'x' ? { x0: cx - (CITY.ROAD * f) / 2, x1: cx + (CITY.ROAD * f) / 2, z0: r.z0, z1: r.z1 } : { x0: r.x0, x1: r.x1, z0: cz - (CITY.ROAD * f) / 2, z1: cz + (CITY.ROAD * f) / 2 };
+      R(rr, TIER_COLOR[t]);
+    }
     // sông & cầu (bản đang sửa)
     const G = roadGraph(map);
     const H = CITY.ROAD / 2;
@@ -358,31 +430,35 @@ export function render(root, ctx) {
       g.fillStyle = '#fff';
       g.fillText(name, X(s.x / s.n), Z(s.z / s.n));
     }
-    const blockAtEvent = (e) => {
+    const worldAt = (e) => {
       const bb = c.getBoundingClientRect();
-      const wx = ((e.clientX - bb.left) / bb.width) * S / k - HALF - 2;
-      const wz = ((e.clientY - bb.top) / bb.height) * S / k - HALF - 2;
+      return [((e.clientX - bb.left) / bb.width) * S / k - HALF - 2, ((e.clientY - bb.top) / bb.height) * S / k - HALF - 2];
+    };
+    const blockAtEvent = (e) => {
+      const [wx, wz] = worldAt(e);
       const bx = Math.floor((wx - roadPos(0) - CITY.ROAD / 2) / CITY.PITCH), bz = Math.floor((wz - roadPos(0) - CITY.ROAD / 2) / CITY.PITCH);
       return bx < 0 || bz < 0 || bx >= CITY.N || bz >= CITY.N ? null : `${bx},${bz}`;
     };
     // có cọ: bấm / kéo để tô khu phố · không cọ: bấm để chọn khối
     c.addEventListener('pointerdown', (e) => {
-      if (brush === null) return;
+      if (brush === null && roadBrush === null) return;
       painting = ctx;
       ctx.historyBreak();
+      if (brush === null) return paintRoad(...worldAt(e));
       const key = blockAtEvent(e);
       if (key) paint(key);
     });
     c.addEventListener('pointermove', (e) => {
       if (!painting || !e.buttons) return;
+      if (brush === null && roadBrush !== null) return paintRoad(...worldAt(e));
       const key = blockAtEvent(e);
       if (key) paint(key);
     });
     c.addEventListener('click', (e) => {
-      if (brush !== null) return;
+      if (brush !== null || roadBrush !== null) return;
       const key = blockAtEvent(e);
       if (key) ctx.select('map', { id: key });
     });
-    canvasBox.append(c, el('small', { class: 'muted' }, 'Vàng = khối đang chọn · xám sáng = khối có địa điểm · nâu = hẻm xe máy · be = hẻm đi bộ · xanh rêu = nhà trong hẻm'));
+    canvasBox.append(c, el('small', { class: 'muted' }, 'Vàng = khối đang chọn · xám sáng = khối có địa điểm · nâu = hẻm xe máy · be = hẻm đi bộ · xanh rêu = nhà trong hẻm · đường: vàng to = đại lộ, xám = thường, nâu hẹp = đường nhỏ'));
   }
 }

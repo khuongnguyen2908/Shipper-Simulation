@@ -15,6 +15,7 @@ import { hoursProblem, totalHours } from '../sim/hours.js';
 import { BALANCE_GROUPS, KNOWN_PATHS, getPath } from './balanceSpec.js';
 import { ITEM_GROUP_IDS } from './itemGroups.js';
 import { DISTRICT_TRAITS, TRAIT_RANGE, HOUSE_STYLE_IDS, DECOR_IDS, TREES_RANGE } from './districtTraits.js';
+const ROAD_TIER_IDS = ['big', 'normal', 'small']; // cấp đường (giống TIER_IDS trong src/sim/roads.js)
 import { isPlaced } from './places.js';
 
 const MAX_OPEN_DAY = 60;
@@ -549,6 +550,20 @@ export function validateMap(map, placesData = null) {
     const m = /^(\d+),(\d+)$/.exec(key);
     if (!m || +m[1] >= size || +m[2] >= size) add('error', `district:${id}`, 'blocks', `Khối ${key} nằm ngoài bản đồ.`);
     else if (!map.districts?.[id]) add('error', `district:${id}`, 'blocks', `Khối ${key} gán vào khu phố "${id}" không có.`);
+  }
+  // tỉ lệ cấp đường của khu phố (districts[mã].roads) + cấp từng đoạn đường (roadTiers)
+  for (const [id, d] of Object.entries(map.districts || {})) {
+    if (d?.roads == null) continue;
+    if (typeof d.roads !== 'object' || Array.isArray(d.roads)) add('error', `district:${id}`, 'roads', 'Tỉ lệ cấp đường phải là bảng { big, normal, small }.');
+    else for (const [k, w] of Object.entries(d.roads)) {
+      if (!ROAD_TIER_IDS.includes(k)) add('error', `district:${id}`, 'roads', `Cấp đường lạ: ${k}.`);
+      else if (!num(w) || w < 0) add('error', `district:${id}`, 'roads', `Tỉ lệ ${k} phải là số ≥ 0.`);
+    }
+  }
+  for (const [key, t] of Object.entries(map.roadTiers || {})) {
+    const m = /^([xz])(\d+):(\d+)$/.exec(key);
+    if (!m || +m[2] > size || +m[3] >= size) add('error', 'roads', key, `Đoạn đường ${key} không có trên bản đồ.`);
+    else if (!ROAD_TIER_IDS.includes(t)) add('error', 'roads', key, `Cấp đường lạ "${t}" (chỉ big / normal / small).`);
   }
   // sông
   (map.rivers || []).forEach((r, i) => {

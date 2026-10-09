@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, BAGS, NIGHT, PARKING, AIRPORT } from './data/balance.js';
 import { parkingRoll, parkingLotAt, nearestStation, towTarget, safeSpot } from './sim/parking.js';
 import { airportAt, airportParkAt, airportNoStopAt, noStopStep } from './sim/airport.js';
+import { roadSegAt, tierOf, tierLabel, speedLimitOf } from './sim/roads.js';
 import { GOODS, outfitLook } from './data/goods.js';
 import { APP, RIDER_TYPES } from './data/apps.js';
 import { ITEMS } from './data/items.js';
@@ -449,6 +450,7 @@ export class Game {
     this.parkTick();
     this.fineTick();
     this.airportTick(mounted ? speed : 0);
+    this.roadTick(mounted);
     gs.drain(activity, dMin, { harshSun: hz.isHarshSun(now), raining: !!rain, outdoor: true, inJam: this.inJam, waiting: false, now: this.clockMin });
     this.rollDay();
 
@@ -779,6 +781,25 @@ export class Game {
     this.hud.toast(msg, 'bad', 8000);
     this.addChat(fmt('chat.ward'), msg);
   }
+  // ======================== CẤP ĐƯỜNG (src/sim/roads.js) ========================
+  // Đoạn đường đang đứng → cấp đường (vào ngã tư / vỉa hè thì giữ cấp của đoạn vừa đi). Chạy sang đường chậm hơn thì nhắc.
+  roadTick(mounted) {
+    const seg = roadSegAt(this.playerPos.x, this.playerPos.z);
+    if (!seg) return;
+    const t = tierOf(seg.id);
+    if (t === this.roadTier) return;
+    const slower = this.roadTier && speedLimitOf(t, ECONOMY.speedLimit) < speedLimitOf(this.roadTier, ECONOMY.speedLimit);
+    this.roadTier = t;
+    if (slower && mounted) this.toastOnce(`road-${t}`, fmt('toast.roadTier', { road: tierLabel(t), limit: this.speedLimitKmh() }), 'info', 25);
+  }
+  // Giới hạn tốc độ nơi đang chạy (m/s / km/h)
+  speedLimit() {
+    return speedLimitOf(this.roadTier || 'normal', ECONOMY.speedLimit);
+  }
+  speedLimitKmh() {
+    return Math.round(this.speedLimit() * 3.6);
+  }
+
   // ======================== SÂN BAY (src/sim/airport.js) ========================
   // Gọi mỗi bước: phí vào cổng khi chạy xe vào khuôn viên (1 lần mỗi lượt), nhắc khi chạy tới barie chân dốc,
   // xe đứng yên / bỏ lại trong vùng cấm dừng trước sảnh → bảo vệ thổi còi rồi phạt (mỗi lần dừng 1 lần)
@@ -1053,7 +1074,7 @@ export class Game {
     this.hud.update({
       time: fmtTime(now),
       day: gs.day,
-      district: dist?.name || '',
+      district: [dist?.name, fmt('hud.road', { road: tierLabel(this.roadTier || 'normal'), limit: this.speedLimitKmh() })].filter(Boolean).join(' · '),
       weather: `${weather} ${amb}°C`,
       money: gs.money,
       rating: gs.rating,
@@ -1066,7 +1087,7 @@ export class Game {
       goal,
       prompts: this.prompts || [],
       speedo: mounted
-        ? fmt('hud.speed', { kmh: Math.round(Math.abs(this.bike.speed) * 3.6) }) + (Math.abs(this.bike.speed) > ECONOMY.speedLimit ? fmt('hud.overSpeed') : '') + (this.inJam ? fmt('hud.inJam') : '') + (gs.fuel <= 0 ? fmt('hud.noFuel') : '')
+        ? fmt('hud.speed', { kmh: Math.round(Math.abs(this.bike.speed) * 3.6) }) + (Math.abs(this.bike.speed) > this.speedLimit() ? fmt('hud.overSpeed', { limit: this.speedLimitKmh() }) : '') + (this.inJam ? fmt('hud.inJam') : '') + (gs.fuel <= 0 ? fmt('hud.noFuel') : '')
         : fmt('hud.walking'),
       cargo,
       timeLeft: left >= 0 ? fmt('hud.minutes', { min: left }) : fmt('hud.late', { min: -left }),

@@ -114,6 +114,24 @@ export const BALANCE_GROUPS = [
     ],
   },
   {
+    id: 'roads', title: '🛣️ Cấp đường',
+    note: 'Mỗi đoạn đường là Đại lộ / Đường thường / Đường nhỏ (chia ở thẻ 🗺️ Bản đồ → Đường to / nhỏ). Các số dưới là hệ số so với đường thường (1 = như đường thường). Giới hạn tốc độ = "Qua chốt chạy quá … km/h" (mục Tiền) × hệ số.',
+    fields: [
+      ['roads.big.speedMul', '🛣️ Đại lộ: giới hạn tốc độ ×', { min: 0.3, max: 3, step: 0.05, hint: 'Mặc định ×1,25 (40 → 50 km/h).' }],
+      ['roads.big.cars', '🛣️ Đại lộ: ô tô ×', { min: 0, max: 10, step: 0.1, hint: 'Ô tô NPC chọn đi đại lộ nhiều hơn. Mặc định ×3.' }],
+      ['roads.big.motos', '🛣️ Đại lộ: xe máy ×', { min: 0, max: 10, step: 0.1, hint: 'Mặc định ×1.' }],
+      ['roads.big.potholes', '🛣️ Đại lộ: ổ gà ×', { min: 0, max: 10, step: 0.1, hint: 'Mặc định ×0,4 (ít ổ gà).' }],
+      ['roads.big.jam', '🛣️ Đại lộ: kẹt xe giờ cao điểm ×', { min: 0, max: 10, step: 0.1, hint: 'Mặc định ×3.' }],
+      ['roads.big.police', '🛣️ Đại lộ: chốt CSGT ×', { min: 0, max: 10, step: 0.1, hint: 'Ngã tư có đại lộ hay có chốt hơn. Mặc định ×2.' }],
+      ['roads.small.speedMul', '🛵 Đường nhỏ: giới hạn tốc độ ×', { min: 0.3, max: 3, step: 0.05, hint: 'Mặc định ×0,75 (40 → 30 km/h).' }],
+      ['roads.small.cars', '🛵 Đường nhỏ: ô tô ×', { min: 0, max: 10, step: 0.05, hint: 'Mặc định ×0,15 (hiếm ô tô).' }],
+      ['roads.small.motos', '🛵 Đường nhỏ: xe máy ×', { min: 0, max: 10, step: 0.1, hint: 'Mặc định ×1,6.' }],
+      ['roads.small.potholes', '🛵 Đường nhỏ: ổ gà ×', { min: 0, max: 10, step: 0.1, hint: 'Mặc định ×2,5.' }],
+      ['roads.small.jam', '🛵 Đường nhỏ: kẹt xe giờ cao điểm ×', { min: 0, max: 10, step: 0.1, hint: 'Mặc định ×0,3 — đường tắt khi đại lộ kẹt.' }],
+      ['roads.small.police', '🛵 Đường nhỏ: chốt CSGT ×', { min: 0, max: 10, step: 0.1, hint: 'Mặc định ×0,3.' }],
+    ],
+  },
+  {
     id: 'airport', title: '✈️ Sân bay',
     note: 'Xe máy không được lên đường trên cao ga đi (barie chỉ cho ô tô). Đón / trả khách ở "Điểm đón xe công nghệ" dưới trệt; muốn vào sảnh thì gửi xe ở bãi xe máy sân bay (tiền gửi như bãi giữ xe ở thẻ 🅿️ Đậu xe). Phụ phí sân bay khách trả: thẻ 📱 App & Đơn.',
     fields: [

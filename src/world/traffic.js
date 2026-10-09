@@ -10,6 +10,7 @@ import { makeCar, makeNpcMoto, makePerson, makeDog, makeCone, animatePerson, ran
 import { guessGender } from '../sim/people.js';
 import { pushCircle } from './physics.js';
 import { list } from '../content/index.js';
+import { tierBetween, tierRule, tierOf, TIER_GEO } from '../sim/roads.js';
 
 const SW_H = 0.15;
 const FAR = 150; // m — xa hơn thì NPC ẩn (sương mù che từ ~260 m, tầm nhìn thường ~100 m)
@@ -79,12 +80,19 @@ export class Traffic {
     // xuất phát ở ngã tư có đường đi (không phải mặt sông)
     let from = [rng.int(0, CITY.N), rng.int(0, CITY.N)];
     for (let k = 0; k < 50 && !neighbors(...from).length; k++) from = [rng.int(0, CITY.N), rng.int(0, CITY.N)];
-    const to = this.pickNext(from, null);
+    const to = this.pickNext(from, null, kind);
     // ô tô: sedan nhiều nhất, rồi SUV, taxi, xe tải nhỏ
     const mesh = kind === 'car' ? makeCar(rng.pick(CAR_COLORS), rng.pick(['sedan', 'sedan', 'sedan', 'suv', 'suv', 'taxi', 'taxi', 'truck'])) : makeNpcMoto(rng.pick(MOTO_COLORS), rng);
     this.scene.add(mesh);
     const maxSpeed = kind === 'car' ? rng.range(7, 10) : rng.range(8, 11.5);
-    this.agents.push({ kind, mesh, from, to, t: rng.range(5, CITY.PITCH - 5), speed: maxSpeed * 0.5, maxSpeed, lane: kind === 'car' ? 2.8 : 4.4, stop: 0, x: 0, z: 0, dx: 0, dz: 0, heading: 0, honk: 0 });
+    const a = { kind, mesh, from, to, t: rng.range(5, CITY.PITCH - 5), speed: maxSpeed * 0.5, maxSpeed, lane: 0, stop: 0, x: 0, z: 0, dx: 0, dz: 0, heading: 0, honk: 0 };
+    a.lane = this.laneOf(a);
+    this.agents.push(a);
+  }
+  // Làn chạy theo cấp đường của đoạn đang đi (src/sim/roads.js → TIER_GEO): đường nhỏ chạy sát tim, đại lộ có dải phân cách
+  laneOf(a) {
+    const g = TIER_GEO[tierBetween(a.from, a.to)];
+    return a.kind === 'car' ? g.carLane : g.motoLane;
   }
 
   // ---------------- xe chạy vòng cố định ----------------
@@ -227,19 +235,17 @@ export class Traffic {
     r.t = 2.4;
   }
 
-  pickNext(node, prev) {
+  pickNext(node, prev, kind = 'car') {
     const [i, j] = node;
     const opts = neighbors(i, j); // chỉ đi theo đoạn đường có thật (tránh sông; đường cụt thì quay đầu)
     if (!opts.length) return prev || node;
     let c = opts.filter((n) => !prev || n[0] !== prev[0] || n[1] !== prev[1]);
     if (!c.length) c = opts;
-    // ưu tiên đi thẳng
-    if (prev) {
-      const straight = [i + (i - prev[0]), j + (j - prev[1])];
-      const s = c.find((n) => n[0] === straight[0] && n[1] === straight[1]);
-      if (s && this.rng.chance(0.55)) return s;
-    }
-    return this.rng.pick(c);
+    // ưu tiên đi thẳng; ô tô chuộng đại lộ, xe máy chuộng đường nhỏ (balance.json → roads.*.cars / motos)
+    const straight = prev && [i + (i - prev[0]), j + (j - prev[1])];
+    const key = kind === 'car' ? 'cars' : 'motos';
+    const w = c.map((n) => (straight && n[0] === straight[0] && n[1] === straight[1] ? 2.5 : 1) * (tierRule(tierBetween(node, n), key) + 0.02));
+    return this.rng.weighted(c, w);
   }
 
   // ---------------- người đi bộ ----------------
@@ -293,9 +299,13 @@ export class Traffic {
       const alongX = s.axis === 'z';
       const a0 = alongX ? r.x0 : r.z0, a1 = alongX ? r.x1 : r.z1;
       const mid = alongX ? (r.z0 + r.z1) / 2 : (r.x0 + r.x1) / 2;
+      // làn theo cấp đường: đường nhỏ chỉ kẹt xe máy (2 hàng sát nhau), đại lộ ô tô làn trong, xe máy làn ngoài
+      const g = TIER_GEO[tierOf(segKey(s))];
+      const carLanes = g.half >= 5 ? [g.carLane] : [];
+      const motoLanes = g.half >= 5 ? [g.motoLane] : [g.carLane - 0.3, g.motoLane + 0.3];
       for (const side of [-1, 1]) {
-        for (let a = a0 + 3; a < a1 - 3 && nc < 220; a += 5.6 + this.rng.next() * 1.5) {
-          const lat = mid + side * (2.9 + this.rng.range(-0.25, 0.25));
+        for (const lane of carLanes) for (let a = a0 + 3; a < a1 - 3 && nc < 220; a += 5.6 + this.rng.next() * 1.5) {
+          const lat = mid + side * (lane + this.rng.range(-0.25, 0.25));
           const x = alongX ? a : lat, z = alongX ? lat : a;
           dummy.position.set(x, 0, z);
           dummy.rotation.set(0, (alongX ? Math.PI / 2 : 0) + (side > 0 ? Math.PI : 0), 0);
@@ -305,8 +315,8 @@ export class Traffic {
           nc++;
           this.jamCircles.push({ x: x + (alongX ? 1.1 : 0), z: z + (alongX ? 0 : 1.1), r: 1.05 }, { x: x - (alongX ? 1.1 : 0), z: z - (alongX ? 0 : 1.1), r: 1.05 });
         }
-        for (let a = a0 + 2; a < a1 - 2 && nm < 260; a += 2.2 + this.rng.next()) {
-          const lat = mid + side * (4.9 + this.rng.range(-0.3, 0.3));
+        for (const lane of motoLanes) for (let a = a0 + 2; a < a1 - 2 && nm < 260; a += 2.2 + this.rng.next()) {
+          const lat = mid + side * (lane + this.rng.range(-0.3, 0.3));
           const x = alongX ? a : lat, z = alongX ? lat : a;
           dummy.position.set(x, 0, z);
           dummy.rotation.set(0, (alongX ? Math.PI / 2 : 0) + (side > 0 ? Math.PI : 0), 0);
@@ -380,9 +390,10 @@ export class Traffic {
         a.t += v * dt;
         if (a.t >= CITY.PITCH) {
           a.t -= CITY.PITCH;
-          const nx = this.pickNext(a.to, a.from);
+          const nx = this.pickNext(a.to, a.from, a.kind);
           a.from = a.to;
           a.to = nx;
+          a.lane = this.laneOf(a);
         }
         a.dx = a.to[0] - a.from[0];
         a.dz = a.to[1] - a.from[1];
@@ -424,10 +435,12 @@ export class Traffic {
       a.t += a.speed * dt;
       if (a.t >= CITY.PITCH) {
         a.t -= CITY.PITCH;
-        const nx = this.pickNext(a.to, a.from);
+        const nx = this.pickNext(a.to, a.from, a.kind);
         a.from = a.to;
         a.to = nx;
       }
+      // đổi làn từ từ khi sang đoạn đường khác cấp (không nhảy cóc)
+      a.lane += (this.laneOf(a) - a.lane) * Math.min(1, dt * 2.5);
       const ndx = a.to[0] - a.from[0], ndz = a.to[1] - a.from[1];
       a.dx = ndx;
       a.dz = ndz;

@@ -152,5 +152,31 @@
     "noStopWarnMin": 3,
     "noStopFineMin": 8,
     "noStopFine": 50
+  },
+  "roads": {
+    "big": {
+      "speedMul": 1.25,
+      "cars": 3,
+      "motos": 1,
+      "potholes": 0.4,
+      "jam": 3,
+      "police": 2
+    },
+    "normal": {
+      "speedMul": 1,
+      "cars": 1,
+      "motos": 1,
+      "potholes": 1,
+      "jam": 1,
+      "police": 1
+    },
+    "small": {
+      "speedMul": 0.75,
+      "cars": 0.15,
+      "motos": 1.6,
+      "potholes": 2.5,
+      "jam": 0.3,
+      "police": 0.3
+    }
   }
 }

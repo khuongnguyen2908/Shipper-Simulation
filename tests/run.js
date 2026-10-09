@@ -2502,5 +2502,87 @@ console.log('Sân bay: luật xe máy (điểm đón, bãi xe, cấm dừng, ph�
   });
 }
 
+console.log('Cấp đường (đại lộ / thường / nhỏ)');
+{
+  const RD = await import('../src/sim/roads.js');
+  const CL = await import('../src/sim/cityLayout.js');
+  const { MAP } = await import('../src/data/map.js');
+  const { HazardManager } = await import('../src/sim/hazards.js');
+  const { ECONOMY } = await import('../src/data/balance.js');
+  test('Đoạn đường dưới chân: giữa đoạn → đúng mã; ngã tư / khối nhà → không có', () => {
+    const P = CL.CITY.PITCH, x = CL.roadPos(3), z = CL.roadPos(2) + P / 2;
+    assert.equal(RD.roadSegAt(x + 2, z).id, 'x3:2');
+    assert.equal(RD.roadSegAt(z, x - 2).id, 'z3:2');
+    assert.equal(RD.roadSegAt(x, CL.roadPos(2)), null, 'ngã tư');
+    assert.equal(RD.roadSegAt(x + 20, z), null, 'khối nhà');
+    assert.equal(RD.tierBetween([3, 2], [3, 3], { roadTiers: { 'x3:2': 'small' } }), 'small');
+    assert.equal(RD.tierOf('x3:2', { roadTiers: { 'x3:2': 'lạ' } }), 'normal');
+  });
+  test('Chia tự động theo khu phố: đường chính = đại lộ; cả tuyến trong một khu cùng cấp; giáp 2 khu khác nhau lấy mức giữa; bỏ sông / khối gộp', () => {
+    const m = JSON.parse(JSON.stringify(MAP));
+    m.districts = { nho: { name: 'Nhỏ', roads: { small: 1 } }, to: { name: 'To', roads: { big: 1 } } };
+    m.districtBlocks = {};
+    for (let bz = 0; bz < CL.CITY.N; bz++) for (let bx = 0; bx < CL.CITY.N; bx++) m.districtBlocks[`${bx},${bz}`] = bx < CL.CITY.N / 2 ? 'nho' : 'to';
+    const mains = [{ axis: 'z', line: 1 }];
+    const t = RD.suggestRoadTiers(m, mains);
+    const G = CL.roadGraph(m);
+    for (const s of RD.allSegments(m)) {
+      const want = s.axis === 'z' && s.line === 1 ? 'big' : (() => {
+        const sides = RD.sideBlocks(s).filter(Boolean).map(([bx]) => (bx < CL.CITY.N / 2 ? 0 : 2));
+        const avg = sides.reduce((a, b) => a + b, 0) / sides.length;
+        return avg >= 1.5 ? 'big' : avg <= 0.5 ? 'small' : 'normal';
+      })();
+      assert.equal(t[s.id] || 'normal', want, s.id);
+    }
+    for (const id of Object.keys(t)) assert.ok(!G.waterSegs.has(id) && !G.closedSegs.has(id), `đoạn sông / gộp ${id}`);
+    assert.ok(Object.values(t).every((v) => v === 'big' || v === 'small'), 'đường thường không ghi');
+    // khu trộn tỉ lệ: mỗi tuyến trong khu một cấp (không loang lổ)
+    m.districts.nho.roads = { small: 1, normal: 1 };
+    const t2 = RD.suggestRoadTiers(m, []);
+    for (let line = 0; line < CL.CITY.N / 2 - 1; line++) {
+      const segs = RD.allSegments(m).filter((s) => s.axis === 'x' && s.line === line && line > 0);
+      if (segs.length) assert.equal(new Set(segs.map((s) => t2[s.id] || 'normal')).size, 1, `tuyến x${line}`);
+    }
+  });
+  test('Luật theo cấp: ổ gà dồn về đường nhỏ, kẹt xe dồn về đại lộ; giới hạn tốc độ đại lộ > thường > nhỏ', () => {
+    const saved = MAP.roadTiers;
+    MAP.roadTiers = {};
+    for (const s of RD.allSegments()) MAP.roadTiers[s.id] = s.line % 2 ? 'small' : 'big';
+    try {
+      const per = { big: [0, 0], small: [0, 0] };
+      for (const s of RD.allSegments()) per[MAP.roadTiers[s.id]][1]++;
+      let jamBig = 0, jamSmall = 0;
+      for (let seed = 1; seed <= 4; seed++) {
+        const h = new HazardManager(makeRng(seed), 1);
+        for (const p of h.potholes) {
+          const s = RD.roadSegAt(p.x, p.z);
+          if (s) per[RD.tierOf(s.id)][0]++;
+          const tg = RD.TIER_GEO[RD.tierOf(s.id)], lat = Math.abs(s.axis === 'x' ? p.x - CL.roadPos(s.line) : p.z - CL.roadPos(s.line));
+          assert.ok(lat <= tg.half && lat >= tg.median, `ổ gà nằm ngoài mặt nhựa / trên dải phân cách (${lat.toFixed(1)})`);
+        }
+        for (const j of h.jams) for (const s of j.segments) (RD.tierOf(RD.segKeyOf(s.axis, s.line, s.from)) === 'big' ? jamBig++ : jamSmall++);
+      }
+      assert.ok(per.small[0] / per.small[1] > (per.big[0] / per.big[1]) * 2, `ổ gà mỗi đoạn: nhỏ ${(per.small[0] / per.small[1]).toFixed(2)}, đại lộ ${(per.big[0] / per.big[1]).toFixed(2)}`);
+      assert.ok(jamBig > jamSmall, `kẹt: đại lộ ${jamBig}, nhỏ ${jamSmall}`);
+    } finally {
+      if (saved === undefined) delete MAP.roadTiers;
+      else MAP.roadTiers = saved;
+    }
+    const L = (t) => RD.speedLimitOf(t, ECONOMY.speedLimit);
+    assert.ok(L('big') > L('normal') && L('normal') > L('small'));
+    assert.equal(L('normal'), ECONOMY.speedLimit);
+  });
+  test('Kiểm tra dữ liệu: đoạn đường lạ, cấp lạ, tỉ lệ cấp đường khu phố sai', () => {
+    const { validateMap } = VALIDATE;
+    const rd = (p) => JSON.parse(fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8'));
+    const bad = rd('src/data/map.json');
+    bad.roadTiers = { 'x99:0': 'big', 'x1:0': 'rộng' };
+    bad.districts = { ...bad.districts, xx: { name: 'X', roads: { sieuto: 1, small: -1 } } };
+    const f = validateMap(bad, rd('src/data/places.json')).filter((i) => i.level === 'error').map((i) => `${i.ref}.${i.field}`);
+    for (const k of ['roads.x99:0', 'roads.x1:0']) assert.ok(f.includes(k), `không bắt lỗi ${k}`);
+    assert.equal(f.filter((x) => x === 'district:xx.roads').length, 2);
+  });
+}
+
 console.log(`\n${pass} đạt, ${fail} lỗi`);
 if (fail) process.exit(1);

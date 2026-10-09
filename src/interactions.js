@@ -11,6 +11,7 @@ import { ITEMS } from './data/items.js';
 import { S } from './sim/OrderManager.js';
 import { fmtK } from './sim/economy.js';
 import { intersectionName } from './sim/cityLayout.js';
+import { tierLabel } from './sim/roads.js';
 import { fmt, pick, has } from './content/index.js';
 import { fmtClock, minutesUntil } from './sim/clock.js';
 import { buildPacking } from './ui/packing.js';
@@ -956,7 +957,7 @@ function talkPed(g, ped) {
 // ======================== CSGT ========================
 export function policeStop(g, p, speed) {
   const { gs, bike } = g;
-  const speeding = speed > ECONOMY.speedLimit;
+  const speeding = speed > g.speedLimit(); // giới hạn theo cấp đường đang chạy (src/sim/roads.js)
   bike.speed = 0;
   bike.vel.set(0, 0);
   sfx.whistle();
@@ -976,7 +977,7 @@ export function policeStop(g, p, speed) {
     }], { dismissible: false });
     return;
   }
-  say(g, fmt('dlg.police'), '👮', speeding ? fmt('dlg.policeSpeeding', { kmh, fine: ECONOMY.policeFine }) : fmt('dlg.policeCheck'), [
+  say(g, fmt('dlg.police'), '👮', speeding ? fmt('dlg.policeSpeeding', { kmh, fine: ECONOMY.policeFine, limit: g.speedLimitKmh(), road: tierLabel(g.roadTier || 'normal') }) : fmt('dlg.policeCheck'), [
     {
       label: speeding ? fmt('dlg.policePay', { fine: ECONOMY.policeFine }) : fmt('dlg.policeShow'),
       onSelect: () => {

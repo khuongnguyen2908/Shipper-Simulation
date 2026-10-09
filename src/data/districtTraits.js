@@ -74,18 +74,19 @@ export function pickHouseStyle(d, rng, inAlley = false, primary = null) {
 export const TREES_RANGE = [0, 2]; // 0 = không cây · 1 = như cũ · 2 = gấp đôi
 export const treesOf = (d) => (d && Number.isFinite(d.trees) && d.trees >= 0 ? Math.min(d.trees, TREES_RANGE[1]) : 1);
 
-// mẫu nhà dân + trang trí cho từng mẫu khu (đi kèm DISTRICT_PRESETS)
+// mẫu nhà dân + trang trí + cấp đường cho từng mẫu khu (đi kèm DISTRICT_PRESETS)
+// roads = tỉ lệ tuyến đường trong khu là đại lộ / thường / nhỏ (dùng khi bấm "Chia lại theo khu phố" ở mục Đường to / nhỏ)
 export const LOOK_PRESETS = {
-  trungtam: { houses: { tube: 0.5, tower: 0.3, japanese: 0.2 }, decor: { chochin: true, vendors: true }, trees: 1 },
-  phoco: { houses: { tube: 1 }, decor: { vendors: true }, trees: 1.3 },
-  trunghoa: { houses: { chinese: 0.8, tube: 0.2 }, decor: { lanterns: true, vendors: true }, trees: 0.7 },
-  chohoa: { houses: { tube: 0.8, chinese: 0.2 }, decor: { vendors: true }, trees: 1 },
-  sanbay: { houses: { tube: 0.7, tin: 0.3 }, decor: {}, trees: 0.8 },
-  amthuc: { houses: { tube: 0.85, japanese: 0.15 }, decor: { vendors: true }, trees: 1 },
-  caooc: { houses: { tower: 0.6, condo: 0.3, tube: 0.1 }, decor: {}, trees: 1.2 },
-  cang: { houses: { tin: 0.6, tube: 0.4 }, decor: { vendors: true }, trees: 0.5 },
-  venkenh: { houses: { tin: 0.8, tube: 0.2 }, decor: {}, trees: 0.5 },
-  dothimoi: { houses: { condo: 0.7, villa: 0.15, tube: 0.15 }, decor: {}, trees: 1.6 },
-  bietthu: { houses: { villa: 0.85, tube: 0.15 }, decor: {}, trees: 2 },
-  bandao: { houses: { condo: 0.45, villa: 0.2, tube: 0.35 }, decor: {}, trees: 1.2 },
+  trungtam: { houses: { tube: 0.5, tower: 0.3, japanese: 0.2 }, decor: { chochin: true, vendors: true }, trees: 1, roads: { big: 0.45, normal: 0.4, small: 0.15 } },
+  phoco: { houses: { tube: 1 }, decor: { vendors: true }, trees: 1.3, roads: { normal: 0.3, small: 0.7 } },
+  trunghoa: { houses: { chinese: 0.8, tube: 0.2 }, decor: { lanterns: true, vendors: true }, trees: 0.7, roads: { normal: 0.45, small: 0.55 } },
+  chohoa: { houses: { tube: 0.8, chinese: 0.2 }, decor: { vendors: true }, trees: 1, roads: { normal: 0.4, small: 0.6 } },
+  sanbay: { houses: { tube: 0.7, tin: 0.3 }, decor: {}, trees: 0.8, roads: { big: 0.6, normal: 0.4 } },
+  amthuc: { houses: { tube: 0.85, japanese: 0.15 }, decor: { vendors: true }, trees: 1, roads: { normal: 0.6, small: 0.4 } },
+  caooc: { houses: { tower: 0.6, condo: 0.3, tube: 0.1 }, decor: {}, trees: 1.2, roads: { big: 0.6, normal: 0.4 } },
+  cang: { houses: { tin: 0.6, tube: 0.4 }, decor: { vendors: true }, trees: 0.5, roads: { normal: 0.7, small: 0.3 } },
+  venkenh: { houses: { tin: 0.8, tube: 0.2 }, decor: {}, trees: 0.5, roads: { normal: 0.2, small: 0.8 } },
+  dothimoi: { houses: { condo: 0.7, villa: 0.15, tube: 0.15 }, decor: {}, trees: 1.6, roads: { big: 0.5, normal: 0.5 } },
+  bietthu: { houses: { villa: 0.85, tube: 0.15 }, decor: {}, trees: 2, roads: { normal: 0.7, small: 0.3 } },
+  bandao: { houses: { condo: 0.45, villa: 0.2, tube: 0.35 }, decor: {}, trees: 1.2, roads: { big: 0.25, normal: 0.6, small: 0.15 } },
 };

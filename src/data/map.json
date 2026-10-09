@@ -165,7 +165,12 @@
         "chochin": true,
         "vendors": true
       },
-      "trees": 1
+      "trees": 1,
+      "roads": {
+        "big": 0.45,
+        "normal": 0.4,
+        "small": 0.15
+      }
     },
     "phoco": {
       "name": "Khu Phố Cũ",
@@ -185,7 +190,11 @@
       "decor": {
         "vendors": true
       },
-      "trees": 1.3
+      "trees": 1.3,
+      "roads": {
+        "normal": 0.3,
+        "small": 0.7
+      }
     },
     "trunghoa": {
       "name": "Khu Phố Trung Hoa (China Town)",
@@ -207,7 +216,11 @@
         "lanterns": true,
         "vendors": true
       },
-      "trees": 0.7
+      "trees": 0.7,
+      "roads": {
+        "normal": 0.45,
+        "small": 0.55
+      }
     },
     "chohoa": {
       "name": "Khu Chợ Hoa",
@@ -228,7 +241,11 @@
       "decor": {
         "vendors": true
       },
-      "trees": 1
+      "trees": 1,
+      "roads": {
+        "normal": 0.4,
+        "small": 0.6
+      }
     },
     "sanbay": {
       "name": "Khu Sân Bay",
@@ -247,7 +264,11 @@
         "tin": 0.3
       },
       "decor": {},
-      "trees": 0.8
+      "trees": 0.8,
+      "roads": {
+        "big": 0.6,
+        "normal": 0.4
+      }
     },
     "amthuc": {
       "name": "Khu Ẩm Thực",
@@ -268,7 +289,11 @@
       "decor": {
         "vendors": true
       },
-      "trees": 1
+      "trees": 1,
+      "roads": {
+        "normal": 0.6,
+        "small": 0.4
+      }
     },
     "caooc": {
       "name": "Khu Cao Ốc",
@@ -288,7 +313,11 @@
         "tube": 0.1
       },
       "decor": {},
-      "trees": 1.2
+      "trees": 1.2,
+      "roads": {
+        "big": 0.6,
+        "normal": 0.4
+      }
     },
     "cang": {
       "name": "Khu Bến Cảng",
@@ -309,7 +338,11 @@
       "decor": {
         "vendors": true
       },
-      "trees": 0.5
+      "trees": 0.5,
+      "roads": {
+        "normal": 0.7,
+        "small": 0.3
+      }
     },
     "venkenh": {
       "name": "Khu Ven Kênh",
@@ -328,7 +361,11 @@
         "tube": 0.2
       },
       "decor": {},
-      "trees": 0.5
+      "trees": 0.5,
+      "roads": {
+        "normal": 0.2,
+        "small": 0.8
+      }
     },
     "dothimoi": {
       "name": "Khu Đô Thị Mới",
@@ -348,7 +385,11 @@
         "tube": 0.15
       },
       "decor": {},
-      "trees": 1.6
+      "trees": 1.6,
+      "roads": {
+        "big": 0.5,
+        "normal": 0.5
+      }
     },
     "bietthu": {
       "name": "Khu Biệt Thự Ven Sông",
@@ -367,7 +408,11 @@
         "tube": 0.15
       },
       "decor": {},
-      "trees": 2
+      "trees": 2,
+      "roads": {
+        "normal": 0.7,
+        "small": 0.3
+      }
     },
     "bandao": {
       "name": "Khu Bán Đảo",
@@ -387,7 +432,12 @@
         "tube": 0.35
       },
       "decor": {},
-      "trees": 1.2
+      "trees": 1.2,
+      "roads": {
+        "big": 0.25,
+        "normal": 0.6,
+        "small": 0.15
+      }
     }
   },
   "districtBlocks": {
@@ -498,5 +548,135 @@
       0,
       "E"
     ]
-  ]
+  ],
+  "roadTiers": {
+    "x0:0": "big",
+    "x0:1": "big",
+    "x0:2": "small",
+    "x0:3": "small",
+    "x0:4": "small",
+    "x0:8": "small",
+    "x0:9": "small",
+    "x1:2": "small",
+    "x1:3": "small",
+    "x1:4": "small",
+    "x1:5": "small",
+    "x1:6": "small",
+    "x1:7": "small",
+    "x1:8": "small",
+    "x1:9": "small",
+    "x2:5": "small",
+    "x2:6": "small",
+    "x2:9": "big",
+    "x3:0": "big",
+    "x3:1": "big",
+    "x3:2": "small",
+    "x3:3": "small",
+    "x3:4": "small",
+    "x3:5": "small",
+    "x3:6": "small",
+    "x3:7": "small",
+    "x3:8": "small",
+    "x4:0": "big",
+    "x4:1": "big",
+    "x4:2": "big",
+    "x4:3": "big",
+    "x4:4": "big",
+    "x4:5": "big",
+    "x4:6": "big",
+    "x4:7": "big",
+    "x4:8": "big",
+    "x4:9": "big",
+    "x5:3": "big",
+    "x5:4": "big",
+    "x5:5": "big",
+    "x5:8": "big",
+    "x5:9": "big",
+    "x6:0": "big",
+    "x6:1": "big",
+    "x6:3": "big",
+    "x6:4": "big",
+    "x6:5": "big",
+    "x6:6": "big",
+    "x6:7": "small",
+    "x6:8": "big",
+    "x6:9": "big",
+    "x7:0": "big",
+    "x7:1": "big",
+    "x7:2": "big",
+    "x9:4": "big",
+    "x9:5": "big",
+    "x9:6": "big",
+    "x9:7": "big",
+    "x9:8": "big",
+    "x9:9": "big",
+    "x10:4": "big",
+    "x10:5": "big",
+    "x10:6": "big",
+    "x10:7": "big",
+    "x10:8": "big",
+    "x10:9": "big",
+    "z0:6": "big",
+    "z0:7": "big",
+    "z1:4": "small",
+    "z1:5": "small",
+    "z2:1": "big",
+    "z2:4": "small",
+    "z2:5": "small",
+    "z2:8": "small",
+    "z2:9": "small",
+    "z3:1": "big",
+    "z3:3": "small",
+    "z3:4": "small",
+    "z3:6": "big",
+    "z3:7": "big",
+    "z3:8": "small",
+    "z3:9": "small",
+    "z4:0": "big",
+    "z4:1": "big",
+    "z4:2": "big",
+    "z4:3": "big",
+    "z4:4": "big",
+    "z4:5": "big",
+    "z4:6": "big",
+    "z4:7": "big",
+    "z4:8": "big",
+    "z4:9": "big",
+    "z5:0": "small",
+    "z5:1": "small",
+    "z5:2": "small",
+    "z5:3": "small",
+    "z5:8": "small",
+    "z5:9": "small",
+    "z6:0": "small",
+    "z6:1": "small",
+    "z6:2": "small",
+    "z6:3": "small",
+    "z6:4": "small",
+    "z6:5": "small",
+    "z6:6": "small",
+    "z6:7": "small",
+    "z8:0": "small",
+    "z8:1": "small",
+    "z8:2": "small",
+    "z8:3": "small",
+    "z9:0": "small",
+    "z9:1": "small",
+    "z9:4": "big",
+    "z9:5": "big",
+    "z9:6": "big",
+    "z9:7": "big",
+    "z9:8": "big",
+    "z9:9": "big",
+    "z10:0": "small",
+    "z10:1": "small",
+    "z10:2": "big",
+    "z10:3": "big",
+    "z10:4": "big",
+    "z10:5": "big",
+    "z10:6": "big",
+    "z10:7": "big",
+    "z10:8": "big",
+    "z10:9": "big"
+  }
 }
