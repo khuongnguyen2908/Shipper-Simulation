@@ -625,6 +625,7 @@
   "screen.noWebgl": "⚠️ Trình duyệt không hỗ trợ WebGL 2 — game có thể không chạy.",
   "screen.continue": "Tiếp tục – Ngày {day}, {time}",
   "screen.newGame": "🆕 Chơi mới từ ngày 1",
+  "screen.credit": "Made By Flynt Nguyen",
   "screen.paused": "⏸ Tạm dừng",
   "screen.resume": "Chơi tiếp (Esc)",
   "screen.soundOn": "🔇 Bật âm thanh",

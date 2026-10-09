@@ -202,6 +202,7 @@ b.plus { color: #58d68d; }
 .story { font-size: 15.5px; line-height: 1.6; color: #e5e8ee; }
 .rules { text-align: left; background: #1b222d; border-radius: 14px; padding: 12px 16px; font-size: 14px; line-height: 1.6; margin: 12px 0; }
 .keys { font-size: 13px; color: var(--muted); line-height: 2; margin: 10px 0; }
+.credit { margin-top: 14px; font-size: 11px; color: var(--muted); opacity: 0.7; letter-spacing: 0.04em; }
 .warn { color: #f5b041; }
 .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; text-align: left; background: #1b222d; border-radius: 14px; padding: 12px 16px; margin: 12px 0; }
 .stats div { display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255, 255, 255, 0.07); padding: 3px 0; }

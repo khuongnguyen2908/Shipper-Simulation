@@ -38,7 +38,8 @@ export class Screens {
       </div>
       <div class="keys">${fmt('screen.keys')}</div>
       ${webgl2 ? '' : `<div class="warn">${fmt('screen.noWebgl')}</div>`}
-      <div class="row">${save ? `<button class="btn big primary" data-act="continue">${fmt('screen.continue', { day: save.day, time: save.time })}</button>` : ''}<button class="btn big ${save ? '' : 'primary'}" data-act="new">${fmt('screen.newGame')}</button></div>`,
+      <div class="row">${save ? `<button class="btn big primary" data-act="continue">${fmt('screen.continue', { day: save.day, time: save.time })}</button>` : ''}<button class="btn big ${save ? '' : 'primary'}" data-act="new">${fmt('screen.newGame')}</button></div>
+      <div class="credit">${fmt('screen.credit')}</div>`,
       (el) => {
         el.querySelector('[data-act="new"]').addEventListener('click', onNew);
         const c = el.querySelector('[data-act="continue"]');
