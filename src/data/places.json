@@ -1085,7 +1085,7 @@
     },
     {
       "id": "apartment",
-      "name": "Chung cư Ngô Gia",
+      "name": "Chung cư Thành Công",
       "short": "Chung cư",
       "kind": "apartment",
       "block": [
@@ -1095,7 +1095,7 @@
       "lot": "N",
       "floors": 12,
       "color": "#d5d8dc",
-      "sign": "CHUNG CƯ NGÔ GIA",
+      "sign": "CHUNG CƯ THÀNH CÔNG",
       "signBg": "#566573",
       "npc": {
         "name": "Chú bảo vệ",
@@ -1122,7 +1122,7 @@
       "lot": "N",
       "floors": 10,
       "color": "#e59866",
-      "sign": "TTTM Vinsel",
+      "sign": "TTTM Vingo",
       "signBg": "#922b21",
       "npc": null,
       "orders": {
@@ -1296,7 +1296,7 @@
     },
     {
       "id": "chua",
-      "name": "Chùa Rất Linh cổng A",
+      "name": "Chùa Rất Linh",
       "short": "Chùa",
       "kind": "service",
       "icon": "🛕",
@@ -1478,8 +1478,8 @@
       ],
       "look": "modern",
       "orders": {
-        "rideWeight": 3,
-        "foodWeight": 3,
+        "rideWeight": 2,
+        "foodWeight": 2,
         "parcelWeight": 3
       },
       "block": [
@@ -1487,6 +1487,216 @@
         4
       ],
       "lot": "f8"
+    },
+    {
+      "id": "dichvu1_2",
+      "name": "Triangle K",
+      "short": "Tiện lợi",
+      "kind": "service",
+      "floors": 2,
+      "color": "#ffffff",
+      "sign": "TRIANGLE K",
+      "signBg": "#ff1a1a",
+      "npc": {
+        "name": "Nhân viên",
+        "shirt": "#c22e2e",
+        "pants": "#333344",
+        "hat": null,
+        "portrait": "🙂",
+        "gender": "m",
+        "hairStyle": "short"
+      },
+      "hours": "haiTuGio",
+      "activities": [
+        {
+          "id": "nghi",
+          "label": "Ngồi nghỉ",
+          "cost": 0,
+          "minutes": 15,
+          "phys": 5,
+          "mental": 5,
+          "perDay": 0
+        }
+      ],
+      "look": "modern",
+      "orders": {
+        "rideWeight": 2,
+        "foodWeight": 2,
+        "parcelWeight": 3
+      },
+      "block": [
+        1,
+        1
+      ],
+      "lot": "f0"
+    },
+    {
+      "id": "dichvu1_3",
+      "name": "Triangle K",
+      "short": "Tiện lợi",
+      "kind": "service",
+      "floors": 2,
+      "color": "#ffffff",
+      "sign": "TRIANGLE K",
+      "signBg": "#ff1a1a",
+      "npc": {
+        "name": "Nhân viên",
+        "shirt": "#c22e2e",
+        "pants": "#333344",
+        "hat": null,
+        "portrait": "🙂",
+        "gender": "m",
+        "hairStyle": "short"
+      },
+      "hours": "haiTuGio",
+      "activities": [
+        {
+          "id": "nghi",
+          "label": "Ngồi nghỉ",
+          "cost": 0,
+          "minutes": 15,
+          "phys": 5,
+          "mental": 5,
+          "perDay": 0
+        }
+      ],
+      "look": "modern",
+      "orders": {
+        "rideWeight": 2,
+        "foodWeight": 2,
+        "parcelWeight": 3
+      },
+      "block": [
+        1,
+        9
+      ],
+      "lot": "N2"
+    },
+    {
+      "id": "dichvu1_4",
+      "name": "Triangle K",
+      "short": "Tiện lợi",
+      "kind": "service",
+      "floors": 2,
+      "color": "#ffffff",
+      "sign": "TRIANGLE K",
+      "signBg": "#ff1a1a",
+      "npc": {
+        "name": "Nhân viên",
+        "shirt": "#c22e2e",
+        "pants": "#333344",
+        "hat": null,
+        "portrait": "🙂",
+        "gender": "m",
+        "hairStyle": "short"
+      },
+      "hours": "haiTuGio",
+      "activities": [
+        {
+          "id": "nghi",
+          "label": "Ngồi nghỉ",
+          "cost": 0,
+          "minutes": 15,
+          "phys": 5,
+          "mental": 5,
+          "perDay": 0
+        }
+      ],
+      "look": "modern",
+      "orders": {
+        "rideWeight": 2,
+        "foodWeight": 2,
+        "parcelWeight": 3
+      },
+      "block": [
+        8,
+        4
+      ],
+      "lot": "f8"
+    },
+    {
+      "id": "dichvu1_5",
+      "name": "Triangle K",
+      "short": "Tiện lợi",
+      "kind": "service",
+      "floors": 2,
+      "color": "#ffffff",
+      "sign": "TRIANGLE K",
+      "signBg": "#ff1a1a",
+      "npc": {
+        "name": "Nhân viên",
+        "shirt": "#c22e2e",
+        "pants": "#333344",
+        "hat": null,
+        "portrait": "🙂",
+        "gender": "m",
+        "hairStyle": "short"
+      },
+      "hours": "haiTuGio",
+      "activities": [
+        {
+          "id": "nghi",
+          "label": "Ngồi nghỉ",
+          "cost": 0,
+          "minutes": 15,
+          "phys": 5,
+          "mental": 5,
+          "perDay": 0
+        }
+      ],
+      "look": "modern",
+      "orders": {
+        "rideWeight": 2,
+        "foodWeight": 2,
+        "parcelWeight": 3
+      },
+      "block": [
+        7,
+        1
+      ],
+      "lot": "f3"
+    },
+    {
+      "id": "dichvu1_6",
+      "name": "Triangle K",
+      "short": "Tiện lợi",
+      "kind": "service",
+      "floors": 5,
+      "color": "#ffffff",
+      "sign": "TRIANGLE K",
+      "signBg": "#ff1a1a",
+      "npc": {
+        "name": "Nhân viên",
+        "shirt": "#c22e2e",
+        "pants": "#333344",
+        "hat": null,
+        "portrait": "🙂",
+        "gender": "m",
+        "hairStyle": "short"
+      },
+      "hours": "haiTuGio",
+      "activities": [
+        {
+          "id": "nghi",
+          "label": "Ngồi nghỉ",
+          "cost": 0,
+          "minutes": 15,
+          "phys": 5,
+          "mental": 5,
+          "perDay": 0
+        }
+      ],
+      "look": "modern",
+      "orders": {
+        "rideWeight": 2,
+        "foodWeight": 2,
+        "parcelWeight": 3
+      },
+      "block": [
+        6,
+        8
+      ],
+      "lot": "S0"
     },
     {
       "id": "canhquan2",
@@ -1505,14 +1715,14 @@
     },
     {
       "id": "congan1",
-      "name": "Công an phường",
+      "name": "Công an thành phố",
       "short": "Công an",
       "kind": "police",
       "icon": "🚓",
       "look": "police",
       "floors": 2,
       "color": "#f2d16b",
-      "sign": "CÔNG AN PHƯỜNG",
+      "sign": "CÔNG AN TP",
       "signBg": "#b03a2e",
       "npc": {
         "name": "Anh công an",
@@ -1538,10 +1748,10 @@
         "foodWeight": 2
       },
       "block": [
-        8,
-        6
+        9,
+        9
       ],
-      "lot": "E12"
+      "lot": "N"
     },
     {
       "id": "canhquan1",
@@ -1693,8 +1903,8 @@
       "look": "park",
       "color": "#5f9e45",
       "block": [
-        8,
-        6
+        9,
+        9
       ],
       "lot": "S01"
     },
@@ -2548,10 +2758,10 @@
         "gender": "f"
       },
       "block": [
-        4,
-        9
+        3,
+        8
       ],
-      "lot": "N0"
+      "lot": "S2"
     },
     {
       "kind": "restaurant",
@@ -2754,7 +2964,7 @@
     },
     {
       "id": "tennisDoThi",
-      "name": "Sân Tennis Phú Mỹ",
+      "name": "Sân Tennis Châu Minh",
       "short": "Tennis",
       "kind": "scenery",
       "icon": "🎾",
@@ -2787,14 +2997,14 @@
     },
     {
       "id": "pickleballDoThi",
-      "name": "Sân Pickleball Sao Mai",
+      "name": "Sân Pickleball Châu Minh",
       "short": "Pickleball",
       "kind": "scenery",
       "icon": "🏓",
       "look": "pickleball",
       "color": "#2a9d8f",
       "block": [
-        7,
+        3,
         9
       ],
       "lot": "N01",
@@ -2829,10 +3039,10 @@
       "sign": "ĐẠI HỌC MỸ THUẬT GIA ĐỊNH",
       "signBg": "#7b4a12",
       "block": [
-        3,
-        2
+        2,
+        5
       ],
-      "lot": "N",
+      "lot": "S",
       "hours": "hanhChinh",
       "npc": {
         "name": "Chú bảo vệ trường",
@@ -2932,18 +3142,19 @@
       "sign": "TRÁI CÂY BA MIỀN",
       "signBg": "#27ae60",
       "block": [
-        2,
-        2
+        0,
+        4
       ],
-      "lot": "N1",
+      "lot": "S2",
       "hours": "caNgay",
       "npc": {
-        "name": "Cô Ba trái cây",
-        "shirt": "#27ae60",
+        "name": "Đại Bom",
+        "shirt": "#0032fa",
         "pants": "#2c3e50",
         "hat": null,
         "portrait": "👩‍🌾",
-        "gender": "f"
+        "gender": "m",
+        "hairStyle": "short"
       },
       "menu": [
         "traiCayCat",
@@ -2963,6 +3174,15 @@
           "minutes": 30,
           "phys": 10,
           "mental": 8,
+          "perDay": 1
+        },
+        {
+          "id": "hd1",
+          "label": "Ăn buffet trái cây",
+          "cost": 149,
+          "minutes": 30,
+          "phys": -5,
+          "mental": 15,
           "perDay": 1
         }
       ]

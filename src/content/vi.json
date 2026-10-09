@@ -819,5 +819,10 @@
   "city.busRoute": "TUYẾN {n}",
   "city.busStopSign": "🚌 TRẠM",
   "bus.stopNear": "Trạm {place}",
-  "bus.stopStreet": "Trạm {street}"
+  "bus.stopStreet": "Trạm {street}",
+  "npc.dichvu1_2.greet": "\"Triangle K xin chào!.\"",
+  "npc.dichvu1_3.greet": "\"Triangle K xin chào!.\"",
+  "npc.dichvu1_4.greet": "\"Triangle K xin chào!.\"",
+  "npc.dichvu1_5.greet": "\"Triangle K xin chào!.\"",
+  "npc.dichvu1_6.greet": "\"Triangle K xin chào!.\""
 }
