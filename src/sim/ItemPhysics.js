@@ -16,6 +16,9 @@
 // =============================================================
 
 import { fmt } from '../content/index.js';
+import { DRIVING } from '../data/balance.js';
+// số đổ / hoảng khi ôm cua, phanh, xóc (balance.json → driving, thẻ Cân bằng → Lái xe & sóng sánh)
+const DV = (k, def) => (Number.isFinite(DRIVING[k]) ? DRIVING[k] : def);
 
 export class Trait {
   constructor(item, def) {
@@ -65,13 +68,13 @@ export class LiquidTrait extends Trait {
     return (this.item.mods.upright ? 1 : 2.5) * (1 - env.bag.padding * 0.4);
   }
   onBump(mag, env) {
-    this.item.damage(mag * 12 * (1 - env.suspension * 0.7) * this.factor(env), 'spillBump');
+    this.item.damage(mag * DV('liquidBump', 12) * (1 - env.suspension * 0.7) * this.factor(env), 'spillBump');
   }
   onBrake(mag, env) {
-    this.item.damage(mag * 8 * this.factor(env), 'spillBrake');
+    this.item.damage(mag * DV('liquidBrake', 8) * this.factor(env), 'spillBrake');
   }
   onSwerve(mag, env) {
-    this.item.damage(mag * 5 * this.factor(env), 'spillSwerve');
+    this.item.damage(mag * DV('liquidSwerve', 5) * this.factor(env), 'spillSwerve');
   }
   onCollision(mag, env) {
     this.item.damage(mag * 15 * this.factor(env), 'spillCrash');
@@ -110,10 +113,10 @@ export class PassengerTrait extends Trait {
     if (env.raining && env.exposed && !env.passengerRaincoat) this.item.damage(0.3 * dt, 'passengerWet');
   }
   onBrake(mag) {
-    this.item.damage(mag * 10, 'hardBrake');
+    this.item.damage(mag * DV('riderBrake', 10), 'hardBrake');
   }
   onSwerve(mag) {
-    this.item.damage(mag * 6, 'sharpTurn');
+    this.item.damage(mag * DV('riderSwerve', 6), 'sharpTurn');
   }
   onBump(mag, env) {
     this.item.damage(mag * 5 * (1 - env.suspension * 0.7), 'bumpy');

@@ -61,6 +61,7 @@ export const AIRPORT = balanceData.airport || {}; // sân bay: phí vào cổng,
 export const ROADS = balanceData.roads || {}; // cấp đường: giới hạn tốc độ, xe cộ, ổ gà, kẹt xe, chốt CSGT theo cấp (src/sim/roads.js)
 export const BUS = balanceData.bus || {}; // xe buýt: giá vé, giờ chạy, tốc độ, dừng mỗi trạm (src/sim/bus.js)
 export const RIDE_EVENTS = balanceData.rideEvents || {}; // sự cố khi chở khách: lừa đảo, đổi điểm đến, vali, khách nước ngoài
+export const DRIVING = balanceData.driving || {}; // lái xe & sóng sánh: tay lái bẻ dần, ngưỡng ôm cua / phanh gấp, mức đổ / hoảng
 
 // Tiền nhà trả theo KỲ (mỗi rentEveryDays ngày). Kỳ `period` (1, 2, 3…): có số tự đặt trong rentByPeriod thì dùng,
 // không thì = tiền kỳ 1 + tăng mỗi kỳ
@@ -91,5 +92,6 @@ export function applyBalance(data) {
   into(ROADS, data.roads);
   into(BUS, data.bus);
   into(RIDE_EVENTS, data.rideEvents);
+  into(DRIVING, data.driving);
 }
 

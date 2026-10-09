@@ -195,5 +195,17 @@
     "scamRefuseMental": 5,
     "luggageSpeedMul": 0.8,
     "foreignCallMin": 4
+  },
+  "driving": {
+    "steerRampSec": 0.3,
+    "swerveThreshold": 11,
+    "swerveMul": 1.5,
+    "brakeThreshold": 6.5,
+    "brakeMul": 1.5,
+    "liquidSwerve": 5,
+    "liquidBrake": 8,
+    "liquidBump": 12,
+    "riderSwerve": 6,
+    "riderBrake": 10
   }
 }

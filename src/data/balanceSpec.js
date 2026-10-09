@@ -114,6 +114,22 @@ export const BALANCE_GROUPS = [
     ],
   },
   {
+    id: 'driving', title: '🛵 Lái xe & sóng sánh',
+    note: 'Lực ngang khi quẹo = tốc độ × độ bẻ lái. Vượt "ngưỡng ôm cua" thì món nước đổ, khách xe ôm hoảng — càng vượt nhiều càng mất nhiều. Tay lái bẻ dần: chạm phím = bẻ nhẹ, giữ lâu mới bẻ hết. Túi có đệm và dựng món nước đứng cũng giảm đổ.',
+    fields: [
+      ['driving.steerRampSec', 'Tay lái bẻ dần trong (giây)', { min: 0, max: 1.5, step: 0.05, hint: 'Thời gian từ lúc nhấn A/D tới khi bẻ hết cỡ. 0 = bẻ hết ngay (kiểu cũ). Mặc định 0,3.' }],
+      ['driving.swerveThreshold', 'Ngưỡng ôm cua (lực ngang, m/s²)', { min: 1, max: 40, step: 0.5, hint: 'Dưới ngưỡng không đổ / không hoảng. Xe Cub 36 km/h bẻ hết lái ≈ 16. Cũ 6 · mặc định 11.' }],
+      ['driving.swerveMul', 'Ôm cua: mạnh × mấy', { min: 0, max: 10, step: 0.1, hint: 'Nhân độ mạnh của cú ôm cua (vượt ngưỡng bao nhiêu thì mạnh bấy nhiêu). Mặc định 1,5.' }],
+      ['driving.brakeThreshold', 'Ngưỡng phanh gấp (giảm tốc, m/s²)', { min: 1, max: 40, step: 0.5, hint: 'Phanh nhẹ hơn mức này thì không sao. Mặc định 6,5.' }],
+      ['driving.brakeMul', 'Phanh gấp: mạnh × mấy', { min: 0, max: 10, step: 0.1, hint: 'Mặc định 1,5.' }],
+      ['driving.liquidSwerve', '💧 Món nước: đổ khi ôm cua ×', { min: 0, max: 50, step: 0.5, hint: '% tình trạng mất cho mỗi đơn vị độ mạnh. Mặc định 5.' }],
+      ['driving.liquidBrake', '💧 Món nước: đổ khi phanh gấp ×', { min: 0, max: 50, step: 0.5, hint: 'Mặc định 8.' }],
+      ['driving.liquidBump', '💧 Món nước: đổ khi xóc ×', { min: 0, max: 50, step: 0.5, hint: 'Giảm xóc của xe giúp giảm. Mặc định 12.' }],
+      ['driving.riderSwerve', '🧍 Khách xe ôm: hoảng khi ôm cua ×', { min: 0, max: 50, step: 0.5, hint: 'Mặc định 6.' }],
+      ['driving.riderBrake', '🧍 Khách xe ôm: hoảng khi phanh gấp ×', { min: 0, max: 50, step: 0.5, hint: 'Mặc định 10.' }],
+    ],
+  },
+  {
     id: 'rideEvents', title: '🧍 Sự cố khi chở khách',
     note: 'Loại khách nào có sự cố gì chỉnh ở thẻ 📱 App & Đơn → Loại khách (tỉ lệ đổi điểm đến, khách lừa đảo, mang vali, nước ngoài). Ở đây là các số chung.',
     fields: [

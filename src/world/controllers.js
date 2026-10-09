@@ -2,6 +2,8 @@
 // Xe phát ra sự kiện vật lý (bump/brake/swerve/collision) để món hàng xử lý.
 import * as THREE from 'three';
 import { blockAt } from '../sim/cityLayout.js';
+import { DRIVING } from '../data/balance.js';
+const D = (k, def) => (Number.isFinite(DRIVING[k]) ? DRIVING[k] : def);
 import { resolveCircle } from './physics.js';
 import { makeBike, makePerson, animatePerson, setSitting, setBikeColor, sitY } from './models.js';
 
@@ -25,6 +27,7 @@ export class Bike {
     this.speed = 0; // tốc độ dọc thân xe (m/s, âm = lùi)
     this.vel = new THREE.Vector2(); // vận tốc thật (trượt khi đường ướt)
     this.yawRate = 0;
+    this.steerCur = 0; // tay lái đang bẻ (−1…1), đuổi theo phím bấm trong steerRampSec giây
     this.lean = 0;
     this.raised = false;
     this.deckY = null; // đang chạy trên mặt cao (dốc / sàn ga sân bay): cao độ mặt; null = dưới đất
@@ -92,7 +95,15 @@ export class Bike {
     this.speed = Math.max(-2, this.speed);
 
     // lái
-    const steerIn = ctx.mounted ? (input.left ? 1 : 0) - (input.right ? 1 : 0) : 0;
+    const steerKey = ctx.mounted ? (input.left ? 1 : 0) - (input.right ? 1 : 0) : 0;
+    // tay lái bẻ dần (chạm phím = bẻ nhẹ); nhả phím thì trả lái nhanh gấp đôi
+    const ramp = D('steerRampSec', 0.3);
+    if (ramp <= 0) this.steerCur = steerKey;
+    else {
+      const step = (dt / ramp) * (steerKey === 0 || Math.sign(steerKey) !== Math.sign(this.steerCur) ? 2 : 1);
+      this.steerCur += Math.max(-step, Math.min(step, steerKey - this.steerCur));
+    }
+    const steerIn = this.steerCur;
     const sf = Math.min(1, Math.abs(this.speed) / 3);
     const rate = s.steer * (1 - 0.45 * Math.min(1, Math.abs(this.speed) / 16)) * (ctx.wet ? 0.85 : 1);
     this.yawRate = steerIn * rate * sf * (this.speed < 0 ? -1 : 1);
@@ -109,9 +120,10 @@ export class Bike {
 
     // sự kiện cho món hàng: phanh gấp, ôm cua gắt
     const decel = (prev - this.speed) / dt;
-    if (decel > 6.5 && prev > 3) emit('brake', ((decel - 6) / 6) * dt * 1.5);
+    const bT = D('brakeThreshold', 6.5), sT = D('swerveThreshold', 11); // balance.json → driving
+    if (decel > bT && prev > 3) emit('brake', ((decel - bT + 0.5) / 6) * dt * D('brakeMul', 1.5));
     const lat = Math.abs(this.speed * this.yawRate);
-    if (lat > 6) emit('swerve', ((lat - 6) / 6) * dt * 1.5);
+    if (lat > sT) emit('swerve', ((lat - sT) / 6) * dt * D('swerveMul', 1.5));
 
     // mặt đi trên cao (src/world/elevated.js): lên dốc, giữ trong lan can; rồi đâm tường / cột (bỏ qua vật thấp hơn mặt cầu)
     const floorY = blockAt(this.pos.x, this.pos.z) ? SW_H : 0;
