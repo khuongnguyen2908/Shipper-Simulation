@@ -4,7 +4,7 @@
 // hoặc { error } — phần hỏi/báo người dùng nằm ở opsUi.js.
 import { PROTECTED, ID_RE, lotCells } from '../../data/validate.js';
 import { CITY, LOT_SIZES, lotSize, lotParts, lotFaces, blockPlan } from '../../sim/cityLayout.js';
-import { CHANGEABLE_KINDS } from './placeKind.js';
+import { COPYABLE_KINDS } from './placeKind.js';
 import { moveKey } from './order.js';
 import { isPlaced } from '../../data/places.js';
 
@@ -177,7 +177,7 @@ export function paste(data, clip, afterId = null) {
   const dropped = [];
   const keep = (list, ok, what) => (list || []).filter((x) => (ok(x) ? true : (dropped.push(`${what} "${x}"`), false)));
   if (kind === 'places') {
-    if (!CHANGEABLE_KINDS.includes(obj.kind)) return { error: `Địa điểm loại "${obj.kind}" gắn với cốt truyện — không dán thêm được.` };
+    if (!COPYABLE_KINDS.includes(obj.kind)) return { error: `Địa điểm loại "${obj.kind}" gắn với cốt truyện — không dán thêm được.` };
     delete obj.hidden;
     // bản gốc đã đặt trên bản đồ → bản dán vào lô trống gần đó; bản gốc đang chờ → bản dán cũng nằm chờ
     if (isPlaced(obj) && !placeSomewhere(data, obj, obj.block)) return { error: 'Hết lô trống cùng kích thước để dán địa điểm này.' };

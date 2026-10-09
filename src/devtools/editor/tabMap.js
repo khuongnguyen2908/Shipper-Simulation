@@ -7,7 +7,7 @@ import { HINT, EXPLAIN } from './help.js';
 import { DISTRICT_TRAITS, DISTRICT_PRESETS, TRAIT_IDS, TRAIT_RANGE, traitOf, HOUSE_STYLES, DECOR, LOOK_PRESETS, TREES_RANGE, treesOf } from '../../data/districtTraits.js';
 import { ROAD_TIERS, TIER_IDS, tierOf, roadSegAt, allSegments, suggestRoadTiers } from '../../sim/roads.js';
 import { buildLayout } from '../../sim/cityLayout.js';
-import { buildBusSystem } from '../../sim/bus.js';
+import { buildBusSystem, pointAt } from '../../sim/bus.js';
 
 // khu phố đang mở bảng "tính cách" (⚙️)
 let openKhu = null;
@@ -16,6 +16,36 @@ let brush = null;
 // cọ tô cấp đường: null = không tô · 'big' | 'normal' | 'small'
 let roadBrush = null;
 const TIER_COLOR = { big: '#e0b84a', normal: '#7d8794', small: '#a1785c' };
+// tuyến xe buýt đang bật 👁 (soi lộ trình + đánh số trạm) — null = không soi
+let busEye = null;
+// mục đang mở / gập (nhớ trong trình duyệt, lỗi bộ nhớ thì dùng mặc định)
+const FOLD_KEY = 'shipper-editor-map-fold';
+const FOLD_DEFAULT = { districts: true };
+let foldState = null;
+function folds() {
+  if (!foldState) {
+    try {
+      foldState = { ...FOLD_DEFAULT, ...JSON.parse(localStorage.getItem(FOLD_KEY) || '{}') };
+    } catch {
+      foldState = { ...FOLD_DEFAULT };
+    }
+  }
+  return foldState;
+}
+function setFold(id, open) {
+  folds()[id] = open;
+  try {
+    localStorage.setItem(FOLD_KEY, JSON.stringify(foldState));
+  } catch {
+    /* không lưu được thì thôi */
+  }
+}
+// Một mục gập / mở được: tiêu đề bấm để mở / gập, nội dung là `box`
+function fold(id, title, box) {
+  const d = el('details', { class: 'fold', open: !!folds()[id], 'data-fold': id }, el('summary', {}, title), box);
+  d.addEventListener('toggle', () => setFold(id, d.open));
+  return d;
+}
 // đang kéo tô (giữ ctx để chốt bước hoàn tác khi thả chuột) — nghe "thả chuột" một lần cho cả trang
 let painting = null;
 addEventListener('pointerup', () => {
@@ -75,7 +105,10 @@ export function render(root, ctx) {
   const dBox = el('div');
   let drawRoads = null; // vẽ lại mục Đường to / nhỏ (đếm số đoạn)
   body.append(
-    el('div', { class: 'body-head' }, el('h2', {}, `🗺️ Bản đồ ${CITY.N}×${CITY.N} khối`)),
+    el('div', { class: 'body-head' }, el('h2', {}, `🗺️ Bản đồ ${CITY.N}×${CITY.N} khối`),
+      el('span', { class: 'inline' },
+        button('▾ Mở hết', () => { for (const d of root.querySelectorAll('details.fold')) d.open = true; }, 'small'),
+        button('▸ Gập hết', () => { for (const d of root.querySelectorAll('details.fold')) d.open = false; }, 'small'))),
     el('div', { class: 'two' },
       el('div', { class: 'grid tight' },
         field('Khối đang chọn', el('b', {}, `${sel.id}${here.length ? ` — có ${here.map((p) => p.short || p.name).join(', ')}` : ''}`), opt('block', { hint: 'Bấm vào một khối trên bản đồ để chọn.' })),
@@ -97,12 +130,12 @@ export function render(root, ctx) {
       ),
       canvasBox,
     ),
-    dBox,
+    fold('districts', '🏙️ Khu phố', dBox),
     explain(EXPLAIN.map),
-    roadsBox(),
-    busBox(),
-    riversBox(),
-    joinsBox(),
+    fold('roads', '🛣️ Đường to / nhỏ', roadsBox()),
+    fold('bus', '🚌 Xe buýt', busBox()),
+    fold('rivers', '🌊 Sông & cầu', riversBox()),
+    fold('joins', '🧩 Gộp khối', joinsBox()),
   );
   drawDistricts();
   drawMap();
@@ -131,7 +164,6 @@ export function render(root, ctx) {
       }, 'small danger')), openKhu === id ? traitsPanel(id, d) : null]);
     dBox.innerHTML = '';
     dBox.append(
-      el('h3', {}, '🏙️ Khu phố'),
       el('p', { class: 'muted' }, `Đặt tên / màu cho từng khu phố. Bấm 🖌 Tô rồi bấm hoặc kéo chuột trên bản đồ để gán khối vào khu phố (bấm lại để thôi tô). ${unset ? `Còn ${unset} khối chưa gán khu phố.` : 'Mọi khối đã có khu phố.'}`),
       el('div', { class: 'dist-list' }, rows),
       el('span', { class: 'inline' },
@@ -233,7 +265,6 @@ export function render(root, ctx) {
       const segs = allSegments(map), cnt = { big: 0, normal: 0, small: 0 };
       for (const s of segs) cnt[tierOf(s.id, map)]++;
       box.append(
-        el('h3', {}, '🛣️ Đường to / nhỏ'),
         el('p', { class: 'muted' }, 'Mỗi đoạn đường giữa 2 ngã tư là Đại lộ (dải phân cách, 4 làn, nhiều ô tô, hay kẹt, hay có chốt CSGT, chạy nhanh hơn), Đường thường, hoặc Đường nhỏ (mặt nhựa hẹp, lề rộng đậu xe máy, nhiều ổ gà, ít kẹt, phải chạy chậm). Số luật chơi ở thẻ ⚖️ Cân bằng → 🛣️ Cấp đường. Chọn cọ rồi bấm / kéo lên đường trên bản đồ để tô.'),
         el('div', { class: 'inline wrap' },
           ...ROAD_TIERS.map(([k, label]) => button(`${roadBrush === k ? '✔ Đang tô ' : '🖌 '}${label} (${cnt[k]})`, () => {
@@ -280,8 +311,7 @@ export function render(root, ctx) {
       const sys = busSystem();
       const edit = (fn) => { fn(); changed(); draw(); drawMap(); };
       box.append(
-        el('h3', {}, '🚌 Xe buýt'),
-        el('p', { class: 'muted' }, 'Mỗi tuyến là một vòng kín đi qua các "điểm ghé" theo thứ tự (xe chạy ngang trước cửa, cửa nằm bên phải). Giữa 2 điểm ghé xe tự tìm đường ngắn, ưu tiên đại lộ. Trạm tự đặt trước mỗi điểm ghé và cách vài đoạn đường một trạm. Giá vé, giờ chạy, tốc độ: thẻ ⚖️ Cân bằng → 🚌 Xe buýt.'),
+        el('p', { class: 'muted' }, 'Bấm 👁 ở một tuyến để soi lộ trình trên bản đồ: tô đậm tuyến, mũi tên chiều xe chạy, đánh số trạm theo thứ tự xe tới, ★ là điểm ghé. Mỗi tuyến là một vòng kín đi qua các "điểm ghé" theo thứ tự (xe chạy ngang trước cửa, cửa nằm bên phải). Giữa 2 điểm ghé xe tự tìm đường ngắn, ưu tiên đại lộ. Trạm tự đặt trước mỗi điểm ghé và cách vài đoạn đường một trạm. Giá vé, giờ chạy, tốc độ: thẻ ⚖️ Cân bằng → 🚌 Xe buýt.'),
       );
       map.busRoutes.forEach((r, ri) => {
         const info = sys?.routes.find((x) => x.id === r.id);
@@ -292,7 +322,8 @@ export function render(root, ctx) {
             textInput(r.name, (v) => { r.name = v; changed(); }, { placeholder: 'Tên tuyến', style: 'min-width:240px' }),
             colorInput(r.color, (v) => { r.color = v; changed(); drawMap(); }),
             el('label', {}, 'Số xe ', numInput(r.buses ?? 2, (v) => { if (Number.isFinite(v)) { r.buses = Math.max(1, Math.min(6, Math.round(v))); changed(); } }, { step: 1, min: 1, max: 6 })),
-            button('🗑 Xóa tuyến', () => { if (confirm(`Xóa ${r.name}?`)) edit(() => map.busRoutes.splice(ri, 1)); }, 'small danger'),
+            button(busEye === r.id ? '👁 Đang soi' : '👁 Soi tuyến', () => { busEye = busEye === r.id ? null : r.id; draw(); drawMap(); }, busEye === r.id ? 'small primary' : 'small'),
+            button('🗑 Xóa tuyến', () => { if (confirm(`Xóa ${r.name}?`)) edit(() => { if (busEye === r.id) busEye = null; map.busRoutes.splice(ri, 1); }); }, 'small danger'),
           ),
           el('small', { class: info?.error ? 'err' : 'muted' }, status),
           ...vias.map((id, vi) => el('div', { class: 'inline' },
@@ -312,7 +343,10 @@ export function render(root, ctx) {
       }), 'small'));
       // tên trạm: để trống = tên tự đặt theo địa điểm / tên đường gần trạm
       if (sys?.stops.length) {
-        box.append(advanced(`Tên trạm (${sys.stops.length})`, ...sys.stops.map((st) => field(`🚏 ${st.routes.map((x) => sys.routeById[x.id]?.name.split(' ')[1] || x.id).join(', ')}`, textInput(map.busStopNames[st.id] || '', (v) => {
+        // đang soi 1 tuyến → chỉ trạm của tuyến đó, đúng thứ tự xe tới (số khớp số trên bản đồ)
+        const eyeR = busEye && sys.routeById[busEye] && !sys.routeById[busEye].error ? sys.routeById[busEye] : null;
+        const list = eyeR ? eyeR.stops.map((x, i) => [sys.byId[x.id], `${i + 1}.`]) : sys.stops.map((st) => [st, '🚏']);
+        box.append(advanced(eyeR ? `Tên trạm — ${eyeR.name} (${list.length})` : `Tên trạm (${sys.stops.length})`, ...list.map(([st, tag]) => field(`${tag} ${st.routes.map((x) => sys.routeById[x.id]?.name.split(' ')[1] || x.id).join(', ')}`, textInput(map.busStopNames[st.id] || '', (v) => {
           if (v.trim()) map.busStopNames[st.id] = v;
           else delete map.busStopNames[st.id];
           changed();
@@ -353,7 +387,7 @@ export function render(root, ctx) {
     map.rivers = map.rivers || [];
     const pd = ctx.data.places;
     const roadName = (axis, line) => (axis === 'x' ? pd.streetsX[line] : pd.streetsZ[line]) || `đường ${line}`;
-    const box = el('div', {}, el('h3', {}, 'Sông & cầu'), el('p', { class: 'muted' }, HINT.map.river));
+    const box = el('div', {}, el('p', { class: 'muted' }, HINT.map.river));
     map.rivers.forEach((r, i) => {
       const ref = `river${i}`;
       const o = (k) => ({ ref, fieldKey: k });
@@ -384,7 +418,7 @@ export function render(root, ctx) {
   // ---------- gộp khối (sân bay…) ----------
   function joinsBox() {
     map.joins = map.joins || [];
-    const box = el('div', {}, el('h3', {}, 'Gộp khối'), el('p', { class: 'muted' }, HINT.map.join));
+    const box = el('div', {}, el('p', { class: 'muted' }, HINT.map.join));
     map.joins.forEach((j, i) => {
       const ref = `join:${j.join(',')}`, o = (k) => ({ ref, fieldKey: k });
       const set = (k, v) => { map.joins[i] = [k === 0 ? v : j[0], k === 1 ? v : j[1], k === 2 ? v : j[2]]; changed(); ctx.rerender(); };
@@ -464,19 +498,21 @@ export function render(root, ctx) {
       const rr = sg.axis === 'x' ? { x0: cx - (CITY.ROAD * f) / 2, x1: cx + (CITY.ROAD * f) / 2, z0: r.z0, z1: r.z1 } : { x0: r.x0, x1: r.x1, z0: cz - (CITY.ROAD * f) / 2, z1: cz + (CITY.ROAD * f) / 2 };
       R(rr, TIER_COLOR[t]);
     }
-    // tuyến xe buýt + trạm (bản đang sửa)
+    // tuyến xe buýt + trạm (bản đang sửa); đang soi 1 tuyến (👁) thì tuyến khác mờ đi
     const bs = busSystem();
+    const eye = busEye && bs?.routeById[busEye] && !bs.routeById[busEye].error ? bs.routeById[busEye] : null;
     for (const r of bs?.routes || []) {
       if (r.error) continue;
       g.strokeStyle = r.color;
-      g.lineWidth = 3;
-      g.globalAlpha = 0.8;
+      g.lineWidth = eye === r ? 5 : 3;
+      g.globalAlpha = eye && eye !== r ? 0.18 : 0.85;
       g.beginPath();
       r.pts.forEach((q, i) => (i ? g.lineTo(X(q.x), Z(q.z)) : g.moveTo(X(q.x), Z(q.z))));
       g.stroke();
       g.globalAlpha = 1;
     }
     for (const st of bs?.stops || []) {
+      if (eye && !st.routes.some((x) => x.id === eye.id)) continue;
       g.fillStyle = '#fff';
       g.strokeStyle = bs.routeById[st.routes[0]?.id]?.color || '#1e8449';
       g.lineWidth = 2;
@@ -484,6 +520,53 @@ export function render(root, ctx) {
       g.arc(X(st.x), Z(st.z), 4, 0, Math.PI * 2);
       g.fill();
       g.stroke();
+    }
+    if (eye) {
+      // mũi tên chiều xe chạy, cách đều dọc tuyến
+      g.fillStyle = eye.color;
+      for (let s = 20; s < eye.length; s += 60) {
+        const a = pointAt(eye, s), b = pointAt(eye, Math.min(eye.length - 0.01, s + 2));
+        const ang = Math.atan2(Z(b.z) - Z(a.z), X(b.x) - X(a.x));
+        g.save();
+        g.translate(X(a.x), Z(a.z));
+        g.rotate(ang);
+        g.beginPath();
+        g.moveTo(8, 0);
+        g.lineTo(-5, -6);
+        g.lineTo(-5, 6);
+        g.closePath();
+        g.fill();
+        g.restore();
+      }
+      // số trạm theo thứ tự xe tới (vòng tròn màu tuyến, chữ trắng)
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.font = '800 11px "Segoe UI", sans-serif';
+      eye.stops.forEach((x, i) => {
+        const st = bs.byId[x.id];
+        g.fillStyle = eye.color;
+        g.beginPath();
+        g.arc(X(st.x), Z(st.z), 9, 0, Math.PI * 2);
+        g.fill();
+        g.strokeStyle = '#fff';
+        g.lineWidth = 2;
+        g.stroke();
+        g.fillStyle = '#fff';
+        g.fillText(String(i + 1), X(st.x), Z(st.z) + 0.5);
+      });
+      // ★ điểm ghé + số thứ tự điểm ghé, đặt ở cửa địa điểm
+      g.font = '800 13px "Segoe UI", sans-serif';
+      (eye.via || []).forEach((id, i) => {
+        const p = places.find((q) => q.id === id && isPlaced(q));
+        if (!p) return;
+        const b = blockBounds(p.block[0], p.block[1]);
+        const x = X((b.x0 + b.x1) / 2), z = Z((b.z0 + b.z1) / 2);
+        g.lineWidth = 4;
+        g.strokeStyle = 'rgba(0,0,0,0.8)';
+        g.strokeText(`★${i + 1}`, x, z);
+        g.fillStyle = '#ffd54f';
+        g.fillText(`★${i + 1}`, x, z);
+      });
     }
     // sông & cầu (bản đang sửa)
     const G = roadGraph(map);

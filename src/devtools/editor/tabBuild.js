@@ -1,6 +1,8 @@
 // Thẻ 🏗️ XÂY DỰNG: bản đồ 3D (đúng hình trong game) để xếp địa điểm lên bản đồ.
 //  - Danh sách bên trái: mọi địa điểm đã tạo ở thẻ 🏪 Địa điểm ("Chưa đặt" nằm chờ ở trên).
 //  - Kéo một dòng thả vào lô trên bản đồ · kéo nhà đang đứng sang lô khác · R xoay mặt tiền · Delete cất vào danh sách.
+//  - Ctrl+C sao chép nhà đang chọn · Ctrl+V dán: bản sao bám theo chuột, bấm vào lô trống để đặt (Esc huỷ).
+//  - Bảng nhà đang chọn: nâng / hạ số tầng.
 //  - Bấm vào khối (chỗ không có địa điểm) để đổi kiểu hẻm.
 //  - Camera: kéo chuột trái để dời, giữ chuột phải để xoay, lăn chuột để phóng to / thu nhỏ.
 // Bộ vẽ WebGL tạo 1 lần, dùng lại khi chuyển thẻ (giống khung xem trước nhà). Chỉ vẽ lại khi có thay đổi.
@@ -12,7 +14,9 @@ import { blockUnder, dropTarget, lotProblem } from './buildRules.js';
 import { ALLEY_TEMPLATES } from '../../sim/blockPlan.js';
 import { isPlaced } from '../../data/places.js';
 import { PROTECTED } from '../../data/validate.js';
-import { LOOKS, lookOf, looksFor } from '../../data/looks.js';
+import { LOOKS, lookOf, looksFor, lookFloors } from '../../data/looks.js';
+import { makeClip, paste } from './ops.js';
+import { COPYABLE_KINDS } from './placeKind.js';
 import { el, button, selectInput, checkInput } from './ui.js';
 
 const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', service: '⭐', scenery: '🌳', police: '🚓' };
@@ -33,6 +37,8 @@ const sizesFor = (p) => {
 
 // Kích thước của địa điểm vừa cất vào danh sách (để kéo ra lại vẫn đúng cỡ cũ)
 const stashSize = new Map();
+// bản sao chép nhà (Ctrl+C) — giữ qua các lần vẽ lại thẻ
+let buildClip = null;
 
 // ---------- bộ vẽ dùng chung ----------
 let R = null; // { renderer, scene, camera, controls, city, ghost, mark, sig, dirty, labels }
@@ -171,7 +177,7 @@ export function render(root, ctx) {
   const labels = el('div', { class: 'build-labels' });
   const panel = el('div', { class: 'build-panel' });
   const chip = el('div', { class: 'build-chip' });
-  const tip = el('div', { class: 'build-tip' }, 'Kéo địa điểm từ danh sách thả vào lô · Kéo nhà sang lô khác · R xoay mặt tiền · Delete cất vào danh sách · Chuột trái kéo = dời bản đồ · Chuột phải = xoay · Lăn = phóng to');
+  const tip = el('div', { class: 'build-tip' }, 'Kéo địa điểm từ danh sách thả vào lô · Kéo nhà sang lô khác · R xoay mặt tiền · Delete cất vào danh sách · Ctrl+C / Ctrl+V sao chép, dán nhà · Chuột trái kéo = dời bản đồ · Chuột phải = xoay · Lăn = phóng to');
   view.append(R.renderer.domElement, labels, panel, tip);
   body.append(
     el('div', { class: 'build-tools' },
@@ -320,6 +326,11 @@ export function render(root, ctx) {
     showGhost(null);
     if (!d || !d.started) return;
     const t = d.target;
+    if (d.paste) {
+      if (!t) return ctx.notify('Bấm vào một lô trên bản đồ để dán (Esc huỷ).', 'warn', true);
+      if (!t.ok) return ctx.notify(`⛔ ${t.why}`, 'warn', true);
+      return doPaste(d.paste, t);
+    }
     if (!t) { if (d.fromList && isPlaced(d.p)) focusOn(d.p); return; } // bấm dòng trong danh sách → bay tới nhà
 
     if (!t.ok) return ctx.notify(`⛔ ${t.why}`, 'warn', true);
@@ -341,7 +352,10 @@ export function render(root, ctx) {
     dragMove(e);
   }
   // bấm trong khung 3D: trúng nhà → chọn (kéo đi thì dời); trúng khối trống → chọn khối; trúng đường → bỏ chọn
+  // nhớ vị trí chuột trên khung 3D (Ctrl+V cho bản sao hiện ngay chỗ chuột)
+  view.addEventListener('pointermove', (e) => { R.lastPointer = { clientX: e.clientX, clientY: e.clientY }; });
   view.addEventListener('pointerdown', (e) => {
+    if (drag?.paste) return; // đang dán: bấm = thả bản sao (xử lý ở lúc nhả chuột)
     if (e.button !== 0 || e.target !== R.renderer.domElement) return;
     const p = placeAt(e);
     const down = { x: e.clientX, y: e.clientY };
@@ -391,6 +405,71 @@ export function render(root, ctx) {
     }, `${was ? '🚚 Đã dời' : '📍 Đã đặt'} "${p.name}" → khối ${t.bx},${t.bz} lô ${t.lot}.`);
     select(p.id);
   }
+  // ---- sao chép / dán nhà ----
+  const copyBlock = (p) => (!p || !isPlaced(p) ? 'Chọn một nhà đang đứng trên bản đồ để sao chép.' : !COPYABLE_KINDS.includes(p.kind) ? `"${p.name}" gắn với cốt truyện (chỉ có một) — không sao chép được.` : '');
+  function copyPlace(p) {
+    const why = copyBlock(p);
+    if (why) return ctx.notify(why, 'warn', true);
+    buildClip = makeClip(data, 'places', p.id);
+    ctx.notify(`📋 Đã sao chép "${p.name}" — Ctrl+V (hoặc nút Dán) rồi bấm vào lô trống để đặt bản sao.`, 'ok', true);
+    drawPanel();
+  }
+  // bắt đầu dán: bản sao bám theo chuột như lúc kéo từ danh sách
+  function startPaste(e) {
+    if (!buildClip) return ctx.notify('Chưa sao chép nhà nào (chọn nhà rồi Ctrl+C).', 'warn', true);
+    if (drag) return;
+    const ghost = { ...JSON.parse(JSON.stringify(buildClip.data)), id: '__paste__' };
+    drag = { p: ghost, target: null, started: true, fromList: false, paste: buildClip };
+    R.controls.enabled = false;
+    chip.classList.add('on');
+    addEventListener('pointermove', dragMove);
+    addEventListener('pointerup', dragEnd);
+    if (e && 'clientX' in e) dragMove(e);
+    ctx.notify('📥 Bấm vào lô trống để đặt bản sao · Esc huỷ.', 'info', true);
+  }
+  function cancelPaste() {
+    if (!drag?.paste) return false;
+    removeEventListener('pointermove', dragMove);
+    removeEventListener('pointerup', dragEnd);
+    chip.classList.remove('on', 'bad');
+    R.controls.enabled = true;
+    drag = null;
+    showGhost(null);
+    return true;
+  }
+  // dán: tạo địa điểm mới giống hệt bản gốc (trừ mã) rồi đặt đúng lô vừa bấm
+  function doPaste(clip, t) {
+    let res = null;
+    ctx.historyBreak();
+    const c = JSON.parse(JSON.stringify(clip));
+    c.data.block = [t.bx, t.bz];
+    c.data.lot = t.lot;
+    res = paste(data, c, clip.data.id);
+    if (res.error) {
+      ctx.historyBreak();
+      return ctx.notify(`⛔ ${res.error}`, 'warn', true);
+    }
+    const np = places.find((x) => x.id === res.id);
+    np.block = [t.bx, t.bz];
+    np.lot = t.lot;
+    if (blockPlan(t.bx, t.bz, data.map) || (np.face && !lotFaces(t.lot).includes(np.face))) delete np.face;
+    for (const f of res.files) ctx.changed(f);
+    ctx.historyBreak();
+    rebuild(data);
+    drawList();
+    select(np.id);
+    drawPanel();
+    drawMark();
+    ctx.notify(`📥 Đã dán "${np.name}" (mã ${np.id}) → khối ${t.bx},${t.bz} lô ${t.lot}.${res.dropped.length ? ` Bỏ: ${res.dropped.join(', ')}.` : ''}`, 'ok', true);
+  }
+  // ---- số tầng ----
+  function setFloors(p, n) {
+    const r = LOOKS[lookOf(p)].floors;
+    if (!r) return;
+    const v = Math.max(r[0], Math.min(r[1], n));
+    if (v === lookFloors(p)) return;
+    commit(() => { p.floors = v; });
+  }
   function rotatePlace(p) {
     if (!p || !isPlaced(p)) return;
     if (blockPlan(p.block[0], p.block[1], data.map)) return ctx.notify('Nhà trong khối có hẻm có mặt tiền cố định theo nhà.', 'warn', true);
@@ -436,6 +515,17 @@ export function render(root, ctx) {
   }
 
   // ---- bảng thông tin nổi (mục đang chọn) ----
+  // dòng "Số tầng [−] n [+]" (kiểu nhà không có tầng → mờ, ghi lý do)
+  function floorsRow(p) {
+    const r = LOOKS[lookOf(p)]?.floors;
+    if (!r) return el('div', { class: 'bp-row muted' }, `Số tầng: — (${LOOKS[lookOf(p)]?.label || 'kiểu này'} không chỉnh số tầng)`);
+    const n = lookFloors(p);
+    return el('div', { class: 'bp-row' }, 'Số tầng ',
+      button('−', () => setFloors(p, n - 1), `small${n <= r[0] ? ' dim' : ''}`),
+      el('b', { style: 'display:inline-block;min-width:2.2em;text-align:center' }, String(n)),
+      button('+', () => setFloors(p, n + 1), `small${n >= r[1] ? ' dim' : ''}`),
+      el('small', { class: 'muted' }, ` (${r[0]}–${r[1]} tầng)`));
+  }
   function drawPanel() {
     panel.innerHTML = '';
     const p = places.find((x) => x.id === sel.id);
@@ -453,6 +543,10 @@ export function render(root, ctx) {
         placed && !plan && p.kind !== 'gate' ? el('label', { class: 'bp-row' }, 'Kích thước ', selectInput(lotSize(p.lot) || 'one', sizesFor(p), (v) => resizePlace(p, v))) : null,
         placed && cutCell(p.lot) ? el('label', { class: 'bp-row' }, 'Góc chừa ', selectInput(p.lot, Object.entries(CUT_LABEL), (v) => moveCut(p, v))) : null,
         el('label', { class: 'bp-row' }, p.kind === 'scenery' ? 'Kiểu ' : 'Kiểu nhà ', selectInput(p.look || '', [['', `Tự chọn (${LOOKS[lookOf(p)]?.label || '—'})`], ...looksFor(p.kind).map((k) => [k, LOOKS[k].label])], (v) => commit(() => { if (v) p.look = v; else delete p.look; }))),
+        floorsRow(p),
+        el('div', { class: 'inline wrap' },
+          button('📋 Sao chép (Ctrl+C)', () => copyPlace(p), `small${copyBlock(p) ? ' dim' : ''}`),
+          buildClip ? button(`📥 Dán "${buildClip.data.name}" (Ctrl+V)`, (e) => startPaste(e), 'small') : null),
         button('✏️ Sửa chi tiết ở thẻ Địa điểm', () => ctx.select('places', { id: p.id }), 'small'),
       );
       panel.hidden = false;
@@ -485,7 +579,8 @@ export function render(root, ctx) {
   if (!R.keys) {
     R.keys = true;
     addEventListener('keydown', (e) => {
-      if (!R.renderer.domElement.isConnected || e.target.closest?.('input, textarea, select') || e.ctrlKey || e.metaKey) return;
+      if (!R.renderer.domElement.isConnected || e.target.closest?.('input, textarea, select')) return;
+      if (e.ctrlKey || e.metaKey) return R.onCtrlKey?.(e);
       R.onKey?.(e);
     });
   }
@@ -493,7 +588,19 @@ export function render(root, ctx) {
     const p = places.find((x) => x.id === sel.id);
     if (e.key === 'r' || e.key === 'R') { e.preventDefault(); rotatePlace(p); }
     else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); stashPlace(p); }
-    else if (e.key === 'Escape') { select(null); drawMark(); }
+    else if (e.key === 'Escape') { if (!cancelPaste()) { select(null); drawMark(); } }
+  };
+  R.onCtrlKey = (e) => {
+    const k = e.key.toLowerCase();
+    if (k === 'c') {
+      const p = places.find((x) => x.id === sel.id);
+      if (!p) return;
+      e.preventDefault();
+      copyPlace(p);
+    } else if (k === 'v' && buildClip) {
+      e.preventDefault();
+      startPaste(R.lastPointer);
+    }
   };
 
   drawPanel();

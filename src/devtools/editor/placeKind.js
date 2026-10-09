@@ -3,6 +3,8 @@
 //  - cafe, taphoa: nhiệm vụ chiếc ví (anh Minh đợi ở quán cà phê, Cô Ba chỉ đường) → chỉ có ở địa điểm gốc
 //  - home, gate, apartment: chỉ có một, code gọi thẳng theo mã
 export const CHANGEABLE_KINDS = ['restaurant', 'gas', 'shop', 'garage', 'market', 'service'];
+// loại sao chép / dán được (không gắn cốt truyện): các loại đổi được + cảnh quan + đồn công an
+export const COPYABLE_KINDS = [...CHANGEABLE_KINDS, 'scenery', 'police'];
 
 // Biểu tượng mặc định theo loại (trùng với bản đồ) — đổi loại thì bỏ biểu tượng mặc định cũ để lấy cái mới
 const DEFAULT_ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', service: '⭐', scenery: '🌳', police: '🚓' };

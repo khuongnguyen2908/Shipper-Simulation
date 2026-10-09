@@ -188,6 +188,14 @@ body.show-hints .fld-i { display: none; }
 .subtab.has-warn .sub-dot { display: inline-block; background: #f39c12; }
 .sec-pane > h3:first-child { margin-top: 10px; }
 .adv { margin-top: 12px; border: 1px dashed #2f3a4a; border-radius: 10px; }
+/* mục gập / mở được (thẻ Bản đồ) */
+.fold { margin-top: 14px; border: 1px solid #2f3a4a; border-radius: 10px; background: rgba(255, 255, 255, 0.02); }
+.fold > summary { cursor: pointer; padding: 10px 12px; font-size: 16px; font-weight: 700; list-style: none; user-select: none; }
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary::before { content: '▸'; display: inline-block; width: 18px; color: #8fa3bf; transition: transform 0.15s; }
+.fold[open] > summary::before { transform: rotate(90deg); }
+.fold > summary:hover { background: rgba(255, 255, 255, 0.04); border-radius: 10px; }
+.fold > :not(summary) { padding: 0 12px 12px; }
 .adv summary { cursor: pointer; padding: 7px 10px; color: #a9b3c4; font-size: 13px; font-weight: 600; }
 .adv[open] summary { border-bottom: 1px dashed #2f3a4a; }
 .adv > .grid { padding: 0 10px 10px; }
