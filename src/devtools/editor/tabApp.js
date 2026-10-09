@@ -1,6 +1,7 @@
 // Thẻ 📱 APP & ĐƠN (apps.json): phí app + luật tài khoản · các loại đơn · các loại khách xe ôm.
 import { ID_RE } from '../../data/validate.js';
-import { ORDER_KINDS } from '../../data/apps.js';
+import { ORDER_KINDS, FROM_HOMES } from '../../data/apps.js';
+import { isPlaced } from '../../data/places.js';
 import { EFFECTS } from '../../data/goods.js';
 import { el, field, textInput, numInput, button, sideList, selectInput, checkInput, emojiInput, explain, areaInput, subTabs } from './ui.js';
 import { HINT, EXPLAIN } from './help.js';
@@ -190,6 +191,52 @@ export function render(root, ctx) {
     );
   }
 
+  // "Đón ở": 🏠 Nhà dân + địa điểm chia theo khu phố, có ô tìm, nút chọn hết / bỏ hết từng khu
+  function fromPicker() {
+    const places = ctx.data.places.places;
+    const map = ctx.data.map || {};
+    const box = el('div', { class: 'from-pick' });
+    let q = '';
+    const has = (id) => (x.from || []).includes(id);
+    const setMany = (ids, on) => {
+      const set = new Set(x.from || []);
+      for (const id of ids) on ? set.add(id) : set.delete(id);
+      if (set.size) x.from = [...set]; else delete x.from;
+      changed();
+      draw();
+    };
+    const draw = () => {
+      box.innerHTML = '';
+      const groups = new Map();
+      for (const p of places) {
+        if (q && !`${p.name} ${p.short || ''} ${p.id}`.toLowerCase().includes(q)) continue;
+        const key = isPlaced(p) ? map.districtBlocks?.[p.block.join(',')] || '_none' : '_unplaced';
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(p);
+      }
+      const name = (k) => (k === '_unplaced' ? '📦 Chưa đặt trên bản đồ' : k === '_none' ? '❔ Chưa gán khu phố' : `🏙️ ${map.districts?.[k]?.name || k}`);
+      const order = [...Object.keys(map.districts || {}).filter((k) => groups.has(k)), ...['_none', '_unplaced'].filter((k) => groups.has(k))];
+      const n = (x.from || []).length;
+      box.append(
+        el('div', { class: 'inline wrap' },
+          el('input', { type: 'search', placeholder: 'Tìm địa điểm…', value: q, oninput: (e) => { q = e.target.value.trim().toLowerCase(); draw(); box.querySelector('input[type=search]').focus(); } }),
+          el('small', { class: 'muted' }, n ? `Đã chọn ${n} nơi${has(FROM_HOMES) ? ' (có nhà dân)' : ''}` : 'Chưa chọn = đón ở nhà dân + mọi địa điểm có khách xe ôm'),
+          n ? button('Bỏ chọn hết', () => setMany(x.from || [], false), 'small') : ''),
+        el('div', { class: 'from-home' }, checkInput(has(FROM_HOMES), (on) => setMany([FROM_HOMES], on), '🏠 Nhà dân (cùng các địa điểm đã chọn: chia đôi nhà dân / địa điểm)')),
+        ...order.map((k) => {
+          const list = groups.get(k);
+          const all = list.every((p) => has(p.id));
+          return el('div', { class: 'from-group' },
+            el('div', { class: 'inline' }, el('b', {}, `${name(k)} (${list.filter((p) => has(p.id)).length}/${list.length})`),
+              button(all ? 'Bỏ hết khu' : 'Chọn hết khu', () => setMany(list.map((p) => p.id), !all), 'small')),
+            el('div', { class: 'chips' }, list.map((p) => checkInput(has(p.id), (on) => setMany([p.id], on), `${p.icon || ''} ${p.name}`))));
+        }),
+      );
+    };
+    draw();
+    return field('Đón ở', box, opt('from', { wide: true, hint: HINT.rider.from }));
+  }
+
   // ---------- loại khách xe ôm ----------
   function renderRider() {
     const H = HINT.rider;
@@ -218,12 +265,23 @@ export function render(root, ctx) {
         optNum('noPayChance', 'Quỵt tiền (%)', { ...pct, min: 0, max: 100, hint: H.noPayChance }),
         optNum('bigTipChance', 'Boa đậm (%)', { ...pct, min: 0, max: 100, hint: H.bigTipChance }),
         optNum('bigTip', 'Tiền boa đậm (k)', { step: 1, min: 0, hint: H.bigTip }),
+        optNum('changeDestChance', 'Đổi điểm đến giữa đường (%)', { ...pct, min: 0, max: 100, hint: 'Đang chở thì khách xin đổi qua chỗ khác (60–220 m quanh đó). Đồng ý → chở tới chỗ mới; từ chối → khách xuống, trả theo quãng đã đi, chấm sao thấp (thẻ Cân bằng → Sự cố khi chở khách).' }),
+        optNum('changeDestPays', 'Đổi điểm đến: khách bù thêm tiền (%)', { ...pct, min: 0, max: 100, hint: 'Khi đổi điểm đến, tỉ lệ khách chịu trả thêm theo quãng đi thêm (còn lại thì tính như cũ).' }),
       ),
-      field('Đón ở', el('div', { class: 'chips' }, places.map((p) => checkInput((x.from || []).includes(p.id), (on) => {
-        const list = on ? [...(x.from || []), p.id] : (x.from || []).filter((id) => id !== p.id);
-        if (list.length) x.from = list; else delete x.from;
+      el('h3', {}, 'Kiểu khách đặc biệt'),
+      el('div', { class: 'grid' },
+        field('Lừa đảo', checkInput(!!x.scam, (v) => { if (v) x.scam = true; else delete x.scam; changed(); ctx.rerender(); }, '🕵️ Khách lừa đảo (giữa đường đòi rẽ vào hẻm vắng để cướp tiền)'), opt('scam', { hint: 'Thẻ đơn hiện dấu hiệu "tài khoản mới, đòi tiền mặt". Giữa đường người chơi chọn: chạy vào (mất tiền) / mời xuống (mất chuyến) / chở tới đồn công an gần đó (được thưởng). Nên để hiếm, chỉ ban đêm.' })),
+        x.scam ? optNum('robMax', 'Bị lấy tối đa (k)', { step: 10, min: 0, max: 5000, hint: 'Mặc định 300k.' }) : '',
+        x.scam ? optNum('robPctMin', 'Bị lấy ít nhất (% tiền trong ví)', { ...pct, min: 0, max: 100, hint: 'Lấy từ mức này tới hết ví (không quá "tối đa"). Mặc định 50%.' }) : '',
+        field('Mang vali', checkInput(!!x.luggage, (v) => { if (v) x.luggage = true; else delete x.luggage; changed(); }, '🧳 Xe nặng, chạy chậm hơn'), opt('luggage', { hint: 'Tốc độ tối đa giảm theo thẻ Cân bằng → Sự cố khi chở khách. Nên cho cước cao hơn.' })),
+        field('Nước ngoài', checkInput(!!x.foreign, (v) => { if (v) x.foreign = true; else delete x.foreign; changed(); }, '🌍 Không nói tiếng Việt'), opt('foreign', { hint: 'Gọi hỏi đường phải dịch bằng điện thoại, mất thêm phút. Nên cho hay quên địa chỉ + boa đậm.' })),
+      ),
+      fromPicker(),
+      field('Tên khách (thay tên ngẫu nhiên)', areaInput((x.names || []).join('\n'), (v) => {
+        const names = v.split('\n').map((s) => s.trim()).filter(Boolean);
+        if (names.length) x.names = names; else delete x.names;
         changed();
-      }, `${p.icon || ''} ${p.name}`))), opt('from', { wide: true, hint: H.from })),
+      }, 3), opt('names', { wide: true, hint: 'Mỗi dòng một tên. Để trống = tên Việt ngẫu nhiên (vd khách nước ngoài: John, Emma…).' })),
       field('Tên người đi (đặt xe dùm)', areaInput((x.riderNames || []).join('\n'), (v) => {
         const names = v.split('\n').map((s) => s.trim()).filter(Boolean);
         if (names.length) x.riderNames = names; else delete x.riderNames;

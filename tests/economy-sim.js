@@ -164,6 +164,8 @@ export function playRun(seed, strat, days = 9) {
     }
     if (om.state === S.OFFERED) {
       if (routeDist(pos, om.offer.pickup.door) > st.maxD1 || gs.fuel < 0.2) { om.decline(now); continue; }
+      // bot cẩn thận / kén chọn để ý dấu hiệu lừa đảo trên thẻ đơn (tài khoản mới, đòi tiền mặt) → từ chối
+      if (om.offer.flags?.scam && (strat === 'careful' || strat === 'picky')) { om.decline(now); continue; }
       om.accept(now, pos);
     }
     const o = om.order;
@@ -187,7 +189,20 @@ export function playRun(seed, strat, days = 9) {
       if (r.noMoney) { om.cancel('noMoney', now, { byDriver: true }); continue; }
       om.finishPacking(r.items.map(() => ({ upright: true })), now);
     } else om.boardPassenger(now);
-    if (!o.revealed) { om.callCustomer(now); pass(1, 'idle'); }
+    // sự cố giữa đường (khách xe ôm): chạy tới khoảng giữa rồi xử lý
+    if (o.kind === 'ride' && o.midEvent) {
+      const ev = o.midEvent;
+      drive({ x: o.pickup.door.x + (o.dropoff.door.x - o.pickup.door.x) * ev.at, z: o.pickup.door.z + (o.dropoff.door.z - o.pickup.door.z) * ev.at });
+      if (collapse() || over()) continue;
+      om.checkMidEvent(now, pos, true);
+      if (ev.type === 'scam') {
+        const r = om.resolveScam('comply', now); // đã nhận chuyến thì bot không kịp nhận ra
+        if (r?.robbed != null) log.robbed = (log.robbed || 0) + r.robbed;
+        continue;
+      }
+      if (ev.type === 'changeDest' && ev.alt) om.resolveChangeDest(true, now, pos);
+    }
+    if (!o.revealed) { const c = om.callCustomer(now); pass(c?.waitMin || 1, 'idle'); } // khách nước ngoài: gọi lâu hơn
     const from = { ...pos };
     drive(o.dropoff.door);
     if (collapse() || over()) continue;

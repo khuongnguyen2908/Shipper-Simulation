@@ -114,6 +114,19 @@ export const BALANCE_GROUPS = [
     ],
   },
   {
+    id: 'rideEvents', title: '🧍 Sự cố khi chở khách',
+    note: 'Loại khách nào có sự cố gì chỉnh ở thẻ 📱 App & Đơn → Loại khách (tỉ lệ đổi điểm đến, khách lừa đảo, mang vali, nước ngoài). Ở đây là các số chung.',
+    fields: [
+      ['rideEvents.refuseStars', 'Từ chối đổi điểm đến: khách chấm mấy sao', { min: 1, max: 5, step: 1, hint: 'Khách xuống tại chỗ, trả theo quãng đã đi. Mặc định 3 sao.' }],
+      ['rideEvents.policeNearM', 'Lừa đảo: đồn công an trong bao xa thì chở thẳng tới được (m)', { min: 0, max: 2000, step: 50, hint: 'Mặc định 300 m.' }],
+      ['rideEvents.policeReward', 'Chở khách lừa đảo tới đồn: thưởng (k)', { min: 0, max: 500, step: 5, hint: 'Mặc định 30k.' }],
+      ['rideEvents.robbedMental', 'Bị cướp tiền: mất tinh thần', { min: 0, max: 100, step: 1, hint: 'Mặc định 25.' }],
+      ['rideEvents.scamRefuseMental', 'Đuổi khách lừa đảo xuống: mất tinh thần', { min: 0, max: 100, step: 1, hint: 'Mặc định 5.' }],
+      ['rideEvents.luggageSpeedMul', 'Chở khách mang vali: tốc độ tối đa × (%)', { min: 0.3, max: 1, step: 5, scale: 100, hint: 'Xe nặng chạy chậm. Mặc định 80%.' }],
+      ['rideEvents.foreignCallMin', 'Khách nước ngoài: gọi hỏi đường mất (phút)', { min: 1, max: 30, step: 1, hint: 'Dịch bằng điện thoại, khách chỉ trên bản đồ. Mặc định 4.' }],
+    ],
+  },
+  {
     id: 'bus', title: '🚌 Xe buýt',
     note: 'Tuyến, điểm ghé, tên trạm sửa ở thẻ 🗺️ Bản đồ → 🚌 Xe buýt. Đứng ở trạm bấm E, chọn trạm xuống trước khi lên xe; xe chạy một chiều theo vòng tuyến (chọn nhầm thì phải đi tiếp vòng hoặc chờ chuyến khác). 1 phút game = 1 giây thật.',
     fields: [

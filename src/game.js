@@ -2,7 +2,7 @@
 // GAME — điều phối: vòng lặp, nối mô phỏng (src/sim) với thế giới 3D (src/world) và giao diện (src/ui)
 // =============================================================
 import * as THREE from 'three';
-import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, BAGS, NIGHT, PARKING, AIRPORT } from './data/balance.js';
+import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, BAGS, NIGHT, PARKING, AIRPORT, RIDE_EVENTS } from './data/balance.js';
 import { parkingRoll, parkingLotAt, nearestStation, towTarget, safeSpot } from './sim/parking.js';
 import { airportAt, airportParkAt, airportNoStopAt, noStopStep } from './sim/airport.js';
 import { roadSegAt, tierOf, tierLabel, speedLimitOf } from './sim/roads.js';
@@ -429,7 +429,10 @@ export class Game {
     let activity = 'idle';
     const env = this.itemEnv(speed);
     const emit = (type, mag, info) => this.onBikeEvent(type, mag, info, env);
-    const moved = bike.update(dt, mounted ? inp.state : {}, { mounted, fuel: gs.fuel, hp: gs.bikeHp, wet: !!rain, speedCap: this.inJam ? HAZARD.jamSpeedCap : 0, grid: this.city.grid, elev: this.city.elev, potholes: this.potholes, emit });
+    // chở khách mang vali: xe nặng, chạy chậm hơn (balance.json → rideEvents.luggageSpeedMul)
+    const lug = om.hasCargo && RIDER_TYPES[om.order?.rider]?.luggage ? gs.vehicleSpec.maxSpeed * (RIDE_EVENTS.luggageSpeedMul ?? 0.8) : 0;
+    const speedCap = [this.inJam ? HAZARD.jamSpeedCap : 0, lug].filter((v) => v > 0).reduce((a, b) => Math.min(a, b), Infinity);
+    const moved = bike.update(dt, mounted ? inp.state : {}, { mounted, fuel: gs.fuel, hp: gs.bikeHp, wet: !!rain, speedCap: Number.isFinite(speedCap) ? speedCap : 0, grid: this.city.grid, elev: this.city.elev, potholes: this.potholes, emit });
     if (mounted) {
       if (gs.fuel > 0) {
         const liters = ((moved * DIST.displayPerUnit) / 1000) * (gs.vehicleSpec.fuelPer100km / 100) * Math.max(0.1, 1 + gs.effect('fuelUsePct') / 100);
@@ -695,6 +698,7 @@ export class Game {
       if (r.locked) this.hud.toast(fmt('toast.accountLocked', { n: APP.account.cancelLimitPerDay, time: fmtTime(r.until) }), 'bad', 7000);
       sfx.bad();
     } else if (e.type === 'returning') this.hud.toast(fmt('toast.returning', { place: e.order.pickup.name }), 'warn', 5000);
+    else if (e.type === 'rideEvent') act.rideEventDialog(this, e.event); // khách đổi điểm đến / khách lừa đảo
     else if (e.type === 'vomit') {
       sfx.bad();
       this.shake = Math.max(this.shake, 0.3);

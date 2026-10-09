@@ -156,7 +156,9 @@
       "comfortKmh": 40,
       "fareMult": 1,
       "deadlineMult": 1,
-      "quitBelow": 10
+      "quitBelow": 10,
+      "changeDestChance": 0.12,
+      "changeDestPays": 0.6
     },
     "regular": {
       "id": "regular",
@@ -168,7 +170,9 @@
       "comfortKmh": 40,
       "fareMult": 1,
       "deadlineMult": 1,
-      "quitBelow": 10
+      "quitBelow": 10,
+      "changeDestChance": 0.1,
+      "changeDestPays": 0.9
     },
     "drunk": {
       "id": "drunk",
@@ -176,11 +180,23 @@
       "icon": "🍺",
       "weight": 4,
       "hours": [
-        19,
-        22
+        [
+          19,
+          24
+        ],
+        [
+          0,
+          2
+        ]
       ],
       "from": [
-        "karaoke"
+        "karaoke",
+        "nhauBenTau",
+        "lauDeBayHien",
+        "nuongLuaHong",
+        "quan1",
+        "ocVinhHao",
+        "lauCaKeoVenSong"
       ],
       "viaApp": true,
       "comfortKmh": 35,
@@ -193,7 +209,9 @@
       "vomitCost": 10,
       "noPayChance": 0.15,
       "bigTipChance": 0.25,
-      "bigTip": 100
+      "bigTip": 100,
+      "changeDestChance": 0.25,
+      "changeDestPays": 0.3
     },
     "booked": {
       "id": "booked",
@@ -210,7 +228,9 @@
         "Ông Sáu",
         "Bé Na",
         "Bé Bin"
-      ]
+      ],
+      "changeDestChance": 0.05,
+      "changeDestPays": 0.5
     },
     "hurry": {
       "id": "hurry",
@@ -226,7 +246,17 @@
       "fareMult": 1.2,
       "deadlineMult": 0.85,
       "quitBelow": 10,
-      "earlyTip": 10
+      "earlyTip": 10,
+      "from": [
+        "sanbay",
+        "vanphong",
+        "nganHangSaoViet",
+        "khachSanHoangLong",
+        "daiLyVe",
+        "benXeBuyt"
+      ],
+      "changeDestChance": 0.08,
+      "changeDestPays": 0.8
     },
     "hocSinh": {
       "id": "hocSinh",
@@ -256,7 +286,9 @@
         "Bé Bin",
         "Bé Su",
         "Bé Tôm"
-      ]
+      ],
+      "changeDestChance": 0.03,
+      "changeDestPays": 0.5
     },
     "sinhVien": {
       "id": "sinhVien",
@@ -275,13 +307,120 @@
       ],
       "from": [
         "rmit",
-        "dhMyThuat"
+        "dhMyThuat",
+        "benXeBuyt",
+        "dichvu1",
+        "dichvu1_2",
+        "dichvu1_3",
+        "dichvu1_4",
+        "dichvu1_5",
+        "dichvu1_6",
+        "nhasach",
+        "gymSucManh",
+        "trasua"
       ],
       "viaApp": true,
       "comfortKmh": 45,
       "fareMult": 0.9,
       "deadlineMult": 1,
-      "quitBelow": 10
+      "quitBelow": 10,
+      "changeDestChance": 0.15,
+      "changeDestPays": 0.4
+    },
+    "luaDao": {
+      "id": "luaDao",
+      "name": "Khách lừa đảo",
+      "icon": "🕵️",
+      "weight": 0.3,
+      "hours": [
+        [
+          21,
+          24
+        ],
+        [
+          0,
+          3
+        ]
+      ],
+      "from": [
+        "dayTroVenKenh",
+        "cafeVongVenKenh",
+        "cafeVongBoSong",
+        "sanBongMini",
+        "canhquan10",
+        "canhquan11"
+      ],
+      "viaApp": true,
+      "comfortKmh": 40,
+      "fareMult": 1.1,
+      "deadlineMult": 1,
+      "quitBelow": 0,
+      "scam": true,
+      "robMax": 300,
+      "robPctMin": 0.5,
+      "names": [
+        "Anh Tuấn",
+        "Anh Hải",
+        "Anh Long",
+        "Anh Dũng",
+        "Anh Phong",
+        "Anh Khang"
+      ]
+    },
+    "vali": {
+      "id": "vali",
+      "name": "Khách mang vali",
+      "icon": "🧳",
+      "weight": 2,
+      "from": [
+        "sanbay",
+        "khachSanHoangLong",
+        "benXeBuyt"
+      ],
+      "viaApp": true,
+      "comfortKmh": 40,
+      "fareMult": 1.35,
+      "deadlineMult": 1.15,
+      "quitBelow": 10,
+      "luggage": true,
+      "bigTipChance": 0.3,
+      "bigTip": 15,
+      "changeDestChance": 0.05,
+      "changeDestPays": 0.8
+    },
+    "nuocNgoai": {
+      "id": "nuocNgoai",
+      "name": "Khách nước ngoài",
+      "icon": "🌍",
+      "weight": 1.5,
+      "from": [
+        "nhaDan",
+        "khachSanHoangLong",
+        "sanbay",
+        "hanSeoul",
+        "nuongLuaHong"
+      ],
+      "viaApp": true,
+      "comfortKmh": 40,
+      "fareMult": 1.1,
+      "deadlineMult": 1.1,
+      "quitBelow": 10,
+      "foreign": true,
+      "vagueChance": 0.5,
+      "bigTipChance": 0.5,
+      "bigTip": 30,
+      "names": [
+        "John",
+        "Emma",
+        "Kenji",
+        "Min-ji",
+        "Lucas",
+        "Sophie",
+        "Hans",
+        "Yuki"
+      ],
+      "changeDestChance": 0.1,
+      "changeDestPays": 0.9
     }
   }
 }

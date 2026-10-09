@@ -142,7 +142,7 @@ export const HINT = {
     bigTipChance: '0–100%. Khách boa đậm (khi chuyến không có sự cố). Mẫu: khách say 25%.',
     bigTip: '0–500k tiền boa đậm. Mẫu 15k.',
     earlyTip: '0–500k boa khi tới nơi trong 80% thời hạn. Mẫu: khách vội 10k.',
-    from: 'Khách loại này luôn được đón ở một trong các nơi này (đang mở cửa). Mẫu: khách say đi ra từ karaoke. Không chọn = đón ở nhà dân.',
+    from: 'Chọn địa điểm → khách loại này CHỈ được đón ở các nơi đó (đang mở cửa), không đón ở nhà dân. Tick thêm 🏠 Nhà dân → đón ở nhà dân hoặc các nơi đã chọn (chia đôi). Không chọn gì = đón ở nhà dân + mọi địa điểm có "Khách xe ôm đi tới / từ đây" (thẻ Địa điểm). Mẫu: khách say đi ra từ karaoke, quán nhậu.',
     riderNames: 'Đặt xe dùm: người đi khác người đặt. Mỗi dòng một tên người đi. Tên bắt đầu "Bà/Ông" hiện tóc bạc, "Bé" hiện dáng nhỏ.',
   },
 };

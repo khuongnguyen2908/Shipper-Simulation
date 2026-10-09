@@ -224,7 +224,9 @@ function callCustomer(g) {
   const r = om.callCustomer(g.clockMin);
   g.advance(r.waitMin || 1, 'idle');
   const who = fmt('dlg.phoneCall', { customer: o.customer });
-  if (wasHidden && r.revealed) say(g, who, '📱', fmt('dlg.callRevealed', { address: o.dropoff.address }));
+  if (r.scam) say(g, who, '📱', fmt('dlg.callScam'));
+  else if (wasHidden && r.revealed && r.foreign) say(g, who, '📱', fmt('dlg.callForeign', { address: o.dropoff.address, min: r.waitMin }));
+  else if (wasHidden && r.revealed) say(g, who, '📱', fmt('dlg.callRevealed', { address: o.dropoff.address }));
   else if (om.state === S.TO_PICKUP || om.state === S.WAITING_FOOD) say(g, who, '📱', fmt('dlg.callPickup'));
   else say(g, who, '📱', fmt('dlg.callDelivering'));
 }
@@ -357,6 +359,15 @@ export function dropoff(g) {
   const now = g.clockMin;
   if (om.state === S.NO_ANSWER) return noAnswer(g);
   if (om.state === S.STAIRS) return stairs(g);
+  if (o?.scamToPolice) {
+    om.arriveAtDropoff(now);
+    const r = om.finishAtPolice(now);
+    if (r) {
+      sfx.win();
+      say(g, fmt('dlg.police'), '👮', fmt('dlg.scamCaught', { reward: r.reward }));
+    }
+    return;
+  }
   const res = om.arriveAtDropoff(now);
   if (res === 'noAnswer') return noAnswer(g);
   if (res === 'bom') return bom(g);
@@ -802,6 +813,59 @@ function shopDialog(g, pl) {
     : pl.kind === 'garage' ? fmt((sells.vehicles || []).length ? 'dlg.garageIntro' : 'dlg.garageRepairIntro', { money: fmtK(gs.money) })
     : fmt('dlg.shopTitle', { money: fmtK(gs.money) });
   g.modal.show({ speaker: n.name, portrait: n.portrait, text: intro, choices, wide: true });
+}
+
+// ======================== SỰ CỐ GIỮA ĐƯỜNG (khách xe ôm) ========================
+// Gọi từ game khi OrderManager báo 'rideEvent': khách đổi điểm đến / khách lừa đảo đòi rẽ vào hẻm vắng
+export function rideEventDialog(g, ev) {
+  const { om, gs } = g;
+  const o = om.order;
+  if (!o) return;
+  g.bike.speed *= 0.4; // khách vỗ vai, tài xế chạy chậm lại nghe
+  if (ev.type === 'changeDest') {
+    const km = (Math.round((ev.extra * 10) / 100) / 10).toFixed(1);
+    say(g, o.customer, '🧍', fmt(ev.pays ? 'dlg.changeDestPay' : 'dlg.changeDestFree', { address: ev.alt.address, km }), [
+      {
+        label: fmt('dlg.changeDestYes'),
+        primary: true,
+        onSelect: () => {
+          const r = om.resolveChangeDest(true, g.clockMin, g.playerPos);
+          if (r) g.hud.toast(fmt(r.pays ? 'toast.changeDestPay' : 'toast.changeDestFree', { address: o.dropoff.address, km: r.extraKm.toFixed(1) }), 'info', 5000);
+        },
+      },
+      {
+        label: fmt('dlg.changeDestNo'),
+        hint: fmt('dlg.changeDestNoHint'),
+        onSelect: () => {
+          const receipt = om.resolveChangeDest(false, g.clockMin, g.playerPos);
+          if (!receipt) return;
+          gs.applyReceipt(receipt);
+          g.bike.speed = 0;
+          showReceipt(g, receipt);
+        },
+      },
+    ], { dismissible: false });
+    return;
+  }
+  if (ev.type === 'scam') {
+    const choices = [
+      { label: fmt('dlg.scamComply'), onSelect: () => scamResult(g, om.resolveScam('comply', g.clockMin)) },
+      { label: fmt('dlg.scamRefuse'), hint: fmt('dlg.scamRefuseHint'), primary: true, onSelect: () => scamResult(g, om.resolveScam('refuse', g.clockMin)) },
+    ];
+    if (ev.station) choices.push({ label: fmt('dlg.scamPolice', { place: ev.station.name }), hint: fmt('dlg.scamPoliceHint'), onSelect: () => { om.resolveScam('police', g.clockMin); g.hud.toast(fmt('toast.scamToPolice', { place: ev.station.name }), 'warn', 6000); } });
+    say(g, o.customer, '🧍', fmt('dlg.scamAsk'), choices, { dismissible: false });
+  }
+}
+function scamResult(g, r) {
+  if (!r) return;
+  g.bike.speed = 0;
+  if (r.robbed != null) {
+    sfx.bad();
+    g.shake = Math.max(g.shake, 0.5);
+    const msg = fmt('dlg.scamRobbed', { amount: fmtK(r.robbed) });
+    say(g, fmt('dlg.scamTitle'), '🕵️', msg);
+    g.addChat(fmt('chat.ward'), fmt('chat.robbed', { amount: fmtK(r.robbed) }));
+  } else if (r.refused) say(g, fmt('dlg.scamTitle'), '🕵️', fmt('dlg.scamRefused'));
 }
 
 // ======================== XE BUÝT ========================

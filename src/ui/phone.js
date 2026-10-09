@@ -40,6 +40,10 @@ function orderTags(o) {
   if (o.cod) tags.push(`<span class="tag warn">${fmt('phone.cod', { cod: o.cod })}</span>`);
   if (o.surcharge) tags.push(`<span class="tag good">${fmt('phone.surcharge', { k: o.surcharge })}</span>`);
   if (o.airportFee) tags.push(`<span class="tag good">${fmt('phone.airportFee', { k: o.airportFee })}</span>`);
+  // dấu hiệu khách lừa đảo (người chơi tinh ý thì từ chối từ đầu)
+  if (o.flags?.scam) tags.push(`<span class="tag warn">${fmt('phone.scamNew')}</span>`, `<span class="tag warn">${fmt('phone.scamCash')}</span>`);
+  if (rider?.luggage) tags.push(`<span class="tag">${fmt('phone.luggage')}</span>`);
+  if (rider?.foreign) tags.push(`<span class="tag">${fmt('phone.foreign')}</span>`);
   return tags.join('');
 }
 function offerTitle(o) {

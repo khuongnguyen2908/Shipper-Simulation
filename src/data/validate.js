@@ -7,7 +7,7 @@
 import { CITY, LOT_IDS, MULTI_LOTS, lotParts, lotFaces, blockPlan, blockLotIds, roadGraph, neighbors, cutCell, joinList, joinSeg, joinPartner, isJoinLot, riverInfo } from '../sim/cityLayout.js';
 import { ALLEY_TEMPLATES } from '../sim/blockPlan.js';
 import { EFFECTS, CONSUMABLE_FIELDS, OUTFIT_SLOTS } from './goods.js';
-import { ORDER_KINDS } from './apps.js';
+import { ORDER_KINDS, FROM_HOMES } from './apps.js';
 import { GENDERS, HAIR_STYLES } from '../sim/people.js';
 import { openDayOf } from '../sim/placeRules.js';
 import { LOOKS, lookOf, looksFor } from './looks.js';
@@ -186,12 +186,16 @@ export function validateApps(ad, items = {}, placesData = null) {
     inRange(add, key, 'deadlineMult', r.deadlineMult, 0.2, 3, 'Hệ số thời hạn', { optional: true });
     inRange(add, key, 'quitBelow', r.quitBelow, 0, 90, 'Đòi xuống khi thoải mái dưới (%)', { optional: true });
     inRange(add, key, 'minRides', r.minRides, 0, 500, 'Mở sau số chuyến', { int: true, optional: true });
-    for (const f of ['vagueChance', 'vomitChance', 'noPayChance', 'bigTipChance']) inRange(add, key, f, r[f], 0, 1, 'Tỉ lệ', { optional: true });
+    for (const f of ['vagueChance', 'vomitChance', 'noPayChance', 'bigTipChance', 'changeDestChance', 'changeDestPays', 'robPctMin']) inRange(add, key, f, r[f], 0, 1, 'Tỉ lệ', { optional: true });
+    inRange(add, key, 'robMax', r.robMax, 0, 5000, 'Bị lấy tối đa (k)', { optional: true });
+    for (const f of ['scam', 'luggage', 'foreign']) if (r[f] != null && typeof r[f] !== 'boolean') add('error', key, f, 'Phải là có / không.');
+    if (r.names != null && (!Array.isArray(r.names) || r.names.some((s) => typeof s !== 'string' || !s.trim()))) add('error', key, 'names', 'Tên khách: mỗi dòng một tên, không để trống.');
+    if (r.scam && !(r.weight <= 2)) add('warn', key, 'weight', 'Khách lừa đảo nên hiếm (mức ≤ 2) — nhiều quá người chơi mất tiền liên tục.');
     for (const f of ['bigTip', 'earlyTip', 'vomitCost']) inRange(add, key, f, r[f], 0, 500, 'Số tiền (k)', { optional: true });
     inRange(add, key, 'vomitMental', r.vomitMental, 0, 100, 'Trừ tinh thần', { optional: true });
     if (hoursProblem(r.hours, presets)) add('error', key, 'hours', `Khung giờ: ${hoursProblem(r.hours, presets)}`);
     if (r.viaApp != null && typeof r.viaApp !== 'boolean') add('error', key, 'viaApp', 'Qua app phải là có/không.');
-    for (const id of r.from || []) if (placesData && !placeIds.has(id)) add('error', key, 'from', `Địa điểm "${id}" không tồn tại.`);
+    for (const id of r.from || []) if (placesData && id !== FROM_HOMES && !placeIds.has(id)) add('error', key, 'from', `Địa điểm "${id}" không tồn tại.`);
     if (r.riderNames != null && (!Array.isArray(r.riderNames) || r.riderNames.some((s) => typeof s !== 'string' || !s.trim()))) add('error', key, 'riderNames', 'Tên người đi: mỗi dòng một tên, không để trống.');
     if (num(r.vomitMental) && r.vomitMental >= 30) add('warn', key, 'vomitMental', 'Trừ tinh thần ≥ 30 một lần — người chơi đang yếu có thể thua ngay.');
   }

@@ -186,5 +186,14 @@
     "speed": 9,
     "dwellMin": 0.5,
     "stopEvery": 2
+  },
+  "rideEvents": {
+    "refuseStars": 3,
+    "policeNearM": 300,
+    "policeReward": 30,
+    "robbedMental": 25,
+    "scamRefuseMental": 5,
+    "luggageSpeedMul": 0.8,
+    "foreignCallMin": 4
   }
 }

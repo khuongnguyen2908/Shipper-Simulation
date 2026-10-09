@@ -13,6 +13,8 @@ export const RIDER_TYPES = raw.riderTypes;
 export const APP = Object.values(APPS)[0];
 
 export const ORDER_KINDS = ['food', 'ride', 'parcel'];
+// mục "Đón ở" của loại khách: mã đặc biệt = nhà dân (tick cùng địa điểm → đón ở nhà dân hoặc các địa điểm đó)
+export const FROM_HOMES = 'nhaDan';
 
 // khung giờ của loại đơn / loại khách: một đoạn, nhiều đoạn, hoặc mã khung giờ mẫu (xem sim/hours.js)
 export const typeOpen = (t, now) => inHours(t.hours, now);

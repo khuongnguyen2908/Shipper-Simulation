@@ -15,8 +15,8 @@
 // Loại đơn, loại khách xe ôm, phí app đọc từ apps.json (sửa bằng ?editor, thẻ 📱 App & Đơn).
 // =============================================================
 import { ITEMS } from '../data/items.js';
-import { ORDER, DIST, ECONOMY } from '../data/balance.js';
-import { APP, ORDER_TYPES, RIDER_TYPES, ORDER_KINDS, typeOpen, isPeak, surchargeAt, demandAt } from '../data/apps.js';
+import { ORDER, DIST, ECONOMY, RIDE_EVENTS } from '../data/balance.js';
+import { APP, ORDER_TYPES, RIDER_TYPES, ORDER_KINDS, FROM_HOMES, typeOpen, isPeak, surchargeAt, demandAt } from '../data/apps.js';
 import { CUSTOMER_NAMES } from '../data/places.js';
 import { lookOf } from '../data/looks.js';
 import { DeliveryItem } from './ItemPhysics.js';
@@ -139,6 +139,7 @@ export class OrderManager {
   // dtMin: phút game, dtSec: giây thật (đếm ngược thẻ đơn theo thời gian thật)
   update(dtMin, dtSec, now, pos) {
     this.now = now; // giờ hiện tại (chọn nhà khách theo khu ngày / đêm)
+    if (this.state === S.DELIVERING && pos) this.checkMidEvent(now, pos);
     if (this.state === S.IDLE) {
       if (!inHours(APP.hours, now)) return; // ngoài giờ app nhận đơn (apps.json → hours)
       if (demandAt(now) <= 0) return; // giờ này không có ai đặt
@@ -264,12 +265,13 @@ export class OrderManager {
   // Loại khách xe ôm lúc này (theo giờ, số chuyến đã chở, nơi đón)
   pickRider(now) {
     const gs = this.gs;
-    const cands = Object.values(RIDER_TYPES).filter((r) => r.weight > 0 && typeOpen(r, now) && (!r.minRides || gs.account.rides >= r.minRides) && (!r.from || this.riderPlaces(r, now).length));
+    const homes = (r) => !r.from || !r.from.length || r.from.includes(FROM_HOMES); // đón được ở nhà dân
+    const cands = Object.values(RIDER_TYPES).filter((r) => r.weight > 0 && typeOpen(r, now) && (!r.minRides || gs.account.rides >= r.minRides) && (homes(r) || this.riderPlaces(r, now).length));
     if (!cands.length) return RIDER_TYPES.app || Object.values(RIDER_TYPES)[0] || null;
     return this.rng.weighted(cands, cands.map((r) => r.weight));
   }
   riderPlaces(r, now) {
-    return (r.from || []).map((id) => this.layout.placeById[id]).filter((p) => p && isOpen(p, now, this.gs.day));
+    return (r.from || []).filter((id) => id !== FROM_HOMES).map((id) => this.layout.placeById[id]).filter((p) => p && isOpen(p, now, this.gs.day));
   }
 
   makeRide(pos, story, now = 0, type = ORDER_TYPES.ride) {
@@ -277,8 +279,14 @@ export class OrderManager {
     const rider = story ? RIDER_TYPES.app || null : this.pickRider(now);
     let pickup;
     const from = rider && rider.from ? this.riderPlaces(rider, now) : [];
+    // "Đón ở" có cả nhà dân lẫn địa điểm → chia đôi; chỉ địa điểm → luôn ở địa điểm
+    const homeToo = !!rider?.from?.includes(FROM_HOMES);
+    const atPlace = from.length && (!homeToo || this.rng.chance(0.5));
     if (story) pickup = { placeId: 'market', name: market.name, address: market.address, door: rideDoor(market) };
-    else if (from.length) {
+    else if (homeToo && !atPlace) {
+      const l = this.pickLotAround(pos, 40, 180);
+      pickup = { name: l.address, address: l.address, door: rideDoor(l), lotKey: l.key };
+    } else if (atPlace) {
       const p = this.rng.pick(from); // khách say đi ra từ karaoke…
       pickup = { placeId: p.id, name: p.name, address: p.name, door: rideDoor(p) };
     } else if ((pickup = this.placeDestination('rideWeight', now, null, 0.5, false, true))) {
@@ -295,9 +303,23 @@ export class OrderManager {
     o.revealed = !o.flags.vague;
     if (o.flags.vague) o.zone = this.vagueZone(dropoff.door);
     // đặt xe dùm: người đi khác người đặt
+    if (rider && Array.isArray(rider.names) && rider.names.length) o.customer = this.rng.pick(rider.names); // tên riêng (khách nước ngoài…)
     if (rider && Array.isArray(rider.riderNames) && rider.riderNames.length) {
       o.booker = o.customer;
       o.customer = this.rng.pick(rider.riderNames);
+    }
+    // sự cố giữa đường (lừa đảo / đổi điểm đến) — xảy ra khi đã đi được `at` phần quãng đường
+    if (rider?.foreign) o.flags.foreign = true;
+    if (!story && rider) {
+      if (rider.scam) {
+        o.flags.scam = true;
+        o.flags.vague = true; // chỉ cho khu vực, không địa chỉ rõ
+        o.revealed = false;
+        o.zone = this.vagueZone(dropoff.door);
+        o.midEvent = { type: 'scam', at: this.rng.range(0.4, 0.6), robMax: rider.robMax ?? 300, robPctMin: rider.robPctMin ?? 0.5 };
+      } else if (this.rng.chance(rider.changeDestChance || 0)) {
+        o.midEvent = { type: 'changeDest', at: this.rng.range(0.3, 0.6), pays: this.rng.chance(rider.changeDestPays ?? 0.5) };
+      }
     }
     if (story) {
       o.story = 'wallet';
@@ -584,8 +606,10 @@ export class OrderManager {
     }
     // Đang giao mà địa chỉ mơ hồ → khách tả đường
     if (!o.revealed && (this.state === S.DELIVERING || this.state === S.TO_PICKUP)) {
+      if (o.flags.scam) return { answered: true, revealed: false, waitMin: 1, scam: true }; // khách lừa đảo nói vòng vo, không cho địa chỉ
       this.reveal();
-      return { answered: true, revealed: true, waitMin: 1 };
+      const foreign = !!o.flags.foreign;
+      return { answered: true, revealed: true, waitMin: foreign ? RIDE_EVENTS.foreignCallMin ?? 4 : 1, foreign };
     }
     return { answered: true, waitMin: 1 };
   }
@@ -710,14 +734,101 @@ export class OrderManager {
     return receipt;
   }
 
-  // Khách xe ôm sợ quá đòi xuống giữa đường: trả tiền theo quãng đã đi, 1 sao
-  quitRide(now, pos) {
+  // ---------- sự cố giữa đường (khách xe ôm) ----------
+  // Đi được `at` phần quãng → báo cho game hỏi người chơi (một lần mỗi chuyến)
+  // force: bỏ qua kiểm tra quãng đã đi (bot mô phỏng gọi khi đã chạy tới giữa đường)
+  checkMidEvent(now, pos, force = false) {
+    const o = this.order;
+    const ev = o?.midEvent;
+    if (!ev || ev.fired || o.kind !== 'ride') return;
+    const traveled = 1 - routeDist(pos, o.dropoff.door) / Math.max(1, o.d2);
+    if (!force && traveled < ev.at) return;
+    ev.fired = true;
+    if (ev.type === 'changeDest') {
+      // điểm mới: cách chỗ đang đứng 60–220 m, không phải điểm cũ
+      const cands = this.layout.lots.filter((l) => {
+        const d = routeDist(pos, l.door);
+        return d > 60 && d < 220 && l.key !== o.dropoff.lotKey;
+      });
+      const l = cands.length ? this.rng.pick(cands) : null;
+      if (!l) { ev.fired = 'skip'; return; }
+      ev.alt = { name: l.address, address: l.address, door: rideDoor(l), apartment: false, lotKey: l.key };
+      ev.extra = Math.max(0, routeDist(pos, ev.alt.door) - routeDist(pos, o.dropoff.door));
+    } else if (ev.type === 'scam') {
+      const st = this.layout.places.filter((p) => p.kind === 'police').map((p) => ({ p, d: routeDist(pos, p.door) })).sort((a, b) => a.d - b.d)[0];
+      ev.station = st && st.d <= (RIDE_EVENTS.policeNearM ?? 300) ? { placeId: st.p.id, name: st.p.name, address: st.p.name, door: rideDoor(st.p), apartment: false } : null;
+    }
+    this.emit('rideEvent', { order: o, event: ev });
+  }
+  // Đổi điểm đến: đồng ý → chở tới điểm mới (khách có bù tiền hay không tùy khách) · từ chối → khách xuống, trả theo quãng đã đi
+  resolveChangeDest(accept, now, pos) {
+    const o = this.order;
+    const ev = o?.midEvent;
+    if (!ev || ev.type !== 'changeDest' || !ev.alt || ev.done || this.state !== S.DELIVERING) return null;
+    ev.done = true;
+    if (!accept) return this.quitRide(now, pos, { stars: RIDE_EVENTS.refuseStars ?? 3, label: 'pen.refuseChange' });
+    const extraKm = Math.round((ev.extra * DIST.displayPerUnit) / 100) / 10;
+    o.dropoff = ev.alt;
+    o.d2 += ev.extra;
+    o.allowedMin += Math.max(2, Math.round(ev.extra / 10));
+    if (ev.pays) {
+      o.distanceKm = Math.round((o.distanceKm + extraKm) * 10) / 10;
+      o.estPay = estimatePay(o.baseFare, o.distanceKm, { surcharge: o.surcharge, airportFee: o.airportFee || 0, viaApp: o.viaApp });
+    }
+    this.emit('destChanged', { order: o, pays: ev.pays, extraKm });
+    return { accepted: true, pays: ev.pays, extraKm };
+  }
+  // Khách lừa đảo đòi rẽ vào hẻm vắng: 'comply' → bị lấy tiền · 'refuse' → cho xuống, mất chuyến · 'police' → chở thẳng tới đồn
+  resolveScam(choice, now) {
+    const o = this.order;
+    const ev = o?.midEvent;
+    if (!ev || ev.type !== 'scam' || ev.done || this.state !== S.DELIVERING) return null;
+    ev.done = true;
+    if (choice === 'police' && ev.station) {
+      o.dropoff = ev.station;
+      o.revealed = true;
+      o.zone = null;
+      o.scamToPolice = true;
+      this.emit('destChanged', { order: o, pays: false, extraKm: 0 });
+      return { police: true };
+    }
+    this.order = null;
+    this.go(S.IDLE);
+    this.schedulePing(now);
+    if (choice === 'comply') {
+      const pct = this.rng.range(ev.robPctMin ?? 0.5, 1);
+      const amount = Math.max(0, Math.min(this.gs.money, r1(Math.min(ev.robMax ?? 300, this.gs.money * pct))));
+      if (amount > 0) this.gs.spend(amount, 'robbed', true);
+      this.gs.addEnergy(0, -(RIDE_EVENTS.robbedMental ?? 25));
+      this.gs.stats.robbed = (this.gs.stats.robbed || 0) + 1;
+      this.emit('robbed', { order: o, amount });
+      return { robbed: amount };
+    }
+    this.gs.addEnergy(0, -(RIDE_EVENTS.scamRefuseMental ?? 5));
+    this.emit('scamRefused', { order: o });
+    return { refused: true };
+  }
+  // Tới đồn công an với khách lừa đảo: khách bỏ chạy, công an thưởng cho tài xế
+  finishAtPolice(now) {
+    const o = this.order;
+    if (!o?.scamToPolice || this.state !== S.AT_DROPOFF) return null;
+    const reward = RIDE_EVENTS.policeReward ?? 30;
+    this.gs.earn(reward, 'policeReward');
+    this.order = null;
+    this.go(S.IDLE);
+    this.schedulePing(now);
+    this.emit('scamCaught', { order: o, reward });
+    return { reward };
+  }
+
+  // Khách xe ôm sợ quá đòi xuống giữa đường (hoặc từ chối đổi điểm đến): trả tiền theo quãng đã đi
+  quitRide(now, pos, { stars = 1, label = 'pen.quit' } = {}) {
     const o = this.order;
     if (this.state !== S.DELIVERING || !o || o.kind !== 'ride') return null;
     const traveled = Math.max(0, Math.min(1, 1 - routeDist(pos, o.dropoff.door) / Math.max(1, o.d2)));
     const conditionPct = o.items.length ? o.items[0].condition : 0;
-    const ev = { refused: false, quit: true, stars: 1, conditionPct, timeRatio: o.allowedMin > 0 ? (now - o.acceptedAt) / o.allowedMin : 0, penalties: [{ label: fmt('pen.quit'), value: 4 }], reasons: Object.entries(o.items[0]?.reasons || {}).filter(([, v]) => v >= 0.5).sort((a, b) => b[1] - a[1]) };
-    const pay = computePayout({ baseFare: o.baseFare, distanceKm: o.distanceKm, litersUsed: o.liters, stars: 1, farePct: traveled, surcharge: o.surcharge, airportFee: o.airportFee || 0, viaApp: o.viaApp });
+    const ev = { refused: false, quit: true, stars, conditionPct, timeRatio: o.allowedMin > 0 ? (now - o.acceptedAt) / o.allowedMin : 0, penalties: [{ label: fmt(label), value: 5 - stars }], reasons: Object.entries(o.items[0]?.reasons || {}).filter(([, v]) => v >= 0.5).sort((a, b) => b[1] - a[1]) };
+    const pay = computePayout({ baseFare: o.baseFare, distanceKm: o.distanceKm, litersUsed: o.liters, stars, farePct: traveled, surcharge: o.surcharge, airportFee: o.airportFee || 0, viaApp: o.viaApp });
     pay.cod = 0;
     const receipt = { order: o, ev, pay, elapsed: now - o.acceptedAt, at: now, quit: true, traveled };
     this.history.push(receipt);

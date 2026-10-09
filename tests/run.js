@@ -651,7 +651,7 @@ console.log('App giao hàng, loại đơn, tài khoản, loại khách (apps.jso
     const undo = withRider(om, 'drunk');
     const d = om.makeRide({ x: 0, z: 0 }, false, 20.5 * 60);
     undo();
-    assert.equal(d.pickup.placeId, 'karaoke');
+    assert.ok(RIDER_TYPES.drunk.from.includes(d.pickup.placeId), `đón ở ${d.pickup.placeId}`); // một trong các nơi đã tick "Đón ở"
     for (let i = 0; i < 100; i++) assert.notEqual(om.pickRider(10 * 60).id, 'regular', 'chưa đủ số chuyến thì chưa có khách quen');
     gs.account.rides = 5;
     const undo2 = withRider(om, 'regular');
@@ -2667,6 +2667,109 @@ console.log('Xe buýt (tuyến, trạm, lịch chạy)');
     bad.places[0].orders = { parcelWeight: 1, parcelItems: ['khongCo', 'pho'] };
     const errs = VALIDATE.validatePlaces(bad, DATA.items).filter((i) => i.level === 'error' && i.field === 'orders.parcelItems');
     assert.equal(errs.length, 2);
+  });
+}
+
+console.log('Loại khách mới: nhà dân + địa điểm, đổi điểm đến, lừa đảo, vali, nước ngoài');
+{
+  const { RIDER_TYPES, FROM_HOMES } = await import('../src/data/apps.js');
+  const { RIDE_EVENTS } = await import('../src/data/balance.js');
+  // chạy makeRide với một loại khách thử (không phụ thuộc dữ liệu người dùng)
+  const offerNow = (om, make, now) => {
+    if (om.state === S.OFFLINE) om.goOnline();
+    om.offer = make();
+    om.go(S.OFFERED);
+    return om.accept(now, { x: 0, z: 0 });
+  };
+  const withType = (om, r) => { const old = om.pickRider; om.pickRider = () => r; return () => { om.pickRider = old; }; };
+  const base = { id: 'thu', name: 'Thử', weight: 1, viaApp: true, comfortKmh: 40, fareMult: 1, deadlineMult: 1, quitBelow: 0 };
+  const shop = layout.places.find((p) => p.kind === 'restaurant' && (!p.hours || p.hours === 'haiTuGio' || p.hours === 'caNgay'));
+  const mk = (seed = 21, money = 500) => {
+    const { om, gs } = mkOM(seed, { carry: { money, flags: { wallet: 5 } } });
+    gs.buy('goods', 'spareHelmet');
+    return { om, gs };
+  };
+  test('"Đón ở": chỉ địa điểm → luôn ở địa điểm; thêm 🏠 Nhà dân → cả hai; để trống → như cũ', () => {
+    const { om } = mk();
+    let undo = withType(om, { ...base, from: [shop.id] });
+    for (let i = 0; i < 30; i++) assert.equal(om.makeRide({ x: 0, z: 0 }, false, 12 * 60).pickup.placeId, shop.id);
+    undo();
+    undo = withType(om, { ...base, from: [FROM_HOMES, shop.id] });
+    let atShop = 0, atHome = 0;
+    for (let i = 0; i < 80; i++) (om.makeRide({ x: 0, z: 0 }, false, 12 * 60).pickup.placeId === shop.id ? atShop++ : atHome++);
+    undo();
+    assert.ok(atShop > 15 && atHome > 15, `địa điểm ${atShop}, nhà dân ${atHome}`);
+    // chỉ tick nhà dân (địa điểm đều đóng cửa) vẫn có khách
+    assert.ok(om.pickRider.call({ ...om, riderPlaces: () => [] }, 12 * 60));
+  });
+  test('Đổi điểm đến: đồng ý (bù tiền / không bù) → chở tới chỗ mới; từ chối → khách xuống, trả theo quãng, sao thấp', () => {
+    for (const [choice, pays] of [[true, true], [true, false], [false, false]]) {
+      const { om, gs } = mk(31);
+      const undo = withType(om, { ...base, changeDestChance: 1, changeDestPays: pays ? 1 : 0 });
+      const o = offerNow(om, () => om.makeRide({ x: 0, z: 0 }, false, 12 * 60), 12 * 60);
+      undo();
+      assert.ok(om.boardPassenger(12 * 60));
+      assert.equal(o.midEvent?.type, 'changeDest');
+      const mid = { x: (o.pickup.door.x + o.dropoff.door.x) / 2, z: (o.pickup.door.z + o.dropoff.door.z) / 2 };
+      om.checkMidEvent(12 * 60 + 5, mid, true);
+      if (!o.midEvent.alt) continue; // không có chỗ đổi gần đó
+      const km0 = o.distanceKm, old = o.dropoff.lotKey;
+      const r = om.resolveChangeDest(choice, 12 * 60 + 5, mid);
+      if (choice) {
+        assert.notEqual(o.dropoff.lotKey, old);
+        assert.ok(pays ? o.distanceKm >= km0 : o.distanceKm === km0, `km ${km0} → ${o.distanceKm}`);
+      } else {
+        assert.ok(r && r.quit && r.ev.stars === (RIDE_EVENTS.refuseStars ?? 3));
+        gs.applyReceipt(r);
+        assert.equal(om.order, null);
+      }
+    }
+  });
+  test('Khách lừa đảo: thẻ đơn có dấu hiệu; chạy vào → mất tiền (≤ tối đa); mời xuống → ví còn nguyên; chở tới đồn → được thưởng', () => {
+    const scam = { ...base, scam: true, robMax: 200, robPctMin: 0.5 };
+    for (const choice of ['comply', 'refuse', 'police']) {
+      const { om, gs } = mk(41, 500);
+      const undo = withType(om, scam);
+      const o = offerNow(om, () => om.makeRide({ x: 0, z: 0 }, false, 22 * 60), 22 * 60);
+      undo();
+      assert.ok(o.flags.scam && o.flags.vague && o.midEvent.type === 'scam');
+      om.boardPassenger(22 * 60);
+      const station = layout.places.find((p) => p.kind === 'police');
+      const pos = choice === 'police' && station ? station.door : { x: (o.pickup.door.x + o.dropoff.door.x) / 2, z: (o.pickup.door.z + o.dropoff.door.z) / 2 };
+      om.checkMidEvent(22 * 60 + 5, pos, true);
+      const m0 = gs.money;
+      if (choice === 'police') {
+        if (!o.midEvent.station) continue; // bản đồ không có đồn
+        om.resolveScam('police', 22 * 60 + 5);
+        assert.equal(o.dropoff.placeId, station.id);
+        om.arriveAtDropoff(22 * 60 + 8);
+        const r = om.finishAtPolice(22 * 60 + 8);
+        assert.ok(r.reward > 0 && gs.money === m0 + r.reward && om.order === null);
+      } else {
+        const r = om.resolveScam(choice, 22 * 60 + 5);
+        assert.equal(om.order, null);
+        if (choice === 'comply') assert.ok(r.robbed >= 200 * 0.5 - 0.01 && r.robbed <= 200 && gs.money === m0 - r.robbed, `mất ${r.robbed}`);
+        else assert.equal(gs.money, m0);
+      }
+    }
+  });
+  test('Khách nước ngoài: tên riêng, gọi hỏi đường mất lâu hơn; khách vali: có cờ để xe chạy chậm', () => {
+    const { om } = mk(51);
+    const undo = withType(om, { ...base, foreign: true, vagueChance: 1, names: ['Emma'] });
+    const o = offerNow(om, () => om.makeRide({ x: 0, z: 0 }, false, 12 * 60), 12 * 60);
+    undo();
+    assert.equal(o.customer, 'Emma');
+    om.boardPassenger(12 * 60);
+    if (!o.revealed) assert.equal(om.callCustomer(12 * 60).waitMin, RIDE_EVENTS.foreignCallMin ?? 4);
+    for (const r of Object.values(RIDER_TYPES)) if (r.luggage) assert.ok(r.fareMult >= 1, `${r.name}: khách vali nên cước ≥ thường`);
+  });
+  test('Kiểm tra dữ liệu: "nhaDan" hợp lệ trong Đón ở; tỉ lệ đổi điểm đến ngoài 0–100% là lỗi', () => {
+    const { validateApps } = VALIDATE;
+    const bad = JSON.parse(JSON.stringify(DATA.apps));
+    bad.riderTypes.app.from = [FROM_HOMES];
+    bad.riderTypes.app.changeDestChance = 3;
+    const errs = validateApps(bad, DATA.items, DATA.places).filter((i) => i.level === 'error').map((i) => `${i.ref}.${i.field}`);
+    assert.ok(errs.includes('app.changeDestChance') && !errs.includes('app.from'), errs.join(', '));
   });
 }
 
