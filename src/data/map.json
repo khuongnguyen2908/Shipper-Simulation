@@ -9,9 +9,14 @@
       "bridges": [
         3,
         7,
-        9
+        10
       ],
-      "name": "Kênh Bến Mây"
+      "name": "Kênh Bến Mây",
+      "bridgeStyles": {
+        "3": "iron",
+        "7": "concrete",
+        "10": "iron"
+      }
     },
     {
       "axis": "x",
@@ -20,10 +25,14 @@
       "to": 10,
       "bridges": [
         2,
-        5,
-        8
+        5
       ],
-      "name": "Sông Ngân"
+      "name": "Sông Ngân",
+      "wide": true,
+      "bridgeStyles": {
+        "2": "flat",
+        "5": "arch"
+      }
     }
   ],
   "blocks": {

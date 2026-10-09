@@ -173,11 +173,14 @@ function placeStop(a, b, doors) {
   const lat = c + (axis === 'x' ? rx : rz) * (CITY.ROAD / 2 + 1.0);
   const at = (al) => (axis === 'x' ? { x: lat, z: al } : { x: al, z: lat });
   let pick = cands[0], best = -1;
-  for (const al of cands) {
+  const tryAt = (al) => {
     const p = at(al);
     const d = Math.min(...doors.map((q) => Math.hypot(q.x - p.x, q.z - p.z)), 99);
     if (d > best) { best = d; pick = al; }
-  }
+  };
+  for (const al of cands) tryAt(al);
+  // 2 chỗ quen đều sát cửa nhà → thử thêm vài chỗ dọc khối (mã trạm của 2 chỗ quen giữ nguyên)
+  if (best < 2.5) for (const k of [1.5, 0.5, 2.5, 0.75, 2.25]) cands.push(a0 + CITY.SW + k * LOT_W), tryAt(cands[cands.length - 1]);
   const p = at(pick);
   const start = axis === 'x' ? roadPos(a[1]) : roadPos(a[0]);
   const ry = Math.atan2(-rx, -rz); // mặt trước nhà chờ quay ra đường

@@ -69,6 +69,7 @@ export class Game {
     this.city = buildCity(this.scene, this.layout, this.potholes, this.worldSeed);
     this.sky = new Sky(this.scene);
     this.traffic = new Traffic(this.scene, makeRng(99));
+    this.traffic.elev = this.city.elev; // xe bot chạy lên cầu theo độ cao mặt cầu
     for (const l of this.city.loops || []) this.traffic.addLoop(l); // xe bot chạy vòng lên sàn ga đi sân bay
     this.bus = this.city.bus; // xe buýt: tuyến + trạm (src/sim/bus.js)
     this.traffic.setBuses(this.bus);

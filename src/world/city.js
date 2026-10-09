@@ -3,7 +3,7 @@
 // đèn đường, cây xanh, ổ gà. Trả về lưới va chạm + hàm đổi ngày/đêm, mưa.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { CITY, LOT_W, HALF, roadPos, blockBounds, roadGraph, segmentRect, cutSide, districtAt, joinList, joinGap, joinedSide } from '../sim/cityLayout.js';
+import { CITY, LOT_W, HALF, roadPos, blockBounds, roadGraph, segmentRect, cutSide, districtAt, joinList, joinGap, joinedSide, isWaterBlock } from '../sim/cityLayout.js';
 import { MAP } from '../data/map.js';
 import { pickHouseStyle, blockHouseStyle, treesOf } from '../data/districtTraits.js';
 import { buildStreetDecor } from './streetDecor.js';
@@ -14,6 +14,7 @@ import { makeTileTexture, makeAsphaltTexture, makeSignTexture, makeGlowTexture }
 import { HouseGeo, buildHouse, housesForLot, houseMaterial, houseTop } from './houses.js';
 import { buildPlace, buildResidential, mergeKits, makeKit, busStopModel, airportPath, AIRPORT_MIN_W } from './placeBuildings.js';
 import { Elevated } from './elevated.js';
+import { buildBridges, bridgeDecks, HUMP } from './bridges.js';
 import { lotFrame, airportZones } from '../sim/airport.js';
 import { lookOf, lookFloors } from '../data/looks.js';
 import { ITEMS } from '../data/items.js';
@@ -67,7 +68,11 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   // xe buýt (src/sim/bus.js): tuyến + trạm; cây, trang trí vỉa hè chừa chỗ cho nhà chờ
   const bus = opts.bus || buildBusSystem(layout, mapData);
   const nearStop = (x, z, d = 2.6) => bus.stops.some((s) => Math.hypot(s.x - x, s.z - z) < d);
-  const noRoad = (id) => G.waterSegs.has(id) || G.closedSegs.has(id); // sông hoặc đoạn đã gộp khối
+  const noRoad = (id) => G.waterSegs.has(id) || G.closedSegs.has(id) || G.rampSegs.has(id); // sông · đoạn đã gộp khối · dốc / nhịp cầu cao
+  // cầu kênh vồng (src/world/bridges.js): mặt cầu tự có vạch, đường quanh chân cầu không vẽ vạch / vá / lề
+  const humps = bridgeDecks(G).filter((d) => !d.wide);
+  const humpNodes = new Set(humps.map((d) => (d.axis === 'z' ? `${d.k},${d.line}` : `${d.line},${d.k}`)));
+  const nearHump = (x, z) => humps.some((d) => (d.along === 'x' ? Math.abs(z - d.w) < 7 && Math.abs(x - d.mid) < HUMP.reach + 1 : Math.abs(x - d.w) < 7 && Math.abs(z - d.mid) < HUMP.reach + 1));
   const segIdx = (a) => Math.floor((a - CITY.ORIGIN) / CITY.PITCH);
   const dashGeo = new THREE.PlaneGeometry(1, 1);
   dashGeo.rotateX(-Math.PI / 2);
@@ -83,8 +88,8 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     for (let a = -HALF; a <= HALF; a += 6) {
       if (nearCross(a, 9)) continue;
       const vx = `x${i}:${segIdx(a)}`, hz = `z${i}:${segIdx(a)}`;
-      if (!noRoad(vx)) for (const o of laneDashes(vx)) dashes.push([roadPos(i) + o, a, 0.18, 3]); // đường dọc
-      if (!noRoad(hz)) for (const o of laneDashes(hz)) dashes.push([a, roadPos(i) + o, 3, 0.18]); // đường ngang
+      if (!noRoad(vx) && !nearHump(roadPos(i), a)) for (const o of laneDashes(vx)) dashes.push([roadPos(i) + o, a, 0.18, 3]); // đường dọc
+      if (!noRoad(hz) && !nearHump(a, roadPos(i))) for (const o of laneDashes(hz)) dashes.push([a, roadPos(i) + o, 3, 0.18]); // đường ngang
     }
     for (let j = 0; j <= CITY.N; j++) {
       if (G.waterNodes.has(`${i},${j}`) || G.bridgeNodes.has(`${i},${j}`)) continue;
@@ -126,6 +131,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
             let lat = (prng.next() - 0.5) * (2 * tg.half - 3);
             if (tg.median && Math.abs(lat) < tg.median + 1) lat = Math.sign(lat || 1) * (tg.median + 1.5);
             const [x, z] = at(a0 + prng.next() * (a1 - a0), lat);
+            if (nearHump(x, z)) continue;
             patches.push([x, z, 1 + prng.next() * 2.5, 0.8 + prng.next() * 1.6, prng.next() * 0.5 - 0.25]);
           }
           for (const side of [-1, 1]) {
@@ -181,9 +187,33 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     const r = segmentRect(seg);
     flat(r, 0.03, waterMat);
     addBox(r.x0, r.z0, r.x1, r.z1, 0.3, 'water');
-    // kè thấp dọc hai bờ (mép đường giáp vỉa hè)
-    if (seg.axis === 'x') { wall(r.x0 - 0.3, r.z0, r.x0, r.z1, 0.5, kerbMat, 'kerb'); wall(r.x1, r.z0, r.x1 + 0.3, r.z1, 0.5, kerbMat, 'kerb'); }
-    else { wall(r.x0, r.z0 - 0.3, r.x1, r.z0, 0.5, kerbMat, 'kerb'); wall(r.x0, r.z1, r.x1, r.z1 + 0.3, 0.5, kerbMat, 'kerb'); }
+    // kè thấp dọc hai bờ (mép đường giáp vỉa hè); phía giáp khối dưới sông lớn thì không có kè
+    const landA = seg.axis === 'x' ? !isWaterBlock(seg.line - 1, seg.from, mapData) : !isWaterBlock(seg.from, seg.line - 1, mapData);
+    const landB = seg.axis === 'x' ? !isWaterBlock(seg.line, seg.from, mapData) : !isWaterBlock(seg.from, seg.line, mapData);
+    if (seg.axis === 'x') { if (landA) wall(r.x0 - 0.3, r.z0, r.x0, r.z1, 0.5, kerbMat, 'kerb'); if (landB) wall(r.x1, r.z0, r.x1 + 0.3, r.z1, 0.5, kerbMat, 'kerb'); }
+    else { if (landA) wall(r.x0, r.z0 - 0.3, r.x1, r.z0, 0.5, kerbMat, 'kerb'); if (landB) wall(r.x0, r.z1, r.x1, r.z1 + 0.3, 0.5, kerbMat, 'kerb'); }
+  }
+  // sông lớn: cả khối thành mặt nước; dưới nhịp cầu cao cũng là mặt nước (xe chạy trên cầu, không chạy dưới)
+  for (const key of G.waterBlocks) {
+    const [bx, bz] = key.split(',').map(Number);
+    const b = blockBounds(bx, bz);
+    flat(b, 0.03, waterMat);
+    addBox(b.x0, b.z0, b.x1, b.z1, 0.3, 'water');
+  }
+  for (const id of G.highSegs) {
+    const m = /^([xz])(\d+):(\d+)$/.exec(id);
+    const r = segmentRect({ axis: m[1], line: +m[2], from: +m[3] });
+    flat(r, 0.03, waterMat);
+    addBox(r.x0, r.z0, r.x1, r.z1, 0.3, 'water');
+  }
+  // cầu thấp qua sông lớn: mặt đường nối 2 bờ, lan can 2 bên
+  for (const id of G.bridgeSegs) {
+    if (G.highSegs.has(id)) continue;
+    const m = /^([xz])(\d+):(\d+)$/.exec(id);
+    const r = segmentRect({ axis: m[1], line: +m[2], from: +m[3] });
+    flat(r, 0.02, deckMat); // mặt cầu cùng màu với 2 đầu cầu
+    if (m[1] === 'z') { wall(r.x0, r.z0 - 0.15, r.x1, r.z0 + 0.15, 1.0, railMat, 'rail'); wall(r.x0, r.z1 - 0.15, r.x1, r.z1 + 0.15, 1.0, railMat, 'rail'); }
+    else { wall(r.x0 - 0.15, r.z0, r.x0 + 0.15, r.z1, 1.0, railMat, 'rail'); wall(r.x1 - 0.15, r.z0, r.x1 + 0.15, r.z1, 1.0, railMat, 'rail'); }
   }
   // ngã tư trên sông: có cầu → mặt cầu + lan can hai bên giáp nước; không cầu → mặt nước + lan can chắn đầu đường cụt
   const sides = (i, j) => [
@@ -200,7 +230,10 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     const x = roadPos(i), z = roadPos(j);
     const r = { x0: x - H, x1: x + H, z0: z - H, z1: z + H };
     const bridge = G.bridgeNodes.has(key);
-    if (bridge) {
+    if (G.highNodes.has(key) || humpNodes.has(key)) {
+      flat(r, 0.03, waterMat);
+      addBox(r.x0, r.z0, r.x1, r.z1, 0.3, 'water');
+    } else if (bridge) {
       flat(r, 0.02, deckMat);
       for (const s of sides(i, j)) if (G.waterSegs.has(s.seg)) edgeWall(x, z, s.edge, 1.0, railMat, 'rail');
     } else {
@@ -217,6 +250,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   const swGeo = new THREE.BoxGeometry(CITY.BLOCK, SW_H, CITY.BLOCK);
   for (let bz = 0; bz < CITY.N; bz++) {
     for (let bx = 0; bx < CITY.N; bx++) {
+      if (isWaterBlock(bx, bz, mapData)) continue; // khối dưới sông lớn
       const b = blockBounds(bx, bz);
       const m = new THREE.Mesh(swGeo, swMat);
       m.position.set((b.x0 + b.x1) / 2, SW_H / 2, (b.z0 + b.z1) / 2);
@@ -233,8 +267,9 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     const BIKE_COLS = [0xc0392b, 0x2c3e50, 0xecf0f1, 0x8e44ad, 0x2980b9, 0x7f8c8d, 0xd35400];
     for (const s of allSegments(mapData)) {
       const tier = tierAt(s.id);
-      if (tier === 'normal') continue;
-      const tg = TIER_GEO[tier], c = roadPos(s.line), a0 = roadPos(s.from) + 9, a1 = roadPos(s.from + 1) - 9;
+      if (tier === 'normal' || G.rampSegs.has(s.id) || G.bridgeSegs.has(s.id)) continue;
+      const endKey = (k) => (s.axis === 'x' ? `${s.line},${k}` : `${k},${s.line}`);
+      const tg = TIER_GEO[tier], c = roadPos(s.line), a0 = roadPos(s.from) + (humpNodes.has(endKey(s.from)) ? HUMP.reach + 1 : 9), a1 = roadPos(s.from + 1) - (humpNodes.has(endKey(s.from + 1)) ? HUMP.reach + 1 : 9);
       // hình chữ nhật theo (dọc đường a, ngang l) → toạ độ thế giới
       const rect = (la, lb, aa, ab) => (s.axis === 'x' ? { x0: c + la, x1: c + lb, z0: aa, z1: ab } : { x0: aa, x1: ab, z0: c + la, z1: c + lb });
       const pt = (a, l) => (s.axis === 'x' ? [c + l, a] : [a, c + l]);
@@ -296,6 +331,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     const CW = 0.28, CH = SW_H + 0.04, parts = [];
     for (let bz = 0; bz < CITY.N; bz++) {
       for (let bx = 0; bx < CITY.N; bx++) {
+        if (isWaterBlock(bx, bz, mapData)) continue;
         const b = blockBounds(bx, bz), L = CITY.BLOCK + 0.02;
         for (const [side, w, d, x, z] of [['N', L, CW, (b.x0 + b.x1) / 2, b.z0 + CW / 2 - 0.01], ['S', L, CW, (b.x0 + b.x1) / 2, b.z1 - CW / 2 + 0.01], ['W', CW, L, b.x0 + CW / 2 - 0.01, (b.z0 + b.z1) / 2], ['E', CW, L, b.x1 - CW / 2 + 0.01, (b.z0 + b.z1) / 2]]) {
           if (joinedSide(bx, bz, side, mapData)) continue; // cạnh quay vào khối đã gộp: không còn mép đường
@@ -455,6 +491,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   };
   // mặt đi trên cao (dốc + sàn ga đi sân bay) và đường vòng cho xe bot chạy lên thả khách
   const elev = new Elevated();
+  buildBridges(scene, G, elev); // cầu vòm cao, cầu kênh vồng (mặt đi trên cao cho xe)
   const loops = [];
   const addRamp = (p, rp) => {
     const fr = placeFrame(p);
@@ -474,11 +511,13 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     const xs = Math.abs(fr.toLocal(...snapRoad(...fr.toWorld(Math.abs(a[0]) + CITY.SW + CITY.ROAD / 2, a[2]), alongX))[0]) - lane;
     const zs = -fr.toLocal(...snapRoad(...fr.toWorld(0, -(fr.D + CITY.SW + CITY.ROAD / 2)), !alongX))[1] - lane;
     const corners = [[-xs, 0, e[2]], [-xs, 0, -zs], [xs, 0, -zs], [xs, 0, a[2]]];
-    const all = [...local, ...corners];
-    const poly = [...local];
+    // bỏ vài điểm sát chân dốc để chỗ rẽ vào / ra dốc có cung rộng hơn (không bẻ lái gắt)
+    const SKIP = 4, ramp = local.slice(SKIP, local.length - SKIP);
+    const all = [...ramp, ...corners];
+    const poly = [...ramp];
     for (let k = 0; k < corners.length; k++) {
-      const i = local.length + k;
-      poly.push(...roundCorner(all[i - 1], all[i], all[(i + 1) % all.length], 5));
+      const i = ramp.length + k;
+      poly.push(...roundCorner(all[i - 1], all[i], all[(i + 1) % all.length], 7));
     }
     const pts = resample(poly, 1);
     // điểm dừng thả khách: trên sàn ga đi, gần các vị trí x cho trước
@@ -557,6 +596,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   const trees = [...roadExtras.vergeTrees]; // + cây trên dải phân cách đại lộ, lề đường nhỏ
   for (let bz = 0; bz < CITY.N; bz++) {
     for (let bx = 0; bx < CITY.N; bx++) {
+      if (isWaterBlock(bx, bz, mapData)) continue;
       const b = blockBounds(bx, bz);
       for (const [x, z, dx, dz] of [[b.x0 + 0.8, b.z0 + 0.8, -1, -1], [b.x1 - 0.8, b.z0 + 0.8, 1, -1], [b.x0 + 0.8, b.z1 - 0.8, -1, 1], [b.x1 - 0.8, b.z1 - 0.8, 1, 1]]) {
         if (joinedSide(bx, bz, dx > 0 ? 'E' : 'W', mapData) || joinedSide(bx, bz, dz > 0 ? 'S' : 'N', mapData)) continue; // góc giáp khối đã gộp
@@ -670,6 +710,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   const polePos = new Map(); // `${bx},${bz},${side}` → [[x,z], [x,z]] theo chiều tăng toạ độ
   for (let bz = 0; bz < CITY.N; bz++) {
     for (let bx = 0; bx < CITY.N; bx++) {
+      if (isWaterBlock(bx, bz, mapData)) continue;
       const b = blockBounds(bx, bz), e = 0.45;
       const sides = { N: [[b.x0 + 8, b.z0 + e], [b.x1 - 8, b.z0 + e]], S: [[b.x0 + 8, b.z1 - e], [b.x1 - 8, b.z1 - e]], W: [[b.x0 + e, b.z0 + 8], [b.x0 + e, b.z1 - 8]], E: [[b.x1 - e, b.z0 + 8], [b.x1 - e, b.z1 - 8]] };
       for (const [side, pts] of Object.entries(sides)) {

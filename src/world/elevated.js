@@ -55,6 +55,13 @@ export class Elevated {
     return out;
   }
 
+  // Mặt cao nhất tại (x, z) — xe bot chạy trên cầu lấy độ cao này; không có mặt → 0 (mặt đường)
+  topAt(x, z) {
+    let best = 0;
+    for (const s of this.hits(x, z, 0)) if (s.h > best) best = s.h;
+    return best;
+  }
+
   // Cao độ mặt gần mức `near` nhất tại (x, z); không có → null
   heightAt(x, z, near, margin = 0) {
     let best = null;

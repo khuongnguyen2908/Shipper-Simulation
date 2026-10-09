@@ -1,6 +1,6 @@
 // Thẻ ĐỊA ĐIỂM & NPC: tên, biển hiệu, màu, vị trí trên bản đồ (bấm ô để dời), NPC,
 // thực đơn quán, lời thoại riêng; mục "Tên đường & khách" cho tên phố, tên khách, người đi đường.
-import { CITY, HALF, blockBounds, lotInfo, LOT_SIZES, lotParts, lotSize, lotFaces, blockPlan, blockRect } from '../../sim/cityLayout.js';
+import { CITY, HALF, blockBounds, lotInfo, LOT_SIZES, lotParts, lotSize, lotFaces, blockPlan, blockRect, isWaterBlock } from '../../sim/cityLayout.js';
 import { PROTECTED, ID_RE, LOTS, lotCells } from '../../data/validate.js';
 import { moveInArray } from './order.js';
 import { rowMenu, addButton, entryButtons, doRemove, doCopyActivity, doPasteActivity } from './opsUi.js';
@@ -379,6 +379,11 @@ export function render(root, ctx) {
     for (let bz = 0; bz < CITY.N; bz++) {
       for (let bx = 0; bx < CITY.N; bx++) {
         const b = blockBounds(bx, bz);
+        if (isWaterBlock(bx, bz, map)) { // khối dưới sông lớn: mặt nước, không có lô
+          g.fillStyle = '#3d7ea6';
+          g.fillRect(X(b.x0), Z(b.z0), CITY.BLOCK * k, CITY.BLOCK * k);
+          continue;
+        }
         g.fillStyle = '#4a5560';
         g.fillRect(X(b.x0), Z(b.z0), CITY.BLOCK * k, CITY.BLOCK * k);
         const bp = blockPlan(bx, bz, map);

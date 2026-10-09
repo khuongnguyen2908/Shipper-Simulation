@@ -1,5 +1,6 @@
 // Bản đồ nhỏ (góc màn hình) và bản đồ lớn trong điện thoại — vẽ bằng canvas 2D.
 import { CITY, HALF, roadPos, blockBounds, segmentRect, roadGraph, joinList, joinGap } from '../sim/cityLayout.js';
+const segOf = (id) => { const m = /^([xz])(\d+):(\d+)$/.exec(id); return { axis: m[1], line: +m[2], from: +m[3] }; };
 import { allSegments, tierOf, TIER_GEO } from '../sim/roads.js';
 import { STREETS_X, STREETS_Z } from '../data/places.js';
 import { lookOf } from '../data/looks.js';
@@ -75,7 +76,21 @@ export class MiniMap {
       const [i, j] = key.split(',').map(Number);
       g.fillRect(X(roadPos(i) - H), Z(roadPos(j) - H), CITY.ROAD * k, CITY.ROAD * k);
     }
+    // sông lớn: cả khối là nước; dưới nhịp cầu cao cũng là nước (mặt cầu vẽ đè lên)
+    for (const key of G.waterBlocks) {
+      const [bx, bz] = key.split(',').map(Number), b = blockBounds(bx, bz);
+      g.fillRect(X(b.x0), Z(b.z0), CITY.BLOCK * k, CITY.BLOCK * k);
+    }
+    for (const id of G.highSegs) {
+      const r = segmentRect(segOf(id));
+      g.fillRect(X(r.x0), Z(r.z0), (r.x1 - r.x0) * k, (r.z1 - r.z0) * k);
+    }
     g.fillStyle = '#9fa2a4';
+    for (const id of G.bridgeSegs) {
+      const s = segOf(id), r = segmentRect(s), c = s.axis === 'x' ? (r.x0 + r.x1) / 2 : (r.z0 + r.z1) / 2;
+      if (s.axis === 'x') g.fillRect(X(c - H * 0.6), Z(r.z0), CITY.ROAD * 0.6 * k, (r.z1 - r.z0) * k);
+      else g.fillRect(X(r.x0), Z(c - H * 0.6), (r.x1 - r.x0) * k, CITY.ROAD * 0.6 * k);
+    }
     for (const key of G.bridgeNodes) {
       const [i, j] = key.split(',').map(Number);
       // sông ngang → cầu chạy dọc (bắc–nam); sông dọc → cầu chạy ngang

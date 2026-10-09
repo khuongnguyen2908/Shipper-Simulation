@@ -893,6 +893,72 @@ console.log('Sông, cầu, quãng đường thật (map.json → rivers)');
     const f = validateMap(bad, DATA.places).filter((i) => i.level === 'error').map((i) => `${i.ref}.${i.field}`);
     for (const k of ['river0.bridges', `river${n}.axis`, `river${n}.from`]) assert.ok(f.includes(k), `không bắt lỗi ${k}: ${f.join(', ')}`);
   });
+  // sông lớn thử: chạy dọc đường số 2 → 3, phủ cả cột khối 2; cầu ở ngã tư 1 (vòm cao) và 4 (thấp)
+  const wideMap = () => {
+    const m = JSON.parse(JSON.stringify(MAPD));
+    m.rivers = [{ name: 'Thử', axis: 'x', line: 2, from: 0, to: CITY.N, wide: true, bridges: [1, 4], bridgeStyles: { 1: 'arch' } }];
+    m.joins = [];
+    m.busRoutes = [];
+    return m;
+  };
+  test('Sông lớn: cả cột khối thành mặt nước (không lô, không vỉa hè), chỉ qua sông ở chỗ có cầu', () => {
+    const CLm = CITYLAYOUT;
+    const m = wideMap(), G = roadGraph(m);
+    for (let k = 0; k < CITY.N; k++) {
+      assert.ok(G.waterBlocks.has(`2,${k}`) && CLm.isWaterBlock(2, k, m), `khối 2,${k} phải là nước`);
+      assert.deepEqual(CLm.blockLotIds(2, k, m), []);
+    }
+    assert.ok(G.waterSegs.has('x2:0') && G.waterSegs.has('x3:0'), '2 đường hai bên đều là sông');
+    assert.ok(G.bridgeSegs.has('z1:2') && G.bridgeSegs.has('z4:2') && G.waterSegs.has('z2:2'), 'đường ngang qua sông chỉ còn ở chỗ có cầu');
+    assert.ok(neighbors(2, 1, m).some((q) => q[0] === 3 && q[1] === 1), 'cầu nối 2 bờ');
+    assert.equal(neighbors(2, 2, m).length, 0, 'không cầu → ngã tư thành mặt nước');
+    assert.ok(G.rampSegs.has('z1:1') && G.rampSegs.has('z1:2') && G.rampSegs.has('z1:3') && G.highSegs.has('z1:2'), 'cầu vòm: 2 đoạn dẫn + nhịp nằm trên cao');
+    assert.ok(!G.rampSegs.has('z4:2'), 'cầu thấp không có dốc');
+    const lay = CLm.buildLayout(DATA.places.places.filter((p) => !p.block || p.block[0] !== 2), m);
+    assert.ok(!lay.lots.some((l) => l.block[0] === 2), 'không còn nhà dân dưới sông');
+  });
+  test('Sông lớn: bộ kiểm tra bắt địa điểm nằm dưới sông, kiểu cầu sai, đè khối gộp; kiểu cầu thiếu → cầu phẳng', () => {
+    const m = wideMap();
+    const pd = JSON.parse(JSON.stringify(DATA.places));
+    const p = pd.places.find((q) => q.kind === 'restaurant');
+    pd.places = pd.places.filter((q) => !q.block || q.block[0] !== 2 || q === p);
+    p.block = [2, 3];
+    p.lot = 'N0';
+    assert.ok(VALIDATE.validatePlaces(pd, DATA.items, null, null, m).some((i) => i.level === 'error' && i.ref === p.id && /dưới sông lớn/.test(i.msg)));
+    const bad = wideMap();
+    bad.rivers[0].bridgeStyles = { 1: 'iron', 4: 'bay' };
+    bad.joins = [[2, 5, 'S']];
+    const errs = validateMap(bad, DATA.places).filter((i) => i.level === 'error').map((i) => i.msg).join(' | ');
+    assert.ok(/"iron"/.test(errs) && /"bay"/.test(errs), 'kiểu cầu sông lớn chỉ flat / arch');
+    assert.ok(/đè lên khối đã gộp/.test(errs));
+    assert.equal(CITYLAYOUT.bridgeStyle({ wide: false, bridgeStyles: { 3: 'arch' } }, 3), 'flat');
+    assert.equal(CITYLAYOUT.bridgeStyle({ wide: false, bridgeStyles: { 3: 'iron' } }, 3), 'iron');
+  });
+  {
+    const { bridgeDecks, ARCH, HUMP } = await import('../src/world/bridges.js');
+    test('Mặt cầu: cầu vòm dốc dẫn bắt đầu sau ngã tư, cao ~8 m giữa sông, về 0 ở 2 đầu; cầu kênh vồng ~2 m', () => {
+      const m = wideMap();
+      m.rivers.push({ name: 'Kênh', axis: 'z', line: 6, from: 0, to: CITY.N, bridges: [1, 5, 8], bridgeStyles: { 1: 'iron', 5: 'concrete' } });
+      const decks = bridgeDecks(roadGraph(m));
+      const arch = decks.find((d) => d.style === 'arch'), iron = decks.find((d) => d.style === 'iron'), conc = decks.find((d) => d.style === 'concrete');
+      assert.ok(arch && iron && conc && decks.length === 3, 'cầu phẳng không có mặt cầu cao');
+      assert.ok(Math.abs(arch.h(arch.mid) - ARCH.hc) < 0.01 && arch.h(arch.u0) < 0.01 && arch.h(arch.u1) < 0.01);
+      assert.ok(Math.abs(arch.u0 - (roadPos(1) + ARCH.start)) < 0.01 && Math.abs(arch.u1 - (roadPos(4) - ARCH.start)) < 0.01, 'dốc bắt đầu sau ngã tư, ngã tư vẫn ở mặt đất');
+      assert.ok(Math.abs(iron.h(iron.mid) - HUMP.iron) < 0.01 && Math.abs(conc.h(conc.mid) - HUMP.concrete) < 0.01 && iron.h(iron.mid + HUMP.reach) === 0);
+      assert.ok(arch.pts.every((p, i) => i === 0 || Math.hypot(p.x - arch.pts[i - 1].x, p.z - arch.pts[i - 1].z) <= 1.01), 'điểm mặt cầu cách đều ~1 m');
+    });
+  }
+  test('Không đặt ổ gà / kẹt xe trên dốc hay nhịp cầu cao', () => {
+    const g = roadGraph();
+    for (let s = 1; s <= 5; s++) {
+      const h = new HazardManager(makeRng(s));
+      for (const j of h.jams) for (const sg of j.segments) assert.ok(!g.rampSegs.has(`${sg.axis}${sg.line}:${sg.from}`), 'kẹt xe trên cầu cao');
+      for (const p of h.potholes) for (const id of g.rampSegs) {
+        const mm = /^([xz])(\d+):(\d+)$/.exec(id), r = CITYLAYOUT.segmentRect({ axis: mm[1], line: +mm[2], from: +mm[3] });
+        assert.ok(!(p.x >= r.x0 && p.x <= r.x1 && p.z >= r.z0 && p.z <= r.z1), 'ổ gà dưới dốc cầu');
+      }
+    }
+  });
 }
 
 console.log('Bot mô phỏng (chạy thử 1 ngày)');

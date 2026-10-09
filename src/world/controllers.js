@@ -148,7 +148,7 @@ export class Bike {
     // ổ gà
     const sp = Math.abs(this.speed);
     for (const [p, t] of this.potholeCd) if (t - dt <= 0) this.potholeCd.delete(p); else this.potholeCd.set(p, t - dt);
-    if (sp > 2) {
+    if (sp > 2 && this.deckY == null) { // trên cầu / dốc thì không vấp ổ gà dưới đất
       for (const p of ctx.potholes) {
         const dx = p.x - this.pos.x, dz = p.z - this.pos.z;
         if (dx * dx + dz * dz < (p.r + 0.3) ** 2 && !this.potholeCd.has(p)) {

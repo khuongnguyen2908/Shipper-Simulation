@@ -1609,10 +1609,10 @@
         "parcelWeight": 3
       },
       "block": [
-        8,
+        9,
         4
       ],
-      "lot": "f8"
+      "lot": "N0"
     },
     {
       "id": "dichvu1_5",
@@ -1751,7 +1751,8 @@
         9,
         9
       ],
-      "lot": "N"
+      "lot": "N",
+      "face": "E"
     },
     {
       "id": "canhquan1",
@@ -2844,7 +2845,7 @@
         "gender": "f"
       },
       "block": [
-        8,
+        9,
         1
       ],
       "lot": "N2"
@@ -2908,10 +2909,10 @@
         "gender": "f"
       },
       "block": [
-        8,
+        9,
         8
       ],
-      "lot": "W1"
+      "lot": "N0"
     },
     {
       "kind": "service",

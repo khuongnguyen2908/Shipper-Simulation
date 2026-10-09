@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { buildCity } from '../../world/city.js';
-import { buildLayout, CITY, LOT_SIZES, lotParts, lotSize, lotFaces, lotInfo, blockPlan, blockBounds, cutCell } from '../../sim/cityLayout.js';
+import { buildLayout, CITY, LOT_SIZES, lotParts, lotSize, lotFaces, lotInfo, blockPlan, blockBounds, cutCell, isWaterBlock } from '../../sim/cityLayout.js';
 import { blockUnder, dropTarget, lotProblem } from './buildRules.js';
 import { ALLEY_TEMPLATES } from '../../sim/blockPlan.js';
 import { isPlaced } from '../../data/places.js';
@@ -116,7 +116,7 @@ function rebuild(data) {
   for (const [key, id] of Object.entries(data.map.districtBlocks || {})) {
     const d = data.map.districts?.[id];
     const [bx, bz] = key.split(',').map(Number);
-    if (!d || bx >= CITY.N || bz >= CITY.N) continue;
+    if (!d || bx >= CITY.N || bz >= CITY.N || isWaterBlock(bx, bz, data.map)) continue;
     const b = blockBounds(bx, bz);
     const m = new THREE.Mesh(new THREE.PlaneGeometry(b.x1 - b.x0, b.z1 - b.z0).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: d.color || '#888888', transparent: true, opacity: 0.32, depthWrite: false }));
     m.position.set((b.x0 + b.x1) / 2, 0.4, (b.z0 + b.z1) / 2);

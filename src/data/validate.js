@@ -4,7 +4,7 @@
 //  - error: game sẽ chạy sai → công cụ không cho lưu
 //  - warn : chạy được nhưng nên xem lại
 // =============================================================
-import { CITY, LOT_IDS, MULTI_LOTS, lotParts, lotFaces, blockPlan, blockLotIds, roadGraph, neighbors, cutCell, joinList, joinSeg, joinPartner, isJoinLot, riverInfo } from '../sim/cityLayout.js';
+import { CITY, LOT_IDS, MULTI_LOTS, lotParts, lotFaces, blockPlan, blockLotIds, roadGraph, neighbors, cutCell, joinList, joinSeg, joinPartner, isJoinLot, riverInfo, BRIDGE_STYLES } from '../sim/cityLayout.js';
 import { ALLEY_TEMPLATES } from '../sim/blockPlan.js';
 import { EFFECTS, CONSUMABLE_FIELDS, OUTFIT_SLOTS } from './goods.js';
 import { ORDER_KINDS, FROM_HOMES } from './apps.js';
@@ -239,6 +239,7 @@ export function validateGear(gear) {
 }
 
 export function validatePlaces(pd, items, goodsTable = null, gearTable = null, mapData = undefined) {
+  const waterBlocks = riverInfo(mapData).waterBlocks; // khối nằm dưới sông lớn
   const out = [];
   const add = (level, ref, field, msg) => out.push({ level, tab: 'places', ref, field, msg });
   const places = pd.places || [];
@@ -273,6 +274,7 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null, m
     if (isJoinLot(p.lot) && !joinList(mapData).some(([x, z, d]) => x === bx && z === bz && d === (p.lot === 'JE' ? 'E' : 'S'))) {
       add('error', p.id, 'lot', `Lô gộp 2 khối cần gộp khối ${bx},${bz} với khối bên ${p.lot === 'JE' ? 'phải' : 'dưới'} (thẻ Bản đồ → Gộp khối).`);
     }
+    if (isPlaced(p) && lotCells(p).some((c) => waterBlocks.has(c.split(',').slice(0, 2).join(',')))) add('error', p.id, 'block', `Khối ${bx},${bz} nằm dưới sông lớn — dời địa điểm sang khối khác.`);
     if (!isPlaced(p)) {
       /* chưa đặt: bỏ qua kiểm tra vị trí */
     } else if (plan) {
@@ -607,6 +609,25 @@ export function validateMap(map, placesData = null) {
     if (!int(r.line, 0, size)) add('error', ref, 'line', `Đường số 0–${size}.`);
     if (!int(r.from, 0, size) || !int(r.to, 0, size) || r.from >= r.to) add('error', ref, 'from', `Đoạn sông: từ ngã tư a tới b, 0 ≤ a < b ≤ ${size}.`);
     if (!Array.isArray(r.bridges) || r.bridges.some((b) => !int(b, r.from, r.to))) add('error', ref, 'bridges', 'Cầu phải ở các ngã tư nằm trên đoạn sông.');
+    if (r.wide != null && typeof r.wide !== 'boolean') add('error', ref, 'wide', 'Sông lớn phải là true/false.');
+    if (r.wide && !int(r.line, 0, size - 1)) add('error', ref, 'line', `Sông lớn phủ đường số a và a+1 — a từ 0 đến ${size - 1}.`);
+    if (r.wide && Array.isArray(r.bridges) && !r.bridges.length) add('warn', ref, 'bridges', 'Sông lớn chưa có cầu nào.');
+    if (r.bridgeStyles != null) {
+      if (typeof r.bridgeStyles !== 'object' || Array.isArray(r.bridgeStyles)) add('error', ref, 'bridgeStyles', 'Kiểu cầu phải là bảng {ngã tư: kiểu}.');
+      else {
+        const ok = BRIDGE_STYLES[r.wide ? 'wide' : 'narrow'];
+        for (const [k, v] of Object.entries(r.bridgeStyles)) {
+          if (!ok.includes(v)) add('error', ref, 'bridgeStyles', `Kiểu cầu "${v}" ở ngã tư ${k} không dùng được cho ${r.wide ? 'sông lớn' : 'kênh / sông nhỏ'} (chỉ: ${ok.join(', ')}).`);
+        }
+      }
+    }
+    // sông lớn đè lên khối đã gộp (sân bay…)
+    if (r.wide && Number.isInteger(r.line)) {
+      for (const j of joinList(map)) {
+        const cells = [[j[0], j[1]], j[2] === 'E' ? [j[0] + 1, j[1]] : [j[0], j[1] + 1]];
+        if (cells.some(([bx, bz]) => (r.axis === 'x' ? bx === r.line && bz >= r.from && bz < r.to : bz === r.line && bx >= r.from && bx < r.to))) add('error', ref, 'line', `Sông lớn đè lên khối đã gộp ${j[0]},${j[1]}.`);
+      }
+    }
   });
   // sông không được cắt rời một khu (mọi ngã tư có đường phải tới được nhau)
   if (size === CITY.N && !out.some((i) => i.level === 'error' && i.ref.startsWith('river'))) {

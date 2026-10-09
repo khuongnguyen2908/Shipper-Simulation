@@ -1,5 +1,5 @@
 // Thẻ 🗺️ BẢN ĐỒ (map.json): kiểu hẻm của từng khối (bấm khối trên bản đồ để chọn) · sông và cầu.
-import { CITY, HALF, blockBounds, blockPlan, blockRect, roadPos, roadGraph, segmentRect, joinList, joinGap } from '../../sim/cityLayout.js';
+import { CITY, HALF, blockBounds, blockPlan, blockRect, roadPos, roadGraph, segmentRect, joinList, joinGap, BRIDGE_STYLES, bridgeStyle } from '../../sim/cityLayout.js';
 import { ALLEY_TEMPLATES } from '../../sim/blockPlan.js';
 import { isPlaced } from '../../data/places.js';
 import { el, field, button, selectInput, checkInput, numInput, explain, textInput, colorInput, advanced } from './ui.js';
@@ -404,11 +404,29 @@ export function render(root, ctx) {
           num('from', 'Từ ngã tư số', CITY.N),
           num('to', 'Tới ngã tư số', CITY.N),
         ),
-        field('Cầu ở ngã tư', el('div', { class: 'chips' }, nodes.map((k) => checkInput((r.bridges || []).includes(k), (on) => {
-          r.bridges = on ? [...(r.bridges || []), k].sort((a, b) => a - b) : (r.bridges || []).filter((b) => b !== k);
+        field('Sông lớn', checkInput(!!r.wide, (on) => {
+          if (on) r.wide = true;
+          else delete r.wide;
+          // kiểu cầu không hợp với độ rộng mới → về cầu phẳng
+          const ok = BRIDGE_STYLES[on ? 'wide' : 'narrow'];
+          for (const k of Object.keys(r.bridgeStyles || {})) if (!ok.includes(r.bridgeStyles[k])) delete r.bridgeStyles[k];
           changed();
           ctx.rerender();
-        }, `${k} · ${cross[k] || ''}`))), { ...o('bridges'), wide: true, hint: 'Ngã tư không có cầu thành mặt nước: đường cắt ngang tới đó là đường cụt.' }),
+        }, `Rộng cả dãy khối giữa ${roadName(r.axis, r.line)} và ${roadName(r.axis, r.line + 1)}`), { ...o('wide'), wide: true, hint: 'Sông lớn phủ 2 con đường và cả dãy khối ở giữa (khối đó thành mặt nước, địa điểm trong đó phải dời đi). Cầu qua sông lớn dài cả nhịp.' }),
+        field('Cầu ở ngã tư', el('div', { class: 'chips' }, nodes.map((k) => checkInput((r.bridges || []).includes(k), (on) => {
+          r.bridges = on ? [...(r.bridges || []), k].sort((a, b) => a - b) : (r.bridges || []).filter((b) => b !== k);
+          if (!on && r.bridgeStyles) delete r.bridgeStyles[k];
+          changed();
+          ctx.rerender();
+        }, `${k} · ${cross[k] || ''}`))), { ...o('bridges'), wide: true, hint: 'Ngã tư không có cầu thành mặt nước: đường cắt ngang tới đó là đường cụt. Dời cầu = bỏ tick chỗ cũ, tick chỗ mới.' }),
+        (r.bridges || []).length ? el('div', { class: 'grid tight' }, (r.bridges || []).map((k) => field(`Kiểu cầu ở ngã tư ${k}`, selectInput(bridgeStyle(r, k), (r.wide ? [['flat', 'Cầu thấp (mặt phẳng)'], ['arch', 'Cầu vòm thép cao']] : [['flat', 'Cầu phẳng'], ['iron', 'Cầu sắt cong (a)'], ['concrete', 'Cầu vồng bê tông (b)']]), (v) => {
+          r.bridgeStyles = r.bridgeStyles || {};
+          if (v === 'flat') delete r.bridgeStyles[k];
+          else r.bridgeStyles[k] = v;
+          if (!Object.keys(r.bridgeStyles).length) delete r.bridgeStyles;
+          changed();
+          ctx.rerender();
+        }), { ...o('bridgeStyles'), hint: r.wide ? 'Cầu vòm thép: dốc dẫn bắt đầu sau ngã tư gần sông, mặt cầu cao ~8 m, xe chạy lên được.' : 'Cầu cong nhỏ vồng ~2 m ngay trên kênh, ghe nhỏ đi lọt bên dưới.' }))) : null,
       ));
     });
     box.append(button('＋ Thêm sông', () => { map.rivers.push({ name: `Sông ${map.rivers.length + 1}`, axis: 'z', line: CITY.N - 1, from: 0, to: CITY.N, bridges: [1, Math.floor(CITY.N / 2), CITY.N - 1] }); changed(); ctx.rerender(); }, 'small primary'));
@@ -577,7 +595,15 @@ export function render(root, ctx) {
       R(segmentRect({ axis: m[1], line: +m[2], from: +m[3] }), '#3d7ea6');
     }
     for (const key of G.waterNodes) { const [i, j] = key.split(',').map(Number); R({ x0: roadPos(i) - H, x1: roadPos(i) + H, z0: roadPos(j) - H, z1: roadPos(j) + H }, '#3d7ea6'); }
-    for (const key of G.bridgeNodes) { const [i, j] = key.split(',').map(Number); R({ x0: roadPos(i) - H * 0.7, x1: roadPos(i) + H * 0.7, z0: roadPos(j) - H * 0.7, z1: roadPos(j) + H * 0.7 }, '#c9ccce'); }
+    // sông lớn: cả khối là nước; dưới nhịp cầu cao cũng là nước; mặt cầu qua sông lớn vẽ đè lên
+    for (const key of G.waterBlocks) { const [bx, bz] = key.split(',').map(Number); R(blockBounds(bx, bz), '#3d7ea6'); }
+    for (const id of G.highSegs) { const m = /^([xz])(\d+):(\d+)$/.exec(id); R(segmentRect({ axis: m[1], line: +m[2], from: +m[3] }), '#3d7ea6'); }
+    for (const id of G.bridgeSegs) {
+      const m = /^([xz])(\d+):(\d+)$/.exec(id), r = segmentRect({ axis: m[1], line: +m[2], from: +m[3] });
+      const c = m[1] === 'x' ? (r.x0 + r.x1) / 2 : (r.z0 + r.z1) / 2;
+      R(m[1] === 'x' ? { ...r, x0: c - H * 0.7, x1: c + H * 0.7 } : { ...r, z0: c - H * 0.7, z1: c + H * 0.7 }, G.highSegs.has(id) ? '#e0a09a' : '#c9ccce');
+    }
+    for (const key of G.bridgeNodes) { const [i, j] = key.split(',').map(Number); R({ x0: roadPos(i) - H * 0.7, x1: roadPos(i) + H * 0.7, z0: roadPos(j) - H * 0.7, z1: roadPos(j) + H * 0.7 }, G.highNodes.has(key) ? '#e0a09a' : '#c9ccce'); }
     // khối đã gộp: lòng đường cũ tô như khối
     for (const j of joinList(map)) R(joinGap(j), '#8a7f6e');
     // tên địa điểm

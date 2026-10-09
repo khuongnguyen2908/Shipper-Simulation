@@ -10,10 +10,10 @@ import { MAIN_ROADS } from '../data/places.js';
 import { MAP } from '../data/map.js';
 import { traitOf } from '../data/districtTraits.js';
 import { CITY, roadPos, intersectionName, segmentName, neighbors, roadGraph, traitAt, traitAtBlock } from './cityLayout.js';
-// đoạn không còn là đường: mặt sông, hoặc lòng đường cũ giữa 2 khối đã gộp (sân bay…)
+// đoạn không đặt chướng ngại: mặt sông, lòng đường cũ giữa 2 khối đã gộp (sân bay…), đoạn dốc / nhịp cầu cao
 const noRoadSeg = (axis, line, from) => {
   const G = roadGraph(), id = segKeyOf(axis, line, from);
-  return G.waterSegs.has(id) || G.closedSegs.has(id);
+  return G.waterSegs.has(id) || G.closedSegs.has(id) || G.rampSegs.has(id); // mặt sông · khối gộp · dốc / nhịp cầu cao
 };
 import { fmt } from '../content/index.js';
 import { segKeyOf, tierOf, tierRule, TIER_GEO, TIER_IDS } from './roads.js';

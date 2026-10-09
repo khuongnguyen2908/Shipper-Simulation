@@ -97,6 +97,7 @@ export function blockAt(x, z) {
     }
     return null;
   }
+  if (isWaterBlock(bx, bz)) return null; // khối nằm dưới sông lớn
   return [bx, bz];
 }
 
@@ -149,7 +150,7 @@ const planCache = new Map();
 // Mặt bằng khối có hẻm (toạ độ cục bộ, xem blockPlan.js) — cố định theo toạ độ khối + kiểu hẻm
 export function blockPlan(bx, bz, map = MAP) {
   const s = blockSpec(bx, bz, map);
-  if (!s) return null;
+  if (!s || isWaterBlock(bx, bz, map)) return null;
   const k = `${bx},${bz},${s.alley},${s.rot | 0},${!!s.walk}`;
   if (!planCache.has(k)) planCache.set(k, planBlock(s, ((bx + 1) * 73856093) ^ ((bz + 1) * 19349663)));
   return planCache.get(k);
@@ -162,6 +163,7 @@ export function blockRect(bx, bz, r) {
 }
 // Mã lô có cửa (khách / địa điểm đặt được) của một khối
 export function blockLotIds(bx, bz, map = MAP) {
+  if (isWaterBlock(bx, bz, map)) return []; // khối dưới sông lớn
   const p = blockPlan(bx, bz, map);
   return p ? p.lots.map((l) => l.id) : LOT_IDS;
 }
@@ -319,20 +321,52 @@ const nodeId = (i, j) => j * (CITY.N + 1) + i;
 const graphCache = new Map();
 export function riverInfo(map = MAP) {
   const waterSegs = new Set(), waterNodes = new Set(), bridgeNodes = new Set();
-  for (const r of (map && map.rivers) || []) {
-    for (let k = r.from; k < r.to; k++) waterSegs.add(segId(r.axis, r.line, k));
-    for (let k = r.from; k <= r.to; k++) {
-      const [i, j] = r.axis === 'z' ? [k, r.line] : [r.line, k];
-      ((r.bridges || []).includes(k) ? bridgeNodes : waterNodes).add(`${i},${j}`);
+  const waterBlocks = new Set(), bridgeSegs = new Set(), bridges = [];
+  const rampSegs = new Set(), highSegs = new Set(), highNodes = new Set(); // đoạn có mặt cầu cao (dốc dẫn + nhịp) · nhịp · ngã tư dưới nhịp
+  const other = (axis) => (axis === 'x' ? 'z' : 'x');
+  ((map && map.rivers) || []).forEach((r, ri) => {
+    const wide = !!r.wide;
+    const lines = wide ? [r.line, r.line + 1] : [r.line];
+    for (const line of lines) {
+      for (let k = r.from; k < r.to; k++) waterSegs.add(segId(r.axis, line, k));
+      for (let k = r.from; k <= r.to; k++) {
+        const [i, j] = r.axis === 'z' ? [k, line] : [line, k];
+        ((r.bridges || []).includes(k) ? bridgeNodes : waterNodes).add(`${i},${j}`);
+      }
     }
-  }
-  return { waterSegs, waterNodes, bridgeNodes };
+    if (wide) {
+      // sông lớn: cả hàng/cột khối giữa 2 đường thành mặt nước; đường cắt ngang qua sông chỉ còn ở chỗ có cầu
+      for (let k = r.from; k < r.to; k++) waterBlocks.add(r.axis === 'x' ? `${r.line},${k}` : `${k},${r.line}`);
+      for (let k = r.from; k <= r.to; k++) ((r.bridges || []).includes(k) ? bridgeSegs : waterSegs).add(segId(other(r.axis), k, r.line));
+    }
+    for (const k of r.bridges || []) {
+      if (k < r.from || k > r.to) continue;
+      const b = { river: ri, k, wide, axis: r.axis, line: r.line, style: bridgeStyle(r, k) };
+      bridges.push(b);
+      // cầu vòm cao (sông lớn): nhịp qua sông + 2 đoạn dẫn lên cầu đều nằm trên cao; dưới nhịp là mặt nước
+      if (wide && b.style === 'arch') {
+        const o = other(r.axis);
+        for (const d of [-1, 0, 1]) if (r.line + d >= 0 && r.line + d < CITY.N) rampSegs.add(segId(o, k, r.line + d));
+        highSegs.add(segId(o, k, r.line));
+        for (const line of [r.line, r.line + 1]) highNodes.add(r.axis === 'x' ? `${line},${k}` : `${k},${line}`);
+      }
+    }
+  });
+  return { waterSegs, waterNodes, bridgeNodes, waterBlocks, bridgeSegs, bridges, rampSegs, highSegs, highNodes };
 }
+// Kiểu cầu (map.json → rivers[].bridgeStyles {"ngã tư": kiểu}); thiếu / sai → cầu phẳng
+export const BRIDGE_STYLES = { narrow: ['flat', 'iron', 'concrete'], wide: ['flat', 'arch'] };
+export function bridgeStyle(r, k) {
+  const v = r && r.bridgeStyles && r.bridgeStyles[k];
+  return BRIDGE_STYLES[r && r.wide ? 'wide' : 'narrow'].includes(v) ? v : 'flat';
+}
+// Khối nằm dưới sông lớn (không còn nhà, lô, vỉa hè)
+export const isWaterBlock = (bx, bz, map = MAP) => roadGraph(map).waterBlocks.has(`${bx},${bz}`);
 // Mạng đường: ngã tư đi được, đoạn đi được, khoảng cách ngắn nhất giữa mọi cặp ngã tư (Floyd), ngã tư kế tiếp để dựng đường đi
 export function roadGraph(map = MAP) {
   const key = JSON.stringify([(map && map.rivers) || [], joinList(map)]);
   if (graphCache.has(key)) return graphCache.get(key);
-  const { waterSegs, waterNodes, bridgeNodes } = riverInfo(map);
+  const { waterSegs, waterNodes, bridgeNodes, waterBlocks, bridgeSegs, bridges, rampSegs, highSegs, highNodes } = riverInfo(map);
   const M = CITY.N + 1, n = M * M;
   const nodeOk = (i, j) => i >= 0 && j >= 0 && i <= CITY.N && j <= CITY.N && !waterNodes.has(`${i},${j}`);
   // đoạn đường hợp lệ: không phải sông, và 2 đầu là ngã tư đi được (đường cụt sát sông vẫn chạy được nhưng không nối mạng)
@@ -362,7 +396,7 @@ export function roadGraph(map = MAP) {
       if (d < D[i * n + j]) { D[i * n + j] = d; next[i * n + j] = next[i * n + k]; }
     }
   }
-  const g = { segs, D, next, n, nodeOk, segOk, waterSegs, waterNodes, bridgeNodes, closedSegs };
+  const g = { segs, D, next, n, nodeOk, segOk, waterSegs, waterNodes, bridgeNodes, closedSegs, waterBlocks, bridgeSegs, bridges, rampSegs, highSegs, highNodes };
   graphCache.set(key, g);
   return g;
 }
