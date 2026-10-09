@@ -220,9 +220,10 @@ export class OrderManager {
 
   // Giao hàng / hỏa tốc: lấy hàng ở shop (nơi có "gửi hàng từ đây") hoặc nhà người gửi gần đó
   makeParcel(type, now, pos) {
-    const items = (type.items || []).filter((id) => ITEMS[id] && ITEMS[id].parcel && this.itemOk(id));
+    const ok = (id) => ITEMS[id] && ITEMS[id].parcel && this.itemOk(id);
+    const items = (type.items || []).filter(ok);
     if (!items.length) return null;
-    const id = this.rng.pick(items);
+    let id = this.rng.pick(items);
     // lấy ở shop "gửi hàng từ đây" gần tài xế (trong ORDER.parcelShopMax m, ưu tiên gần); không có thì nhà người gửi gần đó
     let pickup = null;
     const shops = this.layout.places
@@ -231,6 +232,10 @@ export class OrderManager {
     if (shops.length) {
       const { p } = this.rng.weighted(shops, shops.map((c) => c.w / near(c.d)));
       pickup = { placeId: p.id, name: p.name, address: p.name, door: p.door };
+      // tiệm có hàng riêng (places.json → orders.parcelItems: tiệm vàng giao trang sức, tiệm đồ chơi giao đồ chơi…),
+      // chỉ với loại đơn bật "shopItems" (apps.json → orderTypes; hỏa tốc giữ giấy tờ / điện thoại)
+      const own = type.shopItems ? (p.orders?.parcelItems || []).filter(ok) : [];
+      if (own.length) id = this.rng.pick(own);
     }
     if (!pickup) {
       const l = this.pickLotAround(pos, 30, 160);

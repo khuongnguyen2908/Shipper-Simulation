@@ -65,7 +65,10 @@ export function validateItems(items, placesData, appsData = null) {
   const out = [];
   const add = (level, ref, field, msg) => out.push({ level, tab: 'items', ref, field, msg });
   const menus = (placesData?.places || []).filter((p) => p.kind === 'restaurant').flatMap((p) => p.menu || []);
-  const parcelUse = new Set(Object.values(appsData?.orderTypes || {}).filter((t) => t.kind === 'parcel').flatMap((t) => t.items || []));
+  const parcelTypes = Object.values(appsData?.orderTypes || {}).filter((t) => t.kind === 'parcel');
+  const parcelUse = new Set(parcelTypes.flatMap((t) => t.items || []));
+  // hàng riêng của tiệm (places.json → orders.parcelItems) cũng có đơn nếu có loại đơn bật "shopItems"
+  if (parcelTypes.some((t) => t.shopItems)) for (const p of placesData?.places || []) for (const id of p.orders?.parcelItems || []) parcelUse.add(id);
   for (const id of PROTECTED.items) if (!items[id]) add('error', id, 'id', `Thiếu món bắt buộc "${id}" (code dùng trực tiếp).`);
   for (const [key, it] of Object.entries(items)) {
     openDayErr(add, key, it.openDay, PROTECTED.items.includes(key));
@@ -358,6 +361,12 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null, m
     // điểm đến của đơn
     if (p.orders) {
       for (const k of ['rideWeight', 'foodWeight', 'parcelWeight']) if (p.orders[k] != null && (!num(p.orders[k]) || p.orders[k] < 0 || p.orders[k] > 10)) add('error', p.id, `orders.${k}`, 'Mức độ thường xuyên từ 0 đến 10.');
+      if (p.orders.parcelItems != null) {
+        if (!Array.isArray(p.orders.parcelItems)) add('error', p.id, 'orders.parcelItems', 'Hàng riêng của tiệm phải là danh sách mã món.');
+        else for (const id of p.orders.parcelItems) if (!items?.[id]) add('error', p.id, 'orders.parcelItems', `Món "${id}" không có.`);
+          else if (!items[id].parcel) add('error', p.id, 'orders.parcelItems', `Món "${id}" chưa đánh dấu là hàng giao (parcel).`);
+        if (Array.isArray(p.orders.parcelItems) && p.orders.parcelItems.length && !(p.orders.parcelWeight > 0)) add('warn', p.id, 'orders.parcelItems', 'Có hàng riêng nhưng "Gửi hàng từ đây" = 0 → không có đơn nào lấy ở đây.');
+      }
       const bad = hoursProblem(p.orders.hours, presets);
       if (bad) add('error', p.id, 'orders.hours', `Khung giờ có đơn: ${bad}`);
     }
@@ -551,6 +560,26 @@ export function validateMap(map, placesData = null) {
     if (!m || +m[1] >= size || +m[2] >= size) add('error', `district:${id}`, 'blocks', `Khối ${key} nằm ngoài bản đồ.`);
     else if (!map.districts?.[id]) add('error', `district:${id}`, 'blocks', `Khối ${key} gán vào khu phố "${id}" không có.`);
   }
+  // xe buýt: tuyến (id, tên, màu, số xe, điểm ghé là địa điểm có trên bản đồ) + tên trạm
+  const placeList = placesData?.places || placesData || [];
+  const routeIds = new Set();
+  (map.busRoutes || []).forEach((r, i) => {
+    const ref = `bus:${r?.id || i}`;
+    if (!r || !ID_RE.test(String(r.id || ''))) add('error', ref, 'id', 'Mã tuyến chỉ gồm chữ không dấu, số, gạch dưới.');
+    else if (routeIds.has(r.id)) add('error', ref, 'id', `Trùng mã tuyến "${r.id}".`);
+    else routeIds.add(r.id);
+    if (!String(r?.name || '').trim()) add('error', ref, 'name', 'Tuyến chưa có tên.');
+    if (r?.color != null && !/^#[0-9a-f]{6}$/i.test(r.color)) add('error', ref, 'color', 'Màu tuyến phải dạng #rrggbb.');
+    if (r?.buses != null && (!Number.isInteger(r.buses) || r.buses < 1 || r.buses > 6)) add('error', ref, 'buses', 'Số xe từ 1 đến 6.');
+    const via = Array.isArray(r?.via) ? r.via : [];
+    if (via.length < 2) add('error', ref, 'via', 'Tuyến cần ít nhất 2 điểm ghé.');
+    for (const id of via) {
+      const p = placeList.find((x) => x.id === id);
+      if (!p) add('error', ref, 'via', `Điểm ghé "${id}" không có.`);
+      else if (!Array.isArray(p.block)) add('error', ref, 'via', `Điểm ghé "${p.name}" chưa đặt trên bản đồ.`);
+    }
+  });
+  if (map.busStopNames != null && (typeof map.busStopNames !== 'object' || Object.values(map.busStopNames).some((v) => typeof v !== 'string'))) add('error', 'bus', 'busStopNames', 'Tên trạm phải là chữ.');
   // tỉ lệ cấp đường của khu phố (districts[mã].roads) + cấp từng đoạn đường (roadTiers)
   for (const [id, d] of Object.entries(map.districts || {})) {
     if (d?.roads == null) continue;

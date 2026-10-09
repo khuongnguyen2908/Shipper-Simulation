@@ -742,10 +742,10 @@
       "kind": "gas",
       "icon": "⛽",
       "block": [
-        7,
-        2
+        5,
+        3
       ],
-      "lot": "S2",
+      "lot": "N2",
       "floors": 1,
       "color": "#ffffff",
       "sign": "XĂNG DẦU",
@@ -830,16 +830,6 @@
         "scale": 0.85,
         "portrait": "🔧"
       },
-      "sells": {
-        "vehicles": [
-          "cub",
-          "wave",
-          "scooter",
-          "exciter",
-          "sport",
-          "SH"
-        ]
-      },
       "hours": "caNgay"
     },
     {
@@ -892,10 +882,10 @@
       "short": "Uống",
       "kind": "cafe",
       "block": [
-        5,
+        4,
         2
       ],
-      "lot": "S0",
+      "lot": "f7",
       "floors": 2,
       "color": "#c8a27a",
       "sign": "CÀ PHÊ GÓC PHỐ",
@@ -983,10 +973,10 @@
       "short": "Uống",
       "kind": "service",
       "block": [
-        7,
-        2
+        5,
+        3
       ],
-      "lot": "S1",
+      "lot": "N1",
       "floors": 2,
       "color": "#c8a27a",
       "sign": "CÀ PHÊ VÕNG",
@@ -1151,10 +1141,10 @@
       "kind": "service",
       "icon": "📚",
       "block": [
-        3,
+        1,
         5
       ],
-      "lot": "N0",
+      "lot": "f7",
       "floors": 2,
       "color": "#ba5512",
       "sign": "NHÀ SÁCH TỰ DO",
@@ -1217,10 +1207,10 @@
       "kind": "service",
       "icon": "🎤",
       "block": [
-        7,
+        4,
         6
       ],
-      "lot": "W12",
+      "lot": "W01",
       "floors": 4,
       "color": "#3d2b56",
       "sign": "KARAOKE SÁNG",
@@ -1689,8 +1679,8 @@
       "look": "park",
       "color": "#5f9e45",
       "block": [
-        7,
-        7
+        6,
+        9
       ],
       "lot": "B"
     },
@@ -2278,10 +2268,10 @@
         "gender": "m"
       },
       "block": [
-        7,
+        6,
         0
       ],
-      "lot": "N2"
+      "lot": "W1"
     },
     {
       "kind": "restaurant",
@@ -2308,10 +2298,10 @@
         "gender": "f"
       },
       "block": [
-        6,
+        5,
         2
       ],
-      "lot": "W1"
+      "lot": "N1"
     },
     {
       "kind": "service",
@@ -2345,9 +2335,10 @@
       ],
       "block": [
         6,
-        1
+        0
       ],
-      "lot": "S1"
+      "lot": "S0",
+      "face": "W"
     },
     {
       "kind": "restaurant",
@@ -2437,7 +2428,11 @@
         3,
         8
       ],
-      "lot": "W1"
+      "lot": "W1",
+      "orders": {
+        "rideWeight": 1,
+        "foodWeight": 1
+      }
     },
     {
       "kind": "service",
@@ -2462,7 +2457,12 @@
         1,
         8
       ],
-      "lot": "S2"
+      "lot": "S2",
+      "nap": true,
+      "orders": {
+        "rideWeight": 1,
+        "foodWeight": 1
+      }
     },
     {
       "kind": "service",
@@ -2750,7 +2750,457 @@
         9,
         4
       ],
-      "lot": "S0"
+      "lot": "S"
+    },
+    {
+      "id": "tennisDoThi",
+      "name": "Sân Tennis Phú Mỹ",
+      "short": "Tennis",
+      "kind": "scenery",
+      "icon": "🎾",
+      "look": "tennis",
+      "color": "#3f7f6a",
+      "block": [
+        2,
+        9
+      ],
+      "lot": "N01",
+      "hours": "caNgay",
+      "activities": [
+        {
+          "id": "danhTennis",
+          "label": "Thuê sân đánh 1 set tennis",
+          "cost": 40,
+          "minutes": 60,
+          "phys": -12,
+          "mental": 25,
+          "perDay": 1
+        }
+      ],
+      "orders": {
+        "rideWeight": 1.5,
+        "hours": [
+          17,
+          21
+        ]
+      }
+    },
+    {
+      "id": "pickleballDoThi",
+      "name": "Sân Pickleball Sao Mai",
+      "short": "Pickleball",
+      "kind": "scenery",
+      "icon": "🏓",
+      "look": "pickleball",
+      "color": "#2a9d8f",
+      "block": [
+        7,
+        9
+      ],
+      "lot": "N01",
+      "hours": "caNgay",
+      "activities": [
+        {
+          "id": "danhPickle",
+          "label": "Chơi pickleball 1 trận",
+          "cost": 25,
+          "minutes": 40,
+          "phys": -6,
+          "mental": 18,
+          "perDay": 2
+        }
+      ],
+      "orders": {
+        "rideWeight": 1,
+        "hours": [
+          17,
+          21
+        ]
+      }
+    },
+    {
+      "id": "dhMyThuat",
+      "name": "Đại học Mỹ thuật Gia Định",
+      "short": "ĐH Mỹ thuật",
+      "kind": "service",
+      "icon": "🎨",
+      "look": "artSchool",
+      "color": "#f2c94c",
+      "sign": "ĐẠI HỌC MỸ THUẬT GIA ĐỊNH",
+      "signBg": "#7b4a12",
+      "block": [
+        3,
+        2
+      ],
+      "lot": "N",
+      "hours": "hanhChinh",
+      "npc": {
+        "name": "Chú bảo vệ trường",
+        "shirt": "#5d6d7e",
+        "pants": "#2c3e50",
+        "hat": null,
+        "portrait": "💂",
+        "gender": "m"
+      },
+      "activities": [
+        {
+          "id": "xemTranh",
+          "label": "Vào xem triển lãm tranh sinh viên",
+          "cost": 0,
+          "minutes": 30,
+          "phys": 0,
+          "mental": 15,
+          "perDay": 1
+        }
+      ],
+      "orders": {
+        "foodWeight": 1,
+        "rideWeight": 1.5,
+        "hours": [
+          [
+            10.5,
+            13.5
+          ],
+          [
+            16.5,
+            18.5
+          ]
+        ]
+      }
+    },
+    {
+      "id": "rmit",
+      "name": "Đại học RMIT",
+      "short": "RMIT",
+      "kind": "service",
+      "icon": "🎓",
+      "look": "university",
+      "floors": 5,
+      "color": "#6f8fa8",
+      "sign": "RMIT VIỆT NAM",
+      "signBg": "#d71920",
+      "block": [
+        5,
+        9
+      ],
+      "lot": "N",
+      "hours": "caNgay",
+      "npc": {
+        "name": "Chị lễ tân",
+        "shirt": "#d71920",
+        "pants": "#2c3e50",
+        "hat": null,
+        "portrait": "💁",
+        "gender": "f",
+        "hairStyle": "bun"
+      },
+      "activities": [
+        {
+          "id": "thuVien",
+          "label": "Ngồi thư viện máy lạnh nghỉ chân",
+          "cost": 0,
+          "minutes": 30,
+          "phys": 4,
+          "mental": 10,
+          "perDay": 2
+        }
+      ],
+      "orders": {
+        "foodWeight": 1.5,
+        "rideWeight": 2,
+        "hours": [
+          [
+            10.5,
+            13.5
+          ],
+          [
+            16.5,
+            20
+          ]
+        ]
+      }
+    },
+    {
+      "id": "traiCay",
+      "name": "Trái Cây Ba Miền",
+      "short": "Trái cây",
+      "kind": "restaurant",
+      "icon": "🍉",
+      "look": "fruit",
+      "floors": 2,
+      "color": "#f4c095",
+      "sign": "TRÁI CÂY BA MIỀN",
+      "signBg": "#27ae60",
+      "block": [
+        2,
+        2
+      ],
+      "lot": "N1",
+      "hours": "caNgay",
+      "npc": {
+        "name": "Cô Ba trái cây",
+        "shirt": "#27ae60",
+        "pants": "#2c3e50",
+        "hat": null,
+        "portrait": "👩‍🌾",
+        "gender": "f"
+      },
+      "menu": [
+        "traiCayCat",
+        "sinhTo",
+        "gioTraiCay"
+      ],
+      "sells": {
+        "goods": [
+          "tuiTraiCay"
+        ]
+      },
+      "activities": [
+        {
+          "id": "nghiVong",
+          "label": "Nằm võng nghỉ trưa (mua ly nước mía)",
+          "cost": 10,
+          "minutes": 30,
+          "phys": 10,
+          "mental": 8,
+          "perDay": 1
+        }
+      ]
+    },
+    {
+      "id": "truongTieuHoc",
+      "name": "Trường Tiểu học Bến Mây",
+      "short": "Tiểu học",
+      "kind": "service",
+      "icon": "🏫",
+      "look": "school",
+      "floors": 3,
+      "color": "#f6d55c",
+      "sign": "TRƯỜNG TIỂU HỌC BẾN MÂY",
+      "signBg": "#2e86c1",
+      "block": [
+        3,
+        4
+      ],
+      "lot": "N",
+      "hours": [
+        6.5,
+        17.5
+      ],
+      "npc": {
+        "name": "Bác bảo vệ",
+        "shirt": "#5d6d7e",
+        "pants": "#2c3e50",
+        "hat": null,
+        "portrait": "👴",
+        "gender": "m"
+      },
+      "orders": {
+        "rideWeight": 3,
+        "foodWeight": 1,
+        "hours": [
+          [
+            10.5,
+            11.5
+          ],
+          [
+            16,
+            17.5
+          ]
+        ]
+      }
+    },
+    {
+      "id": "tiemVang",
+      "name": "Tiệm Vàng Kim Hưng",
+      "short": "Tiệm vàng",
+      "kind": "service",
+      "icon": "💍",
+      "look": "goldShop",
+      "floors": 3,
+      "color": "#b03a2e",
+      "sign": "KIM HƯNG",
+      "signBg": "#b03a2e",
+      "block": [
+        3,
+        5
+      ],
+      "lot": "N1",
+      "hours": "quanAn",
+      "npc": {
+        "name": "Ông chủ tiệm vàng",
+        "shirt": "#7b1f1f",
+        "pants": "#2c3e50",
+        "hat": null,
+        "portrait": "👨‍💼",
+        "gender": "m"
+      },
+      "orders": {
+        "parcelWeight": 3,
+        "parcelItems": [
+          "trangSuc",
+          "daQuy"
+        ],
+        "hours": [
+          8,
+          20
+        ]
+      }
+    },
+    {
+      "id": "choTruyenThong",
+      "name": "Chợ Hòa Bình",
+      "short": "Chợ",
+      "kind": "restaurant",
+      "icon": "🧺",
+      "look": "wetMarket",
+      "color": "#c0392b",
+      "sign": "CHỢ HÒA BÌNH",
+      "signBg": "#c0392b",
+      "block": [
+        1,
+        4
+      ],
+      "lot": "S",
+      "hours": [
+        5,
+        18
+      ],
+      "npc": {
+        "name": "Cô Tư bán cá",
+        "shirt": "#8e44ad",
+        "pants": "#2c3e50",
+        "hat": null,
+        "portrait": "👩",
+        "gender": "f"
+      },
+      "menu": [
+        "caTuoi",
+        "thitHeo",
+        "rauCu",
+        "trungGa"
+      ],
+      "sells": {
+        "goods": [
+          "tuiTraiCay"
+        ]
+      }
+    },
+    {
+      "id": "yamaha",
+      "name": "Cửa Hàng Xe Máy Yamaha",
+      "short": "Xe máy",
+      "kind": "shop",
+      "icon": "🏍️",
+      "look": "showroom",
+      "floors": 3,
+      "color": "#f2f2f2",
+      "sign": "YAMAHA",
+      "signBg": "#1f4e9c",
+      "block": [
+        6,
+        4
+      ],
+      "lot": "S1",
+      "hours": "quanAn",
+      "npc": {
+        "name": "Anh tư vấn bán xe",
+        "shirt": "#1f4e9c",
+        "pants": "#2c3e50",
+        "hat": null,
+        "portrait": "🧑‍💼",
+        "gender": "m"
+      },
+      "sells": {
+        "vehicles": [
+          "cub",
+          "wave",
+          "scooter",
+          "exciter",
+          "sport",
+          "SH"
+        ]
+      }
+    },
+    {
+      "id": "doChoi",
+      "name": "Đồ Chơi Bé Yêu",
+      "short": "Đồ chơi",
+      "kind": "service",
+      "icon": "🧸",
+      "look": "toyShop",
+      "floors": 2,
+      "color": "#f4c095",
+      "sign": "ĐỒ CHƠI BÉ YÊU",
+      "signBg": "#8e44ad",
+      "block": [
+        2,
+        6
+      ],
+      "lot": "N1",
+      "hours": "quanAn",
+      "npc": {
+        "name": "Chị bán đồ chơi",
+        "shirt": "#e84393",
+        "pants": "#2c3e50",
+        "hat": null,
+        "portrait": "👩",
+        "gender": "f"
+      },
+      "orders": {
+        "parcelWeight": 3,
+        "parcelItems": [
+          "doChoiLapRap",
+          "gauBong"
+        ],
+        "hours": [
+          8,
+          20
+        ]
+      }
+    },
+    {
+      "id": "benXeBuyt",
+      "name": "Bến Xe Buýt Trung Tâm",
+      "short": "Bến buýt",
+      "kind": "service",
+      "icon": "🚌",
+      "look": "busStation",
+      "color": "#ecf0f1",
+      "sign": "BẾN XE BUÝT TRUNG TÂM",
+      "signBg": "#1e8449",
+      "block": [
+        6,
+        5
+      ],
+      "lot": "S",
+      "hours": "haiTuGio",
+      "npc": {
+        "name": "Cô bán vé",
+        "shirt": "#1e8449",
+        "pants": "#2c3e50",
+        "hat": null,
+        "portrait": "👩‍💼",
+        "gender": "f"
+      },
+      "activities": [
+        {
+          "id": "ngoiChoBuyt",
+          "label": "Ngồi ghế chờ, uống ly nước",
+          "cost": 5,
+          "minutes": 15,
+          "phys": 3,
+          "mental": 3,
+          "perDay": 0
+        }
+      ],
+      "orders": {
+        "rideWeight": 3,
+        "hours": [
+          5,
+          21
+        ]
+      }
     }
   ]
 }

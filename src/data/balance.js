@@ -59,6 +59,7 @@ export const NIGHT = balanceData.night; // ban đêm: trời tối từ start t�
 export const PARKING = balanceData.parking; // đậu xe: gửi bãi, rủi ro để xe ngoài đường (src/sim/parking.js)
 export const AIRPORT = balanceData.airport || {}; // sân bay: phí vào cổng, cấm dừng trước sảnh (src/sim/airport.js)
 export const ROADS = balanceData.roads || {}; // cấp đường: giới hạn tốc độ, xe cộ, ổ gà, kẹt xe, chốt CSGT theo cấp (src/sim/roads.js)
+export const BUS = balanceData.bus || {}; // xe buýt: giá vé, giờ chạy, tốc độ, dừng mỗi trạm (src/sim/bus.js)
 
 // Tiền nhà trả theo KỲ (mỗi rentEveryDays ngày). Kỳ `period` (1, 2, 3…): có số tự đặt trong rentByPeriod thì dùng,
 // không thì = tiền kỳ 1 + tăng mỗi kỳ
@@ -87,5 +88,6 @@ export function applyBalance(data) {
   into(PARKING, data.parking);
   into(AIRPORT, data.airport);
   into(ROADS, data.roads);
+  into(BUS, data.bus);
 }
 

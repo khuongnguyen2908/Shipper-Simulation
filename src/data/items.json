@@ -649,5 +649,137 @@
     "base": 110,
     "group": "food",
     "startTemp": 85
+  },
+  "traiCayCat": {
+    "id": "traiCayCat",
+    "name": "Hộp trái cây cắt sẵn",
+    "icon": "🍉",
+    "traits": [
+      "cold"
+    ],
+    "base": 28,
+    "group": "food",
+    "startTemp": 6,
+    "meltAt": 14,
+    "meltRate": 0.05
+  },
+  "sinhTo": {
+    "id": "sinhTo",
+    "name": "Sinh tố bơ",
+    "icon": "🥤",
+    "traits": [
+      "cold",
+      "liquid"
+    ],
+    "base": 30,
+    "group": "drink",
+    "startTemp": 4,
+    "meltAt": 10,
+    "meltRate": 0.12
+  },
+  "gioTraiCay": {
+    "id": "gioTraiCay",
+    "name": "Giỏ trái cây biếu",
+    "icon": "🧺",
+    "traits": [
+      "fragile"
+    ],
+    "base": 45,
+    "group": "food"
+  },
+  "caTuoi": {
+    "id": "caTuoi",
+    "name": "Cá tươi ướp đá (đi chợ hộ)",
+    "icon": "🐟",
+    "traits": [
+      "cold"
+    ],
+    "base": 30,
+    "group": "food",
+    "startTemp": 2,
+    "meltAt": 12,
+    "meltRate": 0.06
+  },
+  "thitHeo": {
+    "id": "thitHeo",
+    "name": "Thịt heo (đi chợ hộ)",
+    "icon": "🥩",
+    "traits": [
+      "cold"
+    ],
+    "base": 28,
+    "group": "food",
+    "startTemp": 3,
+    "meltAt": 12,
+    "meltRate": 0.06
+  },
+  "rauCu": {
+    "id": "rauCu",
+    "name": "Túi rau củ (đi chợ hộ)",
+    "icon": "🥬",
+    "traits": [
+      "fragile"
+    ],
+    "base": 18,
+    "group": "food"
+  },
+  "trungGa": {
+    "id": "trungGa",
+    "name": "Vỉ trứng gà (đi chợ hộ)",
+    "icon": "🥚",
+    "traits": [
+      "fragile"
+    ],
+    "base": 20,
+    "group": "food"
+  },
+  "doChoiLapRap": {
+    "id": "doChoiLapRap",
+    "name": "Hộp đồ chơi lắp ráp",
+    "icon": "🧩",
+    "traits": [
+      "paper"
+    ],
+    "base": 25,
+    "group": "parcel",
+    "parcel": true,
+    "cod": 320
+  },
+  "gauBong": {
+    "id": "gauBong",
+    "name": "Gấu bông to",
+    "icon": "🧸",
+    "traits": [
+      "paper"
+    ],
+    "base": 26,
+    "group": "parcel",
+    "parcel": true,
+    "cod": 220
+  },
+  "trangSuc": {
+    "id": "trangSuc",
+    "name": "Hộp trang sức vàng",
+    "icon": "💍",
+    "traits": [
+      "paper"
+    ],
+    "base": 35,
+    "group": "parcel",
+    "parcel": true,
+    "cod": 1500
+  },
+  "daQuy": {
+    "id": "daQuy",
+    "name": "Viên đá quý trong hộp",
+    "icon": "💎",
+    "traits": [
+      "fragile",
+      "paper"
+    ],
+    "base": 40,
+    "group": "parcel",
+    "parcel": true,
+    "cod": 2500
   }
 }

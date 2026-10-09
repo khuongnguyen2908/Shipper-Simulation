@@ -455,7 +455,7 @@ console.log('Đồ dùng, hoạt động, điểm đến (luật bằng dữ li�
       if (om.makeRide({ x: 0, z: 0 }, false, 20 * 60).dropoff.placeId === 'karaoke') night++;
       if (om.makeRide({ x: 0, z: 0 }, false, 9 * 60).dropoff.placeId === 'karaoke') morning++;
     }
-    assert.ok(night > 20, `buổi tối chỉ ${night}/300`);
+    assert.ok(night >= 5, `buổi tối chỉ ${night}/300`); // (càng nhiều địa điểm buổi tối thì tỉ lệ karaoke càng giảm — chỉ cần có)
     assert.equal(morning, 0);
   });
   test('Chuyến xe ôm khách hoảng sợ: tới nơi vẫn được trả một phần, không tính là bị từ chối', () => {
@@ -562,7 +562,7 @@ console.log('App giao hàng, loại đơn, tài khoản, loại khách (apps.jso
   test('Hỏa tốc: cước cao hơn, thời hạn gắt hơn đơn giao hàng thường', () => {
     const { om } = mkOM(6, { carry: { money: 2000 } });
     const e = om.makeParcel(ORDER_TYPES.express, 600, { x: 0, z: 0 });
-    const p = om.makeParcel({ ...ORDER_TYPES.parcel, items: ['taiLieu'], codChance: 0 }, 600, { x: 0, z: 0 });
+    const p = om.makeParcel({ ...ORDER_TYPES.parcel, items: ['taiLieu'], codChance: 0, shopItems: false }, 600, { x: 0, z: 0 });
     assert.ok(e.deadlineMult < p.deadlineMult);
     assert.ok(e.baseFare > ITEMS_DATA_BASE('taiLieu') && Math.abs(p.baseFare - ITEMS_DATA_BASE('taiLieu')) < 0.01);
   });
@@ -570,7 +570,7 @@ console.log('App giao hàng, loại đơn, tài khoản, loại khách (apps.jso
     const poor = mkOM(8, { carry: { money: 20 } }).om;
     for (let i = 0; i < 50; i++) assert.equal(poor.makeParcel({ ...ORDER_TYPES.parcel, codChance: 1 }, 600, { x: 0, z: 0 }).cod, 0);
     const { om, gs } = mkOM(8, { carry: { money: 1000 } });
-    const o = forceOffer(om, () => om.makeParcel({ ...ORDER_TYPES.parcel, items: ['hopGiay'], codChance: 1, bomChance: 0 }, 600, { x: 0, z: 0 }));
+    const o = forceOffer(om, () => om.makeParcel({ ...ORDER_TYPES.parcel, items: ['hopGiay'], codChance: 1, bomChance: 0, shopItems: false }, 600, { x: 0, z: 0 }));
     o.flags.noAnswer = false; o.revealed = true; o.dropoff.apartment = false;
     assert.equal(o.cod, DATA.itemsCod('hopGiay'));
     const r = om.collectParcel(600);
@@ -2581,6 +2581,92 @@ console.log('Cấp đường (đại lộ / thường / nhỏ)');
     const f = validateMap(bad, rd('src/data/places.json')).filter((i) => i.level === 'error').map((i) => `${i.ref}.${i.field}`);
     for (const k of ['roads.x99:0', 'roads.x1:0']) assert.ok(f.includes(k), `không bắt lỗi ${k}`);
     assert.equal(f.filter((x) => x === 'district:xx.roads').length, 2);
+  });
+}
+
+console.log('Xe buýt (tuyến, trạm, lịch chạy)');
+{
+  const BUS = await import('../src/sim/bus.js');
+  const CL = await import('../src/sim/cityLayout.js');
+  const { MAP } = await import('../src/data/map.js');
+  // tuyến thử dựng từ địa điểm có sẵn (không phụ thuộc tuyến người dùng đặt)
+  const { ORDER_TYPES } = await import('../src/data/apps.js');
+  const placed = layout.places.filter((p) => p.kind !== 'scenery' && p.lot !== 'C' && !p.inAlley && BUS.frontSegment(p));
+  const pick3 = [placed[0], placed[Math.floor(placed.length / 2)], placed[placed.length - 1]].map((p) => p.id);
+  const testMap = { ...MAP, busRoutes: [{ id: 'tt', name: 'Thử', color: '#123456', buses: 3, via: pick3 }], busStopNames: {} };
+  const sys = BUS.buildBusSystem(layout, testMap);
+  const r = sys.routes[0];
+  test('Dựng tuyến: vòng kín qua đúng các điểm ghé, có trạm, nhà chờ trên vỉa hè không chắn cửa nhà', () => {
+    assert.equal(r.error, null, `lỗi ${r.error}`);
+    assert.ok(r.length > 100 && r.stops.length >= pick3.length, `${Math.round(r.length)} m, ${r.stops.length} trạm`);
+    assert.deepEqual(r.nodes[0], r.nodes[r.nodes.length - 1], 'vòng kín');
+    for (let k = 1; k < r.nodes.length; k++) assert.equal(Math.abs(r.nodes[k][0] - r.nodes[k - 1][0]) + Math.abs(r.nodes[k][1] - r.nodes[k - 1][1]), 1, 'đi theo từng đoạn đường');
+    const doors = [...layout.places.map((p) => p.door), ...layout.lots.map((l) => l.door)];
+    for (const st of sys.stops) {
+      assert.ok(CL.blockAt(st.x, st.z), `trạm ${st.id} không nằm trên vỉa hè`);
+      assert.ok(doors.every((d) => Math.hypot(d.x - st.x, d.z - st.z) > 2), `trạm ${st.id} chắn cửa nhà`);
+      assert.ok(st.name && st.name.length > 3, 'trạm có tên');
+    }
+    // mỗi điểm ghé có trạm trong vòng 30 m
+    for (const id of pick3) {
+      const p = layout.placeById[id];
+      assert.ok(r.stops.some((s) => Math.hypot(sys.byId[s.id].x - p.door.x, sys.byId[s.id].z - p.door.z) < 30), `không có trạm gần ${p.name}`);
+    }
+    // tên người dùng đặt thay tên tự đặt
+    const st0 = sys.stops[0];
+    const named = BUS.buildBusSystem(layout, { ...testMap, busStopNames: { [st0.id]: 'Trạm Cây Đa' } });
+    assert.equal(named.byId[st0.id].name, 'Trạm Cây Đa');
+  });
+  test('Lịch chạy: chờ không quá 1 khoảng cách giữa 2 xe; đi theo chiều tuyến; chọn nhầm (đi ngược) thì mất gần 1 vòng', () => {
+    const T = r.timetable, head = T.lap / r.buses;
+    const [a, b] = [r.stops[0].id, r.stops[1].id];
+    for (let now = 600; now < 600 + T.lap; now += 7) {
+      const t = BUS.tripOn(r, a, b, now);
+      assert.ok(t.wait >= 0 && t.wait <= head + 0.01, `chờ ${t.wait.toFixed(1)} > ${head.toFixed(1)}`);
+      assert.ok(t.arrive > t.board && Math.abs(t.total - (t.wait + t.ride)) < 1e-6);
+    }
+    const fwd = BUS.tripOn(r, a, b, 600), back = BUS.tripOn(r, b, a, 600);
+    assert.ok(back.ride > fwd.ride * 3 && back.ride < T.lap + T.dwell, `đi ngược ${back.ride.toFixed(0)} phút, xuôi ${fwd.ride.toFixed(0)}`);
+    assert.equal(BUS.tripOn(r, a, a, 600), null);
+    const ds = BUS.destinations(sys, a, 600);
+    assert.equal(ds.length, r.stops.length - 1);
+    for (let i = 1; i < ds.length; i++) assert.ok(ds[i].trip.arrive >= ds[i - 1].trip.arrive);
+  });
+  test('Xe trên đường khớp lịch: lúc xe tới trạm thì đứng sát trạm; ngoài giờ chạy không đón khách', () => {
+    const T = r.timetable, st = T.stops[2];
+    const poses = BUS.busPoses(r, st.arrive + 0.2); // xe số 0 ở pha đúng giờ tới trạm 3
+    const s = sys.byId[st.id];
+    assert.ok(poses[0].stopped && Math.hypot(poses[0].x - s.x, poses[0].z - s.z) < 7, `xe cách trạm ${Math.hypot(poses[0].x - s.x, poses[0].z - s.z).toFixed(1)} m`);
+    assert.ok(BUS.inService(8 * 60) && !BUS.inService(23 * 60) && !BUS.inService(3 * 60));
+  });
+  test('Gợi ý đi buýt (xe bị cẩu): trạm gần mình → trạm gần nơi giữ xe, cùng tuyến', () => {
+    const A = sys.byId[r.stops[0].id], B = sys.byId[r.stops[r.stops.length - 1].id];
+    const h = BUS.busHint(sys, A.wait.x + 2, A.wait.z, B.wait.x, B.wait.z + 2);
+    assert.ok(h && h.route.id === 'tt' && h.from.id !== h.to.id);
+  });
+  test('Dữ liệu tuyến hiện tại chạy được; bộ kiểm tra bắt tuyến sai', () => {
+    const real = BUS.buildBusSystem(layout, MAP);
+    for (const x of real.routes) assert.equal(x.error, null, `${x.name}: ${x.error}`);
+    const bad = { ...MAP, busRoutes: [{ id: 'x y', name: '', color: 'xanh', buses: 9, via: ['khongCo'] }], busStopNames: { a: 5 } };
+    const f = VALIDATE.validateMap(bad, DATA.places).filter((i) => i.level === 'error').map((i) => `${i.ref}.${i.field}`);
+    for (const k of ['bus:x y.id', 'bus:x y.name', 'bus:x y.color', 'bus:x y.buses', 'bus:x y.via', 'bus.busStopNames']) assert.ok(f.includes(k), `không bắt lỗi ${k}: ${f.join(', ')}`);
+  });
+  test('Hàng riêng của tiệm: loại đơn bật "shopItems" lấy ở tiệm có hàng riêng thì giao hàng của tiệm; hỏa tốc thì không', () => {
+    // chỉ tiệm thử có "gửi hàng từ đây" (các nơi khác tắt) để đơn chắc chắn lấy ở đó
+    const shop = { ...layout.places.find((p) => p.kind !== 'scenery'), id: 'shopThu', orders: { parcelWeight: 10, parcelItems: ['dienThoai'] } };
+    const others = layout.places.map((p) => (p.orders?.parcelWeight ? { ...p, orders: { ...p.orders, parcelWeight: 0 } } : p));
+    const lay = { ...layout, places: [...others, shop], placeById: { ...layout.placeById, shopThu: shop } };
+    const om = new OrderManager({ rng: makeRng(5), layout: lay, gs: new GameState() });
+    for (let i = 0; i < 20; i++) {
+      const o = om.makeParcel({ ...ORDER_TYPES.parcel, items: ['taiLieu'], shopItems: true, codChance: 0 }, 600, shop.door);
+      assert.equal(o.pickup.placeId, 'shopThu');
+      assert.deepEqual(o.itemIds, ['dienThoai']);
+      assert.deepEqual(om.makeParcel({ ...ORDER_TYPES.parcel, items: ['taiLieu'], shopItems: false, codChance: 0 }, 600, shop.door).itemIds, ['taiLieu']);
+    }
+    const bad = JSON.parse(JSON.stringify(DATA.places));
+    bad.places[0].orders = { parcelWeight: 1, parcelItems: ['khongCo', 'pho'] };
+    const errs = VALIDATE.validatePlaces(bad, DATA.items).filter((i) => i.level === 'error' && i.field === 'orders.parcelItems');
+    assert.equal(errs.length, 2);
   });
 }
 

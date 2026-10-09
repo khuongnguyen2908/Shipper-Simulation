@@ -178,5 +178,13 @@
       "jam": 0.3,
       "police": 0.3
     }
+  },
+  "bus": {
+    "fare": 7,
+    "from": 5,
+    "to": 21,
+    "speed": 9,
+    "dwellMin": 0.5,
+    "stopEvery": 2
   }
 }

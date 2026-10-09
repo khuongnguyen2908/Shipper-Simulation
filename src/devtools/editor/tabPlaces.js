@@ -317,7 +317,23 @@ export function render(root, ctx) {
   // --- điểm đến của đơn ---
   const ord = () => p.orders || {};
   const ordW = () => (p.orders = p.orders || {});
-  const cleanup = () => { if (p.orders && !p.orders.rideWeight && !p.orders.foodWeight && !p.orders.parcelWeight && !p.orders.hours) delete p.orders; };
+  const cleanup = () => {
+    if (p.orders && !(p.orders.parcelItems || []).length) delete p.orders.parcelItems;
+    if (p.orders && !p.orders.rideWeight && !p.orders.foodWeight && !p.orders.parcelWeight && !p.orders.hours && !p.orders.parcelItems) delete p.orders;
+  };
+  // hàng riêng của tiệm cho đơn giao hàng (món có đánh dấu "hàng giao"): tick món nào thì đơn lấy ở đây chỉ giao các món đó
+  const parcelItemsRow = () => {
+    const all = Object.values(ctx.data.items).filter((it) => it.parcel);
+    const cur = new Set(ord().parcelItems || []);
+    return field('Hàng riêng của tiệm', el('div', { class: 'inline wrap' }, all.map((it) => checkInput(cur.has(it.id), (on) => {
+      const set = new Set(ord().parcelItems || []);
+      if (on) set.add(it.id);
+      else set.delete(it.id);
+      ordW().parcelItems = [...set];
+      cleanup();
+      changedP();
+    }, `${it.icon || '📦'} ${it.name}`))), opt('orders.parcelItems', { wide: true, hint: 'Để trống = giao các món của loại đơn (thẻ App & Đơn). Tick món = đơn lấy hàng ở tiệm này chỉ giao các món đó (tiệm vàng → trang sức, tiệm đồ chơi → đồ chơi).' }));
+  };
   T.pane('orders').append(
     el('h3', {}, 'Điểm đến của đơn hàng'),
     el('p', { class: 'muted' }, 'Mức 0 = không bao giờ, 10 = rất thường xuyên. Ví dụ karaoke: khách xe ôm mức 6, khung giờ 17→22.'),
@@ -328,6 +344,7 @@ export function render(root, ctx) {
       p.kind !== 'restaurant' ? field('Gửi hàng từ đây (đơn giao hàng)', numInput(ord().parcelWeight ?? 0, (v) => { ordW().parcelWeight = v; cleanup(); changedP(); }, { step: 1, min: 0, max: 10 }), opt('orders.parcelWeight', { hint: HINT.orders.parcelWeight })) : null,
       hoursRow(() => ord().hours, ordW, 'orders.hours', 'Khung giờ có đơn', '"Theo giờ mở cửa" = có đơn mọi lúc tiệm mở.', cleanup, 'Theo giờ mở cửa'),
     ),
+    p.kind !== 'restaurant' ? parcelItemsRow() : '',
   );
 
   // --- lời thoại riêng (kho chữ npc.<id>.*) ---

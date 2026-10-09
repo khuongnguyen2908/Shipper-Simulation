@@ -12,6 +12,7 @@ import { S } from './sim/OrderManager.js';
 import { fmtK } from './sim/economy.js';
 import { intersectionName } from './sim/cityLayout.js';
 import { tierLabel } from './sim/roads.js';
+import { nearestStop, destinations, inService, busRule } from './sim/bus.js';
 import { fmt, pick, has } from './content/index.js';
 import { fmtClock, minutesUntil } from './sim/clock.js';
 import { buildPacking } from './ui/packing.js';
@@ -80,6 +81,12 @@ export function gatherInteractions(g) {
     if (!a) continue;
     if (a.needFoot && !foot) E.push({ label: fmt('act.needFoot', { place: pl.name }), dist: d, disabled: true });
     else E.push({ ...a, dist: d });
+  }
+  // trạm xe buýt (src/sim/bus.js): đi bộ tới trạm, bấm E chọn trạm xuống
+  const stop = g.bus && nearestStop(g.bus, p.x, p.z, foot ? 3 : 4.5);
+  if (stop) {
+    const d = dist(p, stop.wait) + 0.4;
+    E.push(foot ? { label: fmt('act.bus', { stop: stop.name }), dist: d, run: () => busDialog(g, stop) } : { label: fmt('act.busNeedFoot'), dist: d, disabled: true });
   }
   if (foot || slow) {
     const ped = g.traffic.nearestPed(p.x, p.z, foot ? 2.6 : 3.5);
@@ -789,10 +796,42 @@ function shopDialog(g, pl) {
   }
   choices.push(...activityChoices(g, pl).map((c) => ({ ...c, onSelect: () => { c.onSelect(); } })));
   choices.push({ label: fmt('dlg.shopExit') });
-  const intro = pl.kind === 'shop' ? fmt('dlg.shopIntro', { money: fmtK(gs.money), bag: gs.bagSpec.name })
-    : pl.kind === 'garage' ? fmt('dlg.garageIntro', { money: fmtK(gs.money) })
+  const onlyBikes = (sells.vehicles || []).length && !(sells.goods || []).length && !(sells.bags || []).length;
+  const intro = onlyBikes ? fmt('dlg.showroomIntro', { money: fmtK(gs.money) })
+    : pl.kind === 'shop' ? fmt('dlg.shopIntro', { money: fmtK(gs.money), bag: gs.bagSpec.name })
+    : pl.kind === 'garage' ? fmt((sells.vehicles || []).length ? 'dlg.garageIntro' : 'dlg.garageRepairIntro', { money: fmtK(gs.money) })
     : fmt('dlg.shopTitle', { money: fmtK(gs.money) });
   g.modal.show({ speaker: n.name, portrait: n.portrait, text: intro, choices, wide: true });
+}
+
+// ======================== XE BUÝT ========================
+// Chọn trạm xuống trước khi lên xe; xe chạy một chiều theo vòng tuyến → chọn nhầm thì phải đi tiếp / chờ chuyến khác
+function busDialog(g, stop) {
+  const { gs } = g, now = g.clockMin, fare = busRule('fare', 7);
+  const speak = (text, choices) => say(g, fmt('dlg.busSpeaker', { stop: stop.name }), '🚏', text, choices);
+  if (g.om.order?.kind === 'ride' && g.om.hasCargo) return speak(fmt('dlg.busPassenger'));
+  if (!inService(now)) return speak(fmt('dlg.busNoService', { from: busRule('from', 5), to: busRule('to', 21) }));
+  const dests = destinations(g.bus, stop.id, now).filter((d) => inService(d.trip.board));
+  if (!dests.length) return speak(fmt('dlg.busNoService', { from: busRule('from', 5), to: busRule('to', 21) }));
+  const choices = dests.map((d) => ({
+    label: fmt('dlg.busDest', { stop: d.stop.name, route: d.route.name }),
+    hint: fmt('dlg.busDestHint', { wait: Math.round(d.trip.wait), ride: Math.round(d.trip.ride), at: fmtClock(d.trip.arrive) }),
+    disabled: gs.money < fare,
+    onSelect: () => rideBus(g, d, fare),
+  }));
+  choices.push({ label: fmt('dlg.leave') });
+  speak(fmt('dlg.bus', { fare, money: fmtK(gs.money) }), choices);
+}
+function rideBus(g, d, fare) {
+  g.gs.spend(fare, 'bus');
+  sfx.cash();
+  g.advance(d.trip.total, 'idle', { indoor: true, waiting: true, quiet: true });
+  const w = d.stop.wait, wk = g.walker;
+  wk.pos.set(w.x, 0, w.z);
+  wk._ex = w.x;
+  wk._ez = w.z;
+  wk.deckY = null;
+  g.hud.toast(fmt('toast.busArrive', { stop: d.stop.name, time: fmtClock(g.clockMin), min: Math.round(d.trip.total) }), 'good', 5000);
 }
 
 function landlord(g, pl) {

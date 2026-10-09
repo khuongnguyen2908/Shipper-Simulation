@@ -6,6 +6,7 @@ import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, BAGS, NIGHT, PARKING, AI
 import { parkingRoll, parkingLotAt, nearestStation, towTarget, safeSpot } from './sim/parking.js';
 import { airportAt, airportParkAt, airportNoStopAt, noStopStep } from './sim/airport.js';
 import { roadSegAt, tierOf, tierLabel, speedLimitOf } from './sim/roads.js';
+import { busHint, inService } from './sim/bus.js';
 import { GOODS, outfitLook } from './data/goods.js';
 import { APP, RIDER_TYPES } from './data/apps.js';
 import { ITEMS } from './data/items.js';
@@ -69,6 +70,8 @@ export class Game {
     this.sky = new Sky(this.scene);
     this.traffic = new Traffic(this.scene, makeRng(99));
     for (const l of this.city.loops || []) this.traffic.addLoop(l); // xe bot chạy vòng lên sàn ga đi sân bay
+    this.bus = this.city.bus; // xe buýt: tuyến + trạm (src/sim/bus.js)
+    this.traffic.setBuses(this.bus);
     this.bike = new Bike(this.scene, VEHICLES.cub);
     this.walker = new Walker(this.scene);
     this.beacon = makeBeacon();
@@ -882,7 +885,11 @@ export class Game {
     if (gs.towed && this.mode === 'foot') {
       const lot = this.layout.placeById[gs.towed.placeId];
       const fee = gs.towed.fee + (lot?.kind === 'police' ? gs.finesTotal : 0); // ở đồn: đóng cả phạt nguội
-      return { x: this.bike.pos.x, z: this.bike.pos.z, text: fmt('goal.towed', { place: lot?.name || '', fee }), sub: fmt('goal.towedHint'), color: '#e74c3c' };
+      // xa thì gợi ý đi xe buýt (trạm gần mình → trạm gần nơi giữ xe, cùng tuyến)
+      const pp = this.playerPos, far = lot && Math.hypot(lot.door.x - pp.x, lot.door.z - pp.z) > 200;
+      const h = far && inService(this.clockMin) && busHint(this.bus, pp.x, pp.z, lot.door.x, lot.door.z);
+      const sub = h ? fmt('goal.towedBus', { from: h.from.name, route: h.route.name, to: h.to.name }) : fmt('goal.towedHint');
+      return { x: this.bike.pos.x, z: this.bike.pos.z, text: fmt('goal.towed', { place: lot?.name || '', fee }), sub, color: '#e74c3c' };
     }
     if (o) {
       if ([S.TO_PICKUP, S.WAITING_FOOD, S.OUT_OF_STOCK, S.PACKING].includes(om.state)) {
@@ -1020,6 +1027,7 @@ export class Game {
     this.applyLook();
     const { night, wet } = this.sky.update(dt, tod(now), rain, pp, this.camera);
     this.city.update?.(dt, this.traffic.loopCars); // barie sân bay nâng khi ô tô tới
+    this.traffic.updateBuses(now, pp.x, pp.z, dt); // xe buýt chạy theo lịch
     this.city.setNight(night);
     this.city.setWet(wet);
     this.bike.setNight(night, this.mode === 'bike');
@@ -1106,6 +1114,7 @@ export class Game {
     const pp = this.playerPos;
     return {
       player: { x: pp.x, z: pp.z, heading: this.mode === 'bike' ? this.bike.heading : this.walker.heading },
+      bus: this.bus, // tuyến + trạm xe buýt
       bike: this.mode === 'foot' ? { x: this.bike.pos.x, z: this.bike.pos.z } : null,
       places,
       alleyBlocks: this.layout.alleyBlocks,

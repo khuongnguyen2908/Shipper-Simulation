@@ -12,7 +12,7 @@ import { makeRng } from '../sim/rng.js';
 import { SpatialGrid } from './physics.js';
 import { makeTileTexture, makeAsphaltTexture, makeSignTexture, makeGlowTexture } from './textures.js';
 import { HouseGeo, buildHouse, housesForLot, houseMaterial, houseTop } from './houses.js';
-import { buildPlace, buildResidential, mergeKits, makeKit, airportPath, AIRPORT_MIN_W } from './placeBuildings.js';
+import { buildPlace, buildResidential, mergeKits, makeKit, busStopModel, airportPath, AIRPORT_MIN_W } from './placeBuildings.js';
 import { Elevated } from './elevated.js';
 import { lotFrame, airportZones } from '../sim/airport.js';
 import { lookOf, lookFloors } from '../data/looks.js';
@@ -20,6 +20,7 @@ import { ITEMS } from '../data/items.js';
 import { hashStr } from '../sim/people.js';
 import { mat } from './models.js';
 import { tierOf, TIER_GEO, allSegments } from '../sim/roads.js';
+import { buildBusSystem } from '../sim/bus.js';
 
 const WALL_COLORS = [0xe8d5b7, 0xf4c095, 0x9fd8cb, 0xf6e27f, 0xe7a9a9, 0xb8d8e8, 0xd9c3e8, 0xf2f2f2, 0xc9e4a6, 0xf7b267, 0xffe0b5, 0xa9cce3];
 const AWNING_COLORS = [0xc0392b, 0x2980b9, 0x27ae60, 0xf39c12, 0x8e44ad, 0x16a085];
@@ -63,6 +64,9 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   // vạch giữa đường + vạch qua đường (không vẽ trên mặt sông, trên cầu)
   const mapData = opts.map || MAP;
   const G = roadGraph(opts.map);
+  // xe buýt (src/sim/bus.js): tuyến + trạm; cây, trang trí vỉa hè chừa chỗ cho nhà chờ
+  const bus = opts.bus || buildBusSystem(layout, mapData);
+  const nearStop = (x, z, d = 2.6) => bus.stops.some((s) => Math.hypot(s.x - x, s.z - z) < d);
   const noRoad = (id) => G.waterSegs.has(id) || G.closedSegs.has(id); // sông hoặc đoạn đã gộp khối
   const segIdx = (a) => Math.floor((a - CITY.ORIGIN) / CITY.PITCH);
   const dashGeo = new THREE.PlaneGeometry(1, 1);
@@ -367,7 +371,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
       driveways.push(fr.toWorld(q.x + Math.sign(q.x) * (0.75 + CITY.SW / 2), q.z));
     }
   }
-  const nearDrive = (x, z, d = 4) => driveways.some(([a, b]) => Math.hypot(a - x, b - z) < d);
+  const nearDrive = (x, z, d = 4) => driveways.some(([a, b]) => Math.hypot(a - x, b - z) < d) || nearStop(x, z, 2.8);
   // trang trí đường phố theo khu (dây đèn lồng, đèn lồng giấy, xe hàng rong)
   const doors = layout.places.map((p) => p.door).filter(Boolean);
   buildStreetDecor(scene, {
@@ -606,6 +610,18 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     crownOf([[0.95, 0, -0.35, 0], [0.85, 0.2, 0.55, 0.15], [0.7, -0.1, 1.3, -0.1], [0.75, 0.45, 0.15, -0.45], [0.6, -0.35, 0.9, 0.35]]),
   ];
   const kindOf = trees.map(() => 0);
+  for (let i = trees.length - 1; i >= 0; i--) if (nearStop(trees[i][0], trees[i][1])) trees.splice(i, 1); // chừa chỗ nhà chờ xe buýt
+  // nhà chờ xe buýt ở các trạm (gộp 1 lần) + khối chắn vách kính, ghế phía sau
+  if (bus.stops.length) {
+    const k = makeKit();
+    for (const s of bus.stops) {
+      busStopModel(k, s.x, s.z, s.ry);
+      const c = Math.cos(s.ry), sn = Math.sin(s.ry);
+      const pts = [[-1.6, -0.75], [1.6, -0.75], [-1.6, -0.2], [1.6, -0.2]].map(([lx, lz]) => [s.x + lx * c + lz * sn, s.z - lx * sn + lz * c]);
+      addBox(Math.min(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1])), Math.max(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[1])), 2.5, 'busStop');
+    }
+    mergeKits([{ kit: k, matrix: new THREE.Matrix4().makeTranslation(0, SW_H, 0) }], scene);
+  }
   const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.11, 0.18, 3, 6), mat(0x6e4b2a), trees.length);
   const pitFrame = new THREE.InstancedMesh(new THREE.BoxGeometry(1.25, 0.05, 1.25), mat(0xb9b4ab), trees.length);
   const pitSoil = new THREE.InstancedMesh(new THREE.BoxGeometry(1.0, 0.05, 1.0), mat(0x4a3a2c, { roughness: 1 }), trees.length);
@@ -754,6 +770,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     elev, // mặt đi trên cao (xe / người chạy lên dốc sân bay)
     loops, // đường vòng cho xe bot (traffic.addLoop)
     barriers, // barie chân dốc sân bay (giữa cần chắn: x, z)
+    bus, // xe buýt: tuyến + trạm (src/sim/bus.js)
     // mỗi khung hình: nâng / hạ cần barie theo xe bot gần đó
     update(dt, cars = []) {
       for (const b of barriers) {

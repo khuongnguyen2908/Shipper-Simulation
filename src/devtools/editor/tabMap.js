@@ -2,10 +2,12 @@
 import { CITY, HALF, blockBounds, blockPlan, blockRect, roadPos, roadGraph, segmentRect, joinList, joinGap } from '../../sim/cityLayout.js';
 import { ALLEY_TEMPLATES } from '../../sim/blockPlan.js';
 import { isPlaced } from '../../data/places.js';
-import { el, field, button, selectInput, checkInput, numInput, explain, textInput, colorInput } from './ui.js';
+import { el, field, button, selectInput, checkInput, numInput, explain, textInput, colorInput, advanced } from './ui.js';
 import { HINT, EXPLAIN } from './help.js';
 import { DISTRICT_TRAITS, DISTRICT_PRESETS, TRAIT_IDS, TRAIT_RANGE, traitOf, HOUSE_STYLES, DECOR, LOOK_PRESETS, TREES_RANGE, treesOf } from '../../data/districtTraits.js';
 import { ROAD_TIERS, TIER_IDS, tierOf, roadSegAt, allSegments, suggestRoadTiers } from '../../sim/roads.js';
+import { buildLayout } from '../../sim/cityLayout.js';
+import { buildBusSystem } from '../../sim/bus.js';
 
 // khu phố đang mở bảng "tính cách" (⚙️)
 let openKhu = null;
@@ -98,6 +100,7 @@ export function render(root, ctx) {
     dBox,
     explain(EXPLAIN.map),
     roadsBox(),
+    busBox(),
     riversBox(),
     joinsBox(),
   );
@@ -256,6 +259,70 @@ export function render(root, ctx) {
     drawRoads = draw;
     return box;
   }
+  // ---------- xe buýt (map.json → busRoutes, busStopNames) ----------
+  // dựng tuyến từ bản đang sửa (địa điểm + bản đồ) để xem trước lộ trình, trạm, lỗi
+  function busSystem() {
+    try {
+      return buildBusSystem(buildLayout(places.filter(isPlaced), map), map);
+    } catch (e) {
+      return null;
+    }
+  }
+  function busBox() {
+    const box = el('div');
+    const placed = places.filter(isPlaced);
+    const opts = placed.map((p) => [p.id, `${p.name} (khối ${p.block.join(',')})`]);
+    const ERR = { via: 'cần ít nhất 2 điểm ghé có trên bản đồ', front: 'có điểm ghé không tìm được đường trước cửa', path: 'không tìm được đường nối giữa 2 điểm ghé (sông / đường cụt)', stops: 'không đặt được trạm nào' };
+    const draw = () => {
+      box.innerHTML = '';
+      map.busRoutes = map.busRoutes || [];
+      map.busStopNames = map.busStopNames || {};
+      const sys = busSystem();
+      const edit = (fn) => { fn(); changed(); draw(); drawMap(); };
+      box.append(
+        el('h3', {}, '🚌 Xe buýt'),
+        el('p', { class: 'muted' }, 'Mỗi tuyến là một vòng kín đi qua các "điểm ghé" theo thứ tự (xe chạy ngang trước cửa, cửa nằm bên phải). Giữa 2 điểm ghé xe tự tìm đường ngắn, ưu tiên đại lộ. Trạm tự đặt trước mỗi điểm ghé và cách vài đoạn đường một trạm. Giá vé, giờ chạy, tốc độ: thẻ ⚖️ Cân bằng → 🚌 Xe buýt.'),
+      );
+      map.busRoutes.forEach((r, ri) => {
+        const info = sys?.routes.find((x) => x.id === r.id);
+        const status = !info ? '' : info.error ? `⚠️ Tuyến chưa chạy được: ${ERR[info.error] || info.error}.` : `✔ Dài ${Math.round((info.length * 10) / 100) / 10} km (ngoài đời) · ${info.stops.length} trạm · 1 vòng ${Math.round(info.timetable.lap)} phút · ${r.buses || 2} xe → chờ tối đa ~${Math.round(info.timetable.lap / (r.buses || 2))} phút`;
+        const vias = r.via || (r.via = []);
+        box.append(el('div', { class: 'dist-traits' },
+          el('div', { class: 'inline wrap' },
+            textInput(r.name, (v) => { r.name = v; changed(); }, { placeholder: 'Tên tuyến', style: 'min-width:240px' }),
+            colorInput(r.color, (v) => { r.color = v; changed(); drawMap(); }),
+            el('label', {}, 'Số xe ', numInput(r.buses ?? 2, (v) => { if (Number.isFinite(v)) { r.buses = Math.max(1, Math.min(6, Math.round(v))); changed(); } }, { step: 1, min: 1, max: 6 })),
+            button('🗑 Xóa tuyến', () => { if (confirm(`Xóa ${r.name}?`)) edit(() => map.busRoutes.splice(ri, 1)); }, 'small danger'),
+          ),
+          el('small', { class: info?.error ? 'err' : 'muted' }, status),
+          ...vias.map((id, vi) => el('div', { class: 'inline' },
+            el('b', {}, `${vi + 1}.`),
+            selectInput(id, [['', '— chọn địa điểm —'], ...opts], (v) => edit(() => { vias[vi] = v; })),
+            button('↑', () => edit(() => { if (vi > 0) [vias[vi - 1], vias[vi]] = [vias[vi], vias[vi - 1]]; }), 'small'),
+            button('↓', () => edit(() => { if (vi < vias.length - 1) [vias[vi + 1], vias[vi]] = [vias[vi], vias[vi + 1]]; }), 'small'),
+            button('✕', () => edit(() => vias.splice(vi, 1)), 'small'),
+          )),
+          button('+ Thêm điểm ghé', () => edit(() => vias.push(placed[0]?.id || '')), 'small'),
+        ));
+      });
+      box.append(button('+ Thêm tuyến', () => edit(() => {
+        let n = 1;
+        while (map.busRoutes.some((r) => r.id === `t${n}`)) n++;
+        map.busRoutes.push({ id: `t${n}`, name: `Tuyến ${n}`, color: PALETTE[n % PALETTE.length], buses: 3, via: [] });
+      }), 'small'));
+      // tên trạm: để trống = tên tự đặt theo địa điểm / tên đường gần trạm
+      if (sys?.stops.length) {
+        box.append(advanced(`Tên trạm (${sys.stops.length})`, ...sys.stops.map((st) => field(`🚏 ${st.routes.map((x) => sys.routeById[x.id]?.name.split(' ')[1] || x.id).join(', ')}`, textInput(map.busStopNames[st.id] || '', (v) => {
+          if (v.trim()) map.busStopNames[st.id] = v;
+          else delete map.busStopNames[st.id];
+          changed();
+        }, { placeholder: st.autoName }), { ref: 'bus', fieldKey: st.id }))));
+      }
+    };
+    draw();
+    return box;
+  }
+
   // tô 1 đoạn đường bằng cọ cấp đường
   function paintRoad(wx, wz) {
     const s = roadSegAt(wx, wz);
@@ -396,6 +463,27 @@ export function render(root, ctx) {
       const cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2;
       const rr = sg.axis === 'x' ? { x0: cx - (CITY.ROAD * f) / 2, x1: cx + (CITY.ROAD * f) / 2, z0: r.z0, z1: r.z1 } : { x0: r.x0, x1: r.x1, z0: cz - (CITY.ROAD * f) / 2, z1: cz + (CITY.ROAD * f) / 2 };
       R(rr, TIER_COLOR[t]);
+    }
+    // tuyến xe buýt + trạm (bản đang sửa)
+    const bs = busSystem();
+    for (const r of bs?.routes || []) {
+      if (r.error) continue;
+      g.strokeStyle = r.color;
+      g.lineWidth = 3;
+      g.globalAlpha = 0.8;
+      g.beginPath();
+      r.pts.forEach((q, i) => (i ? g.lineTo(X(q.x), Z(q.z)) : g.moveTo(X(q.x), Z(q.z))));
+      g.stroke();
+      g.globalAlpha = 1;
+    }
+    for (const st of bs?.stops || []) {
+      g.fillStyle = '#fff';
+      g.strokeStyle = bs.routeById[st.routes[0]?.id]?.color || '#1e8449';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(X(st.x), Z(st.z), 4, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
     }
     // sông & cầu (bản đang sửa)
     const G = roadGraph(map);

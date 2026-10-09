@@ -11,6 +11,8 @@ import { guessGender } from '../sim/people.js';
 import { pushCircle } from './physics.js';
 import { list } from '../content/index.js';
 import { tierBetween, tierRule, tierOf, TIER_GEO } from '../sim/roads.js';
+import { busPoses, inService } from '../sim/bus.js';
+import { makeKit, busModel } from './placeBuildings.js';
 
 const SW_H = 0.15;
 const FAR = 150; // m — xa hơn thì NPC ẩn (sương mù che từ ~260 m, tầm nhìn thường ~100 m)
@@ -58,6 +60,7 @@ export class Traffic {
     this.rng = rng;
     this.agents = [];
     this.loopCars = []; // xe chạy vòng cố định (lên đường trên cao sân bay thả khách)
+    this.buses = []; // xe buýt chạy theo lịch (src/sim/bus.js)
     this.riders = []; // khách vừa xuống xe đi vào ga (dùng lại người cũ)
     this.peds = [];
     this.dogs = [];
@@ -93,6 +96,49 @@ export class Traffic {
   laneOf(a) {
     const g = TIER_GEO[tierBetween(a.from, a.to)];
     return a.kind === 'car' ? g.carLane : g.motoLane;
+  }
+
+  // ---------------- xe buýt ----------------
+  // Mỗi tuyến vài xe; vị trí lấy thẳng từ lịch chạy (cùng lịch dùng để tính chờ / đi khi người chơi đi xe)
+  setBuses(sys) {
+    for (const b of this.buses) this.scene.remove(b.mesh);
+    this.buses = [];
+    sys.routes.forEach((r, ri) => {
+      if (r.error) return;
+      for (let i = 0; i < r.buses; i++) {
+        const k = makeKit();
+        busModel(k, 0, 0, 'z', parseInt((r.color || '#1e8449').slice(1), 16), ri + 1);
+        const mesh = new THREE.Group();
+        k.meshes(mesh);
+        mesh.visible = false;
+        this.scene.add(mesh);
+        this.buses.push({ route: r, idx: i, mesh, x: 0, z: 0, dx: 0, dz: 1, heading: 0, speed: 0, ready: false });
+      }
+    });
+  }
+  // now: phút game · px, pz: người chơi (xa thì ẩn cho nhẹ)
+  updateBuses(now, px, pz, dt = 0.016) {
+    if (!this.buses.length) return;
+    const on = inService(now);
+    const poses = new Map();
+    for (const b of this.buses) {
+      if (!poses.has(b.route)) poses.set(b.route, busPoses(b.route, now));
+      const p = poses.get(b.route)[b.idx];
+      if (!p) continue;
+      const mv = Math.hypot(p.x - b.x, p.z - b.z);
+      b.speed = b.ready && dt > 0 ? Math.min(20, mv / dt) : 0;
+      b.x = p.x;
+      b.z = p.z;
+      b.dx = Math.sin(p.heading);
+      b.dz = Math.cos(p.heading);
+      let d = p.heading - b.heading;
+      d = ((d + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+      b.heading = b.ready ? b.heading + d * Math.min(1, dt * 6) : p.heading;
+      b.ready = true;
+      b.mesh.visible = on && Math.abs(p.x - px) < FAR && Math.abs(p.z - pz) < FAR;
+      b.mesh.position.set(p.x, 0, p.z);
+      b.mesh.rotation.y = b.heading;
+    }
   }
 
   // ---------------- xe chạy vòng cố định ----------------
@@ -572,6 +618,10 @@ export class Traffic {
       const avx = a.dx * a.speed, avz = a.dz * a.speed;
       test(a.x + a.dx * 1.1, a.z + a.dz * 1.1, 1.05, avx, avz, 'car', a);
       test(a.x - a.dx * 1.1, a.z - a.dz * 1.1, 1.05, avx, avz, 'car', a);
+    }
+    for (const b of this.buses) {
+      if (!b.mesh.visible) continue;
+      for (const o of [-3.75, -1.25, 1.25, 3.75]) test(b.x + b.dx * o, b.z + b.dz * o, 1.3, b.dx * b.speed, b.dz * b.speed, 'car', null);
     }
     for (const c of this.jamCircles) test(c.x, c.z, c.r, 0, 0, 'car', null);
     for (const p of this.peds) {

@@ -1359,7 +1359,454 @@ const BUILD = {
     k.plane(2.4, 0.6, -W / 4, 1.6, 0.0, 0xffffff, 'tex:' + textTex('CÔNG TRÌNH ĐANG THI CÔNG', { bg: '#f1c40f', fg: '#1b1b1b', w: 1024, h: 256 }));
     return { sign: null, height: top + (W >= 12 && D >= 12 ? 9 : 1), colliders: cols };
   },
+
+  // ======================= ĐỊA ĐIỂM MỚI (sân thể thao, trường, chợ, tiệm, bến xe buýt) =======================
+  // sân tennis: mặt sân cứng xanh, vạch trắng, lưới giữa, rào lưới quanh (cửa giữa mặt trước), đèn sân, ghế trọng tài
+  tennis(k, o, r) {
+    const { W, D } = o, cz = -D / 2, cols = [];
+    k.box(W, 0.05, D, 0, 0.025, cz, 0x5a8f4e);
+    const along = W >= D; // sân dài theo cạnh dài của lô
+    const L = Math.min((along ? W : D) - 2.4, 22), S = Math.min((along ? D : W) - 2.4, 10.4);
+    const rect = (l, s, color, y) => k.box(along ? l : s, 0.02, along ? s : l, 0, y, cz, color);
+    rect(L + 1.6, S + 1.4, 0x3f7f6a, 0.06); // nền ngoài sân
+    rect(L, S, 0x2e6fa8, 0.075); // mặt sân xanh dương
+    const line = (l0, l1, s0, s1) => k.box(along ? Math.max(0.08, l1 - l0) : Math.max(0.08, s1 - s0), 0.012, along ? Math.max(0.08, s1 - s0) : Math.max(0.08, l1 - l0), along ? (l0 + l1) / 2 : (s0 + s1) / 2, 0.09, cz + (along ? (s0 + s1) / 2 : (l0 + l1) / 2), 0xffffff);
+    const hl = L / 2, hs = S / 2, si = hs * 0.75, sv = hl * 0.54;
+    line(-hl, hl, -hs, -hs); line(-hl, hl, hs, hs); line(-hl, -hl, -hs, hs); line(hl, hl, -hs, hs);
+    line(-hl, hl, -si, -si); line(-hl, hl, si, si); line(-sv, -sv, -si, si); line(sv, sv, -si, si); line(-sv, sv, 0, 0);
+    // lưới giữa sân
+    const nx = 0, nz = cz, nl = S + 0.9;
+    for (const s of [-1, 1]) k.cyl(0.05, 0.05, 1.1, along ? nx : nx + (s * nl) / 2, 0.55, along ? nz + (s * nl) / 2 : nz, 0x333333, 'metal', 8);
+    k.add(new THREE.PlaneGeometry(nl, 0.9), 0x222222, 'glass', nx, 0.55, nz, 0, along ? PI / 2 : 0, 0);
+    k.box(along ? 0.04 : nl, 0.07, along ? nl : 0.04, nx, 1.02, nz, 0xffffff);
+    cols.push(along ? { x0: -0.1, z0: nz - nl / 2, x1: 0.1, z1: nz + nl / 2, h: 1.1 } : { x0: -nl / 2, z0: nz - 0.1, x1: nl / 2, z1: nz + 0.1, h: 1.1 });
+    // ghế trọng tài + ghế chờ
+    const ux = along ? 0 : hs + 0.9, uz = along ? cz + hs + 0.9 : cz;
+    k.box(0.6, 1.6, 0.6, ux, 0.8, uz, 0x2c3e50, 'metal');
+    k.box(0.7, 0.1, 0.7, ux, 1.65, uz, 0xecf0f1);
+    // rào lưới cao quanh sân, chừa cửa giữa mặt trước
+    const fence = (x0, z0, x1, z1, h = 3.4) => {
+      const len = Math.hypot(x1 - x0, z1 - z0), ry = Math.atan2(x1 - x0, z1 - z0) - PI / 2;
+      if (len < 0.3) return;
+      k.add(new THREE.PlaneGeometry(len, h), 0x2d4a3e, 'glass', (x0 + x1) / 2, h / 2, (z0 + z1) / 2, 0, ry, 0);
+      for (let t = 0; t <= len + 0.01; t += 3) k.cyl(0.05, 0.05, h + 0.1, x0 + ((x1 - x0) * Math.min(t, len)) / len, (h + 0.1) / 2, z0 + ((z1 - z0) * Math.min(t, len)) / len, 0x2c3e50, 'metal', 6);
+      cols.push({ x0: Math.min(x0, x1) - 0.1, z0: Math.min(z0, z1) - 0.1, x1: Math.max(x0, x1) + 0.1, z1: Math.max(z0, z1) + 0.1, h });
+    };
+    const e = 0.2;
+    fence(-W / 2 + e, -D + e, W / 2 - e, -D + e);
+    fence(-W / 2 + e, -D + e, -W / 2 + e, -e);
+    fence(W / 2 - e, -D + e, W / 2 - e, -e);
+    fence(-W / 2 + e, -e, -1.1, -e);
+    fence(1.1, -e, W / 2 - e, -e);
+    // đèn chiếu sân 4 góc
+    for (const [x, z] of [[-W / 2 + 0.6, -D + 0.6], [W / 2 - 0.6, -D + 0.6], [-W / 2 + 0.6, -0.6], [W / 2 - 0.6, -0.6]]) {
+      k.cyl(0.07, 0.09, 7, x, 3.5, z, 0x7f8c8d, 'metal', 8);
+      k.box(0.9, 0.35, 0.3, x, 7, z, 0xfff3c4, 'light');
+    }
+    // vợt + bóng trên ghế chờ
+    k.box(1.6, 0.08, 0.4, -W / 2 + 1.6, 0.45, -0.8, 0x8d6e63);
+    k.ball(0.07, -W / 2 + 1.2, 0.55, -0.8, 0xd4e157);
+    return { sign: null, height: 7.2, colliders: cols };
+  },
+  // sân pickleball: 2–4 sân nhỏ xếp cạnh nhau (dài theo chiều sâu lô), lưới thấp, vùng "bếp" sát lưới, rào thấp, mái bạt che ghế chờ
+  pickleball(k, o, r) {
+    const { W, D } = o, cz = -D / 2, cols = [];
+    k.box(W, 0.05, D, 0, 0.025, cz, 0x6b7280);
+    const n = Math.max(1, Math.min(4, Math.floor((W - 1) / 5.4))), cw = Math.min(4.8, (W - 1 - (n - 1) * 0.6) / n), cl = Math.min(D - 2.6, 10);
+    const czc = cz - 0.4; // lùi vào để chừa lối đi + ghế chờ phía trước
+    for (let i = 0; i < n; i++) {
+      const x = -((n - 1) * (cw + 0.6)) / 2 + i * (cw + 0.6);
+      k.box(cw + 0.8, 0.02, cl + 1.2, x, 0.06, czc, 0x3d6f5d);
+      k.box(cw, 0.02, cl, x, 0.075, czc, 0x2a9d8f);
+      const kz = cl * 0.16; // vùng "bếp" 2 bên lưới
+      k.box(cw, 0.021, kz * 2, x, 0.078, czc, 0x6ab04c);
+      const ln = (w, d, lx, lz) => k.box(w, 0.012, d, lx, 0.09, lz, 0xffffff);
+      ln(cw, 0.06, x, czc - cl / 2); ln(cw, 0.06, x, czc + cl / 2); ln(0.06, cl, x - cw / 2, czc); ln(0.06, cl, x + cw / 2, czc);
+      ln(cw, 0.06, x, czc - kz); ln(cw, 0.06, x, czc + kz); ln(0.06, cl / 2 - kz, x, czc - kz - (cl / 2 - kz) / 2); ln(0.06, cl / 2 - kz, x, czc + kz + (cl / 2 - kz) / 2);
+      for (const s of [-1, 1]) k.cyl(0.04, 0.04, 0.95, x + s * (cw / 2 + 0.25), 0.47, czc, 0x333333, 'metal', 8);
+      k.add(new THREE.PlaneGeometry(cw + 0.5, 0.75), 0x1b1b1b, 'glass', x, 0.5, czc, 0, 0, 0);
+      k.box(cw + 0.5, 0.05, 0.03, x, 0.9, czc, 0xffffff);
+      cols.push({ x0: x - cw / 2 - 0.3, z0: czc - 0.08, x1: x + cw / 2 + 0.3, z1: czc + 0.08, h: 0.95 });
+      if (r.next() < 0.6) k.ball(0.05, x + (r.next() - 0.5) * cw, 0.13, czc + (r.next() - 0.5) * cl, 0xfdd835);
+    }
+    // rào lưới thấp quanh (cửa giữa mặt trước) + mái bạt che dãy ghế chờ phía trước
+    const fence = (x0, z0, x1, z1, h = 1.8) => {
+      const len = Math.hypot(x1 - x0, z1 - z0), ry = Math.atan2(x1 - x0, z1 - z0) - PI / 2;
+      k.add(new THREE.PlaneGeometry(len, h), 0x2d4a3e, 'glass', (x0 + x1) / 2, h / 2, (z0 + z1) / 2, 0, ry, 0);
+      for (let t = 0; t <= len + 0.01; t += 2.5) k.cyl(0.04, 0.04, h + 0.05, x0 + ((x1 - x0) * Math.min(t, len)) / len, h / 2, z0 + ((z1 - z0) * Math.min(t, len)) / len, 0x2c3e50, 'metal', 6);
+      cols.push({ x0: Math.min(x0, x1) - 0.1, z0: Math.min(z0, z1) - 0.1, x1: Math.max(x0, x1) + 0.1, z1: Math.max(z0, z1) + 0.1, h });
+    };
+    const e = 0.2;
+    fence(-W / 2 + e, -D + e, W / 2 - e, -D + e);
+    fence(-W / 2 + e, -D + e, -W / 2 + e, -e);
+    fence(W / 2 - e, -D + e, W / 2 - e, -e);
+    fence(-W / 2 + e, -e, -1, -e);
+    fence(1, -e, W / 2 - e, -e);
+    const sw = Math.min(W - 3, 7);
+    for (const s of [-1, 1]) k.cyl(0.05, 0.05, 2.6, s * (sw / 2), 1.3, -1.2, 0x7f8c8d, 'metal', 6);
+    k.box(sw + 0.4, 0.04, 1.6, 0, 2.6, -1.2, 0xf39c12, 'double', [0.1, 0, 0]);
+    k.box(sw - 1, 0.08, 0.4, 0, 0.45, -1.3, 0x8d6e63);
+    k.plane(Math.min(4, W - 2), 0.7, 0, 2.3, -D + 0.25, 0xffffff, 'tex:' + textTex(fmt('city.pickleSign'), { bg: '#2a9d8f', w: 768, h: 128 }));
+    return { sign: null, height: 3, colliders: cols };
+  },
+  // trường đại học mỹ thuật: nhà kiểu Pháp sơn vàng lùi phía sau (cửa chớp xanh, sảnh cột giữa, mái ngói), sân trước có tượng + giá vẽ, cổng rào
+  artSchool(k, o, r) {
+    const { W, D } = o, cols = [];
+    const bd = Math.min(9, D * 0.55), bz = -D + 0.4 + bd / 2, bw = W - 1.2, floors = 2, fh = 3.8, H = floors * fh;
+    k.box(W, 0.05, D, 0, 0.025, -D / 2, 0xb9b09a); // sân lát gạch
+    k.box(bw, H, bd, 0, H / 2, bz, 0xf2c94c); // thân nhà vàng
+    k.box(bw + 0.2, 0.3, bd + 0.2, 0, fh, bz, 0xfdf3d0); // gờ tầng
+    k.box(bw + 0.3, 0.35, bd + 0.3, 0, H, bz, 0xfdf3d0);
+    tileRoof(k, bw + 0.6, bd + 0.8, 2.2, 0, H + 0.2, bz);
+    // cửa sổ cửa chớp xanh mỗi tầng
+    const fz = bz + bd / 2 + 0.03;
+    for (let f = 0; f < floors; f++) for (let x = -bw / 2 + 1.4; x <= bw / 2 - 1.4; x += 2.2) {
+      if (Math.abs(x) < 2.2) continue; // chừa sảnh giữa
+      k.box(1.1, 1.9, 0.05, x, f * fh + 2, fz, 0x2e5e3e);
+      k.box(0.08, 1.9, 0.07, x, f * fh + 2, fz + 0.02, 0x1e3a28);
+      k.box(1.3, 0.12, 0.25, x, f * fh + 0.95, fz + 0.1, 0xfdf3d0);
+    }
+    // sảnh giữa: 4 cột tròn + trán tường tam giác
+    for (const x of [-1.9, -0.65, 0.65, 1.9]) k.cyl(0.25, 0.28, H - 0.3, x, (H - 0.3) / 2, fz + 1.2, 0xfdf3d0, '', 12);
+    k.box(4.6, 0.4, 1.6, 0, H - 0.1, fz + 0.8, 0xfdf3d0);
+    k.add(sideGeo([[-2.4, 0], [2.4, 0], [0, 1.3]], 0.4, 0), 0xf2c94c, '', 0, H + 0.1, fz + 1.4, 0, PI / 2, 0); // mặt cắt quay ra mặt tiền
+    k.box(1.8, 2.6, 0.06, 0, 1.3, fz + 0.02, 0x5d4037);
+    cols.push({ x0: -bw / 2, z0: bz - bd / 2, x1: bw / 2, z1: bz + bd / 2, h: H + 2 });
+    cols.push({ x0: -2.2, z0: fz + 0.9, x1: 2.2, z1: fz + 1.5, h: H });
+    // sân trước: tượng trên bệ, giá vẽ có tranh, cây
+    const sz = bz + bd / 2 + (0 - (bz + bd / 2)) * 0.45;
+    k.box(1.2, 1.2, 1.2, W * 0.22, 0.6, sz, 0xd6d0c4);
+    k.cyl(0.25, 0.32, 1.2, W * 0.22, 1.8, sz, 0xbfb8aa, '', 10);
+    k.ball(0.32, W * 0.22, 2.65, sz, 0xbfb8aa);
+    k.ball(0.45, W * 0.22 + 0.1, 3.25, sz, 0xbfb8aa, '', [1, 0.6, 1]);
+    cols.push({ x0: W * 0.22 - 0.7, z0: sz - 0.7, x1: W * 0.22 + 0.7, z1: sz + 0.7, h: 3.5 });
+    const canv = [0xe74c3c, 0x3498db, 0xf1c40f, 0x9b59b6, 0x1abc9c];
+    for (let i = 0; i < 3; i++) {
+      const x = -W * 0.3 + i * 1.6, z = sz + (r.next() - 0.5);
+      k.rod([x - 0.35, 0, z + 0.3], [x, 1.7, z], 0.03, 0x8d6e63);
+      k.rod([x + 0.35, 0, z + 0.3], [x, 1.7, z], 0.03, 0x8d6e63);
+      k.rod([x, 0, z - 0.4], [x, 1.6, z], 0.03, 0x8d6e63);
+      k.box(0.8, 0.6, 0.03, x, 1.25, z + 0.12, canv[i % canv.length], '', [-0.2, 0, 0]);
+    }
+    if (W > 14) tree(k, -W / 2 + 1.8, sz - 1.5, 3, r, 1);
+    tree(k, W / 2 - 1.8, sz - 1.5, 3, r, 1);
+    // hàng rào sắt trước + cổng giữa
+    for (const s of [-1, 1]) {
+      const x0 = s * 2, x1 = s * (W / 2 - 0.2);
+      k.box(Math.abs(x1 - x0), 0.5, 0.25, (x0 + x1) / 2, 0.25, -0.2, 0xfdf3d0);
+      for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x += 0.25) k.box(0.03, 1.2, 0.03, x, 1.1, -0.2, 0x1b1b1b, 'metal');
+      cols.push({ x0: Math.min(x0, x1), z0: -0.35, x1: Math.max(x0, x1), z1: -0.05, h: 1.7 });
+      k.box(0.5, 2.6, 0.5, x0, 1.3, -0.2, 0xfdf3d0);
+    }
+    return { sign: { y: 2.9, z: -0.05, w: Math.min(5, W * 0.3) }, height: H + 2.4, colliders: cols };
+  },
+  // trường đại học hiện đại: khối kính nhiều tầng + lam đỏ dọc, sảnh kính, bãi cỏ phía trước có ghế, bảng tên trên bãi cỏ
+  university(k, o, r) {
+    const { W, D } = o, cols = [];
+    const bd = Math.min(10, D * 0.6), bz = -D + 0.4 + bd / 2, bw = W - 1, floors = Math.max(4, Math.min(7, o.floors || 5)), fh = 3.4, H = floors * fh;
+    k.box(W, 0.05, D, 0, 0.025, -D / 2, 0xc9c2b6);
+    k.box(bw, H, bd, 0, H / 2, bz, 0x6f8fa8);
+    const fz = bz + bd / 2 + 0.02;
+    k.plane(bw, H, 0, H / 2, fz, 0xffffff, 'tex:' + T.glassGrid(), [0, 0, 0], 3);
+    for (let i = 1; i < floors; i++) k.box(bw + 0.05, 0.18, bd + 0.05, 0, i * fh, bz, 0xe8e8e8);
+    // lam đỏ dọc mặt tiền (nhịp không đều cho có nét)
+    for (let x = -bw / 2 + 0.6, i = 0; x < bw / 2 - 0.3; x += 1.1 + (i % 3) * 0.5, i++) k.box(0.25, H - 0.4, 0.5, x, H / 2 + 0.2, fz + 0.3, 0xd71920);
+    k.box(bw + 0.4, 0.6, bd + 0.4, 0, H + 0.3, bz, 0x2b2b2b);
+    // sảnh kính lồi giữa
+    k.box(Math.min(8, bw * 0.4), 3.2, 2, 0, 1.6, fz + 1, 0x9fc3d6, 'glass');
+    k.box(Math.min(8, bw * 0.4) + 0.4, 0.3, 2.4, 0, 3.3, fz + 1, 0xe8e8e8);
+    cols.push({ x0: -bw / 2, z0: bz - bd / 2, x1: bw / 2, z1: fz + 2, h: H + 0.6 });
+    // bãi cỏ + ghế + bảng tên thấp
+    const lz0 = fz + 2.6, lz1 = -0.6;
+    if (lz1 - lz0 > 1) {
+      for (const s of [-1, 1]) k.box(W / 2 - 2.5, 0.08, lz1 - lz0, s * (W / 4 + 1.25), 0.06, (lz0 + lz1) / 2, 0x5f9e45);
+      for (const s of [-1, 1]) k.box(1.8, 0.1, 0.5, s * (W / 4 + 1), 0.45, (lz0 + lz1) / 2, 0x8d6e63);
+    }
+    k.box(Math.min(6, W * 0.35), 1.1, 0.5, -W / 4 - 1, 0.55, -0.9, 0x2b2b2b);
+    k.plane(Math.min(6, W * 0.35) - 0.3, 0.8, -W / 4 - 1, 0.6, -0.64, 0xffffff, 'tex:' + textTex(firstWords(o.sign, 4), { bg: '#2b2b2b', fg: '#ffffff', w: 768, h: 128 }));
+    cols.push({ x0: -W / 4 - 1 - Math.min(3, W * 0.175), z0: -1.15, x1: -W / 4 - 1 + Math.min(3, W * 0.175), z1: -0.65, h: 1.1 });
+    tree(k, W / 2 - 1.5, (lz0 + lz1) / 2, 3.2, r, 1);
+    return { sign: { y: H - 1.2, z: fz + 0.6, w: Math.min(10, bw * 0.5), glow: 0.5 }, height: H + 0.8, colliders: cols };
+  },
+  // cửa hàng trái cây: mái bạt xanh; trái: võng mắc từ cột mái bạt vào tường · giữa: kệ bậc thang chất trái cây ·
+  // phải: quầy thu ngân (máy tính tiền, cân) + tủ lạnh lớn cửa kính đựng trái cây; dưa hấu chất trước sạp
+  fruit(k, o, r) {
+    const sh = shell(o, { ground: 'shop', balcony: true });
+    const W = o.W, X = W / 2;
+    const cols = [{ x0: -X, z0: -o.D, x1: X, z1: 0, h: houseTop(o.floors) }];
+    k.plane(W - 0.5, 2.7, 0, 1.35, 0.02, 0x3b3b3b);
+    awning(k, W, 0x27ae60, 2.95, 2.0);
+    for (const x of [-X + 0.4, X - 0.4]) k.cyl(0.04, 0.04, 2.9, x, 1.45, 1.95, 0x7f8c8d, 'metal', 6);
+    // kệ 3 bậc giữa tiệm (chừa 2 bên cho võng và quầy, tủ lạnh)
+    const fruitCols = [[0xf39c12, 0.13], [0xe74c3c, 0.12], [0x27ae60, 0.2], [0xf1c40f, 0.11], [0xd81b60, 0.14], [0x8e44ad, 0.08], [0xffb74d, 0.13]];
+    const sx0 = -X + 2.8, sx1 = Math.min(X - 3.6, sx0 + 4.4);
+    for (let step = 0; step < 3; step++) {
+      const y = 0.4 + step * 0.35, z = 1.3 - step * 0.42;
+      k.box(sx1 - sx0, 0.08, 0.42, (sx0 + sx1) / 2, y, z, 0x8d6e63);
+      for (let x = sx0 + 0.3; x < sx1 - 0.2; x += 0.55) {
+        const [c, rad] = fruitCols[Math.floor(r.next() * fruitCols.length)];
+        for (let i = 0; i < 3; i++) k.ball(rad, x + (i - 1) * rad * 1.5, y + 0.05 + rad + (i === 1 ? rad * 0.8 : 0), z, c);
+      }
+    }
+    cols.push({ x0: sx0, z0: 0.3, x1: sx1, z1: 1.55, h: 1.3 });
+    // dưa hấu chất trước kệ
+    for (let i = 0; i < 5; i++) k.ball(0.28, sx0 + 0.6 + (i % 3) * 0.55, 0.28 + Math.floor(i / 3) * 0.42, 1.95, 0x2e7d32, '', [1.25, 1, 1]);
+    // võng: dây từ cột mái bạt bên trái mắc vào tường, lòng võng võng xuống (sọc 2 màu)
+    const a = [-X + 0.4, 1.7, 1.9], b = [-X + 2.3, 1.75, 0.12];
+    k.rod([a[0], 2.6, a[2]], a, 0.015, 0x6d4c41);
+    k.rod([b[0], 2.4, b[2]], b, 0.015, 0x6d4c41);
+    let prev = null;
+    for (let i = 0; i <= 8; i++) {
+      const t = i / 8, sag = 0.75 * 4 * t * (1 - t);
+      const p = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t - sag, a[2] + (b[2] - a[2]) * t];
+      if (prev) k.rod(prev, p, 0.22 - 0.12 * Math.abs(0.5 - t), i % 2 ? 0x1e88e5 : 0xfdd835);
+      prev = p;
+    }
+    // quầy thu ngân: mặt quầy gỗ, máy tính tiền, cân đĩa, ghế đẩu
+    const qx = X - 2.5;
+    k.box(1.6, 1.0, 0.6, qx, 0.5, 0.75, 0x6d4c41);
+    k.box(1.7, 0.06, 0.7, qx, 1.03, 0.75, 0xd7ccc8);
+    k.box(0.4, 0.22, 0.32, qx - 0.4, 1.17, 0.72, 0x37474f);
+    k.box(0.36, 0.12, 0.05, qx - 0.4, 1.32, 0.6, 0x80deea, 'light');
+    k.box(0.34, 0.08, 0.3, qx + 0.35, 1.1, 0.75, 0xeceff1, 'metal');
+    k.cyl(0.18, 0.18, 0.03, qx + 0.35, 1.2, 0.75, 0xb0bec5, 'metal', 14);
+    stool(k, qx, 0.25, 0x8d6e63, 0.5);
+    cols.push({ x0: qx - 0.85, z0: 0.4, x1: qx + 0.85, z1: 1.1, h: 1.1 });
+    // tủ lạnh lớn 2 cánh kính, trong có các ngăn trái cây (sáng đèn)
+    const fx = X - 0.85, fw = 1.2, fh = 2.2;
+    k.box(fw, fh, 0.8, fx, fh / 2, 0.5, 0xeceff1);
+    k.box(fw - 0.16, fh - 0.4, 0.04, fx, fh / 2 + 0.05, 0.92, 0xb3e5fc, 'glass');
+    k.box(fw - 0.2, fh - 0.5, 0.02, fx, fh / 2 + 0.05, 0.86, 0xe1f5fe, 'light');
+    for (let sh2 = 0; sh2 < 4; sh2++) {
+      const y = 0.45 + sh2 * 0.42;
+      k.box(fw - 0.2, 0.03, 0.6, fx, y, 0.55, 0xcfd8dc);
+      for (let i = 0; i < 4; i++) k.ball(0.07, fx - 0.42 + i * 0.28, y + 0.09, 0.75, fruitCols[(sh2 + i) % fruitCols.length][0]);
+    }
+    k.box(0.03, fh - 0.4, 0.06, fx, fh / 2 + 0.05, 0.95, 0x90a4ae, 'metal');
+    k.box(fw, 0.18, 0.82, fx, fh + 0.09, 0.5, 0x2e7d32);
+    cols.push({ x0: fx - fw / 2, z0: 0.08, x1: fx + fw / 2, z1: 0.95, h: fh });
+    return { shell: sh, sign: { y: 3.6 }, height: houseTop(o.floors), colliders: cols };
+  },
+  // trường tiểu học: dãy lớp chữ L sơn vàng viền xanh, hành lang lan can, sân trường có cột cờ, cầu tuột, cổng có bảng tên
+  school(k, o, r) {
+    const { W, D } = o, cols = [];
+    const floors = Math.max(2, Math.min(3, o.floors || 3)), fh = 3.3, H = floors * fh, bd = Math.min(7, D * 0.45);
+    k.box(W, 0.05, D, 0, 0.025, -D / 2, 0xbdb5a4);
+    const wing = (x0, x1, z0, z1, facing) => {
+      const w = x1 - x0, d = z1 - z0, cx = (x0 + x1) / 2, czz = (z0 + z1) / 2;
+      k.box(w, H, d, cx, H / 2, czz, 0xf6d55c);
+      for (let f = 0; f <= floors; f++) k.box(w + 0.2, 0.22, d + 0.2, cx, f * fh, czz, 0x2e86c1);
+      // hành lang + lan can phía sân
+      const hz = facing > 0 ? z1 + 0.9 : z0 - 0.9;
+      for (let f = 1; f < floors; f++) {
+        k.box(w, 0.15, 1.8, cx, f * fh, hz, 0xd6d0c4);
+        k.box(w, 0.9, 0.06, cx, f * fh + 0.5, hz + facing * 0.9, 0xffffff);
+      }
+      k.box(w, 0.15, 1.8, cx, H, hz, 0xd6d0c4);
+      for (let x = x0 + 0.4; x <= x1 - 0.4; x += 3) k.box(0.25, H, 0.25, x, H / 2, hz + facing * 0.85, 0xf0f0f0);
+      for (let f = 0; f < floors; f++) for (let x = x0 + 1.2; x < x1 - 0.8; x += 2.4) k.box(1.4, 1.2, 0.05, x, f * fh + 1.8, facing > 0 ? z1 + 0.03 : z0 - 0.03, 0x5dade2);
+      tileRoof(k, w + 0.4, d + 2.4, 1.5, cx, H + 0.1, czz + facing * 0.9);
+      cols.push({ x0, z0: Math.min(z0, hz - 0.9), x1, z1: Math.max(z1, hz + 0.9), h: H + 1.5 });
+    };
+    // dãy chính phía sau (hành lang quay ra sân); lô rộng thêm dãy bên trái
+    wing(-W / 2 + 0.3, W / 2 - 0.3, -D + 0.3, -D + 0.3 + bd, 1);
+    const wide = W > 18 && D > 16;
+    if (wide) wing(-W / 2 + 0.3, -W / 2 + 0.3 + 6, -D + 0.3 + bd + 2, -3, 1);
+    // sân trường: cột cờ, cầu tuột, cây
+    const yz = (-D + 0.3 + bd + 1.8 - 0.4) / 2 - 0.2;
+    const fx = wide ? 2 : 0;
+    k.box(1.4, 0.3, 1.4, fx, 0.15, yz, 0xd6d0c4);
+    k.cyl(0.05, 0.06, 7, fx, 3.5, yz, 0xd9d9d9, 'metal', 8);
+    k.plane(1.5, 1.0, fx + 0.8, 6.4, yz, 0xffffff, 'tex:' + textTex('★', { bg: '#da251d', fg: '#ffde00', w: 192, h: 128 }));
+    cols.push({ x0: fx - 0.7, z0: yz - 0.7, x1: fx + 0.7, z1: yz + 0.7, h: 7 });
+    const sx = W / 2 - 3;
+    k.box(0.5, 1.6, 0.5, sx, 0.8, yz - 1, 0xe74c3c);
+    k.box(0.7, 0.08, 2.4, sx, 1.0, yz + 0.1, 0xf1c40f, '', [-0.6, 0, 0]);
+    for (const s of [-1, 1]) k.box(0.05, 1.6, 0.05, sx + s * 0.3, 0.8, yz - 1.2, 0x2e86c1);
+    cols.push({ x0: sx - 0.5, z0: yz - 1.4, x1: sx + 0.5, z1: yz + 1.2, h: 1.6 });
+    tree(k, -W / 2 + 2, -1.8, 3.2, r, 1.1);
+    // tường rào thấp + cổng giữa có khung bảng tên
+    for (const s of [-1, 1]) {
+      const x0 = s * 2.2, x1 = s * (W / 2 - 0.2);
+      k.box(Math.abs(x1 - x0), 1.6, 0.25, (x0 + x1) / 2, 0.8, -0.2, 0xf6d55c);
+      k.box(Math.abs(x1 - x0), 0.1, 0.35, (x0 + x1) / 2, 1.65, -0.2, 0x2e86c1);
+      cols.push({ x0: Math.min(x0, x1), z0: -0.35, x1: Math.max(x0, x1), z1: -0.05, h: 1.7 });
+      k.box(0.5, 3.6, 0.5, x0, 1.8, -0.2, 0x2e86c1);
+    }
+    k.box(4.9, 0.9, 0.2, 0, 3.4, -0.2, 0x2e86c1);
+    return { sign: { y: 3.4, z: -0.05, w: 4.4 }, height: H + 1.6, colliders: cols };
+  },
+  // tiệm vàng / đá quý: mặt tiền đỏ viền vàng, tủ kính sáng đèn bày trang sức, đèn lồng đỏ, bảng "Vàng bạc đá quý"
+  goldShop(k, o, r) {
+    const sh = shell(o, { ground: 'shop', balcony: true, color: 0xb03a2e });
+    const W = o.W;
+    k.plane(W - 0.4, 2.8, 0, 1.4, 0.02, 0x7b1f1f);
+    for (const [w, h, x, y] of [[W - 0.3, 0.14, 0, 2.85], [0.14, 2.8, -W / 2 + 0.2, 1.4], [0.14, 2.8, W / 2 - 0.2, 1.4]]) k.box(w, h, 0.1, x, y, 0.06, 0xd4af37, 'metal');
+    // tủ kính thấp sáng đèn + trang sức (hạt vàng, đá màu)
+    const cw = Math.min(W - 1.4, 7);
+    k.box(cw, 0.9, 0.6, 0, 0.45, 0.5, 0x5d1a1a);
+    k.box(cw, 0.35, 0.6, 0, 1.08, 0.5, 0xfff6dc, 'glass');
+    k.box(cw, 0.03, 0.55, 0, 0.92, 0.5, 0xfff1b8, 'light');
+    for (let i = 0; i < Math.round(cw * 3); i++) k.ball(0.045, -cw / 2 + 0.2 + (i * (cw - 0.4)) / Math.round(cw * 3), 0.97, 0.45 + (i % 2) * 0.12, [0xd4af37, 0xd4af37, 0xe53935, 0x1e88e5, 0x43a047, 0xffffff][i % 6], 'metal');
+    // bảng "Vàng bạc đá quý" + 2 đèn lồng đỏ
+    k.plane(Math.min(W - 1, 6), 0.6, 0, 2.45, 0.08, 0xffffff, 'glow:' + textTex(fmt('city.goldSign'), { bg: '#b03a2e', fg: '#ffd54f', w: 768, h: 96 }));
+    for (const s of [-1, 1]) {
+      k.cyl(0.01, 0.01, 0.4, s * (W / 2 - 0.7), 2.75, 0.5, 0x333333, '', 4);
+      k.ball(0.25, s * (W / 2 - 0.7), 2.35, 0.5, 0xd62d20, 'light', [1, 1.2, 1]);
+    }
+    return { shell: sh, sign: { y: 3.6, glow: 0.7 }, height: houseTop(o.floors) };
+  },
+  // chợ truyền thống: nhà lồng mái tôn 2 mái dốc thật lớn, cột thép, sạp bên trong, sạp + dù quanh mép, bảng tên ở đầu hồi
+  wetMarket(k, o, r) {
+    const { W, D } = o, cols = [];
+    const hw = W - 1.6, hd = D - 3.2, hz = -D + 0.6 + hd / 2, H = 6.4;
+    k.box(W, 0.05, D, 0, 0.025, -D / 2, 0x9e9a92);
+    k.box(hw, 0.2, hd, 0, 0.1, hz, 0x8a8f94); // nền nhà lồng
+    // cột thép + mái tôn 2 mái (đỉnh dọc theo bề ngang)
+    for (let x = -hw / 2 + 0.3; x <= hw / 2 - 0.3; x += 4) for (const s of [-1, 1]) {
+      k.box(0.25, H, 0.25, x, H / 2, hz + s * (hd / 2 - 0.3), 0x5d6d7e, 'metal');
+      cols.push({ x0: x - 0.2, z0: hz + s * (hd / 2 - 0.3) - 0.2, x1: x + 0.2, z1: hz + s * (hd / 2 - 0.3) + 0.2, h: H });
+    }
+    const slope = 0.32, half = hd / 2 + 0.8;
+    for (const s of [-1, 1]) k.plane(hw + 1, half / Math.cos(slope), 0, H + Math.tan(slope) * half / 2, hz + (s * half) / 2, 0xb0b8bd, 'tex:' + T.corr(), [-PI / 2 + s * slope, 0, 0], 1.2);
+    k.box(hw + 1, 0.3, 0.4, 0, H + Math.tan(slope) * half, hz, 0x7f8c8d, 'metal');
+    // 2 đầu hồi: tấm tôn tam giác + bảng tên
+    // (sideGeo: mặt cắt nằm trong mặt z–y, đùn dọc trục x)
+    for (const s of [-1, 1]) k.add(sideGeo([[-half, 0], [half, 0], [0, Math.tan(slope) * half]], 0.1, 0), 0x9aa0a6, '', s * (hw / 2 + 0.45), H, hz);
+    k.plane(Math.min(8, hw * 0.5), 1.1, 0, H - 0.8, hz + hd / 2 + 0.05, 0xffffff, 'tex:' + textTex(firstWords(o.sign, 4), { bg: '#c0392b', fg: '#ffffff', w: 768, h: 128 }));
+    // sạp trong nhà lồng: bàn + hàng hóa nhiều màu, ô dù ngoài mép
+    const goods = [0xe74c3c, 0x27ae60, 0xf1c40f, 0xecf0f1, 0xe67e22, 0x8e44ad, 0x795548];
+    for (let x = -hw / 2 + 1.6; x < hw / 2 - 1.2; x += 2.6) for (const zz of [hz - hd / 4, hz + hd / 4]) {
+      k.box(2, 0.8, 1.2, x, 0.5, zz, 0x8d6e63);
+      for (let i = 0; i < 5; i++) k.ball(0.18, x - 0.75 + i * 0.38, 1.05, zz + (r.next() - 0.5) * 0.6, goods[Math.floor(r.next() * goods.length)]);
+      cols.push({ x0: x - 1, z0: zz - 0.6, x1: x + 1, z1: zz + 0.6, h: 1 });
+    }
+    for (let x = -W / 2 + 1.5; x < W / 2 - 1; x += 3.2) {
+      if (Math.abs(x) < 2) continue; // lối vào giữa
+      k.box(1.4, 0.7, 0.9, x, 0.35, -1.1, 0x6d4c41);
+      for (let i = 0; i < 4; i++) k.ball(0.15, x - 0.45 + i * 0.3, 0.82, -1.1, goods[Math.floor(r.next() * goods.length)]);
+      k.cyl(0.03, 0.03, 2.2, x, 1.1, -1.1, 0x555555, '', 6);
+      k.cyl(0.05, 1.1, 0.35, x, 2.3, -1.1, [0xe74c3c, 0x3498db, 0xf1c40f, 0x27ae60][Math.floor(r.next() * 4)], 'double', 8);
+      cols.push({ x0: x - 0.7, z0: -1.55, x1: x + 0.7, z1: -0.65, h: 0.9 });
+    }
+    return { sign: null, height: H + 2, colliders: cols };
+  },
+  // showroom xe máy: tầng trệt kính trọn mặt tiền, bục bày xe nhiều màu, dải biển xanh dương, đèn trần sáng
+  showroom(k, o, r) {
+    const sh = shell(o, { ground: 'shop', balcony: false, color: 0xf2f2f2 });
+    const W = o.W;
+    k.plane(W - 0.4, 3, 0, 1.5, 0.02, 0xdfe6ec);
+    k.box(W - 0.6, 0.12, 2.0, 0, 0.06, 1.0, 0xbfc5c9); // bục bày xe
+    const cs = [0x1f4e9c, 0xc0392b, 0x111111, 0xecf0f1, 0x7f8c8d, 0x16a085];
+    for (let x = -W / 2 + 1, i = 0; x < W / 2 - 0.6; x += 1.2, i++) parkedBike(k, x, 1.0, cs[i % cs.length]);
+    k.box(W - 0.3, 2.9, 0.04, 0, 1.55, 2.05, 0xdbe9f0, 'glass');
+    for (let x = -W / 2 + 0.15; x <= W / 2 - 0.1; x += (W - 0.3) / 4) k.box(0.06, 2.9, 0.06, x, 1.55, 2.07, 0x333333, 'metal');
+    k.box(W - 0.3, 0.06, 2.1, 0, 3.0, 1.0, 0xffffff, 'light'); // trần sáng
+    k.box(W, 0.6, 0.15, 0, 3.35, 2.08, 0x1f4e9c); // dải biển xanh
+    return { shell: sh, sign: { y: 4.2, glow: 0.6 }, height: houseTop(o.floors), colliders: [{ x0: -W / 2, z0: -o.D, x1: W / 2, z1: 2.1, h: houseTop(o.floors) }] };
+  },
+  // tiệm đồ chơi: mặt tiền nhiều màu, mái bạt sọc cầu vồng, chùm bong bóng, gấu bông + xe đồ chơi bày cửa
+  toyShop(k, o, r) {
+    const sh = shell(o, { ground: 'shop', balcony: true });
+    const W = o.W;
+    k.plane(W - 0.5, 2.7, 0, 1.35, 0.02, 0x4a3b6b);
+    const rainbow = [0xe74c3c, 0xf39c12, 0xf1c40f, 0x2ecc71, 0x3498db, 0x9b59b6];
+    const sw = (W - 0.6) / rainbow.length;
+    rainbow.forEach((c, i) => k.box(sw, 0.1, 1.5, -W / 2 + 0.3 + sw * (i + 0.5), 2.95, 0.75, c, '', [0.15, 0, 0]));
+    // kệ bày: hộp đồ chơi nhiều màu, gấu bông, xe đồ chơi
+    k.box(W - 1, 0.9, 0.6, 0, 0.45, 0.5, 0xffffff);
+    for (let x = -W / 2 + 0.8; x < W / 2 - 0.6; x += 0.55) k.box(0.4, 0.3 + r.next() * 0.3, 0.3, x, 1.05, 0.5, rainbow[Math.floor(r.next() * rainbow.length)]);
+    for (const s of [-1, 1]) {
+      const x = s * (W / 2 - 1);
+      k.ball(0.3, x, 0.35, 1.3, 0xa1887f);
+      k.ball(0.22, x, 0.82, 1.3, 0xa1887f);
+      for (const e of [-1, 1]) k.ball(0.08, x + e * 0.15, 1.02, 1.3, 0x8d6e63);
+    }
+    k.box(0.5, 0.2, 0.3, 0, 0.12, 1.6, 0xe53935);
+    k.box(0.3, 0.15, 0.25, 0, 0.28, 1.6, 0x90caf9, 'glass');
+    // chùm bong bóng buộc ở cột trước tiệm
+    const bx = W / 2 - 0.4;
+    k.cyl(0.03, 0.03, 1.2, bx, 0.6, 1.8, 0x555555, '', 6);
+    for (let i = 0; i < 7; i++) {
+      const ang = (i / 7) * PI * 2, x = bx + Math.cos(ang) * 0.35, y = 2.3 + (i % 3) * 0.3, z = 1.8 + Math.sin(ang) * 0.35;
+      k.rod([bx, 1.2, 1.8], [x, y - 0.25, z], 0.006, 0xeeeeee);
+      k.ball(0.22, x, y, z, rainbow[i % rainbow.length], '', [1, 1.2, 1]);
+    }
+    return { shell: sh, sign: { y: 3.7 }, height: houseTop(o.floors), colliders: [{ x0: -W / 2, z0: -o.D, x1: W / 2, z1: 0, h: houseTop(o.floors) }, { x0: bx - 0.15, z0: 1.65, x1: bx + 0.15, z1: 1.95, h: 1.2 }] };
+  },
+  // bến xe buýt: nhà điều hành nhỏ + mái che dài trên cột, các làn đậu xe buýt có vạch, ghế chờ, bảng tuyến
+  busStation(k, o, r) {
+    const { W, D } = o, cols = [];
+    k.box(W, 0.05, D, 0, 0.025, -D / 2, 0x55595e);
+    // nhà điều hành bên trái phía sau
+    const ow = Math.min(7, W * 0.28), od = Math.min(6, D * 0.45), ox = -W / 2 + 0.4 + ow / 2, oz = -D + 0.4 + od / 2;
+    k.box(ow, 3.4, od, ox, 1.7, oz, 0xecf0f1);
+    k.box(ow + 0.4, 0.3, od + 0.4, ox, 3.5, oz, 0x1e8449);
+    for (let x = ox - ow / 2 + 0.8; x < ox + ow / 2 - 0.5; x += 1.6) k.box(1.1, 1.1, 0.05, x, 2, oz + od / 2 + 0.03, 0x5dade2);
+    cols.push({ x0: ox - ow / 2, z0: oz - od / 2, x1: ox + ow / 2, z1: oz + od / 2, h: 3.6 });
+    // các làn đậu xe buýt (vạch vàng) trong phần sân bên phải nhà điều hành, trước mái che:
+    // sân sâu ≥ 11 m → xe đậu dọc chiều sâu; nông hơn → xe đậu ngang thành hàng
+    const ar = { x0: ox + ow / 2 + 0.8, x1: W / 2 - 0.4, z0: -D + 0.4, z1: -3.2 };
+    const BUS_COLS = [0x1e8449, 0x2e86c1, 0xd35400];
+    const spots = [];
+    if (ar.z1 - ar.z0 >= 11) {
+      const n = Math.min(4, Math.floor((ar.x1 - ar.x0) / 4));
+      for (let i = 0; i < n; i++) spots.push([ar.x0 + 2 + i * 4, (ar.z0 + ar.z1) / 2, 'z']);
+      for (let i = 0; i <= n; i++) k.box(0.15, 0.012, ar.z1 - ar.z0, ar.x0 + i * 4, 0.04, (ar.z0 + ar.z1) / 2, 0xf1c40f);
+    } else {
+      const rows = Math.min(3, Math.floor((ar.z1 - ar.z0) / 3.6)), per = Math.floor((ar.x1 - ar.x0) / 11);
+      for (let j = 0; j < rows; j++) for (let i = 0; i < per; i++) spots.push([ar.x0 + 5.5 + i * 11, ar.z0 + 1.8 + j * 3.6, 'x']);
+      for (let j = 0; j <= rows && per; j++) k.box(per * 11, 0.012, 0.15, ar.x0 + (per * 11) / 2, 0.04, ar.z0 + j * 3.6, 0xf1c40f);
+    }
+    spots.forEach(([x, z, axis], i) => {
+      if (i === 1 && r.next() < 0.5) return; // có làn trống (xe đang chạy tuyến)
+      busModel(k, x, z, axis, BUS_COLS[i % 3], (i % 3) + 1);
+      cols.push(axis === 'z' ? { x0: x - 1.3, z0: z - 5.1, x1: x + 1.3, z1: z + 5.1, h: 3.2 } : { x0: x - 5.1, z0: z - 1.3, x1: x + 5.1, z1: z + 1.3, h: 3.2 });
+    });
+    // mái che dài phía trước (khách đứng chờ) + ghế
+    const cz = -1.6, cw = W - 1.2;
+    for (let x = -cw / 2; x <= cw / 2 + 0.01; x += cw / Math.max(2, Math.round(cw / 5))) {
+      k.cyl(0.1, 0.1, 3.2, x, 1.6, cz, 0x7f8c8d, 'metal', 8);
+      cols.push({ x0: x - 0.15, z0: cz - 0.15, x1: x + 0.15, z1: cz + 0.15, h: 3.2 });
+    }
+    k.box(cw + 0.6, 0.15, 2.8, 0, 3.25, cz, 0x1e8449, '', [0.06, 0, 0]);
+    for (let x = -cw / 2 + 1.5; x < cw / 2 - 1; x += 3.4) k.box(1.8, 0.08, 0.45, x, 0.45, cz - 0.6, 0x95a5a6, 'metal');
+    k.plane(Math.min(6, cw * 0.4), 0.8, 0, 2.7, cz + 1.42, 0xffffff, 'tex:' + textTex(fmt('city.busStationBoard'), { bg: '#1e8449', w: 768, h: 128 }));
+    return { sign: { y: 3.9, z: cz + 1.45, w: Math.min(8, cw * 0.5) }, height: 4, colliders: cols };
+  },
 };
+// xe buýt đơn giản (bộ gom, toạ độ riêng): dài 10 m, rộng 2,5 m, chạy theo trục 'x' hoặc 'z'; số tuyến trên kính trước
+export function busModel(k, x, z, axis, color, n) {
+  const L = 10, Wd = 2.5, Hb = 2.9, ax = axis === 'x';
+  const B = (l, h, w, ol, y, color2, kind = '') => k.box(ax ? l : w, h, ax ? w : l, x + (ax ? ol : 0), y, z + (ax ? 0 : ol), color2, kind);
+  B(L, Hb - 0.4, Wd, 0, 0.35 + (Hb - 0.4) / 2, color);
+  B(L - 0.6, 0.9, Wd + 0.04, -0.1, 1.9, 0x1d2a33, 'glass'); // dải kính 2 bên
+  B(0.06, 1.1, Wd - 0.3, L / 2 + 0.01, 1.8, 0x1d2a33, 'glass'); // kính trước
+  B(L, 0.25, Wd + 0.02, 0, 0.9, 0xffffff); // sọc trắng
+  B(3, 0.35, 1.6, -1, Hb + 0.05, 0xd5d8dc); // máy lạnh trên nóc
+  for (const ol of [-L / 2 + 1.8, L / 2 - 1.8]) for (const s of [-1, 1]) {
+    k.cyl(0.45, 0.45, 0.3, x + (ax ? ol : s * (Wd / 2)), 0.45, z + (ax ? s * (Wd / 2) : ol), 0x1b1b1b, '', 12, ax ? [PI / 2, 0, 0] : [0, 0, PI / 2]);
+  }
+  const tex = 'tex:' + textTex(fmt('city.busRoute', { n }), { bg: '#111111', fg: '#ffb300', w: 256, h: 64 });
+  if (ax) k.plane(1.6, 0.35, x + L / 2 + 0.04, 2.55, z, 0xffffff, tex, [0, PI / 2, 0]);
+  else k.plane(1.6, 0.35, x, 2.55, z + L / 2 + 0.04, 0xffffff, tex);
+}
+// nhà chờ xe buýt bên vỉa hè (toạ độ riêng, mặt quay +z ra đường): mái, vách kính sau, ghế, biển trạm
+export function busStopModel(k, x, z, ry = 0) {
+  const c = Math.cos(ry), s = Math.sin(ry);
+  const P = (lx, lz) => [x + lx * c + lz * s, z - lx * s + lz * c];
+  const box = (w, h, d, lx, y, lz, color, kind = '') => {
+    const [wx, wz] = P(lx, lz);
+    k.box(w, h, d, wx, y, wz, color, kind, [0, ry, 0]);
+  };
+  box(3.2, 0.1, 1.4, 0, 2.5, 0, 0x2e86c1);
+  box(3.0, 2.0, 0.04, 0, 1.3, -0.6, 0xbcdff1, 'glass');
+  for (const lx of [-1.5, 1.5]) box(0.08, 2.5, 0.08, lx, 1.25, -0.6, 0x555555, 'metal');
+  box(2.2, 0.08, 0.4, 0, 0.45, -0.35, 0x95a5a6, 'metal');
+  const [px, pz] = P(1.9, 0.3);
+  k.cyl(0.05, 0.05, 2.8, px, 1.4, pz, 0x555555, 'metal', 6);
+  k.plane(0.7, 0.7, px, 2.7, pz, 0xffffff, 'tex:' + textTex(fmt('city.busStopSign'), { bg: '#2e86c1', w: 256, h: 256 }), [0, ry, 0]);
+}
 export const BUILT_LOOKS = Object.keys(BUILD);
 
 // ======================= NHÀ DÂN THEO KHU PHỐ (map.json → districts[mã].houses) =======================

@@ -279,5 +279,20 @@
     "slot": "shirt",
     "style": "long",
     "color": "#c0392b"
+  },
+  "tuiTraiCay": {
+    "id": "tuiTraiCay",
+    "name": "Túi trái cây",
+    "icon": "🍊",
+    "price": 15,
+    "desc": "Ăn cho khỏe lúc rảnh: +10 thể lực, +5 tinh thần.",
+    "type": "consumable",
+    "use": {
+      "minutes": 5,
+      "phys": 10,
+      "mental": 5,
+      "fuel": 0,
+      "bikeHp": 0
+    }
   }
 }

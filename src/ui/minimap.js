@@ -88,6 +88,27 @@ export class MiniMap {
       g.fillStyle = ab.walk ? '#b9ae9c' : '#9c9282';
       for (const r of ab.alleys) g.fillRect(X(r.x0), Z(r.z0), Math.max(1.5, (r.x1 - r.x0) * k), Math.max(1.5, (r.z1 - r.z0) * k));
     }
+    // tuyến xe buýt (nét mảnh màu tuyến) + trạm (chấm trắng viền màu)
+    for (const r of data.bus?.routes || []) {
+      if (r.error || !r.pts.length) continue;
+      g.strokeStyle = r.color;
+      g.globalAlpha = 0.55;
+      g.lineWidth = Math.max(1.2, 1.6 * (this.scale || 1));
+      g.beginPath();
+      r.pts.forEach((p, i) => (i ? g.lineTo(X(p.x), Z(p.z)) : g.moveTo(X(p.x), Z(p.z))));
+      g.stroke();
+      g.globalAlpha = 1;
+    }
+    for (const st of data.bus?.stops || []) {
+      const r = data.bus.routeById[st.routes[0]?.id];
+      g.fillStyle = '#ffffff';
+      g.strokeStyle = r?.color || '#1e8449';
+      g.lineWidth = 1.5;
+      g.beginPath();
+      g.arc(X(st.x), Z(st.z), Math.max(2, 2.6 * (this.scale || 1)), 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+    }
     // kẹt xe
     for (const s of data.jams || []) {
       const r = segmentRect(s);

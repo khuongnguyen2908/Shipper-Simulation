@@ -118,6 +118,7 @@
         "hopGiay",
         "dienThoai"
       ],
+      "shopItems": true,
       "codChance": 0.6,
       "bomChance": 0.12,
       "persuadeChance": 0.3,
@@ -226,6 +227,61 @@
       "deadlineMult": 0.85,
       "quitBelow": 10,
       "earlyTip": 10
+    },
+    "hocSinh": {
+      "id": "hocSinh",
+      "name": "Bé tan trường (phụ huynh đặt)",
+      "icon": "🎒",
+      "weight": 2,
+      "hours": [
+        [
+          10.5,
+          11.5
+        ],
+        [
+          16,
+          17.5
+        ]
+      ],
+      "from": [
+        "truongTieuHoc"
+      ],
+      "viaApp": true,
+      "comfortKmh": 30,
+      "fareMult": 1,
+      "deadlineMult": 1.1,
+      "quitBelow": 15,
+      "riderNames": [
+        "Bé Na",
+        "Bé Bin",
+        "Bé Su",
+        "Bé Tôm"
+      ]
+    },
+    "sinhVien": {
+      "id": "sinhVien",
+      "name": "Sinh viên",
+      "icon": "🎓",
+      "weight": 3,
+      "hours": [
+        [
+          11,
+          13
+        ],
+        [
+          16.5,
+          19
+        ]
+      ],
+      "from": [
+        "rmit",
+        "dhMyThuat"
+      ],
+      "viaApp": true,
+      "comfortKmh": 45,
+      "fareMult": 0.9,
+      "deadlineMult": 1,
+      "quitBelow": 10
     }
   }
 }

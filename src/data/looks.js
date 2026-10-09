@@ -30,6 +30,18 @@ export const LOOKS = {
   police: { label: '🚓 Đồn công an', floors: [2, 3], only: 'police' },
   // sân bay: dựng đầy đủ (đường trên cao cong, sàn ga đi) khi đặt vào lô gộp 2 khối; lô nhỏ chỉ có nhà ga
   airport: { label: '✈️ Sân bay (lô gộp 2 khối)', floors: null },
+  // ---- thêm đợt địa điểm mới ----
+  tennis: { label: '🎾 Sân tennis (nên 2 lô)', floors: null, scenery: true },
+  pickleball: { label: '🏓 Sân pickleball (nên 2–3 lô)', floors: null, scenery: true },
+  artSchool: { label: '🎨 Trường mỹ thuật kiểu Pháp (nên 2–3 lô)', floors: null },
+  university: { label: '🎓 Đại học hiện đại (nên 2–3 lô)', floors: [4, 7] },
+  fruit: { label: '🍉 Cửa hàng trái cây', floors: [1, 4] },
+  school: { label: '🏫 Trường tiểu học (nên 2 lô trở lên)', floors: [2, 3] },
+  goldShop: { label: '💍 Tiệm vàng, đá quý', floors: [2, 5] },
+  wetMarket: { label: '🧺 Chợ truyền thống (nhà lồng, nên 2–3 lô)', floors: null },
+  showroom: { label: '🏍️ Cửa hàng xe máy (showroom)', floors: [2, 6] },
+  toyShop: { label: '🧸 Tiệm đồ chơi', floors: [1, 4] },
+  busStation: { label: '🚌 Bến xe buýt (nên 2–3 lô)', floors: null },
 };
 // Kiểu dùng được cho loại địa điểm: cảnh quan ↔ kiểu cảnh quan; đồn công an ↔ kiểu đồn; loại khác ↔ kiểu nhà thường
 export const looksFor = (kind) => Object.keys(LOOKS).filter((k) => {
@@ -55,10 +67,13 @@ export function guessLook(p) {
       return 'tower';
     case 'garage':
     case 'shop':
+      if (/yamaha|honda|xe máy|showroom/.test(n)) return 'showroom';
       return 'repair';
     case 'cafe':
       return /võng/.test(n) ? 'hammock' : 'cafe';
     case 'restaurant':
+      if (/trái cây|hoa quả/.test(n)) return 'fruit';
+      if (/^chợ /.test(n)) return 'wetMarket';
       if (/nhật|sushi|ramen|izakaya|udon/.test(n)) return 'izakaya';
       if (/bánh mì/.test(n)) return 'banhmi';
       if (/bánh tráng|bánh canh|bánh xèo/.test(n)) return 'eatery';
@@ -68,6 +83,8 @@ export function guessLook(p) {
     case 'police':
       return 'police';
     case 'scenery':
+      if (/tennis/.test(n)) return 'tennis';
+      if (/pickle/.test(n)) return 'pickleball';
       if (/đất trống|bãi đất/.test(n)) return 'emptyLot';
       if (/sân bóng|bóng đá/.test(n)) return 'soccer';
       if (/giữ xe|gửi xe|đậu xe/.test(n)) return 'parkingLot';
@@ -75,6 +92,13 @@ export function guessLook(p) {
       return 'park';
     case 'service':
       if (/sân bay|airport|cảng hàng không/.test(n)) return 'airport';
+      if (/bến xe buýt|trạm xe buýt/.test(n)) return 'busStation';
+      if (/mỹ thuật|kiến trúc/.test(n)) return 'artSchool';
+      if (/đại học|cao đẳng|rmit/.test(n)) return 'university';
+      if (/tiểu học|mầm non|trung học|trường cấp/.test(n)) return 'school';
+      if (/tiệm vàng|vàng bạc|đá quý|trang sức/.test(n)) return 'goldShop';
+      if (/đồ chơi/.test(n)) return 'toyShop';
+      if (/trái cây|hoa quả/.test(n)) return 'fruit';
       if (/chùa/.test(n)) return 'pagoda';
       if (/karaoke/.test(n)) return 'karaoke';
       if (/võng/.test(n)) return 'hammock';

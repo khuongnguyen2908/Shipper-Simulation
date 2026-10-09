@@ -180,6 +180,7 @@ export function render(root, ctx) {
       field('Món hàng', el('div', { class: items.length ? 'chips' : 'muted' }, items.length
         ? items.map((i) => checkInput((x.items || []).includes(i.id), (on) => { x.items = on ? [...(x.items || []), i.id] : (x.items || []).filter((id) => id !== i.id); changed(); }, `${i.icon || ''} ${i.name}${i.cod ? ` (thu hộ ${i.cod}k)` : ''}`))
         : 'Chưa có món nào đánh dấu "Hàng giao". Vào thẻ 🍜 Vật phẩm → chọn món → tích "📦 Hàng giao".'), opt('items', { wide: true, hint: H.items })),
+      field('Hàng riêng của tiệm', checkInput(!!x.shopItems, (v) => { if (v) x.shopItems = true; else delete x.shopItems; changed(); }, 'Lấy ở tiệm có "Hàng riêng" thì giao hàng của tiệm đó'), opt('shopItems', { hint: 'Bật: đơn loại này lấy ở tiệm vàng thì giao trang sức, ở tiệm đồ chơi thì giao đồ chơi (thẻ Địa điểm → Điểm đến của đơn → Hàng riêng của tiệm). Tắt: luôn giao các món ở trên (vd hỏa tốc chỉ giấy tờ, điện thoại).' })),
       el('div', { class: 'grid' },
         num('codChance', 'Tỉ lệ đơn thu hộ (%)', { ...pct, min: 0, max: 100, hint: H.codChance }),
         num('bomChance', 'Tỉ lệ bị bom (%)', { ...pct, min: 0, max: 100, hint: H.bomChance }),

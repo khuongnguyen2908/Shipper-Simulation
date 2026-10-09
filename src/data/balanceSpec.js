@@ -114,6 +114,18 @@ export const BALANCE_GROUPS = [
     ],
   },
   {
+    id: 'bus', title: '🚌 Xe buýt',
+    note: 'Tuyến, điểm ghé, tên trạm sửa ở thẻ 🗺️ Bản đồ → 🚌 Xe buýt. Đứng ở trạm bấm E, chọn trạm xuống trước khi lên xe; xe chạy một chiều theo vòng tuyến (chọn nhầm thì phải đi tiếp vòng hoặc chờ chuyến khác). 1 phút game = 1 giây thật.',
+    fields: [
+      ['bus.fare', 'Giá vé mỗi lượt (k)', { min: 0, max: 100, step: 1, hint: 'Mặc định 7k.' }],
+      ['bus.from', 'Chuyến đầu (giờ)', { min: 0, max: 24, step: 0.5, hint: 'Mặc định 5h.' }],
+      ['bus.to', 'Chuyến cuối (giờ)', { min: 0, max: 24, step: 0.5, hint: 'Sau giờ này không đón khách, xe về bến. Mặc định 21h.' }],
+      ['bus.speed', 'Tốc độ xe buýt (m/s)', { min: 2, max: 20, step: 0.5, hint: 'Xe máy người chơi ~12,5 m/s. Mặc định 7,5.' }],
+      ['bus.dwellMin', 'Dừng mỗi trạm (phút)', { min: 0, max: 10, step: 0.5, hint: 'Mặc định 1 phút.' }],
+      ['bus.stopEvery', 'Cách mấy đoạn đường đặt 1 trạm', { min: 1, max: 6, step: 1, hint: 'Ngoài trạm trước mỗi điểm ghé. Mặc định 2 đoạn (~2 khối).' }],
+    ],
+  },
+  {
     id: 'roads', title: '🛣️ Cấp đường',
     note: 'Mỗi đoạn đường là Đại lộ / Đường thường / Đường nhỏ (chia ở thẻ 🗺️ Bản đồ → Đường to / nhỏ). Các số dưới là hệ số so với đường thường (1 = như đường thường). Giới hạn tốc độ = "Qua chốt chạy quá … km/h" (mục Tiền) × hệ số.',
     fields: [
