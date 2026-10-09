@@ -88,6 +88,7 @@ export function render(root, ctx) {
         num('rainSurcharge', 'Phụ phí mưa (k/đơn)', { step: 1, min: 0, hint: H.rainSurcharge }),
         num('peakSurcharge', 'Phụ phí giờ cao điểm (k/đơn)', { step: 1, min: 0, hint: H.peakSurcharge }),
         num('nightSurcharge', 'Phụ phí đêm (k/đơn)', { step: 1, min: 0, hint: H.nightSurcharge }),
+        num('airportFee', '✈️ Phụ phí sân bay (k/đơn)', { step: 1, min: 0, hint: H.airportFee }),
       ),
       field('Tiền boa theo số sao (k)', el('span', { class: 'inline' }, [1, 2, 3, 4, 5].map((s) => el('label', {}, `${s}★ `, numInput(x.tipByStars?.[s], (v) => { x.tipByStars = x.tipByStars || [0, 0, 0, 0, 0, 0]; x.tipByStars[s] = v; changed(); }, { step: 1, min: 0 })))), opt('tipByStars', { wide: true, hint: H.tipByStars })),
       example(),

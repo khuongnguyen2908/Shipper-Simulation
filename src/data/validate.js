@@ -125,6 +125,7 @@ export function validateApps(ad, items = {}, placesData = null) {
     inRange(add, key, 'cancelComp', a.cancelComp, 0, 200, 'Bù khi đơn bị hủy');
     inRange(add, key, 'rainSurcharge', a.rainSurcharge, 0, 100, 'Phụ phí mưa');
     inRange(add, key, 'peakSurcharge', a.peakSurcharge, 0, 100, 'Phụ phí giờ cao điểm');
+    if (a.airportFee != null) inRange(add, key, 'airportFee', a.airportFee, 0, 100, 'Phụ phí sân bay');
     if (!Array.isArray(a.tipByStars) || a.tipByStars.length !== 6 || a.tipByStars.some((v) => !num(v) || v < 0 || v > 500)) add('error', key, 'tipByStars', 'Tiền boa: đủ 1★ → 5★, mỗi mức 0–500k.');
     if (!Array.isArray(a.peakHours) || a.peakHours.some(badHours)) add('error', key, 'peakHours', 'Giờ cao điểm: mỗi khung là giờ bắt đầu < giờ kết thúc, trong 0–24.');
     if (hoursProblem(a.hours, presets)) add('error', key, 'hours', `Giờ app nhận đơn: ${hoursProblem(a.hours, presets)}`);

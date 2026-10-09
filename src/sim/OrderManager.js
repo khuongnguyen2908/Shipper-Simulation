@@ -18,6 +18,7 @@ import { ITEMS } from '../data/items.js';
 import { ORDER, DIST, ECONOMY } from '../data/balance.js';
 import { APP, ORDER_TYPES, RIDER_TYPES, ORDER_KINDS, typeOpen, isPeak, surchargeAt, demandAt } from '../data/apps.js';
 import { CUSTOMER_NAMES } from '../data/places.js';
+import { lookOf } from '../data/looks.js';
 import { DeliveryItem } from './ItemPhysics.js';
 import { evaluateOrder } from './OrderCondition.js';
 import { computePayout, estimatePay, addTip } from './economy.js';
@@ -349,6 +350,9 @@ export class OrderManager {
     const baseFare = r1((Math.max(...defs.map((d) => d.base)) + (defs.length - 1) * APP.extraItemFare) * fareMult);
     const viaApp = rider ? rider.viaApp !== false : true;
     const surcharge = viaApp ? surchargeAt(now, this.isRaining(now)) : 0; // khách quen gọi thẳng: không có phụ phí app
+    // đón / trả ở sân bay → khách trả thêm phụ phí sân bay (apps.json → airportFee), tài xế nhận đủ để bù phí vào cổng
+    const atAirport = [pickup, dropoff].some((x) => x.placeId && lookOf(this.layout.placeById[x.placeId] || {}) === 'airport');
+    const airportFee = atAirport ? APP.airportFee || 0 : 0;
     const named = !!dropoff.placeId; // giao tới địa điểm có tên → không mơ hồ, khách có mặt
     const vague = kind !== 'ride' && !dropoff.apartment && !named && rng.chance(ORDER.vagueChance);
     const o = {
@@ -366,12 +370,13 @@ export class OrderManager {
       booker: null,
       baseFare,
       surcharge,
+      airportFee,
       cod: 0,
       codPaid: false,
       distanceKm,
       d1,
       d2,
-      estPay: estimatePay(baseFare, distanceKm, { surcharge, viaApp }),
+      estPay: estimatePay(baseFare, distanceKm, { surcharge, airportFee, viaApp }),
       deadlineMult: (type.deadlineMult ?? 1) * (rider ? rider.deadlineMult ?? 1 : 1),
       flags: {
         vague,
@@ -675,7 +680,7 @@ export class OrderManager {
     // khách say có khi quỵt tiền
     const noPay = !ev.refused && !!rider && this.rng.chance(rider.noPayChance || 0);
     const farePct = noPay ? 0 : ev.scared ? ECONOMY.scaredFarePct : 1;
-    const pay = computePayout({ baseFare: o.baseFare, distanceKm: o.distanceKm, litersUsed: o.liters, stars: ev.stars, refused: ev.refused, farePct, surcharge: o.surcharge, viaApp: o.viaApp });
+    const pay = computePayout({ baseFare: o.baseFare, distanceKm: o.distanceKm, litersUsed: o.liters, stars: ev.stars, refused: ev.refused, farePct, surcharge: o.surcharge, airportFee: o.airportFee || 0, viaApp: o.viaApp });
     const good = !ev.refused && !ev.scared && !noPay;
     // khu phố nơi giao: boa nhiều / ít (nhân phần boa theo sao)
     const tm = traitAt(o.dropoff.door.x, o.dropoff.door.z, 'tips');
@@ -707,7 +712,7 @@ export class OrderManager {
     const traveled = Math.max(0, Math.min(1, 1 - routeDist(pos, o.dropoff.door) / Math.max(1, o.d2)));
     const conditionPct = o.items.length ? o.items[0].condition : 0;
     const ev = { refused: false, quit: true, stars: 1, conditionPct, timeRatio: o.allowedMin > 0 ? (now - o.acceptedAt) / o.allowedMin : 0, penalties: [{ label: fmt('pen.quit'), value: 4 }], reasons: Object.entries(o.items[0]?.reasons || {}).filter(([, v]) => v >= 0.5).sort((a, b) => b[1] - a[1]) };
-    const pay = computePayout({ baseFare: o.baseFare, distanceKm: o.distanceKm, litersUsed: o.liters, stars: 1, farePct: traveled, surcharge: o.surcharge, viaApp: o.viaApp });
+    const pay = computePayout({ baseFare: o.baseFare, distanceKm: o.distanceKm, litersUsed: o.liters, stars: 1, farePct: traveled, surcharge: o.surcharge, airportFee: o.airportFee || 0, viaApp: o.viaApp });
     pay.cod = 0;
     const receipt = { order: o, ev, pay, elapsed: now - o.acceptedAt, at: now, quit: true, traveled };
     this.history.push(receipt);

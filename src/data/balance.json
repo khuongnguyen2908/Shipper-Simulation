@@ -146,5 +146,11 @@
     "theftHp": 15,
     "fineDays": 3,
     "overduePct": 0.5
+  },
+  "airport": {
+    "gateFee": 5,
+    "noStopWarnMin": 3,
+    "noStopFineMin": 8,
+    "noStopFine": 50
   }
 }

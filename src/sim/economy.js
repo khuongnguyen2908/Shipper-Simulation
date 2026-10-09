@@ -11,21 +11,24 @@ const r1 = (v) => Math.round(v * 10) / 10;
 
 // farePct: phần cước khách chịu trả (1 = đủ; khách hoảng sợ → ECONOMY.scaredFarePct; xuống giữa đường → quãng đã đi)
 // surcharge: phụ phí mưa / giờ cao điểm (k) · viaApp = false: khách quen gọi thẳng, không mất phí app, không thuế
-export function computePayout({ baseFare, distanceKm, litersUsed = 0, stars = 5, refused = false, farePct = 1, surcharge = 0, viaApp = true, app = APP }) {
+// airportFee: phụ phí sân bay khách trả thêm (k) — tài xế nhận đủ để bù phí vào cổng, app không trích phí / thuế phần này
+export function computePayout({ baseFare, distanceKm, litersUsed = 0, stars = 5, refused = false, farePct = 1, surcharge = 0, airportFee = 0, viaApp = true, app = APP }) {
   const fuelCost = r1(litersUsed * ECONOMY.fuelPrice);
   if (refused) {
-    return { baseFare: 0, distBonus: 0, surcharge: 0, gross: 0, fee: 0, tax: 0, fuelCost, final: -fuelCost, tip: 0, walletCredit: 0, net: -fuelCost };
+    return { baseFare: 0, distBonus: 0, surcharge: 0, airportFee: 0, gross: 0, fee: 0, tax: 0, fuelCost, final: -fuelCost, tip: 0, walletCredit: 0, net: -fuelCost };
   }
   baseFare = r1(baseFare * farePct);
   surcharge = r1(surcharge * farePct);
+  airportFee = r1(airportFee * farePct);
   const distBonus = r1(distanceKm * app.distBonusPerKm * farePct);
-  const gross = r1(baseFare + distBonus + surcharge);
-  const fee = viaApp ? r1(gross * app.platformFee) : 0;
-  const tax = viaApp ? r1(gross * app.taxRate) : 0;
+  const fare = r1(baseFare + distBonus + surcharge);
+  const gross = r1(fare + airportFee);
+  const fee = viaApp ? r1(fare * app.platformFee) : 0;
+  const tax = viaApp ? r1(fare * app.taxRate) : 0;
   const final = r1(gross - fee - tax - fuelCost);
   const tip = app.tipByStars[stars] ?? 0;
   const walletCredit = r1(gross - fee - tax + tip);
-  return { baseFare, distBonus, surcharge, gross, fee, tax, fuelCost, final, tip, walletCredit, net: r1(final + tip) };
+  return { baseFare, distBonus, surcharge, airportFee, gross, fee, tax, fuelCost, final, tip, walletCredit, net: r1(final + tip) };
 }
 
 // Cộng thêm tiền boa (trang bị, khách vội, khách say boa đậm…) vào hóa đơn
@@ -38,9 +41,9 @@ export function addTip(pay, k) {
 }
 
 // Ước tính thu nhập hiện trên thẻ đơn (chưa trừ xăng, chưa có boa)
-export function estimatePay(baseFare, distanceKm, { surcharge = 0, viaApp = true, app = APP } = {}) {
-  const gross = baseFare + distanceKm * app.distBonusPerKm + surcharge;
-  return r1(viaApp ? gross * (1 - app.platformFee - app.taxRate) : gross);
+export function estimatePay(baseFare, distanceKm, { surcharge = 0, airportFee = 0, viaApp = true, app = APP } = {}) {
+  const fare = baseFare + distanceKm * app.distBonusPerKm + surcharge;
+  return r1((viaApp ? fare * (1 - app.platformFee - app.taxRate) : fare) + airportFee);
 }
 
 // Điểm đánh giá trung bình (có sẵn lịch sử trước khi vào game)

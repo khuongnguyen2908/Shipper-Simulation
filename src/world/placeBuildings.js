@@ -12,6 +12,7 @@ import { makeSignTexture } from './textures.js';
 import { fmt, list } from '../content/index.js';
 import { makeRng } from '../sim/rng.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { AIRPORT_MIN_W, airportZones } from '../sim/airport.js';
 
 const PI = Math.PI;
 const hasDOM = typeof document !== 'undefined';
@@ -214,7 +215,7 @@ class Kit {
 // ---------- sân bay: đường trên cao ----------
 export const AIRPORT_UP = 4.6; // cao độ sàn ga đi (mặt đường trên cao)
 const RW_AIR = 7; // bề rộng đường trên cao (cả lan can)
-export const AIRPORT_MIN_W = 60; // lô hẹp hơn thì sân bay chỉ có nhà ga, không có đường trên cao
+export { AIRPORT_MIN_W }; // lô hẹp hơn thì sân bay chỉ có nhà ga, không có đường trên cao (src/sim/airport.js)
 // Đường tâm của đường trên cao (toạ độ riêng của lô: mặt tiền z = 0 quay ra đường, lùi vào tới z ≈ −34; [x, z, độ cao]).
 // Vào ở mép phải (x = +W/2) phía sau → dốc cong lên → sàn ga đi dọc mặt tiền (z ≈ −9,2) → dốc cong xuống → ra mép trái.
 export function airportPath(W) {
@@ -802,7 +803,69 @@ const BUILD = {
       people(-tx + 3, tx - 3, UP + 0.18, -12.2, 4);
       people(-tx + 2, tx - 2, 0.18, zt + 1, 4);
     }
-    return { sign: { y: H + 3.6, z: zt - 3, w: Math.min(22, tx * 1.5), glow: 0.4 }, height: H + 6, colliders: cols, extra,
+    // ---- luật xe máy (src/sim/airport.js): điểm đón xe công nghệ, bãi xe máy, barie chân dốc "chỉ ô tô" ----
+    const zn = airportZones(W);
+    const signPost = (text, bg, w, x, y, z, ry = 0) => {
+      k.cyl(0.06, 0.06, y, x, y / 2, z, 0x7f8c8d, 'metal', 6);
+      k.plane(w, w * 0.22, x, y + w * 0.11, z, 0xffffff, 'tex:' + textTex(text, { bg, w: 768, h: 168 }), [0, ry, 0]);
+    };
+    const paint = (r, color) => {
+      const w = r.x1 - r.x0, d = r.z1 - r.z0, cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2;
+      k.box(w, 0.02, d, cx, 0.05, cz, color);
+      for (const s of [-1, 1]) {
+        k.box(w, 0.025, 0.15, cx, 0.055, cz + (s * (d - 0.15)) / 2, 0xffffff);
+        k.box(0.15, 0.025, d, cx + (s * (w - 0.15)) / 2, 0.055, cz, 0xffffff);
+      }
+    };
+    const barriers = [];
+    if (zn) {
+      // điểm đón xe công nghệ: nền xanh viền trắng + biển + ghế chờ
+      const pk = zn.pickup;
+      paint(pk, 0x2e8b57);
+      signPost(fmt('city.airportPickupSign'), '#1e8449', 3.4, pk.x1 - 0.4, 2.4, pk.z1 - 0.2);
+      k.box(2.2, 0.08, 0.5, (pk.x0 + pk.x1) / 2, 0.45, pk.z0 + 0.5, 0x95a5a6, 'metal');
+      for (const s of [-1, 1]) k.box(0.08, 0.45, 0.4, (pk.x0 + pk.x1) / 2 + s * 1, 0.22, pk.z0 + 0.5, 0x555555);
+      // bãi xe máy: nền xám, vạch ô, mái tôn che nửa sau, xe đậu thành hàng, biển
+      const pr = zn.park, roofZ = (pr.z0 + (pr.z0 + pr.z1) / 2) / 2;
+      paint(pr, 0x6b7280);
+      for (let x = pr.x0 + 1; x < pr.x1 - 0.5; x += 1) k.box(0.06, 0.025, 1.8, x, 0.06, pr.z0 + 1.2, 0xffffff);
+      for (const x of [pr.x0 + 0.3, pr.x1 - 0.3]) for (const z of [pr.z0 + 0.3, (pr.z0 + pr.z1) / 2]) {
+        k.cyl(0.08, 0.08, 2.6, x, 1.3, z, 0x7f8c8d, 'metal', 6);
+        cols.push({ x0: x - 0.15, z0: z - 0.15, x1: x + 0.15, z1: z + 0.15, h: 2.6 });
+      }
+      k.plane(pr.x1 - pr.x0 + 0.4, (pr.z1 - pr.z0) / 2 + 0.6, (pr.x0 + pr.x1) / 2, 2.65, roofZ, 0x9aa0a6, 'tex:' + T.corr(), [-PI / 2 + 0.06, 0, 0], 1.2);
+      const bikeCols = [0xc0392b, 0x2c3e50, 0x7f8c8d, 0x2980b9, 0xecf0f1, 0x8e44ad];
+      for (let x = pr.x0 + 1.5, i = 0; x < pr.x1 - 0.5; x += 1, i++) if (r.next() < 0.7) parkedBike(k, x, pr.z0 + 1.2, bikeCols[i % bikeCols.length]);
+      signPost(fmt('city.airportParkSign'), '#2c3e50', 3.2, (pr.x0 + pr.x1) / 2, 2.4, pr.z1 - 0.2);
+      // biển thu phí ở 2 góc trước khuôn viên
+      for (const s of [-1, 1]) signPost(fmt('city.airportGateSign'), '#b9770e', 2.8, s * (X - 0.8), 2.2, -0.6);
+      // barie chân dốc (2 đầu đường trên cao): trụ vàng + cần chắn (city.js dựng cần để nâng lên khi ô tô tới), biển "Chỉ ô tô"
+      const path = airportPath(W), L = path.getLength(), hw = RW_AIR / 2 - 0.25;
+      for (const [t, out] of [[2.5 / L, -1], [1 - 2.5 / L, 1]]) {
+        const p = path.getPointAt(t), d = path.getTangentAt(t).setY(0).normalize();
+        const nx = -d.z, nz = d.x; // ngang qua mặt đường
+        const px = p.x + nx * hw, pz = p.z + nz * hw;
+        k.box(0.45, 1.1, 0.45, px, 0.55, pz, 0xf1c40f);
+        k.box(0.16, 0.85, 0.16, p.x - nx * hw, 0.42, p.z - nz * hw, 0xf1c40f);
+        barriers.push({ x: px, z: pz, ax: -nx, az: -nz, len: 2 * hw, y: 1.05 });
+        // biển quay về phía xe máy đi tới (từ ngoài vào)
+        const sx = p.x + nx * (hw + 0.9) + d.x * out * 0.5, sz = p.z + nz * (hw + 0.9) + d.z * out * 0.5;
+        signPost(fmt('city.airportNoBike'), '#c0392b', 2.6, sx, 2.0, sz, Math.atan2(d.x * out, d.z * out));
+        cols.push({ x0: Math.min(px, p.x - nx * hw) - 0.25, z0: Math.min(pz, p.z - nz * hw) - 0.25, x1: Math.max(px, p.x - nx * hw) + 0.25, z1: Math.max(pz, p.z - nz * hw) + 0.25, h: 1.2 });
+        // lan can 2 bên đoạn dốc còn sát đất: chắn không cho xe máy lách vào từ hông
+        const railAt = (s, side) => {
+          const tt = out < 0 ? s / L : 1 - s / L, q = path.getPointAt(tt), qd = path.getTangentAt(tt).setY(0).normalize();
+          return { x: q.x - qd.z * side * (hw + 0.2), z: q.z + qd.x * side * (hw + 0.2), y: q.y };
+        };
+        for (let s = 2.5; s < L / 2 && railAt(s, 1).y < 0.6; s += 0.8) {
+          for (const side of [-1, 1]) {
+            const a = railAt(s, side), e = railAt(s + 0.9, side); // từng đoạn nối liền nhau (không chừa khe)
+            cols.push({ x0: Math.min(a.x, e.x) - 0.2, z0: Math.min(a.z, e.z) - 0.2, x1: Math.max(a.x, e.x) + 0.2, z1: Math.max(a.z, e.z) + 0.2, h: 1.2 });
+          }
+        }
+      }
+    }
+    return { sign: { y: H + 3.6, z: zt - 3, w: Math.min(22, tx * 1.5), glow: 0.4 }, height: H + 6, colliders: cols, extra, barriers,
       // mặt đi trên cao (src/world/elevated.js): dải cầu + lề đi bộ sát nhà ga; điểm dừng thả khách (theo x) và hướng khách đi vào ga
       ramp: big ? { path: airportPath(W), halfW: RW_AIR / 2 - 0.3, dy: 0.02, walk, stops: [tx * 0.55, 0, -tx * 0.55], toTerminal: [0, -1] } : null };
   },
@@ -1485,5 +1548,5 @@ export function buildPlace(o) {
     group.add(s);
   }
   for (const e of res.extra || []) group.add(e); // người đứng chờ…
-  return { group, glow, colliders: res.colliders ?? 'full', height: res.height, look, ramp: res.ramp || null };
+  return { group, glow, colliders: res.colliders ?? 'full', height: res.height, look, ramp: res.ramp || null, barriers: res.barriers || null };
 }

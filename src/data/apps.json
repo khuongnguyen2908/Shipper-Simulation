@@ -23,6 +23,7 @@
       "rainSurcharge": 4,
       "peakSurcharge": 3,
       "nightSurcharge": 5,
+      "airportFee": 10,
       "nightHours": [
         [
           22,

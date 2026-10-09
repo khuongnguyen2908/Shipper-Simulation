@@ -2413,5 +2413,94 @@ console.log('Nhà dân & trang trí theo khu phố');
   });
 }
 
+console.log('Sân bay: luật xe máy (điểm đón, bãi xe, cấm dừng, phí)');
+{
+  const AP = await import('../src/sim/airport.js');
+  const { APP } = await import('../src/data/apps.js');
+  const { buildPlace, airportPath } = await import('../src/world/placeBuildings.js');
+  const { rideDoor } = await import('../src/sim/cityLayout.js');
+  const { lookOf } = await import('../src/data/looks.js');
+  // sân bay giả (không phụ thuộc dữ liệu người dùng): lô 2 khối, mặt tiền quay xuống (+z)
+  const fake = { id: 'sbThu', name: 'SB', kind: 'service', look: 'airport', face: 'S', x0: -43, x1: 43, z0: -34, z1: 0, door: { x: 0, z: 1.4 } };
+  test('Vùng sân bay: điểm đón & bãi xe trong khuôn viên, không tính dừng sai chỗ; vỉa hè trước sảnh là vùng cấm dừng; sân bay nhỏ không chia vùng', () => {
+    const rd = AP.airportRideDoor(fake);
+    assert.equal(AP.airportAt([fake], rd.x, rd.z), fake);
+    assert.equal(AP.airportNoStopAt([fake], rd.x, rd.z), null);
+    assert.equal(AP.airportNoStopAt([fake], rd.x, rd.z + 4), null, 'đứng chờ sát điểm đón (bấm E trong 5,5 m)');
+    const fr = AP.lotFrame(fake), zn = AP.airportZones(fr.W);
+    const [px, pz] = fr.toWorld((zn.park.x0 + zn.park.x1) / 2, (zn.park.z0 + zn.park.z1) / 2);
+    assert.equal(AP.airportParkAt([fake], px, pz), fake);
+    assert.equal(AP.airportNoStopAt([fake], px, pz), null);
+    const [sx, sz] = fr.toWorld(0, 2);
+    assert.equal(AP.airportNoStopAt([fake], sx, sz), fake, 'vỉa hè trước sảnh');
+    assert.equal(AP.airportAt([fake], sx, sz), null, 'vỉa hè chưa phải khuôn viên (chưa thu phí)');
+    assert.equal(AP.airportNoStopAt([fake], 0, 30), null);
+    assert.equal(AP.airportRideDoor({ ...fake, x0: -5, x1: 5 }), null);
+    // địa điểm sân bay thật trên bản đồ (nếu có): xe ôm đón / trả ở điểm đón
+    for (const p of layout.places) if (lookOf(p) === 'airport' && AP.airportZones(AP.lotFrame(p).W)) assert.deepEqual(rideDoor(p), AP.airportRideDoor(p));
+  });
+  test('Điểm đón, bãi xe không đè lên nhà ga / cột / đường dốc sát đất của model', () => {
+    const W = 85.5, D = 33.5, zn = AP.airportZones(W);
+    const b = buildPlace({ look: 'airport', W, D, color: '#e0e0e0', sign: 'SB', kind: 'service', seed: 3 });
+    const hit = (r, c) => r.x0 < c.x1 && r.x1 > c.x0 && r.z0 < c.z1 && r.z1 > c.z0;
+    for (const c of b.colliders) assert.ok(!hit(zn.pickup, c), `điểm đón đè vật chắn ${JSON.stringify(c)}`);
+    const inPark = (c) => c.x0 >= zn.park.x0 - 0.3 && c.x1 <= zn.park.x1 + 0.3 && c.z0 >= zn.park.z0 - 0.3 && c.z1 <= zn.park.z1 + 0.3;
+    for (const c of b.colliders) if (!inPark(c)) assert.ok(!hit(zn.park, c), `bãi xe đè vật chắn ${JSON.stringify(c)}`);
+    for (const r of [zn.pickup, zn.park]) assert.ok(r.x0 > -W / 2 && r.x1 < W / 2 && r.z0 > -D && r.z1 < 0, 'nằm trong lô');
+    const path = airportPath(W);
+    for (const q of path.getSpacedPoints(200)) {
+      if (q.y > 3.8) continue; // sàn ga đi trên cao: gầm đủ cao cho xe máy
+      for (const r of [zn.pickup, zn.park]) assert.ok(!(q.x > r.x0 - 3.6 && q.x < r.x1 + 3.6 && q.z > r.z0 - 3.6 && q.z < r.z1 + 3.6), `đường dốc thấp đè vùng ở ${q.x.toFixed(1)},${q.z.toFixed(1)}`);
+    }
+  });
+  test('Barie chân dốc: 2 đầu đường trên cao bị chắn (xe máy không lên được), có cần chắn để nâng cho ô tô', () => {
+    const W = 85.5, b = buildPlace({ look: 'airport', W, D: 33.5, color: '#e0e0e0', sign: 'SB', kind: 'service', seed: 3 });
+    assert.equal(b.barriers.length, 2);
+    const path = airportPath(W), L = path.getLength();
+    for (const t of [3 / L, 1 - 3 / L, 6 / L, 1 - 6 / L]) {
+      // đi dọc tim dốc từ ngoài vào: phải đụng 1 khối chắn cao ≥ 1 m trước khi tới điểm này
+      const end = path.getPointAt(t), start = path.getPointAt(t < 0.5 ? 0 : 1);
+      let blocked = false;
+      for (let i = 0; i <= 20 && !blocked; i++) {
+        const x = start.x + ((end.x - start.x) * i) / 20, z = start.z + ((end.z - start.z) * i) / 20;
+        blocked = b.colliders.some((c) => c.h >= 1 && x >= c.x0 && x <= c.x1 && z >= c.z0 && z <= c.z1);
+      }
+      assert.ok(blocked, `lọt vào dốc tới t=${t.toFixed(3)}`);
+    }
+  });
+  test('Phụ phí sân bay: khách trả thêm, tài xế nhận đủ (app không trích); đơn đón / trả ở sân bay mới có', () => {
+    const r1 = (v) => Math.round(v * 10) / 10;
+    const p = computePayout({ baseFare: 20, distanceKm: 0, stars: 1, airportFee: 10 });
+    assert.equal(p.airportFee, 10);
+    assert.equal(p.fee, r1(20 * APP.platformFee));
+    assert.equal(p.gross, 30);
+    assert.equal(p.walletCredit, r1(30 - p.fee - p.tax + p.tip));
+    assert.equal(computePayout({ baseFare: 20, distanceKm: 0, stars: 1, airportFee: 10, farePct: 0.5 }).airportFee, 5, 'khách xuống giữa đường');
+    const lay = { ...layout, placeById: { ...layout.placeById, sbThu: fake } };
+    const om = new OrderManager({ rng: makeRng(4), layout: lay, gs: new GameState() });
+    const lot = layout.lots[0];
+    const mk = (pickup) => om.buildOrder({ type: { id: 'ride', kind: 'ride', fareMult: 1, deadlineMult: 1 }, pickup, dropoff: { name: lot.address, address: lot.address, door: lot.door, lotKey: lot.key }, itemIds: ['passenger'], pos: { x: 0, z: 0 } });
+    assert.equal(mk({ placeId: 'sbThu', name: 'SB', address: 'SB', door: AP.airportRideDoor(fake) }).airportFee, APP.airportFee || 0);
+    assert.equal(mk({ name: lot.address, address: lot.address, door: lot.door }).airportFee, 0);
+  });
+  test('Dừng sai chỗ: bảo vệ thổi còi rồi phạt, mỗi lần dừng 1 lần', () => {
+    const A = { noStopWarnMin: 3, noStopFineMin: 8 };
+    const st = { since: 100, warned: false, fined: false };
+    assert.equal(AP.noStopStep(st, 102, A), null);
+    assert.equal(AP.noStopStep(st, 103, A), 'warn');
+    st.warned = true;
+    assert.equal(AP.noStopStep(st, 107, A), null);
+    assert.equal(AP.noStopStep(st, 108, A), 'fine');
+    st.fined = true;
+    assert.equal(AP.noStopStep(st, 200, A), null);
+    assert.equal(AP.noStopStep(null, 200, A), null);
+  });
+  test('Kiểm tra dữ liệu: phụ phí sân bay ngoài 0–100k là lỗi', () => {
+    const bad = JSON.parse(JSON.stringify(DATA.apps));
+    bad.apps.goship.airportFee = 500;
+    assert.ok(VALIDATE.validateApps(bad, DATA.items, DATA.places).some((i) => i.level === 'error' && i.field === 'airportFee'));
+  });
+}
+
 console.log(`\n${pass} đạt, ${fail} lỗi`);
 if (fail) process.exit(1);

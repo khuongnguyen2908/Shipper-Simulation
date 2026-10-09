@@ -114,6 +114,16 @@ export const BALANCE_GROUPS = [
     ],
   },
   {
+    id: 'airport', title: '✈️ Sân bay',
+    note: 'Xe máy không được lên đường trên cao ga đi (barie chỉ cho ô tô). Đón / trả khách ở "Điểm đón xe công nghệ" dưới trệt; muốn vào sảnh thì gửi xe ở bãi xe máy sân bay (tiền gửi như bãi giữ xe ở thẻ 🅿️ Đậu xe). Phụ phí sân bay khách trả: thẻ 📱 App & Đơn.',
+    fields: [
+      ['airport.gateFee', 'Phí vào cổng sân bay (k/lượt)', { min: 0, max: 100, step: 1, hint: 'Trừ mỗi lần chạy xe vào khuôn viên sân bay. Mặc định 5k.' }],
+      ['airport.noStopWarnMin', 'Dừng trước sảnh: bảo vệ thổi còi sau (phút)', { min: 0, max: 120, step: 1, hint: 'Dừng xe / bỏ xe trong khuôn viên hoặc trước cửa sân bay (ngoài điểm đón và bãi xe). 1 phút game = 1 giây thật. Mặc định 3.' }],
+      ['airport.noStopFineMin', 'Dừng trước sảnh: bị phạt sau (phút)', { min: 0, max: 240, step: 1, hint: 'Phạt nguội (có đồn công an) hoặc trừ ngay. Mặc định 8.' }],
+      ['airport.noStopFine', 'Tiền phạt dừng sai chỗ (k)', { min: 0, max: 1000, step: 10, hint: 'Mặc định 50k.' }],
+    ],
+  },
+  {
     id: 'night', title: '🌙 Ban đêm',
     note: 'Trời tối từ giờ "bắt đầu" tới giờ "kết thúc" (qua nửa đêm). Phụ phí đêm và nhu cầu đơn theo giờ ở thẻ 📱 App & Đơn.',
     fields: [

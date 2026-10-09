@@ -39,6 +39,7 @@ function orderTags(o) {
   if (o.booker) tags.push(`<span class="tag">${fmt('phone.booked', { booker: o.booker })}</span>`);
   if (o.cod) tags.push(`<span class="tag warn">${fmt('phone.cod', { cod: o.cod })}</span>`);
   if (o.surcharge) tags.push(`<span class="tag good">${fmt('phone.surcharge', { k: o.surcharge })}</span>`);
+  if (o.airportFee) tags.push(`<span class="tag good">${fmt('phone.airportFee', { k: o.airportFee })}</span>`);
   return tags.join('');
 }
 function offerTitle(o) {

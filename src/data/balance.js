@@ -57,6 +57,7 @@ export const ORDER = balanceData.order; // nhịp đơn, chờ quán, tỉ lệ 
 export const WALLET_QUEST = balanceData.walletQuest; // nhiệm vụ chiếc ví
 export const NIGHT = balanceData.night; // ban đêm: trời tối từ start tới end giờ, hao tinh thần thêm, ổ gà xóc mạnh hơn
 export const PARKING = balanceData.parking; // đậu xe: gửi bãi, rủi ro để xe ngoài đường (src/sim/parking.js)
+export const AIRPORT = balanceData.airport || {}; // sân bay: phí vào cổng, cấm dừng trước sảnh (src/sim/airport.js)
 
 // Tiền nhà trả theo KỲ (mỗi rentEveryDays ngày). Kỳ `period` (1, 2, 3…): có số tự đặt trong rentByPeriod thì dùng,
 // không thì = tiền kỳ 1 + tăng mỗi kỳ
@@ -83,5 +84,6 @@ export function applyBalance(data) {
   into(WALLET_QUEST, data.walletQuest);
   into(NIGHT, data.night);
   into(PARKING, data.parking);
+  into(AIRPORT, data.airport);
 }
 

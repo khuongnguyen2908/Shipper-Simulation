@@ -14,6 +14,7 @@ import { makeTileTexture, makeAsphaltTexture, makeSignTexture, makeGlowTexture }
 import { HouseGeo, buildHouse, housesForLot, houseMaterial, houseTop } from './houses.js';
 import { buildPlace, buildResidential, mergeKits, airportPath, AIRPORT_MIN_W } from './placeBuildings.js';
 import { Elevated } from './elevated.js';
+import { lotFrame, airportZones } from '../sim/airport.js';
 import { lookOf, lookFloors } from '../data/looks.js';
 import { ITEMS } from '../data/items.js';
 import { hashStr } from '../sim/people.js';
@@ -359,6 +360,27 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     scene.add(s);
     return s;
   };
+  // barie chân dốc sân bay: cần chắn sọc đỏ trắng, tự nâng khi xe bot (ô tô) tới gần; xe máy luôn bị chắn (khối va chạm cố định)
+  const barriers = [];
+  const armMats = [mat(0xd62d20), mat(0xf4f4f4)];
+  const addBarrier = (f, q) => {
+    const c = Math.cos(f.rotY), s = Math.sin(f.rotY);
+    const wx = f.x + q.x * c + q.z * s, wz = f.z - q.x * s + q.z * c;
+    const dx = q.ax * c + q.az * s, dz = -q.ax * s + q.az * c;
+    const outer = new THREE.Group(), arm = new THREE.Group();
+    outer.position.set(wx, SW_H + q.y, wz);
+    outer.rotation.y = Math.atan2(-dz, dx);
+    const n = Math.max(2, Math.round(q.len / 0.8)), seg = q.len / n;
+    for (let i = 0; i < n; i++) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(seg, 0.1, 0.1), armMats[i % 2]);
+      m.position.x = seg * (i + 0.5);
+      m.castShadow = true;
+      arm.add(m);
+    }
+    outer.add(arm);
+    scene.add(outer);
+    barriers.push({ arm, x: wx + (dx * q.len) / 2, z: wz + (dz * q.len) / 2, open: 0 });
+  };
   // mặt đi trên cao (dốc + sàn ga đi sân bay) và đường vòng cho xe bot chạy lên thả khách
   const elev = new Elevated();
   const loops = [];
@@ -413,6 +435,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     b.group.rotation.y = f.rotY;
     scene.add(b.group);
     if (b.ramp) addRamp(p, b.ramp);
+    if (b.barriers) for (const q of b.barriers) addBarrier(f, q);
     signMats.push(...b.glow);
     if (b.colliders === 'full') addBox(r.x0, r.z0, r.x1, r.z1, b.height + SW_H, 'place');
     else {
@@ -662,6 +685,15 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     grid,
     elev, // mặt đi trên cao (xe / người chạy lên dốc sân bay)
     loops, // đường vòng cho xe bot (traffic.addLoop)
+    barriers, // barie chân dốc sân bay (giữa cần chắn: x, z)
+    // mỗi khung hình: nâng / hạ cần barie theo xe bot gần đó
+    update(dt, cars = []) {
+      for (const b of barriers) {
+        const near = cars.some((a) => Math.hypot(a.x - b.x, a.z - b.z) < 7);
+        b.open += ((near ? 1 : 0) - b.open) * Math.min(1, dt * 3);
+        b.arm.rotation.z = b.open * 1.4;
+      }
+    },
     setNight(n) {
       headMat.emissiveIntensity = 0.2 + 3 * n;
       poolMat.opacity = 0.85 * n;
@@ -677,19 +709,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
 }
 
 // Khung toạ độ riêng của địa điểm (như lúc dựng nhà): gốc giữa mặt tiền, x dọc mặt tiền, z âm đi vào trong lô
-function placeFrame(p) {
-  const r = { x0: p.x0 + 0.25, x1: p.x1 - 0.25, z0: p.z0 + 0.25, z1: p.z1 - 0.25 };
-  const f = frontOf(r, p.face);
-  const c = Math.cos(f.rotY), s = Math.sin(f.rotY);
-  return {
-    W: f.width, D: f.nx ? r.x1 - r.x0 : r.z1 - r.z0, c, s,
-    toWorld: (x, z) => [f.x + x * c + z * s, f.z - x * s + z * c],
-    toLocal: (wx, wz) => {
-      const dx = wx - f.x, dz = wz - f.z;
-      return [dx * c - dz * s, dx * s + dz * c];
-    },
-  };
-}
+const placeFrame = lotFrame; // (src/sim/airport.js)
 // Tim đường gần nhất (toạ độ một trục)
 function nearestRoad(v) {
   const i = Math.max(0, Math.min(CITY.N, Math.round((v - CITY.ORIGIN) / CITY.PITCH)));

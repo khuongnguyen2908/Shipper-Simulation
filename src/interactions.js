@@ -536,6 +536,7 @@ function showReceipt(g, receipt) {
     ${row(fmt('receipt.base'), fmtK(pay.baseFare))}
     ${row(fmt('receipt.dist', { km: o.distanceKm.toFixed(1) }), '+' + fmtK(pay.distBonus))}
     ${pay.surcharge ? row(fmt('receipt.surcharge'), '+' + fmtK(pay.surcharge)) : ''}
+    ${pay.airportFee ? row(fmt('receipt.airportFee'), '+' + fmtK(pay.airportFee)) : ''}
     ${o.viaApp === false ? row(fmt('receipt.noAppFee'), '0k') : row(fmt('receipt.fee', { pct: pct(APP.platformFee) }), '−' + fmtK(pay.fee), 'minus') + row(fmt('receipt.tax', { pct: pct(APP.taxRate) }), '−' + fmtK(pay.tax), 'minus')}
     ${row(fmt('receipt.fuel', { liters: o.liters.toFixed(2) }), '−' + fmtK(pay.fuelCost), 'minus')}
     ${row(fmt('receipt.final'), fmtK(pay.final), 'total')}

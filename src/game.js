@@ -2,8 +2,9 @@
 // GAME — điều phối: vòng lặp, nối mô phỏng (src/sim) với thế giới 3D (src/world) và giao diện (src/ui)
 // =============================================================
 import * as THREE from 'three';
-import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, BAGS, NIGHT, PARKING } from './data/balance.js';
+import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, BAGS, NIGHT, PARKING, AIRPORT } from './data/balance.js';
 import { parkingRoll, parkingLotAt, nearestStation, towTarget, safeSpot } from './sim/parking.js';
+import { airportAt, airportParkAt, airportNoStopAt, noStopStep } from './sim/airport.js';
 import { GOODS, outfitLook } from './data/goods.js';
 import { APP, RIDER_TYPES } from './data/apps.js';
 import { ITEMS } from './data/items.js';
@@ -447,6 +448,7 @@ export class Game {
     this.clockMin += dMin;
     this.parkTick();
     this.fineTick();
+    this.airportTick(mounted ? speed : 0);
     gs.drain(activity, dMin, { harshSun: hz.isHarshSun(now), raining: !!rain, outdoor: true, inJam: this.inJam, waiting: false, now: this.clockMin });
     this.rollDay();
 
@@ -587,6 +589,7 @@ export class Game {
       for (const e of this.hz.poll(now)) this.onHazard(e);
       this.parkTick();
       this.fineTick();
+      this.airportTick();
       if (this.gs.checkEnd(now)) break;
       if (this.gs.collapsed && activity !== 'rest') break; // kiệt sức giữa chừng → xử lý ngay
       if (stopOnOffer && this.om.state === S.OFFERED) break; // điện thoại reo có đơn
@@ -715,7 +718,8 @@ export class Game {
   startParking(quiet = false) {
     const { gs, bike } = this;
     const places = this.layout.places;
-    const lot = parkingLotAt(places, bike.pos.x, bike.pos.z);
+    const ap = airportParkAt(places, bike.pos.x, bike.pos.z); // bãi xe máy trong khuôn viên sân bay
+    const lot = parkingLotAt(places, bike.pos.x, bike.pos.z) || (ap && { name: fmt('place.airportPark', { place: ap.name }) });
     let safe = safeSpot(places, bike.pos.x, bike.pos.z);
     if (lot && !safe) {
       const fee = PARKING.fee ?? 5;
@@ -775,6 +779,57 @@ export class Game {
     this.hud.toast(msg, 'bad', 8000);
     this.addChat(fmt('chat.ward'), msg);
   }
+  // ======================== SÂN BAY (src/sim/airport.js) ========================
+  // Gọi mỗi bước: phí vào cổng khi chạy xe vào khuôn viên (1 lần mỗi lượt), nhắc khi chạy tới barie chân dốc,
+  // xe đứng yên / bỏ lại trong vùng cấm dừng trước sảnh → bảo vệ thổi còi rồi phạt (mỗi lần dừng 1 lần)
+  airportTick(speed = 0) {
+    const { gs, bike } = this;
+    const places = this.layout.places;
+    const mounted = this.mode === 'bike';
+    const { x, z } = bike.pos;
+    const ap = airportAt(places, x, z);
+    if (ap && mounted && !this.airportVisit) {
+      this.airportVisit = ap.id;
+      const fee = AIRPORT.gateFee ?? 5;
+      if (fee > 0) gs.spend(fee, 'airportGate', true);
+      this.hud.toast(fmt('toast.airportGate', { fee }), 'info', 6000);
+    } else if (!ap && this.airportVisit) {
+      // ra xa hẳn khỏi khuôn viên (> 10 m) mới tính lượt mới, chạy sát mép không bị trừ lặp
+      const p = this.layout.placeById[this.airportVisit];
+      const out = p ? Math.max(p.x0 - x, x - p.x1, p.z0 - z, z - p.z1) : Infinity;
+      if (out > 10) this.airportVisit = null;
+    }
+    if (mounted) for (const b of this.city.barriers || []) if (Math.hypot(b.x - x, b.z - z) < 4.5) this.toastOnce('airportNoBike', fmt('toast.airportNoBike'), 'warn', 20);
+    // cấm dừng: đang ngồi xe mà đứng yên, hoặc đã xuống xe và để xe ở đó
+    const ns = airportNoStopAt(places, x, z);
+    if (!ns || (mounted && speed >= 0.6) || gs.towed) {
+      this.noStop = null;
+      return;
+    }
+    if (!this.noStop) this.noStop = { since: this.clockMin, warned: false, fined: false };
+    const ev = noStopStep(this.noStop, this.clockMin, AIRPORT);
+    if (ev === 'warn') {
+      this.noStop.warned = true;
+      sfx.whistle();
+      this.hud.toast(fmt('toast.airportWarn'), 'warn', 6000);
+    } else if (ev === 'fine') {
+      this.noStop.warned = this.noStop.fined = true;
+      const fine = AIRPORT.noStopFine ?? 50;
+      const station = nearestStation(places, x, z);
+      let msg;
+      if (station) {
+        gs.addFine(fine, 'airport', this.clockMin);
+        msg = fmt('toast.airportFine', { fine, days: PARKING.fineDays ?? 3, place: station.name });
+      } else {
+        gs.spend(fine, 'airportFine', true);
+        msg = fmt('toast.airportFineNow', { fine });
+      }
+      sfx.whistle();
+      this.hud.toast(msg, 'bad', 8000);
+      this.addChat(fmt('chat.airportGuard'), msg);
+    }
+  }
+
   // Phạt nguội quá hạn → tiền tăng, báo một lần
   fineTick() {
     for (const f of this.gs.updateFines(this.clockMin)) {
@@ -943,6 +998,7 @@ export class Game {
     const pp = this.playerPos;
     this.applyLook();
     const { night, wet } = this.sky.update(dt, tod(now), rain, pp, this.camera);
+    this.city.update?.(dt, this.traffic.loopCars); // barie sân bay nâng khi ô tô tới
     this.city.setNight(night);
     this.city.setWet(wet);
     this.bike.setNight(night, this.mode === 'bike');

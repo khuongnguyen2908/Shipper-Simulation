@@ -103,6 +103,7 @@ export const HINT = {
     cancelComp: '0–200k app bù khi đơn bị hủy không phải lỗi tài xế (quán hết món, khách không nghe máy). Mẫu 5k.',
     rainSurcharge: '0–100k cộng vào mỗi đơn nhận lúc trời mưa (như app thật). Mẫu 4k. Khách quen gọi thẳng không có phụ phí.',
     peakSurcharge: '0–100k cộng vào mỗi đơn nhận trong giờ cao điểm. Mẫu 3k.',
+    airportFee: '0–100k khách trả thêm khi đơn đón / trả ở sân bay. Tài xế nhận đủ (app không trích phí, thuế phần này) để bù phí vào cổng sân bay (thẻ ⚖️ Cân bằng → ✈️ Sân bay). Mẫu 10k.',
     peakHours: 'Giờ cao điểm: đơn tới dày hơn (khoảng chờ ×0,6), quán đông hơn, có phụ phí. Mẫu 11–13h và 17–19,5h.',
     tipByStars: 'Tiền boa theo số sao (k). Mẫu: 4★ 3k · 5★ 8k.',
     lockBelow: '1–5. Điểm trung bình dưới mức này → app khóa tài khoản → THUA. Mẫu 4,0 (người chơi bắt đầu 4,8).',

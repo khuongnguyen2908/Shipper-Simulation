@@ -5,6 +5,7 @@ import { MAP } from '../data/map.js';
 import { fmt } from '../content/index.js';
 import { planBlock, ALLEY_TEMPLATES } from './blockPlan.js';
 import { traitOf } from '../data/districtTraits.js';
+import { airportRideDoor } from './airport.js';
 
 // Lưới N × N khối (N lấy từ map.json), mỗi khối 40 m, đường 12 m; tâm bản đồ ở (0, 0)
 const N = Number.isInteger(MAP.size) && MAP.size >= 3 ? MAP.size : 8;
@@ -274,6 +275,10 @@ const key = (bx, bz, lot) => `${bx},${bz},${lot}`;
 // Dựng danh sách địa điểm đặc biệt + các lô nhà dân (khách hàng) + mặt bằng các khối có hẻm
 export function buildLayout(placesData = PLACES, map = MAP) {
   const places = placesData.filter(isPlaced).map((p) => ({ ...p, ...lotInfo(p.block[0], p.block[1], p.lot, p.face, map) }));
+  for (const p of places) {
+    const rd = airportRideDoor(p); // sân bay: xe ôm đón / trả ở điểm đón xe công nghệ
+    if (rd) p.rideDoor = rd;
+  }
   const taken = new Set();
   for (const p of places) for (const [bx, bz, id] of placeCells(p)) taken.add(key(bx, bz, id));
   taken.add(key(ALLEY.block[0], ALLEY.block[1], ALLEY.lot));
@@ -297,8 +302,8 @@ export function buildLayout(placesData = PLACES, map = MAP) {
   return { places, placeById, lots, alleyBlocks };
 }
 
-// Cửa dùng cho xe ôm: nhà trong hẻm đi bộ → đón/trả ở miệng hẻm (xe không vào được)
-export const rideDoor = (l) => (l.walkOnly && l.mouthDoor ? l.mouthDoor : l.door);
+// Cửa dùng cho xe ôm: nhà trong hẻm đi bộ → đón/trả ở miệng hẻm (xe không vào được); sân bay → điểm đón xe công nghệ
+export const rideDoor = (l) => l.rideDoor || (l.walkOnly && l.mouthDoor ? l.mouthDoor : l.door);
 
 // Quãng đường theo lưới phố (đi dọc đường, không xuyên nhà) — ước lượng nhanh, không tính sông
 export function manhattan(a, b) {

@@ -11,7 +11,8 @@ import { GameState } from '../src/sim/GameState.js';
 import { HazardManager } from '../src/sim/hazards.js';
 import { makeRng } from '../src/sim/rng.js';
 import { buildLayout, routeDist } from '../src/sim/cityLayout.js';
-import { TIME, ENERGY, DIST, ORDER, ECONOMY, NIGHT, dueDayOf } from '../src/data/balance.js';
+import { TIME, ENERGY, DIST, ORDER, ECONOMY, NIGHT, AIRPORT, dueDayOf } from '../src/data/balance.js';
+import { airportAt } from '../src/sim/airport.js';
 import { APP, ORDER_TYPES, RIDER_TYPES } from '../src/data/apps.js';
 import { inHours } from '../src/sim/hours.js';
 import { dayOf, dayStartAt, minutesUntil, isDark } from '../src/sim/clock.js';
@@ -90,6 +91,8 @@ export function playRun(seed, strat, days = 9) {
     for (let i = 0; i < bumps; i++) om.itemEvent('bump', (st.speed / 12.5) * rng.range(0.7, 1.2) * dark, e);
     for (let i = 0; i < brakes; i++) om.itemEvent('brake', st.brakeMag, e);
     pass(Math.ceil(min), 'drive', st.speed);
+    // chạy xe vào khuôn viên sân bay (đón / trả khách ở điểm đón xe công nghệ) → trả phí vào cổng
+    if (airportAt(layout.places, to.x, to.z) && !airportAt(layout.places, pos.x, pos.z)) gs.spend(AIRPORT.gateFee ?? 0, 'airportGate', true);
     pos = { ...to };
   };
   // kiệt sức: hủy đơn đang chạy, nằm nghỉ bắt buộc ở phòng trọ
