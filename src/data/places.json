@@ -3422,6 +3422,171 @@
           21
         ]
       }
+    },
+    {
+      "id": "nhaThoDaDo",
+      "name": "Nhà Thờ Đá Đỏ",
+      "short": "Nhà thờ",
+      "kind": "service",
+      "icon": "⛪",
+      "block": [
+        6,
+        4
+      ],
+      "lot": "N",
+      "look": "cathedral",
+      "color": "#b5523b",
+      "sign": "NHÀ THỜ ĐÁ ĐỎ",
+      "signBg": "#7a2e22",
+      "hours": "caNgay",
+      "npc": {
+        "name": "Cha xứ Phêrô",
+        "shirt": "#1c1c1c",
+        "pants": "#1c1c1c",
+        "hat": null,
+        "portrait": "⛪",
+        "gender": "m"
+      },
+      "activities": [
+        {
+          "id": "tinhTam",
+          "label": "Vào nhà thờ ngồi tĩnh tâm",
+          "cost": 0,
+          "minutes": 20,
+          "phys": 5,
+          "mental": 20,
+          "perDay": 1
+        }
+      ]
+    },
+    {
+      "id": "buuDienTP",
+      "name": "Bưu Điện Thành Phố",
+      "short": "Bưu điện",
+      "kind": "service",
+      "icon": "📮",
+      "block": [
+        7,
+        4
+      ],
+      "lot": "N",
+      "look": "postOffice",
+      "color": "#f2d28b",
+      "sign": "BƯU ĐIỆN THÀNH PHỐ",
+      "signBg": "#2e6b4a",
+      "hours": "hanhChinh",
+      "npc": {
+        "name": "Cô Hằng bưu tá",
+        "shirt": "#f1c40f",
+        "pants": "#2e6b4a",
+        "hat": null,
+        "portrait": "📮",
+        "gender": "f"
+      },
+      "activities": [
+        {
+          "id": "guiThu",
+          "label": "Mua bưu thiếp gửi về quê",
+          "cost": 15,
+          "minutes": 10,
+          "phys": 0,
+          "mental": 12,
+          "perDay": 1
+        }
+      ],
+      "orders": {
+        "parcelWeight": 3
+      }
+    },
+    {
+      "id": "khoHangCang",
+      "name": "Kho Hàng Cảng",
+      "short": "Kho cảng",
+      "kind": "service",
+      "icon": "🏭",
+      "block": [
+        7,
+        8
+      ],
+      "lot": "N",
+      "look": "portWarehouse",
+      "color": "#7f97a8",
+      "sign": "KHO HÀNG CẢNG",
+      "signBg": "#1d5fa8",
+      "hours": "caNgay",
+      "npc": {
+        "name": "Chú Sáu thủ kho",
+        "shirt": "#f39c12",
+        "pants": "#2c3e50",
+        "hat": null,
+        "portrait": "🏭",
+        "gender": "m"
+      },
+      "orders": {
+        "parcelWeight": 2
+      }
+    },
+    {
+      "id": "vuaVeChai",
+      "name": "Vựa Ve Chai Cô Bảy",
+      "short": "Ve chai",
+      "kind": "service",
+      "icon": "♻️",
+      "block": [
+        1,
+        8
+      ],
+      "lot": "N01",
+      "look": "scrapYard",
+      "color": "#8a8172",
+      "sign": "VỰA VE CHAI – MUA BÁN PHẾ LIỆU",
+      "signBg": "#c0392b",
+      "hours": "sangDenToi",
+      "npc": {
+        "name": "Cô Bảy ve chai",
+        "shirt": "#16a085",
+        "pants": "#5d4037",
+        "hat": "nonla",
+        "portrait": "♻️",
+        "gender": "f"
+      }
+    },
+    {
+      "id": "benhVienQT",
+      "name": "Bệnh Viện Quốc Tế",
+      "short": "Bệnh viện",
+      "kind": "service",
+      "icon": "🏥",
+      "block": [
+        6,
+        1
+      ],
+      "lot": "N",
+      "look": "hospital",
+      "floors": 7,
+      "color": "#f4f6f7",
+      "sign": "BỆNH VIỆN QUỐC TẾ",
+      "signBg": "#1f618d",
+      "hours": "haiTuGio",
+      "npc": {
+        "name": "Bác sĩ Minh",
+        "shirt": "#ecf0f1",
+        "pants": "#5dade2",
+        "hat": null,
+        "portrait": "🩺",
+        "gender": "m"
+      },
+      "activities": [
+        {
+          "id": "khamBenh",
+          "label": "Khám sức khỏe, truyền nước",
+          "cost": 150,
+          "minutes": 60,
+          "phys": 40,
+          "mental": 5,
+          "perDay": 1
+        }
+      ]
     }
   ]
 }

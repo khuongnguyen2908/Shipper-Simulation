@@ -6,7 +6,8 @@
 // Nhà có thân giống nhà ống thì lấy thân nhà ống A+ (houses.js) rồi gắn thêm đồ riêng của từng kiểu.
 // =============================================================
 import * as THREE from 'three';
-import { PartList, sideGeo, rodGeo, makeBike, makePerson } from './models.js';
+import { PartList, sideGeo, rodGeo, makeBike, makePerson, makeCar } from './models.js';
+import { LANDMARKS, LANDMARK_LOOKS } from './landmarks.js';
 import { HouseGeo, buildHouse, houseMaterial, houseTop } from './houses.js';
 import { makeSignTexture } from './textures.js';
 import { fmt, list } from '../content/index.js';
@@ -1807,6 +1808,9 @@ export function busStopModel(k, x, z, ry = 0) {
   k.cyl(0.05, 0.05, 2.8, px, 1.4, pz, 0x555555, 'metal', 6);
   k.plane(0.7, 0.7, px, 2.7, pz, 0xffffff, 'tex:' + textTex(fmt('city.busStopSign'), { bg: '#2e86c1', w: 256, h: 256 }), [0, ry, 0]);
 }
+// công trình lớn đợt B (src/world/landmarks.js): dùng chung texture, cây, chữ của file này
+const LM_HELP = { THREE, T, texKey, textTex, tree, sideGeo, makeCar: hasDOM ? makeCar : null, fmt };
+for (const look of LANDMARK_LOOKS) BUILD[look] = (k, o, r) => LANDMARKS[look](k, o, r, LM_HELP);
 export const BUILT_LOOKS = Object.keys(BUILD);
 
 // ======================= NHÀ DÂN THEO KHU PHỐ (map.json → districts[mã].houses) =======================

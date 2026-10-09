@@ -42,6 +42,12 @@ export const LOOKS = {
   showroom: { label: '🏍️ Cửa hàng xe máy (showroom)', floors: [2, 6] },
   toyShop: { label: '🧸 Tiệm đồ chơi', floors: [1, 4] },
   busStation: { label: '🚌 Bến xe buýt (nên 2–3 lô)', floors: null },
+  // ---- công trình lớn đợt B (lô nhỏ hơn cỡ nên dùng thì tự thu nhỏ cho vừa) ----
+  cathedral: { label: '⛪ Nhà thờ gạch đỏ (nên cả khối)', floors: null },
+  postOffice: { label: '📮 Bưu điện kiểu Pháp (nên cả dãy 3 lô)', floors: null },
+  portWarehouse: { label: '🏭 Kho hàng cảng (nên cả khối)', floors: null },
+  scrapYard: { label: '♻️ Vựa ve chai (nên 2 lô)', floors: null },
+  hospital: { label: '🏥 Bệnh viện (nên cả dãy 3 lô)', floors: [4, 9] },
 };
 // Kiểu dùng được cho loại địa điểm: cảnh quan ↔ kiểu cảnh quan; đồn công an ↔ kiểu đồn; loại khác ↔ kiểu nhà thường
 export const looksFor = (kind) => Object.keys(LOOKS).filter((k) => {
@@ -92,6 +98,11 @@ export function guessLook(p) {
       return 'park';
     case 'service':
       if (/sân bay|airport|cảng hàng không/.test(n)) return 'airport';
+      if (/nhà thờ|thánh đường/.test(n)) return 'cathedral';
+      if (/bưu điện/.test(n)) return 'postOffice';
+      if (/kho hàng|kho cảng|kho bãi|container/.test(n)) return 'portWarehouse';
+      if (/ve chai|phế liệu/.test(n)) return 'scrapYard';
+      if (/bệnh viện|phòng khám|trạm y tế/.test(n)) return 'hospital';
       if (/bến xe buýt|trạm xe buýt/.test(n)) return 'busStation';
       if (/mỹ thuật|kiến trúc/.test(n)) return 'artSchool';
       if (/đại học|cao đẳng|rmit/.test(n)) return 'university';

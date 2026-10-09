@@ -1687,6 +1687,10 @@ console.log('Kiểu nhà địa điểm (src/data/looks.js, src/world/placeBuild
     assert.equal(lookOf({ kind: 'restaurant', name: 'Phở', look: 'laLam' }), 'eatery', 'kiểu lạ → tự đoán');
     assert.equal(lookFloors({ kind: 'apartment', floors: 30 }), 15, 'kéo vào khoảng');
     assert.equal(lookFloors({ kind: 'service', name: 'Chùa', floors: 4 }), null, 'chùa không có số tầng');
+    // công trình lớn đợt B: đoán theo tên
+    for (const [name, want] of [['Nhà Thờ Đá Đỏ', 'cathedral'], ['Bưu Điện Thành Phố', 'postOffice'], ['Kho Hàng Cảng', 'portWarehouse'], ['Vựa Ve Chai Cô Bảy', 'scrapYard'], ['Bệnh Viện Quốc Tế', 'hospital']]) {
+      assert.equal(guessLook({ kind: 'service', name }), want, name);
+    }
   });
   test('Mọi kiểu nhà dựng được với mọi cỡ lô, nằm trong lô (đồ bày ra vỉa hè ≤ 3,1 m), không quá nhiều khối', () => {
     for (const look of Object.keys(LOOKS)) {
