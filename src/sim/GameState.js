@@ -35,7 +35,7 @@ export class GameState {
     // towed = xe bị cẩu về bãi { placeId, fee } — chuộc rồi mới lấy được (lưu qua các lần chơi)
     this.parked = null;
     this.towed = c.towed ?? null;
-    // phạt nguội (nộp ở đồn công an): [{ amount, reason, dueAt (phút tuyệt đối), overdue }]
+    // phạt nguội (nộp ở đồn công an): [{ amount, reason, at (lúc bị phạt), dueAt (phút tuyệt đối), overdue }]
     this.fines = (c.fines || []).map((f) => ({ ...f }));
     const tutorialDone = day > 1;
     this.flags = {
@@ -171,7 +171,7 @@ export class GameState {
 
   // ---------- phạt nguội ----------
   addFine(amount, reason, now) {
-    this.fines.push({ amount, reason, dueAt: now + (PARKING.fineDays ?? 3) * 1440, overdue: false });
+    this.fines.push({ amount, reason, at: now, dueAt: now + (PARKING.fineDays ?? 3) * 1440, overdue: false });
     this.stats.fines += 1;
   }
   // Quá hạn → tiền phạt tăng overduePct (một lần). Trả về các khoản vừa quá hạn.

@@ -216,7 +216,28 @@ export function phoneAction(g, a, ds) {
   else if (a === 'wallet') viewWallet(g);
   else if (a === 'waypoint' && g.layout.placeById[ds?.id]) g.waypoint = ds.id; // bản đồ điện thoại: Chỉ đường
   else if (a === 'waypointClear') g.waypoint = null;
+  else if (a === 'wantFood' || a === 'wantRide') toggleWant(g, a === 'wantFood' ? 'food' : 'ride');
   g.renderPhone();
+}
+
+// Công tắc GoShip: Giao hàng / Chở khách. Đang nghỉ mà bật một cái → chỉ bật đúng cái đó và lên mạng;
+// tắt cái cuối cùng → nghỉ (đang chạy đơn thì chạy xong mới nghỉ — OrderManager.update).
+function toggleWant(g, kind) {
+  const { om, gs } = g;
+  const key = kind === 'food' ? 'noFood' : 'noRide', other = kind === 'food' ? 'noRide' : 'noFood';
+  const isOn = om.state !== S.OFFLINE && !gs.flags[key];
+  if (isOn) {
+    gs.flags[key] = true;
+    if (om.wantsNothing() && (om.state === S.IDLE || om.state === S.OFFERED)) om.goOffline();
+    return;
+  }
+  gs.flags[key] = false;
+  if (om.state === S.OFFLINE) {
+    gs.flags[other] = true;
+    om.goOnline();
+    gs.flags.online = true;
+    g.hud.toast(fmt('toast.online'), 'good');
+  }
 }
 
 function callCustomer(g) {

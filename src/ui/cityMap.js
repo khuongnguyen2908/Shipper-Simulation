@@ -2,6 +2,7 @@
 // Kéo để dời · lăn chuột / ＋ － để phóng · ◎ về chỗ mình · lọc theo nhóm địa điểm.
 // Thu nhỏ: điểm gần nhau gộp thành vòng có số · phóng gần: biểu tượng + tên (không chồng chữ).
 // Chạm một địa điểm → thẻ thông tin + nút Chỉ đường (handlers.action('waypoint', { id })).
+// Tìm kiếm: gõ tên / loại (bỏ dấu cũng được) hoặc bấm nút loại nhanh → danh sách xếp theo gần nhất; bản đồ chỉ hiện chỗ khớp.
 import { CITY, HALF, roadPos, blockBounds, segmentRect, roadGraph, joinList, joinGap, routeDist } from '../sim/cityLayout.js';
 import { allSegments, tierOf, TIER_GEO } from '../sim/roads.js';
 import { STREETS_X, STREETS_Z } from '../data/places.js';
@@ -10,6 +11,7 @@ import { isOpen, fmtHours } from '../sim/placeRules.js';
 import { ICON, placeGroup } from './minimap.js';
 import { fmtDist } from '../sim/nav.js';
 import { fmt } from '../content/index.js';
+import { morph } from './morph.js';
 
 const segOf = (id) => { const m = /^([xz])(\d+):(\d+)$/.exec(id); return { axis: m[1], line: +m[2], from: +m[3] }; };
 // nhóm lọc: mã nhóm (minimap.placeGroup) → biểu tượng, màu, khóa chữ
@@ -29,6 +31,22 @@ const STORE = 'shipper-map-filters';
 const CLUSTER_BELOW = 1.25; // px / m: nhỏ hơn thì gộp điểm
 const LABEL_FROM = 1.9; // px / m: từ mức này hiện tên địa điểm
 
+// nút tìm nhanh theo loại: [mã, biểu tượng, khóa chữ, điều kiện]
+const isCafe = (p) => p.kind === 'cafe' || (p.kind === 'restaurant' && (lookOf(p) === 'cafe' || ['☕', '🍵', '🧋'].includes(p.icon)));
+export const TYPES = [
+  ['gas', '⛽', 'map.tGas', (p) => p.kind === 'gas'],
+  ['fix', '🔧', 'map.tFix', (p) => p.kind === 'garage' || p.kind === 'shop'],
+  ['food', '🍜', 'map.tFood', (p) => p.kind === 'restaurant' && !isCafe(p)],
+  ['cafe', '☕', 'map.tCafe', isCafe],
+  ['shop', '🛒', 'map.tShop', (p) => placeGroup(p) === 'shop'],
+  ['svc', '🏛️', 'map.tSvc', (p) => placeGroup(p) === 'svc'],
+  ['transit', '🚌', 'map.tTransit', (p) => placeGroup(p) === 'transit'],
+  ['police', '🚓', 'map.tPolice', (p) => p.kind === 'police'],
+];
+// bỏ dấu tiếng Việt + chữ thường để tìm "xang" cũng ra "xăng"
+export const plain = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').toLowerCase();
+const typeOf = (p) => TYPES.find((t) => t[3](p));
+
 const iconOf = (p) => {
   const look = lookOf(p);
   if (look === 'ferry') return '⛴';
@@ -45,8 +63,10 @@ export class CityMap {
     let saved = null;
     try { saved = JSON.parse(localStorage.getItem(STORE) || 'null'); } catch { saved = null; }
     this.on = new Set(Array.isArray(saved) ? saved : FILTERS.filter(([id]) => id !== 'park').map(([id]) => id));
-    this.el.innerHTML = `<div class="cm-filters">${FILTERS.map(([id, ic, , key]) => `<button data-f="${id}">${ic} ${fmt(key)}</button>`).join('')}</div>
-      <div class="cm-view"><canvas></canvas>
+    this.el.innerHTML = `<div class="cm-top"><input class="cm-q" type="search" placeholder="${fmt('map.searchPh')}"><button data-ft="1" class="cm-ft">${fmt('map.filter')}</button></div>
+      <div class="cm-types">${TYPES.map(([id, ic, key]) => `<button data-t="${id}">${ic} ${fmt(key)}</button>`).join('')}</div>
+      <div class="cm-filters hidden">${FILTERS.map(([id, ic, , key]) => `<button data-f="${id}">${ic} ${fmt(key)}</button>`).join('')}</div>
+      <div class="cm-view"><canvas></canvas><div class="cm-results hidden"></div>
         <div class="cm-zoom"><button data-z="in" title="${fmt('map.zoomIn')}">＋</button><button data-z="out" title="${fmt('map.zoomOut')}">－</button><button data-z="me" title="${fmt('map.center')}">◎</button></div>
         <div class="cm-card hidden"></div></div>`;
     this.c = this.el.querySelector('canvas');
@@ -56,8 +76,41 @@ export class CityMap {
     this.follow = true; // bám theo mình tới khi người chơi kéo bản đồ
     this.sel = null; // địa điểm đang chọn
     this.hits = []; // [{ x, y, r, place | cluster }] để bấm
+    this.q = ''; // chữ đang tìm
+    this.type = null; // nút loại đang chọn
+    this.listOpen = false; // danh sách kết quả đang mở
+    this.results = null; // địa điểm khớp (null = không tìm)
+    this.qEl = this.el.querySelector('.cm-q');
+    this.list = this.el.querySelector('.cm-results');
+    this.qEl.addEventListener('input', () => { this.q = this.qEl.value.trim(); this.listOpen = true; });
+    this.qEl.addEventListener('focus', () => { if (this.q || this.type) this.listOpen = true; });
+    this.qEl.addEventListener('keydown', (e) => { if (e.key === 'Escape') this.qEl.blur(); });
     this.syncFilters();
     this.el.addEventListener('click', (e) => {
+      const t = e.target.closest('[data-t]');
+      if (t) {
+        this.type = this.type === t.dataset.t ? null : t.dataset.t;
+        this.listOpen = !!(this.type || this.q);
+        this.el.querySelectorAll('[data-t]').forEach((b) => b.classList.toggle('on', b.dataset.t === this.type));
+        return;
+      }
+      const pick = e.target.closest('[data-pick]');
+      if (pick) {
+        const pl = (this.results || []).find((r) => r.id === pick.dataset.pick);
+        if (pl) {
+          this.select(pl);
+          this.follow = false;
+          this.view.cx = pl.door.x;
+          this.view.cz = pl.door.z;
+          this.view.k = Math.max(this.view.k, 2.2);
+        }
+        this.listOpen = false;
+        return;
+      }
+      if (e.target.closest('[data-ft]')) {
+        this.el.querySelector('.cm-filters').classList.toggle('hidden');
+        return;
+      }
       const f = e.target.closest('[data-f]');
       if (f) {
         const id = f.dataset.f;
@@ -127,6 +180,7 @@ export class CityMap {
 
   tap(x, y) {
     const hit = this.hits.filter((h) => Math.hypot(h.x - x, h.y - y) <= h.r + 4).sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0];
+    this.listOpen = false;
     if (!hit) return this.select(null);
     if (hit.cluster) { // vòng gộp: phóng gần vào đó
       this.follow = false;
@@ -149,19 +203,44 @@ export class CityMap {
     const p = this.sel;
     if (!p) return;
     const dist = fmtDist(routeDist(d.player, p.door)); // theo đường đi thật
-    const grp = placeGroup(p), f = FILTERS.find(([id]) => id === grp);
+    const grp = placeGroup(p), f = FILTERS.find(([id]) => id === grp), tp = typeOf(p);
     const open = isOpen(p, d.now, d.day);
     const hours = fmtHours(p.hours) || fmt('map.allDay');
     const status = p.soon ? fmt('map.soon') : open ? fmt('map.open', { hours }) : fmt('map.closed', { hours });
     const routed = d.waypoint && d.waypoint.id === p.id;
     const html = `<div class="cm-c1"><b>${iconOf(p)} ${p.name}</b><button data-cm="close">✕</button></div>
-      <small>${f ? fmt(f[3]) : ''}${p.address ? ' · ' + p.address : ''} · ${dist}</small>
+      <small>${tp ? fmt(tp[2]) : f ? fmt(f[3]) : ''}${p.address ? ' · ' + p.address : ''} · ${dist}</small>
       <small class="${open && !p.soon ? 'ok' : 'warn'}">${status}</small>
       ${d.busy ? `<small>${fmt('map.busy')}</small>` : routed ? `<button class="btn small" data-cm="clear">${fmt('map.unroute')}</button>` : `<button class="btn small primary" data-cm="route">${fmt('map.route')}</button>`}`;
     if (html === this.cardKey) return;
     this.cardKey = html;
-    this.card.innerHTML = html;
+    morph(this.card, html); // sửa tại chỗ: nút Chỉ đường không bị dựng lại khi khoảng cách đổi
     this.card.classList.remove('hidden');
+  }
+
+  // Tìm kiếm: lọc theo nút loại + chữ gõ (tên, loại, địa chỉ; không phân biệt dấu), xếp theo quãng đường thật
+  search(d) {
+    if (!this.q && !this.type) {
+      this.results = null;
+      this.list.classList.add('hidden');
+      return;
+    }
+    const type = TYPES.find((t) => t[0] === this.type), words = plain(this.q).split(/\s+/).filter(Boolean);
+    const found = d.places.filter((p) => p.door && (p.kind !== 'scenery' || (p.activities || []).length)).filter((p) => {
+      if (type && !type[3](p)) return false;
+      if (!words.length) return true;
+      const tp = typeOf(p), hay = plain([p.name, p.address, tp ? fmt(tp[2]) : '', p.kind === 'gas' ? 'xang' : ''].join(' '));
+      return words.every((w) => hay.includes(w));
+    }).map((p) => ({ p, dist: routeDist(d.player, p.door) })).sort((a, b) => a.dist - b.dist);
+    this.results = found.map((r) => r.p);
+    if (!this.listOpen) { this.list.classList.add('hidden'); return; }
+    const rows = found.slice(0, 30).map(({ p, dist }) => {
+      const tp = typeOf(p), open = !p.soon && isOpen(p, d.now, d.day);
+      return `<button data-pick="${p.id}"><b>${iconOf(p)} ${p.name}</b><small>${tp ? fmt(tp[2]) : ''} · ${fmtDist(dist)} · <span class="${open ? 'ok' : 'warn'}">${fmt(open ? 'map.openShort' : 'map.closedShort')}</span></small></button>`;
+    }).join('');
+    const html = `<div class="cm-rh">${fmt('map.found', { n: found.length })}</div>${rows || `<div class="cm-none">${fmt('map.noResult')}</div>`}`;
+    if (html !== this.listKey) { this.listKey = html; morph(this.list, html); }
+    this.list.classList.remove('hidden');
   }
 
   // d: mapData của game + { now, day, route, ferries, waypoint, busy }
@@ -293,7 +372,10 @@ export class CityMap {
       g.fillStyle = '#000';
       g.fillText(icon, x, y + 1);
     };
-    const shown = d.places.filter((p) => p.door && (p.kind !== 'scenery' || (p.activities || []).length) && (placeGroup(p) === 'home' || placeGroup(p) === 'police' || this.on.has(placeGroup(p))) && vis(p.door.x, p.door.z));
+    this.search(d);
+    const match = this.results && new Set(this.results);
+    const shown = d.places.filter((p) => p.door && (p.kind !== 'scenery' || (p.activities || []).length) && vis(p.door.x, p.door.z)
+      && (match ? match.has(p) || placeGroup(p) === 'home' : placeGroup(p) === 'home' || placeGroup(p) === 'police' || this.on.has(placeGroup(p))));
     if (k < CLUSTER_BELOW) {
       // gộp theo ô lưới trên màn hình
       const cell = 34, bins = new Map();

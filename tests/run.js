@@ -559,6 +559,34 @@ console.log('App giao hàng, loại đơn, tài khoản, loại khách (apps.jso
     const night = om.makeOffer(21.5 * 60, { x: 0, z: 0 });
     assert.ok(!['parcel', 'express'].includes(night?.type), 'ngoài khung giờ giao hàng');
   });
+  test('Công tắc GoShip: tắt Chở khách → không có xe ôm; tắt Giao hàng → chỉ xe ôm; tắt cả hai → app tự nghỉ', () => {
+    const mk = (flags) => {
+      const r = mkOM(7, { carry: { money: 2000, flags: { wallet: 5, ...flags } } });
+      r.gs.buy('goods', 'spareHelmet');
+      return r;
+    };
+    const kinds = (om) => { const s = new Set(); for (let i = 0; i < 300; i++) { const o = om.makeOffer(10 * 60, { x: 0, z: 0 }); if (o) s.add(o.kind); } return s; };
+    const both = kinds(mk({}).om);
+    assert.ok(both.has('ride') && both.has('food') && both.has('parcel'), [...both].join(','));
+    const noRide = kinds(mk({ noRide: true }).om);
+    assert.ok(!noRide.has('ride') && noRide.has('food') && noRide.has('parcel'), [...noRide].join(','));
+    assert.deepEqual([...kinds(mk({ noFood: true }).om)], ['ride']);
+    const { om } = mk({ noFood: true, noRide: true });
+    om.goOnline();
+    om.update(1, 1, 10 * 60, { x: 0, z: 0 });
+    assert.equal(om.state, S.OFFLINE);
+    // chỉ bật Chở khách mà chưa có mũ cho khách → cũng coi như không nhận được gì
+    const r2 = mkOM(8, { carry: { flags: { noFood: true } } });
+    assert.equal(r2.om.wantsNothing(), true);
+  });
+  const { plain, TYPES } = await import('../src/ui/cityMap.js');
+  test('Tìm địa điểm trên bản đồ điện thoại: bỏ dấu vẫn khớp; nút loại lọc đúng', () => {
+    assert.equal(plain('Cây Xăng Đường số 5'), 'cay xang duong so 5');
+    const T = Object.fromEntries(TYPES.map((t) => [t[0], t[3]]));
+    const placed = layout.places;
+    assert.ok(placed.filter(T.gas).length >= 1 && placed.filter(T.gas).every((p) => p.kind === 'gas'));
+    assert.ok(placed.filter(T.cafe).length >= 1 && !placed.filter(T.food).some(T.cafe), 'quán cà phê không lẫn vào quán ăn');
+  });
   test('Hỏa tốc: cước cao hơn, thời hạn gắt hơn đơn giao hàng thường', () => {
     const { om } = mkOM(6, { carry: { money: 2000 } });
     const e = om.makeParcel(ORDER_TYPES.express, 600, { x: 0, z: 0 });

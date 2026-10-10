@@ -13,7 +13,8 @@ import { ITEMS } from './data/items.js';
 import { unlocked, openDayOf } from './sim/placeRules.js';
 import { dayOf, dayStartAt, tod, isDark } from './sim/clock.js';
 import { inHours } from './sim/hours.js';
-import { buildLayout, segmentRect, roadPos, districtAtPoint, traitAt } from './sim/cityLayout.js';
+import { buildLayout, segmentRect, roadPos, districtAtPoint, traitAt, routeDist } from './sim/cityLayout.js';
+import { fmtDist } from './sim/nav.js';
 import { makeRng } from './sim/rng.js';
 import { GameState } from './sim/GameState.js';
 import { OrderManager, S } from './sim/OrderManager.js';
@@ -87,6 +88,7 @@ export class Game {
 
     // ---- giao diện ----
     this.input = new Input(canvas);
+    this.input.onUnlock = () => { if (this.state === 'play' && !this.paused) this.pauseGame(); }; // Esc thả con trỏ → tạm dừng
     this.hud = new Hud(uiRoot);
     this.modal = new Modal(uiRoot);
     this.phone = new Phone(uiRoot, {
@@ -330,7 +332,10 @@ export class Game {
     const dt = Math.min(0.05, Math.max(0, (t - this.lastT) / 1000));
     this.lastT = t;
     if (this.state === 'play') this.update(dt);
-    else this.titleCam(t);
+    else {
+      this.input.setLock(false); // màn hình tiêu đề / kết thúc: hiện con trỏ
+      this.titleCam(t);
+    }
     this.renderer.render(this.scene, this.camera);
     this.input.endFrame();
   }
@@ -345,6 +350,10 @@ export class Game {
 
   update(dt) {
     const inp = this.input;
+    // con trỏ: ẩn + xoay camera theo chuột khi đang chơi; mở điện thoại / hộp thoại / tạm dừng thì hiện lại
+    inp.setLock(this.state === 'play' && !this.paused && !this.phone.open && !this.modal.open && !this.screens.open);
+    // Esc vừa thả con trỏ (trình duyệt) → onUnlock đã tạm dừng; bỏ qua phím Esc đó để không bật tắt 2 lần
+    if (inp.was('Escape') && performance.now() - (inp.unlockedAt || 0) < 400) inp.pressed.delete('Escape');
     if (inp.was('Escape') && !this.modal.open) {
       if (this.paused) this.resume();
       else if (this.phone.open) this.phone.back(); // trong app → về màn hình chính, rồi mới cất máy
@@ -1014,6 +1023,8 @@ export class Game {
   // ======================== HIỂN THỊ ========================
   updateCamera(dt) {
     if (this.input.drag.dx || this.input.drag.dy) this.rig.drag(this.input.drag.dx, this.input.drag.dy);
+    // chuột (khi khóa con trỏ): xoay tự do; ngưng di chuột ~2 giây thì camera tự quay về sau xe
+    if (this.input.look.dx || this.input.look.dy) this.rig.drag(this.input.look.dx * 0.6, this.input.look.dy * 0.6);
     if (this.input.wheel) this.rig.zoom(this.input.wheel);
     const mounted = this.mode === 'bike';
     const focus = mounted ? this.bike.mesh.position : this.walker.mesh.position;
@@ -1118,6 +1129,12 @@ export class Game {
     if (!(this.om.order && this.om.order.kind === 'ride' && this.passengerMesh && this.passengerMesh.parent === this.bike.mesh)) this.bike.mesh.userData.bagMesh.visible = true;
     this.updateTempNpcs();
 
+    // có biên bản phạt nguội mới → chấm đỏ + thông báo ở app CSGT
+    if (this.fineSeen != null && gs.fines.length > this.fineSeen) {
+      const f = gs.fines[gs.fines.length - 1];
+      this.phone.notify('police', { title: fmt('csgt.newTitle'), text: fmt('csgt.newText', { k: f.amount }) });
+    }
+    this.fineSeen = gs.fines.length;
     // tới địa điểm đã chọn chỉ đường → bỏ chỉ đường
     const wp = this.waypoint && this.layout.placeById[this.waypoint];
     if (wp && dist2(pp, wp.door) < 5) {
@@ -1221,6 +1238,8 @@ export class Game {
     const locked = [];
     if (gs.bagSpec.insulation < 0.5) locked.push(fmt('phone.lockCold'));
     if (!gs.effect('passengerSeat')) locked.push(fmt('phone.lockRide'));
+    else if (gs.flags.noRide && this.om.state !== S.OFFLINE) locked.push(fmt('phone.rideOff')); // có mũ cho khách mà đang tắt Chở khách
+    const st = this.nearestStation(), pp = this.playerPos;
     this.phone.render({
       now: this.clockMin,
       timeStr: fmtTime(this.clockMin),
@@ -1235,6 +1254,11 @@ export class Game {
       itemDefs: ITEMS,
       lockedHints: locked,
       // bản đồ lớn: thêm đường đang chỉ (bản đồ tròn tính sẵn), tuyến phà, địa điểm đang chỉ đường
+      // app CSGT: đồn gần nhất (nơi nộp phạt) + chốt CSGT đã biết hôm nay
+      station: st ? { id: st.id, name: st.name, dist: fmtDist(routeDist(pp, st.door)) } : null,
+      checkpoints: this.hz.activePolice(this.clockMin).filter((p) => this.knownPolice.has(p.id)).map((p) => ({
+        name: p.name, until: fmtTime(this.clockMin - this.hz.rel(this.clockMin) + p.end), dist: fmtDist(Math.hypot(roadPos(p.node[0]) - pp.x, roadPos(p.node[1]) - pp.z)),
+      })),
       mapData: { ...this.mapData(tgt === undefined ? this.currentTarget() : tgt), route: this.navPath, ferries: this.ferries?.pairs, waypoint: this.waypoint ? { id: this.waypoint } : null },
     });
   }

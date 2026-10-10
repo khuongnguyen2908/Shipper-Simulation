@@ -1,6 +1,6 @@
 // Điện thoại kiểu thật: màn hình chính có các app, bấm app mở to cả máy (‹ quay lại), thông báo trượt xuống.
-// App: GoShip (nhận / chạy đơn) · Bản đồ (cityMap.js) · Tin nhắn · Ví · Hồ sơ · Túi đồ. Chữ lấy từ kho chữ phone.*
-// Phím khi mở điện thoại: 1–6 mở app · Esc về màn hình chính (đang ở màn hình chính thì cất máy).
+// App: GoShip (nhận / chạy đơn) · Bản đồ (cityMap.js) · Tin nhắn · Ví · Hồ sơ · Túi đồ · CSGT (phạt nguội, chốt đã biết). Chữ lấy từ kho chữ phone.*
+// Phím khi mở điện thoại: 1–7 mở app · Esc về màn hình chính (đang ở màn hình chính thì cất máy).
 import { stateLabel, S } from '../sim/OrderManager.js';
 import { APP, ORDER_TYPES, RIDER_TYPES } from '../data/apps.js';
 import { traitLabel } from '../data/items.js';
@@ -12,6 +12,7 @@ import { fmtK } from '../sim/economy.js';
 import { dayOf } from '../sim/clock.js';
 import { fmt, list, has } from '../content/index.js';
 import { CityMap } from './cityMap.js';
+import { morph } from './morph.js';
 
 // [mã app, biểu tượng, màu, khóa chữ tên app]
 export const APPS = [
@@ -21,7 +22,10 @@ export const APPS = [
   ['wallet', '💳', '#8e44ad', 'phone.tabWallet'],
   ['account', '👤', '#e67e22', 'phone.appProfile'],
   ['bag', '🎒', '#7f8c8d', 'phone.tabBag'],
+  ['police', '🚓', '#34495e', 'phone.appPolice'],
 ];
+// lý do biên bản phạt nguội (gs.fines[].reason) → khóa chữ
+const FINE_REASON = { parking: 'csgt.rParking', airport: 'csgt.rAirport' };
 const APP_BY_ID = Object.fromEntries(APPS.map((a) => [a[0], a]));
 
 const stars = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
@@ -62,7 +66,7 @@ export class Phone {
     this.app = null; // null = màn hình chính
     this.lastApp = null; // cất máy khi đang trong app → mở lại vào đúng app đó
     this.open = false;
-    this.unread = { goship: 0, chat: 0 };
+    this.unread = { goship: 0, chat: 0, police: 0 };
     this.el = document.createElement('div');
     this.el.id = 'phone';
     this.el.className = 'hidden';
@@ -147,17 +151,17 @@ export class Phone {
     if (!this.app) html = this.homeScreen(d);
     else {
       const [id, ic, color, key] = APP_BY_ID[this.app];
-      const body = id === 'goship' ? this.orderTab(d) : id === 'chat' ? this.chatTab(d) : id === 'wallet' ? this.walletTab(d) : id === 'account' ? this.accountTab(d) : id === 'bag' ? this.bagTab(d) : '';
+      const body = id === 'goship' ? this.orderTab(d) : id === 'chat' ? this.chatTab(d) : id === 'wallet' ? this.walletTab(d) : id === 'account' ? this.accountTab(d) : id === 'bag' ? this.bagTab(d) : id === 'police' ? this.policeTab(d) : '';
       html = `<div class="ph-appbar" style="background:${color}"><button data-home="1" title="${fmt('phone.home')}">‹</button><b>${ic} ${fmt(key)}</b><span></span></div>
-        <div class="ph-body${id === 'map' ? ' ph-mapbody' : ''}">${body}</div>`;
+        <div class="ph-body${id === 'map' ? ' ph-mapbody' : ''}"${id === 'map' ? ' data-keep' : ''}>${body}</div>`;
     }
     if (html !== this.lastHtml) {
-      const keep = this.screen.querySelector('.ph-body')?.scrollTop || 0; // giữ chỗ đang cuộn khi nội dung đổi
-      this.screen.innerHTML = html;
+      morph(this.screen, html); // sửa tại chỗ: nút không bị dựng lại → bấm chuột không bị mất
       this.lastHtml = html;
       const body = this.screen.querySelector('.ph-body');
-      if (this.app === 'map') body.appendChild(this.cityMap.el);
-      else if (body) body.scrollTop = keep;
+      if (this.app === 'map' && (body.childNodes.length !== 1 || body.firstChild !== this.cityMap.el)) body.replaceChildren(this.cityMap.el);
+      if (body && this.shownApp !== this.app) body.scrollTop = 0; // đổi app → cuộn về đầu
+      this.shownApp = this.app;
     }
     if (this.app === 'map') this.cityMap.draw({ ...d.mapData, now: d.now, day: d.gs.day, busy: !!d.order || d.state === S.OFFERED });
   }
@@ -182,8 +186,11 @@ export class Phone {
   orderTab(d) {
     const gs = d.gs;
     const online = d.state !== S.OFFLINE;
-    let h = `<div class="ph-head"><div><b>${fmt(online ? 'phone.online' : 'phone.offline')}</b><small>${fmt('phone.summary', { rating: gs.rating.toFixed(2), n: gs.stats.completed })}</small></div>`;
-    h += `<button class="btn small ${online ? '' : 'primary'}" data-act="online" ${d.order ? 'disabled' : ''}>${fmt(online ? 'phone.turnOff' : 'phone.turnOn')}</button></div>`;
+    let h = `<div class="ph-head"><div><b>${fmt(online ? 'phone.online' : 'phone.offline')}</b><small>${fmt('phone.summary', { rating: gs.rating.toFixed(2), n: gs.stats.completed })}</small></div></div>`;
+    // 2 công tắc riêng: Giao hàng (đồ ăn + hàng hóa + hỏa tốc) · Chở khách (cần mũ cho khách)
+    const rideLocked = !gs.effect('passengerSeat');
+    const sw = (act, on, label, dis) => `<button class="sw${on ? ' on' : ''}" data-act="${act}"${dis ? ' disabled' : ''}><span>${label}</span><i></i></button>`;
+    h += `<div class="sw-row">${sw('wantFood', online && !gs.flags.noFood, fmt('phone.swFood'), false)}${sw('wantRide', online && !gs.flags.noRide && !rideLocked, fmt('phone.swRide'), rideLocked)}</div>`;
     if (d.state === S.OFFERED && d.offer) h += this.offerCard(d.offer, d.offerTimeLeft, d);
     else if (d.order) h += this.orderCard(d.order, d);
     else if (online && gs.lockedUntil > d.now) h += `<div class="ph-lock">${fmt('phone.lockedNote', { time: hhmm(gs.lockedUntil) })}</div>`;
@@ -266,7 +273,7 @@ export class Phone {
     return `<div class="card"><div class="big">${fmtK(gs.money)}</div><small>${fmt('phone.rentToday', { rent: gs.rent, day: gs.rentDueDay })}${gs.rentPaid ? fmt('phone.rentPaid') : ''}</small>
       <div class="track rent"><div class="fill ${gs.rentPaid ? 'ok' : pct >= 100 ? 'ok' : 'mid'}" style="width:${pct}%"></div></div>
       ${gs.rentPaid ? '' : `<small>${fmt('phone.rentPct', { pct })}</small>`}
-      ${gs.fines.length ? `<div class="kv"><span>${fmt(gs.hasOverdueFines ? 'phone.finesLate' : 'phone.fines', { day: dayOf(gs.finesDueAt) })}</span><b class="minus">${fmtK(gs.finesTotal)}</b></div>` : ''}
+      ${gs.fines.length ? `<button class="kv linkrow" data-app="police"><span>${fmt(gs.hasOverdueFines ? 'phone.finesLate' : 'phone.fines', { day: dayOf(gs.finesDueAt) })} ${fmt('phone.finesSee')}</span><b class="minus">${fmtK(gs.finesTotal)}</b></button>` : ''}
       <div class="kv"><span>${fmt('phone.rating')}</span><b>⭐ ${gs.rating.toFixed(2)}</b></div><small>${fmt('phone.ratingNote')}</small></div>
       <div class="card"><b>${fmt('phone.income')}</b>${inc || none}<b>${fmt('phone.expense')}</b>${exp || none}</div>
       <div class="card"><b>${fmt('phone.recent')}</b>${rec || `<small>${fmt('phone.noOrders')}</small>`}</div>`;
@@ -318,5 +325,25 @@ export class Phone {
       <div class="card"><b>${fmt('phone.equipment')}</b>${gear}</div>
       <div class="card"><b>${fmt('phone.consumables')}</b>${cons || `<small>${fmt('phone.nothing')}</small>`}</div>
       <div class="card"><b>${fmt('phone.items')}</b>${inv}</div>`;
+  }
+
+  // App CSGT: phạt nguội (từng biên bản, hạn nộp, nơi nộp) + chốt CSGT đã biết hôm nay
+  policeTab(d) {
+    const gs = d.gs;
+    const when = (m) => fmt('csgt.when', { day: dayOf(m), time: hhmm(((m % 1440) + 1440) % 1440) });
+    let h = '';
+    if (!gs.fines.length) h += `<div class="card"><b>${fmt('csgt.noFines')}</b><small class="blk">${fmt('csgt.noFinesNote')}</small></div>`;
+    else {
+      h += `<div class="card${gs.hasOverdueFines ? ' late-card' : ''}"><small>${fmt('csgt.total')}</small><div class="big">${fmtK(gs.finesTotal)}</div>
+        <small>${gs.hasOverdueFines ? fmt('csgt.overdue') : fmt('csgt.due', { when: when(gs.finesDueAt) })}</small></div>`;
+      h += `<div class="card"><b>${fmt('csgt.tickets', { n: gs.fines.length })}</b>` + gs.fines.map((f) => `<div class="kv"><span>${fmt(FINE_REASON[f.reason] || 'csgt.rOther')}
+        <small class="sub">${f.at != null ? fmt('csgt.at', { when: when(f.at) }) + ' · ' : ''}${f.overdue ? fmt('csgt.lateTag') : fmt('csgt.dueTag', { when: when(f.dueAt) })}</small></span><b class="minus">${fmtK(f.amount)}</b></div>`).join('') + '</div>';
+    }
+    if (d.station) h += `<div class="card"><b>${fmt('csgt.payAt')}</b><div class="kv"><span>🚓 ${d.station.name}</span><small>${d.station.dist}</small></div>
+      <div class="row"><button class="btn small primary" data-act="waypoint" data-id="${d.station.id}">${fmt('map.route')}</button></div><small class="blk">${fmt('csgt.payNote')}</small></div>`;
+    h += `<div class="card"><b>${fmt('csgt.checkpoints')}</b>${(d.checkpoints || []).length
+      ? d.checkpoints.map((c) => `<div class="kv"><span>👮 ${c.name}</span><small>${fmt('csgt.until', { time: c.until })} · ${c.dist}</small></div>`).join('')
+      : `<small class="blk">${fmt('csgt.noCheckpoints')}</small>`}<small class="blk">${fmt('csgt.checkNote')}</small></div>`;
+    return h;
   }
 }

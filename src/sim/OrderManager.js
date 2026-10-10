@@ -141,6 +141,7 @@ export class OrderManager {
     this.now = now; // giờ hiện tại (chọn nhà khách theo khu ngày / đêm)
     if (this.state === S.DELIVERING && pos) this.checkMidEvent(now, pos);
     if (this.state === S.IDLE) {
+      if (this.wantsNothing()) return void this.go(S.OFFLINE); // tắt hết công tắc nhận đơn (vd tắt lúc đang chạy đơn) → nghỉ
       if (!inHours(APP.hours, now)) return; // ngoài giờ app nhận đơn (apps.json → hours)
       if (demandAt(now) <= 0) return; // giờ này không có ai đặt
       if (this.gs.lockedUntil > now) return; // tài khoản đang bị tạm khóa nhận đơn
@@ -180,14 +181,22 @@ export class OrderManager {
   }
 
   // Loại đơn đang có: đúng khung giờ, đủ trang bị yêu cầu (vd mũ cho khách → đơn xe ôm)
+  // Công tắc trong app GoShip (gs.flags.noFood / noRide): Giao hàng = đồ ăn + hàng hóa + hỏa tốc · Chở khách = xe ôm
+  wants(kind) {
+    return kind === 'ride' ? !this.gs.flags.noRide : !this.gs.flags.noFood;
+  }
+  // Tắt cả hai công tắc (hoặc chỉ bật Chở khách mà chưa có mũ cho khách) → không nhận được loại đơn nào
+  wantsNothing() {
+    return !this.wants('food') && (!this.wants('ride') || !this.gs.effect('passengerSeat'));
+  }
   availableTypes(now) {
-    return Object.values(ORDER_TYPES).filter((t) => ORDER_KINDS.includes(t.kind) && t.weight > 0 && typeOpen(t, now) && (!t.requires || this.gs.effect(t.requires)));
+    return Object.values(ORDER_TYPES).filter((t) => ORDER_KINDS.includes(t.kind) && t.weight > 0 && this.wants(t.kind) && typeOpen(t, now) && (!t.requires || this.gs.effect(t.requires)));
   }
 
   makeOffer(now, pos = { x: 0, z: 0 }) {
     const gs = this.gs;
     // Đơn cốt truyện: lần đầu có mũ cho khách → đơn chở anh Minh
-    if (gs.flags.wallet === 0 && gs.effect('passengerSeat')) {
+    if (gs.flags.wallet === 0 && gs.effect('passengerSeat') && this.wants('ride')) {
       const rideType = ORDER_TYPES.ride || Object.values(ORDER_TYPES).find((t) => t.kind === 'ride');
       if (rideType) return this.makeRide(pos, true, now, rideType);
     }

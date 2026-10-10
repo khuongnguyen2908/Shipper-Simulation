@@ -34,6 +34,7 @@ const GROUPS = {
   outfit: 'Trang phục',
   mm: 'Bản đồ tròn (góc màn hình)',
   map: 'App Bản đồ (điện thoại)',
+  csgt: 'App CSGT (phạt nguội)',
 };
 
 // Giá trị mẫu để xem trước
@@ -49,7 +50,7 @@ const SAMPLE = {
   forecastText: '',
   worn: '👕 Áo thun xanh lá · 👖 Quần jean · ⛑️ Mũ bảo hiểm xanh lá', slot: 'Áo',
   mouth: 34, kmh: 40, stars: 2, type: 'Giao hàng', cod: 450, refund: 450, icon: '📦', booker: 'Chị Lan',
-  dist: '780 m', turn: '↱ Rẽ phải sau 60 m', list: '👮 Chốt CSGT 150 m', pay: '38k', hours: '08:00–21:00', h: 5, rides: 4,
+  when: '14:30 ngày 2', dist: '780 m', turn: '↱ Rẽ phải sau 60 m', list: '👮 Chốt CSGT 150 m', pay: '38k', hours: '08:00–21:00', h: 5, rides: 4,
 };
 
 const fill = (s, extra) => String(s).replace(/\{(\w+)\}/g, (m, k) => (extra[k] ?? SAMPLE[k]) !== undefined ? `<mark>${extra[k] ?? SAMPLE[k]}</mark>` : `<mark class="bad">{${k}}</mark>`);
