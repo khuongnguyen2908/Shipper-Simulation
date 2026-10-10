@@ -16,7 +16,6 @@
       "bridgeStyles": {
         "0": "concrete",
         "3": "iron",
-        "6": "iron",
         "10": "concrete"
       }
     },
@@ -27,13 +26,12 @@
       "to": 10,
       "bridges": [
         2,
-        8
+        5
       ],
       "name": "Sông Ngân",
       "wide": true,
       "bridgeStyles": {
-        "2": "arch",
-        "8": "arch"
+        "2": "arch"
       }
     }
   ],
