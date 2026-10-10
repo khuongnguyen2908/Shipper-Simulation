@@ -593,6 +593,41 @@
       }
     },
     {
+      "id": "tra_4",
+      "name": "Tiệm Trà Đông Gia",
+      "short": "Uống",
+      "kind": "restaurant",
+      "block": [
+        0,
+        2
+      ],
+      "lot": "N2",
+      "floors": 2,
+      "color": "#f4c095",
+      "sign": "ĐÔNG GIA",
+      "signBg": "#b03a2e",
+      "menu": [
+        "dongGia1",
+        "dongGia1_2"
+      ],
+      "npc": {
+        "name": "Nhân viên tiệm",
+        "shirt": "#00ccff",
+        "pants": "#363636",
+        "hat": null,
+        "portrait": "👩",
+        "skin": "#f1c27d",
+        "gender": "f"
+      },
+      "hours": "sangDenToi",
+      "icon": "🧋",
+      "sells": {
+        "goods": [
+          "nhang"
+        ]
+      }
+    },
+    {
       "id": "banh",
       "name": "Tiệm Bánh Hạnh Phúc",
       "short": "Ăn",
@@ -707,10 +742,10 @@
       "kind": "gas",
       "icon": "⛽",
       "block": [
-        5,
-        5
+        9,
+        8
       ],
-      "lot": "S2",
+      "lot": "N2",
       "floors": 1,
       "color": "#ffffff",
       "sign": "XĂNG DẦU",
@@ -742,10 +777,10 @@
       "kind": "gas",
       "icon": "⛽",
       "block": [
-        5,
-        3
+        7,
+        2
       ],
-      "lot": "N2",
+      "lot": "N0",
       "floors": 1,
       "color": "#ffffff",
       "sign": "XĂNG DẦU",
@@ -820,10 +855,34 @@
       "lot": "W1",
       "floors": 2,
       "color": "#bdc3c7",
-      "sign": "SỬA XE – BÁN XE TƯ LÙN",
+      "sign": "SỬA XE TƯ LÙN",
       "signBg": "#2c3e50",
       "npc": {
         "name": "Chú Tư Lùn",
+        "shirt": "#7f8c8d",
+        "pants": "#1c2833",
+        "hat": null,
+        "scale": 0.85,
+        "portrait": "🔧"
+      },
+      "hours": "caNgay"
+    },
+    {
+      "id": "garage_2",
+      "name": "Tiệm Xe Năm Lùn",
+      "short": "Xe",
+      "kind": "garage",
+      "block": [
+        9,
+        7
+      ],
+      "lot": "N2",
+      "floors": 1,
+      "color": "#bdc3c7",
+      "sign": "SỬA XE NĂM LÙN",
+      "signBg": "#2c3e50",
+      "npc": {
+        "name": "Chú Năm Lùn",
         "shirt": "#7f8c8d",
         "pants": "#1c2833",
         "hat": null,
@@ -1773,7 +1832,7 @@
     },
     {
       "id": "canhquan3",
-      "name": "Công viên nhân hậu khu A",
+      "name": "Công viên 29/8 khu A",
       "short": "",
       "kind": "scenery",
       "icon": "🌳",
@@ -1790,7 +1849,7 @@
     },
     {
       "id": "canhquan7",
-      "name": "Công viên nhân hậu khu A",
+      "name": "Công viên 29/8 khu A",
       "short": "Công viên",
       "kind": "scenery",
       "icon": "🌳",
@@ -1804,7 +1863,7 @@
     },
     {
       "id": "canhquan8",
-      "name": "Công viên nhân hậu khu A",
+      "name": "Công viên 29/8 khu A",
       "short": "",
       "kind": "scenery",
       "icon": "🌳",
@@ -1818,7 +1877,7 @@
     },
     {
       "id": "canhquan9",
-      "name": "Công viên nhân hậu khu A",
+      "name": "Công viên 29/8 khu A",
       "short": "",
       "kind": "scenery",
       "icon": "🌳",
@@ -1832,7 +1891,7 @@
     },
     {
       "id": "canhquan4",
-      "name": "Công viên nhân hậu khu B",
+      "name": "Công viên 29/8 khu B",
       "short": "Công viên",
       "kind": "scenery",
       "icon": "🌳",
@@ -1852,7 +1911,7 @@
       "name": "Bãi xe công viên",
       "short": "Bãi xe",
       "kind": "scenery",
-      "icon": "🌳",
+      "icon": "🅿️",
       "look": "parkingLot",
       "color": "#5f9e45",
       "orders": {
@@ -1883,7 +1942,7 @@
     },
     {
       "id": "canhquan10",
-      "name": "Công viên nhân hậu khu C",
+      "name": "Công viên đại học",
       "short": "Công viên",
       "kind": "scenery",
       "icon": "🌳",
@@ -1911,7 +1970,7 @@
     },
     {
       "id": "sanbay",
-      "name": "Sân bay quốc tế",
+      "name": "Sân bay quốc tế Tân Sơn Tứ",
       "short": "Sân bay",
       "kind": "service",
       "icon": "✈️",
@@ -1923,7 +1982,7 @@
       "face": "S",
       "look": "airport",
       "color": "#e0e0e0",
-      "sign": "SÂN BAY QUỐC TẾ",
+      "sign": "SÂN BAY TÂN SƠN TỨ",
       "signBg": "#2b2b2b",
       "npc": {
         "name": "Chị nhân viên quầy thông tin",
@@ -2272,10 +2331,10 @@
         }
       ],
       "block": [
-        1,
-        2
+        3,
+        0
       ],
-      "lot": "N0"
+      "lot": "S2"
     },
     {
       "kind": "restaurant",
@@ -2309,7 +2368,7 @@
     {
       "kind": "service",
       "id": "daiLyVe",
-      "name": "Đại Lý Vé Máy Bay Bầu Trời",
+      "name": "Đại Lý Vé Máy JetJet",
       "short": "Vé",
       "look": "modern",
       "floors": 2,
@@ -2342,7 +2401,8 @@
         0,
         1
       ],
-      "lot": "S0"
+      "lot": "N2",
+      "icon": "🅿️"
     },
     {
       "kind": "restaurant",
@@ -2575,10 +2635,10 @@
         "gender": "m"
       },
       "block": [
-        5,
+        7,
         7
       ],
-      "lot": "W1"
+      "lot": "S1"
     },
     {
       "kind": "garage",
@@ -3031,7 +3091,7 @@
     },
     {
       "id": "dhMyThuat",
-      "name": "Đại học Mỹ thuật Gia Định",
+      "name": "Đại học Mỹ thuật",
       "short": "ĐH Mỹ thuật",
       "kind": "service",
       "icon": "🎨",
@@ -3081,7 +3141,7 @@
     },
     {
       "id": "rmit",
-      "name": "Đại học RMIT",
+      "name": "Đại học RMEET",
       "short": "RMIT",
       "kind": "service",
       "icon": "🎓",
@@ -3149,7 +3209,7 @@
       "lot": "S2",
       "hours": "caNgay",
       "npc": {
-        "name": "Đại Bom",
+        "name": "Anh Đại Bom",
         "shirt": "#0032fa",
         "pants": "#2c3e50",
         "hat": null,
@@ -3190,14 +3250,14 @@
     },
     {
       "id": "truongTieuHoc",
-      "name": "Trường Tiểu học Bến Mây",
+      "name": "Trường Tiểu học Green Vegetables",
       "short": "Tiểu học",
       "kind": "service",
       "icon": "🏫",
       "look": "school",
       "floors": 3,
       "color": "#f6d55c",
-      "sign": "TRƯỜNG TIỂU HỌC BẾN MÂY",
+      "sign": "TRƯỜNG TIỂU HỌC GREEN VEGE",
       "signBg": "#2e86c1",
       "block": [
         3,
@@ -3308,15 +3368,15 @@
       }
     },
     {
-      "id": "yamaha",
-      "name": "Cửa Hàng Xe Máy Yamaha",
+      "id": "yamaham",
+      "name": "Cửa Hàng Xe Máy Yamaham",
       "short": "Xe máy",
       "kind": "shop",
       "icon": "🏍️",
       "look": "showroom",
       "floors": 3,
       "color": "#f2f2f2",
-      "sign": "YAMAHA",
+      "sign": "YAMAHAM",
       "signBg": "#1f4e9c",
       "block": [
         6,
@@ -3361,7 +3421,7 @@
       "lot": "N1",
       "hours": "quanAn",
       "npc": {
-        "name": "Chị bán đồ chơi",
+        "name": "Chị Bé Yêu",
         "shirt": "#e84393",
         "pants": "#2c3e50",
         "hat": null,
@@ -3590,7 +3650,7 @@
     },
     {
       "id": "benPhaTrungTam",
-      "name": "Bến Phà Trung Tâm",
+      "name": "Bến Phà Cát Quẹo",
       "short": "Bến phà",
       "kind": "service",
       "icon": "⛴️",
@@ -3602,11 +3662,11 @@
       "look": "ferry",
       "ferryTo": "benPhaBanDao",
       "color": "#5dade2",
-      "sign": "BẾN PHÀ TRUNG TÂM",
+      "sign": "BẾN PHÀ CÁT QUẸO",
       "signBg": "#1f618d",
       "hours": "haiTuGio",
       "npc": {
-        "name": "Anh Tư bán vé",
+        "name": "Anh bán vé",
         "shirt": "#1f618d",
         "pants": "#2c3e50",
         "hat": null,
