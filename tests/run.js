@@ -1013,6 +1013,50 @@ console.log('Phà (src/sim/ferry.js)');
   });
 }
 
+console.log('Chỉ đường bản đồ tròn (src/sim/nav.js)');
+{
+  const N = await import('../src/sim/nav.js');
+  const { roadPos, navRoute, routeDist, streetAt, CITY } = CITYLAYOUT;
+  const { STREETS_X } = await import('../src/data/places.js');
+  const lay = buildLayout();
+  test('Đường chỉ đường: đầu = mình, cuối = cửa nhà; dài xấp xỉ quãng đường thật (không vòng ngược)', () => {
+    const from = { x: roadPos(3) + 2, z: roadPos(2) + 30 };
+    let n = 0;
+    for (const l of lay.lots.filter((_, i) => i % 7 === 0)) {
+      const pts = navRoute(from, l.door);
+      assert.deepEqual(pts[0], { x: from.x, z: from.z });
+      assert.ok(Math.hypot(pts[pts.length - 1].x - l.door.x, pts[pts.length - 1].z - l.door.z) < 0.01);
+      const len = N.routeLen(pts), real = routeDist(from, l.door);
+      assert.ok(len <= real + CITY.ROAD * 2 + 1, `${l.id}: đường vẽ ${len.toFixed(0)} m > quãng thật ${real.toFixed(0)} m`);
+      n++;
+    }
+    assert.ok(n > 10);
+  });
+  test('Rẽ kế tiếp: đi lên rồi sang đông = rẽ phải, sang tây = rẽ trái; bỏ qua khúc ra tim đường; thẳng → không rẽ', () => {
+    assert.deepEqual(N.nextTurn([{ x: 0, z: 0 }, { x: 0, z: -50 }, { x: 30, z: -50 }]), { dir: 'right', dist: 50 });
+    assert.deepEqual(N.nextTurn([{ x: 0, z: 0 }, { x: 0, z: -50 }, { x: -30, z: -50 }]), { dir: 'left', dist: 50 });
+    assert.deepEqual(N.nextTurn([{ x: 0, z: 0 }, { x: 2, z: 0 }, { x: 2, z: -50 }, { x: 32, z: -50 }]), { dir: 'right', dist: 52 });
+    assert.equal(N.nextTurn([{ x: 0, z: 0 }, { x: 0, z: -50 }, { x: 0, z: -90 }]), null);
+    assert.equal(N.nextTurn([{ x: 0, z: 0 }, { x: 0, z: -50 }, { x: 2, z: -50 }]), null, 'khúc cuối vào cửa nhà không tính là rẽ');
+    // đứng ở lề (cách tim đường 5 m), xe hướng đông: ra tim đường rồi chạy đông, rẽ xuống nam = rẽ phải (không phải trái)
+    const jog = [{ x: 20, z: -5 }, { x: 20, z: 0 }, { x: 52, z: 0 }, { x: 52, z: 52 }];
+    assert.deepEqual(N.nextTurn(jog, 4, undefined, Math.PI / 2), { dir: 'right', dist: 37 });
+    assert.deepEqual(N.nextTurn(jog, 4, undefined, -Math.PI / 2), { dir: 'back', dist: 0 }, 'xe hướng tây mà phải chạy đông → quay đầu');
+  });
+  test('Cảnh báo trên đường đi: điểm sát tuyến → quãng đường tới đó; đoạn kẹt nằm trên tuyến được nhận ra', () => {
+    const pts = [{ x: roadPos(2), z: roadPos(1) }, { x: roadPos(2), z: roadPos(4) }];
+    assert.ok(Math.abs(N.alongRoute(pts, { x: roadPos(2) + 3, z: roadPos(2) }) - CITY.PITCH) < 0.01);
+    assert.equal(N.alongRoute(pts, { x: roadPos(3), z: roadPos(2) }), null);
+    const jam = N.jamOnRoute(pts, [{ axis: 'x', line: 2, from: 2 }, { axis: 'z', line: 2, from: 5 }]);
+    assert.ok(jam && Math.abs(jam.dist - CITY.PITCH - CITY.ROAD / 2) < 1, JSON.stringify(jam));
+    assert.equal(N.jamOnRoute(pts, [{ axis: 'x', line: 5, from: 2 }]), null);
+  });
+  test('Tên đường đang đứng: trên đường → tên đường; giữa khối nhà → trống', () => {
+    assert.equal(streetAt(roadPos(3) + 2, roadPos(2) + 30), STREETS_X[3]);
+    assert.equal(streetAt(roadPos(3) + CITY.PITCH / 2, roadPos(2) + CITY.PITCH / 2), '');
+  });
+}
+
 console.log('Bot mô phỏng (chạy thử 1 ngày)');
 {
   const { playDay } = await import('./economy-sim.js');

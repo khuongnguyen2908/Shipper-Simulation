@@ -21,7 +21,7 @@ export class Hud {
       </div>
       <div class="hud-goal"><div id="gArrow" class="g-arrow">▲</div><div><div id="gText"></div><div id="gSub"></div></div></div>
       <div class="hud-obj panel"><div class="ttl">${fmt('hud.objectives')}</div><ul id="objList"></ul></div>
-      <div class="hud-br"><canvas id="minimap" width="210" height="210"></canvas></div>
+      <div class="hud-br"><div id="mmChip"></div><canvas id="minimap" width="210" height="210"></canvas><div id="mmStreet"></div></div>
       <div id="cargo" class="panel hidden"></div>
       <div class="hud-bl"><div id="prompt"></div><div id="speedo"></div></div>
       <div class="hud-keys">${fmt('hud.keys')}</div>
@@ -77,7 +77,12 @@ export class Hud {
       this.set('cargo', `<div class="ttl">${fmt('hud.cargo', { left: d.timeLeft })}</div>` + d.cargo.map((c) => `<div class="cg"><span>${c.icon} ${c.name}</span><span class="cg-s">${c.status}</span><div class="track"><div class="fill ${c.cond > 70 ? 'ok' : c.cond > 40 ? 'mid' : 'bad'}" style="width:${c.cond.toFixed(0)}%"></div></div></div>`).join(''));
     } else cargo.classList.add('hidden');
     $(this.el, '#vignette').style.opacity = d.vignette.toFixed(2);
-    this.mini.draw(d.map);
+    if (d.round) {
+      this.set('mmChip', d.round.chip);
+      $(this.el, '#mmChip').style.visibility = d.round.chip ? '' : 'hidden';
+      this.set('mmStreet', d.round.street);
+      this.mini.drawRound(d.round.draw);
+    }
   }
 
   toast(text, kind = 'info', ms = 4200) {

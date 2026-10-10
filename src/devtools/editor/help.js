@@ -55,7 +55,7 @@ export const HINT = {
   // ---------- địa điểm ----------
   place: {
     name: 'Hiện trong app, hộp thoại, mục tiêu.',
-    short: 'Hiện trên bản đồ nhỏ — nên ngắn (1–2 chữ).',
+    short: 'Hiện trên biển hiệu / thực đơn và danh sách gọn — nên ngắn (1–2 chữ).',
     sceneryLook: 'Cảnh quan không có nhà: đi bộ / chạy xe xuyên qua được, chỉ cây, ghế, hàng rào, xe đậu là vật cản. Không NPC, không bấm E — muốn có việc làm ở đây (vd "Ngồi ghế đá nghỉ") thì thêm hoạt động ở thẻ con ⏰ Giờ & hoạt động. Công viên to thì chọn cỡ "Cả khối".',
     nap: 'Tick: hộp thoại ở đây có thêm 2 lựa chọn "Chợp mắt" và "Ngủ một giấc ngắn" (miễn phí). Hồi sức kém ngủ ở nhà, có đơn mời là dậy (app tắt thì ngủ đủ giờ). Số phút và mức hồi chỉnh ở thẻ ⚖️ Cân bằng → Năng lượng. Phòng trọ đã có giường nên không có ô này.',
     sign: 'Chữ in trên biển trước cửa; nên VIẾT HOA, ngắn.',

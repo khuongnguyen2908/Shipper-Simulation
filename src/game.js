@@ -30,10 +30,11 @@ import { guessGender } from './sim/people.js';
 import { makeLabelTexture } from './world/textures.js';
 import { Input } from './input.js';
 import { Hud } from './ui/hud.js';
-import { Phone } from './ui/phone.js';
+import { Phone, APPS } from './ui/phone.js';
 import { Modal } from './ui/modal.js';
 import { Screens } from './ui/screens.js';
 import * as act from './interactions.js';
+import { roundMapData } from './roundMap.js';
 import { sfx, setEngine, setRain, unlockAudio, toggleMute } from './audio.js';
 import { fmt } from './content/index.js';
 import { fmtK } from './sim/economy.js';
@@ -202,6 +203,7 @@ export class Game {
     this.om.on((e) => this.onOrderEvent(e));
     this.clockMin = clock;
     this.chat = [];
+    this.waypoint = null; // mã địa điểm người chơi bấm "Chỉ đường" trên bản đồ điện thoại
     this.knownPolice = new Set();
     this.policeChecked = new Set();
     this.cooldowns.clear();
@@ -240,6 +242,7 @@ export class Game {
 
   // đặt người chơi trước phòng trọ, xe đậu sát lề
   placeAtHome() {
+    this.ferryRide = null; // đang đi phà mà ngất / sang ngày mới → về nhà, bỏ chuyến phà
     const home = this.layout.placeById.home;
     const [nx, nz] = NORMAL[home.face];
     if (this.mode === 'bike') this.walker.standUp(this.scene, this.bike);
@@ -344,13 +347,14 @@ export class Game {
     const inp = this.input;
     if (inp.was('Escape') && !this.modal.open) {
       if (this.paused) this.resume();
-      else if (this.phone.open) this.phone.toggle(false);
+      else if (this.phone.open) this.phone.back(); // trong app → về màn hình chính, rồi mới cất máy
       else this.pauseGame();
     }
     if (this.paused) return;
     const frozen = this.modal.open || this.screens.open;
     if (!frozen) {
       if (inp.was('Tab')) this.phone.toggle();
+      if (this.phone.open) APPS.forEach(([id], i) => inp.was(`Digit${i + 1}`) && this.phone.openApp(id)); // phím 1–6 mở app
       if (inp.was('KeyM')) this.muted = toggleMute();
       if (inp.was('KeyI')) act.openInventory(this);
       if (inp.was('KeyY')) act.acceptOffer(this);
@@ -757,8 +761,7 @@ export class Game {
   onOrderEvent(e) {
     if (e.type === 'offer') {
       sfx.ping();
-      this.phone.notify('order');
-      this.phone.tab = 'order';
+      this.phone.openApp('goship'); // đơn mời có hạn giây → mở thẳng app GoShip
       this.phone.toggle(true);
       this.hud.toast(fmt('toast.offer'), 'good', 3500);
     } else if (e.type === 'offerExpired') this.hud.toast(fmt('toast.offerExpired'), 'info');
@@ -784,7 +787,7 @@ export class Game {
 
   addChat(from, text) {
     this.chat.push({ from, text, time: fmtTime(this.clockMin) });
-    this.phone.notify('chat');
+    this.phone.notify('chat', { title: from, text });
   }
 
   toastOnce(key, html, kind, cdSec) {
@@ -979,6 +982,9 @@ export class Game {
       return { ...o.dropoff.door, text: fmt(o.kind === 'ride' ? 'goal.dropRide' : 'goal.dropFood', { address: o.dropoff.address }), sub: o.kind === 'ride' ? fmt('goal.dropRideHint', { kmh: act.comfortKmh(this, o) }) : fmt('goal.dropFoodHint'), color: '#2ecc71' };
     }
     const P = this.layout.placeById;
+    // địa điểm tự chọn trên bản đồ điện thoại (Chỉ đường) — ưu tiên hơn gợi ý mục tiêu
+    const wp = this.waypoint && P[this.waypoint];
+    if (wp && om.state !== S.OFFERED) return { ...wp.door, text: fmt('goal.waypoint', { place: wp.name }), sub: fmt('goal.waypointHint'), color: '#1e90ff' };
     // buồn ngủ / app nghỉ ban đêm → nhắc về phòng trọ ngủ (ưu tiên hơn mua đồ)
     const tired = gs.tiredLevel(this.clockMin);
     if (tired && om.state !== S.OFFERED) return { ...P.home.door, text: fmt(tired > 1 ? 'goal.veryTired' : 'goal.tired', { h: Math.floor(gs.awakeHours(this.clockMin)) }), sub: fmt('goal.sleepHint'), color: '#8e7cc3' };
@@ -1102,6 +1108,7 @@ export class Game {
     const pp = this.playerPos;
     this.applyLook();
     const { night, wet } = this.sky.update(dt, tod(now), rain, pp, this.camera);
+    this.nightLevel = night; // bản đồ tròn tối lại ban đêm
     this.city.update?.(dt, this.traffic.loopCars); // barie sân bay nâng khi ô tô tới
     this.traffic.updateBuses(now, pp.x, pp.z, dt); // xe buýt chạy theo lịch
     this.city.setNight(night);
@@ -1111,6 +1118,12 @@ export class Game {
     if (!(this.om.order && this.om.order.kind === 'ride' && this.passengerMesh && this.passengerMesh.parent === this.bike.mesh)) this.bike.mesh.userData.bagMesh.visible = true;
     this.updateTempNpcs();
 
+    // tới địa điểm đã chọn chỉ đường → bỏ chỉ đường
+    const wp = this.waypoint && this.layout.placeById[this.waypoint];
+    if (wp && dist2(pp, wp.door) < 5) {
+      this.waypoint = null;
+      this.hud.toast(fmt('toast.waypointArrived', { place: wp.name }), 'good', 3000);
+    }
     // điểm đến
     const tgt = this.state === 'play' ? this.currentTarget() : null;
     const hasPos = tgt && tgt.x != null;
@@ -1176,7 +1189,7 @@ export class Game {
       cargo,
       timeLeft: left >= 0 ? fmt('hud.minutes', { min: left }) : fmt('hud.late', { min: -left }),
       vignette: Math.max(0, (25 - Math.min(gs.phys, gs.mental)) / 25) * 0.8,
-      map: this.mapData(tgt),
+      round: roundMapData(this, tgt, dt), // bản đồ tròn góc màn hình
     });
     if (this.phone.open || this.om.state === S.OFFERED) this.renderPhone(tgt);
   }
@@ -1221,7 +1234,8 @@ export class Game {
       receipts: this.om.history,
       itemDefs: ITEMS,
       lockedHints: locked,
-      mapData: this.mapData(tgt === undefined ? this.currentTarget() : tgt),
+      // bản đồ lớn: thêm đường đang chỉ (bản đồ tròn tính sẵn), tuyến phà, địa điểm đang chỉ đường
+      mapData: { ...this.mapData(tgt === undefined ? this.currentTarget() : tgt), route: this.navPath, ferries: this.ferries?.pairs, waypoint: this.waypoint ? { id: this.waypoint } : null },
     });
   }
 }

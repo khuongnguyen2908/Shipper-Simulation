@@ -474,6 +474,48 @@ export function routeNodes(a, b, map = MAP) {
   return out;
 }
 
+// Tên đường đang đứng (cách tim đường dưới maxOff m), không thì '' (trong hẻm, trong lô…)
+export function streetAt(x, z, maxOff = CITY.ROAD / 2 + 4, map = MAP) {
+  const pr = project({ x, z }, roadGraph(map));
+  if (!pr || pr.d > maxOff) return '';
+  return (pr.s.axis === 'x' ? STREETS_X : STREETS_Z)[pr.s.line] || '';
+}
+
+// Đường chỉ đường vẽ trên bản đồ: danh sách điểm { x, z } từ a tới b (ra miệng hẻm, theo tim đường, qua các ngã tư).
+// Chọn đầu đoạn như routeDist nên không vòng ngược về ngã tư phía sau. Không có đường nối → đường thẳng.
+export function navRoute(a, b, map = MAP) {
+  const g = roadGraph(map);
+  const pa = a.mouth || a, pb = b.mouth || b;
+  const head = [{ x: a.x, z: a.z }], tail = [{ x: b.x, z: b.z }];
+  if (a.mouth) head.push({ x: pa.x, z: pa.z });
+  if (b.mouth) tail.unshift({ x: pb.x, z: pb.z });
+  const A = project(pa, g), B = project(pb, g);
+  if (!A || !B) return [...head, ...tail];
+  const onRoad = (pr) => (pr.s.axis === 'x' ? { x: roadPos(pr.s.line), z: roadPos(pr.s.from) + pr.t } : { x: roadPos(pr.s.from) + pr.t, z: roadPos(pr.s.line) });
+  let best = A.s === B.s ? Math.abs(A.t - B.t) : Infinity, pick = null;
+  const [a0, a1] = segEnds(A.s), [b0, b1] = segEnds(B.s);
+  for (const [ea, ta] of [[a0, A.t], [a1, CITY.PITCH - A.t]]) {
+    if (!g.nodeOk(...ea)) continue;
+    for (const [eb, tb] of [[b0, B.t], [b1, CITY.PITCH - B.t]]) {
+      if (!g.nodeOk(...eb)) continue;
+      const d = ta + g.D[nodeId(...ea) * g.n + nodeId(...eb)] + tb;
+      if (d < best) [best, pick] = [d, [ea, eb]];
+    }
+  }
+  if (best === Infinity) return [...head, ...tail];
+  const nodes = [];
+  if (pick) {
+    let u = nodeId(...pick[0]);
+    const v = nodeId(...pick[1]);
+    nodes.push(pick[0]);
+    while (u !== v) {
+      u = g.next[u * g.n + v];
+      nodes.push([u % (CITY.N + 1), Math.floor(u / (CITY.N + 1))]);
+    }
+  }
+  return [...head, onRoad(A), ...nodes.map(([i, j]) => ({ x: roadPos(i), z: roadPos(j) })), onRoad(B), ...tail];
+}
+
 export function nodePos(i, j) {
   return { x: roadPos(i), z: roadPos(j) };
 }

@@ -194,13 +194,14 @@ export function acceptOffer(g) {
     : fmt('toast.acceptedFood', { place: o.pickup.name });
   g.hud.toast(fmt('toast.accepted', { id: o.id, what, min: o.allowedMin }), 'good');
   if (o.story === 'wallet') g.gs.flags.walletOffered = true;
+  g.waypoint = null; // nhận đơn thì bỏ chỉ đường tự chọn
 }
 
 export function declineOffer(g) {
   if (g.om.decline(g.clockMin)) g.hud.toast(fmt('toast.declined'), 'info', 1800);
 }
 
-export function phoneAction(g, a) {
+export function phoneAction(g, a, ds) {
   const { om, gs } = g;
   if (a === 'online') {
     if (om.state === S.OFFLINE) {
@@ -213,6 +214,8 @@ export function phoneAction(g, a) {
   else if (a === 'call') callCustomer(g);
   else if (a === 'cancel') confirmCancel(g);
   else if (a === 'wallet') viewWallet(g);
+  else if (a === 'waypoint' && g.layout.placeById[ds?.id]) g.waypoint = ds.id; // bản đồ điện thoại: Chỉ đường
+  else if (a === 'waypointClear') g.waypoint = null;
   g.renderPhone();
 }
 

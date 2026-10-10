@@ -261,7 +261,7 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null, m
     if (ids.has(p.id)) add('error', p.id, 'id', 'Trùng mã với địa điểm khác.');
     ids.add(p.id);
     if (!p.name || !String(p.name).trim()) add('error', p.id, 'name', 'Chưa có tên.');
-    if (!p.short) add('warn', p.id, 'short', 'Chưa có tên ngắn (hiện trên bản đồ).');
+    if (!p.short) add('warn', p.id, 'short', 'Chưa có tên ngắn (hiện trên biển hiệu / thực đơn).');
     if (!isPlaced(p)) {
       // nằm chờ trong danh sách, chưa kéo vào bản đồ → game chưa có địa điểm này
       if (PROTECTED.places.includes(p.id)) add('error', p.id, 'block', 'Địa điểm bắt buộc — phải đặt trên bản đồ (thẻ 🏗️ Xây dựng).');
