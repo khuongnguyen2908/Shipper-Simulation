@@ -3431,7 +3431,7 @@
       "icon": "⛪",
       "block": [
         6,
-        4
+        5
       ],
       "lot": "N",
       "look": "cathedral",
@@ -3587,6 +3587,58 @@
           "perDay": 1
         }
       ]
+    },
+    {
+      "id": "benPhaTrungTam",
+      "name": "Bến Phà Trung Tâm",
+      "short": "Bến phà",
+      "kind": "service",
+      "icon": "⛴️",
+      "block": [
+        7,
+        6
+      ],
+      "lot": "E12",
+      "look": "ferry",
+      "ferryTo": "benPhaBanDao",
+      "color": "#5dade2",
+      "sign": "BẾN PHÀ TRUNG TÂM",
+      "signBg": "#1f618d",
+      "hours": "haiTuGio",
+      "npc": {
+        "name": "Anh Tư bán vé",
+        "shirt": "#1f618d",
+        "pants": "#2c3e50",
+        "hat": null,
+        "portrait": "⛴️",
+        "gender": "m"
+      }
+    },
+    {
+      "id": "benPhaBanDao",
+      "name": "Bến Phà Bán Đảo",
+      "short": "Bến phà",
+      "kind": "service",
+      "icon": "⛴️",
+      "block": [
+        9,
+        6
+      ],
+      "lot": "W12",
+      "look": "ferry",
+      "ferryTo": "benPhaTrungTam",
+      "color": "#5dade2",
+      "sign": "BẾN PHÀ BÁN ĐẢO",
+      "signBg": "#1f618d",
+      "hours": "haiTuGio",
+      "npc": {
+        "name": "Chị Năm bán vé",
+        "shirt": "#16a085",
+        "pants": "#2c3e50",
+        "hat": "nonla",
+        "portrait": "⛴️",
+        "gender": "f"
+      }
     }
   ]
 }

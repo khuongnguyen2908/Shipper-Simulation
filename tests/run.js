@@ -961,6 +961,58 @@ console.log('Sông, cầu, quãng đường thật (map.json → rivers)');
   });
 }
 
+console.log('Phà (src/sim/ferry.js)');
+{
+  const F = await import('../src/sim/ferry.js');
+  const { roadPos, buildLayout: BL } = CITYLAYOUT;
+  const lay = BL();
+  const pairs = F.ferryPairs(lay.places);
+  test('Bến phà mẫu: 1 cặp nối nhau, chỗ phà đậu nằm trên mặt sông lớn, người lên bờ ở cửa bến', () => {
+    assert.equal(pairs.length, 1);
+    const P = pairs[0], x0 = roadPos(8) - 6, x1 = roadPos(9) + 6;
+    for (const s of [P.a, P.b]) {
+      assert.ok(s.dock.x > x0 && s.dock.x < x1, `${s.id}: phà đậu ngoài sông (${s.dock.x})`);
+      assert.ok(Math.hypot(s.door.x - s.edge.x, s.door.z - s.edge.z) < 3, 'cửa bến sát mép bờ');
+    }
+  });
+  test('Lịch phà: mỗi bờ 10 phút 1 chuyến, chờ không quá 1 khoảng; ngoài giờ chạy chờ tới chuyến đầu', () => {
+    assert.equal(F.ferryEvery(), 10);
+    for (let now = 6 * 60; now < 7 * 60; now += 0.7) {
+      for (const side of ['a', 'b']) {
+        const nb = F.nextBoat(side, now);
+        assert.ok(nb.wait >= 0 && nb.wait <= F.ferryEvery() + 0.01, `chờ ${nb.wait} phút lúc ${now}`);
+        if (nb.wait === 0) assert.equal(F.boatPose(pairs[0], nb.boat, now).at, side, 'chờ 0 = phà đang đậu ở bến này');
+      }
+    }
+    const night = F.nextBoat('a', 23 * 60);
+    assert.ok(night.wait >= 6 * 60 - 0.01, 'sau 22h chờ tới 5h sáng');
+  });
+  test('Phà chạy: rời bến A → giữa sông 2 chiều đi lệch nhau → cập bến B; không phà nào đứng ngoài sông', () => {
+    const P = pairs[0];
+    let sawCross = false;
+    for (let now = 600; now < 640; now += 0.25) {
+      const ps = [0, 1].map((i) => F.boatPose(P, i, now));
+      for (const p of ps) assert.ok(p.x >= Math.min(P.a.dock.x, P.b.dock.x) - 0.01 && p.x <= Math.max(P.a.dock.x, P.b.dock.x) + 0.01);
+      if (!ps[0].at && !ps[1].at) {
+        sawCross = true;
+        assert.ok(Math.hypot(ps[0].x - ps[1].x, ps[0].z - ps[1].z) > F.BOAT_W * 0.9 || Math.abs(ps[0].x - ps[1].x) > F.BOAT_L, '2 phà đâm nhau giữa sông');
+      }
+    }
+    assert.ok(sawCross);
+  });
+  test('Bộ kiểm tra bến phà: bến bên kia không có / không phải bến phà → lỗi; bến chưa nối → cảnh báo', () => {
+    const pd = JSON.parse(JSON.stringify(DATA.places));
+    const a = pd.places.find((p) => p.id === 'benPhaTrungTam');
+    a.ferryTo = 'pho';
+    assert.ok(VALIDATE.validatePlaces(pd, DATA.items).some((i) => i.level === 'error' && i.ref === a.id && i.field === 'ferryTo'));
+    delete a.ferryTo;
+    delete pd.places.find((p) => p.id === 'benPhaBanDao').ferryTo;
+    assert.ok(VALIDATE.validatePlaces(pd, DATA.items).some((i) => i.level === 'warn' && i.ref === a.id && i.field === 'ferryTo'));
+    assert.equal(F.ferryFare(true), 3);
+    assert.equal(F.ferryFare(false), 1);
+  });
+}
+
 console.log('Bot mô phỏng (chạy thử 1 ngày)');
 {
   const { playDay } = await import('./economy-sim.js');

@@ -187,6 +187,15 @@
     "dwellMin": 0.5,
     "stopEvery": 2
   },
+  "ferry": {
+    "fareBike": 3,
+    "fareFoot": 1,
+    "from": 5,
+    "to": 22,
+    "dwellMin": 2,
+    "crossMin": 8,
+    "boats": 2
+  },
   "rideEvents": {
     "refuseStars": 3,
     "policeNearM": 300,

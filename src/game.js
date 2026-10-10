@@ -22,6 +22,8 @@ import { objectives } from './sim/objectives.js';
 import { buildCity } from './world/city.js';
 import { Bike, Walker, CameraRig } from './world/controllers.js';
 import { Traffic } from './world/traffic.js';
+import { buildFerries } from './world/ferry.js';
+import { nextBoat, BOAT_DECK } from './sim/ferry.js';
 import { Sky } from './world/sky.js';
 import { makePerson, makeBeacon, makeZoneRing, setSitting, randomPersonOpts, npcLook, sitY } from './world/models.js';
 import { guessGender } from './sim/people.js';
@@ -70,6 +72,8 @@ export class Game {
     this.sky = new Sky(this.scene);
     this.traffic = new Traffic(this.scene, makeRng(99));
     this.traffic.elev = this.city.elev; // xe bot chạy lên cầu theo độ cao mặt cầu
+    this.ferries = buildFerries(this.scene, this.layout.places); // phà chạy qua sông theo lịch (src/sim/ferry.js)
+    this.ferryRide = null; // đang đi phà: { pair, i, to, withBike, off }
     for (const l of this.city.loops || []) this.traffic.addLoop(l); // xe bot chạy vòng lên sàn ga đi sân bay
     this.bus = this.city.bus; // xe buýt: tuyến + trạm (src/sim/bus.js)
     this.traffic.setBuses(this.bus);
@@ -433,22 +437,25 @@ export class Game {
     // chở khách mang vali: xe nặng, chạy chậm hơn (balance.json → rideEvents.luggageSpeedMul)
     const lug = om.hasCargo && RIDER_TYPES[om.order?.rider]?.luggage ? gs.vehicleSpec.maxSpeed * (RIDE_EVENTS.luggageSpeedMul ?? 0.8) : 0;
     const speedCap = [this.inJam ? HAZARD.jamSpeedCap : 0, lug].filter((v) => v > 0).reduce((a, b) => Math.min(a, b), Infinity);
-    const moved = bike.update(dt, mounted ? inp.state : {}, { mounted, fuel: gs.fuel, hp: gs.bikeHp, wet: !!rain, speedCap: Number.isFinite(speedCap) ? speedCap : 0, grid: this.city.grid, elev: this.city.elev, potholes: this.potholes, emit });
-    if (mounted) {
-      if (gs.fuel > 0) {
-        const liters = ((moved * DIST.displayPerUnit) / 1000) * (gs.vehicleSpec.fuelPer100km / 100) * Math.max(0.1, 1 + gs.effect('fuelUsePct') / 100);
-        gs.fuel = Math.max(0, gs.fuel - liters);
-        om.addFuel(liters);
-        if (gs.fuel <= 0) this.toastOnce('nofuel', fmt('toast.noFuel'), 'bad', 30);
-        else if (gs.fuel < 0.25) this.toastOnce('lowfuel', fmt('toast.lowFuel'), 'warn', 40);
+    if (this.ferryRide) this.ferryTick(dt); // đang trên phà: người + xe đứng yên trên boong, phà chở qua sông
+    else {
+      const moved = bike.update(dt, mounted ? inp.state : {}, { mounted, fuel: gs.fuel, hp: gs.bikeHp, wet: !!rain, speedCap: Number.isFinite(speedCap) ? speedCap : 0, grid: this.city.grid, elev: this.city.elev, potholes: this.potholes, emit });
+      if (mounted) {
+        if (gs.fuel > 0) {
+          const liters = ((moved * DIST.displayPerUnit) / 1000) * (gs.vehicleSpec.fuelPer100km / 100) * Math.max(0.1, 1 + gs.effect('fuelUsePct') / 100);
+          gs.fuel = Math.max(0, gs.fuel - liters);
+          om.addFuel(liters);
+          if (gs.fuel <= 0) this.toastOnce('nofuel', fmt('toast.noFuel'), 'bad', 30);
+          else if (gs.fuel < 0.25) this.toastOnce('lowfuel', fmt('toast.lowFuel'), 'warn', 40);
+        }
+        activity = speed > 0.5 ? (gs.fuel <= 0 ? 'push' : 'drive') : 'idle';
+        for (const h of this.traffic.collidePlayer(bike.pos, 0.75, bike.vel, true, bike.mesh.position.y)) this.onTrafficHit(h, env);
+      } else {
+        activity = this.walker.update(dt, inp.state, this.rig.yaw, { grid: this.city.grid, elev: this.city.elev, phys: gs.phys });
+        this.traffic.collidePlayer(this.walker.pos, 0.35, { x: 0, y: 0 }, false, this.walker.mesh.position.y);
+        this.walker.mesh.position.set(this.walker.pos.x, this.walker.mesh.position.y, this.walker.pos.z);
+        // bước chân ra lề / vào nhà không tính, chỉ cập nhật vị trí
       }
-      activity = speed > 0.5 ? (gs.fuel <= 0 ? 'push' : 'drive') : 'idle';
-      for (const h of this.traffic.collidePlayer(bike.pos, 0.75, bike.vel, true, bike.mesh.position.y)) this.onTrafficHit(h, env);
-    } else {
-      activity = this.walker.update(dt, inp.state, this.rig.yaw, { grid: this.city.grid, elev: this.city.elev, phys: gs.phys });
-      this.traffic.collidePlayer(this.walker.pos, 0.35, { x: 0, y: 0 }, false, this.walker.mesh.position.y);
-      this.walker.mesh.position.set(this.walker.pos.x, this.walker.mesh.position.y, this.walker.pos.z);
-      // bước chân ra lề / vào nhà không tính, chỉ cập nhật vị trí
     }
 
     // ---- thời gian & năng lượng ----
@@ -465,6 +472,7 @@ export class Game {
     const f = bike.forward();
     const pp = this.playerPos;
     const py = (mounted ? bike.mesh : this.walker.mesh).position.y;
+    this.ferries.update(this.clockMin, performance.now() / 1000);
     for (const e of this.traffic.update(dt, { px: pp.x, pz: pp.z, py, onBike: mounted, speed, fx: f.x, fz: f.z })) {
       if (e.type === 'honk' && Math.random() < 0.5) {
         sfx.horn();
@@ -585,6 +593,69 @@ export class Game {
 
   // Cho thời gian trôi nhanh (chờ quán, leo cầu thang, ngủ…), tính đủ hao mòn & món hàng
   // stopOnOffer: có đơn mời thì dừng ngay (ngồi chờ đơn, chợp mắt)
+  // ---- PHÀ (interactions.js → Đi phà): chờ phà cập bến này, gắn người (+ xe) lên boong, tới bờ bên kia thì cho xuống ----
+  startFerry(pair, side, withBike) {
+    const nb = nextBoat(side, this.clockMin);
+    if (nb.wait > 0) this.advance(nb.wait, 'idle', { waiting: true, quiet: true });
+    // chiếc đang đậu ở bến này (lệch vài giây do làm tròn thì chờ thêm chút)
+    let i = -1;
+    for (let k = 0; k < 20 && i < 0; k++) {
+      i = this.ferries.boats.findIndex((b) => b.pair === pair && this.ferries.pose(pair, b.i, this.clockMin).at === side);
+      if (i < 0) this.advance(0.1, 'idle', { waiting: true, quiet: true });
+    }
+    if (i < 0) return false;
+    const boat = this.ferries.boats[i];
+    if (withBike && this.mode === 'foot') {
+      this.gs.parked = null;
+      this.mode = 'bike';
+      this.walker.sitOn(this.bike);
+    }
+    if (!withBike && this.mode === 'bike') return false; // đi bộ thì phải xuống xe trước
+    this.ferryRide = { pair, i: boat.i, to: side === 'a' ? 'b' : 'a', withBike, off: [-1.6, -4.2] };
+    this.bike.speed = 0;
+    this.bike.vel.set(0, 0);
+    this.ferryTick(0);
+    this.hud.toast(fmt('toast.ferryBoard', { other: pair[this.ferryRide.to].name }), 'info', 4000);
+    return true;
+  }
+  ferryTick() {
+    const R = this.ferryRide, p = this.ferries.pose(R.pair, R.i, this.clockMin);
+    if (p.at === R.to) return this.landFerry();
+    const c = Math.cos(p.heading), sn = Math.sin(p.heading), [lx, lz] = R.off;
+    const x = p.x + lx * c + lz * sn, z = p.z - lx * sn + lz * c, y = BOAT_DECK + 0.08;
+    if (R.withBike) {
+      const b = this.bike;
+      b.pos.set(x, 0, z);
+      b._ex = x;
+      b._ez = z;
+      b.heading = p.heading;
+      b.speed = 0;
+      b.vel.set(0, 0);
+      b.mesh.position.set(x, y, z);
+      b.mesh.rotation.set(0, p.heading, 0, 'YXZ');
+    } else {
+      const w = this.walker;
+      w.pos.set(x, 0, z);
+      w._ex = x;
+      w._ez = z;
+      w.mesh.position.set(x, y, z);
+      w.mesh.rotation.set(0, p.heading + Math.PI / 2, 0);
+    }
+  }
+  landFerry() {
+    const R = this.ferryRide, pier = R.pair[R.to];
+    this.ferryRide = null;
+    const d = pier.door, head = Math.atan2(-pier.n[0], -pier.n[1]); // quay mặt vào bờ
+    const body = R.withBike ? this.bike : this.walker;
+    body.pos.set(d.x, 0, d.z);
+    body._ex = d.x;
+    body._ez = d.z;
+    body.deckY = null;
+    body.heading = head;
+    if (R.withBike) this.bike.speed = 0;
+    this.hud.toast(fmt('toast.ferryArrive', { other: pier.name, time: fmtTime(this.clockMin) }), 'good', 5000);
+  }
+
   advance(min, activity = 'idle', { indoor = false, waiting = true, quiet = false, stopOnOffer = false } = {}) {
     const n = Math.max(1, Math.round(min));
     const start = this.clockMin;

@@ -285,6 +285,18 @@ export function render(root, ctx) {
   drawActs();
   makeSortable(actBox, '.act-card', (a, b) => { moveInArray(p.activities, a, b); changedP(); drawActs(); ctx.applyFieldIssues(); });
   T.pane('hours').append(el('h3', {}, 'Hoạt động tại đây'), el('p', { class: 'muted' }, 'Người chơi chọn trong hộp thoại khi bấm E ở cửa (theo thứ tự dưới đây — kéo ⠿ để đổi). Thời gian trôi đúng số phút; thể lực/tinh thần cộng ngay.'), explain(EXPLAIN.act), actBox);
+  // --- bến phà: bến bên kia ---
+  if (lookOf(p) === 'ferry') {
+    const others = (ctx.data.places.places || []).filter((q) => q.id !== p.id && lookOf(q) === 'ferry');
+    T.pane('hours').append(el('div', { class: 'grid' }, field('⛴️ Bến bên kia', selectInput(p.ferryTo || '', [['', '— chưa nối —'], ...others.map((q) => [q.id, q.name])], (v) => {
+      if (v) p.ferryTo = v;
+      else delete p.ferryTo;
+      // nối 2 chiều: bến kia chưa nối thì nối ngược lại luôn
+      const q = others.find((x) => x.id === v);
+      if (q && !q.ferryTo) q.ferryTo = p.id;
+      changedP();
+    }), opt('ferryTo', { hint: 'Phà chạy qua lại giữa bến này và bến bên kia (giá vé, lịch chạy ở thẻ ⚖️ Cân bằng → ⛴️ Phà). Bến nên đặt ở lô ven sông, mặt tiền quay ra mặt nước.', wide: true }))));
+  }
   // --- chợp mắt ---
   if (p.kind !== 'home') {
     const Z = ctx.data.balance.energy?.sleep || {};

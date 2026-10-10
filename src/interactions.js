@@ -13,6 +13,7 @@ import { fmtK } from './sim/economy.js';
 import { intersectionName } from './sim/cityLayout.js';
 import { tierLabel } from './sim/roads.js';
 import { nearestStop, destinations, inService, busRule } from './sim/bus.js';
+import { nextBoat, ferryFare, ferryOpen, ferryRule } from './sim/ferry.js';
 import { fmt, pick, has } from './content/index.js';
 import { fmtClock, minutesUntil } from './sim/clock.js';
 import { buildPacking } from './ui/packing.js';
@@ -40,6 +41,7 @@ function placeLine(placeId, kind, params) {
 
 // ======================== DANH SÁCH TƯƠNG TÁC GẦN NGƯỜI CHƠI ========================
 export function gatherInteractions(g) {
+  if (g.ferryRide) return []; // đang trên phà: chờ qua sông
   const { om, bike } = g;
   const foot = g.mode === 'foot';
   const p = g.playerPos;
@@ -662,7 +664,38 @@ function gainText(o) {
 }
 
 function activityChoices(g, pl) {
-  return [...placeActivities(g, pl), ...napChoices(g, pl)];
+  return [...ferryChoices(g, pl), ...placeActivities(g, pl), ...napChoices(g, pl)];
+}
+
+// Bến phà: đi cùng xe máy (đang lái, hoặc xe dựng gần bến) hoặc đi bộ; kèm giờ chờ / giờ chạy
+function ferryChoices(g, pl) {
+  const pair = (g.ferries?.pairs || []).find((q) => q.a.id === pl.id || q.b.id === pl.id);
+  if (!pair) return [];
+  const side = pair.a.id === pl.id ? 'a' : 'b', other = pair[side === 'a' ? 'b' : 'a'];
+  const now = g.clockMin, nb = nextBoat(side, now), cross = Math.round(ferryRule('crossMin', 8));
+  const hint = !ferryOpen(now)
+    ? fmt('dlg.ferryClosed', { from: ferryRule('from', 5), to: ferryRule('to', 22), at: fmtClock(now + nb.wait) })
+    : nb.wait > 0 ? fmt('dlg.ferryWait', { wait: Math.ceil(nb.wait), at: fmtClock(now + nb.wait), cross, other: other.name })
+      : fmt('dlg.ferryNow', { cross, other: other.name });
+  const foot = g.mode === 'foot';
+  const bikeNear = !g.gs.towed && (!foot || Math.hypot(g.bike.pos.x - pl.door.x, g.bike.pos.z - pl.door.z) < 25);
+  const out = [];
+  const opt = (withBike) => {
+    const fare = ferryFare(withBike);
+    return {
+      label: fmt(withBike ? 'dlg.ferryBike' : 'dlg.ferryFoot', { fare }),
+      hint,
+      disabled: g.gs.money < fare,
+      onSelect: () => {
+        g.gs.spend(fare, 'ferry');
+        sfx.cash();
+        g.startFerry(pair, side, withBike);
+      },
+    };
+  };
+  if (bikeNear) out.push(opt(true));
+  if (foot) out.push(opt(false));
+  return out;
 }
 
 function placeActivities(g, pl) {

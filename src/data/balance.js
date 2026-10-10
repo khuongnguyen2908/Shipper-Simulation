@@ -60,6 +60,7 @@ export const PARKING = balanceData.parking; // đậu xe: gửi bãi, rủi ro �
 export const AIRPORT = balanceData.airport || {}; // sân bay: phí vào cổng, cấm dừng trước sảnh (src/sim/airport.js)
 export const ROADS = balanceData.roads || {}; // cấp đường: giới hạn tốc độ, xe cộ, ổ gà, kẹt xe, chốt CSGT theo cấp (src/sim/roads.js)
 export const BUS = balanceData.bus || {}; // xe buýt: giá vé, giờ chạy, tốc độ, dừng mỗi trạm (src/sim/bus.js)
+export const FERRY = balanceData.ferry || {}; // phà: giá vé, giờ chạy, phút đậu bến / qua sông, số phà (src/sim/ferry.js)
 export const RIDE_EVENTS = balanceData.rideEvents || {}; // sự cố khi chở khách: lừa đảo, đổi điểm đến, vali, khách nước ngoài
 export const DRIVING = balanceData.driving || {}; // lái xe & sóng sánh: tay lái bẻ dần, ngưỡng ôm cua / phanh gấp, mức đổ / hoảng
 
@@ -91,6 +92,7 @@ export function applyBalance(data) {
   into(AIRPORT, data.airport);
   into(ROADS, data.roads);
   into(BUS, data.bus);
+  into(FERRY, data.ferry);
   into(RIDE_EVENTS, data.rideEvents);
   into(DRIVING, data.driving);
 }

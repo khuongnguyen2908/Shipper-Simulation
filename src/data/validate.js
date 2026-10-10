@@ -386,6 +386,13 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null, m
   for (const p of places) {
     openDayErr(add, p.id, p.openDay, PROTECTED.places.includes(p.id));
     if (p.nap != null && typeof p.nap !== 'boolean') add('error', p.id, 'nap', 'Ô "Cho chợp mắt" phải là true/false.');
+    // bến phà: ô "Bến bên kia" phải trỏ tới một bến phà khác
+    if (p.ferryTo != null) {
+      const q = places.find((x) => x.id === p.ferryTo);
+      if (lookOf(p) !== 'ferry') add('warn', p.id, 'ferryTo', 'Chỉ bến phà (kiểu nhà "Bến phà") mới dùng ô "Bến bên kia".');
+      else if (!q || q.id === p.id || lookOf(q) !== 'ferry') add('error', p.id, 'ferryTo', `"Bến bên kia" phải là một bến phà khác (đang là "${p.ferryTo}").`);
+      else if (q.ferryTo && q.ferryTo !== p.id) add('warn', p.id, 'ferryTo', `"${q.name}" đang nối tới bến khác — phà chỉ chạy giữa 2 bến nối nhau.`);
+    } else if (lookOf(p) === 'ferry' && isPlaced(p) && !places.some((x) => x.ferryTo === p.id)) add('warn', p.id, 'ferryTo', 'Bến phà chưa nối với bến nào — chọn "Bến bên kia" để có phà chạy.');
     if (p.nap && p.kind === 'home') add('warn', p.id, 'nap', 'Phòng trọ đã có giường ngủ — ô chợp mắt không có tác dụng.');
     if (p.kind === 'restaurant' && items && (p.menu || []).length) {
       const first = Math.min(...p.menu.filter((id) => items[id]).map((id) => openDayOf(items[id])));

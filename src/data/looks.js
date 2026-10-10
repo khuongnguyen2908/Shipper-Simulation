@@ -48,6 +48,8 @@ export const LOOKS = {
   portWarehouse: { label: '🏭 Kho hàng cảng (nên cả khối)', floors: null },
   scrapYard: { label: '♻️ Vựa ve chai (nên 2 lô)', floors: null },
   hospital: { label: '🏥 Bệnh viện (nên cả dãy 3 lô)', floors: [4, 9] },
+  // bến phà: lô ven sông, mặt tiền quay ra mặt nước; ô "Bến bên kia" (ferryTo) nối 2 bến thành tuyến phà
+  ferry: { label: '⛴️ Bến phà (lô ven sông, nên 2 lô)', floors: null },
 };
 // Kiểu dùng được cho loại địa điểm: cảnh quan ↔ kiểu cảnh quan; đồn công an ↔ kiểu đồn; loại khác ↔ kiểu nhà thường
 export const looksFor = (kind) => Object.keys(LOOKS).filter((k) => {
@@ -98,6 +100,7 @@ export function guessLook(p) {
       return 'park';
     case 'service':
       if (/sân bay|airport|cảng hàng không/.test(n)) return 'airport';
+      if (/bến phà|^phà /.test(n)) return 'ferry';
       if (/nhà thờ|thánh đường/.test(n)) return 'cathedral';
       if (/bưu điện/.test(n)) return 'postOffice';
       if (/kho hàng|kho cảng|kho bãi|container/.test(n)) return 'portWarehouse';

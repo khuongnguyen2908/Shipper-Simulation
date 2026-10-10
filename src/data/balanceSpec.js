@@ -155,6 +155,19 @@ export const BALANCE_GROUPS = [
     ],
   },
   {
+    id: 'ferry', title: '⛴️ Phà',
+    note: 'Bến phà = địa điểm kiểu nhà "Bến phà", ô "Bến bên kia" chọn bến nối tới (thẻ Địa điểm). Tới bến bấm E → Đi phà: phà đang đậu thì lên ngay, chưa tới thì chờ; người + xe đứng trên boong qua sông. Mỗi bờ cứ (đậu + qua sông) × 2 ÷ số phà phút có 1 chuyến (mặc định 10 phút). 1 phút game = 1 giây thật.',
+    fields: [
+      ['ferry.fareBike', 'Vé chở theo xe máy (k)', { min: 0, max: 100, step: 1, hint: 'Mặc định 3k.' }],
+      ['ferry.fareFoot', 'Vé đi bộ (k)', { min: 0, max: 100, step: 1, hint: 'Mặc định 1k.' }],
+      ['ferry.from', 'Chuyến đầu (giờ)', { min: 0, max: 24, step: 0.5, hint: 'Mặc định 5h.' }],
+      ['ferry.to', 'Chuyến cuối (giờ)', { min: 0, max: 24, step: 0.5, hint: 'Mặc định 22h.' }],
+      ['ferry.dwellMin', 'Đậu bến mỗi lượt (phút)', { min: 0.5, max: 10, step: 0.5, hint: 'Thời gian lên / xuống phà. Mặc định 2 phút.' }],
+      ['ferry.crossMin', 'Qua sông (phút)', { min: 1, max: 30, step: 1, hint: 'Cũng là số giây thật ngồi trên phà. Mặc định 8.' }],
+      ['ferry.boats', 'Số phà mỗi tuyến', { min: 1, max: 4, step: 1, hint: 'Nhiều phà thì ít phải chờ. Mặc định 2.' }],
+    ],
+  },
+  {
     id: 'roads', title: '🛣️ Cấp đường',
     note: 'Mỗi đoạn đường là Đại lộ / Đường thường / Đường nhỏ (chia ở thẻ 🗺️ Bản đồ → Đường to / nhỏ). Các số dưới là hệ số so với đường thường (1 = như đường thường). Giới hạn tốc độ = "Qua chốt chạy quá … km/h" (mục Tiền) × hệ số.',
     fields: [

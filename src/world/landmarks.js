@@ -110,8 +110,37 @@ function textures(h) {
 }
 
 // 5 kiểu nhà chọn được trong ?editor (bản dãy là biến thể tự dùng khi lô nông)
-export const LANDMARK_LOOKS = ['cathedral', 'postOffice', 'portWarehouse', 'scrapYard', 'hospital'];
+export const LANDMARK_LOOKS = ['cathedral', 'postOffice', 'portWarehouse', 'scrapYard', 'hospital', 'ferry'];
 export const LANDMARKS = {
+  // ⛴️ Bến phà (chuẩn 2 lô 22,2 × 10,8, mặt tiền nhìn ra sông): phòng vé, nhà chờ mái tôn có ghế, barie, biển tên trên 2 cột.
+  // Cầu dẫn + phao nổi chìa ra sông và chiếc phà dựng riêng ở src/world/ferry.js
+  ferry(k0, o, r, h) {
+    const s = fitScale(o, 22.2, 10.8), k = scaledKit(k0, s), cols = [];
+    const corr = 'tex:' + h.T.corr();
+    k.box(22.2, 0.05, 10.8, 0, 0.025, -5.4, 0xb5ab98);
+    // phòng vé
+    k.box(5, 3, 4, -7, 1.5, -6, 0x5dade2);
+    k.box(5.6, 0.3, 4.6, -7, 3.15, -6, 0x1f618d);
+    k.box(2, 1.2, 0.05, -7, 1.7, -3.98, 0xa9cce3, 'glass');
+    k.plane(1.8, 0.5, -7, 2.55, -3.95, 0xffffff, 'tex:' + h.textTex(h.fmt('city.ferryTicket'), { bg: '#1f618d', w: 256, h: 64 }));
+    cols.push({ x0: -9.5, z0: -8, x1: -4.5, z1: -4, h: 3.3 });
+    // nhà chờ mái tôn + 3 băng ghế
+    k.box(9, 0.12, 5, 3, 2.9, -5.5, 0x2e86c1, corr, [0.06, 0, 0]);
+    for (const x of [-1.2, 7.2]) for (const z of [-3.2, -7.8]) {
+      k.box(0.15, 2.9, 0.15, x, 1.45, z, 0x555555, 'metal');
+      cols.push({ x0: x - 0.15, z0: z - 0.15, x1: x + 0.15, z1: z + 0.15, h: 2.9 });
+    }
+    for (let i = 0; i < 3; i++) {
+      k.box(2.2, 0.08, 0.5, 0.4 + i * 2.6, 0.45, -6.5, 0x7f8c8d, 'metal');
+      for (const sx of [-0.9, 0.9]) k.box(0.06, 0.45, 0.45, 0.4 + i * 2.6 + sx, 0.22, -6.5, 0x555555, 'metal');
+    }
+    // barie chắn xe (mở khi phà cập bến) + biển tên trên 2 cột trước bến
+    k.box(0.4, 1, 0.4, -1.2, 0.5, -0.9, 0xecf0f1);
+    k.box(4, 0.12, 0.12, 0.8, 1.05, -0.9, 0xd62d20);
+    for (const x of [-3.8, 3.8]) k.box(0.12, 4.3, 0.12, x, 2.15, -0.2, 0x555555, 'metal');
+    for (const x of [-10, 10]) h.tree(k, x, -1.2, 3, r, 0.9);
+    return { sign: scaleSign({ y: 4.4, z: -0.14, w: 7.4, glow: 0.3 }, s), height: 5 * s, colliders: cols.map((c) => scaleBox(c, s)) };
+  },
   // ⛪ Nhà thờ bản dãy 3 lô (chuẩn 33,5 × 10,8): sân trước hẹp có rào, mặt tiền 2 tháp chuông + cửa sổ hoa hồng, gian giữa ngắn phía sau
   cathedralRow(k0, o, r, h) {
     const s = fitScale(o, 33.5, 10.8), k = scaledKit(k0, s), T = textures(h), cols = [];
