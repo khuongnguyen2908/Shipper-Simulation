@@ -68,7 +68,12 @@ export function guessLook(p) {
     case 'home':
       return 'tro';
     case 'gas':
+    case 'charger':
       return 'gas';
+    case 'swap':
+      return 'repair';
+    case 'office':
+      return 'tower';
     case 'apartment':
       return 'apartment';
     case 'market':

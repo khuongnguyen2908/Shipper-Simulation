@@ -11,6 +11,7 @@ import { isOpen, fmtHours } from '../sim/placeRules.js';
 import { ICON, placeGroup } from './minimap.js';
 import { fmtDist } from '../sim/nav.js';
 import { fmt } from '../content/index.js';
+import { BRANDS } from '../data/apps.js';
 import { morph } from './morph.js';
 
 const segOf = (id) => { const m = /^([xz])(\d+):(\d+)$/.exec(id); return { axis: m[1], line: +m[2], from: +m[3] }; };
@@ -34,8 +35,9 @@ const LABEL_FROM = 1.9; // px / m: từ mức này hiện tên địa điểm
 // nút tìm nhanh theo loại: [mã, biểu tượng, khóa chữ, điều kiện]
 const isCafe = (p) => p.kind === 'cafe' || (p.kind === 'restaurant' && (lookOf(p) === 'cafe' || ['☕', '🍵', '🧋'].includes(p.icon)));
 export const TYPES = [
-  ['gas', '⛽', 'map.tGas', (p) => p.kind === 'gas'],
+  ['gas', '⛽', 'map.tGas', (p) => p.kind === 'gas' || p.kind === 'charger' || p.kind === 'swap'],
   ['fix', '🔧', 'map.tFix', (p) => p.kind === 'garage' || p.kind === 'shop'],
+  ['office', '🏢', 'map.tOffice', (p) => p.kind === 'office'],
   ['food', '🍜', 'map.tFood', (p) => p.kind === 'restaurant' && !isCafe(p)],
   ['cafe', '☕', 'map.tCafe', isCafe],
   ['shop', '🛒', 'map.tShop', (p) => placeGroup(p) === 'shop'],
@@ -208,10 +210,14 @@ export class CityMap {
     const hours = fmtHours(p.hours) || fmt('map.allDay');
     const status = p.soon ? fmt('map.soon') : open ? fmt('map.open', { hours }) : fmt('map.closed', { hours });
     const routed = d.waypoint && d.waypoint.id === p.id;
+    // văn phòng hãng: hãng nào, chạy loại xe gì, tiền cọc (để người chơi chọn hãng)
+    const b = p.kind === 'office' && BRANDS[p.brand];
+    const brand = b ? `<small class="ok">${fmt('map.officeBrand', { icon: b.icon || '', brand: b.name, kind: fmt(`power.${b.power}`), k: b.deposit || 0 })}</small>` : '';
+    const tut = d.tut === 'route' && p.kind === 'office' ? ' tut' : '';
     const html = `<div class="cm-c1"><b>${iconOf(p)} ${p.name}</b><button data-cm="close">✕</button></div>
       <small>${tp ? fmt(tp[2]) : f ? fmt(f[3]) : ''}${p.address ? ' · ' + p.address : ''} · ${dist}</small>
-      <small class="${open && !p.soon ? 'ok' : 'warn'}">${status}</small>
-      ${d.busy ? `<small>${fmt('map.busy')}</small>` : routed ? `<button class="btn small" data-cm="clear">${fmt('map.unroute')}</button>` : `<button class="btn small primary" data-cm="route">${fmt('map.route')}</button>`}`;
+      ${brand}<small class="${open && !p.soon ? 'ok' : 'warn'}">${status}</small>
+      ${d.busy ? `<small>${fmt('map.busy')}</small>` : routed ? `<button class="btn small" data-cm="clear">${fmt('map.unroute')}</button>` : `<button class="btn small primary${tut}" data-cm="route">${fmt('map.route')}</button>`}`;
     if (html === this.cardKey) return;
     this.cardKey = html;
     morph(this.card, html); // sửa tại chỗ: nút Chỉ đường không bị dựng lại khi khoảng cách đổi
@@ -229,7 +235,7 @@ export class CityMap {
     const found = d.places.filter((p) => p.door && (p.kind !== 'scenery' || (p.activities || []).length)).filter((p) => {
       if (type && !type[3](p)) return false;
       if (!words.length) return true;
-      const tp = typeOf(p), hay = plain([p.name, p.address, tp ? fmt(tp[2]) : '', p.kind === 'gas' ? 'xang' : ''].join(' '));
+      const tp = typeOf(p), hay = plain([p.name, p.address, tp ? fmt(tp[2]) : '', p.kind === 'gas' ? 'xang' : p.kind === 'charger' ? 'sac dien' : p.kind === 'swap' ? 'doi pin' : p.kind === 'office' ? 'van phong hang dang ky' : ''].join(' '));
       return words.every((w) => hay.includes(w));
     }).map((p) => ({ p, dist: routeDist(d.player, p.door) })).sort((a, b) => a.dist - b.dist);
     this.results = found.map((r) => r.p);
@@ -246,6 +252,11 @@ export class CityMap {
   // d: mapData của game + { now, day, route, ferries, waypoint, busy }
   draw(d) {
     const { c, g } = this;
+    // hướng dẫn người mới (chưa vào hãng): nhấp nháy nút "Văn phòng hãng"
+    if (d.tut !== this.tutKey) {
+      this.tutKey = d.tut;
+      this.el.querySelector('[data-t="office"]')?.classList.toggle('tut', d.tut === 'office');
+    }
     const W = c.clientWidth, H = c.clientHeight;
     if (!W || !H) return;
     const dpr = Math.min(2, window.devicePixelRatio || 1);

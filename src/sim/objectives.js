@@ -6,9 +6,11 @@ export const ORDERS_GOAL = 5;
 
 export function objectives(gs) {
   const list = [];
+  // chưa vào hãng: mục tiêu duy nhất là đăng ký 1 hãng để đi làm (xong mới hiện các mục tiêu giao hàng)
+  if (!gs.brand) return [{ id: 'brand', text: fmt('obj.brand'), done: false }];
   if (gs.day === 1) {
-    list.push({ id: 'mount', text: fmt('obj.mount'), done: gs.flags.mounted });
-    list.push({ id: 'fuel', text: fmt('obj.fuel'), done: gs.flags.refueled, target: 'gas' });
+    const ev = gs.brandSpec?.power === 'electric';
+    list.push({ id: 'fuel', text: fmt(ev ? 'obj.charge' : 'obj.fuel'), done: gs.flags.refueled, target: ev ? 'charger' : 'gas' });
     list.push({ id: 'online', text: fmt('obj.online'), done: gs.flags.online });
   }
   list.push({ id: 'first', text: fmt('obj.first'), done: gs.stats.completed >= 1 });

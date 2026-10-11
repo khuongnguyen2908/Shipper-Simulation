@@ -1,5 +1,5 @@
 // Thẻ XE · TÚI · ĐỒ DÙNG: chỉ số, giá, mô tả, tác dụng + nơi bán + bảng so sánh.
-import { PROTECTED, ID_RE, VEHICLE_MODELS } from '../../data/validate.js';
+import { PROTECTED, ID_RE, VEHICLE_MODELS, POWER_LABELS } from '../../data/validate.js';
 import { moveKey } from './order.js';
 import { rowMenu, addButton, entryButtons, doRemove } from './opsUi.js';
 import { EFFECTS, CONSUMABLE_FIELDS, OUTFIT_SLOTS, freeOutfit, outfitLook } from '../../data/goods.js';
@@ -24,8 +24,8 @@ const FIELDS = {
     ['brake', 'Lực phanh (m/s²)', { step: 0.5 }],
     ['steer', 'Độ nhạy lái', { step: 0.1 }],
     ['suspension', 'Giảm xóc (%)', { scale: 100, step: 5, digits: 0 }],
-    ['fuelPer100km', 'Hao xăng (L/100 km)', { step: 0.1 }],
-    ['tank', 'Bình xăng (L)', { step: 0.5 }],
+    ['fuelPer100km', 'Hao xăng / điện (L hoặc kWh / 100 km)', { step: 0.1 }],
+    ['tank', 'Bình xăng / pin (L hoặc kWh)', { step: 0.5 }],
     ['price', 'Giá (k)', { step: 50 }],
   ],
   bags: [
@@ -114,6 +114,7 @@ export function render(root, ctx) {
         ? field('Biểu tượng (emoji)', emojiInput(s.icon, (v) => { s.icon = v; changed(); }), opt('icon'))
         : field('Màu', colorInput(s.color, (v) => { s.color = v; changed(); drawBike(); }), opt('color', { hint: cat === 'vehicles' ? 'Màu thân xe' : 'Màu túi trên baga' })),
       cat === 'vehicles' ? field('Kiểu dáng', selectInput(s.model || 'underbone', Object.entries(VEHICLE_MODELS), (v) => { s.model = v; changed(); drawBike(); }), opt('model', { hint: 'Chỉ đổi hình dáng; tốc độ, xăng… chỉnh ở các ô bên dưới.' })) : null,
+      cat === 'vehicles' ? field('Loại xe', selectInput(s.power || 'gas', Object.entries(POWER_LABELS), (v) => { s.power = v; changed(); ctx.rerender(); }), opt('power', { hint: 'Xe xăng: đổ xăng ở cây xăng, thay nhớt ở tiệm sửa xe, chạy cho hãng xe xăng (GoShip). Xe điện: sạc ở trụ sạc, đổi pin ở trạm đổi pin, chạy cho hãng xe điện (HồngSM). Xe đạp: không xăng, không nhận đơn.' })) : null,
       cat === 'goods' ? field('Giá (k)', numInput(s.price, (v) => { s.price = v; changed(); }, { step: 5, min: 0 }), opt('price', { hint: HINT.goods.price })) : null,
       ...(FIELDS[cat] || []).map(([k, label, o]) => field(label, numInput(s[k], (v) => { s[k] = v; changed(); }, o), opt(k, { hint: HINT[cat][k] }))),
     ),
@@ -149,7 +150,7 @@ export function render(root, ctx) {
     while (table[`${prefix}${n}`]) n++;
     const id = `${prefix}${n}`;
     table[id] = {
-      vehicles: { id, name: 'Xe mới', maxSpeed: 15, accel: 5, brake: 10, steer: 2.3, suspension: 0.4, fuelPer100km: 3, tank: 4, price: 2000, color: '#2e86c1', model: 'underbone', desc: '' },
+      vehicles: { id, name: 'Xe mới', maxSpeed: 15, accel: 5, brake: 10, steer: 2.3, suspension: 0.4, fuelPer100km: 3, tank: 4, price: 2000, color: '#2e86c1', model: 'underbone', power: 'gas', desc: '' },
       bags: { id, name: 'Túi mới', insulation: 0.3, waterproof: 0.3, padding: 0.2, cols: 2, rows: 2, price: 80, color: '#8e44ad', desc: '' },
       goods: goodsTemplate(id, group || 'consumable'),
     }[cat];
@@ -189,7 +190,7 @@ function goodsTemplate(id, group) {
 function renderGoods(body, s, ctx, opt, changed) {
   body.append(
     el('h3', {}, 'Loại & tác dụng'),
-    field('Loại', selectInput(s.type, [['consumable', 'Đồ dùng 1 lần (dùng từ túi đồ, phím I)'], ['equipment', 'Trang bị (mua 1 lần, tác dụng mãi)'], ['carry', 'Dùng tại địa điểm (mang tới nơi dùng, vd nhang → chùa)'], ['outfit', 'Trang phục (mua rồi mặc ở tủ đồ phòng trọ)']], (v) => {
+    field('Loại', selectInput(s.type, [['consumable', 'Đồ dùng 1 lần (dùng từ túi đồ, phím I)'], ['equipment', 'Trang bị (mua 1 lần, tác dụng mãi)'], ['carry', 'Dùng tại địa điểm (mang tới nơi dùng, vd nhang → chùa)'], ['outfit', 'Trang phục (áo / quần / nón / giày mặc ở tủ đồ phòng trọ; phụ kiện gắn ngay trong túi đồ)']], (v) => {
       s.type = v;
       if (v !== 'outfit') { delete s.slot; delete s.style; delete s.color; }
       if (v === 'consumable') { delete s.effects; s.use = s.use || { minutes: 5, phys: 10, mental: 10, fuel: 0, bikeHp: 0 }; }
@@ -237,7 +238,7 @@ function renderGoods(body, s, ctx, opt, changed) {
     return el('div', { class: 'trait' }, head, val, el('small', {}, def.hint));
   });
   const hint = s.type === 'outfit'
-    ? 'Chỉ có tác dụng khi đang mặc (thay ở tủ đồ phòng trọ). Để trống = chỉ để đẹp.'
+    ? 'Chỉ có tác dụng khi đang mặc / đang gắn (phụ kiện: người chơi tự gắn trong túi đồ). Để trống = chỉ để đẹp.'
     : 'Nhiều trang bị cùng tác dụng thì cộng dồn. Muốn kiểu tác dụng mới hoàn toàn thì cần thêm vào code.';
   body.append(field(s.type === 'outfit' ? 'Tác dụng khi mặc' : '', el('div', { class: 'traits' }, rows), opt('effects', { wide: true, hint })));
 }
@@ -258,7 +259,7 @@ function renderOutfit(body, s, ctx, opt, changed) {
         if (!(s.style in OUTFIT_SLOTS[v].styles)) s.style = Object.keys(OUTFIT_SLOTS[v].styles)[0];
         changed();
         ctx.rerender();
-      }), opt('slot', { hint: 'Mỗi chỗ mặc 1 món. Món giá 0 là đồ có sẵn từ đầu.' })),
+      }), opt('slot', { hint: 'Mỗi chỗ mặc 1 món. Món giá 0 là đồ có sẵn từ đầu. Áo / quần / mũ / giày thay ở tủ đồ phòng trọ; 3 ô phụ kiện (áo mưa · áo khoác, kính · khẩu trang, găng tay) được để trống, người chơi gắn / tháo trong túi đồ.' })),
       field('Kiểu', selectInput(s.style, Object.entries(slot.styles), (v) => { s.style = v; changed(); draw(); }), opt('style')),
       field('Màu', colorInput(s.color, (v) => { s.color = v; changed(); draw(); }), opt('color')),
     ),

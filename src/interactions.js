@@ -4,8 +4,8 @@
 // Mọi chữ lấy từ kho chữ qua fmt() — sửa bằng công cụ ?editor.
 // =============================================================
 import { TIME, ECONOMY, ENERGY, ORDER, VEHICLES, BAGS, WALLET_QUEST, PARKING } from './data/balance.js';
-import { APP, ORDER_TYPES, RIDER_TYPES } from './data/apps.js';
-import { GOODS, OUTFIT_SLOTS } from './data/goods.js';
+import { APP, ORDER_TYPES, RIDER_TYPES, BRANDS } from './data/apps.js';
+import { GOODS, OUTFIT_SLOTS, isAccessorySlot } from './data/goods.js';
 import { isOpen, fmtHours, placesUsing, placesSelling, unlocked, openDayOf } from './sim/placeRules.js';
 import { ITEMS } from './data/items.js';
 import { S } from './sim/OrderManager.js';
@@ -18,6 +18,7 @@ import { fmt, pick, has } from './content/index.js';
 import { fmtClock, minutesUntil } from './sim/clock.js';
 import { buildPacking } from './ui/packing.js';
 import { sfx } from './audio.js';
+import { inGarage } from './sim/garage.js';
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const stars = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
@@ -30,6 +31,7 @@ function say(g, speaker, portrait, text, choices = [{ label: fmt('dlg.ok') }], e
 function npc(g, placeId) {
   const pl = g.layout.placeById[placeId];
   if (pl && !pl.npc && pl.kind === 'scenery') return { name: pl.name, portrait: pl.icon || '🌳' }; // cảnh quan: không có người, lời là của nơi đó
+  if (pl && !pl.npc && pl.kind === 'charger') return { name: pl.name, portrait: pl.icon || '🔌' }; // trụ sạc tự phục vụ
   return pl && pl.npc ? pl.npc : { name: fmt('npc.default.name'), portrait: '🙂' };
 }
 
@@ -84,6 +86,9 @@ export function gatherInteractions(g) {
     if (a.needFoot && !foot) E.push({ label: fmt('act.needFoot', { place: pl.name }), dist: d, disabled: true });
     else E.push({ ...a, dist: d });
   }
+  // trong hầm xe phòng trọ: E lên phòng (trả tiền nhà, ngủ, tủ đồ) — cửa nhà nằm ngoài vỉa hè, xa chỗ dựng xe
+  const home = g.layout.placeById.home;
+  if (foot && inGarage(home, p.x, p.z, 0)) E.push({ label: fmt('act.homeGarage'), dist: 0.5, run: () => landlord(g, home) });
   // trạm xe buýt (src/sim/bus.js): đi bộ tới trạm, bấm E chọn trạm xuống
   const stop = g.bus && nearestStop(g.bus, p.x, p.z, foot ? 3 : 4.5);
   if (stop) {
@@ -203,6 +208,13 @@ export function declineOffer(g) {
 
 export function phoneAction(g, a, ds) {
   const { om, gs } = g;
+  // bật app nhận đơn: phải vào hãng + đang đi đúng loại xe hãng yêu cầu
+  const turningOn = om.state === S.OFFLINE && (a === 'online' || a === 'wantFood' || a === 'wantRide');
+  const block = turningOn && gs.workBlock();
+  if (block) {
+    g.hud.toast(block === 'noBrand' ? fmt('toast.needBrand') : fmt('toast.wrongVehicle', { brand: gs.brandSpec.name, kind: fmt(`power.${gs.brandSpec.power}`) }), 'warn', 4000);
+    return g.renderPhone();
+  }
   if (a === 'online') {
     if (om.state === S.OFFLINE) {
       om.goOnline();
@@ -217,7 +229,42 @@ export function phoneAction(g, a, ds) {
   else if (a === 'waypoint' && g.layout.placeById[ds?.id]) g.waypoint = ds.id; // bản đồ điện thoại: Chỉ đường
   else if (a === 'waypointClear') g.waypoint = null;
   else if (a === 'wantFood' || a === 'wantRide') toggleWant(g, a === 'wantFood' ? 'food' : 'ride');
+  else if (a === 'findBike') findBike(g);
+  else if (a === 'bagUse') bagUse(g, ds?.id);
+  else if (a === 'bagWear' || a === 'bagOff') bagWear(g, ds?.id, a === 'bagWear');
   g.renderPhone();
+}
+
+// App Xe → 📍 Định vị xe: báo xe đang ở đường nào, cách bao xa, và chỉ đường tới xe
+function findBike(g) {
+  if (g.mode === 'bike') return g.hud.toast(fmt('toast.onBike'), 'info');
+  const w = g.bikeWhere();
+  g.waypoint = null;
+  g.findBike = !w.towed; // xe bị cẩu: mục tiêu "chuộc xe" đã chỉ tới chỗ giữ xe
+  sfx.click();
+  g.hud.toast(fmt(w.towed ? 'toast.bikeTowedWhere' : 'toast.bikeWhere', { street: w.street || fmt('phone.bikeNoStreet'), dist: w.dist }), 'good', 6000);
+}
+
+// Túi đồ (app điện thoại): dùng 1 đồ dùng → mất vài phút, cộng thể lực / tinh thần…
+function bagUse(g, id) {
+  const s = GOODS[id];
+  const r = g.gs.useConsumable(id);
+  if (!s || !r.ok) return;
+  if (r.minutes) g.advance(r.minutes, 'idle', { waiting: false });
+  sfx.click();
+  g.hud.toast(fmt('toast.used', { name: s.name, gains: gainText(s.use || {}) }), 'good');
+}
+
+// Túi đồ: gắn / tháo phụ kiện (áo mưa, áo khoác, kính, khẩu trang, găng tay) — phải dừng xe.
+// Áo, quần, nón, giày chỉ thay ở tủ đồ phòng trọ.
+function bagWear(g, id, on) {
+  const s = GOODS[id];
+  if (!s || s.type !== 'outfit') return;
+  if (!isAccessorySlot(s.slot)) return g.hud.toast(fmt('toast.wearAtHome'), 'warn');
+  if (g.mode === 'bike' && Math.abs(g.bike.speed) > 0.5) return g.hud.toast(fmt('toast.stopToWear'), 'warn');
+  if (!(on ? g.gs.wear(id) : g.gs.takeOff(s.slot))) return;
+  sfx.click();
+  g.hud.toast(fmt(on ? 'toast.woreAcc' : 'toast.tookOffAcc', { name: s.name }), 'good', 1800);
 }
 
 // Công tắc GoShip: Giao hàng / Chở khách. Đang nghỉ mà bật một cái → chỉ bật đúng cái đó và lên mạng;
@@ -642,6 +689,9 @@ export function placeAction(g, pl) {
     case 'home': return { label: fmt('act.home', p), run: () => landlord(g, pl) };
     case 'restaurant': return generic('act.restaurant');
     case 'gas': return { label: fmt('act.gas', p) + closed, run: () => openPlace(g, pl, gasChoices(g, pl)) };
+    case 'charger': return { label: fmt('act.charger', p) + closed, run: () => openPlace(g, pl, chargeChoices(g, pl)) };
+    case 'swap': return { label: fmt('act.swap', p) + closed, run: () => openPlace(g, pl, swapChoices(g, pl)) };
+    case 'office': return generic('act.office', { run: () => (open ? officeDialog(g, pl) : openPlace(g, pl)) });
     case 'shop': return generic('act.shop', { run: () => (open ? shopDialog(g, pl) : openPlace(g, pl)) });
     case 'garage': return generic('act.garage', { run: () => (open ? shopDialog(g, pl) : openPlace(g, pl)) });
     case 'cafe': return gs.flags.wallet === 4 ? { label: fmt('act.cafeMinh', p), needFoot: true, run: () => minhReturn(g) } : generic('act.cafe');
@@ -756,9 +806,92 @@ function placeActivities(g, pl) {
   });
 }
 
+// Trụ sạc (xe điện): rẻ, chậm — đứng chờ sạc đầy
+function chargeChoices(g, pl) {
+  const { gs } = g;
+  const n = npc(g, pl.id);
+  if (gs.power !== 'electric') return [{ label: fmt('dlg.chargeNotEv'), disabled: true }];
+  const need = Math.max(0, gs.vehicleSpec.tank - gs.fuel), price = ECONOMY.elecPrice ?? 8;
+  const min = Math.max(5, Math.ceil(need / Math.max(0.001, ECONOMY.chargeKwhPerMin ?? 0.02)));
+  return [{
+    label: fmt('dlg.chargeChoice', { cost: Math.ceil(need * price), min }),
+    hint: fmt('dlg.chargeHint', { pct: Math.round((gs.fuel / gs.vehicleSpec.tank) * 100) }),
+    primary: true,
+    onSelect: () => {
+      if (dist(g.bike.pos, pl.door) > 9) return say(g, n.name, n.portrait, fmt('dlg.chargeTooFar'));
+      const r = gs.charge();
+      if (!r.ok) return say(g, n.name, n.portrait, r.msg);
+      g.advance(r.minutes, 'idle', { waiting: true });
+      sfx.cash();
+      g.hud.toast(r.msg, 'good');
+    },
+  }];
+}
+
+// Trạm đổi pin (xe điện): đầy pin ngay + bảo dưỡng pin (như thay nhớt của xe xăng)
+function swapChoices(g, pl) {
+  const { gs } = g;
+  const n = npc(g, pl.id);
+  if (gs.power !== 'electric') return [{ label: fmt('dlg.chargeNotEv'), disabled: true }];
+  const cost = ECONOMY.swapCost ?? 45;
+  return [{
+    label: fmt('dlg.swapChoice', { cost, min: ECONOMY.swapMin ?? 3 }),
+    hint: gs.maintOverdue ? fmt('dlg.swapHintOver', { km: (-gs.maintLeftKm).toFixed(1) }) : fmt('dlg.swapHint', { pct: Math.round((gs.fuel / gs.vehicleSpec.tank) * 100), km: gs.maintLeftKm.toFixed(1) }),
+    primary: true,
+    disabled: gs.money < cost,
+    onSelect: () => {
+      if (dist(g.bike.pos, pl.door) > 10) return say(g, n.name, n.portrait, fmt('dlg.chargeTooFar'));
+      const r = gs.swapBattery();
+      if (!r.ok) return say(g, n.name, n.portrait, r.msg);
+      g.advance(r.minutes, 'idle', { indoor: true, waiting: false });
+      sfx.cash();
+      g.hud.toast(r.msg, 'good');
+    },
+  }];
+}
+
+// Văn phòng hãng: giới thiệu hãng, đăng ký (đặt cọc, nhận xe hãng); đang ở hãng khác → đổi hãng = cày lại từ đầu
+function officeDialog(g, pl) {
+  const { gs, om } = g;
+  const n = npc(g, pl.id);
+  const b = BRANDS[pl.brand];
+  if (!b) return openPlace(g, pl);
+  const bike = VEHICLES[b.vehicle];
+  const mine = gs.brand === b.id;
+  const busy = !!om.order || om.state === S.OFFERED;
+  const choices = [];
+  if (!mine) {
+    const refund = gs.brand ? gs.depositPaid : 0;
+    const why = busy ? fmt('dlg.officeBusy') : gs.towed ? fmt('dlg.officeTowed') : gs.money + refund < (b.deposit || 0) ? fmt('gs.short', { k: Math.ceil((b.deposit || 0) - gs.money - refund) }) : '';
+    choices.push({
+      label: fmt(gs.brand ? 'dlg.officeSwitch' : 'dlg.officeJoin', { brand: b.name, k: b.deposit || 0 }),
+      hint: why || fmt(gs.brand ? 'dlg.officeSwitchHint' : 'dlg.officeJoinHint', { bike: bike?.name || '', old: gs.brandSpec?.name || '', refund }),
+      primary: true,
+      disabled: !!why,
+      onSelect: () => {
+        if (om.state !== S.OFFLINE) om.goOffline();
+        const r = gs.joinBrand(b.id);
+        if (!r.ok) return say(g, n.name, n.portrait, r.msg);
+        gs.flags.online = false;
+        g.bike.setSpec(gs.vehicleSpec);
+        g.lookKey = null;
+        sfx.win();
+        g.hud.toast(r.msg, 'big', 6000);
+        g.addChat(b.name, fmt(r.switched ? 'chat.brandSwitched' : 'chat.brandWelcome', { name: gs.profile.name, brand: b.name, bike: bike?.name || '' }));
+        if (!r.switched) g.joinGroupChat(); // lần đầu vào hãng: được thêm vào nhóm Hội shipper
+        g.phone.notify('chat', { title: b.name, text: fmt('chat.brandWelcomeShort', { brand: b.name }) });
+      },
+    });
+  }
+  choices.push(...activityChoices(g, pl), { label: fmt('dlg.leave') });
+  const text = fmt(mine ? 'dlg.officeMember' : 'dlg.officeIntro', { brand: b.name, desc: b.desc || '', bike: bike?.name || '', k: b.deposit || 0, kind: fmt(`power.${b.power}`) });
+  say(g, n.name, n.portrait, text, choices, { wide: true });
+}
+
 function gasChoices(g, pl) {
   const { gs } = g;
   const n = npc(g, pl.id);
+  if (gs.power !== 'gas') return [{ label: fmt(gs.power === 'electric' ? 'dlg.gasIsEv' : 'dlg.gasIsPedal'), disabled: true }];
   return [{
     label: fmt('dlg.refuelChoice'),
     primary: true,
@@ -829,29 +962,48 @@ function shopDialog(g, pl) {
     const free = Object.values(BAGS).find((b) => b.price === 0);
     if (free && gs.bag !== free.id && gs.owned.bags.includes(free.id)) choices.push({ label: fmt('dlg.shopUseNylon'), keepOpen: true, onSelect: () => { gs.bag = free.id; g.bike.setBag(gs.bagSpec); reopen(); } });
   }
-  for (const id of sells.vehicles || []) {
-    const v = VEHICLES[id];
-    if (!v) continue;
-    const owned = gs.owned.vehicles.includes(id);
-    const using = gs.vehicle === id;
-    choices.push({
-      label: `${using ? '🛵 ' : owned ? '✔ ' : ''}${v.name}${owned ? '' : ` – ${v.price}k`}`,
-      hint: fmt('dlg.garageSpec', { kmh: Math.round(v.maxSpeed * 3.6), susp: Math.round(v.suspension * 100), fuel: v.fuelPer100km, desc: v.desc }),
-      disabled: using || (!owned && gs.money < v.price),
-      keepOpen: true,
-      onSelect: () => {
-        if (owned) {
-          gs.vehicle = id;
-          gs.fuel = Math.min(gs.fuel, v.tank);
-        } else {
-          const r = gs.buy('vehicles', id);
-          g.hud.toast(r.ok ? fmt('toast.boughtVehicle', { msg: r.msg }) : r.msg, r.ok ? 'good' : 'bad');
-          if (r.ok) sfx.win();
-        }
-        g.bike.setSpec(gs.vehicleSpec);
-        reopen();
-      },
-    });
+  // Xe: mua xe tiệm bán + đổi qua lại giữa các xe đang có (kể cả xe đạp, xe hãng) + bán xe cũ (50% giá xe mới)
+  if ((sells.vehicles || []).length) {
+    const list = [...new Set([...(sells.vehicles || []), ...gs.owned.vehicles])].filter((id) => VEHICLES[id]);
+    for (const id of list) {
+      const v = VEHICLES[id];
+      const owned = gs.owned.vehicles.includes(id);
+      const using = gs.vehicle === id;
+      const kind = fmt(`power.${v.power || 'gas'}`);
+      const spec = v.power === 'pedal' ? fmt('dlg.garageSpecPedal', { kmh: Math.round(v.maxSpeed * 3.6), desc: v.desc })
+        : fmt(v.power === 'electric' ? 'dlg.garageSpecEv' : 'dlg.garageSpec', { kmh: Math.round(v.maxSpeed * 3.6), susp: Math.round(v.suspension * 100), fuel: v.fuelPer100km, tank: v.tank, desc: v.desc });
+      choices.push({
+        label: `${using ? '🛵 ' : owned ? '✔ ' : ''}${v.name} · ${kind}${owned ? (using ? '' : ` ${fmt('dlg.useVehicle')}`) : ` – ${v.price}k`}`,
+        hint: spec,
+        disabled: using || (!owned && gs.money < v.price),
+        keepOpen: true,
+        onSelect: () => {
+          if (owned) gs.vehicle = id;
+          else {
+            const r = gs.buy('vehicles', id);
+            g.hud.toast(r.ok ? fmt('toast.boughtVehicle', { msg: r.msg }) : r.msg, r.ok ? 'good' : 'bad');
+            if (r.ok) sfx.win();
+          }
+          g.bike.setSpec(gs.vehicleSpec);
+          reopen();
+        },
+      });
+    }
+    for (const id of gs.owned.vehicles.filter((x) => gs.canSell(x))) {
+      const k = gs.sellPrice(id);
+      choices.push({
+        label: fmt('dlg.sellVehicle', { name: VEHICLES[id].name, k }),
+        hint: fmt('dlg.sellHint', { pct: Math.round((ECONOMY.sellPct ?? 0.5) * 100), price: VEHICLES[id].price }),
+        keepOpen: true,
+        onSelect: () => {
+          const r = gs.sellVehicle(id);
+          g.hud.toast(r.msg, r.ok ? 'good' : 'bad');
+          if (r.ok) sfx.cash();
+          g.bike.setSpec(gs.vehicleSpec);
+          reopen();
+        },
+      });
+    }
   }
   if (pl.kind === 'garage') {
     choices.push({
@@ -860,6 +1012,27 @@ function shopDialog(g, pl) {
       disabled: gs.bikeHp >= 99 || gs.money < ECONOMY.repairCost || dist(g.bike.pos, pl.door) > 10,
       keepOpen: true,
       onSelect: () => { const r = gs.repair(); g.hud.toast(r.msg, r.ok ? 'good' : 'bad'); reopen(); },
+    });
+    // thay nhớt (chỉ xe xăng): mất vài phút, nhớt về đầy (balance.json → economy.oilCost / oilIntervalKm / oilChangeMin)
+    // xe điện: bảo dưỡng = đổi pin ở trạm đổi pin
+    const oilCost = ECONOMY.oilCost ?? 60;
+    const gas = gs.power === 'gas';
+    if (gs.power === 'electric') choices.push({ label: fmt('dlg.oilIsEv'), disabled: true });
+    else if (gas) choices.push({
+      label: fmt('dlg.oilChange', { cost: oilCost, min: ECONOMY.oilChangeMin ?? 15 }),
+      hint: gs.maintOverdue ? fmt('dlg.oilHintOver', { km: (-gs.maintLeftKm).toFixed(1) }) : fmt('dlg.oilHint', { km: gs.maintLeftKm.toFixed(1), full: gs.maintIntervalKm }),
+      primary: gs.maintOverdue,
+      disabled: gs.maintKm < 0.5 || gs.money < oilCost || dist(g.bike.pos, pl.door) > 10,
+      keepOpen: true,
+      onSelect: () => {
+        const r = gs.changeOil();
+        g.hud.toast(r.msg, r.ok ? 'good' : 'bad');
+        if (r.ok) {
+          sfx.cash();
+          g.advance(r.minutes, 'idle', { indoor: true, waiting: true });
+        }
+        if (g.state === 'play') reopen();
+      },
     });
   }
   choices.push(...activityChoices(g, pl).map((c) => ({ ...c, onSelect: () => { c.onSelect(); } })));
@@ -1008,10 +1181,13 @@ function sleepChoices(g) {
   const { gs } = g;
   const S = ENERGY.sleep;
   const busy = !!g.om.order;
+  // muốn ngủ phải chạy xe vào hầm, xuống xe dựng trong hầm (xe đang bị cẩu thì thôi — xe không có ở đây)
+  const noBike = !gs.towed && !g.bikeInGarage();
+  const why = busy ? fmt('dlg.sleepBusy') : noBike ? fmt(g.mode === 'bike' ? 'dlg.sleepDismount' : 'dlg.sleepGarage') : '';
   const opt = (min, key) => ({
     label: fmt(key, { h: +(min / 60).toFixed(1), time: fmtClock(g.clockMin + min) }),
-    hint: busy ? fmt('dlg.sleepBusy') : fmt('dlg.sleepHint', { phys: Math.round((S.physPerHour * min) / 60), mental: Math.round((S.mentalPerHour * min) / 60) }),
-    disabled: busy,
+    hint: why || fmt('dlg.sleepHint', { phys: Math.round((S.physPerHour * min) / 60), mental: Math.round((S.mentalPerHour * min) / 60) }),
+    disabled: !!why,
     onSelect: () => {
       if (g.sleep(min) == null) return;
       sfx.click();
@@ -1021,7 +1197,7 @@ function sleepChoices(g) {
   const untilMorning = minutesUntil(g.clockMin, TIME.dayStart / 60);
   const list = [2, 4, 6, 8].map((h) => opt(h * 60, 'dlg.sleep'));
   // "tới sáng" khi còn ≤ 10 tiếng nữa là 06:00 (đêm khuya)
-  if (untilMorning <= 10 * 60 && ![2, 4, 6, 8].includes(untilMorning / 60)) list.unshift({ ...opt(untilMorning, 'dlg.sleepUntil'), primary: !busy });
+  if (untilMorning <= 10 * 60 && ![2, 4, 6, 8].includes(untilMorning / 60)) list.unshift({ ...opt(untilMorning, 'dlg.sleepUntil'), primary: !why });
   return list;
 }
 
@@ -1030,22 +1206,24 @@ function wornText(gs) {
   return Object.values(gs.wornGoods()).map((x) => `${x.icon || ''} ${x.name}`).join(' · ') || fmt('dlg.invNone');
 }
 
-// Tủ đồ ở phòng trọ: mặc trang phục đã mua (đồ giá 0 có sẵn)
+// Tủ đồ ở phòng trọ: mặc trang phục đã mua (đồ giá 0 có sẵn); phụ kiện đang đeo thì bấm để tháo
 function wardrobe(g) {
   const { gs } = g;
   const worn = gs.wornIds();
   const choices = [];
   for (const slot of Object.keys(OUTFIT_SLOTS)) {
+    const acc = isAccessorySlot(slot);
     for (const s of Object.values(GOODS)) {
       if (s.type !== 'outfit' || s.slot !== slot || !gs.ownsOutfit(s.id)) continue;
       const on = worn[slot] === s.id;
       choices.push({
         label: `${on ? '✔ ' : ''}${s.icon || ''} ${s.name}`,
-        hint: fmt(on ? 'dlg.wardrobeWearing' : 'dlg.wardrobeItem', { slot: fmt(`outfit.slot.${slot}`), desc: s.desc || '' }),
-        disabled: on,
+        hint: fmt(on ? (acc ? 'dlg.wardrobeTakeOff' : 'dlg.wardrobeWearing') : 'dlg.wardrobeItem', { slot: fmt(`outfit.slot.${slot}`), desc: s.desc || '' }),
+        disabled: on && !acc,
         keepOpen: true,
         onSelect: () => {
-          gs.wear(s.id);
+          if (on) gs.takeOff(slot);
+          else gs.wear(s.id);
           sfx.click();
           wardrobe(g);
         },
@@ -1153,45 +1331,4 @@ export function policeStop(g, p, speed) {
   ], { dismissible: false });
 }
 
-// ======================== TÚI ĐỒ ========================
-export function openInventory(g) {
-  const { gs } = g;
-  const v = gs.vehicleSpec, b = gs.bagSpec;
-  const gear = Object.values(GOODS).filter((x) => x.type === 'equipment' && gs.has(x.id)).map((x) => `${x.icon || ''} ${x.name}`).join(', ') || fmt('dlg.invNoGear');
-  const choices = [];
-  // đồ dùng 1 lần: bấm để dùng (đồ mang theo thì chỉ dùng ở địa điểm)
-  for (const [id, n] of Object.entries(gs.consumables)) {
-    const s = GOODS[id];
-    if (!s || n <= 0 || s.type !== 'consumable') continue;
-    choices.push({
-      label: fmt('dlg.invUse', { icon: s.icon || '', name: s.name, n, min: s.use?.minutes || 0 }),
-      hint: gainText(s.use || {}),
-      onSelect: () => {
-        const r = gs.useConsumable(id);
-        if (!r.ok) return;
-        if (r.minutes) g.advance(r.minutes, 'idle', { waiting: false });
-        sfx.click();
-        g.hud.toast(fmt('toast.used', { name: s.name, gains: gainText(s.use || {}) }), 'good');
-        if (g.state === 'play') openInventory(g);
-      },
-    });
-  }
-  if (gs.hasItem('wallet')) choices.push({ label: fmt('dlg.invWallet'), onSelect: () => viewWallet(g) });
-  choices.push({ label: fmt('dlg.invClose') });
-  const row = (l, val) => `<div class="kv"><span>${l}</span><b>${val}</b></div>`;
-  const held = (type) => Object.entries(gs.consumables).filter(([id, n]) => GOODS[id]?.type === type && n > 0);
-  const cons = held('consumable').map(([id, n]) => `${GOODS[id].icon || ''} ${GOODS[id].name} ×${n}`).join(', ');
-  const carry = held('carry').map(([id, n]) => fmt('dlg.carryItem', { icon: GOODS[id].icon || '', name: GOODS[id].name, n, where: whereUsed(g, id) })).join('<br>');
-  g.modal.show({
-    title: fmt('dlg.invTitle'),
-    html: row(fmt('dlg.invVehicle'), `${v.name} · ${gs.bikeHp.toFixed(0)}%`) +
-      row(fmt('dlg.invFuel'), `${gs.fuel.toFixed(2)} / ${v.tank} L`) +
-      row(fmt('dlg.invBag'), b.name) +
-      row(fmt('dlg.invGear'), gear) +
-      row(fmt('dlg.invOutfit'), wornText(gs)) +
-      row(fmt('dlg.invConsumables'), cons || fmt('dlg.invNone')) +
-      (carry ? row(fmt('dlg.invCarry'), carry) : '') +
-      row(fmt('dlg.invItems'), gs.inventory.length ? fmt('dlg.invWalletItem') : fmt('dlg.invNone')),
-    choices,
-  });
-}
+// Túi đồ: app 🎒 trên điện thoại (src/ui/phone.js), thao tác ở bagUse / bagWear phía trên.

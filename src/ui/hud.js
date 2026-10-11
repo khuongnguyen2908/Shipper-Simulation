@@ -13,10 +13,10 @@ export class Hud {
       <div class="hud-tl panel">
         <div class="r1"><b id="hTime">06:00</b><span id="hDay">Ngày 1</span><span id="hWeather">☀️</span></div>
         <div class="r-dist" id="hDistrict"></div>
-        <div class="r2"><span>💰 <b id="hMoney"></b></span><span>⭐ <b id="hRating"></b></span></div>
+        <div class="r2"><span>💰 <b id="hMoney"></b></span><span id="rRating">⭐ <b id="hRating"></b></span></div>
         <div class="bar"><label>${fmt('hud.phys')}</label><div class="track"><div id="bPhys" class="fill phys"></div></div></div>
         <div class="bar"><label>${fmt('hud.mental')}</label><div class="track"><div id="bMental" class="fill mental"></div></div></div>
-        <div class="bar"><label>${fmt('hud.fuel')}</label><div class="track"><div id="bFuel" class="fill fuel"></div></div></div>
+        <div class="bar" id="rFuel"><label id="lFuel">${fmt('hud.fuel')}</label><div class="track"><div id="bFuel" class="fill fuel"></div></div></div>
         <div class="bar"><label>${fmt('hud.hp')}</label><div class="track"><div id="bHp" class="fill hp"></div></div></div>
       </div>
       <div class="hud-goal"><div id="gArrow" class="g-arrow">▲</div><div><div id="gText"></div><div id="gSub"></div></div></div>
@@ -55,10 +55,19 @@ export class Hud {
     this.set('hWeather', d.weather);
     this.set('hDistrict', d.district ? fmt('hud.district', { name: d.district }) : '');
     this.set('hMoney', fmtK(d.money));
-    this.set('hRating', d.rating.toFixed(2));
+    // điểm đánh giá: chỉ có khi đã vào hãng (rating = null → ẩn)
+    $(this.el, '#rRating').style.display = d.rating == null ? 'none' : '';
+    if (d.rating != null) this.set('hRating', d.rating.toFixed(2));
     this.bar('bPhys', d.phys);
     this.bar('bMental', d.mental);
-    this.bar('bFuel', (d.fuel / d.tank) * 100);
+    // thanh năng lượng theo loại xe: xăng · pin (xe điện) · ẩn (xe đạp)
+    const pedal = d.power === 'pedal';
+    if (this.cache.power !== d.power) {
+      this.cache.power = d.power;
+      $(this.el, '#rFuel').style.display = pedal ? 'none' : '';
+      $(this.el, '#lFuel').textContent = fmt(d.power === 'electric' ? 'hud.battery' : 'hud.fuel');
+    }
+    if (!pedal) this.bar('bFuel', d.tank > 0 ? (d.fuel / d.tank) * 100 : 0);
     this.bar('bHp', d.hp);
     this.set('objList', d.objectives.map((o) => `<li class="${o.done ? 'done' : ''}${o.optional ? ' opt' : ''}${o.current ? ' cur' : ''}">${o.done ? '✔' : o.optional ? '◇' : '○'} ${o.optional ? fmt('obj.optionalPrefix') : ''}${o.text}</li>`).join(''));
     this.set('gText', d.goal ? d.goal.text : '');

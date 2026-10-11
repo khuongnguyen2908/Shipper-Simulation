@@ -48,9 +48,12 @@ export function roundMapData(game, tgt, dt) {
 
   // tiện ích gần nhất luôn có biểu tượng: cây xăng, tiệm sửa xe, nhà trọ, CSGT đã biết, xe đang dựng
   const nearest = (kind) => base.places.filter((p) => p.kind === kind && !p.soon && p.door).sort((a, b) => d2(at, a.door) - d2(at, b.door))[0];
-  const gas = nearest('gas'), fix = nearest('garage'), home = game.layout.placeById.home;
-  if (gas) markers.push({ ...gas.door, icon: '⛽', ring: '#e74c3c', r: 10 });
-  if (fix) markers.push({ ...fix.door, icon: '🔧', ring: '#e74c3c', r: 10 });
+  // xe điện: trụ sạc + trạm đổi pin thay cho cây xăng + tiệm sửa xe; xe đạp: không cần
+  const power = game.gs?.power || 'gas';
+  const gas = power === 'gas' ? nearest('gas') : power === 'electric' ? nearest('charger') : null;
+  const fix = power === 'gas' ? nearest('garage') : power === 'electric' ? nearest('swap') : null, home = game.layout.placeById.home;
+  if (gas) markers.push({ ...gas.door, icon: power === 'electric' ? '🔌' : '⛽', ring: '#e74c3c', r: 10 });
+  if (fix) markers.push({ ...fix.door, icon: power === 'electric' ? '🔋' : '🔧', ring: '#e74c3c', r: 10 });
   if (home) markers.push({ ...home.door, icon: '🏠', ring: '#7f8c8d', r: 10 });
   for (const p of base.police) markers.push({ ...p, icon: '👮', ring: '#2c3e50', r: 11 });
   if (base.bike) markers.push({ ...base.bike, icon: '🛵', ring: '#5dade2', r: 11 });

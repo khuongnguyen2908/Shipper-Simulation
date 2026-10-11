@@ -831,7 +831,9 @@
           "raincoat",
           "spareHelmet",
           "jacket",
-          "comfyShoes"
+          "comfyShoes",
+          "gangTay",
+          "kinhRam"
         ],
         "bags": [
           "thermal",
@@ -2750,7 +2752,9 @@
         "goods": [
           "energyDrink",
           "raincoat",
-          "jacket"
+          "jacket",
+          "khauTrang",
+          "depToOng"
         ]
       },
       "npc": {
@@ -3394,12 +3398,13 @@
       },
       "sells": {
         "vehicles": [
-          "cub",
           "wave",
           "scooter",
           "exciter",
           "sport",
-          "SH"
+          "SH",
+          "evPlus",
+          "evPro"
         ]
       }
     },
@@ -3699,6 +3704,116 @@
         "portrait": "⛴️",
         "gender": "f"
       }
+    },
+    {
+      "id": "officeGoship",
+      "name": "Văn phòng GripBike",
+      "short": "GoShip",
+      "kind": "office",
+      "brand": "goship",
+      "lot": "N0",
+      "floors": 3,
+      "color": "#d5f5e3",
+      "sign": "GOSHIP – TUYỂN TÀI XẾ",
+      "signBg": "#00b14f",
+      "look": "tower",
+      "npc": {
+        "name": "Chị Ngân tuyển dụng",
+        "shirt": "#00b14f",
+        "pants": "#2c3e50",
+        "hat": null,
+        "portrait": "🛵",
+        "gender": "f"
+      },
+      "hours": "caNgay",
+      "block": [
+        4,
+        3
+      ]
+    },
+    {
+      "id": "officeHongsm",
+      "name": "Văn phòng HồngSM",
+      "short": "HồngSM",
+      "kind": "office",
+      "brand": "hongsm",
+      "lot": "N0",
+      "floors": 3,
+      "color": "#fadbd8",
+      "sign": "HỒNGSM – TUYỂN TÀI XẾ",
+      "signBg": "#e84393",
+      "look": "modern",
+      "npc": {
+        "name": "Anh Huy tuyển dụng",
+        "shirt": "#e84393",
+        "pants": "#2c3e50",
+        "hat": null,
+        "portrait": "⚡",
+        "gender": "m"
+      },
+      "hours": "caNgay",
+      "block": [
+        6,
+        4
+      ]
+    },
+    {
+      "id": "chargerA",
+      "name": "Trụ sạc HồngSM",
+      "short": "Sạc",
+      "kind": "charger",
+      "lot": "S0",
+      "floors": 1,
+      "color": "#fdedec",
+      "sign": "TRẠM SẠC XE ĐIỆN",
+      "signBg": "#e84393",
+      "look": "gas",
+      "hours": "caNgay",
+      "block": [
+        5,
+        5
+      ]
+    },
+    {
+      "id": "chargerB",
+      "name": "Trụ sạc Bến Xanh",
+      "short": "Sạc",
+      "kind": "charger",
+      "lot": "S2",
+      "floors": 1,
+      "color": "#fdedec",
+      "sign": "TRẠM SẠC XE ĐIỆN",
+      "signBg": "#e84393",
+      "look": "gas",
+      "hours": "caNgay",
+      "block": [
+        9,
+        9
+      ]
+    },
+    {
+      "id": "swapA",
+      "name": "Trạm đổi pin HồngSM",
+      "short": "Đổi pin",
+      "kind": "swap",
+      "lot": "N2",
+      "floors": 2,
+      "color": "#f5eef8",
+      "sign": "ĐỔI PIN 3 PHÚT",
+      "signBg": "#8e44ad",
+      "look": "repair",
+      "npc": {
+        "name": "Kỹ thuật viên Tâm",
+        "shirt": "#8e44ad",
+        "pants": "#2c3e50",
+        "hat": null,
+        "portrait": "🔋"
+      },
+      "hours": "caNgay",
+      "block": [
+        7,
+        6
+      ]
     }
   ]
 }

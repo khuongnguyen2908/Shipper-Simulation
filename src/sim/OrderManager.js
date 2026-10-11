@@ -145,6 +145,7 @@ export class OrderManager {
       if (!inHours(APP.hours, now)) return; // ngoài giờ app nhận đơn (apps.json → hours)
       if (demandAt(now) <= 0) return; // giờ này không có ai đặt
       if (this.gs.lockedUntil > now) return; // tài khoản đang bị tạm khóa nhận đơn
+      if (this.gs.workBlock()) return; // chưa vào hãng / đang đi xe không đúng loại hãng yêu cầu (xe đạp, xe xăng ↔ xe điện)
       this.nextPingIn -= dtMin;
       if (this.nextPingIn <= 0) {
         this.offer = this.makeOffer(now, pos);

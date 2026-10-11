@@ -1,5 +1,21 @@
 {
   "vehicles": {
+    "xeDap": {
+      "id": "xeDap",
+      "name": "Xe đạp cũ",
+      "maxSpeed": 5,
+      "accel": 2.2,
+      "brake": 6,
+      "steer": 2.4,
+      "suspension": 0.15,
+      "fuelPer100km": 0,
+      "tank": 0,
+      "price": 0,
+      "color": "#2c3e50",
+      "model": "bicycle",
+      "power": "pedal",
+      "desc": "Chiếc xe đạp mang theo từ quê. Đi lại được, nhưng chưa vào hãng thì chưa chạy đơn được."
+    },
     "cub": {
       "id": "cub",
       "name": "Cub cũ 50cc",
@@ -13,7 +29,8 @@
       "price": 0,
       "color": "#3a6fb0",
       "model": "cub",
-      "desc": "Xe ông nội để lại. Chạy được là mừng."
+      "desc": "Xe GoShip cấp khi vào hãng (đặt cọc). Cũ nhưng bền.",
+      "power": "gas"
     },
     "wave": {
       "id": "wave",
@@ -28,7 +45,8 @@
       "price": 200,
       "color": "#c22e2e",
       "model": "underbone",
-      "desc": ""
+      "desc": "",
+      "power": "gas"
     },
     "scooter": {
       "id": "scooter",
@@ -43,7 +61,8 @@
       "price": 1200,
       "color": "#e8e8e8",
       "model": "scooter",
-      "desc": "Êm, tiết kiệm xăng, chạy nhanh hơn."
+      "desc": "Êm, tiết kiệm xăng, chạy nhanh hơn.",
+      "power": "gas"
     },
     "exciter": {
       "id": "exciter",
@@ -58,7 +77,8 @@
       "price": 1500,
       "color": "#302ec2",
       "model": "sport",
-      "desc": ""
+      "desc": "",
+      "power": "gas"
     },
     "sport": {
       "id": "sport",
@@ -73,7 +93,8 @@
       "price": 4500,
       "color": "#000000",
       "model": "sport",
-      "desc": "Nhanh, giảm xóc tốt, chở canh không đổ."
+      "desc": "Nhanh, giảm xóc tốt, chở canh không đổ.",
+      "power": "gas"
     },
     "SH": {
       "id": "SH",
@@ -88,7 +109,56 @@
       "price": 6000,
       "color": "#d5c8c8",
       "model": "scooter",
-      "desc": ""
+      "desc": "",
+      "power": "gas"
+    },
+    "evStd": {
+      "id": "evStd",
+      "name": "Xe điện tiêu chuẩn",
+      "maxSpeed": 12.5,
+      "accel": 4.5,
+      "brake": 9.5,
+      "steer": 2.3,
+      "suspension": 0.3,
+      "fuelPer100km": 2,
+      "tank": 1.5,
+      "price": 0,
+      "color": "#e84393",
+      "model": "scooter",
+      "power": "electric",
+      "desc": "Xe HồngSM cấp khi vào hãng (đặt cọc). Sạc ở trụ sạc, đổi pin ở trạm đổi pin."
+    },
+    "evPlus": {
+      "id": "evPlus",
+      "name": "Xe điện Ga Plus",
+      "maxSpeed": 16.7,
+      "accel": 5.5,
+      "brake": 11,
+      "steer": 2.4,
+      "suspension": 0.6,
+      "fuelPer100km": 2.2,
+      "tank": 2.5,
+      "price": 1300,
+      "color": "#f5f6fa",
+      "model": "scooter",
+      "power": "electric",
+      "desc": "Êm, pin lớn hơn, chạy nhanh hơn."
+    },
+    "evPro": {
+      "id": "evPro",
+      "name": "Xe điện Pro",
+      "maxSpeed": 20.8,
+      "accel": 7.5,
+      "brake": 12,
+      "steer": 2.4,
+      "suspension": 0.7,
+      "fuelPer100km": 2.6,
+      "tank": 3.5,
+      "price": 3000,
+      "color": "#1abc9c",
+      "model": "scooter",
+      "power": "electric",
+      "desc": "Mạnh, pin rất lớn, giảm xóc tốt."
     }
   },
   "bags": {

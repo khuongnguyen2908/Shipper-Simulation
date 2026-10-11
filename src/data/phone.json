@@ -1,0 +1,52 @@
+{
+  "apps": [
+    {
+      "id": "goship",
+      "icon": "🛵",
+      "color": "#00b14f",
+      "hidden": false
+    },
+    {
+      "id": "account",
+      "icon": "👤",
+      "color": "#e67e22",
+      "hidden": false
+    },
+    {
+      "id": "map",
+      "icon": "🗺️",
+      "color": "#2e86de",
+      "hidden": false
+    },
+    {
+      "id": "chat",
+      "icon": "💬",
+      "color": "#5dade2",
+      "hidden": false
+    },
+    {
+      "id": "wallet",
+      "icon": "💳",
+      "color": "#8e44ad",
+      "hidden": false
+    },
+    {
+      "id": "bag",
+      "icon": "🎒",
+      "color": "#7f8c8d",
+      "hidden": false
+    },
+    {
+      "id": "bike",
+      "icon": "🏍️",
+      "color": "#c0392b",
+      "hidden": false
+    },
+    {
+      "id": "police",
+      "icon": "🚓",
+      "color": "#34495e",
+      "hidden": false
+    }
+  ]
+}

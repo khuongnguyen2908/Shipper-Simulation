@@ -2,12 +2,13 @@
 // Chỉ cho đổi qua lại giữa các loại "chung" — loại gắn với cốt truyện / code gọi thẳng thì không:
 //  - cafe, taphoa: nhiệm vụ chiếc ví (anh Minh đợi ở quán cà phê, Cô Ba chỉ đường) → chỉ có ở địa điểm gốc
 //  - home, gate, apartment: chỉ có một, code gọi thẳng theo mã
-export const CHANGEABLE_KINDS = ['restaurant', 'gas', 'shop', 'garage', 'market', 'service'];
-// loại sao chép / dán được (không gắn cốt truyện): các loại đổi được + cảnh quan + đồn công an
-export const COPYABLE_KINDS = [...CHANGEABLE_KINDS, 'scenery', 'police'];
+//  - office (văn phòng hãng): cần ô "Hãng" → không đổi qua lại, nhưng sao chép / dán được
+export const CHANGEABLE_KINDS = ['restaurant', 'gas', 'shop', 'garage', 'market', 'service', 'charger', 'swap'];
+// loại sao chép / dán được (không gắn cốt truyện): các loại đổi được + cảnh quan + đồn công an + văn phòng hãng
+export const COPYABLE_KINDS = [...CHANGEABLE_KINDS, 'scenery', 'police', 'office'];
 
 // Biểu tượng mặc định theo loại (trùng với bản đồ) — đổi loại thì bỏ biểu tượng mặc định cũ để lấy cái mới
-const DEFAULT_ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', service: '⭐', scenery: '🌳', police: '🚓' };
+const DEFAULT_ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', service: '⭐', scenery: '🌳', police: '🚓', office: '🏢', charger: '🔌', swap: '🔋' };
 
 // locked: địa điểm có khóa (PROTECTED) → không đổi loại được
 export function canChangeKind(p, locked) {

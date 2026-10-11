@@ -5,14 +5,26 @@
 // =============================================================
 import { ECONOMY, RATING, ENERGY, VEHICLES, BAGS, WALLET_QUEST, NIGHT, PARKING, rentFor, periodOfDay, dueDayOf } from '../data/balance.js';
 import { dayStartAt, atHour, isDark } from './clock.js';
-import { APP } from '../data/apps.js';
-import { GOODS, EFFECTS, OUTFIT_SLOTS, freeOutfit } from '../data/goods.js';
+import { APP, BRANDS } from '../data/apps.js';
+import { GOODS, EFFECTS, OUTFIT_SLOTS, freeOutfit, isAccessorySlot } from '../data/goods.js';
 import { isOpen } from './placeRules.js';
 import { RatingBook } from './economy.js';
 import { fmt } from '../content/index.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+export const NAME_MAX = 20;
+// Hồ sơ shipper (đặt khi Chơi mới): tên + giới tính 'm' | 'f'. Thiếu / hỏng → tên mặc định, nam
+export function normProfile(p) {
+  const name = String(p?.name ?? '').replace(/\s+/g, ' ').trim().slice(0, NAME_MAX);
+  return { name: name || fmt('profile.defaultName'), gender: p?.gender === 'f' ? 'f' : 'm' };
+}
 const freshStats = () => ({ completed: 0, refused: 0, cancelled: 0, driverCancels: 0, bom: 0, stars: [], income: {}, expense: {}, distanceKm: 0, crashes: 0, fines: 0 });
+const freshAccount = () => ({ offers: 0, accepted: 0, recent: [], completed: 0, rides: 0, driverCancels: 0, bom: 0 });
+const freshRating = () => new RatingBook({ count: RATING.startCount, sum: RATING.startCount * RATING.startAvg });
+// Xe khởi đầu (xe đạp): chưa vào hãng thì chưa chạy đơn được
+export const START_VEHICLE = 'xeDap';
+// Xe mới (mua / hãng cấp) có sẵn bấy nhiêu phần bình xăng / pin
+const NEW_TANK = 0.15;
 // Kỳ tiền nhà mới: tiền kỳ này + nợ kỳ trước (đã cộng phạt)
 const newRent = (period, debt, late) => ({ period, amount: rentFor(period), debt, paid: false, late });
 
@@ -20,16 +32,33 @@ export class GameState {
   constructor({ day = 1, carry = null } = {}) {
     const c = carry || {};
     this.day = day;
+    this.profile = normProfile(c.profile);
     this.money = c.money ?? ECONOMY.startMoney;
-    this.ratingBook = new RatingBook(c.rating ?? { count: RATING.startCount, sum: RATING.startCount * RATING.startAvg });
-    this.owned = c.owned ?? { vehicles: ['cub'], bags: ['nylon'], gear: [] };
-    this.vehicle = c.vehicle ?? 'cub';
+    this.ratingBook = c.rating ? new RatingBook(c.rating) : freshRating();
+    // bản lưu trước khi có hãng (có đồ nhưng chưa có ô brand): coi như đang chạy GoShip bằng Cub, chưa đặt cọc
+    const oldSave = !!c.owned && c.brand === undefined;
+    this.owned = c.owned ? { ...c.owned, vehicles: [...c.owned.vehicles] } : { vehicles: [START_VEHICLE], bags: ['nylon'], gear: [] };
+    if (VEHICLES[START_VEHICLE] && !this.owned.vehicles.includes(START_VEHICLE)) this.owned.vehicles.unshift(START_VEHICLE);
+    this.vehicle = c.vehicle ?? START_VEHICLE;
     this.bag = c.bag ?? 'nylon';
-    this.fuel = c.fuel ?? 0.35; // lít — xe gần cạn để người chơi phải đổ xăng
-    this.bikeHp = c.bikeHp ?? 100;
+    // hãng đang chạy (null = chưa vào hãng) · xe hãng cấp (nghỉ hãng thì trả lại) · tiền cọc đã đặt (nghỉ thì hoàn)
+    this.brand = oldSave ? 'goship' : c.brand ?? null;
+    this.companyVehicle = oldSave ? null : c.companyVehicle ?? null;
+    this.depositPaid = c.depositPaid ?? 0;
+    // trạng thái riêng từng xe: fuel (lít xăng / kWh pin), hp (độ bền %), maintKm (km từ lần thay nhớt / đổi pin)
+    this.vstate = {};
+    for (const [id, v] of Object.entries(c.vstate || {})) this.vstate[id] = { ...v };
+    if (!c.vstate && c.owned) this.vstate[this.vehicle] = { fuel: c.fuel ?? 0, hp: c.bikeHp ?? 100, maintKm: c.oilKm ?? 0 }; // bản lưu cũ: 1 bộ số chung
+    this.odoKm = c.odoKm ?? 0; // đồng hồ km: tổng quãng đường đã chạy (mọi xe)
     this.inventory = c.inventory ?? []; // vật phẩm nhiệm vụ (ví…)
     this.consumables = { ...(c.consumables || {}) }; // đồ dùng 1 lần + đồ mang theo (dùng tại địa điểm): mã → số lượng
-    this.outfit = { ...(c.outfit || {}) }; // trang phục đang mặc: chỗ mặc → mã (trống = đồ có sẵn)
+    this.outfit = { ...(c.outfit || {}) }; // trang phục đang mặc: chỗ mặc → mã (trống = đồ có sẵn; phụ kiện null = đã tháo)
+    // bản lưu cũ: giày từng là trang bị (mua là có tác dụng) → nay là trang phục; đã mua thì tự mang vào
+    for (const slot of Object.keys(OUTFIT_SLOTS)) {
+      if (isAccessorySlot(slot) || this.outfit[slot] !== undefined) continue;
+      const own = this.owned.gear.find((id) => GOODS[id]?.type === 'outfit' && GOODS[id].slot === slot);
+      if (own) this.outfit[slot] = own;
+    }
     this.activityUses = {}; // số lần làm hoạt động hôm nay: 'địaĐiểm.hoạtĐộng' → lần
     // đậu xe (src/sim/parking.js): parked = lần đậu hiện tại { since, safe, ticketed, robbed } (null khi đang chạy xe)
     // towed = xe bị cẩu về bãi { placeId, fee } — chuộc rồi mới lấy được (lưu qua các lần chơi)
@@ -54,7 +83,7 @@ export class GameState {
     this.events = []; // sự kiện cho giao diện: trễ tiền nhà, sang kỳ mới, bị đuổi
     // Tài khoản tài xế (giữ qua các ngày): số đơn được mời / đã nhận, các lần mời gần đây (1 nhận · 0 bỏ),
     // tổng đơn hoàn thành, số chuyến xe ôm, số lần tự hủy, số đơn bị bom
-    this.account = { offers: 0, accepted: 0, recent: [], completed: 0, rides: 0, driverCancels: 0, bom: 0, ...(c.account || {}) };
+    this.account = { ...freshAccount(), ...(c.account || {}) };
     this.lockedUntil = 0; // tạm khóa nhận đơn tới phút này (tự hủy quá nhiều trong ngày)
     this.outcome = null;
   }
@@ -93,7 +122,109 @@ export class GameState {
   }
   // (dữ liệu có thể bị xóa trong ?editor → rơi về đồ khởi đầu)
   get vehicleSpec() {
-    return VEHICLES[this.vehicle] || VEHICLES.cub;
+    return VEHICLES[this.vehicle] || VEHICLES[START_VEHICLE] || VEHICLES.cub;
+  }
+  // Loại xe đang dùng: 'gas' (xăng) · 'electric' (điện) · 'pedal' (xe đạp)
+  get power() {
+    return this.vehicleSpec.power || 'gas';
+  }
+  // Số liệu riêng của một xe (mặc định xe đang dùng). Xăng / pin, độ bền, km bảo dưỡng không dùng chung giữa các xe.
+  vs(id = this.vehicle) {
+    return (this.vstate[id] ||= { fuel: 0, hp: 100, maintKm: 0 });
+  }
+  get fuel() {
+    return this.vs().fuel;
+  }
+  set fuel(v) {
+    this.vs().fuel = v;
+  }
+  get bikeHp() {
+    return this.vs().hp;
+  }
+  set bikeHp(v) {
+    this.vs().hp = v;
+  }
+  get maintKm() {
+    return this.vs().maintKm;
+  }
+  set maintKm(v) {
+    this.vs().maintKm = v;
+  }
+  // Xe mới vào tay (mua / hãng cấp): đầy độ bền, nhớt / pin mới, ít xăng / pin
+  newVehicleState(id) {
+    this.vstate[id] = { fuel: (VEHICLES[id]?.tank || 0) * NEW_TANK, hp: 100, maintKm: 0 };
+  }
+
+  // ---------- hãng xe công nghệ ----------
+  get brandSpec() {
+    return BRANDS[this.brand] || null;
+  }
+  // Có nhận đơn được không: null = được · 'noBrand' chưa vào hãng · 'wrongVehicle' xe không đúng loại hãng yêu cầu
+  workBlock() {
+    const b = this.brandSpec;
+    if (!b) return 'noBrand';
+    if (this.power !== (b.power || 'gas')) return 'wrongVehicle';
+    return null;
+  }
+  // Vào hãng: đặt cọc, nhận xe hãng. Đang ở hãng khác → đổi hãng = cày lại từ đầu
+  // (trả xe hãng cũ + hoàn cọc; điểm đánh giá, số đơn, tỉ lệ nhận đơn về như người mới; tiền và đồ đã mua giữ nguyên)
+  joinBrand(id) {
+    const b = BRANDS[id];
+    if (!b) return { ok: false, msg: fmt('gs.noSuchItem') };
+    if (this.brand === id) return { ok: false, msg: fmt('gs.brandAlready', { brand: b.name }) };
+    const dep = b.deposit || 0, refund = this.brand ? this.depositPaid : 0;
+    if (this.money + refund < dep) return { ok: false, msg: fmt('gs.short', { k: Math.ceil(dep - this.money - refund) }) };
+    const switched = !!this.brand;
+    if (switched) {
+      this.leaveBrand();
+      this.ratingBook = freshRating();
+      this.account = freshAccount();
+      this.lockedUntil = 0;
+    }
+    if (dep) this.spend(dep, 'deposit');
+    this.brand = id;
+    this.depositPaid = dep;
+    const vid = VEHICLES[b.vehicle] ? b.vehicle : null;
+    if (vid) {
+      if (!this.owned.vehicles.includes(vid)) {
+        this.owned.vehicles.push(vid);
+        this.newVehicleState(vid);
+        this.companyVehicle = vid;
+      }
+      this.vehicle = vid;
+    }
+    return { ok: true, switched, msg: fmt(switched ? 'gs.brandSwitched' : 'gs.brandJoined', { brand: b.name, k: dep }) };
+  }
+  // Nghỉ hãng (khi đổi hãng): trả xe hãng cấp, hoàn tiền cọc
+  leaveBrand() {
+    const cv = this.companyVehicle;
+    if (cv) {
+      this.owned.vehicles = this.owned.vehicles.filter((v) => v !== cv);
+      delete this.vstate[cv];
+      if (this.vehicle === cv) this.vehicle = START_VEHICLE;
+    }
+    if (this.depositPaid) this.earn(this.depositPaid, 'depositBack');
+    this.brand = null;
+    this.companyVehicle = null;
+    this.depositPaid = 0;
+  }
+  // Bán xe đã mua: được ECONOMY.sellPct (50%) giá xe mới. Xe đạp khởi đầu và xe hãng cấp không bán được.
+  sellPrice(id) {
+    const v = VEHICLES[id];
+    return v ? Math.round(v.price * (ECONOMY.sellPct ?? 0.5)) : 0;
+  }
+  canSell(id) {
+    const v = VEHICLES[id];
+    return !!v && this.owned.vehicles.includes(id) && id !== START_VEHICLE && id !== this.companyVehicle && v.power !== 'pedal' && this.sellPrice(id) > 0;
+  }
+  sellVehicle(id) {
+    if (!this.canSell(id)) return { ok: false, msg: fmt('gs.cantSell') };
+    const k = this.sellPrice(id);
+    this.owned.vehicles = this.owned.vehicles.filter((v) => v !== id);
+    delete this.vstate[id];
+    if (this.vehicle === id) this.vehicle = this.companyVehicle && this.owned.vehicles.includes(this.companyVehicle) ? this.companyVehicle : START_VEHICLE;
+    this.earn(k, 'sellVehicle');
+    return { ok: true, k, msg: fmt('gs.sold', { name: VEHICLES[id].name, k }) };
   }
   get bagSpec() {
     return BAGS[this.bag] || BAGS.nylon;
@@ -128,13 +259,14 @@ export class GameState {
     const g = GOODS[id];
     return !!g && g.type === 'outfit' && (g.price === 0 || this.owned.gear.includes(id));
   }
-  // Mã món đang mặc ở từng chỗ (món đã mất/bị xóa → rơi về món có sẵn; không có thì bỏ trống)
+  // Mã món đang mặc ở từng chỗ (món đã mất/bị xóa → rơi về món có sẵn; không có thì bỏ trống).
+  // Phụ kiện không tự đeo món có sẵn: chưa gắn / đã tháo là trống.
   wornIds() {
     const out = {};
     for (const slot of Object.keys(OUTFIT_SLOTS)) {
       const id = this.outfit[slot];
       const ok = id && this.ownsOutfit(id) && GOODS[id].slot === slot;
-      const pick = ok ? id : freeOutfit(GOODS, slot)?.id;
+      const pick = ok ? id : isAccessorySlot(slot) ? null : freeOutfit(GOODS, slot)?.id;
       if (pick) out[slot] = pick;
     }
     return out;
@@ -144,9 +276,19 @@ export class GameState {
     return Object.fromEntries(Object.entries(this.wornIds()).map(([slot, id]) => [slot, GOODS[id]]));
   }
   wear(id) {
-    if (!this.ownsOutfit(id)) return false;
+    if (!this.ownsOutfit(id) || !OUTFIT_SLOTS[GOODS[id].slot]) return false;
     this.outfit[GOODS[id].slot] = id;
     return true;
+  }
+  // Tháo phụ kiện (áo, quần, nón, giày thì chỉ thay chứ không tháo)
+  takeOff(slot) {
+    if (!isAccessorySlot(slot) || !this.wornIds()[slot]) return false;
+    this.outfit[slot] = null;
+    return true;
+  }
+  isWorn(id) {
+    const g = GOODS[id];
+    return !!g && g.type === 'outfit' && this.wornIds()[g.slot] === id;
   }
   countOf(goodsId) {
     return this.consumables[goodsId] || 0;
@@ -210,7 +352,7 @@ export class GameState {
   }
 
   // Tiêu hao theo hoạt động mỗi dt phút game
-  // activity: 'idle' | 'walk' | 'run' | 'drive' | 'push' · 'sleep' (ngủ ở nhà: hồi lại) · 'nap' (chợp mắt ngoài: hồi ít hơn) · 'rest' (nằm bắt buộc khi kiệt sức: không đổi)
+  // activity: 'idle' | 'walk' | 'run' | 'drive' | 'pedal' (đạp xe đạp) | 'push' · 'sleep' (ngủ ở nhà: hồi lại) · 'nap' (chợp mắt ngoài: hồi ít hơn) · 'rest' (nằm bắt buộc khi kiệt sức: không đổi)
   // env.now (phút tuyệt đối): để tính thức quá lâu
   drain(activity, dt, env) {
     if (activity === 'sleep' || activity === 'nap') {
@@ -228,6 +370,8 @@ export class GameState {
       p += P.rain;
       m += M.rain;
     }
+    // gắn áo mưa mà trời không mưa (ban ngày, ngoài trời) → nóng, mệt thêm
+    if (!env.raining && env.outdoor && env.now != null && !isDark(env.now) && this.effect('rainProtect')) p += P.raincoatHot || 0;
     if (env.inJam) m += M.jam;
     if (env.outdoor && env.now != null && isDark(env.now)) m += NIGHT.mentalPerMin || 0; // chạy đêm: đường vắng, sợ
     if (env.waiting) m += M.wait;
@@ -303,14 +447,15 @@ export class GameState {
     ownList.push(id);
     if (category === 'vehicles') {
       this.vehicle = id;
-      this.fuel = Math.min(this.fuel, VEHICLES[id].tank);
-      this.bikeHp = 100;
+      this.newVehicleState(id); // xe mới: đầy độ bền, nhớt / pin mới, ít xăng / pin
     }
     if (category === 'bags') this.bag = id;
     return { ok: true, msg: fmt('gs.bought', { name: spec.name }) };
   }
 
+  // Đổ xăng (chỉ xe xăng; xe điện sạc ở trụ sạc, xe đạp không cần)
   refuel() {
+    if (this.power !== 'gas') return { ok: false, msg: fmt(this.power === 'electric' ? 'gs.evNoGas' : 'gs.pedalNoFuel') };
     const tank = this.vehicleSpec.tank;
     const need = Math.max(0, tank - this.fuel);
     if (need < 0.05) return { ok: false, msg: fmt('gs.tankFull') };
@@ -329,6 +474,71 @@ export class GameState {
     if (!this.spend(ECONOMY.repairCost, 'repair')) return { ok: false, msg: fmt('gs.noRepairMoney') };
     this.bikeHp = 100;
     return { ok: true, msg: fmt('gs.repaired') };
+  }
+
+  // ---------- bảo dưỡng (xe xăng: thay nhớt · xe điện: thay pin) + đồng hồ km ----------
+  // Mốc bảo dưỡng của xe đang dùng (xe đạp không cần → vô hạn)
+  get maintIntervalKm() {
+    const p = this.power;
+    if (p === 'electric') return Math.max(1, ECONOMY.batteryIntervalKm ?? 180);
+    if (p === 'gas') return Math.max(1, ECONOMY.oilIntervalKm ?? 180);
+    return Infinity;
+  }
+  // còn chạy được bao nhiêu km tới hạn bảo dưỡng (âm = đã quá hạn)
+  get maintLeftKm() {
+    return this.maintIntervalKm - this.maintKm;
+  }
+  get maintOverdue() {
+    return this.maintLeftKm < 0;
+  }
+  // Hệ số hao xăng / điện do quá hạn bảo dưỡng (1 = bình thường)
+  maintFuelMul() {
+    return this.maintOverdue ? 1 + (ECONOMY.oilFuelPct ?? 0.2) : 1;
+  }
+  // Xe vừa chạy thêm `km`: cộng đồng hồ; quá hạn bảo dưỡng thì xe hao dần theo số km chạy quá
+  addKm(km) {
+    if (!(km > 0)) return;
+    this.odoKm += km;
+    if (this.power === 'pedal') return;
+    const I = this.maintIntervalKm, m = this.maintKm;
+    const over = Math.max(0, m + km - I) - Math.max(0, m - I);
+    this.maintKm = m + km;
+    if (over > 0) this.bikeHp = Math.max(0, this.bikeHp - over * (ECONOMY.oilHpPerKm ?? 0.5));
+  }
+  // Thay nhớt ở tiệm sửa xe (chỉ xe xăng)
+  changeOil() {
+    if (this.power !== 'gas') return { ok: false, msg: fmt('gs.oilNotGas') };
+    const cost = ECONOMY.oilCost ?? 60;
+    if (this.maintKm < 0.5) return { ok: false, msg: fmt('gs.oilFresh') };
+    if (!this.spend(cost, 'oil')) return { ok: false, msg: fmt('gs.noOilMoney', { cost }) };
+    this.maintKm = 0;
+    return { ok: true, minutes: ECONOMY.oilChangeMin ?? 15, msg: fmt('gs.oilChanged', { km: this.maintIntervalKm }) };
+  }
+  // Sạc ở trụ sạc (chỉ xe điện): rẻ nhưng chậm; thiếu tiền thì sạc được bao nhiêu hay bấy nhiêu
+  charge() {
+    if (this.power !== 'electric') return { ok: false, msg: fmt('gs.notEv') };
+    const need = Math.max(0, this.vehicleSpec.tank - this.fuel);
+    if (need < 0.02) return { ok: false, msg: fmt('gs.batteryFull') };
+    const price = ECONOMY.elecPrice ?? 8;
+    const kwh = Math.min(need, this.money / price);
+    if (kwh < 0.02) return { ok: false, msg: fmt('gs.noChargeMoney') };
+    const cost = Math.round(kwh * price * 10) / 10;
+    this.spend(cost, 'charge');
+    this.fuel += kwh;
+    this.flags.refueled = true;
+    const minutes = Math.max(5, Math.ceil(kwh / Math.max(0.001, ECONOMY.chargeKwhPerMin ?? 0.02)));
+    return { ok: true, kwh, cost, minutes, msg: fmt('gs.charged', { kwh: kwh.toFixed(2), cost, min: minutes }) };
+  }
+  // Đổi pin ở trạm đổi pin (chỉ xe điện): đầy pin ngay + tính là bảo dưỡng (như thay nhớt của xe xăng)
+  swapBattery() {
+    if (this.power !== 'electric') return { ok: false, msg: fmt('gs.notEv') };
+    const cost = ECONOMY.swapCost ?? 45;
+    if (this.maintKm < 0.5 && this.vehicleSpec.tank - this.fuel < 0.02) return { ok: false, msg: fmt('gs.batteryFresh') };
+    if (!this.spend(cost, 'swap')) return { ok: false, msg: fmt('gs.noSwapMoney', { cost }) };
+    this.fuel = this.vehicleSpec.tank;
+    this.maintKm = 0;
+    this.flags.refueled = true;
+    return { ok: true, minutes: ECONOMY.swapMin ?? 3, msg: fmt('gs.swapped', { km: this.maintIntervalKm }) };
   }
 
   // Dùng 1 đồ dùng trong túi → trả về số phút mất
@@ -479,6 +689,7 @@ export class GameState {
   // Lưu game (tiền, đồ, điểm, tiền nhà, thể lực/tinh thần, giờ thức dậy, cờ nhiệm vụ)
   carryOver() {
     return {
+      profile: { ...this.profile },
       phys: this.phys,
       mental: this.mental,
       awakeSince: this.awakeSince,
@@ -488,8 +699,11 @@ export class GameState {
       owned: this.owned,
       vehicle: this.vehicle,
       bag: this.bag,
-      fuel: this.fuel,
-      bikeHp: this.bikeHp,
+      vstate: JSON.parse(JSON.stringify(this.vstate)),
+      brand: this.brand,
+      companyVehicle: this.companyVehicle,
+      depositPaid: this.depositPaid,
+      odoKm: this.odoKm,
       inventory: this.inventory,
       consumables: this.consumables,
       outfit: this.outfit,

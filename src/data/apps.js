@@ -9,8 +9,12 @@ import { inHours } from '../sim/hours.js';
 export const APPS = raw.apps;
 export const ORDER_TYPES = raw.orderTypes;
 export const RIDER_TYPES = raw.riderTypes;
-// App đang chạy (hiện chỉ có 1 app; dữ liệu để sẵn dạng nhiều app)
+// Luật app (phí, thuế, phụ phí, tài khoản) — 2 hãng dùng chung 1 bộ luật, chung 1 sàn đơn
 export const APP = Object.values(APPS)[0];
+// Hãng xe công nghệ (apps.json → brands): tên, màu, logo, loại xe bắt buộc (power: gas | electric),
+// xe cấp khi vào hãng (vehicle, mã trong gear.json), tiền cọc (deposit, k). Văn phòng = địa điểm kind 'office' có brand = mã hãng.
+export const BRANDS = raw.brands || {};
+export const POWERS = ['gas', 'electric', 'pedal']; // loại xe: xăng · điện · đạp (xe đạp)
 
 export const ORDER_KINDS = ['food', 'ride', 'parcel'];
 // mục "Đón ở" của loại khách: mã đặc biệt = nhà dân (tick cùng địa điểm → đón ở nhà dân hoặc các địa điểm đó)

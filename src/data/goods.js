@@ -2,8 +2,9 @@
 //  - type 'consumable': dùng 1 lần từ túi đồ (phím I): use = { minutes, phys, mental, fuel, bikeHp }
 //  - type 'equipment' : mua 1 lần, tác dụng lâu dài: effects = { <mã tác dụng>: giá trị }
 //  - type 'carry'     : mang theo, dùng tại địa điểm có hoạt động cần nó (vd nhang → chùa)
-//  - type 'outfit'    : trang phục shipper, mặc ở tủ đồ phòng trọ: slot (chỗ mặc) + style (kiểu) + color;
+//  - type 'outfit'    : trang phục shipper: slot (chỗ mặc) + style (kiểu) + color;
 //                       effects (nếu có) chỉ tính khi đang mặc. Giá 0 = có sẵn từ đầu.
+//                       Áo / quần / nón / giày thay ở tủ đồ phòng trọ; phụ kiện (accessory) gắn / tháo ngay trong túi đồ.
 // Danh sách tác dụng bên dưới là những gì code hiểu được. Muốn thêm kiểu tác dụng mới
 // thì thêm vào EFFECTS + chỗ dùng trong code (GameState.effect(...)).
 import raw from './goods.json' with { type: 'json' };
@@ -11,13 +12,20 @@ import raw from './goods.json' with { type: 'json' };
 export const GOODS = raw;
 
 // Chỗ mặc → các kiểu dáng (nhãn chỉ hiện trong công cụ ?editor; trong game dùng kho chữ outfit.*)
+// accessory: phụ kiện — được để trống, gắn / tháo ở bất cứ đâu (trong túi đồ, phải dừng xe)
 export const OUTFIT_SLOTS = {
   shirt: { label: 'Áo', styles: { long: 'Tay dài', short: 'Tay ngắn' } },
   pants: { label: 'Quần', styles: { long: 'Quần dài', shorts: 'Quần short' } },
   helmet: { label: 'Mũ bảo hiểm', styles: { half: 'Nửa đầu', full: 'Fullface (có kính)' } },
+  shoes: { label: 'Giày', styles: { sneaker: 'Giày', sandal: 'Dép' } },
+  acc: { label: 'Phụ kiện', styles: { raincoat: 'Áo mưa', jacket: 'Áo khoác chống nắng' }, accessory: true },
+  face: { label: 'Phụ kiện đầu', styles: { glasses: 'Kính', mask: 'Khẩu trang' }, accessory: true },
+  hands: { label: 'Phụ kiện tay', styles: { gloves: 'Găng tay', armSleeves: 'Găng tay ống dài' }, accessory: true },
 };
+export const isAccessorySlot = (slot) => !!OUTFIT_SLOTS[slot]?.accessory;
 
-// Ngoại hình khi một chỗ mặc không có món nào (giống shipper áo xanh lá ban đầu)
+// Ngoại hình khi một chỗ mặc không có món nào (giống shipper áo xanh lá ban đầu).
+// Giày / phụ kiện không có món → giày tự chọn theo bộ đồ, không đeo phụ kiện.
 const DEFAULT_PART = {
   shirt: { color: '#27ae60', style: 'long' },
   pants: { color: '#1f2d3d', style: 'long' },
@@ -31,11 +39,12 @@ export function freeOutfit(goods, slot) {
   return Object.values(goods).find((g) => g.type === 'outfit' && g.slot === slot && g.price === 0) || null;
 }
 
-// worn: { shirt, pants, helmet } → món đồ (hoặc null). Trả về tham số cho makePerson (màu dạng số).
+// worn: { shirt, pants, helmet, shoes, acc, face, hands } → món đồ (hoặc null). Trả về tham số cho makePerson (màu dạng số).
+// Chỉ thêm khóa giày / phụ kiện khi có mặc → ngoại hình cũ giữ nguyên khóa (so sánh JSON để dựng lại người).
 export function outfitLook(worn = {}) {
   const part = (slot) => ({ ...DEFAULT_PART[slot], ...(worn[slot] || {}) });
   const sh = part('shirt'), pa = part('pants'), he = part('helmet');
-  return {
+  const look = {
     shirt: hex(sh.color, DEFAULT_PART.shirt.color),
     sleeves: sh.style === 'short' ? 'short' : 'long',
     pants: hex(pa.color, DEFAULT_PART.pants.color),
@@ -44,6 +53,12 @@ export function outfitLook(worn = {}) {
     hatColor: hex(he.color, DEFAULT_PART.helmet.color),
     helmetStyle: he.style === 'full' ? 'full' : 'half',
   };
+  const { shoes, acc, face, hands } = worn;
+  if (shoes) Object.assign(look, { shoe: hex(shoes.color, '#2b2b2b'), shoeStyle: shoes.style === 'sandal' ? 'sandal' : 'sneaker' });
+  if (acc && (acc.style === 'raincoat' || acc.style === 'jacket')) look.overlay = acc.style;
+  if (face && (face.style === 'glasses' || face.style === 'mask')) Object.assign(look, { face: face.style, faceColor: hex(face.color, '#222222') });
+  if (hands && (hands.style === 'gloves' || hands.style === 'armSleeves')) Object.assign(look, { gloves: hands.style, gloveColor: hex(hands.color, '#333333') });
+  return look;
 }
 
 // kind: 'bool' (có/không) · 'pct' (phần trăm, âm = giảm) · 'num' (số cộng thêm)

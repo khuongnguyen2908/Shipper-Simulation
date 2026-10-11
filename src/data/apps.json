@@ -81,6 +81,28 @@
       }
     }
   },
+  "brands": {
+    "goship": {
+      "id": "goship",
+      "name": "GripBike",
+      "icon": "🛵",
+      "color": "#00b14f",
+      "power": "gas",
+      "vehicle": "cub",
+      "deposit": 100,
+      "desc": "Hãng lâu năm, chạy xe xăng. Cấp xe Cub khi vào hãng."
+    },
+    "hongsm": {
+      "id": "hongsm",
+      "name": "HồngSM",
+      "icon": "⚡",
+      "color": "#e84393",
+      "power": "electric",
+      "vehicle": "evStd",
+      "deposit": 100,
+      "desc": "Hãng xe điện mới nổi. Cấp xe điện tiêu chuẩn khi vào hãng."
+    }
+  },
   "orderTypes": {
     "food": {
       "id": "food",

@@ -13,6 +13,7 @@ import { makeRng } from '../src/sim/rng.js';
 import { buildLayout, routeDist } from '../src/sim/cityLayout.js';
 import { TIME, ENERGY, DIST, ORDER, ECONOMY, NIGHT, AIRPORT, dueDayOf } from '../src/data/balance.js';
 import { airportAt } from '../src/sim/airport.js';
+import { GOODS } from '../src/data/goods.js';
 import { APP, ORDER_TYPES, RIDER_TYPES } from '../src/data/apps.js';
 import { inHours } from '../src/sim/hours.js';
 import { dayOf, dayStartAt, minutesUntil, isDark } from '../src/sim/clock.js';
@@ -35,7 +36,8 @@ export const STRATEGIES = {
 
 // Bot chơi liên tục từ 06:00 ngày 1 tới 06:00 ngày (days + 1), hoặc tới khi thua.
 // Trả về { gs, log, outcome, now, lastDay } — outcome.type: 'lose' | 'alive'
-export function playRun(seed, strat, days = 9) {
+// brand: mã hãng bot chạy cho (bỏ trống = lượt lẻ GoShip, lượt chẵn HồngSM)
+export function playRun(seed, strat, days = 9, brand = null) {
   const rng = makeRng(seed);
   const gs = new GameState({ day: 1 });
   let hz = new HazardManager(makeRng(seed * 7 + 1), 1);
@@ -44,7 +46,7 @@ export function playRun(seed, strat, days = 9) {
   const end = dayStartAt(days + 1);
   let now = TIME.dayStart;
   let pos = { ...P.home.door };
-  const log = { idleMin: 0, orders: 0, purchases: [], byType: {}, quits: 0, faints: 0, burnouts: 0, sleeps: 0, lates: 0, rentPaid: 0, earned: 0, stars: 0, starN: 0, bom: 0, daily: [] };
+  const log = { idleMin: 0, orders: 0, purchases: [], byType: {}, quits: 0, faints: 0, burnouts: 0, sleeps: 0, lates: 0, rentPaid: 0, earned: 0, stars: 0, starN: 0, bom: 0, oil: 0, daily: [] };
   let dayOrders = 0;
   om.on((e) => { if (e.type === 'cancelled') gs.applyCancel(e, now); });
   const over = () => !!gs.outcome || now >= end;
@@ -81,9 +83,19 @@ export function playRun(seed, strat, days = 9) {
     const v = st.speed * st.eff;
     let min = d / v; // m game / phút game = m/s × 1 giây thật
     if (rng.chance(0.15)) min += rng.range(2, 6); // kẹt xe, chốt CSGT
-    const liters = (d * DIST.displayPerUnit / 1000) * gs.vehicleSpec.fuelPer100km / 100;
-    gs.fuel = Math.max(0, gs.fuel - liters);
-    om.addFuel(liters);
+    // áo mưa: mưa thì gắn vào, tạnh thì tháo ra (gắn khi trời khô thì nóng — GameState.drain)
+    if (gs.ownsOutfit('raincoat')) {
+      const wet = hz.isRaining(now);
+      if (wet && !gs.isWorn('raincoat')) gs.wear('raincoat');
+      else if (!wet && gs.isWorn('raincoat')) gs.takeOff(GOODS.raincoat.slot);
+    }
+    const km = d * DIST.displayPerUnit / 1000;
+    if (gs.power !== 'pedal') {
+      const used = km * gs.vehicleSpec.fuelPer100km / 100 * gs.maintFuelMul(); // quá hạn bảo dưỡng → hao xăng / điện thêm
+      gs.fuel = Math.max(0, gs.fuel - used);
+      if (gs.power === 'gas') om.addFuel(used);
+    }
+    gs.addKm(km);
     const e = envAt(st.speed);
     const bumps = Math.round((d / 100) * st.bumpsPer100 + rng.next());
     const brakes = Math.round((d / 100) * st.brakesPer100 + rng.next() * 0.5);
@@ -115,8 +127,28 @@ export function playRun(seed, strat, days = 9) {
   };
   // tiền nhà sắp tới hạn (trong 1 ngày) thì giữ lại, không tiêu
   const rentReserve = () => (!gs.rentPaid && gs.rentDueAt() - now < 24 * 60 ? gs.rent : 0);
+  // địa điểm gần nhất theo loại (trụ sạc, trạm đổi pin…)
+  const nearestKind = (kind) => layout.places.filter((p) => p.kind === kind && p.door).sort((a, b) => routeDist(pos, a.door) - routeDist(pos, b.door))[0];
+  // nạp năng lượng: xe xăng → cây xăng · xe điện → trụ sạc (đứng chờ sạc)
+  const refill = () => {
+    if (gs.power === 'electric') {
+      const ch = nearestKind('charger');
+      if (!ch) return;
+      drive(ch.door);
+      const r = gs.charge();
+      if (r.ok) pass(r.minutes, 'idle');
+    } else if (gs.power === 'gas') { drive(P.gas.door); gs.refuel(); pass(2, 'idle'); }
+  };
   const shop = () => {
-    if (gs.fuel < 0.6) { drive(P.gas.door); gs.refuel(); pass(2, 'idle'); }
+    if (gs.power !== 'pedal' && gs.fuel < gs.vehicleSpec.tank * 0.2) refill();
+    // bảo dưỡng sắp tới hạn (xe xăng: thay nhớt ở tiệm sửa xe · xe điện: đổi pin ở trạm) — đủ tiền, không đụng tiền nhà
+    const ev = gs.power === 'electric';
+    const maint = ev ? nearestKind('swap') : P.garage;
+    if (gs.maintLeftKm < 2 && maint && gs.money >= (ev ? ECONOMY.swapCost ?? 45 : ECONOMY.oilCost ?? 60) + rentReserve()) {
+      drive(maint.door);
+      const r = ev ? gs.swapBattery() : gs.changeOil();
+      if (r.ok) { log.oil++; pass(r.minutes, 'idle'); }
+    }
     if (gs.phys < 40 && gs.money > 60 + rentReserve()) { drive(P.comtam.door); gs.spend(ENERGY.meal.cost, 'meal'); gs.addEnergy(ENERGY.meal.phys, ENERGY.meal.mental); pass(15, 'idle'); }
     if (gs.mental < 40 && gs.money > 40 + rentReserve()) { drive(P.cafe.door); gs.spend(ENERGY.drink.cost, 'meal'); gs.addEnergy(ENERGY.drink.phys, ENERGY.drink.mental); pass(10, 'idle'); }
     if (!st.buyGear) return;
@@ -132,9 +164,12 @@ export function playRun(seed, strat, days = 9) {
     }
   };
 
-  // Mở đầu: lên xe, đổ xăng, bật app
-  drive(P.gas.door);
-  gs.refuel();
+  // Mở đầu: đạp xe tới văn phòng hãng (lượt lẻ GoShip · lượt chẵn HồngSM, hoặc theo `brand`), vào hãng, nạp năng lượng, bật app
+  const brandId = brand || (seed % 2 ? 'goship' : 'hongsm');
+  const office = layout.places.find((p) => p.kind === 'office' && p.brand === brandId && p.door);
+  if (office) drive(office.door);
+  gs.joinBrand(brandId);
+  refill();
   gs.flags.mounted = gs.flags.online = true;
   om.goOnline();
 
@@ -163,7 +198,7 @@ export function playRun(seed, strat, days = 9) {
       if (om.state !== S.OFFERED) { pass(1, 'idle'); log.idleMin++; continue; }
     }
     if (om.state === S.OFFERED) {
-      if (routeDist(pos, om.offer.pickup.door) > st.maxD1 || gs.fuel < 0.2) { om.decline(now); continue; }
+      if (routeDist(pos, om.offer.pickup.door) > st.maxD1 || gs.fuel < gs.vehicleSpec.tank * 0.07) { om.decline(now); continue; }
       // bot cẩn thận / kén chọn để ý dấu hiệu lừa đảo trên thẻ đơn (tài khoản mới, đòi tiền mặt) → từ chối
       if (om.offer.flags?.scam && (strat === 'careful' || strat === 'picky')) { om.decline(now); continue; }
       om.accept(now, pos);
@@ -280,6 +315,8 @@ export function summarize(runs, days) {
     lates: runs.reduce((s, r) => s + r.log.lates, 0) / n,
     stars: runs.reduce((s, r) => s + r.log.stars, 0) / Math.max(1, runs.reduce((s, r) => s + r.log.starN, 0)),
     topReason: Object.entries(reasons).sort((a, b) => b[1] - a[1])[0] || null,
+    kmPerDay: runs.reduce((s, r) => s + r.gs.odoKm, 0) / dayCount,
+    oilChanges: runs.reduce((s, r) => s + (r.log.oil || 0), 0) / n,
   };
 }
 
@@ -297,6 +334,6 @@ if (isMain) {
     for (let s = 1; s <= N; s++) runs.push(playRun(s, strat, D));
     const r = summarize(runs, D);
     const cps = r.checkpoints.map((c) => `qua ngày ${c.day}: ${String(c.pct).padStart(3)}%`).join(' · ');
-    console.log(`${strat.padEnd(8)} | ${cps} | ${r.ordersPerDay.toFixed(1)} đơn/ngày | sao ${r.stars.toFixed(2)} | tiền cuối ${Math.round(r.endMoney)}k | ngất/suy sụp ${r.faints.toFixed(2)} | trễ ${r.lates.toFixed(2)} | ${r.topReason ? `${r.topReason[0]}… (${r.topReason[1]})` : 'không ai thua'}`);
+    console.log(`${strat.padEnd(8)} | ${cps} | ${r.ordersPerDay.toFixed(1)} đơn/ngày | sao ${r.stars.toFixed(2)} | tiền cuối ${Math.round(r.endMoney)}k | ngất/suy sụp ${r.faints.toFixed(2)} | trễ ${r.lates.toFixed(2)} | ${r.kmPerDay.toFixed(1)} km/ngày · thay nhớt ${r.oilChanges.toFixed(1)} lần | ${r.topReason ? `${r.topReason[0]}… (${r.topReason[1]})` : 'không ai thua'}`);
   }
 }

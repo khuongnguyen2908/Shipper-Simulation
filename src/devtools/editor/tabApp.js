@@ -1,9 +1,9 @@
-// Thẻ 📱 APP & ĐƠN (apps.json): phí app + luật tài khoản · các loại đơn · các loại khách xe ôm.
-import { ID_RE } from '../../data/validate.js';
+// Thẻ 📲 APP & ĐƠN (apps.json): phí app + luật tài khoản · hãng (GoShip / HồngSM) · các loại đơn · các loại khách xe ôm.
+import { ID_RE, POWER_LABELS, VEHICLE_MODELS } from '../../data/validate.js';
 import { ORDER_KINDS, FROM_HOMES } from '../../data/apps.js';
 import { isPlaced } from '../../data/places.js';
 import { EFFECTS } from '../../data/goods.js';
-import { el, field, textInput, numInput, button, sideList, selectInput, checkInput, emojiInput, explain, areaInput, subTabs } from './ui.js';
+import { el, field, textInput, numInput, button, sideList, selectInput, checkInput, emojiInput, explain, areaInput, subTabs, colorInput } from './ui.js';
 import { HINT, EXPLAIN } from './help.js';
 import { hoursPicker } from './hoursUi.js';
 import { moveKey } from './order.js';
@@ -11,6 +11,7 @@ import { rowMenu, addButton, entryButtons, doRemove } from './opsUi.js';
 
 const CATS = [
   ['app', '📱 App'],
+  ['brands', '🏢 Hãng'],
   ['orderTypes', '📦 Loại đơn'],
   ['riderTypes', '🧍 Loại khách xe ôm'],
 ];
@@ -22,9 +23,10 @@ export function render(root, ctx) {
   const sel = ctx.sel.app;
   sel.cat = CATS.some(([c]) => c === sel.cat) ? sel.cat : 'app';
   const cat = sel.cat;
-  const table = cat === 'app' ? data.apps : data[cat];
+  const table = cat === 'app' ? data.apps : (data[cat] = data[cat] || {});
   if (!sel.id || !table[sel.id]) sel.id = Object.keys(table)[0];
   const changed = () => ctx.changed('apps');
+  const fixed = cat === 'app' || cat === 'brands'; // không thêm / xóa / kéo đổi thứ tự (hãng gắn với văn phòng, xe cấp)
 
   const side = el('aside', { class: 'ed-side' });
   const drawSide = () => {
@@ -32,17 +34,19 @@ export function render(root, ctx) {
     const total = Object.values(table).reduce((s, x) => s + (x.weight > 0 ? x.weight : 0), 0);
     side.append(
       el('div', { class: 'seg' }, CATS.map(([c, label]) => button(label, () => ctx.select('app', { cat: c, id: null }), cat === c ? 'on' : ''))),
-      el('div', { class: 'side-head' }, el('b', {}, `${Object.keys(table).length} mục`), cat === 'app' ? null : addButton(ctx, cat, [['＋ Mục mới', add]])),
+      el('div', { class: 'side-head' }, el('b', {}, `${Object.keys(table).length} mục`), fixed ? null : addButton(ctx, cat, [['＋ Mục mới', add]])),
       sideList(
         Object.values(table).map((x) => ({
           id: x.id,
           icon: cat === 'app' ? '📱' : x.icon || '•',
           title: x.name,
-          sub: cat === 'app' ? `phí ${Math.round(x.platformFee * 100)}%` : `${x.id} · ${total ? Math.round(((x.weight > 0 ? x.weight : 0) / total) * 100) : 0}%${cat === 'orderTypes' ? ` · ${KIND_LABEL[x.kind]?.split(' (')[0] || x.kind}` : ''}`,
+          sub: cat === 'app' ? `phí ${Math.round(x.platformFee * 100)}%`
+            : cat === 'brands' ? `${POWER_LABELS[x.power] || x.power} · cọc ${x.deposit}k`
+            : `${x.id} · ${total ? Math.round(((x.weight > 0 ? x.weight : 0) / total) * 100) : 0}%${cat === 'orderTypes' ? ` · ${KIND_LABEL[x.kind]?.split(' (')[0] || x.kind}` : ''}`,
         })),
         sel.id,
         (id) => ctx.select('app', { id }),
-        { issuesFor: (id) => ctx.issuesFor('app', id, { cat }), onReorder: cat === 'app' ? null : (a, b) => { moveKey(table, a, b); changed(); }, menu: cat === 'app' ? null : rowMenu(ctx, cat) },
+        { issuesFor: (id) => ctx.issuesFor('app', id, { cat }), onReorder: fixed ? null : (a, b) => { moveKey(table, a, b); changed(); }, menu: fixed ? null : rowMenu(ctx, cat) },
       ),
     );
   };
@@ -66,11 +70,33 @@ export function render(root, ctx) {
     onChange: (v) => { if (v == null) delete x[key]; else x[key] = v; changed(); },
   }), opt(key, { hint, wide: true }));
 
-  body.append(el('div', { class: 'body-head' }, el('h2', {}, `${cat === 'app' ? '📱' : x.icon || ''} ${x.name}`), cat === 'app' ? el('span', { class: 'pill' }, '🔒 App đang chạy') : el('span', { class: 'inline' }, entryButtons(ctx, cat, x.id), button('🗑 Xóa', () => doRemove(ctx, cat, x.id), 'danger small'))));
+  body.append(el('div', { class: 'body-head' }, el('h2', {}, `${cat === 'app' ? '📱' : x.icon || ''} ${x.name}`), cat === 'app' ? el('span', { class: 'pill' }, '🔒 Luật chung của 2 hãng') : cat === 'brands' ? el('span', { class: 'pill' }, '🏢 Hãng') : el('span', { class: 'inline' }, entryButtons(ctx, cat, x.id), button('🗑 Xóa', () => doRemove(ctx, cat, x.id), 'danger small'))));
 
   if (cat === 'app') renderApp();
+  else if (cat === 'brands') renderBrand();
   else if (cat === 'orderTypes') renderOrderType();
   else renderRider();
+
+  // ---------- hãng (GoShip / HồngSM): chung luật phí & sàn đơn, khác loại xe + xe cấp + tiền cọc ----------
+  function renderBrand() {
+    const vehicles = Object.values(ctx.data.gear.vehicles).filter((v) => (v.power || 'gas') === x.power);
+    const offices = ctx.data.places.places.filter((p) => p.kind === 'office' && p.brand === x.id);
+    body.append(
+      el('p', { class: 'muted' }, 'Hai hãng dùng chung luật phí, thuế, tài khoản (mục 📱 App) và chung một sàn đơn. Người chơi tới văn phòng hãng đặt cọc để nhận xe hãng; chỉ nhận đơn khi chạy đúng loại xe của hãng. Đổi hãng = trả xe, hoàn cọc, cày lại từ đầu.'),
+      el('div', { class: 'grid' },
+        field('Tên hãng', textInput(x.name, (v) => { x.name = v; changed(); }), opt('name')),
+        field('Logo (emoji)', emojiInput(x.icon, (v) => { x.icon = v; changed(); }), opt('icon', { hint: 'Hiện trên biểu tượng app trong điện thoại khi người chơi đã vào hãng.' })),
+        field('Màu hãng', colorInput(x.color, (v) => { x.color = v; changed(); }), opt('color', { hint: 'Màu app trong điện thoại.' })),
+        field('Loại xe bắt buộc', selectInput(x.power, [['gas', POWER_LABELS.gas], ['electric', POWER_LABELS.electric]], (v) => { x.power = v; changed(); ctx.rerender(); }), opt('power', { hint: 'Xe xăng: cây xăng + thay nhớt. Xe điện: trụ sạc + đổi pin.' })),
+        field('Xe cấp khi vào hãng', selectInput(x.vehicle, vehicles.map((v) => [v.id, `${v.name} (${VEHICLE_MODELS[v.model] || v.model})`]), (v) => { x.vehicle = v; changed(); }), opt('vehicle', { hint: 'Chỉ liệt kê xe đúng loại của hãng (sửa xe ở thẻ 🛵 Xe · Túi · Đồ dùng). Nghỉ hãng thì phải trả lại.' })),
+        num('deposit', 'Tiền cọc (k)', { step: 10, min: 0, hint: 'Trả khi vào hãng, hoàn lại khi đổi sang hãng khác. Tiền khởi đầu (thẻ ⚖️ Cân bằng) nên đủ để đặt cọc.' }),
+      ),
+      field('Giới thiệu (văn phòng hãng nói)', areaInput(x.desc, (v) => { x.desc = v; changed(); }, 2), opt('desc', { wide: true })),
+      field('Văn phòng trên bản đồ', el('div', { class: offices.length ? 'chips' : 'muted' }, offices.length
+        ? offices.map((p) => button(`🏢 ${p.name}`, () => ctx.select('places', { id: p.id }), 'small'))
+        : 'Chưa có. Thẻ 🏪 Địa điểm → tạo địa điểm mới, loại "Văn phòng hãng" (sao chép văn phòng có sẵn), chọn hãng này, rồi kéo vào bản đồ ở thẻ 🏗️ Xây dựng.'), opt('office', { wide: true })),
+    );
+  }
 
   // ---------- app ----------
   function renderApp() {

@@ -2,6 +2,9 @@
 // Kiến trúc đơn giản: mỗi hiệu ứng là một hàm; sau này có thể thay bằng file.
 let ctx = null, master = null, engine = null, rainNode = null;
 let muted = false;
+let volume = 1; // âm lượng người chơi chọn (0–1, màn hình Cài đặt); 1 = mức gốc của game
+const BASE = 0.5;
+const gainNow = () => (muted ? 0 : BASE * volume);
 
 function ensure() {
   if (ctx) return true;
@@ -9,7 +12,7 @@ function ensure() {
   if (!AC) return false;
   ctx = new AC();
   master = ctx.createGain();
-  master.gain.value = 0.5;
+  master.gain.value = gainNow();
   master.connect(ctx.destination);
   return true;
 }
@@ -20,9 +23,16 @@ export function unlockAudio() {
 }
 
 export function toggleMute() {
-  muted = !muted;
-  if (master) master.gain.value = muted ? 0 : 0.5;
+  return setMuted(!muted);
+}
+export function setMuted(on) {
+  muted = !!on;
+  if (master) master.gain.value = gainNow();
   return muted;
+}
+export function setVolume(v) {
+  volume = Math.max(0, Math.min(1, Number(v) || 0));
+  if (master) master.gain.value = gainNow();
 }
 
 function tone(freq, dur, { type = 'square', vol = 0.15, at = 0, slide = 0 } = {}) {

@@ -124,10 +124,17 @@ function thighGeo(pants, skin, bare, shorts) {
     return L.build();
   });
 }
-function shinGeo(pants, skin, bare, shoe) {
-  return cachedGeo(`sh|${pants}|${skin}|${bare}|${shoe}`, () => {
+// sandal: dép (đế mỏng màu dép + bàn chân trần + quai) thay cho giày
+function shinGeo(pants, skin, bare, shoe, sandal = false) {
+  return cachedGeo(`sh|${pants}|${skin}|${bare}|${shoe}|${sandal}`, () => {
     const L = new PartList(), foot = -(HIP_Y - THIGH);
     L.add(pCyl(0.068, 0.056, 0.39), bare ? skin : pants, 0, -0.195);
+    if (sandal) {
+      L.add(pBox(0.12, 0.03, 0.27), shoe, 0, foot + 0.015, 0.03, 0, 0, 0, 1);
+      L.add(pBox(0.1, 0.05, 0.22), skin, 0, foot + 0.055, 0.03);
+      L.add(pBox(0.11, 0.02, 0.04), shoe, 0, foot + 0.07, 0.08, 0, 0, 0, 1); // quai
+      return L.build();
+    }
     L.add(pBox(0.12, 0.035, 0.27), shoe === 0xe8e8e8 ? 0xd0d0d0 : 0xeeeeee, 0, foot + 0.0175, 0.03, 0, 0, 0, 1); // đế
     L.add(pBox(0.11, 0.075, 0.21), shoe, 0, foot + 0.072, 0.01);
     L.add(pBox(0.105, 0.05, 0.08), shoe, 0, foot + 0.06, 0.13);
@@ -146,13 +153,15 @@ function upperArmGeo(shirt, skin, short) {
     return L.build();
   });
 }
-function foreArmGeo(shirt, skin, short, s) {
-  return cachedGeo(`fa|${shirt}|${skin}|${short}|${s}`, () => {
+// glove: màu găng tay (null = tay trần) · gloveLong: găng ống dài che cả cẳng tay
+function foreArmGeo(shirt, skin, short, s, glove = null, gloveLong = false) {
+  return cachedGeo(`fa|${shirt}|${skin}|${short}|${s}|${glove}|${gloveLong}`, () => {
     const L = new PartList();
-    L.add(pCyl(0.05, 0.043, 0.25), short ? skin : shirt, 0, -0.125);
-    if (!short) L.add(pCyl(0.047, 0.047, 0.03), shade(shirt, 0.7), 0, -0.24);
-    L.add(pBox(0.06, 0.09, 0.04), skin, 0, -0.3, 0, 0, 0, 0, 0.85);
-    L.add(pBox(0.022, 0.05, 0.026), skin, -s * 0.035, -0.285, 0.02);
+    const hand = glove ?? skin;
+    L.add(pCyl(0.05, 0.043, 0.25), gloveLong && glove != null ? glove : short ? skin : shirt, 0, -0.125);
+    if (!short && !(gloveLong && glove != null)) L.add(pCyl(0.047, 0.047, 0.03), shade(shirt, 0.7), 0, -0.24);
+    L.add(pBox(0.06, 0.09, 0.04), hand, 0, -0.3, 0, 0, 0, 0, 0.85);
+    L.add(pBox(0.022, 0.05, 0.026), hand, -s * 0.035, -0.285, 0.02);
     return L.build();
   });
 }
@@ -160,7 +169,7 @@ function foreArmGeo(shirt, skin, short, s) {
 // Thân + đầu + mọi thứ gắn cố định (tóc, mũ, túi, váy, mũ trùm áo khoác)
 function torsoGeo(o) {
   return cachedGeo(`to|${JSON.stringify(o)}`, () => {
-    const { shirt, pants, skin, hat, hatColor, hair, bag, female, style, skirt, helmetStyle, overlay } = o;
+    const { shirt, pants, skin, hat, hatColor, hair, bag, female, style, skirt, helmetStyle, overlay, face, faceColor } = o;
     const L = new PartList(), hy = HEAD_Y, w = female ? 0.92 : 1;
     // hông, thắt lưng, thân tiện tròn 8 cạnh (eo nhỏ, ngực nở, vai xuôi)
     L.add(pCyl(0.17 * w, 0.165 * w, 0.16, 8).scale(1, 1, 0.7), pants, 0, 0.9, 0, 0, 0, 0, 0.85);
@@ -181,6 +190,17 @@ function torsoGeo(o) {
       L.add(pBox(0.048, 0.012, 0.012), hair, s * 0.044, hy + 0.056, 0.103, 0, 0, -s * 0.12, 1);
     }
     L.add(pBox(0.05, 0.011, 0.01), female ? 0xb5545a : 0xa85a4a, 0, hy - 0.055, 0.103, 0, 0, 0, 1);
+    // phụ kiện đầu: kính (2 tròng + gọng) · khẩu trang (che mũi miệng + quai)
+    if (face === 'glasses') {
+      for (const s of [-1, 1]) {
+        L.add(pBox(0.046, 0.034, 0.012), faceColor, s * 0.042, hy + 0.025, 0.117, 0, 0, 0, 1);
+        L.add(pBox(0.008, 0.008, 0.11), faceColor, s * 0.1, hy + 0.032, 0.06, 0, 0, 0, 1);
+      }
+      L.add(pBox(0.03, 0.008, 0.01), faceColor, 0, hy + 0.032, 0.117, 0, 0, 0, 1);
+    } else if (face === 'mask') {
+      L.add(pBox(0.17, 0.085, 0.035), faceColor, 0, hy - 0.04, 0.097, 0, 0, 0, 0.95);
+      for (const s of [-1, 1]) L.add(pBox(0.006, 0.006, 0.1), faceColor, s * 0.098, hy - 0.01, 0.045, 0, 0, 0, 1);
+    }
     // tóc (mũ bảo hiểm che phần chỏm)
     if (style !== 'bald') {
       if (hat !== 'helmet') L.add(new THREE.SphereGeometry(0.122, 10, 5, 0, PI * 2, 0, PI / 2).scale(0.95, 1, 1.02), hair, 0, hy + 0.02, -0.01, -0.3, 0, 0, 0.85);
@@ -233,8 +253,10 @@ function torsoGeo(o) {
 // gender: 'm' nam | 'f' nữ (vai, eo hẹp hơn) · hairStyle: short | long | ponytail | bun | bald · skirt: mặc váy (chân màu da)
 // sleeves: 'long' | 'short' · shorts: quần short · helmetStyle: 'half' | 'full' (fullface có kính)
 // overlay: mặc ngoài — 'raincoat' (áo mưa cánh dơi) | 'jacket' (áo khoác chống nắng) | null
+// shoe: màu giày (bỏ trống = tự chọn theo bộ đồ) · shoeStyle: 'sneaker' | 'sandal' (dép)
+// face: phụ kiện đầu 'glasses' | 'mask' + faceColor · gloves: 'gloves' | 'armSleeves' (ống dài) + gloveColor
 // Khớp: legL/R (háng) → kneeL/R (gối), armL/R (vai) → elbowL/R (khuỷu); body = phần thân nhún khi đi
-export function makePerson({ shirt = 0x3498db, pants = 0x2c3e50, skin = SKINS[0], hat = null, hatColor = 0x2ecc71, hair = 0x1b1b1b, scale = 1, bag = false, gender = 'm', hairStyle, skirt = false, sleeves = 'long', shorts = false, helmetStyle = 'half', overlay = null } = {}) {
+export function makePerson({ shirt = 0x3498db, pants = 0x2c3e50, skin = SKINS[0], hat = null, hatColor = 0x2ecc71, hair = 0x1b1b1b, scale = 1, bag = false, gender = 'm', hairStyle, skirt = false, sleeves = 'long', shorts = false, helmetStyle = 'half', overlay = null, shoe = null, shoeStyle = 'sneaker', face = null, faceColor = 0x222222, gloves = null, gloveColor = 0x333333 } = {}) {
   const female = gender === 'f';
   const style = hairStyle || (female ? 'long' : 'short');
   if (overlay === 'jacket') {
@@ -242,7 +264,9 @@ export function makePerson({ shirt = 0x3498db, pants = 0x2c3e50, skin = SKINS[0]
     sleeves = 'long';
   }
   const short = sleeves === 'short';
-  const shoe = [0x2b2b2b, 0xe8e8e8, 0x6b4a2b, 0x34495e][((shirt >>> 3) + (pants >>> 5)) % 4]; // giày đổi theo bộ đồ, cố định cho cùng một người
+  shoe ??= [0x2b2b2b, 0xe8e8e8, 0x6b4a2b, 0x34495e][((shirt >>> 3) + (pants >>> 5)) % 4]; // giày đổi theo bộ đồ, cố định cho cùng một người
+  const sandal = shoeStyle === 'sandal';
+  const glove = gloves ? gloveColor : null, gloveLong = gloves === 'armSleeves';
   const g = new THREE.Group();
   const body = new THREE.Group();
   g.add(body);
@@ -253,7 +277,7 @@ export function makePerson({ shirt = 0x3498db, pants = 0x2c3e50, skin = SKINS[0]
     parent.add(m);
     return m;
   };
-  const torso = mesh(torsoGeo({ shirt, pants, skin, hat, hatColor, hair, bag, female, style, skirt, helmetStyle: hat === 'helmet' ? helmetStyle : null, overlay }), body, true);
+  const torso = mesh(torsoGeo({ shirt, pants, skin, hat, hatColor, hair, bag, female, style, skirt, helmetStyle: hat === 'helmet' ? helmetStyle : null, overlay, face: face || null, faceColor: face ? faceColor : null }), body, true);
   // chân: khớp háng → đùi → khớp gối → cẳng chân + giày
   const hipX = female ? 0.09 : 0.1;
   const legs = [-1, 1].map((s) => {
@@ -264,7 +288,7 @@ export function makePerson({ shirt = 0x3498db, pants = 0x2c3e50, skin = SKINS[0]
     const knee = new THREE.Group();
     knee.position.y = -THIGH;
     hip.add(knee);
-    mesh(shinGeo(pants, skin, skirt || shorts, shoe), knee);
+    mesh(shinGeo(pants, skin, skirt || shorts, shoe, sandal), knee);
     return [hip, knee];
   });
   // tay: khớp vai → bắp tay → khuỷu → cẳng tay + bàn tay (theo thân nhún lên xuống)
@@ -279,7 +303,7 @@ export function makePerson({ shirt = 0x3498db, pants = 0x2c3e50, skin = SKINS[0]
     el.position.y = -UPPER_ARM;
     el.rotation.x = -0.15;
     sh.add(el);
-    mesh(foreArmGeo(shirt, skin, short, s), el);
+    mesh(foreArmGeo(shirt, skin, short, s, glove, gloveLong), el);
     return [sh, el];
   });
   // áo mưa cánh dơi: tấm nhựa ôm cổ, phủ qua vai rồi rủ tới gối; xòe ngang che kín 2 tay, trước/sau dẹt hơn
@@ -355,6 +379,19 @@ export function setSitting(g, sitting) {
     p.overlay.scale.set(1, sitting ? 0.92 : 1, sitting ? 1.45 : 1);
     p.overlay.position.set(0, sitting ? 0.1 : 0, sitting ? 0.16 : 0);
   }
+}
+
+// Đạp xe đạp: ngồi như trên xe máy, 2 chân đạp vòng ngược pha nhau (phase: góc giò đạp, amount 0..1 theo tốc độ)
+// Chân ở trên: đùi đưa cao, gối gập nhiều; chân ở dưới: đùi hạ, gối duỗi. amount = 0 → đúng dáng ngồi yên.
+export function pedalPerson(g, phase, amount) {
+  setSitting(g, true);
+  const p = g.userData.parts;
+  for (const [hip, knee, ph] of [[p.legL, p.kneeL, phase], [p.legR, p.kneeR, phase + PI]]) {
+    const s = Math.sin(ph) * amount;
+    hip.rotation.x = -1.2 - 0.35 * s;
+    knee.rotation.x = 1.25 + 0.4 * s;
+  }
+  p.body.position.y = Math.abs(Math.sin(phase)) * 0.012 * amount; // nhún nhẹ theo nhịp đạp
 }
 
 // ======================== XE (phong cách A+) ========================
@@ -500,13 +537,46 @@ const BIKE_SPECS = {
       K.add(rodGeo([0.0, 0.55, -0.2], [0.0, 0.85, -0.35], 0.03), CHROME); // phuộc sau giữa
     },
   },
+  // Xe đạp: khung ống sơn, yên nhỏ, giò đạp + bàn đạp, baga sau chở túi; không máy, không gương / biển số (plain)
+  bicycle: {
+    wheel: [0.34, 0.52, -0.52, 'wire', 0.022], lamp: [0.86, 0.47], tail: [0.8, -0.8], rackY: 0.9, bar: [0.27, 1.04, 0.36], plain: true, noDisc: true,
+    build(P, D, K) {
+      const bb = [0, 0.34, 0], seat = [0, 0.86, -0.13], headT = [0, 0.92, 0.38], headB = [0, 0.7, 0.42];
+      P.add(rodGeo(seat, headT, 0.022), PAINT_WHITE); // ống ngang
+      P.add(rodGeo(bb, headB, 0.026), PAINT_WHITE); // ống chéo
+      P.add(rodGeo(bb, seat, 0.024), PAINT_WHITE); // ống đứng
+      P.add(rodGeo(headB, headT, 0.026), PAINT_WHITE); // cổ lái
+      for (const s of [-1, 1]) {
+        P.add(rodGeo([s * 0.05, 0.34, -0.52], seat, 0.014), PAINT_WHITE); // giằng yên
+        P.add(rodGeo([s * 0.05, 0.34, -0.52], bb, 0.016), PAINT_WHITE); // giằng xích
+        K.add(rodGeo([s * 0.045, 0.34, 0.52], headB, 0.016), CHROME); // phuộc
+        K.add(new THREE.BoxGeometry(0.09, 0.02, 0.05), DARK, s * 0.13, 0.34 + s * 0.13, s * 0.06); // bàn đạp
+        D.add(rodGeo([s * 0.05, 0.34, -0.5], [s * 0.16, 0.8, -0.62], 0.008), DARK); // chân baga
+      }
+      K.add(rodGeo([0, 0.92, 0.38], [0, 1.0, 0.34], 0.018), CHROME); // cổ tay lái
+      K.add(rodGeo([0, 0.86, -0.13], [0, 0.9, -0.14], 0.014), CHROME); // cọc yên
+      D.add(new THREE.BoxGeometry(0.13, 0.05, 0.26), SEAT, 0, 0.92, -0.14); // yên
+      K.add(rodGeo([-0.1, 0.34, 0], [0.1, 0.34, 0], 0.012), GREY); // trục giò đạp
+      K.add(rodGeo([0.09, 0.47, 0.06], [0.09, 0.21, -0.06], 0.012), GREY); // giò đạp
+      D.add(new THREE.TorusGeometry(0.1, 0.01, 4, 14).rotateY(PI / 2), GREY, 0.07, 0.34, 0); // đĩa xích
+      D.add(sideGeo([[-0.52, 0.33], [0.0, 0.25], [0.0, 0.43], [-0.52, 0.35]], 0.01), DARK, 0.07); // xích
+      P.add(fenderGeo(0.38, 0.02, 0.4), PAINT_WHITE, 0, 0.34, -0.52, 0.5); // dè sau
+    },
+  },
 };
 export const BIKE_MODELS = Object.keys(BIKE_SPECS);
 
 // Phần dùng chung mọi kiểu: tay lái, gương, đồng hồ, gác chân, chân chống, biển số, baga
+// S.plain (xe đạp): chỉ tay lái + tay nắm + đèn hậu phản quang + baga
 function commonBikeParts(S, D, K, Lt) {
   const [bw, by, bz] = S.bar, [ty, tz] = S.tail, [ly, lz] = S.lamp;
   D.add(new THREE.CylinderGeometry(0.018, 0.018, bw * 2, 6).rotateZ(PI / 2), DARK, 0, by, bz);
+  if (S.plain) {
+    for (const s of [-1, 1]) D.add(new THREE.CylinderGeometry(0.028, 0.028, 0.11, 7).rotateZ(PI / 2), BLACK, s * bw, by, bz);
+    Lt.add(new THREE.BoxGeometry(0.08, 0.04, 0.03), 0xff2a2a, 0, ty, tz);
+    D.add(new THREE.BoxGeometry(0.36, 0.03, 0.36), DARK, 0, S.rackY - 0.06, -0.62); // baga
+    return;
+  }
   for (const s of [-1, 1]) {
     D.add(new THREE.CylinderGeometry(0.032, 0.032, 0.12, 7).rotateZ(PI / 2), BLACK, s * bw, by, bz);
     K.add(new THREE.BoxGeometry(0.15, 0.012, 0.02), CHROME, s * (bw - 0.08), by, bz + 0.06, 0, s * 0.2, 0);
@@ -560,14 +630,15 @@ export function makeBike(color = 0x3a6fb0, model = 'underbone') {
   mk(parts.dark, VEH_MAT);
   mk(parts.metal, VEH_METAL);
   mk(parts.lights, VEH_LIGHT).castShadow = false;
-  const wheelF = mk(wheelGeo(R, t, spokes, true), VEH_MAT, 0, R, zf);
+  const wheelF = mk(wheelGeo(R, t, spokes, !S.noDisc), VEH_MAT, 0, R, zf);
   const wheelR = mk(wheelGeo(R, t, spokes, false), VEH_MAT, 0, R, zr);
   // đèn pha: vật liệu riêng từng xe (ban đêm sáng lên)
   const lamp = mk(new THREE.IcosahedronGeometry(0.075, 1).scale(1, 0.8, 0.5), new THREE.MeshStandardMaterial({ color: 0xfff4c8, emissive: 0xffeeaa, emissiveIntensity: 0.4 }), 0, S.lamp[0], S.lamp[1]);
   lamp.castShadow = false;
   const bagY = S.rackY + 0.24;
   const bagMesh = mk(bagGeo(), VEH_MAT, 0, bagY, -0.62);
-  g.userData = { wheelF, wheelR, wheelRadius: R, bagMesh, bagY, body, painted: [body], lamp, model };
+  bagMesh.visible = !S.plain; // xe đạp: chưa chạy đơn → không chở thùng giao hàng
+  g.userData = { wheelF, wheelR, wheelRadius: R, bagMesh, bagY, body, painted: [body], lamp, model, noBag: !!S.plain };
   return g;
 }
 

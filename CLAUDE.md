@@ -12,14 +12,16 @@ Bạn là lập trình viên game web cho dự án **Shipper Simulation**: game 
 src/
   data/      balance.js + balance.json (con số cân bằng; số chung sửa ở thẻ ⚖️ Cân bằng, ô định nghĩa ở balanceSpec.js) · items.json · gear.json (xe, túi) · goods.json + goods.js (đồ dùng: dùng 1 lần / trang bị / dùng tại địa điểm; danh sách tác dụng EFFECTS)
              places.json (địa điểm: lô 1–3 ô, giờ mở cửa / khung giờ mẫu hourPresets (sim/hours.js), hoạt động (có thể cần đồ mang theo / dừng khi có đơn), chỗ chợp mắt (`nap`), hàng bán, điểm đến đơn) · validate.js
-             apps.json + apps.js (app giao hàng: phí, thuế, phụ phí, luật tài khoản · loại đơn · loại khách xe ôm)
+             apps.json + apps.js (app giao hàng: phí, thuế, phụ phí, luật tài khoản · hãng brands: GoShip xe xăng / HồngSM xe điện, xe cấp, tiền cọc · loại đơn · loại khách xe ôm)
+             gear.json: xe có power = gas | electric | pedal (xe đạp khởi đầu xeDap); văn phòng hãng / trụ sạc / trạm đổi pin = địa điểm kind office | charger | swap
              editor.json (cảnh báo đã "Bỏ qua" trong ?editor) · itemGroups.js (nhóm món — chỉ để xếp trong editor)
+             phone.json + phoneApps.js (thứ tự / biểu tượng / màu / ẩn app trên điện thoại = phím 1–9; app có thật ở APP_DEFS)
              map.json + map.js (cỡ bản đồ, kiểu hẻm từng khối, sông + cầu; mặt bằng hẻm ở sim/blockPlan.js, đường đi ở cityLayout.routeDist)
   content/   vi.json — MỌI chữ hiển thị; code gọi fmt(khóa, tham số) / pick / list
   sim/       mô phỏng thuần (không Three.js, không DOM): clock (đồng hồ 24h liên tục), OrderManager (máy trạng thái), ItemPhysics,
              OrderCondition, economy, hazards, GameState, objectives, cityLayout, rng
   world/     Three.js: city, controllers (xe, đi bộ, camera), traffic, sky, models, textures, physics
-  ui/        hud, phone (app GoShip), modal, packing (xếp túi), minimap, screens
+  ui/        hud, phone (app GoShip, Túi đồ chia ô + bảng "Đang mặc", Xe), avatar (avatar 3D), modal, packing (xếp túi), minimap, screens
   devtools/  autopilot (?debug), editor/ (công cụ nội dung ?editor)
   game.js    vòng lặp, nối sim ↔ world ↔ ui · interactions.js mọi thao tác/hội thoại
 tests/       run.js (bộ thử luật + dữ liệu) · economy-sim.js (bot chơi headless)
@@ -34,7 +36,7 @@ Nguyên tắc:
 
 ## 3. Công cụ qua tham số địa chỉ
 - `?debug`: `window.game` (step, press, snapshot), `window.autopilot`; phím T tua 30 phút, K +100k, L đầy xăng.
-- `?editor`: công cụ nội dung (Vật phẩm · Xe/Túi/Đồ nghề · Địa điểm & NPC · Bản đồ · 🏗️ Xây dựng (bản đồ 3D: kéo địa điểm từ danh sách thả vào lô, dời, xoay, đổi kiểu hẻm) · App & Đơn · Cân bằng · Chữ & hội thoại). Địa điểm mới tạo nằm "chưa đặt" (không có block/lot) → game bỏ qua tới khi kéo vào bản đồ (`isPlaced` trong data/places.js); khi chạy `npm run dev`, Lưu ghi thẳng vào file JSON. Người dùng hay tự sửa dữ liệu bằng công cụ này — tôn trọng các thay đổi đó, không ghi đè.
+- `?editor`: công cụ nội dung (Vật phẩm · Xe/Túi/Đồ nghề · Địa điểm & NPC · Bản đồ · 🏗️ Xây dựng (bản đồ 3D: kéo địa điểm từ danh sách thả vào lô, dời, xoay, đổi kiểu hẻm) · App & Đơn · 📱 Giao diện app · Cân bằng · Chữ & hội thoại). Địa điểm mới tạo nằm "chưa đặt" (không có block/lot) → game bỏ qua tới khi kéo vào bản đồ (`isPlaced` trong data/places.js); khi chạy `npm run dev`, Lưu ghi thẳng vào file JSON. Người dùng hay tự sửa dữ liệu bằng công cụ này — tôn trọng các thay đổi đó, không ghi đè.
 
 ## 4. Kiểm thử (bắt buộc trước mỗi lần giao)
 - `npm test`: luật vật phẩm, chấm sao, công thức tiền, máy trạng thái đơn, thắng/thua, bản đồ, dữ liệu JSON hợp lệ, mọi khóa chữ code dùng đều có trong vi.json.

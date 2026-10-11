@@ -7,6 +7,7 @@
 import { CITY, LOT_IDS, MULTI_LOTS, lotParts, lotFaces, blockPlan, blockLotIds, roadGraph, neighbors, cutCell, joinList, joinSeg, joinPartner, isJoinLot, riverInfo, BRIDGE_STYLES } from '../sim/cityLayout.js';
 import { ALLEY_TEMPLATES } from '../sim/blockPlan.js';
 import { EFFECTS, CONSUMABLE_FIELDS, OUTFIT_SLOTS } from './goods.js';
+import { validatePhone } from './phoneApps.js';
 import { ORDER_KINDS, FROM_HOMES } from './apps.js';
 import { GENDERS, HAIR_STYLES } from '../sim/people.js';
 import { openDayOf } from '../sim/placeRules.js';
@@ -29,14 +30,16 @@ function openDayErr(add, ref, v, locked) {
 export const TRAIT_IDS = ['hot', 'cold', 'liquid', 'fragile', 'paper', 'passenger'];
 export const PROTECTED = {
   items: ['passenger'],
-  vehicles: ['cub'],
+  vehicles: ['xeDap', 'cub'],
   bags: ['nylon'],
   places: ['home', 'gas', 'gear', 'garage', 'cafe', 'taphoa', 'gate', 'apartment', 'market'],
 };
 export const LOTS = [...LOT_IDS, ...Object.keys(MULTI_LOTS), 'C'];
 // Kiểu dáng xe (khớp BIKE_MODELS trong src/world/models.js — có bộ thử kiểm tra)
-export const VEHICLE_MODELS = { cub: 'Xe số cổ (Cub)', underbone: 'Xe số (Wave)', scooter: 'Tay ga (Vision, SH)', sport: 'Tay côn / mô tô' };
-export const PLACE_KINDS = ['home', 'restaurant', 'gas', 'shop', 'garage', 'cafe', 'taphoa', 'gate', 'apartment', 'market', 'service', 'scenery', 'police'];
+export const VEHICLE_MODELS = { cub: 'Xe số cổ (Cub)', underbone: 'Xe số (Wave)', scooter: 'Tay ga (Vision, SH, xe điện)', sport: 'Tay côn / mô tô', bicycle: 'Xe đạp' };
+export const POWER_LABELS = { gas: '⛽ Xe xăng', electric: '🔋 Xe điện', pedal: '🚲 Xe đạp' };
+// office: văn phòng hãng (đăng ký chạy app) · charger: trụ sạc xe điện · swap: trạm đổi pin
+export const PLACE_KINDS = ['home', 'restaurant', 'gas', 'shop', 'garage', 'cafe', 'taphoa', 'gate', 'apartment', 'market', 'service', 'scenery', 'police', 'office', 'charger', 'swap'];
 export const ID_RE = /^[a-zA-Z][a-zA-Z0-9_]*$/;
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
@@ -208,8 +211,37 @@ const RANGES = {
   bags: { insulation: [0, 1], waterproof: [0, 1], padding: [0, 1], cols: [1, 5], rows: [1, 4], price: [0, 100000] },
 };
 
-export function validateGear(gear) {
+// Hãng xe công nghệ (apps.json → brands) + văn phòng hãng, trụ sạc, trạm đổi pin trong places.json
+export function validateBrands(apps, gear, placesData) {
   const out = [];
+  const add = (level, ref, field, msg) => out.push({ level, tab: 'app', cat: 'brands', ref, field, msg });
+  const brands = apps.brands || {};
+  const places = (placesData?.places || []).filter((p) => isPlaced(p));
+  if (!Object.keys(brands).length) add('error', '', 'brands', 'Chưa có hãng nào → người chơi không vào hãng được, không chạy đơn được.');
+  for (const [key, b] of Object.entries(brands)) {
+    if (!ID_RE.test(key)) add('error', key, 'id', 'Mã chỉ gồm chữ không dấu, số, gạch dưới.');
+    if (b.id !== key) add('error', key, 'id', `Mã bên trong (${b.id}) khác khóa (${key}).`);
+    if (!b.name || !String(b.name).trim()) add('error', key, 'name', 'Chưa có tên hãng.');
+    if (!COLOR_RE.test(b.color || '')) add('error', key, 'color', 'Màu phải dạng #rrggbb.');
+    if (b.power !== 'gas' && b.power !== 'electric') add('error', key, 'power', 'Loại xe của hãng phải là xe xăng hoặc xe điện.');
+    const v = gear?.vehicles?.[b.vehicle];
+    if (!v) add('error', key, 'vehicle', `Xe cấp khi vào hãng "${b.vehicle}" không có trong danh sách xe.`);
+    else if ((v.power || 'gas') !== b.power) add('error', key, 'vehicle', `Xe cấp "${v.name}" không đúng loại xe của hãng.`);
+    if (!num(b.deposit) || b.deposit < 0 || b.deposit > 100000) add('error', key, 'deposit', 'Tiền cọc phải từ 0 đến 100000.');
+    if (placesData && !places.some((p) => p.kind === 'office' && p.brand === key)) add('warn', key, 'office', `Chưa có văn phòng ${b.name || key} trên bản đồ → người chơi không đăng ký hãng này được.`);
+  }
+  for (const p of placesData?.places || []) if (p.kind === 'office' && !brands[p.brand]) out.push({ level: 'error', tab: 'places', ref: p.id, field: 'brand', msg: 'Văn phòng chưa chọn hãng (hoặc hãng đã bị xóa).' });
+  if (placesData && Object.values(brands).some((b) => b.power === 'electric')) {
+    if (!places.some((p) => p.kind === 'charger')) add('warn', '', 'charger', 'Có hãng xe điện mà chưa có trụ sạc nào trên bản đồ.');
+    if (!places.some((p) => p.kind === 'swap')) add('warn', '', 'swap', 'Có hãng xe điện mà chưa có trạm đổi pin nào → không bảo dưỡng pin được.');
+  }
+  return out;
+}
+
+// apps (apps.json, không bắt buộc): để biết xe nào là xe hãng cấp (giá 0 là đúng)
+export function validateGear(gear, apps = null) {
+  const out = [];
+  const brandVehicles = new Set(Object.values(apps?.brands || {}).map((b) => b.vehicle));
   for (const cat of ['vehicles', 'bags']) {
     const table = gear[cat] || {};
     const add = (level, ref, field, msg) => out.push({ level, tab: 'gear', cat, ref, field, msg });
@@ -218,10 +250,13 @@ export function validateGear(gear) {
       if (!ID_RE.test(key)) add('error', key, 'id', 'Mã chỉ gồm chữ không dấu, số, gạch dưới.');
       if (s.id !== key) add('error', key, 'id', `Mã bên trong (${s.id}) khác khóa (${key}).`);
       if (!s.name || !String(s.name).trim()) add('error', key, 'name', 'Chưa có tên.');
+      const pedal = cat === 'vehicles' && s.power === 'pedal';
       for (const [f, [a, b]] of Object.entries(RANGES[cat])) {
+        if (pedal && (f === 'fuelPer100km' || f === 'tank')) continue; // xe đạp không có xăng / pin
         if (!num(s[f])) add('error', key, f, 'Phải là số.');
         else if (s[f] < a || s[f] > b) add('error', key, f, `Phải trong khoảng ${a}–${b}.`);
       }
+      if (cat === 'vehicles' && !(s.power in POWER_LABELS)) add('error', key, 'power', `Loại xe phải là: ${Object.keys(POWER_LABELS).join(', ')}.`);
       if (cat === 'bags' && (!Number.isInteger(s.cols) || !Number.isInteger(s.rows))) add('error', key, 'cols', 'Số ô phải là số nguyên.');
       if (cat === 'bags' && s.cols * s.rows < 2) add('warn', key, 'cols', 'Túi chỉ có 1 ô → không chở được đơn 2 món.');
       if (!COLOR_RE.test(s.color || '')) add('error', key, 'color', 'Màu phải dạng #rrggbb.');
@@ -229,10 +264,10 @@ export function validateGear(gear) {
         if (s.model == null) add('warn', key, 'model', 'Chưa chọn kiểu dáng → hiện như xe số.');
         else if (!(s.model in VEHICLE_MODELS)) add('error', key, 'model', `Kiểu dáng phải là: ${Object.keys(VEHICLE_MODELS).join(', ')}.`);
       }
-      if (s.price === 0 && !PROTECTED[cat].includes(key)) add('warn', key, 'price', 'Giá 0 → người chơi lấy miễn phí ngay từ đầu.');
+      if (s.price === 0 && !PROTECTED[cat].includes(key) && !brandVehicles.has(key)) add('warn', key, 'price', 'Giá 0 → người chơi lấy miễn phí ngay từ đầu.');
     }
     if (cat === 'bags' && table.nylon && table.nylon.price !== 0) add('warn', 'nylon', 'price', 'Túi nylon là túi khởi đầu, nên để giá 0.');
-    if (cat === 'vehicles' && table.cub && table.cub.price !== 0) add('warn', 'cub', 'price', 'Xe Cub là xe khởi đầu, nên để giá 0.');
+    if (cat === 'vehicles' && table.xeDap && table.xeDap.power !== 'pedal') add('warn', 'xeDap', 'power', 'Xe khởi đầu nên là xe đạp (chưa vào hãng thì chưa chạy đơn).');
   }
   if (!Object.values(gear.bags || {}).some((b) => b.insulation >= 0.5)) out.push({ level: 'warn', tab: 'gear', cat: 'bags', ref: '', field: 'insulation', msg: 'Không túi nào giữ nhiệt ≥ 50% → đơn trà sữa, kem không bao giờ mở khóa.' });
   return out;
@@ -284,7 +319,8 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null, m
       else if (!l) add('error', p.id, 'lot', `Khối ${bx},${bz} có hẻm — chọn một lô của hẻm (bấm vào nhà trên bản đồ). Lô "${p.lot}" không có trong khối này.`);
       else if (p.face != null && p.face !== l.face) add('error', p.id, 'face', 'Lô trong khối có hẻm có mặt tiền cố định — bỏ chọn hướng mặt tiền.');
       // đổ xăng / sửa xe cần dắt xe tới cửa — hẻm đi bộ có cột chắn, xe không vào được
-      if (l && !l.front && plan.walk && (p.kind === 'gas' || p.kind === 'garage')) add('warn', p.id, 'lot', `${p.kind === 'gas' ? 'Cây xăng' : 'Tiệm xe'} nằm trong hẻm đi bộ — xe máy không vào được nên không ${p.kind === 'gas' ? 'đổ xăng' : 'sửa xe'} được. Chọn nhà mặt phố hoặc khối hẻm xe máy.`);
+      const NEED_BIKE = { gas: ['Cây xăng', 'đổ xăng'], garage: ['Tiệm xe', 'sửa xe'], charger: ['Trụ sạc', 'sạc xe'], swap: ['Trạm đổi pin', 'đổi pin'] };
+      if (l && !l.front && plan.walk && NEED_BIKE[p.kind]) add('warn', p.id, 'lot', `${NEED_BIKE[p.kind][0]} nằm trong hẻm đi bộ — xe máy không vào được nên không ${NEED_BIKE[p.kind][1]} được. Chọn nhà mặt phố hoặc khối hẻm xe máy.`);
       for (const c of lotCells(p)) {
         if (occupied.has(c)) add('error', p.id, 'lot', `Trùng lô với "${occupied.get(c)}".`);
         else occupied.set(c, p.id);
@@ -499,9 +535,10 @@ export function validateGoods(goods, placesData) {
     if (placesData && !sold.has(key) && !(s.type === 'outfit' && s.price === 0)) add('warn', key, 'sells', 'Chưa địa điểm nào bán món này.');
   }
   for (const [slot, def] of Object.entries(OUTFIT_SLOTS)) {
+    if (def.accessory) continue; // phụ kiện được để trống
     if (!Object.values(goods).some((g) => g.type === 'outfit' && g.slot === slot && g.price === 0)) out.push({ level: 'warn', tab: 'gear', cat: 'goods', ref: '', field: 'slot', msg: `Chưa có ${def.label.toLowerCase()} giá 0 (có sẵn) → shipper mặc ${def.label.toLowerCase()} mặc định cho tới khi mua.` });
   }
-  const has = (eff) => Object.values(goods).some((g) => g.type === 'equipment' && g.effects?.[eff] && sold.has(g.id));
+  const has = (eff) => Object.values(goods).some((g) => (g.type === 'equipment' || g.type === 'outfit') && g.effects?.[eff] && sold.has(g.id));
   if (placesData && !has('passengerSeat')) out.push({ level: 'warn', tab: 'gear', cat: 'goods', ref: '', field: 'effects', msg: 'Không nơi nào bán trang bị "Chở được khách" → đơn xe ôm (và nhiệm vụ chiếc ví) không bao giờ mở.' });
   if (placesData && !has('rainProtect')) out.push({ level: 'warn', tab: 'gear', cat: 'goods', ref: '', field: 'effects', msg: 'Không nơi nào bán trang bị "Chống mưa".' });
   return out;
@@ -686,13 +723,15 @@ export function validateBalance(b) {
   return out;
 }
 
-export function validateAll({ items, gear, goods, places, content, baseContent, apps = null, map = undefined, balance = null }) {
+export function validateAll({ items, gear, goods, places, content, baseContent, apps = null, map = undefined, balance = null, phone = null }) {
   return [
+    ...(phone ? validatePhone(phone) : []),
     ...(balance ? validateBalance(balance) : []),
     ...validateItems(items, places, apps),
     ...(apps ? validateApps(apps, items, places) : []),
     ...(map ? validateMap(map, places) : []),
-    ...validateGear(gear),
+    ...validateGear(gear, apps),
+    ...(apps ? validateBrands(apps, gear, places) : []),
     ...(goods ? validateGoods(goods, places) : []),
     ...validatePlaces(places, items, goods, gear, map),
     ...validateContent(content, baseContent || content),

@@ -47,8 +47,14 @@ export class Bike {
     this.body = makeBike(spec.color, model);
     this.mesh.add(this.body);
     this.mesh.userData = this.body.userData;
-    this.body.userData.bagMesh.visible = bagVisible;
+    this.showBag(bagVisible);
     if (this.bagSpec) this.setBag(this.bagSpec);
+  }
+
+  // Hiện / ẩn thùng giao hàng trên baga (xe đạp không bao giờ có thùng)
+  showBag(on) {
+    const ud = this.body.userData;
+    ud.bagMesh.visible = !!on && !ud.noBag;
   }
 
   setSpec(spec) {
@@ -291,22 +297,30 @@ export class CameraRig {
     this.dist = Math.max(4, Math.min(24, this.dist + d * 0.01));
   }
   // followHeading: hướng xe (camera tự quay ra sau xe), null khi đi bộ
-  update(dt, focus, followHeading, grid) {
+  // limit { dist, pitch }: giới hạn tạm (vd trong hầm xe: gần + thấp để không xuyên trần); không đổi số người chơi đã chỉnh
+  update(dt, focus, followHeading, grid, limit = null) {
     if (followHeading != null && this.manualTimer <= 0) this.yaw = lerpAngle(this.yaw, followHeading + Math.PI, 1 - Math.exp(-2.2 * dt));
     this.manualTimer -= dt;
     const fy = focus.y + 1.5;
     if (!this.init) {
       this.target.set(focus.x, fy, focus.z);
       this.init = true;
+      this.curDist = limit ? Math.min(this.dist, limit.dist) : this.dist; // vừa vào game trong hầm: không lóe camera qua trần
+      this.curPitch = limit ? Math.min(this.pitch, limit.pitch) : this.pitch;
     }
     const k = 1 - Math.exp(-12 * dt);
     this.target.x += (focus.x - this.target.x) * k;
     this.target.y += (fy - this.target.y) * k;
     this.target.z += (focus.z - this.target.z) * k;
-    const dir = new THREE.Vector3(Math.sin(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), Math.cos(this.yaw) * Math.cos(this.pitch));
+    // giới hạn tạm thời đổi mượt (vào / ra hầm không giật)
+    const kl = 1 - Math.exp(-6 * dt);
+    this.curDist = (this.curDist ?? this.dist) + ((limit ? Math.min(this.dist, limit.dist) : this.dist) - (this.curDist ?? this.dist)) * kl;
+    this.curPitch = (this.curPitch ?? this.pitch) + ((limit ? Math.min(this.pitch, limit.pitch) : this.pitch) - (this.curPitch ?? this.pitch)) * kl;
+    const pitch = this.curPitch, dist = this.curDist;
+    const dir = new THREE.Vector3(Math.sin(this.yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(this.yaw) * Math.cos(pitch));
     // không cho camera chui vào trong nhà
-    let d = this.dist;
-    for (let s = 1; s <= this.dist; s += 0.5) {
+    let d = dist;
+    for (let s = 1; s <= dist; s += 0.5) {
       const p = this.target.clone().addScaledVector(dir, s);
       if (grid.inside(p.x, p.y, p.z)) {
         d = Math.max(2, s - 0.8);

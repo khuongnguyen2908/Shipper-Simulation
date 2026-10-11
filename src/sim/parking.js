@@ -3,10 +3,11 @@
 //   - dán phạt (ticket): một lần mỗi lần đậu
 //   - bị cẩu (tow): trong giờ phường làm (towFrom–towTo), về bãi giữ xe gần nhất → tới đó chuộc
 //   - trộm ban đêm (theft): hút xăng, bẻ đồ → xe hư; một lần mỗi lần đậu
-// An toàn: gửi ở bãi giữ xe (cảnh quan kiểu "Bãi giữ xe", trả phí), đậu gần phòng trọ, gửi bảo vệ chung cư.
+// An toàn: gửi ở bãi giữ xe (cảnh quan kiểu "Bãi giữ xe", trả phí), để trong hầm xe phòng trọ, gửi bảo vệ chung cư.
 import { PARKING } from '../data/balance.js';
 import { isDark, tod } from './clock.js';
 import { lookOf } from '../data/looks.js';
+import { inGarage } from './garage.js';
 
 // xác suất mỗi giờ → mỗi phút
 const perMin = (pHour) => 1 - Math.pow(1 - Math.max(0, Math.min(0.999, pHour || 0)), 1 / 60);
@@ -38,10 +39,11 @@ export function nearestStation(places, x, z) {
 // Nơi cẩu xe về: đồn công an gần nhất, chưa có đồn thì bãi giữ xe gần nhất
 export const towTarget = (places, x, z) => nearestStation(places, x, z) || nearestParkingLot(places, x, z);
 
-// Đậu ở đây có an toàn không (không tính bãi giữ xe — bãi phải trả tiền gửi)
-export function safeSpot(places, x, z, P = PARKING) {
+// Đậu ở đây có an toàn không: chỉ trong hầm xe phòng trọ (không tính bãi giữ xe — bãi phải trả tiền gửi).
+// Đậu ngoài lề trước phòng trọ vẫn tính như ngoài đường.
+export function safeSpot(places, x, z) {
   const home = places.find((p) => p.kind === 'home');
-  return !!home && Math.hypot(home.door.x - x, home.door.z - z) <= (P.homeSafeM ?? 12);
+  return !!home && inGarage(home, x, z);
 }
 
 // Mỗi phút xe đứng ngoài đường: trả về 'ticket' | 'tow' | 'theft' | null

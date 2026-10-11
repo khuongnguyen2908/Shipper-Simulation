@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ITEMS as DATA_ITEMS } from '../src/data/items.js';
-import { ECONOMY, TIME, ENERGY, HAZARD as HAZARD_DATA, rentFor } from '../src/data/balance.js';
+import { ECONOMY, TIME, ENERGY, HAZARD as HAZARD_DATA, rentFor, VEHICLES as VEHICLES_T } from '../src/data/balance.js';
+import { BRANDS as BRANDS_T } from '../src/data/apps.js';
 import { DeliveryItem } from '../src/sim/ItemPhysics.js';
 import { evaluateOrder } from '../src/sim/OrderCondition.js';
 import { computePayout } from '../src/sim/economy.js';
@@ -47,7 +48,7 @@ const env = (o = {}) => ({ ambient: 30, sun: 0.5, raining: false, exposed: true,
 const layout = buildLayout();
 // dữ liệu đúng như trên đĩa (đã sửa bằng ?editor)
 const readJson = (p) => JSON.parse(fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8'));
-const DATA = { items: readJson('src/data/items.json'), apps: readJson('src/data/apps.json'), places: readJson('src/data/places.json'), itemsCod: (id) => DATA.items[id].cod };
+const DATA = { items: readJson('src/data/items.json'), apps: readJson('src/data/apps.json'), places: readJson('src/data/places.json'), gear: readJson('src/data/gear.json'), itemsCod: (id) => DATA.items[id].cod };
 const ITEMS_DATA_BASE = (id) => DATA_ITEMS[id].base;
 const VALIDATE = await import('../src/data/validate.js');
 
@@ -143,8 +144,12 @@ test('Công thức: (cước + quãng đường) − 20% − thuế − xăng', 
 });
 
 console.log('Máy trạng thái đơn hàng');
+// Người chơi đã vào GoShip, đang chạy Cub đầy xăng (bộ thử luật đơn hàng; người chơi mới thì đi xe đạp, chưa có đơn)
+function workerState({ day = 1, carry = {} } = {}) {
+  return new GameState({ day, carry: { brand: 'goship', vehicle: 'cub', owned: { vehicles: ['xeDap', 'cub'], bags: ['nylon'], gear: [] }, vstate: { cub: { fuel: 3, hp: 100, maintKm: 0 } }, ...carry } });
+}
 function mkOM(seed = 1, gsOpts = {}) {
-  const gs = new GameState(gsOpts);
+  const gs = workerState(gsOpts);
   const om = new OrderManager({ rng: makeRng(seed), layout, gs });
   return { gs, om };
 }
@@ -153,7 +158,7 @@ test('Giao chung cư: tầng giao nằm trong số tầng chung cư (đặt tron
   try {
     for (const [fl, lo, hi] of [[12, 3, 11], [5, 3, 4], [3, 2, 2]]) {
       apt.floors = fl;
-      const om = new OrderManager({ rng: makeRng(fl), layout, gs: new GameState() });
+      const om = new OrderManager({ rng: makeRng(fl), layout, gs: workerState() });
       const seen = [];
       for (let i = 0; i < 600; i++) {
         const d = om.pickDropoff({ x: 0, z: 0 });
@@ -352,16 +357,21 @@ test('Lịch mưa / CSGT theo từng ngày: cùng giờ trong ngày ở ngày n�
   assert.equal(h3.isRaining(dayStartAt(3) - TIME.dayStart + mid), true, 'cùng lịch → ngày 3 cũng mưa đúng giờ đó');
   assert.equal(h3.isRaining(mid), false, 'giờ của ngày 1 không ảnh hưởng ngày 3');
 });
-test('Đổ xăng trừ tiền đúng giá', () => {
-  const gs = new GameState();
+test('Đổ xăng trừ tiền đúng giá; xe điện / xe đạp không đổ xăng', () => {
+  const gs = workerState({ carry: { vstate: { cub: { fuel: 0.35, hp: 100, maintKm: 0 } } } });
   const m = gs.money;
   const r = gs.refuel();
   assert.ok(r.ok);
   assert.ok(Math.abs(m - gs.money - r.liters * ECONOMY.fuelPrice) < 0.1);
+  assert.ok(!new GameState().refuel().ok, 'xe đạp không đổ xăng');
+  assert.ok(!workerState({ carry: { brand: 'hongsm', vehicle: 'evStd', owned: { vehicles: ['xeDap', 'evStd'], bags: ['nylon'], gear: [] }, vstate: {} } }).refuel().ok, 'xe điện không đổ xăng');
 });
-test('Ngày 1 có 3 mục tiêu hướng dẫn, ngày 2 thì không', () => {
-  assert.ok(objectives(new GameState()).some((o) => o.id === 'mount'));
-  assert.ok(!objectives(new GameState({ day: 2 })).some((o) => o.id === 'mount'));
+test('Chưa vào hãng: mục tiêu duy nhất là đăng ký hãng; vào rồi mới có mục tiêu giao hàng (ngày 1 thêm hướng dẫn, ngày 2 thì không)', () => {
+  assert.deepEqual(objectives(new GameState()).map((o) => o.id), ['brand']);
+  assert.deepEqual(objectives(new GameState({ day: 5 })).map((o) => o.id), ['brand'], 'đổi hãng / bản lưu chưa có hãng cũng vậy');
+  const d1 = objectives(workerState()).map((o) => o.id);
+  assert.ok(d1.includes('fuel') && d1.includes('online') && d1.includes('first') && !d1.includes('brand'));
+  assert.ok(!objectives(workerState({ day: 2 })).some((o) => o.id === 'fuel' || o.id === 'online'));
 });
 
 console.log('Bản đồ & chướng ngại');
@@ -392,9 +402,11 @@ console.log('Đồ dùng, hoạt động, điểm đến (luật bằng dữ li�
   const { GOODS } = goodsMod;
   const { isOpen } = await import('../src/sim/placeRules.js');
   test('Trang bị cộng dồn tác dụng; bản lưu cũ (owned.gear) vẫn có tác dụng', () => {
-    const gs = new GameState({ carry: { money: 1000, owned: { vehicles: ['cub'], bags: ['nylon'], gear: ['raincoat'] } } });
+    GOODS.__rc = { id: '__rc', name: 'r', price: 1, type: 'equipment', effects: { rainProtect: true } };
+    const gs = new GameState({ carry: { money: 1000, owned: { vehicles: ['cub'], bags: ['nylon'], gear: ['__rc'] } } });
     assert.equal(gs.effect('rainProtect'), true);
     assert.equal(gs.effect('passengerSeat'), false);
+    delete GOODS.__rc;
     GOODS.__t1 = { id: '__t1', name: 'a', price: 1, type: 'equipment', effects: { physDrainPct: -10 } };
     GOODS.__t2 = { id: '__t2', name: 'b', price: 1, type: 'equipment', effects: { physDrainPct: -20, paddingPct: 30 } };
     gs.buy('goods', '__t1');
@@ -410,7 +422,7 @@ console.log('Đồ dùng, hoạt động, điểm đến (luật bằng dữ li�
   });
   test('Đồ dùng 1 lần: mua cộng dồn, dùng thì trừ và có tác dụng', () => {
     GOODS.__c = { id: '__c', name: 'Nước', price: 10, type: 'consumable', use: { minutes: 3, phys: 20, mental: 0, fuel: 0.5, bikeHp: 0 } };
-    const gs = new GameState({ carry: { money: 100 } });
+    const gs = workerState({ carry: { money: 100, vstate: { cub: { fuel: 0.3, hp: 100, maintKm: 0 } } } });
     gs.buy('goods', '__c');
     gs.buy('goods', '__c');
     assert.equal(gs.countOf('__c'), 2);
@@ -498,6 +510,173 @@ console.log('Đồ dùng, hoạt động, điểm đến (luật bằng dữ li�
     assert.equal(next.effect('tipBonus'), 0);
     delete GOODS.__ao;
   });
+  test('Phụ kiện: mua rồi phải gắn mới có tác dụng; 1 ô chỉ 1 món (áo mưa HOẶC áo khoác); tháo được, áo thì không; mặc áo mưa trời khô thì nóng', () => {
+    const { outfitLook } = goodsMod;
+    GOODS.__mua = { id: '__mua', name: 'Áo mưa test', price: 5, type: 'outfit', slot: 'acc', style: 'raincoat', color: '#2e86c1', effects: { rainProtect: true } };
+    GOODS.__khoac = { id: '__khoac', name: 'Áo khoác test', price: 5, type: 'outfit', slot: 'acc', style: 'jacket', color: '#5d6d7e', effects: { sunProtect: true } };
+    const gs = new GameState({ carry: { money: 100 } });
+    assert.equal(gs.wornIds().acc, undefined, 'ban đầu không đeo phụ kiện');
+    assert.ok(gs.buy('goods', '__mua').ok && gs.buy('goods', '__khoac').ok);
+    assert.equal(gs.effect('rainProtect'), false, 'mua rồi chưa gắn → chưa chống mưa');
+    assert.ok(gs.wear('__mua'));
+    assert.equal(gs.effect('rainProtect'), true);
+    assert.equal(outfitLook(gs.wornGoods()).overlay, 'raincoat');
+    assert.ok(gs.wear('__khoac'));
+    assert.equal(gs.effect('rainProtect'), false, 'gắn áo khoác thì áo mưa bị thay ra');
+    assert.equal(gs.effect('sunProtect'), true);
+    assert.equal(outfitLook(gs.wornGoods()).overlay, 'jacket');
+    assert.ok(gs.takeOff('acc'));
+    assert.equal(gs.wornIds().acc, undefined);
+    assert.equal(outfitLook(gs.wornGoods()).overlay, undefined);
+    assert.ok(!gs.takeOff('shirt'), 'áo chỉ thay chứ không tháo');
+    // nóng: cùng 1 giờ ban ngày trời khô, có gắn áo mưa mệt hơn
+    const hot = (s) => { s.phys = 100; s.drain('idle', 60, { outdoor: true, raining: false, harshSun: false, now: atHour(1, 10) }); return 100 - s.phys; };
+    gs.wear('__mua');
+    const plain = new GameState({ carry: { money: 0 } });
+    assert.ok(hot(gs) > hot(plain) + 0.5, `${hot(gs)} vs ${hot(plain)}`);
+    gs.takeOff('acc');
+    assert.equal(new GameState({ day: 2, carry: gs.carryOver() }).wornIds().acc, undefined, 'đã tháo thì lưu là đang tháo');
+    delete GOODS.__mua;
+    delete GOODS.__khoac;
+  });
+  test('Bản lưu cũ: giày từng là trang bị đã mua → tự mang vào, vẫn có tác dụng; mọi chỗ mặc đều có chữ', () => {
+    const { outfitLook, OUTFIT_SLOTS } = goodsMod;
+    GOODS.__giay = { id: '__giay', name: 'Giày test', price: 10, type: 'outfit', slot: 'shoes', style: 'sandal', color: '#ffffff', effects: { stairsPct: -30 } };
+    const gs = new GameState({ day: 3, carry: { money: 0, owned: { vehicles: ['cub'], bags: ['nylon'], gear: ['__giay'] }, outfit: {} } });
+    assert.equal(gs.wornIds().shoes, '__giay');
+    assert.equal(gs.effect('stairsPct'), -30);
+    const look = outfitLook(gs.wornGoods());
+    assert.equal(look.shoe, 0xffffff);
+    assert.equal(look.shoeStyle, 'sandal');
+    for (const slot of Object.keys(OUTFIT_SLOTS)) assert.ok(CONTENT.has(`outfit.slot.${slot}`), slot);
+    delete GOODS.__giay;
+  });
+  test('Nhớt (xe xăng): quá hạn thì hao xăng thêm + xe xuống cấp theo km chạy quá; thay ở tiệm trừ tiền, về đầy; lưu qua ngày', () => {
+    const gs = workerState({ carry: { money: 1000 } });
+    const I = gs.maintIntervalKm;
+    gs.addKm(I - 1);
+    assert.ok(!gs.maintOverdue && gs.maintFuelMul() === 1 && gs.bikeHp === 100);
+    gs.addKm(3);
+    assert.ok(gs.maintOverdue && gs.maintFuelMul() > 1);
+    assert.ok(Math.abs(gs.bikeHp - (100 - 2 * ECONOMY.oilHpPerKm)) < 1e-9, `chỉ trừ phần chạy quá hạn: ${gs.bikeHp}`);
+    assert.ok(Math.abs(gs.odoKm - (I + 2)) < 1e-9);
+    const next = new GameState({ day: 2, carry: gs.carryOver() });
+    assert.ok(Math.abs(next.maintKm - gs.maintKm) < 1e-9 && Math.abs(next.odoKm - gs.odoKm) < 1e-9);
+    const money = gs.money;
+    const r = gs.changeOil();
+    assert.ok(r.ok && r.minutes > 0);
+    assert.equal(gs.money, money - ECONOMY.oilCost);
+    assert.equal(gs.stats.expense.oil, ECONOMY.oilCost);
+    assert.equal(gs.maintKm, 0);
+    assert.ok(Math.abs(gs.odoKm - (I + 2)) < 1e-9, 'thay nhớt không xóa đồng hồ km');
+    assert.ok(!gs.changeOil().ok, 'vừa thay thì chưa cần thay');
+    const poor = workerState({ carry: { money: 0 } });
+    poor.addKm(5);
+    assert.ok(!poor.changeOil().ok, 'không đủ tiền');
+  });
+  test('Khởi đầu bằng xe đạp: không xăng, không bảo dưỡng, chưa vào hãng thì không có đơn; mục tiêu nhắc vào hãng', () => {
+    const gs = new GameState();
+    assert.equal(gs.vehicle, 'xeDap');
+    assert.equal(gs.power, 'pedal');
+    assert.equal(gs.workBlock(), 'noBrand');
+    assert.equal(gs.maintIntervalKm, Infinity);
+    gs.addKm(500);
+    assert.equal(gs.bikeHp, 100, 'xe đạp không xuống cấp vì quá hạn bảo dưỡng');
+    assert.deepEqual(objectives(gs).map((o) => o.id), ['brand']);
+    const om = new OrderManager({ rng: makeRng(2), layout, gs });
+    om.goOnline();
+    for (let i = 0; i < 300; i++) om.update(1, 0, 600, { x: 0, z: 0 });
+    assert.notEqual(om.state, S.OFFERED, 'chưa vào hãng → không có đơn');
+  });
+  test('Vào hãng: đặt cọc, nhận xe hãng; đi sai loại xe thì không có đơn; đổi hãng = trả xe, hoàn cọc, cày lại từ đầu', () => {
+    const gs = new GameState({ carry: { money: 300 } });
+    const gsh = BRANDS_T.goship, hsm = BRANDS_T.hongsm;
+    assert.ok(gs.joinBrand('goship').ok);
+    assert.equal(gs.money, 300 - gsh.deposit);
+    assert.equal(gs.stats.expense.deposit, gsh.deposit);
+    assert.equal(gs.vehicle, gsh.vehicle);
+    assert.equal(gs.companyVehicle, gsh.vehicle);
+    assert.equal(gs.workBlock(), null);
+    assert.ok(!gs.joinBrand('goship').ok, 'đã ở hãng này');
+    gs.vehicle = 'xeDap';
+    assert.equal(gs.workBlock(), 'wrongVehicle', 'GoShip mà đạp xe đạp → không có đơn');
+    gs.vehicle = gsh.vehicle;
+    for (let i = 0; i < 5; i++) gs.ratingBook.add(1);
+    gs.account.completed = 30;
+    const before = gs.money;
+    const r = gs.joinBrand('hongsm');
+    assert.ok(r.ok && r.switched);
+    assert.equal(gs.money, before + gsh.deposit - hsm.deposit, 'hoàn cọc cũ, đặt cọc mới');
+    assert.ok(!gs.owned.vehicles.includes(gsh.vehicle), 'trả xe hãng cũ');
+    assert.equal(gs.vehicle, hsm.vehicle);
+    assert.equal(gs.power, 'electric');
+    assert.equal(gs.account.completed, 0, 'cày lại từ đầu');
+    assert.ok(Math.abs(gs.rating - new GameState().rating) < 1e-9, 'điểm đánh giá về như người mới');
+    const next = new GameState({ day: 2, carry: gs.carryOver() });
+    assert.deepEqual([next.brand, next.companyVehicle, next.depositPaid, next.vehicle], ['hongsm', hsm.vehicle, hsm.deposit, hsm.vehicle]);
+    assert.ok(!new GameState({ carry: { money: 10 } }).joinBrand('goship').ok, 'thiếu tiền cọc');
+  });
+  test('Xe điện: sạc ở trụ (rẻ, lâu), đổi pin ở trạm (đầy pin + bảo dưỡng); không thay nhớt; mỗi xe giữ xăng / pin riêng', () => {
+    const gs = new GameState({ carry: { money: 500 } });
+    gs.joinBrand('hongsm');
+    const tank = gs.vehicleSpec.tank;
+    assert.ok(gs.fuel < tank);
+    const m = gs.money;
+    const c = gs.charge();
+    assert.ok(c.ok && c.minutes >= 5);
+    assert.ok(Math.abs(gs.fuel - tank) < 1e-9);
+    assert.ok(Math.abs(m - gs.money - c.kwh * ECONOMY.elecPrice) < 0.1);
+    assert.ok(!gs.charge().ok, 'pin đầy');
+    assert.ok(!gs.changeOil().ok, 'xe điện không thay nhớt');
+    gs.addKm(gs.maintIntervalKm + 4);
+    gs.fuel = 0.1;
+    assert.ok(gs.maintOverdue && gs.maintFuelMul() > 1);
+    const s = gs.swapBattery();
+    assert.ok(s.ok && s.minutes > 0);
+    assert.ok(Math.abs(gs.fuel - tank) < 1e-9 && gs.maintKm === 0, 'đổi pin: đầy pin + pin mới');
+    assert.equal(gs.stats.expense.swap, ECONOMY.swapCost);
+    // xe khác giữ xăng / pin riêng
+    gs.vehicle = 'xeDap';
+    assert.equal(gs.power, 'pedal');
+    gs.vehicle = BRANDS_T.hongsm.vehicle;
+    assert.ok(Math.abs(gs.fuel - tank) < 1e-9);
+  });
+  test('Bán xe cũ: được 50% giá xe mới; xe đạp khởi đầu và xe hãng không bán được; bán xe đang chạy → về xe hãng / xe đạp', () => {
+    const gs = new GameState({ carry: { money: 5000 } });
+    gs.joinBrand('goship');
+    const id = Object.keys(VEHICLES_T).find((k) => VEHICLES_T[k].price > 0 && VEHICLES_T[k].power === 'gas');
+    assert.ok(gs.buy('vehicles', id).ok);
+    assert.equal(gs.vehicle, id);
+    assert.ok(!gs.canSell('xeDap') && !gs.canSell(BRANDS_T.goship.vehicle));
+    const m = gs.money;
+    const r = gs.sellVehicle(id);
+    assert.ok(r.ok);
+    assert.equal(gs.money - m, Math.round(VEHICLES_T[id].price * ECONOMY.sellPct));
+    assert.ok(!gs.owned.vehicles.includes(id));
+    assert.equal(gs.vehicle, BRANDS_T.goship.vehicle, 'bán xe đang chạy → về xe hãng');
+    assert.ok(!gs.sellVehicle(id).ok);
+  });
+  test('Bản lưu cũ (trước khi có hãng): coi như đang chạy GoShip bằng Cub, giữ xăng / độ bền / km nhớt, có thêm xe đạp', () => {
+    const gs = new GameState({ day: 4, carry: { money: 200, owned: { vehicles: ['cub', 'wave'], bags: ['nylon'], gear: [] }, vehicle: 'wave', fuel: 1.2, bikeHp: 80, oilKm: 33 } });
+    assert.equal(gs.brand, 'goship');
+    assert.equal(gs.depositPaid, 0, 'chưa đặt cọc → đổi hãng không được hoàn tiền');
+    assert.ok(gs.owned.vehicles.includes('xeDap'));
+    assert.deepEqual([gs.fuel, gs.bikeHp, gs.maintKm], [1.2, 80, 33]);
+    assert.equal(gs.workBlock(), null);
+  });
+  test('Bộ kiểm tra hãng: dữ liệu hiện tại hợp lệ; bắt xe hãng sai loại, thiếu xe, văn phòng không hãng', () => {
+    assert.deepEqual(VALIDATE.validateBrands(DATA.apps, DATA.gear, DATA.places).filter((i) => i.level === 'error'), []);
+    const apps = JSON.parse(JSON.stringify(DATA.apps));
+    apps.brands.goship.vehicle = 'evStd';
+    apps.brands.hongsm.vehicle = 'khongCo';
+    const places = JSON.parse(JSON.stringify(DATA.places));
+    places.places.find((p) => p.kind === 'office').brand = 'zzz';
+    const iss = VALIDATE.validateBrands(apps, DATA.gear, places);
+    assert.ok(iss.some((i) => i.ref === 'goship' && i.field === 'vehicle' && i.level === 'error'));
+    assert.ok(iss.some((i) => i.ref === 'hongsm' && i.field === 'vehicle' && i.level === 'error'));
+    assert.ok(iss.some((i) => i.tab === 'places' && i.field === 'brand'));
+    for (const k of ['power.gas', 'power.electric', 'power.pedal']) assert.ok(CONTENT.has(k), k);
+  });
   test('Trang bị boa thêm được cộng vào đơn 5 sao', () => {
     GOODS.__tip = { id: '__tip', name: 't', price: 1, type: 'equipment', effects: { tipBonus: 4 } };
     for (let seed = 1; seed < 40; seed++) {
@@ -584,7 +763,8 @@ console.log('App giao hàng, loại đơn, tài khoản, loại khách (apps.jso
     assert.equal(plain('Cây Xăng Đường số 5'), 'cay xang duong so 5');
     const T = Object.fromEntries(TYPES.map((t) => [t[0], t[3]]));
     const placed = layout.places;
-    assert.ok(placed.filter(T.gas).length >= 1 && placed.filter(T.gas).every((p) => p.kind === 'gas'));
+    assert.ok(placed.filter(T.gas).length >= 1 && placed.filter(T.gas).every((p) => ['gas', 'charger', 'swap'].includes(p.kind)));
+    assert.ok(placed.filter(T.office).length >= 2 && placed.filter(T.office).every((p) => p.kind === 'office'), 'nút Văn phòng hãng');
     assert.ok(placed.filter(T.cafe).length >= 1 && !placed.filter(T.food).some(T.cafe), 'quán cà phê không lẫn vào quán ăn');
   });
   test('Hỏa tốc: cước cao hơn, thời hạn gắt hơn đơn giao hàng thường', () => {
@@ -654,7 +834,7 @@ console.log('App giao hàng, loại đơn, tài khoản, loại khách (apps.jso
     gs.recordOffer(true);
     assert.ok(gs.acceptRate < APP.account.lowAcceptBelow);
     const lo = new OrderManager({ rng: makeRng(1), layout, gs });
-    const hi = new OrderManager({ rng: makeRng(1), layout, gs: new GameState() });
+    const hi = new OrderManager({ rng: makeRng(1), layout, gs: workerState() });
     lo.schedulePing(9 * 60); hi.schedulePing(9 * 60);
     assert.ok(Math.abs(lo.nextPingIn / hi.nextPingIn - APP.account.lowAcceptPingMult) < 1e-9);
     const g2 = new GameState();
@@ -1636,7 +1816,8 @@ console.log('Ngoại hình nam/nữ');
     assert.ok(tris(noSkirt) > tris(makePerson({ gender: 'f', hairStyle: 'bald' })), 'tóc dài');
   });
   test('Dựng hình 3D người: đủ khớp gối/khuỷu, ≤ 10 khối, chung 1 vật liệu, ngồi đúng yên xe', () => {
-    const looks = [{}, { hat: 'helmet', helmetStyle: 'full', overlay: 'raincoat' }, { gender: 'f', skirt: true, hat: 'nonla' }, { hat: 'police', bag: true }, { overlay: 'jacket', scale: 0.72 }];
+    const looks = [{}, { hat: 'helmet', helmetStyle: 'full', overlay: 'raincoat' }, { gender: 'f', skirt: true, hat: 'nonla' }, { hat: 'police', bag: true }, { overlay: 'jacket', scale: 0.72 },
+      { hat: 'helmet', face: 'mask', faceColor: 0x5dade2, gloves: 'armSleeves', gloveColor: 0xffffff, shoe: 0xffffff, shoeStyle: 'sandal', sleeves: 'short' }, { face: 'glasses', gloves: 'gloves' }];
     const mats = new Set();
     for (const o of looks) {
       const p = makePerson(o), parts = p.userData.parts;
@@ -1655,6 +1836,30 @@ console.log('Ngoại hình nam/nữ');
     }
     assert.equal(mats.size, 1, 'mọi người dùng chung 1 vật liệu');
     assert.ok(Math.abs(sitY(1) + HIP_Y - 0.98) < 1e-9 && Math.abs(sitY(0.72, 1.02) + HIP_Y * 0.72 - 1.02) < 1e-9, 'háng nằm đúng độ cao yên');
+  });
+  test('Xe đạp: không có thùng giao hàng; đạp xe 2 chân ngược pha, đứng yên thì ngồi bình thường', () => {
+    const bike = MODELS.makeBike(0x123456, 'bicycle');
+    assert.ok(bike.userData.noBag && !bike.userData.bagMesh.visible, 'xe đạp không có thùng');
+    assert.ok(MODELS.makeBike(0x123456, 'cub').userData.bagMesh.visible, 'xe máy vẫn có thùng');
+    const p = makePerson({}), parts = p.userData.parts;
+    MODELS.pedalPerson(p, Math.PI / 2, 1);
+    assert.ok(parts.legL.rotation.x < -1.4 && parts.legR.rotation.x > -1.0, 'chân trái đạp lên, chân phải xuống');
+    assert.ok(parts.kneeL.rotation.x > parts.kneeR.rotation.x, 'chân ở trên gập gối nhiều hơn');
+    MODELS.pedalPerson(p, 1.3, 0);
+    assert.ok(Math.abs(parts.legL.rotation.x + 1.2) < 1e-9 && Math.abs(parts.legR.rotation.x + 1.2) < 1e-9, 'đứng yên = dáng ngồi');
+  });
+  test('Dựng hình 3D phụ kiện: khẩu trang / kính trên mặt, găng tay đổi màu bàn tay, dép lộ bàn chân', () => {
+    const skin = 0xf1c27d, mask = 0x5dade2, glass = 0x1c1c1c, glove = 0xaa3311, sandal = 0x8e44ad;
+    const p = makePerson({ skin, face: 'mask', faceColor: mask, gloves: 'gloves', gloveColor: glove, shoe: sandal, shoeStyle: 'sandal', shorts: true });
+    assert.ok(hasColor(p.userData.parts.torso.geometry, mask), 'khẩu trang');
+    assert.ok(hasColor(makePerson({ skin, face: 'glasses', faceColor: glass }).userData.parts.torso.geometry, glass), 'kính');
+    const fore = meshOf(p.userData.parts.elbowL).geometry;
+    assert.ok(hasColor(fore, glove), 'bàn tay màu găng');
+    const shin = meshOf(p.userData.parts.kneeL).geometry;
+    assert.ok(hasColor(shin, sandal) && hasColor(shin, skin), 'dép: đế màu dép + bàn chân trần');
+    const longGlove = meshOf(makePerson({ skin, sleeves: 'short', gloves: 'armSleeves', gloveColor: glove }).userData.parts.elbowL).geometry;
+    assert.ok(hasColor(longGlove, glove) && !hasColor(longGlove, skin), 'găng ống dài che kín cẳng tay');
+    assert.ok(!hasColor(meshOf(makePerson({ skin }).userData.parts.elbowL).geometry, glove), 'không đeo găng thì tay trần');
   });
   {
     const { makeBike, setBikeColor, BIKE_MODELS, makeCar, CAR_KINDS, makeNpcMoto, jamCarGeo, jamMotoGeo } = await import('../src/world/models.js');
@@ -1831,6 +2036,21 @@ console.log('Kiểu nhà địa điểm (src/data/looks.js, src/world/placeBuild
         assert.ok(b.colliders === 'full' || (Array.isArray(b.colliders) && b.colliders.length), where);
       }
     }
+  });
+  test('Phòng trọ có hầm xe: tầng trệt chạy xe vào được (chỉ chặn 2 tường bên + tường sau), nằm trong lô; lô hẹp thật (~3,1 m) vẫn dựng được', () => {
+    for (const [W, D] of [[3.13, 8.5], [6, 9]]) {
+      const b = buildPlace({ look: 'tro', W, D, floors: 3, color: '#f2d7a7', sign: 'PHÒNG TRỌ', short: 'Trọ', kind: 'home', seed: 3, garage: true });
+      assert.ok(Array.isArray(b.colliders) && b.colliders.length === 3, 'chỉ 3 bức tường chặn');
+      const box = new THREE.Box3().setFromObject(b.group);
+      assert.ok(box.min.z >= -D - 0.35 && box.max.z <= 0.6 && box.min.x >= -W / 2 - 0.35 && box.max.x <= W / 2 + 0.35, `${W}×${D}`);
+      // lòng hầm (giữa 2 tường, trước tường sau) không bị chặn → xe (bán kính 0,7) chạy vào được
+      const inner = (x, z) => b.colliders.some((c) => x >= c.x0 && x <= c.x1 && z >= c.z0 && z <= c.z1);
+      for (const z of [-0.5, -D / 2, -D + 1]) assert.ok(!inner(0, z), `giữa hầm z ${z}`);
+      const gap = W - 2 * 0.22;
+      assert.ok(gap >= 1.4 + 1.2, `lòng hầm đủ rộng cho xe: ${gap.toFixed(2)} m`);
+    }
+    const plain = buildPlace({ look: 'tro', W: 6, D: 9, floors: 2, color: '#f2d7a7', kind: 'home', seed: 3 });
+    assert.equal(plain.colliders, 'full', 'dãy trọ thường (không hầm) vẫn đặc');
   });
   test('Kiểm tra dữ liệu: kiểu nhà lạ → lỗi; tự chọn kiểu mà số tầng ngoài khoảng → lỗi', () => {
     const pd = JSON.parse(JSON.stringify(DATA.places));
@@ -2083,7 +2303,7 @@ console.log('Dữ liệu & kho chữ (sửa bằng công cụ ?editor)');
     const gw = validateGoods(goods, null).filter((i) => i.level === 'warn' && i.field === 'price').map((i) => i.ref);
     assert.deepEqual(gw.sort(), ['cheap', 'free']);
     const gear = JSON.parse(JSON.stringify(data.gear));
-    const someBike = Object.keys(gear.vehicles).find((k) => k !== 'cub');
+    const someBike = Object.keys(gear.vehicles).find((k) => !['cub', 'xeDap', 'evStd'].includes(k)); // xe khởi đầu / xe hãng cấp giá 0 là đúng
     gear.vehicles[someBike].price = 0;
     assert.ok(validateGear(gear).some((i) => i.ref === someBike && i.field === 'price' && i.level === 'warn'));
     const content ={ ...data.content, 'toast.dayStart': 'Ngày {abc}' };
@@ -2316,16 +2536,35 @@ console.log('Đậu xe: gửi bãi, dán phạt, cẩu xe, trộm đêm');
     }
     assert.ok(Math.abs(hit / N - PARKING.ticketPerHour) < 0.03, `${hit / N} so với ${PARKING.ticketPerHour}`);
   });
-  test('Bãi giữ xe: nhận ra xe đậu trong bãi, tìm bãi gần nhất; gần phòng trọ là an toàn', () => {
+  test('Bãi giữ xe: nhận ra xe đậu trong bãi, tìm bãi gần nhất; chỉ trong hầm xe phòng trọ là an toàn (lề trước nhà thì không)', () => {
     const lot = { id: 'bai', kind: 'scenery', look: 'parkingLot', x0: 0, x1: 10, z0: 0, z1: 10 };
     const park = { id: 'cv', kind: 'scenery', look: 'park', x0: 20, x1: 30, z0: 0, z1: 10 };
-    const home = { id: 'home', kind: 'home', door: { x: 100, z: 100 } };
+    const home = { id: 'home', kind: 'home', x0: 100, x1: 104, z0: 90, z1: 99, face: 'S', door: { x: 102, z: 100.6 } };
     const places = [lot, park, home];
     assert.equal(PK.parkingLotAt(places, 5, 5), lot);
     assert.equal(PK.parkingLotAt(places, 25, 5), null, 'công viên không phải bãi giữ xe');
     assert.equal(PK.nearestParkingLot(places, 50, 50), lot);
     assert.equal(PK.nearestParkingLot([park, home], 50, 50), null);
-    assert.ok(PK.safeSpot(places, 105, 100) && !PK.safeSpot(places, 150, 100));
+    assert.ok(PK.safeSpot(places, 102, 94), 'trong hầm');
+    assert.ok(!PK.safeSpot(places, 102, 100.6), 'trước cửa nhà (lề đường) không còn an toàn');
+    assert.ok(!PK.safeSpot(places, 102, 98.6), 'chìa ra ngoài cửa hầm chưa tính là trong hầm');
+  });
+  const G = await import('../src/sim/garage.js');
+  test('Hầm xe phòng trọ: lòng hầm theo 4 hướng mặt tiền, chỗ dựng xe / chỗ đứng nằm trong hầm, đầu xe quay ra đường', () => {
+    for (const face of ['N', 'S', 'E', 'W']) {
+      const p = { x0: 0, x1: face === 'E' || face === 'W' ? 9 : 4, z0: 0, z1: face === 'E' || face === 'W' ? 4 : 9, face };
+      const s = G.garageSpots(p);
+      assert.ok(G.inGarage(p, s.bike.x, s.bike.z) && G.inGarage(p, s.walker.x, s.walker.z, 0.5), face);
+      const fwd = { x: Math.sin(s.bike.heading), z: Math.cos(s.bike.heading) };
+      const out = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] }[face];
+      assert.ok(Math.abs(fwd.x - out[0]) < 1e-9 && Math.abs(fwd.z - out[1]) < 1e-9, `${face}: đầu xe quay ra đường`);
+      const g = G.garageRect(p);
+      assert.ok(g.x1 - g.x0 > 3 || g.z1 - g.z0 > 3);
+    }
+    const home = layout.placeById.home;
+    const s = G.garageSpots(home);
+    assert.ok(G.inGarage(home, s.bike.x, s.bike.z) && !G.inGarage(home, home.door.x, home.door.z), 'phòng trọ thật: xe trong hầm, cửa nhà ngoài vỉa hè');
+    assert.ok(PK.safeSpot(layout.places, s.bike.x, s.bike.z));
   });
 }
 
@@ -2671,7 +2910,7 @@ console.log('Sân bay: luật xe máy (điểm đón, bãi xe, cấm dừng, ph�
     assert.equal(p.walletCredit, r1(30 - p.fee - p.tax + p.tip));
     assert.equal(computePayout({ baseFare: 20, distanceKm: 0, stars: 1, airportFee: 10, farePct: 0.5 }).airportFee, 5, 'khách xuống giữa đường');
     const lay = { ...layout, placeById: { ...layout.placeById, sbThu: fake } };
-    const om = new OrderManager({ rng: makeRng(4), layout: lay, gs: new GameState() });
+    const om = new OrderManager({ rng: makeRng(4), layout: lay, gs: workerState() });
     const lot = layout.lots[0];
     const mk = (pickup) => om.buildOrder({ type: { id: 'ride', kind: 'ride', fareMult: 1, deadlineMult: 1 }, pickup, dropoff: { name: lot.address, address: lot.address, door: lot.door, lotKey: lot.key }, itemIds: ['passenger'], pos: { x: 0, z: 0 } });
     assert.equal(mk({ placeId: 'sbThu', name: 'SB', address: 'SB', door: AP.airportRideDoor(fake) }).airportFee, APP.airportFee || 0);
@@ -2850,7 +3089,7 @@ console.log('Xe buýt (tuyến, trạm, lịch chạy)');
     const shop = { ...layout.places.find((p) => p.kind !== 'scenery'), id: 'shopThu', orders: { parcelWeight: 10, parcelItems: ['dienThoai'] } };
     const others = layout.places.map((p) => (p.orders?.parcelWeight ? { ...p, orders: { ...p.orders, parcelWeight: 0 } } : p));
     const lay = { ...layout, places: [...others, shop], placeById: { ...layout.placeById, shopThu: shop } };
-    const om = new OrderManager({ rng: makeRng(5), layout: lay, gs: new GameState() });
+    const om = new OrderManager({ rng: makeRng(5), layout: lay, gs: workerState() });
     for (let i = 0; i < 20; i++) {
       const o = om.makeParcel({ ...ORDER_TYPES.parcel, items: ['taiLieu'], shopItems: true, codChance: 0 }, 600, shop.door);
       assert.equal(o.pickup.placeId, 'shopThu');
@@ -2964,6 +3203,69 @@ console.log('Loại khách mới: nhà dân + địa điểm, đổi điểm đ�
     bad.riderTypes.app.changeDestChance = 3;
     const errs = validateApps(bad, DATA.items, DATA.places).filter((i) => i.level === 'error').map((i) => `${i.ref}.${i.field}`);
     assert.ok(errs.includes('app.changeDestChance') && !errs.includes('app.from'), errs.join(', '));
+  });
+}
+
+console.log('Điện thoại: thứ tự app (phone.json, thẻ 📱 Giao diện app)');
+{
+  const { phoneApps, validatePhone, APP_DEFS } = await import('../src/data/phoneApps.js');
+  test('Thứ tự / biểu tượng / màu theo dữ liệu; app lạ bỏ qua, thiếu thì thêm cuối; app khóa không ẩn được; app ẩn vẫn mở qua liên kết', () => {
+    const p = phoneApps({ apps: [
+      { id: 'bag', icon: 'X', color: '#123456' },
+      { id: 'nope', icon: '?', color: '#000000' },
+      { id: 'goship', icon: 'G', color: '#000000', hidden: true },
+      { id: 'map', icon: 'M', color: 'sai', hidden: true },
+    ] });
+    assert.deepEqual(p.visible.slice(0, 2).map((a) => a[0]), ['bag', 'goship'], 'GoShip khóa → không ẩn');
+    assert.deepEqual(p.visible[0].slice(1, 3), ['X', '#123456']);
+    assert.ok(!p.visible.some((a) => a[0] === 'map') && p.all.some((a) => a[0] === 'map'));
+    assert.equal(p.all.find((a) => a[0] === 'map')[2], APP_DEFS.map.color, 'màu sai → màu mặc định');
+    assert.equal(p.all.length, Object.keys(APP_DEFS).length);
+    assert.ok(!p.all.some((a) => a[0] === 'nope'));
+    assert.ok(p.visible.length <= 9);
+  });
+  test('Dữ liệu phone.json hiện tại hợp lệ; bộ kiểm tra bắt app lạ, lặp, thiếu biểu tượng, màu sai, ẩn app khóa', () => {
+    assert.deepEqual(validatePhone(readJson('src/data/phone.json')), []);
+    const bad = validatePhone({ apps: [{ id: 'goship', icon: '', color: 'x', hidden: true }, { id: 'goship', icon: 'a', color: '#000000' }, { id: 'zzz' }] });
+    for (const f of ['icon', 'color', 'hidden']) assert.ok(bad.some((i) => i.level === 'error' && i.field === f), f);
+    assert.ok(bad.some((i) => i.level === 'error' && i.msg.includes('lặp')));
+    assert.ok(bad.some((i) => i.level === 'error' && i.ref === 'zzz'));
+    assert.ok(bad.some((i) => i.level === 'warn'), 'thiếu app → cảnh báo');
+    for (const d of Object.values(APP_DEFS)) assert.ok(CONTENT.has(d.key), d.key);
+  });
+}
+
+console.log('Màn hình chính: hồ sơ shipper, cài đặt');
+{
+  const { normProfile, NAME_MAX } = await import('../src/sim/GameState.js');
+  const { normSettings, DEFAULTS, SENS_RANGE } = await import('../src/settings.js');
+  test('Hồ sơ: tên gọn khoảng trắng, tối đa ký tự, trống → tên mặc định; giới tính lạ → nam; lưu qua ngày', () => {
+    assert.deepEqual(normProfile({ name: '  Lan   Anh ', gender: 'f' }), { name: 'Lan Anh', gender: 'f' });
+    assert.equal(normProfile({ name: 'x'.repeat(50) }).name.length, NAME_MAX);
+    assert.equal(normProfile({ name: '   ' }).name, CONTENT.fmt('profile.defaultName'));
+    assert.equal(normProfile(null).gender, 'm');
+    assert.equal(normProfile({ gender: 'khác' }).gender, 'm');
+    const gs = new GameState({ carry: { profile: { name: 'Lan', gender: 'f' } } });
+    assert.equal(gs.money, ECONOMY.startMoney, 'chơi mới có hồ sơ vẫn bắt đầu như thường');
+    const next = new GameState({ day: 2, carry: gs.carryOver() });
+    assert.deepEqual(next.profile, { name: 'Lan', gender: 'f' });
+    assert.ok(new GameState({ day: 2, carry: { money: 5 } }).profile.name, 'bản lưu cũ chưa có hồ sơ → tên mặc định');
+    assert.ok(CONTENT.has('profile.defaultName'));
+  });
+  test('Cài đặt: thiếu / hỏng → mặc định; số bị giới hạn trong khoảng', () => {
+    assert.deepEqual(normSettings(null), DEFAULTS);
+    assert.deepEqual(normSettings('rác'), DEFAULTS);
+    const s = normSettings({ volume: 7, sens: -3, quality: 'siêu', invertY: 1, muted: 'có' });
+    assert.equal(s.volume, 1);
+    assert.equal(s.sens, SENS_RANGE[0]);
+    assert.equal(s.quality, 'high');
+    assert.equal(s.invertY, true);
+    assert.equal(s.muted, true);
+    assert.equal(normSettings({ quality: 'low', volume: 'abc' }).quality, 'low');
+    assert.equal(normSettings({ volume: 'abc' }).volume, DEFAULTS.volume);
+  });
+  test('Chữ của màn hình chính, giới thiệu 5 trang, cài đặt đều có trong kho chữ', () => {
+    for (let i = 1; i <= 5; i++) for (const k of ['icon', 'title', 'body']) assert.ok(CONTENT.has(`intro.p${i}.${k}`), `intro.p${i}.${k}`);
   });
 }
 

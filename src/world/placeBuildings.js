@@ -14,6 +14,7 @@ import { fmt, list } from '../content/index.js';
 import { makeRng } from '../sim/rng.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { AIRPORT_MIN_W, airportZones } from '../sim/airport.js';
+import { GARAGE_WALL, GARAGE_BACK } from '../sim/garage.js';
 
 const PI = Math.PI;
 const hasDOM = typeof document !== 'undefined';
@@ -605,10 +606,26 @@ const BUILD = {
     return { shell: sh, sign: { y: 3.7 }, height: houseTop(o.floors), bike: { x: 0.4, z: 1.4, ry: PI / 2 - 0.3 } };
   },
 
+  // Dãy phòng trọ. o.garage (phòng trọ Cô Hai): tầng trệt là HẦM XE chạy xe vào được — cửa cuốn kéo lên,
+  // tường 2 bên + tường sau, trần; phòng trọ từ lầu 1. Chỉ chặn tường (colliders) để xe / người vào trong được.
   tro(k, o, r) {
-    const W = o.W, D = o.D, n = o.floors, F = 3.0, cd = 1.3; // hành lang sâu 1,3 m
+    const W = o.W, D = o.D, F = 3.0, cd = 1.3; // hành lang sâu 1,3 m
+    const garage = !!o.garage;
+    const n = garage ? Math.max(2, o.floors) : o.floors; // có hầm thì ít nhất 1 lầu phòng ở phía trên
     const nd = Math.max(1, Math.floor((W - 1.4) / 2.4));
-    for (let f = 0; f < n; f++) {
+    if (garage) {
+      const t = GARAGE_WALL, b = GARAGE_BACK;
+      k.box(W, 0.02, D, 0, 0.01, -D / 2, 0x6b6f72); // nền xi măng
+      for (const s of [-1, 1]) k.box(t, F, D, s * (W / 2 - t / 2), F / 2, -D / 2, o.color); // tường 2 bên
+      k.box(W, F, b, 0, F / 2, -D + b / 2, o.color); // tường sau
+      k.box(W, 0.2, D, 0, F - 0.1, -D / 2, 0xcfc8bb); // trần (sàn lầu 1)
+      k.box(W - 0.3, 0.38, 0.38, 0, F - 0.32, -0.22, 0x8a9096, 'metal'); // cửa cuốn đã kéo lên
+      for (const s of [-1, 1]) k.box(0.06, F - 0.5, 0.08, s * (W / 2 - t - 0.04), (F - 0.5) / 2, -0.06, 0x5d6166, 'metal'); // ray cửa cuốn
+      k.plane(Math.min(1.6, W - 0.6), 0.32, 0, F - 0.32, -0.02, 0xffffff, 'tex:' + textTex(fmt('city.garageSign'), { bg: '#f4d03f', fg: '#1c1c1c', w: 256, h: 64 })); // bảng HẦM XE
+      k.box(0.5, 0.04, 0.12, 0, F - 0.22, -D / 2, 0xfff6c8, 'light'); // đèn trần
+      k.box(W - 0.5, 0.02, 0.5, 0, 0.02, -0.4, 0xf4d03f); // vạch vàng mép cửa
+    }
+    for (let f = garage ? 1 : 0; f < n; f++) {
       const y = f * F;
       k.box(W, F, D - cd, 0, y + F / 2, -cd - (D - cd) / 2, o.color);
       for (let i = 0; i < nd; i++) {
@@ -630,12 +647,21 @@ const BUILD = {
       }
       for (const s of [-1, 1]) k.box(0.22, F, 0.22, s * (W / 2 - 0.12), y + F / 2, -0.12, o.color);
     }
-    // cầu thang lên lầu ở đầu dãy (trong hành lang)
-    if (n > 1) for (let i = 0; i < 10; i++) k.box(0.24, 0.3, 1.0, W / 2 - 0.4 - i * 0.24, 0.15 + i * 0.3, -cd / 2, 0xb9b4ab);
+    // cầu thang lên lầu ở đầu dãy (trong hành lang) — có hầm xe thì cầu thang ở phía sau, không chắn lối xe
+    if (n > 1 && !garage) for (let i = 0; i < 10; i++) k.box(0.24, 0.3, 1.0, W / 2 - 0.4 - i * 0.24, 0.15 + i * 0.3, -cd / 2, 0xb9b4ab);
     // mái tôn
     k.plane(W + 0.6, D + 0.6, 0, n * F + 0.35, -D / 2, 0x9aa0a6, 'tex:' + T.corr(), [-PI / 2 + 0.08, 0, 0], 1.2);
     k.plane(W + 0.6, D + 0.6, 0, n * F + 0.34, -D / 2, 0x6a6e72, '', [PI / 2 + 0.08, 0, 0]);
-    return { sign: { y: 2.62, x: -W / 2 + 1.5, w: Math.min(2.4, W - 1), z: 0.03 }, height: n * F + 0.6, colliders: 'full', bikes: W > 5 };
+    const H = n * F + 0.6;
+    const colliders = garage
+      ? [
+        { x0: -W / 2, z0: -D, x1: -W / 2 + GARAGE_WALL, z1: 0, h: H },
+        { x0: W / 2 - GARAGE_WALL, z0: -D, x1: W / 2, z1: 0, h: H },
+        { x0: -W / 2, z0: -D, x1: W / 2, z1: -D + GARAGE_BACK, h: H },
+      ]
+      : 'full';
+    // có hầm: biển hiệu lên lầu 1 (tầng trệt là cửa hầm)
+    return { sign: { y: garage ? F + 2.62 : 2.62, x: -W / 2 + 1.5, w: Math.min(2.4, W - 1), z: 0.03 }, height: H, colliders, bikes: W > 5 && !garage };
   },
 
   apartment(k, o) {

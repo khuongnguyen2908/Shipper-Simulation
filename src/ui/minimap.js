@@ -5,7 +5,7 @@ const segOf = (id) => { const m = /^([xz])(\d+):(\d+)$/.exec(id); return { axis:
 import { allSegments, tierOf, TIER_GEO } from '../sim/roads.js';
 import { lookOf } from '../data/looks.js';
 
-export const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', scenery: '🌳', police: '🚓' };
+export const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', scenery: '🌳', police: '🚓', office: '🏢', charger: '🔌', swap: '🔋' };
 // màu mảng cảnh quan
 const SCENERY_COLOR = { park: '#4f8a3a', emptyLot: '#8b6f4e', soccer: '#3d9a48', parkingLot: '#8a8a85', construction: '#b08a4a' };
 // bản đồ tròn: chấm màu theo nhóm địa điểm (cam quán ăn · đỏ xăng/sửa xe · tím mua sắm · xanh dương dịch vụ · xanh ngọc xe buýt/phà/sân bay)
@@ -13,7 +13,7 @@ const GROUP_COLOR = { food: '#f39c12', fix: '#e74c3c', shop: '#9b59b6', svc: '#3
 export function placeGroup(p) {
   const look = lookOf(p);
   if (p.kind === 'home') return 'home';
-  if (p.kind === 'gas' || p.kind === 'garage' || p.kind === 'shop') return 'fix';
+  if (['gas', 'garage', 'shop', 'charger', 'swap', 'office'].includes(p.kind)) return 'fix';
   if (p.kind === 'police') return 'police';
   if (p.kind === 'scenery') return 'park';
   if (['busStation', 'ferry', 'airport'].includes(look)) return 'transit';

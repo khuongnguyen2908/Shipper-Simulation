@@ -4,8 +4,11 @@
     "name": "Áo mưa",
     "icon": "🧥",
     "price": 40,
-    "desc": "Mưa không còn trừ thể lực, tinh thần; khách xe ôm không bị ướt.",
-    "type": "equipment",
+    "desc": "Mưa không còn trừ thể lực, tinh thần; khách xe ôm không bị ướt. Mưa tới thì mở túi đồ gắn vào, tạnh thì cởi ra kẻo nóng.",
+    "type": "outfit",
+    "slot": "acc",
+    "style": "raincoat",
+    "color": "#2e86c1",
     "effects": {
       "rainProtect": true
     }
@@ -16,7 +19,10 @@
     "icon": "🧢",
     "price": 60,
     "desc": "Không mệt thêm khi nắng gắt 11h–15h.",
-    "type": "equipment",
+    "type": "outfit",
+    "slot": "acc",
+    "style": "jacket",
+    "color": "#5d6d7e",
     "effects": {
       "sunProtect": true
     }
@@ -38,10 +44,77 @@
     "icon": "👟",
     "price": 150,
     "desc": "Leo cầu thang đỡ mệt hơn, đi lại cả ngày bớt mỏi.",
-    "type": "equipment",
+    "type": "outfit",
+    "slot": "shoes",
+    "style": "sneaker",
+    "color": "#ecf0f1",
     "effects": {
       "stairsPct": -30,
       "physDrainPct": -10
+    }
+  },
+  "giayCu": {
+    "id": "giayCu",
+    "name": "Giày thể thao cũ",
+    "icon": "👞",
+    "price": 0,
+    "desc": "Đôi giày đi làm hằng ngày, có sẵn.",
+    "type": "outfit",
+    "slot": "shoes",
+    "style": "sneaker",
+    "color": "#2b2b2b"
+  },
+  "depToOng": {
+    "id": "depToOng",
+    "name": "Dép tổ ong",
+    "icon": "🩴",
+    "price": 15,
+    "desc": "Mát chân, rẻ, huyền thoại.",
+    "type": "outfit",
+    "slot": "shoes",
+    "style": "sandal",
+    "color": "#ecf0f1"
+  },
+  "kinhRam": {
+    "id": "kinhRam",
+    "name": "Kính râm",
+    "icon": "🕶️",
+    "price": 45,
+    "desc": "Đỡ chói nắng, chạy cả ngày bớt căng mắt.",
+    "type": "outfit",
+    "slot": "face",
+    "style": "glasses",
+    "color": "#1c1c1c",
+    "effects": {
+      "mentalDrainPct": -5
+    }
+  },
+  "khauTrang": {
+    "id": "khauTrang",
+    "name": "Khẩu trang vải",
+    "icon": "😷",
+    "price": 10,
+    "desc": "Đỡ khói bụi giờ cao điểm, thở dễ hơn.",
+    "type": "outfit",
+    "slot": "face",
+    "style": "mask",
+    "color": "#5dade2",
+    "effects": {
+      "physDrainPct": -5
+    }
+  },
+  "gangTay": {
+    "id": "gangTay",
+    "name": "Găng tay chống nắng",
+    "icon": "🧤",
+    "price": 30,
+    "desc": "Găng ống dài che kín cẳng tay, đỡ rát nắng.",
+    "type": "outfit",
+    "slot": "hands",
+    "style": "armSleeves",
+    "color": "#ecf0f1",
+    "effects": {
+      "physDrainPct": -5
     }
   },
   "book1": {

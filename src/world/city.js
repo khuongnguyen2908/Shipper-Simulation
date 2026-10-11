@@ -540,6 +540,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
       look: lookOf(p), W: f.width, D: depth, floors: lookFloors(p), color: p.color, signBg: p.signBg, sign: p.sign, short: p.short, kind: p.kind,
       menu: (p.menu || []).map((id) => itemTable[id]?.name).filter(Boolean), seed: hashStr(p.id), inAlley: p.inAlley,
       cut: cutSide(p.lot, p.face), // cả khối chừa góc: góc chừa bên trái / phải nhìn từ đường
+      garage: p.kind === 'home', // phòng trọ Cô Hai: tầng trệt là hầm xe (src/sim/garage.js)
     });
     b.group.userData.placeId = p.id; // để công cụ Xây dựng bấm chọn nhà
     b.group.position.set(f.x, SW_H, f.z);

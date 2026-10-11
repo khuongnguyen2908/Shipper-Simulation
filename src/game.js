@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, BAGS, NIGHT, PARKING, AIRPORT, RIDE_EVENTS } from './data/balance.js';
 import { parkingRoll, parkingLotAt, nearestStation, towTarget, safeSpot } from './sim/parking.js';
+import { garageSpots, inGarage } from './sim/garage.js';
 import { airportAt, airportParkAt, airportNoStopAt, noStopStep } from './sim/airport.js';
 import { roadSegAt, tierOf, tierLabel, speedLimitOf } from './sim/roads.js';
 import { busHint, inService } from './sim/bus.js';
@@ -13,10 +14,10 @@ import { ITEMS } from './data/items.js';
 import { unlocked, openDayOf } from './sim/placeRules.js';
 import { dayOf, dayStartAt, tod, isDark } from './sim/clock.js';
 import { inHours } from './sim/hours.js';
-import { buildLayout, segmentRect, roadPos, districtAtPoint, traitAt, routeDist } from './sim/cityLayout.js';
+import { buildLayout, segmentRect, roadPos, districtAtPoint, traitAt, routeDist, streetAt } from './sim/cityLayout.js';
 import { fmtDist } from './sim/nav.js';
 import { makeRng } from './sim/rng.js';
-import { GameState } from './sim/GameState.js';
+import { GameState, START_VEHICLE } from './sim/GameState.js';
 import { OrderManager, S } from './sim/OrderManager.js';
 import { HazardManager } from './sim/hazards.js';
 import { objectives } from './sim/objectives.js';
@@ -26,21 +27,23 @@ import { Traffic } from './world/traffic.js';
 import { buildFerries } from './world/ferry.js';
 import { nextBoat, BOAT_DECK } from './sim/ferry.js';
 import { Sky } from './world/sky.js';
-import { makePerson, makeBeacon, makeZoneRing, setSitting, randomPersonOpts, npcLook, sitY } from './world/models.js';
+import { makePerson, makeBeacon, makeZoneRing, setSitting, pedalPerson, randomPersonOpts, npcLook, sitY } from './world/models.js';
 import { guessGender } from './sim/people.js';
 import { makeLabelTexture } from './world/textures.js';
 import { Input } from './input.js';
 import { Hud } from './ui/hud.js';
-import { Phone, APPS } from './ui/phone.js';
+import { Phone } from './ui/phone.js';
 import { Modal } from './ui/modal.js';
 import { Screens } from './ui/screens.js';
 import * as act from './interactions.js';
 import { roundMapData } from './roundMap.js';
-import { sfx, setEngine, setRain, unlockAudio, toggleMute } from './audio.js';
+import { sfx, setEngine, setRain, unlockAudio, setMuted, setVolume } from './audio.js';
+import { loadSettings, saveSettings, normSettings } from './settings.js';
 import { fmt } from './content/index.js';
 import { fmtK } from './sim/economy.js';
 
 const SAVE_KEY = 'shipper-sim-save-v1';
+const GARAGE_CAM = { dist: 3.2, pitch: 0.28 }; // camera khi đứng / chạy xe trong hầm xe phòng trọ
 const SW_H = 0.15;
 export const fmtTime = (m) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}`;
 const NORMAL = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] };
@@ -79,7 +82,7 @@ export class Game {
     for (const l of this.city.loops || []) this.traffic.addLoop(l); // xe bot chạy vòng lên sàn ga đi sân bay
     this.bus = this.city.bus; // xe buýt: tuyến + trạm (src/sim/bus.js)
     this.traffic.setBuses(this.bus);
-    this.bike = new Bike(this.scene, VEHICLES.cub);
+    this.bike = new Bike(this.scene, VEHICLES[START_VEHICLE] || VEHICLES.cub);
     this.walker = new Walker(this.scene);
     this.beacon = makeBeacon();
     this.zoneRing = makeZoneRing();
@@ -98,6 +101,7 @@ export class Game {
     this.screens = new Screens(uiRoot);
 
     this.state = 'title';
+    this.applySettings(loadSettings(), false); // âm lượng, độ nhạy chuột, đồ họa (lưu trên trình duyệt)
     this.clockMin = TIME.dayStart;
     this.shake = 0;
     this.cooldowns = new Map();
@@ -163,18 +167,57 @@ export class Game {
     }
   }
 
-  showTitle() {
+  // view: 'menu' (mặc định) | 'new' (mở thẳng phần Chơi mới, vd từ màn hình thua)
+  showTitle(view = 'menu') {
     this.state = 'title';
     this.hud.show(false);
     this.phone.toggle(false);
     this.modal.hide();
+    setEngine(false, 0);
+    setRain(0);
     const save = this.normSave(this.loadSave());
     this.screens.title({
-      save: save && { ...save, day: dayOf(save.clock), time: fmtTime(save.clock) },
+      save: save && this.saveSummary(save),
       webgl2: this.webgl2,
-      onNew: () => this.newGame(),
+      settings: this.settings,
+      view,
+      onNew: (profile) => this.newGame(profile),
       onContinue: () => this.startGame(save),
+      onSettings: (s) => this.applySettings(s),
     });
+  }
+
+  // Thẻ "Tiếp tục": tên, ngày giờ, tiền, điểm, tiền nhà kỳ này, xe (đọc từ bản lưu bằng GameState)
+  saveSummary(save) {
+    const day = dayOf(save.clock);
+    try {
+      const gs = new GameState({ day, carry: save.carry });
+      return { name: gs.profile.name, day, time: fmtTime(save.clock), money: gs.money, rating: gs.rating, rentPaid: gs.rentPaid, rent: gs.rent, dueDay: gs.rentDueDay, bike: gs.vehicleSpec.name };
+    } catch {
+      return { name: '', day, time: fmtTime(save.clock), money: 0, rating: 0, rentPaid: false, rent: 0, dueDay: day, bike: '' };
+    }
+  }
+
+  // Cài đặt: âm lượng / tắt tiếng, độ nhạy chuột, đồ họa (Cao: bóng đổ + nét · Thấp: tắt bóng, giảm độ nét)
+  applySettings(s, save = true) {
+    const prev = this.settings;
+    this.settings = normSettings(s);
+    const st = this.settings;
+    setVolume(st.volume);
+    this.muted = setMuted(st.muted);
+    const high = st.quality === 'high';
+    this.renderer.setPixelRatio(high ? Math.min(window.devicePixelRatio, 2) : 1);
+    if (this.renderer.shadowMap.enabled !== high) {
+      this.renderer.shadowMap.enabled = high;
+      // bật / tắt bóng đổ: vật liệu phải dựng lại
+      this.scene.traverse((o) => { for (const m of [].concat(o.material || [])) m.needsUpdate = true; });
+    }
+    if (!prev || prev.quality !== st.quality) this.resize();
+    if (save) saveSettings(st);
+  }
+  // Phím M / nút tắt tiếng: nhớ vào cài đặt
+  setMute(on) {
+    this.applySettings({ ...this.settings, muted: on });
   }
 
   // Bản lưu: { v: 2, clock (phút tuyệt đối), carry, seed }. Bản cũ { day, carry, seed } → 06:00 của ngày đó.
@@ -184,8 +227,9 @@ export class Game {
     if (Number.isInteger(s.day)) return { v: 2, clock: dayStartAt(s.day), carry: s.carry || null, seed: s.seed ?? 1 };
     return null;
   }
-  newGame() {
-    this.startGame({ clock: TIME.dayStart, carry: null, seed: Math.floor(Math.random() * 1e6) });
+  // profile: { name, gender } đặt ở màn hình Chơi mới
+  newGame(profile = null) {
+    this.startGame({ clock: TIME.dayStart, carry: profile ? { profile } : null, seed: Math.floor(Math.random() * 1e6) });
   }
   // Lưu tự động (06:00 mỗi ngày, mỗi lần ngủ dậy). Mở lại → đứng trước phòng trọ đúng giờ đã lưu.
   saveGame() {
@@ -206,6 +250,7 @@ export class Game {
     this.clockMin = clock;
     this.chat = [];
     this.waypoint = null; // mã địa điểm người chơi bấm "Chỉ đường" trên bản đồ điện thoại
+    this.findBike = false; // đang chỉ đường tới xe (app Xe → Định vị xe)
     this.knownPolice = new Set();
     this.policeChecked = new Set();
     this.cooldowns.clear();
@@ -226,15 +271,13 @@ export class Game {
     this.lookKey = null; // dựng lại ngoại hình shipper theo đồ đang mặc
     this.bike.update(0.016, {}, { mounted: false, fuel: 1, hp: 100, wet: false, grid: this.city.grid, elev: this.city.elev, potholes: [], emit: () => {} });
     this.walker.update(0.016, {}, 0, { grid: this.city.grid, elev: this.city.elev, phys: 100 });
-    this.rig.yaw = -0.75 * Math.PI; // camera đứng giữa đường phía tây-bắc, nhìn về nhà trọ và xe
+    this.rig.yaw = this.walker.heading + Math.PI; // camera sau lưng người (đứng trong hầm xe, nhìn ra đường)
     this.rig.init = false;
     this.clearTempNpcs();
     this.traffic.setPolice([]);
     this.traffic.setJams([]);
 
-    this.addChat(fmt('chat.group'), fmt('chat.forecast', { forecast: this.hz.forecastText() }));
-    this.addChat(fmt('chat.shopOwner'), fmt('chat.shopAd'));
-    this.addChat(fmt('chat.admin'), fmt('chat.tips'));
+    this.joinGroupChat(); // đã vào hãng (bản lưu): tin nhóm đầu ngày; chưa vào hãng thì chưa có
     this.state = 'play';
     this.paused = false;
     this.hud.show(true);
@@ -242,21 +285,32 @@ export class Game {
     this.announceOpenings(day);
   }
 
-  // đặt người chơi trước phòng trọ, xe đậu sát lề
+  // đặt người + xe trong hầm xe phòng trọ (mới vào game, ngất / kiệt sức): xe dựng sâu trong hầm, đầu quay ra đường
   placeAtHome() {
     this.ferryRide = null; // đang đi phà mà ngất / sang ngày mới → về nhà, bỏ chuyến phà
     const home = this.layout.placeById.home;
-    const [nx, nz] = NORMAL[home.face];
+    const spot = garageSpots(home);
     if (this.mode === 'bike') this.walker.standUp(this.scene, this.bike);
     this.mode = 'foot';
-    this.walker.pos.set(home.door.x + nx * 0.6, 0, home.door.z + nz * 0.6);
-    this.walker.heading = Math.atan2(nx, nz);
+    if (spot) {
+      this.walker.pos.set(spot.walker.x, 0, spot.walker.z);
+      this.walker.heading = spot.walker.heading;
+    } else {
+      const [nx, nz] = NORMAL[home.face];
+      this.walker.pos.set(home.door.x + nx * 0.6, 0, home.door.z + nz * 0.6);
+      this.walker.heading = Math.atan2(nx, nz);
+    }
     if (this.gs?.towed) return; // xe đang ở bãi cẩu → để nguyên, phải tới chuộc
-    this.bike.pos.set(home.door.x + 1.8, 0, home.door.z + nz * 2.4);
-    this.bike.heading = Math.PI / 2;
+    if (spot) this.bike.pos.set(spot.bike.x, 0, spot.bike.z);
+    else this.bike.pos.set(home.door.x + 1.8, 0, home.door.z + 2.4);
+    this.bike.heading = spot ? spot.bike.heading : Math.PI / 2;
     this.bike.speed = 0;
     this.bike.vel.set(0, 0);
-    if (this.gs && this.parkRng) this.startParking(true); // xe để trước phòng trọ: an toàn
+    if (this.gs && this.parkRng) this.startParking(true); // xe trong hầm: an toàn
+  }
+  // Xe đang dựng trong hầm xe phòng trọ (không ngồi trên xe) — điều kiện để đi ngủ
+  bikeInGarage() {
+    return this.mode === 'foot' && inGarage(this.layout.placeById.home, this.bike.pos.x, this.bike.pos.z);
   }
 
   // 06:00: sang ngày mới (không dừng game): số liệu theo ngày, thời tiết / CSGT mới, khai trương, tự lưu
@@ -265,7 +319,7 @@ export class Game {
     this.hz = new HazardManager(makeRng(this.seed + day * 101), day);
     this.knownPolice = new Set();
     this.policeChecked = new Set();
-    this.addChat(fmt('chat.group'), fmt('chat.forecast', { forecast: this.hz.forecastText() }));
+    this.groupChat(fmt('chat.group'), fmt('chat.forecast', { forecast: this.hz.forecastText() }));
     this.hud.toast(fmt('toast.newDay', { day, rent: this.gs.rent, dueDay: this.gs.rentDueDay, paid: this.gs.rentPaid ? fmt('toast.rentPaidNote') : '' }), 'big', 6000);
     this.announceOpenings(day);
     this.saveGame();
@@ -281,10 +335,10 @@ export class Game {
     const opening = this.layout.places.filter((p) => openDayOf(p) === day && day > 1).map((p) => p.name);
     const newItems = Object.values(ITEMS).filter((it) => openDayOf(it) === day && day > 1).map((it) => `${it.icon || ''} ${it.name}`);
     if (opening.length) {
-      this.addChat(fmt('chat.admin'), fmt('chat.grandOpening', { names: opening.join(', ') }));
+      this.groupChat(fmt('chat.admin'), fmt('chat.grandOpening', { names: opening.join(', ') }));
       this.hud.toast(fmt('toast.grandOpening', { names: opening.join(', ') }), 'good', 7000);
     }
-    if (newItems.length) this.addChat(fmt('chat.admin'), fmt('chat.newItems', { names: newItems.join(', ') }));
+    if (newItems.length) this.groupChat(fmt('chat.admin'), fmt('chat.newItems', { names: newItems.join(', ') }));
   }
 
   endGame(outcome) {
@@ -302,7 +356,7 @@ export class Game {
       timeStr: `${fmt('hud.day', { day: gs.day })} · ${fmtTime(this.clockMin)}`,
       save: this.lastSave && { day: dayOf(this.lastSave.clock), time: fmtTime(this.lastSave.clock) },
       onRetry: () => this.startGame(this.lastSave),
-      onNew: () => this.newGame(),
+      onNew: () => this.showTitle('new'), // đặt tên / giới tính + giới thiệu như Chơi mới ở màn hình chính
       onTitle: () => this.showTitle(),
     });
   }
@@ -312,11 +366,13 @@ export class Game {
     setEngine(false, 0);
     this.screens.pause({
       muted: this.muted,
+      settings: this.settings,
+      onSettings: (s) => this.applySettings(s),
       onResume: () => this.resume(),
       onRestart: () => this.startGame(this.lastSave),
       onTitle: () => this.showTitle(),
       onMute: () => {
-        this.muted = toggleMute();
+        this.setMute(!this.muted);
         this.pauseGame();
       },
     });
@@ -334,18 +390,37 @@ export class Game {
     if (this.state === 'play') this.update(dt);
     else {
       this.input.setLock(false); // màn hình tiêu đề / kết thúc: hiện con trỏ
-      this.titleCam(t);
+      this.titleTick(dt);
     }
     this.renderer.render(this.scene, this.camera);
     this.input.endFrame();
   }
 
-  titleCam(t) {
-    const a = t / 20000;
-    this.camera.position.set(Math.cos(a) * 140, 70, Math.sin(a) * 140); // bay vòng quanh trung tâm (thành phố cũ)
-    this.camera.lookAt(0, 0, 0);
-    this.sky.update(0.016, 9 * 60, null, { x: 0, z: 0 }, this.camera);
-    this.city.setNight(0);
+  // Nền màn hình chính: xe cộ chạy thật trên phố, camera bám sau một xe máy NPC (đổi xe mỗi ~25 giây);
+  // trời sáng / tối theo giờ thật của máy
+  titleTick(dt) {
+    const tr = this.traffic;
+    this.titleT = (this.titleT || 0) + dt;
+    let m = this.titleMoto;
+    if (!m || this.titleT > 25) {
+      const motos = tr.agents.filter((a) => a.kind === 'moto');
+      m = this.titleMoto = motos[Math.floor(Math.random() * motos.length)] || null;
+      this.titleT = 0;
+      this.titleJump = true;
+    }
+    const px = m ? m.x : 0, pz = m ? m.z : 0;
+    tr.update(dt, { px, pz, py: 99, onBike: false, speed: 0, fx: 0, fz: 1 }); // py cao: "người chơi" không chắn đường xe NPC
+    if (m) {
+      const fx = Math.sin(m.heading), fz = Math.cos(m.heading), y = m.y || 0;
+      const want = new THREE.Vector3(m.x - fx * 8, y + 3.6, m.z - fz * 8);
+      if (this.titleJump || this.camera.position.distanceTo(want) > 40) this.camera.position.copy(want);
+      else this.camera.position.lerp(want, 1 - Math.exp(-dt * 2.5));
+      this.titleJump = false;
+      this.camera.lookAt(m.x + fx * 6, y + 1.2, m.z + fz * 6);
+    }
+    const d = new Date();
+    const { night } = this.sky.update(dt, d.getHours() * 60 + d.getMinutes(), null, { x: px, z: pz }, this.camera);
+    this.city.setNight(night);
   }
 
   update(dt) {
@@ -363,9 +438,9 @@ export class Game {
     const frozen = this.modal.open || this.screens.open;
     if (!frozen) {
       if (inp.was('Tab')) this.phone.toggle();
-      if (this.phone.open) APPS.forEach(([id], i) => inp.was(`Digit${i + 1}`) && this.phone.openApp(id)); // phím 1–6 mở app
-      if (inp.was('KeyM')) this.muted = toggleMute();
-      if (inp.was('KeyI')) act.openInventory(this);
+      if (this.phone.open) this.phone.visibleApps(this.gs).forEach(([id], i) => inp.was(`Digit${i + 1}`) && this.phone.openApp(id)); // phím 1–9 mở app (thứ tự ở phone.json; chưa vào hãng thì không có app hãng)
+      if (inp.was('KeyM')) this.setMute(!this.muted);
+      if (inp.was('KeyI')) this.toggleBag();
       if (inp.was('KeyY')) act.acceptOffer(this);
       if (inp.was('KeyN')) act.declineOffer(this);
       if (inp.was('KeyH') && this.mode === 'bike') sfx.horn();
@@ -452,16 +527,25 @@ export class Game {
     const speedCap = [this.inJam ? HAZARD.jamSpeedCap : 0, lug].filter((v) => v > 0).reduce((a, b) => Math.min(a, b), Infinity);
     if (this.ferryRide) this.ferryTick(dt); // đang trên phà: người + xe đứng yên trên boong, phà chở qua sông
     else {
-      const moved = bike.update(dt, mounted ? inp.state : {}, { mounted, fuel: gs.fuel, hp: gs.bikeHp, wet: !!rain, speedCap: Number.isFinite(speedCap) ? speedCap : 0, grid: this.city.grid, elev: this.city.elev, potholes: this.potholes, emit });
+      const pedal = gs.power === 'pedal', ev = gs.power === 'electric';
+      const moved = bike.update(dt, mounted ? inp.state : {}, { mounted, fuel: pedal ? 1 : gs.fuel, hp: gs.bikeHp, wet: !!rain, speedCap: Number.isFinite(speedCap) ? speedCap : 0, grid: this.city.grid, elev: this.city.elev, potholes: this.potholes, emit });
       if (mounted) {
-        if (gs.fuel > 0) {
-          const liters = ((moved * DIST.displayPerUnit) / 1000) * (gs.vehicleSpec.fuelPer100km / 100) * Math.max(0.1, 1 + gs.effect('fuelUsePct') / 100);
-          gs.fuel = Math.max(0, gs.fuel - liters);
-          om.addFuel(liters);
-          if (gs.fuel <= 0) this.toastOnce('nofuel', fmt('toast.noFuel'), 'bad', 30);
-          else if (gs.fuel < 0.25) this.toastOnce('lowfuel', fmt('toast.lowFuel'), 'warn', 40);
+        const km = (moved * DIST.displayPerUnit) / 1000;
+        if (pedal) gs.addKm(km); // xe đạp: không xăng, không bảo dưỡng — chỉ cộng đồng hồ km
+        else if (gs.fuel > 0) {
+          // quá hạn bảo dưỡng (nhớt / pin) → hao xăng, điện thêm (balance.json → economy.oilFuelPct)
+          const used = km * (gs.vehicleSpec.fuelPer100km / 100) * Math.max(0.1, 1 + gs.effect('fuelUsePct') / 100) * gs.maintFuelMul();
+          gs.fuel = Math.max(0, gs.fuel - used);
+          gs.addKm(km);
+          if (!ev) om.addFuel(used); // hóa đơn đơn hàng tính tiền xăng; điện rẻ, không trừ vào đơn
+          const low = gs.vehicleSpec.tank * 0.1;
+          if (gs.fuel <= 0) this.toastOnce('nofuel', fmt(ev ? 'toast.noBattery' : 'toast.noFuel'), 'bad', 30);
+          else if (gs.fuel < Math.max(0.25, low) && !ev) this.toastOnce('lowfuel', fmt('toast.lowFuel'), 'warn', 40);
+          else if (gs.fuel < low && ev) this.toastOnce('lowfuel', fmt('toast.lowBattery'), 'warn', 40);
+          if (gs.maintOverdue) this.toastOnce('oilOver', fmt(ev ? 'toast.batteryOver' : 'toast.oilOver'), 'bad', 120);
+          else if (gs.maintLeftKm < gs.maintIntervalKm * 0.1) this.toastOnce('oilSoon', fmt(ev ? 'toast.batterySoon' : 'toast.oilSoon', { km: gs.maintLeftKm.toFixed(1) }), 'warn', 300);
         }
-        activity = speed > 0.5 ? (gs.fuel <= 0 ? 'push' : 'drive') : 'idle';
+        activity = speed > 0.5 ? (pedal ? 'pedal' : gs.fuel <= 0 ? 'push' : 'drive') : 'idle';
         for (const h of this.traffic.collidePlayer(bike.pos, 0.75, bike.vel, true, bike.mesh.position.y)) this.onTrafficHit(h, env);
       } else {
         activity = this.walker.update(dt, inp.state, this.rig.yaw, { grid: this.city.grid, elev: this.city.elev, phys: gs.phys });
@@ -535,7 +619,7 @@ export class Game {
       if (p) p.run();
     }
 
-    setEngine(mounted && gs.fuel > 0, Math.min(1, speed / gs.vehicleSpec.maxSpeed));
+    setEngine(mounted && gs.power !== 'pedal' && gs.fuel > 0, Math.min(1, speed / gs.vehicleSpec.maxSpeed) * (gs.power === 'electric' ? 0.35 : 1)); // xe điện chạy êm, xe đạp không tiếng máy
     setRain(rain ? (rain.heavy ? 1 : 0.5) : 0);
     this.checkEnd();
   }
@@ -753,18 +837,19 @@ export class Game {
     if (e.type === 'rainStart') {
       const coat = this.gs.effect('rainProtect');
       this.hud.toast(fmt(e.heavy ? 'toast.rainHeavy' : 'toast.rainLight') + fmt(coat ? 'toast.rainCoat' : 'toast.rainNoCoat'), 'warn', 5000);
-      this.addChat(fmt('chat.group'), fmt('chat.rain', { time: t }));
+      this.groupChat(fmt('chat.group'), fmt('chat.rain', { time: t }));
     } else if (e.type === 'rainEnd') this.hud.toast(fmt('toast.rainEnd'), 'info');
     else if (e.type === 'policeStart') {
-      if (e.police.reported) {
+      // chốt CSGT do anh em trong hội báo → chưa vào hãng (chưa ở nhóm) thì không biết
+      if (e.police.reported && this.gs.brand) {
         this.knownPolice.add(e.police.id);
-        this.addChat(fmt('chat.tuan'), fmt('chat.police', { place: e.police.name }));
+        this.groupChat(fmt('chat.tuan'), fmt('chat.police', { place: e.police.name }));
       }
     } else if (e.type === 'policeEnd') this.knownPolice.delete(e.police.id);
     else if (e.type === 'jamStart') {
-      this.addChat(fmt('chat.group'), fmt('chat.jam', { roads: e.names.join(', ') }));
+      this.groupChat(fmt('chat.group'), fmt('chat.jam', { roads: e.names.join(', ') }));
       this.hud.toast(fmt('toast.jam', { roads: e.names.join(', ') }), 'warn');
-    } else if (e.type === 'jamEnd') this.addChat(fmt('chat.group'), fmt('chat.jamEnd'));
+    } else if (e.type === 'jamEnd') this.groupChat(fmt('chat.group'), fmt('chat.jamEnd'));
   }
 
   onOrderEvent(e) {
@@ -777,7 +862,7 @@ export class Game {
     else if (e.type === 'cancelled') {
       const r = this.gs.applyCancel(e, this.clockMin);
       this.clearTempNpcs();
-      this.bike.mesh.userData.bagMesh.visible = true;
+      this.bike.showBag(true);
       this.hud.toast(fmt('toast.cancelled', { reason: e.reason }) + (e.comp ? fmt('toast.cancelComp', { k: e.comp }) : '') + (e.byDriver ? fmt('toast.cancelDriver', { stars: APP.account.cancelStars }) : ''), 'bad', 5000);
       if (r.locked) this.hud.toast(fmt('toast.accountLocked', { n: APP.account.cancelLimitPerDay, time: fmtTime(r.until) }), 'bad', 7000);
       sfx.bad();
@@ -797,6 +882,16 @@ export class Game {
   addChat(from, text) {
     this.chat.push({ from, text, time: fmtTime(this.clockMin) });
     this.phone.notify('chat', { title: from, text });
+  }
+  // Tin nhắn nhóm Hội shipper (thời tiết, kẹt xe, chốt CSGT, mẹo, khai trương): chỉ người đã vào hãng mới thấy
+  groupChat(from, text) {
+    if (this.gs?.brand) this.addChat(from, text);
+  }
+  // Vào nhóm (bắt đầu ngày khi đã ở hãng / vừa đăng ký hãng): dự báo thời tiết, quảng cáo đồ nghề, mẹo
+  joinGroupChat() {
+    this.groupChat(fmt('chat.group'), fmt('chat.forecast', { forecast: this.hz.forecastText() }));
+    this.groupChat(fmt('chat.shopOwner'), fmt('chat.shopAd'));
+    this.groupChat(fmt('chat.admin'), fmt('chat.tips'));
   }
 
   toastOnce(key, html, kind, cdSec) {
@@ -823,6 +918,7 @@ export class Game {
     }
     gs.parked = { since: this.clockMin, safe, ticketed: false, robbed: false, checked: Math.floor(this.clockMin) };
     if (!safe && !quiet) this.toastOnce('parkHint', fmt('toast.parkHint', { min: PARKING.graceMin }), 'info', 600);
+    if (safe && !lot && !quiet) this.toastOnce('parkGarage', fmt('toast.parkGarage'), 'good', 60); // dựng xe trong hầm phòng trọ
   }
   // Gửi bảo vệ (chung cư…) → xe được trông tới khi lấy
   markParkedSafe() {
@@ -954,6 +1050,39 @@ export class Game {
     const p = this.playerPos;
     return nearestStation(this.layout.places, p.x, p.z);
   }
+  // Địa điểm gần nhất (theo đường đi thật) thỏa điều kiện, đã khai trương — null nếu không có
+  nearestPlace(test) {
+    const p = this.playerPos;
+    let best = null, bestD = Infinity;
+    for (const pl of this.layout.places) {
+      if (!test(pl) || !pl.door || !unlocked(pl, this.gs.day)) continue;
+      const d = routeDist(p, pl.door);
+      if (d < bestD) [best, bestD] = [pl, d];
+    }
+    return best;
+  }
+  // Hướng dẫn người mới (chưa vào hãng): Tab mở điện thoại → app Bản đồ → nút "Văn phòng hãng" → chọn 1 hãng, Chỉ đường
+  // → cất máy, đi theo mũi tên → bấm E ở văn phòng để đăng ký. Bước tính lại theo trạng thái lúc này (đóng máy giữa chừng thì quay lại bước 1).
+  tutorialStep() {
+    if (!this.gs || this.gs.brand) return null;
+    const wp = this.waypoint && this.layout.placeById[this.waypoint];
+    if (wp?.kind === 'office') return this.phone.open ? 'close' : 'go';
+    if (!this.phone.open) return 'phone';
+    if (this.phone.app !== 'map') return 'map';
+    const cm = this.phone.cityMap;
+    return cm.type === 'office' || cm.sel?.kind === 'office' ? 'route' : 'office';
+  }
+  // Xe đang ở đâu (app Xe → Định vị xe): tên đường gần nhất (không có thì tên khu phố), quãng đường từ chỗ mình đứng
+  bikeWhere() {
+    const b = this.bike.pos;
+    const street = streetAt(b.x, b.z, 40) || districtAtPoint(b.x, b.z)?.name || '';
+    return { street, dist: fmtDist(routeDist(this.playerPos, b)), riding: this.mode === 'bike', towed: !!this.gs.towed };
+  }
+  // Nơi bảo dưỡng xe đang dùng: xe xăng → tiệm sửa xe (thay nhớt) · xe điện → trạm đổi pin
+  nearestGarage() {
+    const kind = this.gs.power === 'electric' ? 'swap' : this.gs.power === 'gas' ? 'garage' : null;
+    return kind ? this.nearestPlace((p) => p.kind === kind) : null;
+  }
 
   // Xe bị cẩu: đặt ở vỉa hè trước bãi giữ xe / đồn công an, phải chuộc mới lấy được
   towBikeTo(lot, fee) {
@@ -979,6 +1108,11 @@ export class Game {
       const sub = h ? fmt('goal.towedBus', { from: h.from.name, route: h.route.name, to: h.to.name }) : fmt('goal.towedHint');
       return { x: this.bike.pos.x, z: this.bike.pos.z, text: fmt('goal.towed', { place: lot?.name || '', fee }), sub, color: '#e74c3c' };
     }
+    // app Xe → 📍 Định vị xe: chỉ đường tới chỗ xe đang dựng (tới nơi / lên xe thì thôi)
+    if (this.findBike) {
+      if (this.mode === 'bike' || dist2(this.playerPos, this.bike.pos) < 3) this.findBike = false;
+      else return { x: this.bike.pos.x, z: this.bike.pos.z, text: fmt('goal.findBike', { bike: gs.vehicleSpec.name }), sub: fmt('goal.findBikeHint'), color: '#5dade2' };
+    }
     if (o) {
       if ([S.TO_PICKUP, S.WAITING_FOOD, S.OUT_OF_STOCK, S.PACKING].includes(om.state)) {
         const wait = om.state === S.WAITING_FOOD ? Math.ceil(om.minutesUntilReady(this.clockMin)) : 0;
@@ -993,7 +1127,11 @@ export class Game {
     const P = this.layout.placeById;
     // địa điểm tự chọn trên bản đồ điện thoại (Chỉ đường) — ưu tiên hơn gợi ý mục tiêu
     const wp = this.waypoint && P[this.waypoint];
-    if (wp && om.state !== S.OFFERED) return { ...wp.door, text: fmt('goal.waypoint', { place: wp.name }), sub: fmt('goal.waypointHint'), color: '#1e90ff' };
+    if (wp && om.state !== S.OFFERED) {
+      // người mới đang đi tới văn phòng hãng: nhắc cất máy, tới nơi bấm E đăng ký
+      if (wp.kind === 'office' && !gs.brand) return { ...wp.door, text: fmt('goal.toOffice', { place: wp.name }), sub: fmt(this.phone.open ? 'goal.toOfficeClose' : 'goal.toOfficeHint'), color: '#1e90ff' };
+      return { ...wp.door, text: fmt('goal.waypoint', { place: wp.name }), sub: fmt('goal.waypointHint'), color: '#1e90ff' };
+    }
     // buồn ngủ / app nghỉ ban đêm → nhắc về phòng trọ ngủ (ưu tiên hơn mua đồ)
     const tired = gs.tiredLevel(this.clockMin);
     if (tired && om.state !== S.OFFERED) return { ...P.home.door, text: fmt(tired > 1 ? 'goal.veryTired' : 'goal.tired', { h: Math.floor(gs.awakeHours(this.clockMin)) }), sub: fmt('goal.sleepHint'), color: '#8e7cc3' };
@@ -1001,7 +1139,18 @@ export class Game {
     for (const ob of objectives(gs)) {
       if (ob.done) continue;
       if (ob.id === 'mount') return { x: this.bike.pos.x, z: this.bike.pos.z, text: fmt('goal.mount'), sub: fmt('goal.mountHint'), color: '#5dade2' };
-      if (ob.id === 'fuel') return { ...P.gas.door, text: fmt('goal.fuel'), sub: fmt('goal.fuelHint'), color: '#5dade2' };
+      if (ob.id === 'brand') {
+        const st = this.tutorialStep();
+        if (['phone', 'map', 'office', 'route'].includes(st)) return { text: fmt(`goal.tut.${st}`), sub: fmt(`goal.tut.${st}Hint`) };
+        const off = this.nearestPlace((p) => p.kind === 'office');
+        return off ? { ...off.door, text: fmt('goal.brand'), sub: fmt('goal.brandHint', { place: off.name }), color: '#5dade2' } : { text: fmt('goal.brand'), sub: '' };
+      }
+      if (ob.id === 'fuel') {
+        if (gs.power === 'electric') {
+          const ch = this.nearestPlace((p) => p.kind === 'charger');
+          if (ch) return { ...ch.door, text: fmt('goal.charge'), sub: fmt('goal.chargeHint'), color: '#5dade2' };
+        } else if (gs.power === 'gas') return { ...P.gas.door, text: fmt('goal.fuel'), sub: fmt('goal.fuelHint'), color: '#5dade2' };
+      }
       if (ob.id === 'online') return { text: fmt('goal.online'), sub: '' };
       const thermal = cheapestInsulatedBag();
       if (ob.id === 'thermal' && thermal && gs.money >= thermal.price && om.state !== S.OFFERED) return { ...P.gear.door, text: fmt('goal.thermal', { price: thermal.price }), sub: fmt('goal.thermalHint'), color: '#5dade2' };
@@ -1015,6 +1164,8 @@ export class Game {
       const st = this.nearestStation();
       if (st) return { ...st.door, text: fmt('goal.fines', { fine: gs.finesTotal, place: st.name }), sub: fmt('goal.finesHint'), color: '#e67e22' };
     }
+    // đã vào hãng nhưng đang đi xe không đúng loại (xe đạp / xe xăng ↔ xe điện) → nhắc đổi xe
+    if (gs.workBlock() === 'wrongVehicle') return { text: fmt('goal.wrongVehicle', { brand: gs.brandSpec.name, kind: fmt(`power.${gs.brandSpec.power}`) }), sub: fmt('goal.wrongVehicleHint') };
     if (om.state === S.OFFLINE) return { text: fmt('goal.online'), sub: '' };
     if (!gs.rentPaid && gs.money < gs.rent) return { text: fmt('goal.waiting', { k: Math.ceil(gs.rent - gs.money), day: gs.rentDueDay }), sub: fmt('goal.waitingHint') };
     return null;
@@ -1022,13 +1173,17 @@ export class Game {
 
   // ======================== HIỂN THỊ ========================
   updateCamera(dt) {
-    if (this.input.drag.dx || this.input.drag.dy) this.rig.drag(this.input.drag.dx, this.input.drag.dy);
+    // độ nhạy chuột + đảo trục dọc (màn hình Cài đặt)
+    const k = this.settings.sens, ky = k * (this.settings.invertY ? -1 : 1);
+    if (this.input.drag.dx || this.input.drag.dy) this.rig.drag(this.input.drag.dx * k, this.input.drag.dy * ky);
     // chuột (khi khóa con trỏ): xoay tự do; ngưng di chuột ~2 giây thì camera tự quay về sau xe
-    if (this.input.look.dx || this.input.look.dy) this.rig.drag(this.input.look.dx * 0.6, this.input.look.dy * 0.6);
+    if (this.input.look.dx || this.input.look.dy) this.rig.drag(this.input.look.dx * 0.6 * k, this.input.look.dy * 0.6 * ky);
     if (this.input.wheel) this.rig.zoom(this.input.wheel);
     const mounted = this.mode === 'bike';
     const focus = mounted ? this.bike.mesh.position : this.walker.mesh.position;
-    this.rig.update(dt, focus, mounted && Math.abs(this.bike.speed) > 1 ? this.bike.heading : null, this.city.grid);
+    // trong hầm xe: camera kéo gần + hạ thấp để không xuyên trần (sàn lầu 1)
+    const inG = inGarage(this.layout.placeById.home, focus.x, focus.z, 0);
+    this.rig.update(dt, focus, mounted && Math.abs(this.bike.speed) > 1 ? this.bike.heading : null, this.city.grid, inG ? GARAGE_CAM : null);
     if (this.shake > 0) {
       this.camera.position.x += (Math.random() - 0.5) * this.shake;
       this.camera.position.y += (Math.random() - 0.5) * this.shake;
@@ -1100,12 +1255,16 @@ export class Game {
     }
   }
 
-  // Ngoại hình shipper: trang phục đang mặc + áo mưa khi mưa / áo khoác khi nắng gắt (nếu có)
+  // Phím I: mở điện thoại vào app Túi đồ (đang mở đúng app đó thì cất máy)
+  toggleBag() {
+    if (this.phone.open && this.phone.app === 'bag') return this.phone.toggle(false);
+    this.phone.openApp('bag');
+    if (!this.phone.open) this.phone.toggle(true);
+  }
+
+  // Ngoại hình shipper: trang phục đang mặc (phụ kiện: áo mưa / áo khoác người chơi tự gắn trong túi đồ)
   applyLook() {
-    const { gs, hz } = this;
-    const now = this.clockMin;
-    const overlay = hz.isRaining(now) && gs.effect('rainProtect') ? 'raincoat' : hz.isHarshSun(now) && gs.effect('sunProtect') ? 'jacket' : null;
-    const look = { ...outfitLook(gs.wornGoods()), overlay };
+    const look = { ...outfitLook(this.gs.wornGoods()), gender: this.gs.profile.gender }; // nữ: dáng nữ, tóc dài
     const key = JSON.stringify(look);
     if (key === this.lookKey) return;
     this.lookKey = key;
@@ -1126,7 +1285,13 @@ export class Game {
     this.city.setWet(wet);
     this.bike.setNight(night, this.mode === 'bike');
     this.npcs.minh.visible = gs.flags.wallet === 4;
-    if (!(this.om.order && this.om.order.kind === 'ride' && this.passengerMesh && this.passengerMesh.parent === this.bike.mesh)) this.bike.mesh.userData.bagMesh.visible = true;
+    if (!(this.om.order && this.om.order.kind === 'ride' && this.passengerMesh && this.passengerMesh.parent === this.bike.mesh)) this.bike.showBag(true);
+    // xe đạp: chân đạp vòng theo tốc độ (đứng yên thì ngồi bình thường)
+    if (this.mode === 'bike' && this.gs.power === 'pedal' && this.walker.mesh.userData.parts) {
+      const v = Math.abs(this.bike.speed);
+      this.pedalPhase = (this.pedalPhase || 0) + dt * v * 2.2;
+      pedalPerson(this.walker.mesh, this.pedalPhase, Math.min(1, v / 1.5));
+    }
     this.updateTempNpcs();
 
     // có biên bản phạt nguội mới → chấm đỏ + thông báo ở app CSGT
@@ -1191,17 +1356,18 @@ export class Game {
       district: [dist?.name, fmt('hud.road', { road: tierLabel(this.roadTier || 'normal'), limit: this.speedLimitKmh() })].filter(Boolean).join(' · '),
       weather: `${weather} ${amb}°C`,
       money: gs.money,
-      rating: gs.rating,
+      rating: gs.brand ? gs.rating : null, // chưa vào hãng: chưa có điểm đánh giá
       phys: gs.phys,
       mental: gs.mental,
       fuel: gs.fuel,
       tank: gs.vehicleSpec.tank,
+      power: gs.power,
       hp: gs.bikeHp,
       objectives: objs.map((x) => ({ ...x, current: x === firstOpen })),
       goal,
       prompts: this.prompts || [],
       speedo: mounted
-        ? fmt('hud.speed', { kmh: Math.round(Math.abs(this.bike.speed) * 3.6) }) + (Math.abs(this.bike.speed) > this.speedLimit() ? fmt('hud.overSpeed', { limit: this.speedLimitKmh() }) : '') + (this.inJam ? fmt('hud.inJam') : '') + (gs.fuel <= 0 ? fmt('hud.noFuel') : '')
+        ? fmt('hud.speed', { kmh: Math.round(Math.abs(this.bike.speed) * 3.6) }) + (Math.abs(this.bike.speed) > this.speedLimit() ? fmt('hud.overSpeed', { limit: this.speedLimitKmh() }) : '') + (this.inJam ? fmt('hud.inJam') : '') + (gs.power !== 'pedal' && gs.fuel <= 0 ? fmt(gs.power === 'electric' ? 'hud.noBattery' : 'hud.noFuel') : '')
         : fmt('hud.walking'),
       cargo,
       timeLeft: left >= 0 ? fmt('hud.minutes', { min: left }) : fmt('hud.late', { min: -left }),
@@ -1236,11 +1402,25 @@ export class Game {
     if (!this.gs) return;
     const gs = this.gs;
     const locked = [];
+    if (gs.workBlock() === 'wrongVehicle') locked.push(fmt('phone.lockVehicle', { brand: gs.brandSpec.name, kind: fmt(`power.${gs.brandSpec.power}`) }));
     if (gs.bagSpec.insulation < 0.5) locked.push(fmt('phone.lockCold'));
     if (!gs.effect('passengerSeat')) locked.push(fmt('phone.lockRide'));
     else if (gs.flags.noRide && this.om.state !== S.OFFLINE) locked.push(fmt('phone.rideOff')); // có mũ cho khách mà đang tắt Chở khách
     const st = this.nearestStation(), pp = this.playerPos;
+    // app Xe: nơi bảo dưỡng gần nhất (tiệm sửa xe / trạm đổi pin) + nơi nạp năng lượng (cây xăng / trụ sạc)
+    const app = this.phone.app;
+    const near = (pl) => (pl ? { id: pl.id, name: pl.name, dist: fmtDist(routeDist(pp, pl.door)) } : null);
+    const gar = app === 'bike' ? this.nearestGarage() : null;
+    const fuelKind = gs.power === 'electric' ? 'charger' : gs.power === 'gas' ? 'gas' : null;
+    const stop = app === 'bike' && fuelKind ? this.nearestPlace((p) => p.kind === fuelKind) : null;
+    // app hãng khi chưa vào hãng: văn phòng các hãng để chỉ đường tới đăng ký
+    const offices = app === 'goship' && gs.workBlock() === 'noBrand' ? this.layout.places.filter((p) => p.kind === 'office' && p.door).map(near) : [];
     this.phone.render({
+      bikeWhere: app === 'bike' ? this.bikeWhere() : null,
+      tut: this.tutorialStep(), // hướng dẫn người mới: nhấp nháy app Bản đồ / nút Văn phòng hãng / nút Chỉ đường
+      garage: near(gar),
+      fuelStop: near(stop),
+      offices,
       now: this.clockMin,
       timeStr: fmtTime(this.clockMin),
       appClosed: !inHours(APP.hours, this.clockMin),

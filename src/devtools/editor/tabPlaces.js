@@ -18,8 +18,8 @@ import { hoursPicker, rangesEditor, presetUsers } from './hoursUi.js';
 import { ranges, packRanges, fmtHours } from '../../sim/hours.js';
 import { CHANGEABLE_KINDS, canChangeKind, applyKind } from './placeKind.js';
 
-const KIND = { home: '🏠 Nhà trọ', restaurant: '🍴 Quán ăn', gas: '⛽ Cây xăng', shop: '🎒 Tiệm đồ nghề', garage: '🔧 Tiệm xe', cafe: '☕ Quán cà phê', taphoa: '🛒 Tạp hóa', gate: '🟩 Nhà cổng xanh', apartment: '🏢 Chung cư', market: '🧺 Chợ', service: '⭐ Dịch vụ', scenery: '🌳 Cảnh quan', police: '🚓 Đồn công an' };
-const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', service: '⭐', scenery: '🌳', police: '🚓' };
+const KIND = { home: '🏠 Nhà trọ', restaurant: '🍴 Quán ăn', gas: '⛽ Cây xăng', shop: '🎒 Tiệm đồ nghề', garage: '🔧 Tiệm xe', cafe: '☕ Quán cà phê', taphoa: '🛒 Tạp hóa', gate: '🟩 Nhà cổng xanh', apartment: '🏢 Chung cư', market: '🧺 Chợ', service: '⭐ Dịch vụ', scenery: '🌳 Cảnh quan', police: '🚓 Đồn công an', office: '🏢 Văn phòng hãng', charger: '🔌 Trụ sạc xe điện', swap: '🔋 Trạm đổi pin' };
+const ICON = { home: '🏠', restaurant: '🍴', gas: '⛽', shop: '🎒', garage: '🔧', cafe: '☕', taphoa: '🛒', gate: '🟩', apartment: '🏢', market: '🧺', service: '⭐', scenery: '🌳', police: '🚓', office: '🏢', charger: '🔌', swap: '🔋' };
 const LOT_LABEL = {
   N0: 'N0 · bắc trái', N1: 'N1 · bắc giữa', N2: 'N2 · bắc phải', S0: 'S0 · nam trái', S1: 'S1 · nam giữa', S2: 'S2 · nam phải', E1: 'E1 · đông', W1: 'W1 · tây',
   N01: 'N0+N1 · bắc, bên trái', N12: 'N1+N2 · bắc, bên phải', S01: 'S0+S1 · nam, bên trái', S12: 'S1+S2 · nam, bên phải',
@@ -137,6 +137,7 @@ export function render(root, ctx) {
         field('Tên đầy đủ', textInput(p.name, (v) => { p.name = v; changedP(); }), opt('name', { hint: HINT.place.name })),
         field('Tên ngắn (bản đồ)', textInput(p.short, (v) => { p.short = v; changedP(); }), opt('short', { hint: HINT.place.short })),
         kindField(),
+        p.kind === 'office' ? brandField() : null,
         lookField(),
         floorsField(),
         field('Biểu tượng bản đồ', emojiInput(p.icon ?? '', (v) => { if (v) p.icon = v; else delete p.icon; changedP(); }, { placeholder: ICON[p.kind] || '📍' }), opt('icon', { hint: 'Emoji; để trống = theo loại' })),
@@ -511,6 +512,16 @@ export function render(root, ctx) {
       : p.kind === 'police' ? 'Đồn công an tạo riêng (nhận xe bị cẩu, nộp phạt nguội) — không đổi sang loại khác. Cần lô 2 ô trở lên.'
       : locked ? 'Địa điểm có khóa 🔒 (code gọi thẳng) — không đổi loại được.'
       : 'Loại này gắn với cốt truyện (quán cà phê, tạp hóa: nhiệm vụ chiếc ví) hoặc chỉ có một (nhà trọ, nhà cổng xanh, chung cư) — không đổi được.' }));
+  }
+
+  // Văn phòng hãng: hãng nào (người chơi tới đây đăng ký chạy cho hãng đó)
+  function brandField() {
+    const brands = Object.values(ctx.data.apps.brands || {});
+    return field('Hãng', selectInput(p.brand || '', [['', '— chọn hãng —'], ...brands.map((b) => [b.id, `${b.icon || ''} ${b.name}`])], (v) => {
+      if (v) p.brand = v;
+      else delete p.brand;
+      changedP();
+    }), opt('brand', { hint: 'Người chơi tới văn phòng này (bấm E) để đăng ký chạy cho hãng. Hãng sửa ở thẻ 📲 App & Đơn → Hãng.' }));
   }
 
   // ---------- kiểu nhà + số tầng + xem trước ----------
