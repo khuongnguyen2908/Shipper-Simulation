@@ -9,6 +9,7 @@ import { airportAt, airportParkAt, airportNoStopAt, noStopStep } from './sim/air
 import { roadSegAt, tierOf, tierLabel, speedLimitOf } from './sim/roads.js';
 import { busHint, inService } from './sim/bus.js';
 import { GOODS, outfitLook } from './data/goods.js';
+import { lookOf } from './data/looks.js';
 import { APP, RIDER_TYPES } from './data/apps.js';
 import { ITEMS } from './data/items.js';
 import { unlocked, openDayOf } from './sim/placeRules.js';
@@ -29,7 +30,7 @@ import { nextBoat, BOAT_DECK } from './sim/ferry.js';
 import { Sky } from './world/sky.js';
 import { makePerson, makeBeacon, makeZoneRing, setSitting, pedalPerson, randomPersonOpts, npcLook, sitY } from './world/models.js';
 import { guessGender } from './sim/people.js';
-import { makeLabelTexture } from './world/textures.js';
+import { makeLabelTexture, makeQuestTexture } from './world/textures.js';
 import { Input } from './input.js';
 import { Hud } from './ui/hud.js';
 import { Phone } from './ui/phone.js';
@@ -88,6 +89,11 @@ export class Game {
     this.zoneRing = makeZoneRing();
     this.scene.add(this.beacon, this.zoneRing);
     this.npcs = this.spawnPlaceNpcs();
+    // dấu chấm than nhún nhún trên đầu Cô Hai (mở đầu: tới nhà trọ nói chuyện để nhận xe đạp)
+    this.questMark = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeQuestTexture(), depthWrite: false, transparent: true }));
+    this.questMark.scale.set(0.75, 0.75, 1);
+    this.questMark.visible = false;
+    this.npcs.home?.add(this.questMark);
 
     // ---- giao diện ----
     this.input = new Input(canvas);
@@ -138,12 +144,20 @@ export class Game {
       label.scale.set(2.8, 0.52, 1);
       label.position.y = 2.25 / (opts.scale || 1);
       m.add(label);
+      m.userData.label = label;
       this.scene.add(m);
       out[id] = m;
       return m;
     };
     // quán trong hẻm: cửa sát mặt nhà (0,7 m) → NPC đứng lùi ít hơn để không lọt vào tường
-    for (const p of this.layout.places) if (p.npc) add(p.id, p.npc, p.door, p.face, p.npc.name, p.inAlley ? 0.3 : 1.0);
+    for (const p of this.layout.places) {
+      if (!p.npc) continue;
+      if (p.kind === 'home') {
+        // nhà trọ: cửa là miệng hầm xe → Cô Hai đứng lệch sang bên trên vỉa hè, không chắn lối xe ra vào
+        const [hx, hz] = NORMAL[p.face];
+        add(p.id, p.npc, { x: p.door.x - (hz ? 1.8 : 0), z: p.door.z - (hx ? 1.8 : 0) }, p.face, p.npc.name, 0.2);
+      } else add(p.id, p.npc, p.door, p.face, p.npc.name, p.inAlley ? 0.3 : 1.0);
+    }
     const cafe = this.layout.placeById.cafe;
     const [cnx, cnz] = NORMAL[cafe.face]; // đứng lệch 1,6 m dọc theo mặt tiền (hướng nào cũng nằm trên vỉa hè)
     const minh = add('minh', { shirt: 0x34495e, pants: 0x1c2833, gender: 'm' }, { x: cafe.door.x + (cnz ? 1.6 : 0), z: cafe.door.z + (cnx ? 1.6 : 0) }, cafe.face, fmt('npc.minh.name'), 0.4);
@@ -228,8 +242,9 @@ export class Game {
     return null;
   }
   // profile: { name, gender } đặt ở màn hình Chơi mới
+  // profile: { name, gender } đặt ở màn hình Chơi mới · story 0: bắt đầu ở bến xe buýt, đi tìm nhà trọ
   newGame(profile = null) {
-    this.startGame({ clock: TIME.dayStart, carry: profile ? { profile } : null, seed: Math.floor(Math.random() * 1e6) });
+    this.startGame({ clock: TIME.dayStart, carry: { ...(profile ? { profile } : {}), flags: { story: 0 } }, seed: Math.floor(Math.random() * 1e6) });
   }
   // Lưu tự động (06:00 mỗi ngày, mỗi lần ngủ dậy). Mở lại → đứng trước phòng trọ đúng giờ đã lưu.
   saveGame() {
@@ -257,7 +272,8 @@ export class Game {
     this.collapsing = false;
     this.saveGame();
 
-    this.placeAtHome();
+    this.placeAtHome(); // xe trong hầm xe phòng trọ (mở đầu: xe đạp đặt sẵn nhưng ẩn tới khi Cô Hai cho)
+    if (this.gs.flags.story === 0) this.placeAtBusStation();
     this.bike.setSpec(this.gs.vehicleSpec);
     this.bike.setBag(this.gs.bagSpec);
     this.parkRng = makeRng(this.seed * 13 + day);
@@ -271,7 +287,7 @@ export class Game {
     this.lookKey = null; // dựng lại ngoại hình shipper theo đồ đang mặc
     this.bike.update(0.016, {}, { mounted: false, fuel: 1, hp: 100, wet: false, grid: this.city.grid, elev: this.city.elev, potholes: [], emit: () => {} });
     this.walker.update(0.016, {}, 0, { grid: this.city.grid, elev: this.city.elev, phys: 100 });
-    this.rig.yaw = this.walker.heading + Math.PI; // camera sau lưng người (đứng trong hầm xe, nhìn ra đường)
+    this.rig.yaw = this.walker.heading + Math.PI; // camera sau lưng người (trong hầm xe / ở bến xe buýt, nhìn ra đường)
     this.rig.init = false;
     this.clearTempNpcs();
     this.traffic.setPolice([]);
@@ -281,7 +297,8 @@ export class Game {
     this.state = 'play';
     this.paused = false;
     this.hud.show(true);
-    this.hud.toast(fmt(day === 1 && clock === TIME.dayStart ? 'toast.dayStart' : 'toast.welcomeBack', { day, rent: this.gs.rent, dueDay: this.gs.rentDueDay, time: fmtTime(clock) }), 'big', 7000);
+    if (this.gs.flags.story === 0) this.arriveInCity(); // mở đầu: vừa xuống bến xe buýt
+    else this.hud.toast(fmt(day === 1 && clock === TIME.dayStart ? 'toast.dayStart' : 'toast.welcomeBack', { day, rent: this.gs.rent, dueDay: this.gs.rentDueDay, time: fmtTime(clock) }), 'big', 7000);
     this.announceOpenings(day);
   }
 
@@ -307,6 +324,38 @@ export class Game {
     this.bike.speed = 0;
     this.bike.vel.set(0, 0);
     if (this.gs && this.parkRng) this.startParking(true); // xe trong hầm: an toàn
+  }
+  // Mở đầu: người chơi vừa xuống Bến Xe Buýt Trung Tâm (kiểu nhà "Bến xe buýt"), đứng trên vỉa hè nhìn ra đường
+  placeAtBusStation() {
+    const st = this.layout.places.find((p) => lookOf(p) === 'busStation' && p.door) || this.layout.placeById.home;
+    const [nx, nz] = NORMAL[st.face] || [0, 1];
+    this.walker.pos.set(st.door.x + nx * 0.8, 0, st.door.z + nz * 0.8);
+    this.walker.heading = Math.atan2(nx, nz);
+    this.arrivedAt = st.name;
+  }
+  // Đặt xe vào chỗ dựng trong hầm xe phòng trọ (Cô Hai vừa cho xe đạp), không dời người
+  placeAtHomeBike() {
+    const spot = garageSpots(this.layout.placeById.home);
+    if (!spot || this.gs.towed) return;
+    this.bike.pos.set(spot.bike.x, 0, spot.bike.z);
+    this.bike.heading = spot.bike.heading;
+    this.bike.speed = 0;
+    this.bike.vel.set(0, 0);
+    this.startParking(true);
+  }
+  // Có xe để lên chưa (mở đầu: Cô Hai chưa cho xe đạp thì chưa có)
+  bikeReady() {
+    return (this.gs?.flags.story ?? 2) >= 1;
+  }
+  // Hộp thoại "Đã tới Sài Gòn!" lúc vừa vào game → mục tiêu tìm đường tới nhà trọ Cô Hai
+  arriveInCity() {
+    const home = this.layout.placeById.home;
+    this.modal.show({
+      title: fmt('dlg.arriveTitle'),
+      text: fmt('dlg.arriveText', { name: this.gs.profile.name, place: this.arrivedAt || '', home: home?.name || '', address: home?.address || '' }),
+      choices: [{ label: fmt('dlg.arriveGo'), primary: true }],
+      dismissible: false,
+    });
   }
   // Xe đang dựng trong hầm xe phòng trọ (không ngồi trên xe) — điều kiện để đi ngủ
   bikeInGarage() {
@@ -1064,7 +1113,7 @@ export class Game {
   // Hướng dẫn người mới (chưa vào hãng): Tab mở điện thoại → app Bản đồ → nút "Văn phòng hãng" → chọn 1 hãng, Chỉ đường
   // → cất máy, đi theo mũi tên → bấm E ở văn phòng để đăng ký. Bước tính lại theo trạng thái lúc này (đóng máy giữa chừng thì quay lại bước 1).
   tutorialStep() {
-    if (!this.gs || this.gs.brand) return null;
+    if (!this.gs || this.gs.brand || (this.gs.flags.story ?? 2) < 2) return null; // chỉ sau khi đã leo lên xe đạp Cô Hai cho
     const wp = this.waypoint && this.layout.placeById[this.waypoint];
     if (wp?.kind === 'office') return this.phone.open ? 'close' : 'go';
     if (!this.phone.open) return 'phone';
@@ -1138,6 +1187,12 @@ export class Game {
     if (!inHours(APP.hours, this.clockMin) && om.state !== S.OFFERED) return { ...P.home.door, text: fmt('goal.appClosed'), sub: fmt('goal.sleepHint'), color: '#8e7cc3' };
     for (const ob of objectives(gs)) {
       if (ob.done) continue;
+      // mở đầu: tìm nhà trọ (tới gần thì nhắc nói chuyện với Cô Hai) → leo lên xe đạp trong hầm
+      if (ob.id === 'findHome') {
+        const h = P.home, near = dist2(this.playerPos, h.door) < 8;
+        return { ...h.door, text: fmt(near ? 'goal.talkLandlord' : 'goal.findHome', { place: h.name }), sub: fmt(near ? 'goal.talkLandlordHint' : 'goal.findHomeHint'), color: '#f4d03f' };
+      }
+      if (ob.id === 'mountBike') return { x: this.bike.pos.x, z: this.bike.pos.z, text: fmt('goal.mountBike'), sub: fmt('goal.mountBikeHint'), color: '#5dade2' };
       if (ob.id === 'mount') return { x: this.bike.pos.x, z: this.bike.pos.z, text: fmt('goal.mount'), sub: fmt('goal.mountHint'), color: '#5dade2' };
       if (ob.id === 'brand') {
         const st = this.tutorialStep();
@@ -1165,6 +1220,7 @@ export class Game {
       if (st) return { ...st.door, text: fmt('goal.fines', { fine: gs.finesTotal, place: st.name }), sub: fmt('goal.finesHint'), color: '#e67e22' };
     }
     // đã vào hãng nhưng đang đi xe không đúng loại (xe đạp / xe xăng ↔ xe điện) → nhắc đổi xe
+    if (gs.workBlock() === 'noUniform') return { text: fmt('goal.noUniform', { brand: gs.brandSpec.name }), sub: fmt('goal.noUniformHint') };
     if (gs.workBlock() === 'wrongVehicle') return { text: fmt('goal.wrongVehicle', { brand: gs.brandSpec.name, kind: fmt(`power.${gs.brandSpec.power}`) }), sub: fmt('goal.wrongVehicleHint') };
     if (om.state === S.OFFLINE) return { text: fmt('goal.online'), sub: '' };
     if (!gs.rentPaid && gs.money < gs.rent) return { text: fmt('goal.waiting', { k: Math.ceil(gs.rent - gs.money), day: gs.rentDueDay }), sub: fmt('goal.waitingHint') };
@@ -1285,6 +1341,16 @@ export class Game {
     this.city.setWet(wet);
     this.bike.setNight(night, this.mode === 'bike');
     this.npcs.minh.visible = gs.flags.wallet === 4;
+    // mở đầu: chấm than nhún trên đầu Cô Hai tới khi nói chuyện; xe đạp chỉ hiện khi Cô Hai đã cho
+    this.questMark.visible = gs.flags.story === 0;
+    if (this.questMark.visible) this.questMark.position.y = 2.75 + Math.abs(Math.sin(performance.now() / 260)) * 0.28;
+    this.bike.mesh.visible = this.bikeReady();
+    // bảng tên NPC mờ dần khi camera sát lại (dưới ~4 m), khỏi che màn hình
+    const cp = this.camera.position;
+    for (const n of Object.values(this.npcs)) {
+      const l = n.userData.label;
+      if (l) l.material.opacity = Math.max(0, Math.min(1, (Math.hypot(n.position.x - cp.x, n.position.z - cp.z) - 2.5) / 1.5));
+    }
     if (!(this.om.order && this.om.order.kind === 'ride' && this.passengerMesh && this.passengerMesh.parent === this.bike.mesh)) this.bike.showBag(true);
     // xe đạp: chân đạp vòng theo tốc độ (đứng yên thì ngồi bình thường)
     if (this.mode === 'bike' && this.gs.power === 'pedal' && this.walker.mesh.userData.parts) {
@@ -1387,7 +1453,8 @@ export class Game {
     return {
       player: { x: pp.x, z: pp.z, heading: this.mode === 'bike' ? this.bike.heading : this.walker.heading },
       bus: this.bus, // tuyến + trạm xe buýt
-      bike: this.mode === 'foot' ? { x: this.bike.pos.x, z: this.bike.pos.z } : null,
+      bike: this.mode === 'foot' && this.bikeReady() ? { x: this.bike.pos.x, z: this.bike.pos.z } : null,
+      quest: this.gs.flags.story === 0 ? this.layout.placeById.home?.door : null, // ❗ chỗ Cô Hai trên bản đồ
       places,
       alleyBlocks: this.layout.alleyBlocks,
       target: tgt && tgt.x != null && !tgt.zone ? { x: tgt.x, z: tgt.z, color: tgt.color } : null,
@@ -1402,6 +1469,7 @@ export class Game {
     if (!this.gs) return;
     const gs = this.gs;
     const locked = [];
+    if (gs.workBlock() === 'noUniform') locked.push(fmt('phone.lockUniform', { brand: gs.brandSpec.name }));
     if (gs.workBlock() === 'wrongVehicle') locked.push(fmt('phone.lockVehicle', { brand: gs.brandSpec.name, kind: fmt(`power.${gs.brandSpec.power}`) }));
     if (gs.bagSpec.insulation < 0.5) locked.push(fmt('phone.lockCold'));
     if (!gs.effect('passengerSeat')) locked.push(fmt('phone.lockRide'));

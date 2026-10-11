@@ -257,11 +257,15 @@ function renderOutfit(body, s, ctx, opt, changed) {
       field('Chỗ mặc', selectInput(s.slot, Object.entries(OUTFIT_SLOTS).map(([k, d]) => [k, d.label]), (v) => {
         s.slot = v;
         if (!(s.style in OUTFIT_SLOTS[v].styles)) s.style = Object.keys(OUTFIT_SLOTS[v].styles)[0];
+        if (v !== 'uniform') delete s.brand; // chỉ đồng phục mới thuộc hãng
         changed();
         ctx.rerender();
       }), opt('slot', { hint: 'Mỗi chỗ mặc 1 món. Món giá 0 là đồ có sẵn từ đầu. Áo / quần / mũ / giày thay ở tủ đồ phòng trọ; 3 ô phụ kiện (áo mưa · áo khoác, kính · khẩu trang, găng tay) được để trống, người chơi gắn / tháo trong túi đồ.' })),
       field('Kiểu', selectInput(s.style, Object.entries(slot.styles), (v) => { s.style = v; changed(); draw(); }), opt('style')),
       field('Màu', colorInput(s.color, (v) => { s.color = v; changed(); draw(); }), opt('color')),
+      s.slot === 'uniform'
+        ? field('Hãng', selectInput(s.brand || '', [['', '— chọn hãng —'], ...Object.values(ctx.data.apps.brands || {}).map((b) => [b.id, `${b.icon || ''} ${b.name}`])], (v) => { if (v) s.brand = v; else delete s.brand; changed(); }), opt('brand', { hint: 'Đồng phục của hãng nào: cấp khi vào hãng đó, chỉ bán ở văn phòng hãng đó; phải mặc mới bật được app nhận đơn.' }))
+        : null,
     ),
     field('Xem trước', prev.el, opt('preview', { hint: 'Mặc cùng đồ có sẵn ở các chỗ còn lại.' })),
   );

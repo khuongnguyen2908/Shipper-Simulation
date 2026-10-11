@@ -36,8 +36,8 @@ function appLook([id, ic, color, key], gs) {
 
 // Túi đồ: nút lọc (mã → loại món) · biểu tượng ô trống của bảng "Đang mặc" · 2 cột ô quanh avatar
 const BAG_FILTERS = { all: null, wear: ['outfit'], use: ['use', 'carry'], other: ['equip', 'quest'] };
-const SLOT_ICON = { helmet: '⛑️', face: '🕶️', shirt: '👕', hands: '🧤', acc: '🧥', pants: '👖', shoes: '👟' };
-const SLOT_COLS = [['helmet', 'face', 'shirt', 'hands'], ['acc', 'pants', 'shoes']];
+const SLOT_ICON = { helmet: '⛑️', face: '🕶️', shirt: '👕', hands: '🧤', acc: '🧥', uniform: '🦺', pants: '👖', shoes: '👟' };
+const SLOT_COLS = [['helmet', 'face', 'shirt', 'hands'], ['acc', 'uniform', 'pants', 'shoes']];
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
 // Mọi thứ trong túi: trang phục đã có, trang bị, đồ dùng 1 lần, đồ mang theo, vật phẩm nhiệm vụ
@@ -407,6 +407,10 @@ export class Phone {
     const a = gs.account;
     const kv = (l, v, note = '') => `<div class="kv"><span>${l}</span><b>${v}</b></div>${note ? `<small>${note}</small>` : ''}`;
     const locked = gs.lockedUntil > d.now;
+    // hợp đồng đã ký với hãng đang chạy: chữ ký + ngày ký
+    const ct = gs.contracts?.[gs.brand];
+    const contract = ct ? `<div class="card"><b>${fmt('phone.contractTitle', { brand: esc(gs.brandSpec?.name || '') })}</b>
+      ${ct.sig ? `<img class="ct-sig" src="${ct.sig}" alt="">` : ''}<small class="blk">${fmt('phone.contractSigned', { name: esc(gs.profile.name), day: ct.day, time: hhmm(((ct.at % 1440) + 1440) % 1440) })}</small></div>` : '';
     // đơn gần đây: số đơn, khách, sao, tiền nhận
     const rec = d.receipts.slice(-8).reverse().map((r) => `<div class="kv"><span>#${r.order.id} ${r.order.customer} <small class="st">${stars(r.ev.stars)}</small></span><b>${r.ev.refused ? '0k' : fmtK(r.pay.walletCredit)}</b></div>`).join('');
     // vòng điểm: đầy theo điểm 1–5, đổi màu khi gần mức bị khóa
@@ -423,7 +427,7 @@ export class Phone {
       ${kv(fmt('phone.accCancels'), `${gs.stats.driverCancels} / ${acc.cancelLimitPerDay}`, fmt('phone.accCancelRule', { n: acc.cancelLimitPerDay, min: acc.cancelLockMin, stars: acc.cancelStars }))}
       ${kv(fmt('phone.accBom'), a.bom)}
       <div class="ph-note">${locked ? fmt('phone.accLocked', { time: hhmm(gs.lockedUntil) }) : fmt('phone.accOk')}</div></div>
-      <div class="card"><b>${fmt('phone.recent')}</b>${rec || `<small>${fmt('phone.noOrders')}</small>`}</div>`;
+      <div class="card"><b>${fmt('phone.recent')}</b>${rec || `<small>${fmt('phone.noOrders')}</small>`}</div>${contract}`;
   }
 
   // Túi đồ: nút lọc · kho đồ chia ô (viền xanh = đang mặc, số góc = số lượng) · khung chi tiết món đang chọn

@@ -42,7 +42,8 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   const itemTable = opts.items || ITEMS;
   const rng = makeRng(seed);
   const grid = new SpatialGrid(16);
-  const addBox = (x0, z0, x1, z1, h, tag) => grid.add({ x0, z0, x1, z1, h, tag });
+  // extra: { y0 (đáy khối, mặc định 0), cam (chỉ chặn camera) }
+  const addBox = (x0, z0, x1, z1, h, tag, extra) => grid.add({ x0, z0, x1, z1, h, tag, ...extra });
   const dummy = new THREE.Object3D();
   const col = new THREE.Color();
   const W = LOT_W;
@@ -556,7 +557,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
       const W2 = (x, z) => [f.x + x * c + z * s, f.z - x * s + z * c];
       for (const q of b.colliders) {
         const [ax, az] = W2(q.x0, q.z0), [bx, bz] = W2(q.x1, q.z1);
-        addBox(Math.min(ax, bx), Math.min(az, bz), Math.max(ax, bx), Math.max(az, bz), q.h, 'place');
+        addBox(Math.min(ax, bx), Math.min(az, bz), Math.max(ax, bx), Math.max(az, bz), q.h, 'place', q.cam ? { y0: (q.y0 || 0) + SW_H, cam: true } : undefined);
       }
     }
     if (p.kind === 'gate') {

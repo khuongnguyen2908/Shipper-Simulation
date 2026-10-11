@@ -207,38 +207,38 @@
     "desc": "Bó nhang trầm. Đem tới chùa để thắp.",
     "type": "carry"
   },
-  "aoXanh": {
-    "id": "aoXanh",
-    "name": "Áo thun xanh lá",
+  "aoThuong": {
+    "id": "aoThuong",
+    "name": "Áo thun rách",
     "icon": "👕",
     "price": 0,
-    "desc": "Áo mặc đi làm hằng ngày, có sẵn.",
+    "desc": "Áo mặc từ quê lên, rách lắm rồi.",
     "type": "outfit",
     "slot": "shirt",
-    "style": "long",
-    "color": "#27ae60"
+    "style": "short",
+    "color": "#858585"
   },
-  "quanJean": {
-    "id": "quanJean",
-    "name": "Quần jean",
+  "quanShortCu": {
+    "id": "quanShortCu",
+    "name": "Quần short cũ",
     "icon": "👖",
     "price": 0,
-    "desc": "Quần jean cũ, bền.",
+    "desc": "Quần cũ, bền.",
     "type": "outfit",
     "slot": "pants",
-    "style": "long",
+    "style": "shorts",
     "color": "#1f2d3d"
   },
   "muXanh": {
     "id": "muXanh",
-    "name": "Mũ bảo hiểm xanh lá",
+    "name": "Mũ bảo hiểm bể",
     "icon": "⛑️",
     "price": 0,
     "desc": "Mũ nửa đầu, có sẵn.",
     "type": "outfit",
     "slot": "helmet",
     "style": "half",
-    "color": "#27ae60"
+    "color": "#454545"
   },
   "aoTrang": {
     "id": "aoTrang",
@@ -275,14 +275,30 @@
   },
   "aoDongPhuc": {
     "id": "aoDongPhuc",
-    "name": "Áo đồng phục GoShip",
+    "name": "Áo khoác đồng phục GripBike",
     "icon": "🦺",
     "price": 90,
-    "desc": "Khách tin tưởng hơn: đơn 4–5★ được boa thêm 1k.",
+    "desc": "Đồng phục tài xế GripBike: mặc vào mới bật được app nhận đơn. Khách tin tưởng hơn: đơn 4–5★ được boa thêm 1k.",
     "type": "outfit",
-    "slot": "shirt",
-    "style": "short",
-    "color": "#1e8449",
+    "slot": "uniform",
+    "style": "jacket",
+    "color": "#00b14f",
+    "effects": {
+      "tipBonus": 1
+    },
+    "brand": "goship"
+  },
+  "aoDongPhucHong": {
+    "id": "aoDongPhucHong",
+    "name": "Áo khoác đồng phục HồngSM",
+    "icon": "🦺",
+    "price": 90,
+    "desc": "Đồng phục tài xế HồngSM: mặc vào mới bật được app nhận đơn. Khách tin tưởng hơn: đơn 4–5★ được boa thêm 1k.",
+    "type": "outfit",
+    "slot": "uniform",
+    "style": "jacket",
+    "color": "#e84393",
+    "brand": "hongsm",
     "effects": {
       "tipBonus": 1
     }

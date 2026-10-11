@@ -169,7 +169,7 @@ function foreArmGeo(shirt, skin, short, s, glove = null, gloveLong = false) {
 // Thân + đầu + mọi thứ gắn cố định (tóc, mũ, túi, váy, mũ trùm áo khoác)
 function torsoGeo(o) {
   return cachedGeo(`to|${JSON.stringify(o)}`, () => {
-    const { shirt, pants, skin, hat, hatColor, hair, bag, female, style, skirt, helmetStyle, overlay, face, faceColor } = o;
+    const { shirt, pants, skin, hat, hatColor, hair, bag, female, style, skirt, helmetStyle, overlay, face, faceColor, uniform } = o;
     const L = new PartList(), hy = HEAD_Y, w = female ? 0.92 : 1;
     // hông, thắt lưng, thân tiện tròn 8 cạnh (eo nhỏ, ngực nở, vai xuôi)
     L.add(pCyl(0.17 * w, 0.165 * w, 0.16, 8).scale(1, 1, 0.7), pants, 0, 0.9, 0, 0, 0, 0, 0.85);
@@ -246,6 +246,12 @@ function torsoGeo(o) {
       }
     }
     if (overlay === 'jacket') L.add(pBox(0.3, 0.14, 0.12), JACKET_COLOR, 0, 1.43, -0.15); // mũ trùm buông sau gáy
+    // áo khoác đồng phục hãng: dải phản quang ngang ngực (trước + sau) + logo trắng trên ngực trái + cổ áo
+    if (uniform != null) {
+      for (const z of [-0.128, 0.128]) L.add(pBox(0.33, 0.035, 0.02), 0xdfe3e6, 0, 1.18, z, 0, 0, 0, 1);
+      L.add(pBox(0.08, 0.06, 0.012), 0xffffff, 0.08, 1.33, 0.13, 0, 0, 0, 1);
+      L.add(pCyl(0.07, 0.085, 0.05, 8), shade(uniform, 0.8), 0, 1.44, 0, 0, 0, 0, 1);
+    }
     return L.build();
   });
 }
@@ -256,11 +262,14 @@ function torsoGeo(o) {
 // shoe: màu giày (bỏ trống = tự chọn theo bộ đồ) · shoeStyle: 'sneaker' | 'sandal' (dép)
 // face: phụ kiện đầu 'glasses' | 'mask' + faceColor · gloves: 'gloves' | 'armSleeves' (ống dài) + gloveColor
 // Khớp: legL/R (háng) → kneeL/R (gối), armL/R (vai) → elbowL/R (khuỷu); body = phần thân nhún khi đi
-export function makePerson({ shirt = 0x3498db, pants = 0x2c3e50, skin = SKINS[0], hat = null, hatColor = 0x2ecc71, hair = 0x1b1b1b, scale = 1, bag = false, gender = 'm', hairStyle, skirt = false, sleeves = 'long', shorts = false, helmetStyle = 'half', overlay = null, shoe = null, shoeStyle = 'sneaker', face = null, faceColor = 0x222222, gloves = null, gloveColor = 0x333333 } = {}) {
+export function makePerson({ shirt = 0x3498db, pants = 0x2c3e50, skin = SKINS[0], hat = null, hatColor = 0x2ecc71, hair = 0x1b1b1b, scale = 1, bag = false, gender = 'm', hairStyle, skirt = false, sleeves = 'long', shorts = false, helmetStyle = 'half', overlay = null, shoe = null, shoeStyle = 'sneaker', face = null, faceColor = 0x222222, gloves = null, gloveColor = 0x333333, uniform = null } = {}) {
   const female = gender === 'f';
   const style = hairStyle || (female ? 'long' : 'short');
   if (overlay === 'jacket') {
     shirt = JACKET_COLOR; // áo khoác che kín áo trong, luôn tay dài
+    sleeves = 'long';
+  } else if (uniform != null) {
+    shirt = uniform; // áo khoác đồng phục che áo trong, tay dài
     sleeves = 'long';
   }
   const short = sleeves === 'short';
@@ -277,7 +286,7 @@ export function makePerson({ shirt = 0x3498db, pants = 0x2c3e50, skin = SKINS[0]
     parent.add(m);
     return m;
   };
-  const torso = mesh(torsoGeo({ shirt, pants, skin, hat, hatColor, hair, bag, female, style, skirt, helmetStyle: hat === 'helmet' ? helmetStyle : null, overlay, face: face || null, faceColor: face ? faceColor : null }), body, true);
+  const torso = mesh(torsoGeo({ shirt, pants, skin, hat, hatColor, hair, bag, female, style, skirt, helmetStyle: hat === 'helmet' ? helmetStyle : null, overlay, face: face || null, faceColor: face ? faceColor : null, uniform: overlay !== 'jacket' && uniform != null ? uniform : null }), body, true);
   // chân: khớp háng → đùi → khớp gối → cẳng chân + giày
   const hipX = female ? 0.09 : 0.1;
   const legs = [-1, 1].map((s) => {

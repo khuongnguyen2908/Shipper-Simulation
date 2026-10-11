@@ -658,6 +658,8 @@ const BUILD = {
         { x0: -W / 2, z0: -D, x1: -W / 2 + GARAGE_WALL, z1: 0, h: H },
         { x0: W / 2 - GARAGE_WALL, z0: -D, x1: W / 2, z1: 0, h: H },
         { x0: -W / 2, z0: -D, x1: W / 2, z1: -D + GARAGE_BACK, h: H },
+        // các lầu phía trên hầm: chỉ chặn camera (không chặn người / xe), để camera không lọt vào trong nhà
+        { x0: -W / 2, z0: -D, x1: W / 2, z1: 0, h: H, y0: F - 0.2, cam: true },
       ]
       : 'full';
     // có hầm: biển hiệu lên lầu 1 (tầng trệt là cửa hầm)

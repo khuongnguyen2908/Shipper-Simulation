@@ -21,6 +21,8 @@ export const OUTFIT_SLOTS = {
   acc: { label: 'Phụ kiện', styles: { raincoat: 'Áo mưa', jacket: 'Áo khoác chống nắng' }, accessory: true },
   face: { label: 'Phụ kiện đầu', styles: { glasses: 'Kính', mask: 'Khẩu trang' }, accessory: true },
   hands: { label: 'Phụ kiện tay', styles: { gloves: 'Găng tay', armSleeves: 'Găng tay ống dài' }, accessory: true },
+  // đồng phục hãng (món có ô brand = mã hãng): cấp khi vào hãng / mua ở văn phòng hãng; phải mặc mới bật app nhận đơn
+  uniform: { label: 'Đồng phục', styles: { jacket: 'Áo khoác đồng phục' }, accessory: true },
 };
 export const isAccessorySlot = (slot) => !!OUTFIT_SLOTS[slot]?.accessory;
 
@@ -53,7 +55,8 @@ export function outfitLook(worn = {}) {
     hatColor: hex(he.color, DEFAULT_PART.helmet.color),
     helmetStyle: he.style === 'full' ? 'full' : 'half',
   };
-  const { shoes, acc, face, hands } = worn;
+  const { shoes, acc, face, hands, uniform } = worn;
+  if (uniform) look.uniform = hex(uniform.color, '#00b14f'); // áo khoác đồng phục màu hãng, mặc ngoài áo
   if (shoes) Object.assign(look, { shoe: hex(shoes.color, '#2b2b2b'), shoeStyle: shoes.style === 'sandal' ? 'sandal' : 'sneaker' });
   if (acc && (acc.style === 'raincoat' || acc.style === 'jacket')) look.overlay = acc.style;
   if (face && (face.style === 'glasses' || face.style === 'mask')) Object.assign(look, { face: face.style, faceColor: hex(face.color, '#222222') });

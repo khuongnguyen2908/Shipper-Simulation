@@ -19,6 +19,8 @@ import { fmtClock, minutesUntil } from './sim/clock.js';
 import { buildPacking } from './ui/packing.js';
 import { sfx } from './audio.js';
 import { inGarage } from './sim/garage.js';
+import { uniformOf } from './sim/GameState.js';
+import { signaturePad } from './ui/signature.js';
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const stars = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
@@ -50,7 +52,7 @@ export function gatherInteractions(g) {
   const slow = Math.abs(bike.speed) < 1.2;
   const out = [];
   // F: lên / xuống xe
-  if (foot && dist(p, bike.pos) < 3.2 && Math.abs(g.walker.mesh.position.y - bike.mesh.position.y) < 1.5) {
+  if (foot && g.bikeReady() && dist(p, bike.pos) < 3.2 && Math.abs(g.walker.mesh.position.y - bike.mesh.position.y) < 1.5) {
     // xe bị cẩu về bãi → chuộc rồi mới lấy được
     if (g.gs.towed) out.push({ key: 'F', label: redeemLabel(g), dist: 0, run: () => redeemBike(g) });
     else out.push({ key: 'F', label: fmt('act.mount'), dist: 0, run: () => mount(g) });
@@ -111,6 +113,11 @@ function mount(g) {
   g.walker.sitOn(g.bike);
   g.gs.flags.mounted = true;
   sfx.click();
+  // mở đầu: lần đầu leo lên xe đạp Cô Hai cho → bắt đầu hướng dẫn đi đăng ký hãng
+  if (g.gs.flags.story === 1) {
+    g.gs.flags.story = 2;
+    g.hud.toast(fmt('toast.firstRide'), 'big', 7000);
+  }
 }
 
 function dismount(g) {
@@ -212,7 +219,8 @@ export function phoneAction(g, a, ds) {
   const turningOn = om.state === S.OFFLINE && (a === 'online' || a === 'wantFood' || a === 'wantRide');
   const block = turningOn && gs.workBlock();
   if (block) {
-    g.hud.toast(block === 'noBrand' ? fmt('toast.needBrand') : fmt('toast.wrongVehicle', { brand: gs.brandSpec.name, kind: fmt(`power.${gs.brandSpec.power}`) }), 'warn', 4000);
+    const bp = gs.brandSpec && { brand: gs.brandSpec.name, kind: fmt(`power.${gs.brandSpec.power}`) };
+    g.hud.toast(block === 'noBrand' ? fmt('toast.needBrand') : block === 'noUniform' ? fmt('toast.needUniform', bp) : fmt('toast.wrongVehicle', bp), 'warn', 4500);
     return g.renderPhone();
   }
   if (a === 'online') {
@@ -265,6 +273,8 @@ function bagWear(g, id, on) {
   if (!(on ? g.gs.wear(id) : g.gs.takeOff(s.slot))) return;
   sfx.click();
   g.hud.toast(fmt(on ? 'toast.woreAcc' : 'toast.tookOffAcc', { name: s.name }), 'good', 1800);
+  // cởi đồng phục hãng: app không nhận đơn mới nữa
+  if (!on && s.slot === 'uniform' && s.brand === g.gs.brand) g.hud.toast(fmt('toast.uniformOff', { brand: g.gs.brandSpec?.name || '' }), 'warn', 4500);
 }
 
 // Công tắc GoShip: Giao hàng / Chở khách. Đang nghỉ mà bật một cái → chỉ bật đúng cái đó và lên mạng;
@@ -691,7 +701,8 @@ export function placeAction(g, pl) {
     case 'gas': return { label: fmt('act.gas', p) + closed, run: () => openPlace(g, pl, gasChoices(g, pl)) };
     case 'charger': return { label: fmt('act.charger', p) + closed, run: () => openPlace(g, pl, chargeChoices(g, pl)) };
     case 'swap': return { label: fmt('act.swap', p) + closed, run: () => openPlace(g, pl, swapChoices(g, pl)) };
-    case 'office': return generic('act.office', { run: () => (open ? officeDialog(g, pl) : openPlace(g, pl)) });
+    // đã là tài xế hãng này: nút ghi "Vào <tên văn phòng>" thay vì "Đăng ký chạy xe"
+    case 'office': return generic(gs.brand && gs.brand === pl.brand ? 'act.officeMember' : 'act.office', { run: () => (open ? officeDialog(g, pl) : openPlace(g, pl)) });
     case 'shop': return generic('act.shop', { run: () => (open ? shopDialog(g, pl) : openPlace(g, pl)) });
     case 'garage': return generic('act.garage', { run: () => (open ? shopDialog(g, pl) : openPlace(g, pl)) });
     case 'cafe': return gs.flags.wallet === 4 ? { label: fmt('act.cafeMinh', p), needFoot: true, run: () => minhReturn(g) } : generic('act.cafe');
@@ -868,24 +879,88 @@ function officeDialog(g, pl) {
       hint: why || fmt(gs.brand ? 'dlg.officeSwitchHint' : 'dlg.officeJoinHint', { bike: bike?.name || '', old: gs.brandSpec?.name || '', refund }),
       primary: true,
       disabled: !!why,
+      onSelect: () => contractDialog(g, pl, b), // popup hợp đồng: đãi ngộ + ký tên rồi mới vào hãng
+    });
+  }
+  // đồng phục: chỉ cấp hoặc mua tại văn phòng hãng (places.json → sells.goods của văn phòng); thành viên mất áo thì mua lại
+  for (const id of pl.sells?.goods || []) {
+    const u = GOODS[id];
+    if (!u || u.slot !== 'uniform' || u.brand !== b.id) continue;
+    const owned = gs.ownsOutfit(id);
+    choices.push({
+      label: `${owned ? '✔ ' : ''}${u.icon || ''} ${u.name} – ${u.price}k`,
+      hint: owned ? fmt('dlg.outfitOwnedAcc') : !mine ? fmt('dlg.uniformMembersOnly', { brand: b.name }) : u.desc || '',
+      disabled: owned || !mine || gs.money < u.price,
+      keepOpen: true,
       onSelect: () => {
-        if (om.state !== S.OFFLINE) om.goOffline();
-        const r = gs.joinBrand(b.id);
-        if (!r.ok) return say(g, n.name, n.portrait, r.msg);
-        gs.flags.online = false;
-        g.bike.setSpec(gs.vehicleSpec);
-        g.lookKey = null;
-        sfx.win();
-        g.hud.toast(r.msg, 'big', 6000);
-        g.addChat(b.name, fmt(r.switched ? 'chat.brandSwitched' : 'chat.brandWelcome', { name: gs.profile.name, brand: b.name, bike: bike?.name || '' }));
-        if (!r.switched) g.joinGroupChat(); // lần đầu vào hãng: được thêm vào nhóm Hội shipper
-        g.phone.notify('chat', { title: b.name, text: fmt('chat.brandWelcomeShort', { brand: b.name }) });
+        const r = gs.buy('goods', id);
+        g.hud.toast(r.ok ? fmt('toast.bought', { msg: r.msg }) : r.msg, r.ok ? 'good' : 'bad');
+        if (r.ok) sfx.cash();
+        officeDialog(g, pl);
       },
     });
   }
   choices.push(...activityChoices(g, pl), { label: fmt('dlg.leave') });
   const text = fmt(mine ? 'dlg.officeMember' : 'dlg.officeIntro', { brand: b.name, desc: b.desc || '', bike: bike?.name || '', k: b.deposit || 0, kind: fmt(`power.${b.power}`) });
   say(g, n.name, n.portrait, text, choices, { wide: true });
+}
+
+// Popup hợp đồng: đãi ngộ (luật chung của app + dòng riêng của hãng), đồ được cấp, ô ký tên. Ký xong mới vào hãng.
+function contractDialog(g, pl, b) {
+  const { gs } = g;
+  const bike = VEHICLES[b.vehicle], u = uniformOf(b.id);
+  const pad = signaturePad(gs.profile.name);
+  const perks = [
+    fmt('dlg.perkOrders'),
+    fmt('dlg.perkFee', { fee: Math.round((APP.platformFee || 0) * 100), tax: +((APP.taxRate || 0) * 100).toFixed(1), tip: APP.tipByStars?.[5] ?? 0 }),
+    fmt('dlg.perkSurcharge', { rain: APP.rainSurcharge || 0, peak: APP.peakSurcharge || 0, night: APP.nightSurcharge || 0 }),
+    ...(b.perks || []),
+  ];
+  const gives = [bike && `🛵 ${bike.name}`, u && `${u.icon || '🦺'} ${u.name}`, fmt('dlg.contractDeposit', { k: b.deposit || 0 })].filter(Boolean);
+  const html = `<div class="ct">
+    <div class="ct-sec">${fmt('dlg.contractPerks')}</div><ul class="ct-list">${perks.map((t) => `<li>${t}</li>`).join('')}</ul>
+    <div class="ct-sec">${fmt('dlg.contractGive')}</div><div class="ct-chips">${gives.map((t) => `<span class="tag good">${t}</span>`).join('')}</div>
+    <small class="ct-note">${fmt('dlg.contractUniform')}</small>
+    ${gs.brand ? `<div class="ph-lock">${fmt('dlg.contractSwitchWarn', { old: gs.brandSpec?.name || '' })}</div>` : ''}
+    <div class="ct-sec">${fmt('dlg.contractSign')}</div></div>`;
+  g.modal.show({
+    title: fmt('dlg.contractTitle', { brand: b.name }),
+    html,
+    node: pad.el,
+    wide: true,
+    choices: [
+      { label: fmt('dlg.contractClear'), keepOpen: true, onSelect: () => pad.clear() },
+      { label: fmt('dlg.contractLater') },
+      {
+        label: fmt('dlg.contractSignBtn'),
+        primary: true,
+        keepOpen: true,
+        onSelect: () => {
+          if (!pad.signed()) return g.hud.toast(fmt('toast.signFirst'), 'warn');
+          g.modal.hide();
+          joinBrand(g, pl, b, pad.dataURL());
+        },
+      },
+    ],
+  });
+}
+
+// Ký hợp đồng xong: đặt cọc, nhận xe + đồng phục (mặc luôn), vào nhóm Hội shipper
+function joinBrand(g, pl, b, sig) {
+  const { gs, om } = g;
+  const n = npc(g, pl.id);
+  const bike = VEHICLES[b.vehicle];
+  if (om.state !== S.OFFLINE) om.goOffline();
+  const r = gs.joinBrand(b.id, sig, g.clockMin);
+  if (!r.ok) return say(g, n.name, n.portrait, r.msg);
+  gs.flags.online = false;
+  g.bike.setSpec(gs.vehicleSpec);
+  g.lookKey = null;
+  sfx.win();
+  g.hud.toast(r.msg, 'big', 6000);
+  g.addChat(b.name, fmt(r.switched ? 'chat.brandSwitched' : 'chat.brandWelcome', { name: gs.profile.name, brand: b.name, bike: bike?.name || '' }));
+  if (!r.switched) g.joinGroupChat(); // lần đầu vào hãng: được thêm vào nhóm Hội shipper
+  g.phone.notify('chat', { title: b.name, text: fmt('chat.brandWelcomeShort', { brand: b.name }) });
 }
 
 function gasChoices(g, pl) {
@@ -1130,6 +1205,7 @@ function rideBus(g, d, fare) {
 
 function landlord(g, pl) {
   const { gs } = g;
+  if (gs.flags.story === 0) return landlordIntro(g, pl); // lần đầu gặp: Cô Hai cho xe đạp
   const busy = !!g.om.order;
   const paid = gs.rentPaid;
   const can = !paid && gs.money >= gs.rent && !busy;
@@ -1199,6 +1275,21 @@ function sleepChoices(g) {
   // "tới sáng" khi còn ≤ 10 tiếng nữa là 06:00 (đêm khuya)
   if (untilMorning <= 10 * 60 && ![2, 4, 6, 8].includes(untilMorning / 60)) list.unshift({ ...opt(untilMorning, 'dlg.sleepUntil'), primary: !why });
   return list;
+}
+
+// Mở đầu: lần đầu tới nhà trọ gặp Cô Hai — khuyên đi chạy xe công nghệ, cho chiếc xe đạp cũ (xuất hiện trong hầm xe)
+function landlordIntro(g, pl) {
+  const n = npc(g, pl.id);
+  say(g, n.name, n.portrait, fmt('dlg.landlordIntro', { name: g.gs.profile.name }), [{
+    label: fmt('dlg.landlordIntroOk'),
+    primary: true,
+    onSelect: () => {
+      g.gs.flags.story = 1;
+      g.placeAtHomeBike();
+      sfx.win();
+      g.hud.toast(fmt('toast.gotBike'), 'big', 6000);
+    },
+  }], { dismissible: false });
 }
 
 // "Áo thun xanh lá · Quần jean · Mũ bảo hiểm xanh lá"

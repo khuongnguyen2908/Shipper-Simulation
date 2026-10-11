@@ -367,8 +367,15 @@ test('Đổ xăng trừ tiền đúng giá; xe điện / xe đạp không đổ 
   assert.ok(!workerState({ carry: { brand: 'hongsm', vehicle: 'evStd', owned: { vehicles: ['xeDap', 'evStd'], bags: ['nylon'], gear: [] }, vstate: {} } }).refuel().ok, 'xe điện không đổ xăng');
 });
 test('Chưa vào hãng: mục tiêu duy nhất là đăng ký hãng; vào rồi mới có mục tiêu giao hàng (ngày 1 thêm hướng dẫn, ngày 2 thì không)', () => {
-  assert.deepEqual(objectives(new GameState()).map((o) => o.id), ['brand']);
-  assert.deepEqual(objectives(new GameState({ day: 5 })).map((o) => o.id), ['brand'], 'đổi hãng / bản lưu chưa có hãng cũng vậy');
+  // mở đầu: chỉ hiện bước đang làm — tìm nhà trọ gặp Cô Hai → leo lên xe đạp → đăng ký hãng
+  const gs0 = new GameState();
+  assert.deepEqual(objectives(gs0).map((o) => o.id), ['findHome'], 'mới vào: tìm nhà trọ');
+  gs0.flags.story = 1;
+  assert.deepEqual(objectives(gs0).map((o) => o.id), ['mountBike'], 'Cô Hai cho xe: leo lên xe đạp');
+  gs0.flags.story = 2;
+  assert.deepEqual(objectives(gs0).map((o) => o.id), ['brand'], 'đã lên xe: đăng ký hãng');
+  assert.deepEqual(objectives(new GameState({ day: 5, carry: { money: 10 } })).map((o) => o.id), ['brand'], 'bản lưu cũ chưa có hãng: bỏ qua mở đầu');
+  assert.equal(new GameState({ day: 2, carry: new GameState({ carry: { flags: { story: 1 } } }).carryOver() }).flags.story, 1, 'bước mở đầu được lưu');
   const d1 = objectives(workerState()).map((o) => o.id);
   assert.ok(d1.includes('fuel') && d1.includes('online') && d1.includes('first') && !d1.includes('brand'));
   assert.ok(!objectives(workerState({ day: 2 })).some((o) => o.id === 'fuel' || o.id === 'online'));
@@ -582,7 +589,7 @@ console.log('Đồ dùng, hoạt động, điểm đến (luật bằng dữ li�
     assert.equal(gs.maintIntervalKm, Infinity);
     gs.addKm(500);
     assert.equal(gs.bikeHp, 100, 'xe đạp không xuống cấp vì quá hạn bảo dưỡng');
-    assert.deepEqual(objectives(gs).map((o) => o.id), ['brand']);
+    assert.deepEqual(objectives(gs).map((o) => o.id), ['findHome'], 'mới vào game: đi tìm nhà trọ trước');
     const om = new OrderManager({ rng: makeRng(2), layout, gs });
     om.goOnline();
     for (let i = 0; i < 300; i++) om.update(1, 0, 600, { x: 0, z: 0 });
@@ -656,6 +663,46 @@ console.log('Đồ dùng, hoạt động, điểm đến (luật bằng dữ li�
     assert.equal(gs.vehicle, BRANDS_T.goship.vehicle, 'bán xe đang chạy → về xe hãng');
     assert.ok(!gs.sellVehicle(id).ok);
   });
+  test('Đồng phục: vào hãng được cấp + mặc sẵn, lưu chữ ký hợp đồng; cởi ra thì không nhận đơn; đổi hãng thì trả áo cũ, nhận áo mới', () => {
+    const { outfitLook } = goodsMod;
+    const gs = new GameState({ carry: { money: 500 } });
+    assert.ok(gs.joinBrand('goship', 'data:image/png;base64,KY', 600).ok);
+    const u1 = Object.values(GOODS).find((g) => g.slot === 'uniform' && g.brand === 'goship');
+    assert.ok(u1 && gs.ownsOutfit(u1.id) && gs.wornIds().uniform === u1.id && gs.workBlock() === null);
+    assert.deepEqual(gs.contracts.goship, { sig: 'data:image/png;base64,KY', day: 1, at: 600 });
+    assert.equal(outfitLook(gs.wornGoods()).uniform, parseInt(u1.color.slice(1), 16), 'áo khoác màu hãng');
+    assert.ok(gs.takeOff('uniform'));
+    assert.equal(gs.workBlock(), 'noUniform', 'cởi đồng phục → không nhận đơn');
+    const next = new GameState({ day: 2, carry: gs.carryOver() });
+    assert.equal(next.workBlock(), 'noUniform', 'đã tự cởi thì lưu là đang cởi (không tự mặc lại)');
+    assert.ok(next.contracts.goship.sig);
+    assert.ok(next.wear(u1.id) && next.workBlock() === null);
+    assert.ok(next.joinBrand('hongsm').ok);
+    const u2 = Object.values(GOODS).find((g) => g.slot === 'uniform' && g.brand === 'hongsm');
+    assert.ok(!next.ownsOutfit(u1.id), 'trả đồng phục hãng cũ');
+    assert.ok(next.wornIds().uniform === u2.id && next.workBlock() === null);
+    const old = new GameState({ day: 3, carry: { money: 50, owned: { vehicles: ['cub'], bags: ['nylon'], gear: [] }, vehicle: 'cub', fuel: 1 } });
+    assert.ok(old.wearingUniform(), 'bản lưu cũ đang ở GoShip: tự cấp + mặc đồng phục');
+    const om = new OrderManager({ rng: makeRng(3), layout, gs: next });
+    next.takeOff('uniform');
+    om.goOnline();
+    for (let i = 0; i < 300; i++) om.update(1, 0, 600, { x: 0, z: 0 });
+    assert.notEqual(om.state, S.OFFERED, 'không mặc đồng phục → không có đơn');
+  });
+  test('Bộ kiểm tra: hãng thiếu đồng phục → lỗi; đồng phục bán ngoài văn phòng hãng → cảnh báo; đãi ngộ phải là danh sách chữ', () => {
+    const goods = JSON.parse(JSON.stringify(readJson('src/data/goods.json')));
+    assert.deepEqual(VALIDATE.validateBrands(DATA.apps, DATA.gear, DATA.places, goods).filter((i) => i.level === 'error'), []);
+    for (const g of Object.values(goods)) if (g.slot === 'uniform' && g.brand === 'hongsm') delete goods[g.id];
+    const apps = JSON.parse(JSON.stringify(DATA.apps));
+    apps.brands.goship.perks = 'sai';
+    const places = JSON.parse(JSON.stringify(DATA.places));
+    const shop = places.places.find((p) => p.kind === 'shop');
+    shop.sells = { ...(shop.sells || {}), goods: [...(shop.sells?.goods || []), Object.values(goods).find((g) => g.slot === 'uniform').id] };
+    const iss = VALIDATE.validateBrands(apps, DATA.gear, places, goods);
+    assert.ok(iss.some((i) => i.ref === 'hongsm' && i.field === 'uniform' && i.level === 'error'));
+    assert.ok(iss.some((i) => i.ref === 'goship' && i.field === 'perks' && i.level === 'error'));
+    assert.ok(iss.some((i) => i.ref === shop.id && i.field === 'sells' && i.level === 'warn'));
+  });
   test('Bản lưu cũ (trước khi có hãng): coi như đang chạy GoShip bằng Cub, giữ xăng / độ bền / km nhớt, có thêm xe đạp', () => {
     const gs = new GameState({ day: 4, carry: { money: 200, owned: { vehicles: ['cub', 'wave'], bags: ['nylon'], gear: [] }, vehicle: 'wave', fuel: 1.2, bikeHp: 80, oilKm: 33 } });
     assert.equal(gs.brand, 'goship');
@@ -693,7 +740,8 @@ console.log('Đồ dùng, hoạt động, điểm đến (luật bằng dữ li�
       assert.equal(r.ev.stars, 5);
       // boa theo sao × hệ số khu phố nơi giao ("tips") + boa thêm của trang bị
       const tm = CITYLAYOUT.traitAt(om.history.at(-1).order.dropoff.door.x, om.history.at(-1).order.dropoff.door.z, 'tips');
-      assert.equal(r.pay.tip, Math.round(8 * tm * 10) / 10 + 4);
+      assert.equal(r.pay.tip, Math.round(8 * tm * 10) / 10 + gs.effect('tipBonus')); // trang bị +4 (+ đồng phục hãng đang mặc, nếu có)
+      assert.ok(gs.effect('tipBonus') >= 4);
       delete GOODS.__tip;
       return;
     }
@@ -2040,17 +2088,31 @@ console.log('Kiểu nhà địa điểm (src/data/looks.js, src/world/placeBuild
   test('Phòng trọ có hầm xe: tầng trệt chạy xe vào được (chỉ chặn 2 tường bên + tường sau), nằm trong lô; lô hẹp thật (~3,1 m) vẫn dựng được', () => {
     for (const [W, D] of [[3.13, 8.5], [6, 9]]) {
       const b = buildPlace({ look: 'tro', W, D, floors: 3, color: '#f2d7a7', sign: 'PHÒNG TRỌ', short: 'Trọ', kind: 'home', seed: 3, garage: true });
-      assert.ok(Array.isArray(b.colliders) && b.colliders.length === 3, 'chỉ 3 bức tường chặn');
+      assert.ok(Array.isArray(b.colliders), 'có danh sách khối chặn');
+      const walls = b.colliders.filter((c) => !c.cam), cams = b.colliders.filter((c) => c.cam);
+      assert.ok(walls.length === 3, 'chỉ 3 bức tường chặn người / xe');
+      // lầu phía trên hầm: chặn camera từ trần hầm trở lên (camera không lọt vào trong nhà khi xe vừa ra khỏi hầm)
+      assert.ok(cams.length === 1 && cams[0].y0 >= 2.5 && cams[0].z1 === 0, 'khối chặn camera ở lầu trên');
       const box = new THREE.Box3().setFromObject(b.group);
       assert.ok(box.min.z >= -D - 0.35 && box.max.z <= 0.6 && box.min.x >= -W / 2 - 0.35 && box.max.x <= W / 2 + 0.35, `${W}×${D}`);
       // lòng hầm (giữa 2 tường, trước tường sau) không bị chặn → xe (bán kính 0,7) chạy vào được
-      const inner = (x, z) => b.colliders.some((c) => x >= c.x0 && x <= c.x1 && z >= c.z0 && z <= c.z1);
+      const inner = (x, z) => walls.some((c) => x >= c.x0 && x <= c.x1 && z >= c.z0 && z <= c.z1);
       for (const z of [-0.5, -D / 2, -D + 1]) assert.ok(!inner(0, z), `giữa hầm z ${z}`);
       const gap = W - 2 * 0.22;
       assert.ok(gap >= 1.4 + 1.2, `lòng hầm đủ rộng cho xe: ${gap.toFixed(2)} m`);
     }
     const plain = buildPlace({ look: 'tro', W: 6, D: 9, floors: 2, color: '#f2d7a7', kind: 'home', seed: 3 });
     assert.equal(plain.colliders, 'full', 'dãy trọ thường (không hầm) vẫn đặc');
+  });
+  const { SpatialGrid, resolveCircle } = await import('../src/world/physics.js');
+  test('Khối chỉ chặn camera: camera không vào được lầu trên, người / xe vẫn đi qua bên dưới', () => {
+    const grid = new SpatialGrid();
+    grid.add({ x0: 0, z0: 0, x1: 4, z1: 8, h: 9, y0: 2.8, cam: true });
+    assert.ok(grid.inside(2, 4, 4), 'camera trên lầu bị chặn');
+    assert.ok(!grid.inside(2, 1.5, 4), 'camera trong lòng hầm không bị chặn');
+    const pos = { x: 2, z: 4 };
+    resolveCircle(pos, 0.7, grid);
+    assert.deepEqual(pos, { x: 2, z: 4 }, 'xe trong hầm không bị đẩy ra');
   });
   test('Kiểm tra dữ liệu: kiểu nhà lạ → lỗi; tự chọn kiểu mà số tầng ngoài khoảng → lỗi', () => {
     const pd = JSON.parse(JSON.stringify(DATA.places));

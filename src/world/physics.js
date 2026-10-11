@@ -35,7 +35,7 @@ export class SpatialGrid {
   }
   // Điểm (x,y,z) có nằm trong khối nhà nào không (dùng cho camera)
   inside(x, y, z) {
-    for (const c of this.query(x, z, 0.1)) if (x > c.x0 && x < c.x1 && z > c.z0 && z < c.z1 && y < c.h) return true;
+    for (const c of this.query(x, z, 0.1)) if (x > c.x0 && x < c.x1 && z > c.z0 && z < c.z1 && y < c.h && y > (c.y0 || 0)) return true;
     return false;
   }
 }
@@ -45,6 +45,7 @@ export class SpatialGrid {
 export function resolveCircle(pos, r, grid, y = 0) {
   const normals = [];
   for (const c of grid.query(pos.x, pos.z, r + 1)) {
+    if (c.cam) continue; // khối chỉ chặn camera (lầu trên hầm xe)
     if (y > 0.5 && c.h <= y + 0.3) continue;
     const px = Math.max(c.x0, Math.min(pos.x, c.x1));
     const pz = Math.max(c.z0, Math.min(pos.z, c.z1));

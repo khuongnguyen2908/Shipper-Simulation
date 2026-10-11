@@ -191,7 +191,7 @@
     },
     {
       "id": "banhtrang",
-      "name": "Bánh Tráng bé Mai",
+      "name": "Bánh Tráng bé Tuyền",
       "short": "Ăn",
       "kind": "restaurant",
       "block": [
@@ -201,7 +201,7 @@
       "lot": "N1",
       "floors": 1,
       "color": "#a3a3a3",
-      "sign": "BÁNH TRÁNG BÉ MAI",
+      "sign": "BÁNH TRÁNG BÉ TUYỀN",
       "signBg": "#e3359b",
       "menu": [
         "banhTrang",
@@ -209,7 +209,7 @@
         "banhTrang_3"
       ],
       "npc": {
-        "name": "Bé Mai",
+        "name": "Bé Tuyền",
         "shirt": "#b875a3",
         "pants": "#9393a9",
         "hat": null,
@@ -1455,57 +1455,10 @@
           "quanShort",
           "muDo",
           "muFullface",
-          "aoXanh"
+          "aoThuong",
+          "depToOng"
         ]
       }
-    },
-    {
-      "id": "goship",
-      "name": "Văn Phòng GoShip",
-      "short": "Goship",
-      "kind": "service",
-      "icon": "🏢",
-      "block": [
-        5,
-        6
-      ],
-      "lot": "S2",
-      "floors": 2,
-      "color": "#d6eaf8",
-      "sign": "GOSHIP",
-      "signBg": "#27ff0a",
-      "npc": {
-        "name": "Nhân viên quản lý app",
-        "shirt": "#00ff33",
-        "pants": "#ffffff",
-        "hat": null,
-        "portrait": "👩",
-        "gender": "f",
-        "hairStyle": "ponytail",
-        "skin": "#f1c27d",
-        "skirt": true
-      },
-      "hours": "hanhChinh",
-      "activities": [
-        {
-          "id": "noi",
-          "label": "Cãi lộn với chị nhân viên",
-          "cost": 0,
-          "minutes": 30,
-          "phys": 5,
-          "mental": 10,
-          "perDay": 1
-        }
-      ],
-      "orders": {
-        "hours": "hanhChinh"
-      },
-      "sells": {
-        "goods": [
-          "aoDongPhuc"
-        ]
-      },
-      "face": "E"
     },
     {
       "id": "dichvu1",
@@ -1761,7 +1714,7 @@
     },
     {
       "id": "canhquan2",
-      "name": "Bãi xe công viên",
+      "name": "Bãi Giữ Xe Công Viên",
       "short": "Bãi xe",
       "kind": "scenery",
       "icon": "🅿️",
@@ -1772,6 +1725,21 @@
         5
       ],
       "lot": "N0",
+      "hours": "caNgay"
+    },
+    {
+      "id": "canhquan2_2",
+      "name": "Bãi Giữ Xe Khách",
+      "short": "Bãi xe",
+      "kind": "scenery",
+      "icon": "🅿️",
+      "look": "parkingLot",
+      "color": "#91e36d",
+      "block": [
+        5,
+        5
+      ],
+      "lot": "S12",
       "hours": "caNgay"
     },
     {
@@ -1910,7 +1878,7 @@
     },
     {
       "id": "canhquan5",
-      "name": "Bãi xe công viên",
+      "name": "Bãi Giữ Xe Công Viên",
       "short": "Bãi xe",
       "kind": "scenery",
       "icon": "🅿️",
@@ -2753,8 +2721,7 @@
           "energyDrink",
           "raincoat",
           "jacket",
-          "khauTrang",
-          "depToOng"
+          "khauTrang"
         ]
       },
       "npc": {
@@ -3729,7 +3696,12 @@
       "block": [
         4,
         3
-      ]
+      ],
+      "sells": {
+        "goods": [
+          "aoDongPhuc"
+        ]
+      }
     },
     {
       "id": "officeHongsm",
@@ -3755,7 +3727,12 @@
       "block": [
         6,
         4
-      ]
+      ],
+      "sells": {
+        "goods": [
+          "aoDongPhucHong"
+        ]
+      }
     },
     {
       "id": "chargerA",

@@ -212,7 +212,7 @@ const RANGES = {
 };
 
 // Hãng xe công nghệ (apps.json → brands) + văn phòng hãng, trụ sạc, trạm đổi pin trong places.json
-export function validateBrands(apps, gear, placesData) {
+export function validateBrands(apps, gear, placesData, goods = null) {
   const out = [];
   const add = (level, ref, field, msg) => out.push({ level, tab: 'app', cat: 'brands', ref, field, msg });
   const brands = apps.brands || {};
@@ -229,6 +229,17 @@ export function validateBrands(apps, gear, placesData) {
     else if ((v.power || 'gas') !== b.power) add('error', key, 'vehicle', `Xe cấp "${v.name}" không đúng loại xe của hãng.`);
     if (!num(b.deposit) || b.deposit < 0 || b.deposit > 100000) add('error', key, 'deposit', 'Tiền cọc phải từ 0 đến 100000.');
     if (placesData && !places.some((p) => p.kind === 'office' && p.brand === key)) add('warn', key, 'office', `Chưa có văn phòng ${b.name || key} trên bản đồ → người chơi không đăng ký hãng này được.`);
+    if (b.perks != null && (!Array.isArray(b.perks) || b.perks.some((x) => typeof x !== 'string'))) add('error', key, 'perks', 'Đãi ngộ phải là danh sách câu chữ.');
+    if (goods && !Object.values(goods).some((g) => g.type === 'outfit' && g.slot === 'uniform' && g.brand === key)) add('error', key, 'uniform', `${b.name || key} chưa có đồng phục (thẻ 🛵 Xe · Túi · Đồ dùng → trang phục, chỗ mặc "Đồng phục", chọn hãng) → người chơi không bật được app.`);
+  }
+  // đồng phục: phải thuộc 1 hãng có thật; chỉ bán ở văn phòng của đúng hãng đó
+  for (const g of Object.values(goods || {})) {
+    if (g.type !== 'outfit' || g.slot !== 'uniform') continue;
+    if (!brands[g.brand]) out.push({ level: 'error', tab: 'gear', cat: 'goods', ref: g.id, field: 'brand', msg: 'Đồng phục chưa chọn hãng (hoặc hãng đã bị xóa).' });
+    for (const p of placesData?.places || []) {
+      if (!(p.sells?.goods || []).includes(g.id)) continue;
+      if (p.kind !== 'office' || p.brand !== g.brand) out.push({ level: 'warn', tab: 'places', ref: p.id, field: 'sells', msg: `"${g.name}" chỉ nên bán ở văn phòng ${brands[g.brand]?.name || 'của hãng'} (đồng phục chỉ cấp hoặc mua tại văn phòng).` });
+    }
   }
   for (const p of placesData?.places || []) if (p.kind === 'office' && !brands[p.brand]) out.push({ level: 'error', tab: 'places', ref: p.id, field: 'brand', msg: 'Văn phòng chưa chọn hãng (hoặc hãng đã bị xóa).' });
   if (placesData && Object.values(brands).some((b) => b.power === 'electric')) {
@@ -731,7 +742,7 @@ export function validateAll({ items, gear, goods, places, content, baseContent, 
     ...(apps ? validateApps(apps, items, places) : []),
     ...(map ? validateMap(map, places) : []),
     ...validateGear(gear, apps),
-    ...(apps ? validateBrands(apps, gear, places) : []),
+    ...(apps ? validateBrands(apps, gear, places, goods) : []),
     ...(goods ? validateGoods(goods, places) : []),
     ...validatePlaces(places, items, goods, gear, map),
     ...validateContent(content, baseContent || content),

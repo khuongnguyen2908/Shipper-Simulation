@@ -90,7 +90,11 @@
       "power": "gas",
       "vehicle": "cub",
       "deposit": 100,
-      "desc": "Hãng lâu năm, chạy xe xăng. Cấp xe Cub khi vào hãng."
+      "desc": "Hãng lâu năm, chạy xe xăng. Cấp xe Cub khi vào hãng.",
+      "perks": [
+        "Xe Cub bền bỉ, sửa ở tiệm nào cũng được",
+        "Cộng đồng tài xế đông nhất thành phố"
+      ]
     },
     "hongsm": {
       "id": "hongsm",
@@ -100,7 +104,11 @@
       "power": "electric",
       "vehicle": "evStd",
       "deposit": 100,
-      "desc": "Hãng xe điện mới nổi. Cấp xe điện tiêu chuẩn khi vào hãng."
+      "desc": "Hãng xe điện mới nổi. Cấp xe điện tiêu chuẩn khi vào hãng.",
+      "perks": [
+        "Xe điện êm, tiền sạc rẻ hơn tiền xăng",
+        "Trạm đổi pin 3 phút là chạy tiếp"
+      ]
     }
   },
   "orderTypes": {

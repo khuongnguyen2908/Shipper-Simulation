@@ -19,6 +19,8 @@ export function normProfile(p) {
   return { name: name || fmt('profile.defaultName'), gender: p?.gender === 'f' ? 'f' : 'm' };
 }
 const freshStats = () => ({ completed: 0, refused: 0, cancelled: 0, driverCancels: 0, bom: 0, stars: [], income: {}, expense: {}, distanceKm: 0, crashes: 0, fines: 0 });
+// Đồng phục của hãng (goods.json: trang phục ô "uniform", brand = mã hãng)
+export const uniformOf = (brand) => (brand ? Object.values(GOODS).find((g) => g.type === 'outfit' && g.slot === 'uniform' && g.brand === brand) || null : null);
 const freshAccount = () => ({ offers: 0, accepted: 0, recent: [], completed: 0, rides: 0, driverCancels: 0, bom: 0 });
 const freshRating = () => new RatingBook({ count: RATING.startCount, sum: RATING.startCount * RATING.startAvg });
 // Xe khởi đầu (xe đạp): chưa vào hãng thì chưa chạy đơn được
@@ -72,6 +74,9 @@ export class GameState {
       refueled: tutorialDone,
       online: tutorialDone,
       wallet: 0, // 0 chưa có · 1 nhặt được ví · 2 biết tạp hóa ở đâu · 3 biết cổng xanh · 4 biết Minh ở quán cà phê · 5 đã trả · -1 giữ tiền
+      // mở đầu: 0 vừa xuống bến xe buýt, đi tìm nhà trọ · 1 Cô Hai đã cho xe đạp, chưa leo lên · 2 đã leo lên xe (đi đăng ký hãng)
+      // bản lưu cũ (có carry mà chưa có ô này) coi như đã xong mở đầu
+      story: carry ? 2 : 0,
       ...(c.flags || {}),
     };
     this.phys = c.phys ?? 100;
@@ -85,6 +90,9 @@ export class GameState {
     // tổng đơn hoàn thành, số chuyến xe ôm, số lần tự hủy, số đơn bị bom
     this.account = { ...freshAccount(), ...(c.account || {}) };
     this.lockedUntil = 0; // tạm khóa nhận đơn tới phút này (tự hủy quá nhiều trong ngày)
+    // hợp đồng đã ký với các hãng: mã hãng → { sig (ảnh chữ ký), day, at (phút tuyệt đối) } — hiện ở app Hồ sơ
+    this.contracts = { ...(c.contracts || {}) };
+    this.ensureUniform(); // bản lưu cũ đã ở hãng mà chưa có đồng phục → cấp + mặc sẵn
     this.outcome = null;
   }
 
@@ -164,11 +172,13 @@ export class GameState {
     const b = this.brandSpec;
     if (!b) return 'noBrand';
     if (this.power !== (b.power || 'gas')) return 'wrongVehicle';
+    if (!this.wearingUniform()) return 'noUniform';
     return null;
   }
   // Vào hãng: đặt cọc, nhận xe hãng. Đang ở hãng khác → đổi hãng = cày lại từ đầu
   // (trả xe hãng cũ + hoàn cọc; điểm đánh giá, số đơn, tỉ lệ nhận đơn về như người mới; tiền và đồ đã mua giữ nguyên)
-  joinBrand(id) {
+  // sig: ảnh chữ ký (data URL) ký ở popup hợp đồng · now: phút lúc ký
+  joinBrand(id, sig = undefined, now = 0) {
     const b = BRANDS[id];
     if (!b) return { ok: false, msg: fmt('gs.noSuchItem') };
     if (this.brand === id) return { ok: false, msg: fmt('gs.brandAlready', { brand: b.name }) };
@@ -193,9 +203,28 @@ export class GameState {
       }
       this.vehicle = vid;
     }
+    // đồng phục hãng: cấp + mặc luôn
+    const u = uniformOf(id);
+    if (u) {
+      if (!this.owned.gear.includes(u.id)) this.owned.gear.push(u.id);
+      this.outfit.uniform = u.id;
+    }
+    if (sig !== undefined) this.contracts[id] = { sig, day: this.day, at: now };
     return { ok: true, switched, msg: fmt(switched ? 'gs.brandSwitched' : 'gs.brandJoined', { brand: b.name, k: dep }) };
   }
-  // Nghỉ hãng (khi đổi hãng): trả xe hãng cấp, hoàn tiền cọc
+  // Đang mặc đồng phục đúng hãng mình chưa (điều kiện bật app nhận đơn)
+  wearingUniform() {
+    const id = this.wornIds().uniform;
+    return !!id && GOODS[id]?.brand === this.brand;
+  }
+  // Đã ở hãng mà chưa từng có đồng phục (bản lưu cũ): cấp và mặc sẵn. Đã tự cởi (outfit.uniform = null) thì để yên.
+  ensureUniform() {
+    const u = this.brand && uniformOf(this.brand);
+    if (!u || this.owned.gear.includes(u.id)) return;
+    this.owned.gear.push(u.id);
+    if (this.outfit.uniform === undefined) this.outfit.uniform = u.id;
+  }
+  // Nghỉ hãng (khi đổi hãng): trả xe hãng cấp, trả đồng phục, hoàn tiền cọc
   leaveBrand() {
     const cv = this.companyVehicle;
     if (cv) {
@@ -204,6 +233,12 @@ export class GameState {
       if (this.vehicle === cv) this.vehicle = START_VEHICLE;
     }
     if (this.depositPaid) this.earn(this.depositPaid, 'depositBack');
+    // trả đồng phục hãng cũ (cả áo mua thêm)
+    const u = uniformOf(this.brand);
+    if (u) {
+      this.owned.gear = this.owned.gear.filter((g) => g !== u.id);
+      if (this.outfit.uniform === u.id) this.outfit.uniform = null;
+    }
     this.brand = null;
     this.companyVehicle = null;
     this.depositPaid = 0;
@@ -690,6 +725,7 @@ export class GameState {
   carryOver() {
     return {
       profile: { ...this.profile },
+      contracts: { ...this.contracts },
       phys: this.phys,
       mental: this.mental,
       awakeSince: this.awakeSince,
@@ -708,7 +744,7 @@ export class GameState {
       consumables: this.consumables,
       outfit: this.outfit,
       account: this.account,
-      flags: { wallet: this.flags.wallet, walletDay: this.flags.walletDay },
+      flags: { wallet: this.flags.wallet, walletDay: this.flags.walletDay, story: this.flags.story },
       towed: this.towed,
       fines: this.fines.map((f) => ({ ...f })),
     };

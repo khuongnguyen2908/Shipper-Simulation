@@ -92,6 +92,7 @@ export function render(root, ctx) {
         num('deposit', 'Tiền cọc (k)', { step: 10, min: 0, hint: 'Trả khi vào hãng, hoàn lại khi đổi sang hãng khác. Tiền khởi đầu (thẻ ⚖️ Cân bằng) nên đủ để đặt cọc.' }),
       ),
       field('Giới thiệu (văn phòng hãng nói)', areaInput(x.desc, (v) => { x.desc = v; changed(); }, 2), opt('desc', { wide: true })),
+      field('Đãi ngộ riêng của hãng (mỗi dòng 1 ý)', areaInput((x.perks || []).join('\n'), (v) => { x.perks = v.split('\n').map((t) => t.trim()).filter(Boolean); changed(); }, 3), opt('perks', { wide: true, hint: 'Hiện trong popup hợp đồng khi người chơi đăng ký, dưới các đãi ngộ chung (phí, thuế, boa, phụ phí lấy từ mục 📱 App). Chỉ là chữ, không đổi luật chơi.' })),
       field('Văn phòng trên bản đồ', el('div', { class: offices.length ? 'chips' : 'muted' }, offices.length
         ? offices.map((p) => button(`🏢 ${p.name}`, () => ctx.select('places', { id: p.id }), 'small'))
         : 'Chưa có. Thẻ 🏪 Địa điểm → tạo địa điểm mới, loại "Văn phòng hãng" (sao chép văn phòng có sẵn), chọn hãng này, rồi kéo vào bản đồ ở thẻ 🏗️ Xây dựng.'), opt('office', { wide: true })),

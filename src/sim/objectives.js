@@ -6,8 +6,13 @@ export const ORDERS_GOAL = 5;
 
 export function objectives(gs) {
   const list = [];
-  // chưa vào hãng: mục tiêu duy nhất là đăng ký 1 hãng để đi làm (xong mới hiện các mục tiêu giao hàng)
-  if (!gs.brand) return [{ id: 'brand', text: fmt('obj.brand'), done: false }];
+  // chưa vào hãng: chỉ hiện bước đang làm của mở đầu — tìm nhà trọ, gặp Cô Hai → leo lên xe đạp Cô Hai cho → đăng ký 1 hãng xe
+  if (!gs.brand) {
+    const st = gs.flags.story ?? 2;
+    if (st <= 0) return [{ id: 'findHome', text: fmt('obj.findHome'), done: false, target: 'home' }];
+    if (st === 1) return [{ id: 'mountBike', text: fmt('obj.mountBike'), done: false }];
+    return [{ id: 'brand', text: fmt('obj.brand'), done: false }];
+  }
   if (gs.day === 1) {
     const ev = gs.brandSpec?.power === 'electric';
     list.push({ id: 'fuel', text: fmt(ev ? 'obj.charge' : 'obj.fuel'), done: gs.flags.refueled, target: ev ? 'charger' : 'gas' });

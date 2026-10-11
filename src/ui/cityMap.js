@@ -449,6 +449,7 @@ export class CityMap {
     // CSGT đã biết, xe đang dựng, điểm đến
     for (const p of d.police || []) if (vis(p.x, p.z)) badge(X(p.x), Z(p.z), '👮', COLOR.police, 9);
     if (d.bike) badge(X(d.bike.x), Z(d.bike.z), '🛵', '#5dade2', 10);
+    if (d.quest) badge(X(d.quest.x), Z(d.quest.z) - 14 - Math.abs(Math.sin(performance.now() / 260)) * 4, '❗', '#f4d03f', 11); // mở đầu: chỗ Cô Hai
     if (d.target) {
       const t = d.target, x = X(t.x), y = Z(t.z), pulse = 3 * Math.sin(performance.now() / 200);
       g.fillStyle = 'rgba(30,144,255,.25)';

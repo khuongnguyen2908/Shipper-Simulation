@@ -54,7 +54,7 @@ export function roundMapData(game, tgt, dt) {
   const fix = power === 'gas' ? nearest('garage') : power === 'electric' ? nearest('swap') : null, home = game.layout.placeById.home;
   if (gas) markers.push({ ...gas.door, icon: power === 'electric' ? '🔌' : '⛽', ring: '#e74c3c', r: 10 });
   if (fix) markers.push({ ...fix.door, icon: power === 'electric' ? '🔋' : '🔧', ring: '#e74c3c', r: 10 });
-  if (home) markers.push({ ...home.door, icon: '🏠', ring: '#7f8c8d', r: 10 });
+  if (home) markers.push({ ...home.door, icon: base.quest ? '❗' : '🏠', ring: base.quest ? '#f4d03f' : '#7f8c8d', r: base.quest ? 12 : 10 }); // mở đầu: ❗ chỗ Cô Hai
   for (const p of base.police) markers.push({ ...p, icon: '👮', ring: '#2c3e50', r: 11 });
   if (base.bike) markers.push({ ...base.bike, icon: '🛵', ring: '#5dade2', r: 11 });
 
