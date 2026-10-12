@@ -7,7 +7,9 @@ import { parkingRoll, helmetRoll, parkingLotAt, nearestStation, towTarget, safeS
 import { garageSpots, inGarage, parkSlots } from './sim/garage.js';
 import { airportAt, airportParkAt, airportNoStopAt, noStopStep } from './sim/airport.js';
 import { roadSegAt, tierOf, tierLabel, speedLimitOf, curbSpot } from './sim/roads.js';
-import { busHint, inService } from './sim/bus.js';
+import { busHint, busPlan, inService } from './sim/bus.js';
+// tên tuyến ngắn: "Tuyến 1 · Trung tâm – Sân bay…" → "Tuyến 1"
+const routeShort = (r) => String(r?.name || '').split(' · ')[0];
 import { outfitLook } from './data/goods.js';
 import { lookOf } from './data/looks.js';
 import { APP, RIDER_TYPES } from './data/apps.js';
@@ -656,8 +658,11 @@ export class Game {
         for (const h of this.traffic.collidePlayer(bike.pos, 0.75, bike.vel, true, bike.mesh.position.y)) this.onTrafficHit(h, env);
       } else {
         activity = this.walker.update(dt, inp.state, this.rig.yaw, { grid: this.city.grid, elev: this.city.elev, phys: gs.phys, speedMul: floodBand(water) >= 2 ? floodNum('walkMul') : 1 });
-        this.traffic.collidePlayer(this.walker.pos, 0.35, { x: 0, y: 0 }, false, this.walker.mesh.position.y);
-        this.walker.mesh.position.set(this.walker.pos.x, this.walker.mesh.position.y, this.walker.pos.z);
+        // đang ngồi ghế: người đi đường / chó không đẩy được, giữ đúng chỗ ngồi (Walker đã đặt sẵn)
+        if (!this.walker.seat) {
+          this.traffic.collidePlayer(this.walker.pos, 0.35, { x: 0, y: 0 }, false, this.walker.mesh.position.y);
+          this.walker.mesh.position.set(this.walker.pos.x, this.walker.mesh.position.y, this.walker.pos.z);
+        }
         // bước chân ra lề / vào nhà không tính, chỉ cập nhật vị trí
       }
     }
@@ -670,6 +675,11 @@ export class Game {
     this.airportTick(mounted ? speed : 0);
     this.roadTick(mounted);
     gs.drain(activity, dMin, { harshSun: hz.isHarshSun(now), raining: !!rain, outdoor: true, inJam: this.inJam, waiting: false, now: this.clockMin });
+    // ngồi ghế (quán, công viên, trạm xe buýt): tinh thần hồi chậm, tới mức tối đa thì thôi (thẻ ⚖️ Cân bằng → energy.seat)
+    const seatK = ENERGY.seat || {};
+    if (!mounted && this.walker.seat && seatK.mentalPerMin > 0 && gs.mental < (seatK.mentalMax ?? 70)) {
+      gs.addEnergy(0, Math.min(seatK.mentalPerMin * dMin, (seatK.mentalMax ?? 70) - gs.mental));
+    }
     this.rollDay();
 
     // ---- giao thông ----
@@ -682,6 +692,7 @@ export class Game {
         sound('city.honk');
         this.toastOnce('honk', fmt('toast.honk'), 'info', 15);
       }
+      if (e.type === 'driverYell') this.driverYell(e);
       if (e.type === 'dogDart') {
         sound('city.dog');
         this.hud.toast(fmt('toast.dogDart'), 'warn', 2500);
@@ -720,6 +731,7 @@ export class Game {
       const p = this.prompts.find((x) => x.key === 'E' && !x.disabled);
       if (p) {
         sound('ui.interact');
+        if (this.walker.seat && !p.seatAct) this.walker.leaveSeat(); // đang ngồi mà làm việc khác (lấy hàng, vào quán…) → đứng dậy trước
         p.run();
       }
     }
@@ -909,6 +921,17 @@ export class Game {
     }
   }
 
+  // Tài xế chửi người chơi (bị chắn đầu xe lâu / bị tông): bong bóng thoại trên đầu tài xế, câu trong vi.json
+  // (bubble.driverMild / driverAngry / busMild / busAngry / driverHit). Cách nhau ít nhất 2,5 giây cho đỡ rối.
+  driverYell(e, key = null) {
+    const now = performance.now();
+    if (!e.obj?.mesh || this.cooldowns.get('yell') > now) return;
+    this.cooldowns.set('yell', now + 2500);
+    key = key || (e.bus ? (e.angry ? 'bubble.busAngry' : 'bubble.busMild') : e.angry ? 'bubble.driverAngry' : 'bubble.driverMild');
+    const up = e.bus ? 3.5 : e.car ? 1.9 : 2.2;
+    this.bubbles.show(e.id, () => headOf(e.obj.mesh, up), pick(key, Math.floor(Math.random() * 1000)));
+  }
+
   onTrafficHit(h, env) {
     if (this.cheat.noCrash) return; // cheat: không té xe
     if (this.cooldowns.get('hit') > performance.now()) return;
@@ -921,6 +944,7 @@ export class Game {
       gs.bikeHp = Math.max(0, gs.bikeHp - mag * 10);
       msg = fmt(h.what === 'car' ? 'toast.hitCar' : 'toast.hitMoto');
       sound('drive.crash');
+      if (h.obj?.mesh) this.driverYell({ obj: h.obj, id: `car:${h.obj.uid}`, car: h.what === 'car' }, 'bubble.driverHit');
     } else if (h.what === 'ped' && speed > 2) {
       mag = speed / 8;
       const ped = h.obj;
@@ -1360,6 +1384,37 @@ export class Game {
   }
 
   // ======================== MỤC TIÊU / CHỈ ĐƯỜNG ========================
+  // Chỗ đã bấm "Chỉ đường": mã địa điểm, hoặc 'stop:<mã trạm>' (trạm xe buýt) → { id, name, door, kind } | null
+  waypointPlace() {
+    const w = this.waypoint;
+    if (!w) return null;
+    if (w.startsWith('stop:')) {
+      const st = this.bus?.byId?.[w.slice(5)];
+      return st ? { id: w, name: st.name, door: st.wait, kind: 'busStop' } : null;
+    }
+    return this.layout.placeById[w] || null;
+  }
+  // Xe đang bị giữ ở đồn công an → không có xe để chạy
+  bikeAtPolice() {
+    const t = this.gs.towed;
+    return !!t && this.layout.placeById[t.placeId]?.kind === 'police';
+  }
+  // Kế hoạch đi xe buýt từ chỗ mình tới điểm (đi bộ + 1 tuyến), null nếu đi bộ thẳng nhanh hơn (src/sim/bus.js → busPlan)
+  busPlanTo(to) {
+    if (!this.bus) return null;
+    const plan = busPlan(this.bus, this.playerPos, to, this.clockMin, routeDist, 3.4, this.busPrefer);
+    this.busPrefer = plan ? plan.from.id : null; // giữ trạm đã gợi ý (mũi tên không nhảy qua lại giữa 2 trạm)
+    return plan;
+  }
+  // Dòng gợi ý đi xe buýt cho điện thoại (app CSGT, thẻ địa điểm / trạm trên app Bản đồ): null nếu đi bộ thẳng nhanh hơn
+  planText(pl) {
+    const plan = pl?.door && this.busPlanTo(pl.door);
+    if (!plan) return null;
+    const p = { walk1: fmtDist(plan.walk1), from: plan.from.name, route: routeShort(plan.route), to: plan.to.name, walk2: fmtDist(plan.walk2), min: Math.round(plan.minutes) };
+    const x = plan.legs[1]; // đổi tuyến 1 lần
+    return x ? fmt('map.busPlan2', { ...p, route2: routeShort(x.route), to2: x.to.name }) : fmt('map.busPlan', p);
+  }
+
   currentTarget() {
     const { om, gs } = this;
     const o = om.order;
@@ -1368,6 +1423,13 @@ export class Game {
       const fee = gs.towed.fee + (lot?.kind === 'police' ? gs.finesTotal : 0); // ở đồn: đóng cả phạt nguội
       // xa thì gợi ý đi xe buýt (trạm gần mình → trạm gần nơi giữ xe, cùng tuyến)
       const pp = this.playerPos, far = lot && Math.hypot(lot.door.x - pp.x, lot.door.z - pp.z) > 200;
+      // xe đang ở đồn công an (không có xe để chạy): chỉ đường đi bộ ra trạm → xe buýt tuyến nào → xuống trạm nào
+      const plan = lot?.kind === 'police' && this.busPlanTo(lot.door);
+      if (plan) {
+        const x = plan.legs[1]; // có đổi tuyến: xuống trạm đổi rồi đón tuyến thứ 2
+        return { ...plan.from.wait, text: fmt('goal.busPlan', { from: plan.from.name, route: routeShort(plan.route), to: plan.to.name }),
+          sub: x ? fmt('goal.busPlanHintX', { route2: routeShort(x.route), to: x.to.name, place: lot.name, fee }) : fmt('goal.busPlanHint', { place: lot.name, fee }), color: '#16a085' };
+      }
       const h = far && inService(this.clockMin) && busHint(this.bus, pp.x, pp.z, lot.door.x, lot.door.z);
       const sub = h ? fmt('goal.towedBus', { from: h.from.name, route: h.route.name, to: h.to.name }) : fmt('goal.towedHint');
       return { x: this.bike.pos.x, z: this.bike.pos.z, text: fmt('goal.towed', { place: lot?.name || '', fee }), sub, color: '#e74c3c' };
@@ -1390,7 +1452,7 @@ export class Game {
     }
     const P = this.layout.placeById;
     // địa điểm tự chọn trên bản đồ điện thoại (Chỉ đường) — ưu tiên hơn gợi ý mục tiêu
-    const wp = this.waypoint && P[this.waypoint];
+    const wp = this.waypointPlace();
     if (wp && om.state !== S.OFFERED) {
       // người mới đang đi tới văn phòng hãng: nhắc cất máy, tới nơi bấm E đăng ký
       if (wp.kind === 'office' && !gs.brand) return { ...wp.door, text: fmt('goal.toOffice', { place: wp.name }), sub: fmt(this.phone.open ? 'goal.toOfficeClose' : 'goal.toOfficeHint'), color: '#1e90ff' };
@@ -1564,6 +1626,34 @@ export class Game {
     }
   }
 
+  // ======================== BIỂN BÃI GIỮ XE ========================
+  // Tới gần bãi giữ xe (≤ 30 m): biển "🅿️ Bãi giữ xe · 5k" nổi trên cổng · trong tầm bấm E: biển xanh "Bấm E · Xem bảng giữ xe"
+  updateParkSigns() {
+    if (!this.parkSigns) {
+      const tex = (k, bg) => makeLabelTexture(fmt(k, { fee: PARKING.fee ?? 5 }), bg);
+      this.parkSignTex = { near: tex('parkSign.near', 'rgba(31,97,141,0.92)'), press: tex('parkSign.press', 'rgba(0,140,60,0.92)') };
+      this.parkSigns = this.layout.places.filter((pl) => pl.kind === 'scenery' && pl.door && lookOf(pl) === 'parkingLot').map((pl) => {
+        const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.parkSignTex.near, depthWrite: false, transparent: true }));
+        s.scale.set(3.6, 0.68, 1);
+        s.position.set(pl.door.x, 3.6, pl.door.z);
+        s.visible = false;
+        this.scene.add(s);
+        return { s, pl };
+      });
+    }
+    const p = this.playerPos;
+    const eLot = this.prompts?.find((x) => x.key === 'E')?.parkLot; // phím E lúc này đúng là "xem bảng" ở bãi nào
+    for (const { s, pl } of this.parkSigns) {
+      s.visible = this.state === 'play' && !this.ferryRide && Math.hypot(pl.door.x - p.x, pl.door.z - p.z) < 30;
+      if (!s.visible) continue;
+      const t = eLot === pl.id ? this.parkSignTex.press : this.parkSignTex.near;
+      if (s.material.map !== t) {
+        s.material.map = t;
+        s.material.needsUpdate = true;
+      }
+    }
+  }
+
   // Đang mở popup nào đó (Esc dùng để đóng popup, không tạm dừng game)
   popupOpen() {
     return !!(this.modal?.open || this.phone?.open || this.chatBox?.typing || this.cheatOpen);
@@ -1640,6 +1730,8 @@ export class Game {
     this.bubbles.update(dt);
     this.pedChatter(dt);
     this.updateBusSigns();
+    this.updateParkSigns();
+    this.city.parked?.update(this.playerPos.x, this.playerPos.z); // xe máy đậu: hiện các ô gần người chơi
     const rain = hz.rainAt(now);
     const pp = this.playerPos;
     this.applyLook();
@@ -1647,7 +1739,10 @@ export class Game {
     this.nightLevel = night; // bản đồ tròn tối lại ban đêm
     this.city.update?.(dt, this.traffic.loopCars); // barie sân bay nâng khi ô tô tới
     // xe buýt chạy theo lịch; bị chắn trước đầu thì đứng chờ, chắn lâu thì bóp còi
-    for (const e of this.traffic.updateBuses(now, pp.x, pp.z, dt)) if (e.type === 'busHonk') { sound('city.honk'); this.toastOnce('busHonk', fmt('toast.busHonk'), 'warn', 8); }
+    for (const e of this.traffic.updateBuses(now, pp.x, pp.z, dt)) {
+      if (e.type === 'busHonk') { sound('city.honk'); this.toastOnce('busHonk', fmt('toast.busHonk'), 'warn', 8); }
+      if (e.type === 'driverYell') this.driverYell(e);
+    }
     this.city.setNight(night);
     this.city.setWet(wet);
     this.city.setFlood(hz.floodState(now)); // nước trên các đoạn đường đang ngập
@@ -1680,7 +1775,7 @@ export class Game {
     }
     this.fineSeen = gs.fines.length;
     // tới địa điểm đã chọn chỉ đường → bỏ chỉ đường
-    const wp = this.waypoint && this.layout.placeById[this.waypoint];
+    const wp = this.waypointPlace();
     if (wp && dist2(pp, wp.door) < 5) {
       this.waypoint = null;
       this.hud.toast(fmt('toast.waypointArrived', { place: wp.name }), 'good', 3000);
@@ -1772,6 +1867,7 @@ export class Game {
     return {
       player: { x: pp.x, z: pp.z, heading: this.mode === 'bike' ? this.bike.heading : this.walker.heading },
       bus: this.bus, // tuyến + trạm xe buýt
+      planFor: this.mode === 'foot' && this.bikeAtPolice() ? (pl) => this.planText(pl) : null, // xe đang ở đồn: gợi ý đi xe buýt
       bike: this.mode === 'foot' && this.bikeReady() ? { x: this.bike.pos.x, z: this.bike.pos.z } : null,
       quest: this.gs.flags.story === 0 ? this.layout.placeById.home?.door : null, // ❗ chỗ Cô Hai trên bản đồ
       places,
@@ -1825,6 +1921,11 @@ export class Game {
       // bản đồ lớn: thêm đường đang chỉ (bản đồ tròn tính sẵn), tuyến phà, địa điểm đang chỉ đường
       // app CSGT: đồn gần nhất (nơi nộp phạt) + chốt CSGT đã biết hôm nay
       station: st ? { id: st.id, name: st.name, dist: fmtDist(routeDist(pp, st.door)) } : null,
+      // xe đang bị giữ ở đồn: đồn nào + cách đi (xe buýt tuyến nào, hoặc đi bộ nếu gần)
+      held: this.phone.open && this.bikeAtPolice() ? (() => {
+        const pl = this.layout.placeById[this.gs.towed.placeId];
+        return { id: pl.id, name: pl.name, dist: fmtDist(routeDist(pp, pl.door)), plan: this.mode === 'foot' ? this.planText(pl) : null };
+      })() : null,
       checkpoints: this.hz.activePolice(this.clockMin).filter((p) => this.knownPolice.has(p.id)).map((p) => ({
         name: p.name, until: fmtTime(this.clockMin - this.hz.rel(this.clockMin) + p.end), dist: fmtDist(Math.hypot(roadPos(p.node[0]) - pp.x, roadPos(p.node[1]) - pp.z)),
       })),

@@ -210,6 +210,19 @@ export class Walker {
 
   // camYaw: hướng camera; trả về hoạt động ('idle' | 'walk' | 'run')
   update(dt, input, camYaw, ctx) {
+    if (this.seat) {
+      // bị dời đi chỗ khác (đi xe buýt, ngất, dịch chuyển…) → thôi ngồi, giữ chỗ mới
+      if (Math.hypot(this.pos.x - this.seat.x, this.pos.z - this.seat.z) > 0.3) this.leaveSeat(false);
+      // bấm đi → đứng dậy rồi đi tiếp
+      else if (input.forward || input.back || input.left || input.right) this.leaveSeat();
+      else {
+        // ngồi: hông đúng mặt ghế, lùi về phía lưng ghế chút
+        const s = this.mesh.scale.x, b = 0.08;
+        this.mesh.position.set(this.seat.x - Math.sin(this.seat.ry) * b, sitY(s, this.seat.y), this.seat.z - Math.cos(this.seat.ry) * b);
+        this.mesh.rotation.set(0, this.seat.ry, 0);
+        return 'idle';
+      }
+    }
     const fx = -Math.sin(camYaw), fz = -Math.cos(camYaw);
     const rx = -fz, rz = fx;
     let mx = 0, mz = 0;
@@ -253,8 +266,30 @@ export class Walker {
       parent.remove(old);
       parent.add(m);
     }
-    if (this.sitting) setSitting(m, true);
+    if (this.sitting || this.seat) setSitting(m, true, !!this.seat);
     this.mesh = m;
+  }
+
+  // Ngồi xuống ghế (quán, công viên, trạm xe buýt…): seat { x, y (mặt ghế), z, ry (hướng mặt) }.
+  // Đứng dậy (bấm E / đi tiếp) thì về đúng chỗ đứng lúc nãy (chỗ đó chắc chắn đi được, không kẹt trong ghế).
+  sitSeat(seat) {
+    this.seat = seat;
+    this.seatFrom = { x: this.pos.x, z: this.pos.z, deckY: this.deckY };
+    this.pos.set(seat.x, 0, seat.z);
+    this.heading = seat.ry;
+    this.speed = 0;
+    setSitting(this.mesh, true, true);
+  }
+  leaveSeat(restore = true) {
+    if (!this.seat) return;
+    this.seat = null;
+    setSitting(this.mesh, false);
+    if (restore && this.seatFrom) {
+      this.pos.set(this.seatFrom.x, 0, this.seatFrom.z);
+      this.deckY = this.seatFrom.deckY;
+    }
+    this._ex = this.pos.x;
+    this._ez = this.pos.z;
   }
 
   sitOn(bike) {
@@ -281,6 +316,8 @@ export class Walker {
 }
 
 // ======================== CAMERA ========================
+// Vật cản camera phải né: nhà dân + nhà địa điểm (cây, cột, xe đậu… thì cho xuyên qua)
+const CAM_BLOCK = new Set(['house', 'place']);
 export class CameraRig {
   constructor(camera) {
     this.camera = camera;
@@ -321,16 +358,21 @@ export class CameraRig {
     this.curPitch = (this.curPitch ?? this.pitch) + ((limit ? Math.min(this.pitch, limit.pitch) : this.pitch) - (this.curPitch ?? this.pitch)) * kl;
     const pitch = this.curPitch, dist = this.curDist;
     const dir = new THREE.Vector3(Math.sin(this.yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(this.yaw) * Math.cos(pitch));
-    // không cho camera chui vào trong nhà
+    // không cho camera chui vào trong nhà — chỉ né nhà / công trình, bỏ qua cây, cột đèn, cột điện, xe đậu…
+    // (né cả vật nhỏ thì chạy ngang qua là camera bị kéo vào rồi bật ra liên tục)
     let d = dist;
-    for (let s = 1; s <= dist; s += 0.5) {
+    for (let s = 1; s <= dist; s += 0.25) {
       const p = this.target.clone().addScaledVector(dir, s);
-      if (grid.inside(p.x, p.y, p.z)) {
+      if (grid.inside(p.x, p.y, p.z, CAM_BLOCK)) {
         d = Math.max(2, s - 0.8);
         break;
       }
     }
-    this.camera.position.copy(this.target).addScaledVector(dir, d);
+    // bị che thì kéo vào nhanh (không thấy xuyên tường), hết che thì lùi ra từ từ (không giật)
+    if (this.camD == null || d < this.camD) this.camD = this.camD == null ? d : this.camD + (d - this.camD) * (1 - Math.exp(-25 * dt));
+    else this.camD += (d - this.camD) * (1 - Math.exp(-3 * dt));
+    if (this.camD > d + 0.6) this.camD = d + 0.6; // không để tụt lại quá xa sau tường
+    this.camera.position.copy(this.target).addScaledVector(dir, this.camD);
     this.camera.lookAt(this.target);
   }
 }

@@ -375,13 +375,14 @@ export function animatePerson(g, phase, amount) {
   p.body.position.y = Math.abs(s) * 0.04 * amount;
 }
 
-// Ngồi (trên xe / ghế): đùi đưa ra trước, cẳng chân thả xuống chỗ gác chân, hai tay đưa ra trước
-export function setSitting(g, sitting) {
+// Ngồi (trên xe / ghế): đùi đưa ra trước, cẳng chân thả xuống chỗ gác chân, hai tay đưa ra trước (cầm lái).
+// chair = true: ngồi ghế — cẳng chân thả thẳng xuống đất, tay để hờ trên đùi
+export function setSitting(g, sitting, chair = false) {
   const p = g.userData.parts;
-  p.legL.rotation.x = p.legR.rotation.x = sitting ? -1.2 : 0;
-  p.kneeL.rotation.x = p.kneeR.rotation.x = sitting ? 1.25 : 0;
-  p.armL.rotation.x = p.armR.rotation.x = sitting ? -0.95 : 0;
-  p.elbowL.rotation.x = p.elbowR.rotation.x = sitting ? -0.35 : -0.15;
+  p.legL.rotation.x = p.legR.rotation.x = sitting ? (chair ? -1.45 : -1.2) : 0;
+  p.kneeL.rotation.x = p.kneeR.rotation.x = sitting ? (chair ? 1.45 : 1.25) : 0;
+  p.armL.rotation.x = p.armR.rotation.x = sitting ? (chair ? -0.45 : -0.95) : 0;
+  p.elbowL.rotation.x = p.elbowR.rotation.x = sitting ? (chair ? -0.55 : -0.35) : -0.15;
   p.body.position.y = 0;
   // áo mưa khi ngồi xe: vạt trước phủ lên đùi (kéo dài + đẩy ra trước), không để gối thò ra
   if (p.overlay) {

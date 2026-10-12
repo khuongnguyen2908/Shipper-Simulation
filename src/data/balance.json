@@ -66,16 +66,6 @@
         5
       ]
     },
-    "meal": {
-      "cost": 35,
-      "phys": 45,
-      "mental": 5
-    },
-    "drink": {
-      "cost": 20,
-      "phys": 5,
-      "mental": 30
-    },
     "sleep": {
       "physPerHour": 12,
       "mentalPerHour": 10,
@@ -87,6 +77,10 @@
       "napLongMin": 120,
       "napMul": 0.6,
       "napAwakeCut": 4
+    },
+    "seat": {
+      "mentalPerMin": 0.1,
+      "mentalMax": 70
     },
     "collapse": {
       "hours": 6,

@@ -301,6 +301,71 @@ export function nearestStop(sys, x, z, maxD = Infinity) {
   }
   return best;
 }
+// Kế hoạch đi xe buýt từ điểm a tới điểm b: đi bộ ra trạm → 1 tuyến (hoặc đổi tuyến 1 lần) → đi bộ tới nơi.
+// Xét 4 trạm gần a × 4 trạm gần b; đổi tuyến ở trạm chung 2 tuyến hoặc 2 trạm cách nhau ≤ XFER_M m.
+// Lấy cách tới sớm nhất (tính cả giờ chờ xe theo lịch). dist(p, q): quãng đường đi bộ thật (cityLayout.routeDist) · walk: m đi bộ mỗi phút game.
+// prefer: mã trạm lên đã gợi ý lần trước → giữ trạm đó nếu chỉ chậm hơn cách tốt nhất ≤ STICK_MIN phút (mũi tên không nhảy qua lại).
+// → { legs: [{ from, to, route, trip }], from, to, route (chặng đầu), walk1, walkX, walk2, minutes }
+//   null nếu ngoài giờ xe chạy / không cách nào / đi bộ thẳng còn nhanh hơn
+const XFER_M = 60;
+const STICK_MIN = 3;
+export function busPlan(sys, a, b, now, dist, walk = 3.4, prefer = null) {
+  if (!sys?.stops?.length || !inService(now)) return null;
+  const near = (p) => [...sys.stops].sort((s, t) => Math.hypot(s.wait.x - p.x, s.wait.z - p.z) - Math.hypot(t.wait.x - p.x, t.wait.z - p.z)).slice(0, 4);
+  const onRoute = (st, id) => st.routes.some((r) => r.id === id);
+  // chỗ đổi tuyến r1 → r2: [{ x1 (trạm xuống của r1), x2 (trạm lên của r2), m (đi bộ giữa 2 trạm) }], tính 1 lần rồi nhớ
+  sys.xfer = sys.xfer || new Map();
+  const xferOf = (r1, r2) => {
+    const key = `${r1.id}>${r2.id}`;
+    if (!sys.xfer.has(key)) {
+      const out = [];
+      for (const s1 of r1.stops) for (const s2 of r2.stops) {
+        const x1 = sys.byId[s1.id], x2 = sys.byId[s2.id];
+        if (Math.hypot(x1.wait.x - x2.wait.x, x1.wait.z - x2.wait.z) > XFER_M) continue;
+        const m = x1 === x2 ? 0 : dist(x1.wait, x2.wait);
+        if (m <= XFER_M) out.push({ x1, x2, m });
+      }
+      sys.xfer.set(key, out);
+    }
+    return sys.xfer.get(key);
+  };
+  let best = null, kept = null;
+  const consider = (p) => {
+    if (!best || p.minutes < best.minutes) best = p;
+    if (p.legs[0].from.id === prefer && (!kept || p.minutes < kept.minutes)) kept = p;
+  };
+  const ends = near(b).map((e) => ({ e, walk2: dist(e.wait, b) }));
+  for (const s of near(a)) {
+    const walk1 = dist(a, s.wait), t0 = now + walk1 / walk;
+    for (const ref of s.routes) {
+      const r1 = sys.routeById[ref.id];
+      for (const { e, walk2 } of ends) {
+        if (onRoute(e, r1.id)) {
+          const trip = tripOn(r1, s.id, e.id, t0);
+          if (trip) consider({ legs: [{ from: s, to: e, route: r1, trip }], walk1, walkX: 0, walk2, minutes: walk1 / walk + trip.total + walk2 / walk });
+          continue;
+        }
+        // đổi tuyến 1 lần
+        for (const ref2 of e.routes) {
+          const r2 = sys.routeById[ref2.id];
+          if (r2 === r1) continue;
+          for (const { x1, x2, m } of xferOf(r1, r2)) {
+            const trip1 = tripOn(r1, s.id, x1.id, t0);
+            if (!trip1) continue;
+            const trip2 = tripOn(r2, x2.id, e.id, t0 + trip1.total + m / walk);
+            if (!trip2) continue;
+            consider({ legs: [{ from: s, to: x1, route: r1, trip: trip1 }, { from: x2, to: e, route: r2, trip: trip2 }], walk1, walkX: m, walk2,
+              minutes: walk1 / walk + trip1.total + m / walk + trip2.total + walk2 / walk });
+          }
+        }
+      }
+    }
+  }
+  if (kept && kept.minutes <= best.minutes + STICK_MIN) best = kept;
+  if (!best || best.minutes >= (dist(a, b) / walk) * 0.8) return null; // nhanh hơn đi bộ thẳng ít nhất 20% mới đáng
+  return { ...best, from: best.legs[0].from, to: best.legs[0].to, route: best.legs[0].route };
+}
+
 // Gợi ý đi buýt từ chỗ người chơi tới gần điểm (tx, tz): { from, to, route } hoặc null (không có tuyến nào nối)
 export function busHint(sys, px, pz, tx, tz) {
   if (!sys?.stops?.length) return null;

@@ -138,6 +138,23 @@ function projectToRing(x, z, inset) {
   return { bx, bz, t: side * L + u };
 }
 
+// Tài xế bị người chơi chắn đầu xe → chửi (bong bóng thoại, game.js → driverYell):
+// chắn 1,5 giây: câu nhẹ · 8 giây: câu gắt · sau đó cứ ~8 giây một câu. Hết chắn hơn 1 giây thì tính lại từ đầu.
+function yellTick(v, blocked, dt, events, who) {
+  if (blocked) {
+    v.yellFree = 0;
+    v.yellT = (v.yellT || 0) + dt;
+    const at = v.yellAt ?? 1.5;
+    if (v.yellT > at) {
+      events.push({ type: 'driverYell', obj: v, angry: at > 1.5, ...who });
+      v.yellAt = at < 8 ? 8 : v.yellT + 8;
+    }
+  } else if (v.yellT) {
+    v.yellFree = (v.yellFree || 0) + dt;
+    if (v.yellFree > 1) v.yellT = 0, v.yellAt = 1.5;
+  }
+}
+
 export class Traffic {
   constructor(scene, rng, opts = {}) {
     this.scene = scene;
@@ -222,12 +239,14 @@ export class Traffic {
       const pushThrough = block === 'npc' && b.npcWait > 30; // xe NPC kẹt cứng quá 30 giây: xe buýt đi tiếp (không đứng mãi)
       if (block && !pushThrough) {
         b.lag += dNow; // đứng yên: lịch của xe này lùi lại đúng bằng thời gian vừa trôi
+        yellTick(b, block === 'player', dt, events, { id: `bus:${b.route.id}:${b.idx}`, bus: true });
         if (block === 'player') {
           this.busBlockedByPlayer = true;
           b.honkT = (b.honkT || 0) + dt;
           if (b.honkT > 1.5) { b.honkT = -2; events.push({ type: 'busHonk' }); } // chắn lâu: bóp còi, ~3,5 giây 1 lần
         }
       } else {
+        yellTick(b, false, dt, events, null);
         b.honkT = 0;
         b.lag = Math.max(0, b.lag - dNow * 0.35); // đuổi kịp lịch: chạy nhanh hơn 35%
       }
@@ -792,13 +811,14 @@ export class Traffic {
       v = Math.min(v, this.yieldTo(me, dt, a));
       // người chơi hoặc chó chắn trước mặt → dừng, bóp còi
       const blockers = [{ x: ctx.px, z: ctx.pz, player: true }, ...this.dogs.filter((d) => d.state !== 'wander')];
+      let byPlayer = false;
       for (const p of blockers) {
         const ox = p.x - a.x, oz = p.z - a.z;
         const along = ox * me.hx + oz * me.hz, lat = -ox * me.hz + oz * me.hx;
         if (p.player && Math.abs((ctx.py ?? 0) - 0) > 1.5) continue; // người chơi đang trên cầu
         if (along > 0 && along < (a.kind === 'car' ? 7 : 5) && Math.abs(lat) < 1.8) {
           v = 0;
-          if (p.player) this.blockedByPlayer = true;
+          if (p.player) this.blockedByPlayer = byPlayer = true;
           if (p.player && a.honk <= 0 && a.speed < 1) {
             a.honk = 4 + this.rng.next() * 4;
             if (this.honkCd <= 0 && Math.hypot(ox, oz) < 14) {
@@ -808,6 +828,7 @@ export class Traffic {
           }
         }
       }
+      yellTick(a, byPlayer, dt, events, { id: `car:${a.uid}`, car: a.kind === 'car' });
       a.honk -= dt;
       if (a.stop > 0) {
         a.stop -= dt;

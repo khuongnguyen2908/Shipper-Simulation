@@ -18,6 +18,7 @@ import { airportAt } from '../src/sim/airport.js';
 import { GOODS } from '../src/data/goods.js';
 import { APP, ORDER_TYPES, RIDER_TYPES } from '../src/data/apps.js';
 import { inHours } from '../src/sim/hours.js';
+import { isOpen } from '../src/sim/placeRules.js';
 import { dayOf, dayStartAt, minutesUntil, isDark } from '../src/sim/clock.js';
 
 const layout = buildLayout();
@@ -156,6 +157,27 @@ export function playRun(seed, strat, days = 9, brand = null) {
       if (r.ok) pass(r.minutes, 'idle');
     } else if (gs.power === 'gas') { drive(P.gas.door); gs.refuel(); pass(2, 'idle'); }
   };
+  // mệt: tới chỗ bán đồ ăn uống gần nhất (đang mở cửa), mua món hồi thể lực nhiều nhất mà đủ tiền, ăn tới khi khỏe (tối đa 3 món)
+  const foodOf = (pl) => (pl.sells?.goods || []).map((id) => GOODS[id]).filter((g) => g?.type === 'consumable' && g.use?.phys > 0);
+  const eat = () => {
+    const shopAt = layout.places.filter((pl) => pl.door && foodOf(pl).length && isOpen(pl, now, gs.day)).sort((a, b) => routeDist(pos, a.door) - routeDist(pos, b.door))[0];
+    if (!shopAt) return;
+    drive(shopAt.door);
+    const menu = foodOf(shopAt).sort((a, b) => b.use.phys - a.use.phys);
+    for (let n = 0; n < 3 && gs.phys < 75; n++) {
+      const g = menu.find((x) => gs.money >= x.price + 25 + rentReserve());
+      if (!g || !gs.buy('goods', g.id).ok) break;
+      pass(gs.useConsumable(g.id).minutes, 'idle');
+    }
+  };
+  // buồn chán: làm hoạt động tăng tinh thần nhiều nhất ở quán cà phê (đúng dữ liệu places.json)
+  const relax = () => {
+    const act = (P.cafe?.activities || []).filter((a) => a.mental > 0).sort((a, b) => b.mental - a.mental)[0];
+    if (!act || gs.activityStatus(P.cafe, act, now) !== 'ok') return;
+    drive(P.cafe.door);
+    const r = gs.doActivity(P.cafe, act, now);
+    if (r.ok) pass(r.minutes, 'idle');
+  };
   const shop = () => {
     if (gs.power !== 'pedal' && gs.fuel < gs.vehicleSpec.tank * 0.2) refill();
     // bảo dưỡng sắp tới hạn (xe xăng: thay nhớt ở tiệm sửa xe · xe điện: đổi pin ở trạm) — đủ tiền, không đụng tiền nhà
@@ -166,8 +188,8 @@ export function playRun(seed, strat, days = 9, brand = null) {
       const r = ev ? gs.swapBattery() : gs.changeOil();
       if (r.ok) { log.oil++; pass(r.minutes, 'idle'); }
     }
-    if (gs.phys < 40 && gs.money > 60 + rentReserve()) { drive(P.comtam.door); gs.spend(ENERGY.meal.cost, 'meal'); gs.addEnergy(ENERGY.meal.phys, ENERGY.meal.mental); pass(15, 'idle'); }
-    if (gs.mental < 40 && gs.money > 40 + rentReserve()) { drive(P.cafe.door); gs.spend(ENERGY.drink.cost, 'meal'); gs.addEnergy(ENERGY.drink.phys, ENERGY.drink.mental); pass(10, 'idle'); }
+    if (gs.phys < 40 && gs.money > 60 + rentReserve()) eat();
+    if (gs.mental < 40 && gs.money > 40 + rentReserve()) relax();
     if (!st.buyGear) return;
     // nón chở khách: được tặng khi vào hãng; mất (khách cầm đi) thì mua lại nón của hãng ở văn phòng hãng
     const seatId = Object.values(GOODS).find((g) => g.brand === gs.brand && g.type === 'equipment' && g.effects?.passengerSeat)?.id || 'spareHelmet';

@@ -610,7 +610,7 @@ export function render(root, ctx) {
       places.push({ id, name: 'Quán mới', short: 'Quán', kind, ...spot, floors: 2, color: '#f4c095', sign: 'QUÁN MỚI', signBg: '#b03a2e', menu: firstItem ? [firstItem.id] : [], npc: { name: 'Chủ quán', shirt: '#ffffff', pants: '#333344', hat: null, portrait: '🧑‍🍳' } });
       ctx.data.content[`npc.${id}.greet`] = '"Chào em! Đơn của em đây."';
     } else {
-      places.push({ id, name: 'Địa điểm mới', short: 'Mới', kind, icon: '⭐', ...spot, floors: 2, color: '#d6eaf8', sign: 'ĐỊA ĐIỂM MỚI', signBg: '#2e86c1', npc: { name: 'Nhân viên', shirt: '#2e86c1', pants: '#333344', hat: null, portrait: '🙂' }, hours: [8, 21], activities: [{ id: 'nghi', label: 'Ngồi nghỉ', cost: 0, minutes: 15, phys: 5, mental: 5, perDay: 0 }] });
+      places.push({ id, name: 'Địa điểm mới', short: 'Mới', kind, icon: '⭐', ...spot, floors: 2, color: '#d6eaf8', sign: 'ĐỊA ĐIỂM MỚI', signBg: '#2e86c1', npc: { name: 'Nhân viên', shirt: '#2e86c1', pants: '#333344', hat: null, portrait: '🙂' }, hours: [8, 21], activities: [{ id: 'nghi', label: 'Ngồi nghỉ', cost: 0, minutes: 15, phys: 0, mental: 5, perDay: 0 }] });
       ctx.data.content[`npc.${id}.greet`] = '"Chào bạn! Vào chơi nha."';
     }
     ctx.changed('content');

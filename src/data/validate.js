@@ -44,12 +44,12 @@ export const PLACE_KINDS = ['home', 'restaurant', 'gas', 'shop', 'garage', 'cafe
 export const ID_RE = /^[a-zA-Z][a-zA-Z0-9_]*$/;
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
-// Cảnh báo số trừ thể lực/tinh thần quá lớn (thanh 0–100, về 0 là thua)
+// Cảnh báo số trừ thể lực/tinh thần quá lớn (thanh 0–100, về 0 là ngất / suy sụp)
 function drainWarn(add, ref, field, phys, mental, who) {
   for (const [v, name] of [[phys, 'thể lực'], [mental, 'tinh thần']]) {
     if (!num(v)) continue;
-    if (v <= -100) add('warn', ref, field, `${who}trừ ${-v} ${name} → người chơi THUA ngay (thanh tối đa 100).`);
-    else if (v <= -30) add('warn', ref, field, `${who}trừ ${-v} ${name} một lần — người chơi đang yếu có thể thua ngay. Thường chỉ −5 đến −20.`);
+    if (v <= -100) add('warn', ref, field, `${who}trừ ${-v} ${name} → người chơi ngất / suy sụp ngay (thanh tối đa 100).`);
+    else if (v <= -30) add('warn', ref, field, `${who}trừ ${-v} ${name} một lần — người chơi đang yếu có thể ngất / suy sụp ngay. Thường chỉ −5 đến −20.`);
   }
 }
 

@@ -17,8 +17,6 @@ const ADV_HINT = {
   'order.callDownWait': 'Phút chờ khách xuống lấy (khi không leo).',
   'order.liftMin': 'Phút đi thang máy.',
   'order.placeDestBase': 'Điểm đến là địa điểm (karaoke…): xác suất = tổng mức / (tổng + số này).',
-  'energy.meal': 'Chỉ bot mô phỏng dùng (người chơi ăn qua hoạt động ở quán).',
-  'energy.drink': 'Chỉ bot mô phỏng dùng.',
   'energy.nap': 'Ngủ trưa ở phòng trọ: số phút, thể lực, tinh thần.',
   'walletQuest.keepPenaltyStars': 'Giữ ví bị tố: mỗi số là 1 lượt chấm sao bị thêm.',
 };

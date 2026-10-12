@@ -2399,8 +2399,8 @@ console.log('Dữ liệu & kho chữ (sửa bằng công cụ ?editor)');
       { id: 'd', label: 'Ổn', cost: 20, minutes: 10, phys: -5, mental: 30, perDay: 1 },
     ];
     const w = validatePlaces(places, data.items).filter((i) => i.ref === 'pho' && i.level === 'warn');
-    assert.ok(w.some((i) => i.field === 'activities.a' && /THUA ngay/.test(i.msg)));
-    assert.ok(w.some((i) => i.field === 'activities.b' && /có thể thua/.test(i.msg)));
+    assert.ok(w.some((i) => i.field === 'activities.a' && /suy sụp ngay \(thanh tối đa/.test(i.msg)));
+    assert.ok(w.some((i) => i.field === 'activities.b' && /có thể ngất \/ suy sụp/.test(i.msg)));
     assert.ok(w.some((i) => i.field === 'activities.c' && /miễn phí/.test(i.msg)));
     assert.ok(!w.some((i) => i.field === 'activities.d'), 'hoạt động bình thường không bị cảnh báo');
     const goods = { cheap: { id: 'cheap', name: 'Rẻ', price: 5, type: 'consumable', use: { minutes: 1, phys: 30, mental: 0 } }, free: { id: 'free', name: 'Free', price: 0, type: 'consumable', use: { minutes: 1, phys: 5 } } };
@@ -3736,7 +3736,8 @@ console.log('Ngập đường & triều cường');
 
 console.log('Trạm xe buýt: chia theo tuyến');
 {
-  const { buildBusSystem, routeDestinations, tripOn } = await import('../src/sim/bus.js');
+  const { buildBusSystem, routeDestinations, tripOn, busPlan } = await import('../src/sim/bus.js');
+  const { routeDist } = await import('../src/sim/cityLayout.js');
   const sys = buildBusSystem(layout);
   test('Hộp thoại ở trạm: mỗi tuyến liệt kê các trạm theo thứ tự xe chạy tới, không lặp tên, không có trạm đang đứng', () => {
     const routes = sys.routes.filter((r) => !r.error);
@@ -3759,6 +3760,41 @@ console.log('Trạm xe buýt: chia theo tuyến');
     }
     assert.deepEqual(routeDestinations(sys, 'khongCo', 'x', 480), []);
     assert.deepEqual(routeDestinations(sys, routes[0].id, 'khongCoTram', 480), []);
+  });
+  test('Kế hoạch đi xe buýt (xe ở đồn): đi bộ ra trạm → 1 tuyến → đi bộ; gần thì đi bộ, ngoài giờ xe chạy thì không', () => {
+    const r = sys.routes.find((x) => !x.error && x.stops.length >= 3);
+    // từ cạnh trạm đầu tới cạnh trạm giữa tuyến (xa) → có kế hoạch, cùng tuyến, nhanh hơn đi bộ thẳng
+    const a = sys.byId[r.stops[0].id].wait, b = sys.byId[r.stops[Math.floor(r.stops.length / 2)].id].wait;
+    assert.ok(routeDist(a, b) > 300, 'chọn 2 trạm đủ xa để thử');
+    const plan = busPlan(sys, a, b, 9 * 60, routeDist);
+    {
+      assert.ok(plan, 'xa thì phải gợi ý xe buýt');
+      assert.ok(plan.from.routes.some((x) => x.id === plan.route.id) && plan.to.routes.some((x) => x.id === plan.route.id), 'trạm lên và xuống cùng tuyến');
+      assert.ok(plan.minutes < routeDist(a, b) / 3.4, 'nhanh hơn đi bộ thẳng');
+    }
+    // đứng sát nơi cần tới → đi bộ (không có kế hoạch)
+    assert.equal(busPlan(sys, a, { x: a.x + 5, z: a.z }, 9 * 60, routeDist), null);
+    // ngoài giờ xe chạy (2 giờ sáng) → không có
+    assert.equal(busPlan(sys, a, b, 2 * 60, routeDist), null);
+    // 2 trạm chỉ có ở 2 tuyến khác nhau → đổi tuyến 1 lần ở chỗ 2 tuyến gặp nhau (trạm chung / 2 trạm sát nhau)
+    const rs = sys.routes.filter((x) => !x.error);
+    if (rs.length >= 2) {
+      const only = (r) => r.stops.map((x) => sys.byId[x.id]).filter((st) => st.routes.length === 1 && st.routes[0].id === r.id);
+      const A = only(rs[0]), Bx = only(rs[1]);
+      let found = null;
+      for (const s1 of A) for (const s2 of Bx) {
+        if (found || routeDist(s1.wait, s2.wait) < 400) continue;
+        const p = busPlan(sys, s1.wait, s2.wait, 9 * 60, routeDist);
+        if (p?.legs.length === 2) found = p;
+      }
+      assert.ok(found, 'phải có ít nhất 1 cặp trạm cần đổi tuyến');
+      assert.ok(found.legs[0].route !== found.legs[1].route, 'đổi sang tuyến khác');
+      assert.ok(found.walkX <= 60, 'chỗ đổi tuyến đi bộ ≤ 60 m');
+      assert.ok(found.legs[0].to.routes.some((x) => x.id === found.legs[0].route.id) && found.legs[1].from.routes.some((x) => x.id === found.legs[1].route.id), 'xuống / lên đúng tuyến');
+      // giữ trạm lên đã gợi ý nếu chỉ chậm hơn chút
+      const alt = busPlan(sys, a, b, 9 * 60, routeDist, 3.4, plan.from.id);
+      assert.equal(alt.from.id, plan.from.id);
+    }
   });
 }
 

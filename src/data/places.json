@@ -365,7 +365,7 @@
           "label": "Ăn một tô phở",
           "cost": 35,
           "minutes": 15,
-          "phys": 45,
+          "phys": 0,
           "mental": 5,
           "perDay": 0
         }
@@ -411,7 +411,7 @@
           "label": "Ăn một đĩa cơm tấm",
           "cost": 35,
           "minutes": 15,
-          "phys": 45,
+          "phys": 0,
           "mental": 5,
           "perDay": 0
         }
@@ -457,7 +457,7 @@
           "label": "Ăn một đĩa cơm tấm",
           "cost": 35,
           "minutes": 15,
-          "phys": 45,
+          "phys": 0,
           "mental": 5,
           "perDay": 0
         }
@@ -508,7 +508,7 @@
           "label": "Mua ly trà sữa",
           "cost": 20,
           "minutes": 5,
-          "phys": 5,
+          "phys": 0,
           "mental": 30,
           "perDay": 0
         }
@@ -764,7 +764,7 @@
           "label": "Ngồi nghỉ",
           "cost": 0,
           "minutes": 15,
-          "phys": 5,
+          "phys": 0,
           "mental": 5,
           "perDay": 0
         }
@@ -799,7 +799,7 @@
           "label": "Ngồi nghỉ",
           "cost": 0,
           "minutes": 15,
-          "phys": 5,
+          "phys": 0,
           "mental": 5,
           "perDay": 0
         }
@@ -968,7 +968,7 @@
           "label": "Ngồi cafe",
           "cost": 0,
           "minutes": 15,
-          "phys": 5,
+          "phys": 0,
           "mental": 5,
           "perDay": 0
         }
@@ -1008,7 +1008,7 @@
           "label": "Uống cà phê sữa đá",
           "cost": 20,
           "minutes": 10,
-          "phys": 5,
+          "phys": 0,
           "mental": 30,
           "perDay": 0
         }
@@ -1058,7 +1058,7 @@
           "label": "Uống cà phê ",
           "cost": 20,
           "minutes": 10,
-          "phys": 5,
+          "phys": 0,
           "mental": 30,
           "perDay": 0
         },
@@ -1067,7 +1067,7 @@
           "label": "Làm gì đó vui vẻ",
           "cost": 200,
           "minutes": 15,
-          "phys": -5,
+          "phys": 0,
           "mental": 30,
           "perDay": 0
         }
@@ -1111,7 +1111,7 @@
           "label": "Uống cà phê ",
           "cost": 20,
           "minutes": 10,
-          "phys": 5,
+          "phys": 0,
           "mental": 30,
           "perDay": 0
         },
@@ -1120,7 +1120,7 @@
           "label": "Làm gì đó vui vẻ",
           "cost": 200,
           "minutes": 15,
-          "phys": -5,
+          "phys": 0,
           "mental": 30,
           "perDay": 0
         }
@@ -1164,7 +1164,7 @@
           "label": "Uống cà phê ",
           "cost": 20,
           "minutes": 10,
-          "phys": 5,
+          "phys": 0,
           "mental": 30,
           "perDay": 0
         },
@@ -1173,7 +1173,7 @@
           "label": "Làm gì đó vui vẻ",
           "cost": 200,
           "minutes": 15,
-          "phys": -5,
+          "phys": 0,
           "mental": 30,
           "perDay": 0
         }
@@ -1210,7 +1210,7 @@
           "label": "Mua chai nước suối",
           "cost": 10,
           "minutes": 1,
-          "phys": 8,
+          "phys": 0,
           "mental": 3,
           "perDay": 0
         }
@@ -1338,7 +1338,7 @@
           "label": "Ngồi đọc sách tại chỗ",
           "cost": 5,
           "minutes": 30,
-          "phys": 5,
+          "phys": 0,
           "mental": 20,
           "perDay": 3
         },
@@ -1404,7 +1404,7 @@
           "label": "Hát một tiếng xả stress",
           "cost": 80,
           "minutes": 60,
-          "phys": -5,
+          "phys": 0,
           "mental": 40,
           "perDay": 1
         },
@@ -1413,7 +1413,7 @@
           "label": "Ngồi nghe ké ở sảnh",
           "cost": 0,
           "minutes": 20,
-          "phys": 3,
+          "phys": 0,
           "mental": 8,
           "perDay": 2
         }
@@ -1457,7 +1457,7 @@
           "label": "Đi làm văn phòng",
           "cost": 0,
           "minutes": 480,
-          "phys": -20,
+          "phys": 0,
           "mental": -20,
           "perDay": 1
         }
@@ -1513,7 +1513,7 @@
           "label": "Ngồi nghỉ",
           "cost": 0,
           "minutes": 15,
-          "phys": 5,
+          "phys": 0,
           "mental": 5,
           "perDay": 0
         }
@@ -1734,7 +1734,7 @@
           "label": "Ngồi nghỉ",
           "cost": 0,
           "minutes": 15,
-          "phys": 5,
+          "phys": 0,
           "mental": 5,
           "perDay": 0
         }
@@ -1752,7 +1752,18 @@
       "lot": "f8",
       "sells": {
         "goods": [
-          "energyDrink"
+          "energyDrink",
+          "nuocSuoi",
+          "suaHop",
+          "lonSoda",
+          "chaiTraXanh",
+          "xucXich",
+          "bichSnack",
+          "miLy",
+          "oBanhMi",
+          "comNam",
+          "banhBao",
+          "comHop"
         ]
       }
     },
@@ -1781,7 +1792,7 @@
           "label": "Ngồi nghỉ",
           "cost": 0,
           "minutes": 15,
-          "phys": 5,
+          "phys": 0,
           "mental": 5,
           "perDay": 0
         }
@@ -1799,7 +1810,18 @@
       "lot": "f0",
       "sells": {
         "goods": [
-          "energyDrink"
+          "energyDrink",
+          "nuocSuoi",
+          "suaHop",
+          "lonSoda",
+          "chaiTraXanh",
+          "xucXich",
+          "bichSnack",
+          "miLy",
+          "oBanhMi",
+          "comNam",
+          "banhBao",
+          "comHop"
         ]
       }
     },
@@ -1828,7 +1850,7 @@
           "label": "Ngồi nghỉ",
           "cost": 0,
           "minutes": 15,
-          "phys": 5,
+          "phys": 0,
           "mental": 5,
           "perDay": 0
         }
@@ -1846,7 +1868,18 @@
       "lot": "N2",
       "sells": {
         "goods": [
-          "energyDrink"
+          "energyDrink",
+          "nuocSuoi",
+          "suaHop",
+          "lonSoda",
+          "chaiTraXanh",
+          "xucXich",
+          "bichSnack",
+          "miLy",
+          "oBanhMi",
+          "comNam",
+          "banhBao",
+          "comHop"
         ]
       }
     },
@@ -1875,7 +1908,7 @@
           "label": "Ngồi nghỉ",
           "cost": 0,
           "minutes": 15,
-          "phys": 5,
+          "phys": 0,
           "mental": 5,
           "perDay": 0
         }
@@ -1893,7 +1926,18 @@
       "lot": "N0",
       "sells": {
         "goods": [
-          "energyDrink"
+          "energyDrink",
+          "nuocSuoi",
+          "suaHop",
+          "lonSoda",
+          "chaiTraXanh",
+          "xucXich",
+          "bichSnack",
+          "miLy",
+          "oBanhMi",
+          "comNam",
+          "banhBao",
+          "comHop"
         ]
       }
     },
@@ -1922,7 +1966,7 @@
           "label": "Ngồi nghỉ",
           "cost": 0,
           "minutes": 15,
-          "phys": 5,
+          "phys": 0,
           "mental": 5,
           "perDay": 0
         }
@@ -1940,7 +1984,18 @@
       "lot": "f3",
       "sells": {
         "goods": [
-          "energyDrink"
+          "energyDrink",
+          "nuocSuoi",
+          "suaHop",
+          "lonSoda",
+          "chaiTraXanh",
+          "xucXich",
+          "bichSnack",
+          "miLy",
+          "oBanhMi",
+          "comNam",
+          "banhBao",
+          "comHop"
         ]
       }
     },
@@ -1969,7 +2024,7 @@
           "label": "Ngồi nghỉ",
           "cost": 0,
           "minutes": 15,
-          "phys": 5,
+          "phys": 0,
           "mental": 5,
           "perDay": 0
         }
@@ -1987,7 +2042,18 @@
       "lot": "S0",
       "sells": {
         "goods": [
-          "energyDrink"
+          "energyDrink",
+          "nuocSuoi",
+          "suaHop",
+          "lonSoda",
+          "chaiTraXanh",
+          "xucXich",
+          "bichSnack",
+          "miLy",
+          "oBanhMi",
+          "comNam",
+          "banhBao",
+          "comHop"
         ]
       }
     },
@@ -2052,7 +2118,7 @@
           "label": "Làm giấy tờ xe",
           "cost": 10,
           "minutes": 15,
-          "phys": -5,
+          "phys": 0,
           "mental": -5,
           "perDay": 0
         }
@@ -2255,7 +2321,7 @@
           "label": "Ngồi ghế sảnh chờ, uống nước",
           "cost": 10,
           "minutes": 20,
-          "phys": 4,
+          "phys": 0,
           "mental": 6,
           "perDay": 0
         }
@@ -2466,7 +2532,7 @@
           "label": "Uống chén thuốc bổ",
           "cost": 40,
           "minutes": 15,
-          "phys": 25,
+          "phys": 0,
           "mental": 5,
           "perDay": 2
         }
@@ -2608,7 +2674,7 @@
           "label": "Thuê phòng tắm rửa, nghỉ chân",
           "cost": 80,
           "minutes": 60,
-          "phys": 30,
+          "phys": 0,
           "mental": 25,
           "perDay": 1
         }
@@ -2916,7 +2982,7 @@
           "label": "Tập gym 45 phút",
           "cost": 50,
           "minutes": 45,
-          "phys": -10,
+          "phys": 0,
           "mental": 30,
           "perDay": 1
         }
@@ -3013,7 +3079,7 @@
           "label": "Nằm võng uống cà phê",
           "cost": 15,
           "minutes": 30,
-          "phys": 15,
+          "phys": 0,
           "mental": 15,
           "perDay": 0
         }
@@ -3280,7 +3346,7 @@
           "label": "Massage chân 30 phút",
           "cost": 120,
           "minutes": 30,
-          "phys": 15,
+          "phys": 0,
           "mental": 40,
           "perDay": 1
         }
@@ -3350,7 +3416,7 @@
           "label": "Nằm võng hóng gió sông",
           "cost": 15,
           "minutes": 30,
-          "phys": 15,
+          "phys": 0,
           "mental": 18,
           "perDay": 0
         }
@@ -3400,7 +3466,7 @@
           "label": "Thuê sân đánh 1 set tennis",
           "cost": 40,
           "minutes": 60,
-          "phys": -12,
+          "phys": 0,
           "mental": 25,
           "perDay": 1
         }
@@ -3429,7 +3495,7 @@
           "label": "Chơi pickleball 1 trận",
           "cost": 25,
           "minutes": 40,
-          "phys": -6,
+          "phys": 0,
           "mental": 18,
           "perDay": 2
         }
@@ -3520,7 +3586,7 @@
           "label": "Ngồi thư viện máy lạnh nghỉ chân",
           "cost": 0,
           "minutes": 30,
-          "phys": 4,
+          "phys": 0,
           "mental": 10,
           "perDay": 2
         }
@@ -3582,7 +3648,7 @@
           "label": "Nằm võng nghỉ trưa (mua ly nước mía)",
           "cost": 10,
           "minutes": 30,
-          "phys": 10,
+          "phys": 0,
           "mental": 8,
           "perDay": 1
         },
@@ -3591,7 +3657,7 @@
           "label": "Ăn buffet trái cây",
           "cost": 149,
           "minutes": 30,
-          "phys": -5,
+          "phys": 0,
           "mental": 15,
           "perDay": 1
         }
@@ -3829,7 +3895,7 @@
           "label": "Ngồi ghế chờ, uống ly nước",
           "cost": 5,
           "minutes": 15,
-          "phys": 3,
+          "phys": 0,
           "mental": 3,
           "perDay": 0
         }
@@ -3872,7 +3938,7 @@
           "label": "Vào nhà thờ ngồi tĩnh tâm",
           "cost": 0,
           "minutes": 20,
-          "phys": 5,
+          "phys": 0,
           "mental": 20,
           "perDay": 1
         }
@@ -4005,7 +4071,7 @@
           "label": "Khám sức khỏe, truyền nước",
           "cost": 150,
           "minutes": 60,
-          "phys": 40,
+          "phys": 0,
           "mental": 5,
           "perDay": 1
         }
@@ -4251,7 +4317,7 @@
           "label": "Ngồi nghỉ",
           "cost": 0,
           "minutes": 15,
-          "phys": 5,
+          "phys": 0,
           "mental": 5,
           "perDay": 0
         }
@@ -4296,7 +4362,7 @@
           "label": "Vào sờ mèo",
           "cost": 20,
           "minutes": 15,
-          "phys": 5,
+          "phys": 0,
           "mental": 5,
           "perDay": 0
         }

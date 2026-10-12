@@ -40,6 +40,7 @@ function appLook([id, ic, color, key], gs) {
 const BAG_FILTERS = { all: null, wear: ['outfit'], use: ['use', 'carry'], other: ['equip', 'quest'] };
 const SLOT_ICON = { helmet: '⛑️', face: '🕶️', shirt: '👕', hands: '🧤', acc: '🧥', uniform: '🦺', pants: '👖', shoes: '👟' };
 const SLOT_COLS = [['helmet', 'face', 'shirt', 'hands'], ['acc', 'uniform', 'pants', 'shoes']];
+const BAG_COLS = 4, BAG_ROWS = 5, BAG_PAGE = BAG_COLS * BAG_ROWS; // túi đồ: mỗi trang 4 × 5 ô, nhiều đồ thì lật trang
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
 // Mọi thứ trong túi: trang phục đã có, trang bị, đồ dùng 1 lần, đồ mang theo, vật phẩm nhiệm vụ
@@ -133,6 +134,7 @@ export class Phone {
     this.lastHtml = '';
     // Túi đồ: nút lọc đang chọn, món đang chọn (khóa 'g:mã'), menu chuột phải { key, x, y }
     this.bagFilter = 'all';
+    this.bagPage = 0;
     this.bagSel = null;
     this.bagMenu = null;
     // bảng "Đang mặc" bên trái điện thoại (chỉ hiện khi mở app Túi đồ)
@@ -149,6 +151,16 @@ export class Phone {
       host.addEventListener('pointerdown', (e) => e.stopPropagation());
       host.addEventListener('wheel', (e) => e.stopPropagation());
     }
+    this.scale = 1;
+    this.fitPhone();
+    window.addEventListener('resize', () => this.fitPhone());
+  }
+
+  // Điện thoại cỡ cố định 340×640 (+ viền); cửa sổ thấp / hẹp quá thì thu nhỏ CẢ máy đều nhau (biến CSS --ph-s)
+  fitPhone() {
+    const bottom = parseFloat(getComputedStyle(this.el).bottom) || 14;
+    this.scale = Math.max(0.4, Math.min(1, (window.innerHeight - bottom - 10) / 640, (window.innerWidth - 28) / 340));
+    document.documentElement.style.setProperty('--ph-s', this.scale.toFixed(3));
   }
 
   onClick(e) {
@@ -160,6 +172,12 @@ export class Phone {
     const f = e.target.closest('[data-bagf]');
     if (f) {
       this.bagFilter = f.dataset.bagf;
+      this.bagPage = 0;
+      return this.redraw();
+    }
+    const pg = e.target.closest('[data-bagp]');
+    if (pg) {
+      if (!pg.disabled) this.bagPage += Number(pg.dataset.bagp);
       return this.redraw();
     }
     const cell = e.target.closest('[data-bag]');
@@ -184,8 +202,10 @@ export class Phone {
       return this.redraw();
     }
     const r = this.screen.getBoundingClientRect();
-    const x = Math.max(4, Math.min(e.clientX - r.left, r.width - 170));
-    const y = Math.max(4, Math.min(e.clientY - r.top, r.height - 140));
+    // tọa độ chuột (điểm ảnh màn hình) → tọa độ trong máy (máy có thể đang thu nhỏ)
+    const k = this.scale || 1;
+    const x = Math.max(4, Math.min((e.clientX - r.left) / k, r.width / k - 170));
+    const y = Math.max(4, Math.min((e.clientY - r.top) / k, r.height / k - 140));
     this.bagSel = cell.dataset.bag;
     this.bagMenu = { key: cell.dataset.bag, x: Math.round(x), y: Math.round(y) };
     this.redraw();
@@ -200,6 +220,7 @@ export class Phone {
     this.open = force ?? !this.open;
     this.el.className = this.open ? '' : 'hidden';
     if (this.open) {
+      this.fitPhone(); // phòng khi cửa sổ đổi cỡ mà không có sự kiện resize
       if (this.app) this.unread[this.app] = 0;
       this.lastHtml = '';
       this.handlers.refresh();
@@ -435,16 +456,21 @@ export class Phone {
       <div class="card"><b>${fmt('phone.recent')}</b>${rec || `<small>${fmt('phone.noOrders')}</small>`}</div>${contract}`;
   }
 
-  // Túi đồ: nút lọc · kho đồ chia ô (viền xanh = đang mặc, số góc = số lượng) · khung chi tiết món đang chọn
+  // Túi đồ: nút lọc · kho đồ 4 × 5 ô mỗi trang (số góc = số lượng), lật trang ◀ ▶ · khung chi tiết món đang chọn.
+  // Đồ đang mặc KHÔNG nằm trong túi (chỉ hiện ở bảng "Đang mặc"); cởi ra thì về lại túi.
   bagTab(d) {
     const all = bagEntries(d.gs);
     if (this.bagSel && !all.some((e) => e.key === this.bagSel)) this.bagSel = null;
     if (!(this.bagFilter in BAG_FILTERS)) this.bagFilter = 'all';
     const kinds = BAG_FILTERS[this.bagFilter];
-    const shown = kinds ? all.filter((e) => kinds.includes(e.kind)) : all;
-    const cells = shown.map((e) => `<button class="bag-cell${e.worn ? ' on' : ''}${e.key === this.bagSel ? ' sel' : ''}" data-bag="${e.key}" title="${esc(e.g.name)}">${e.g.icon || '📦'}${e.n > 1 ? `<small>${e.n}</small>` : ''}</button>`);
-    const total = Math.max(16, Math.ceil(cells.length / 4) * 4);
-    while (cells.length < total) cells.push('<i class="bag-cell empty"></i>');
+    const shown = (kinds ? all.filter((e) => kinds.includes(e.kind)) : all).filter((e) => !e.worn);
+    const pages = Math.max(1, Math.ceil(shown.length / BAG_PAGE));
+    this.bagPage = Math.max(0, Math.min(pages - 1, this.bagPage || 0));
+    const cells = shown.slice(this.bagPage * BAG_PAGE, (this.bagPage + 1) * BAG_PAGE)
+      .map((e) => `<button class="bag-cell${e.key === this.bagSel ? ' sel' : ''}" data-bag="${e.key}" title="${esc(e.g.name)}">${e.g.icon || '📦'}${e.n > 1 ? `<small>${e.n}</small>` : ''}</button>`);
+    while (cells.length < BAG_PAGE) cells.push('<i class="bag-cell empty"></i>');
+    const pager = `<div class="bag-pager"><button data-bagp="-1" title="${fmt('phone.bagPrev')}"${this.bagPage <= 0 ? ' disabled' : ''}>◀</button>
+      <span>${fmt('phone.bagPage', { n: this.bagPage + 1, total: pages })}</span><button data-bagp="1" title="${fmt('phone.bagNext')}"${this.bagPage >= pages - 1 ? ' disabled' : ''}>▶</button></div>`;
     const chips = Object.keys(BAG_FILTERS).map((k) => `<button class="bag-chip${k === this.bagFilter ? ' on' : ''}" data-bagf="${k}">${fmt(`phone.bagF.${k}`)}</button>`).join('');
     const sel = all.find((e) => e.key === this.bagSel);
     let detail = `<div class="ph-note">${fmt(all.length ? 'phone.bagHint' : 'phone.bagEmptyAll')}</div>`;
@@ -454,7 +480,7 @@ export class Phone {
         ${sel.g.desc ? `<small class="blk">${esc(sel.g.desc)}</small>` : ''}${notes.map((n) => `<div class="ph-note small">${n}</div>`).join('')}
         ${acts.length ? `<div class="row">${acts.map((a) => `<button class="btn small primary" data-act="${a.act}" data-id="${sel.id}">${a.label}</button>`).join('')}</div>` : ''}</div>`;
     }
-    return `<div class="bag-chips">${chips}</div><div class="bag-grid">${cells.join('')}</div>${detail}
+    return `<div class="bag-chips">${chips}</div><div class="bag-grid">${cells.join('')}</div>${pager}${detail}
       <div class="kv"><span>${fmt('phone.bagMoney')}</span><b>${fmtK(d.gs.money)}</b></div>`;
   }
 
@@ -555,7 +581,11 @@ export class Phone {
       h += `<div class="card"><b>${fmt('csgt.tickets', { n: gs.fines.length })}</b>` + gs.fines.map((f) => `<div class="kv"><span>${fmt(FINE_REASON[f.reason] || 'csgt.rOther')}
         <small class="sub">${f.at != null ? fmt('csgt.at', { when: when(f.at) }) + ' · ' : ''}${f.overdue ? fmt('csgt.lateTag') : fmt('csgt.dueTag', { when: when(f.dueAt) })}</small></span><b class="minus">${fmtK(f.amount)}</b></div>`).join('') + '</div>';
     }
-    if (d.station) h += `<div class="card"><b>${fmt('csgt.payAt')}</b><div class="kv"><span>🚓 ${d.station.name}</span><small>${d.station.dist}</small></div>
+    // xe đang bị giữ ở đồn (không có xe): chỉ đường + gợi ý đi xe buýt tuyến nào
+    if (d.held) h += `<div class="card late-card"><b>${fmt('csgt.held', { place: d.held.name })}</b><div class="kv"><span>🚓 ${d.held.name}</span><small>${d.held.dist}</small></div>
+      ${d.held.plan ? `<div class="ph-note small">${d.held.plan}</div>` : `<small class="blk">${fmt('csgt.heldWalk')}</small>`}
+      <div class="row"><button class="btn small primary" data-act="waypoint" data-id="${d.held.id}">${fmt('map.route')}</button></div></div>`;
+    if (d.station && d.station.id !== d.held?.id) h += `<div class="card"><b>${fmt('csgt.payAt')}</b><div class="kv"><span>🚓 ${d.station.name}</span><small>${d.station.dist}</small></div>
       <div class="row"><button class="btn small primary" data-act="waypoint" data-id="${d.station.id}">${fmt('map.route')}</button></div><small class="blk">${fmt('csgt.payNote')}</small></div>`;
     h += `<div class="card"><b>${fmt('csgt.checkpoints')}</b>${(d.checkpoints || []).length
       ? d.checkpoints.map((c) => `<div class="kv"><span>👮 ${c.name}</span><small>${fmt('csgt.until', { time: c.until })} · ${c.dist}</small></div>`).join('')

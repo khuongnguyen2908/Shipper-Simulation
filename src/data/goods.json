@@ -256,6 +256,171 @@
       "bikeHp": 0
     }
   },
+  "nuocSuoi": {
+    "id": "nuocSuoi",
+    "name": "Chai nước suối",
+    "icon": "💧",
+    "price": 5,
+    "desc": "Mát lạnh, giải khát nhanh.",
+    "type": "consumable",
+    "use": {
+      "minutes": 1,
+      "phys": 6,
+      "mental": 0,
+      "fuel": 0,
+      "bikeHp": 0
+    }
+  },
+  "suaHop": {
+    "id": "suaHop",
+    "name": "Hộp sữa",
+    "icon": "🥛",
+    "price": 8,
+    "desc": "Uống liền một hơi cho có sức.",
+    "type": "consumable",
+    "use": {
+      "minutes": 1,
+      "phys": 10,
+      "mental": 0,
+      "fuel": 0,
+      "bikeHp": 0
+    }
+  },
+  "lonSoda": {
+    "id": "lonSoda",
+    "name": "Lon soda",
+    "icon": "🥫",
+    "price": 10,
+    "desc": "Ga sủi tê tê, đỡ khát đỡ chán.",
+    "type": "consumable",
+    "use": {
+      "minutes": 1,
+      "phys": 8,
+      "mental": 4,
+      "fuel": 0,
+      "bikeHp": 0
+    }
+  },
+  "chaiTraXanh": {
+    "id": "chaiTraXanh",
+    "name": "Chai trà xanh",
+    "icon": "🍵",
+    "price": 10,
+    "desc": "Trà xanh đóng chai, ngọt nhẹ.",
+    "type": "consumable",
+    "use": {
+      "minutes": 1,
+      "phys": 8,
+      "mental": 3,
+      "fuel": 0,
+      "bikeHp": 0
+    }
+  },
+  "xucXich": {
+    "id": "xucXich",
+    "name": "Xúc xích",
+    "icon": "🌭",
+    "price": 10,
+    "desc": "Nướng nóng tại quầy, ăn chống đói.",
+    "type": "consumable",
+    "use": {
+      "minutes": 2,
+      "phys": 13,
+      "mental": 0,
+      "fuel": 0,
+      "bikeHp": 0
+    }
+  },
+  "bichSnack": {
+    "id": "bichSnack",
+    "name": "Bịch snack",
+    "icon": "🍟",
+    "price": 10,
+    "desc": "Nhai rôm rốp lúc chờ đơn.",
+    "type": "consumable",
+    "use": {
+      "minutes": 2,
+      "phys": 8,
+      "mental": 5,
+      "fuel": 0,
+      "bikeHp": 0
+    }
+  },
+  "miLy": {
+    "id": "miLy",
+    "name": "Mì ly",
+    "icon": "🍜",
+    "price": 12,
+    "desc": "Chế nước sôi tại quầy, chờ 3 phút.",
+    "type": "consumable",
+    "use": {
+      "minutes": 8,
+      "phys": 18,
+      "mental": 2,
+      "fuel": 0,
+      "bikeHp": 0
+    }
+  },
+  "oBanhMi": {
+    "id": "oBanhMi",
+    "name": "Ổ bánh mì",
+    "icon": "🥖",
+    "price": 15,
+    "desc": "Bánh mì kẹp thịt, chắc bụng.",
+    "type": "consumable",
+    "use": {
+      "minutes": 5,
+      "phys": 22,
+      "mental": 2,
+      "fuel": 0,
+      "bikeHp": 0
+    }
+  },
+  "comNam": {
+    "id": "comNam",
+    "name": "Cơm nắm",
+    "icon": "🍙",
+    "price": 15,
+    "desc": "Cơm nắm rong biển, gọn nhẹ dễ ăn.",
+    "type": "consumable",
+    "use": {
+      "minutes": 5,
+      "phys": 22,
+      "mental": 0,
+      "fuel": 0,
+      "bikeHp": 0
+    }
+  },
+  "banhBao": {
+    "id": "banhBao",
+    "name": "Bánh bao",
+    "icon": "🥟",
+    "price": 15,
+    "desc": "Bánh bao nhân thịt trứng cút, nóng hổi.",
+    "type": "consumable",
+    "use": {
+      "minutes": 4,
+      "phys": 22,
+      "mental": 2,
+      "fuel": 0,
+      "bikeHp": 0
+    }
+  },
+  "comHop": {
+    "id": "comHop",
+    "name": "Cơm hộp",
+    "icon": "🍱",
+    "price": 35,
+    "desc": "Cơm hộp hâm nóng tại quầy, no tới chiều.",
+    "type": "consumable",
+    "use": {
+      "minutes": 10,
+      "phys": 45,
+      "mental": 5,
+      "fuel": 0,
+      "bikeHp": 0
+    }
+  },
   "nhang": {
     "id": "nhang",
     "name": "Nhang Thơm",

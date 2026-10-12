@@ -14,6 +14,7 @@ import { makeTileTexture, makeAsphaltTexture, makeSignTexture, makeGlowTexture, 
 import { HouseGeo, buildHouse, housesForLot, houseMaterial, houseTop } from './houses.js';
 import { buildPlace, buildResidential, mergeKits, makeKit, busStopModel, airportPath, AIRPORT_MIN_W } from './placeBuildings.js';
 import { Elevated } from './elevated.js';
+import { buildParkedBikes } from './parkedBikes.js';
 import { buildBridges, bridgeDecks, HUMP } from './bridges.js';
 import { lotFrame, airportZones } from '../sim/airport.js';
 import { lookOf, lookFloors } from '../data/looks.js';
@@ -45,6 +46,8 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   const grid = new SpatialGrid(16);
   // extra: { y0 (đáy khối, mặc định 0), cam (chỉ chặn camera) }
   const addBox = (x0, z0, x1, z1, h, tag, extra) => grid.add({ x0, z0, x1, z1, h, tag, ...extra });
+  const parkedBikes = []; // xe máy đậu (lề đường nhỏ, bãi giữ xe…) → world/parkedBikes.js vẽ bằng mẫu xe thật
+  const seats = []; // chỗ ngồi được (toạ độ thế giới): { x, y (mặt ghế), z, ry, placeId } — interactions.js → E "Ngồi"
   const dummy = new THREE.Object3D();
   const col = new THREE.Color();
   const W = LOT_W;
@@ -265,7 +268,6 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   const roadExtras = { medians: [], verges: [], vergeTrees: [] };
   {
     const vrng = makeRng(seed * 13 + 5);
-    const bikes = makeKit(); // xe máy đậu trên lề đường nhỏ: khối hộp đơn giản, toạ độ thế giới, gộp 1 lần
     const BIKE_COLS = [0xc0392b, 0x2c3e50, 0xecf0f1, 0x8e44ad, 0x2980b9, 0x7f8c8d, 0xd35400];
     for (const s of allSegments(mapData)) {
       const tier = tierAt(s.id);
@@ -285,17 +287,15 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
           const r = side < 0 ? rect(-CITY.ROAD / 2, -tg.half, a0, a1) : rect(tg.half, CITY.ROAD / 2, a0, a1);
           roadExtras.verges.push(r);
           const mid = side * (tg.half + CITY.ROAD / 2) / 2;
-          // xe máy đậu xếp hàng trên lề, thân xe vuông góc với đường (đầu xe quay ra lòng đường)
+          // xe máy đậu rải rác trên lề (xe thật, ~15% chỗ có xe), thân xe vuông góc với đường, đầu xe quay ra lòng đường
           for (let a = a0 + 1.5; a < a1 - 1; a += 1.1) {
-            if (vrng.next() < 0.62) continue;
+            if (vrng.next() < 0.85) continue;
             const [x, z] = pt(a, mid);
             const along = s.axis === 'x'; // đường dọc → thân xe nằm theo trục x
-            const B = (lx, ly, lz, w, h, d, col) => bikes.box(along ? lx : w, h, along ? w : lx, x + (along ? ly : 0), SW_H + lz, z + (along ? 0 : ly), col);
-            const col = BIKE_COLS[vrng.int(0, BIKE_COLS.length - 1)];
-            B(1.0, 0, 0.55, 0.28, 0.35, 0, col); // thân
-            B(0.55, -0.15, 0.78, 0.26, 0.1, 0, 0x222222); // yên
-            for (const o of [-0.55, 0.55]) B(0.55, o, 0.28, 0.08, 0.55, 0, 0x1b1b1b); // bánh
-            addBox(x - 0.4, z - 0.4, x + 0.4, z + 0.4, 1.0, 'bike');
+            const ry = (along ? -side * Math.PI / 2 : side < 0 ? 0 : Math.PI) + (vrng.next() - 0.5) * 0.25; // lệch chút cho tự nhiên
+            parkedBikes.push({ x, y: SW_H, z, ry, c: BIKE_COLS[vrng.int(0, BIKE_COLS.length - 1)] });
+            if (along) addBox(x - 0.9, z - 0.35, x + 0.9, z + 0.35, 1.0, 'bike');
+            else addBox(x - 0.35, z - 0.9, x + 0.35, z + 0.9, 1.0, 'bike');
           }
           for (let a = a0 + 4 + vrng.next() * 4; a < a1 - 2; a += 9 + vrng.next() * 5) roadExtras.vergeTrees.push(pt(a, side * (CITY.ROAD / 2 - 0.6)));
         }
@@ -316,7 +316,6 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
       mesh.castShadow = m !== swMat;
       scene.add(mesh);
     }
-    mergeKits([{ kit: bikes, matrix: new THREE.Matrix4() }], scene);
   }
 
   // lòng đường cũ giữa 2 khối đã gộp → mặt bằng cao như vỉa hè
@@ -551,6 +550,12 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     if (b.ramp) addRamp(p, b.ramp);
     if (b.barriers) for (const q of b.barriers) addBarrier(f, q);
     signMats.push(...b.glow);
+    {
+      // ghế của nhà này: toạ độ riêng → thế giới
+      const c = Math.cos(f.rotY), s = Math.sin(f.rotY);
+      for (const q of b.seats || []) seats.push({ x: f.x + q.x * c + q.z * s, y: q.y + SW_H, z: f.z - q.x * s + q.z * c, ry: q.ry + f.rotY, placeId: p.id });
+      for (const q of b.parked || []) parkedBikes.push({ x: f.x + q.x * c + q.z * s, y: SW_H, z: f.z - q.x * s + q.z * c, ry: q.ry + f.rotY, c: q.c });
+    }
     if (b.colliders === 'full') addBox(r.x0, r.z0, r.x1, r.z1, b.height + SW_H, 'place');
     else {
       // nhà mở (cây xăng): chỉ chắn cột, trụ bơm, cửa hàng — đổi khung riêng → thế giới
@@ -664,6 +669,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
       addBox(Math.min(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1])), Math.max(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[1])), 2.5, 'busStop');
     }
     mergeKits([{ kit: k, matrix: new THREE.Matrix4().makeTranslation(0, SW_H, 0) }], scene);
+    for (const q of k.seats) seats.push({ ...q, y: q.y + SW_H, busStop: true });
   }
   const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.11, 0.18, 3, 6), mat(0x6e4b2a), trees.length);
   const pitFrame = new THREE.InstancedMesh(new THREE.BoxGeometry(1.25, 0.05, 1.25), mat(0xb9b4ab), trees.length);
@@ -830,6 +836,9 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     floods.set(id, m);
   }
 
+  // xe máy đậu: vẽ bằng mẫu xe thật, chỉ hiện quanh người chơi (game.js gọi parked.update mỗi khung hình)
+  const parked = buildParkedBikes(scene, parkedBikes);
+
   // ---------- đổi theo giờ / thời tiết ----------
   const dryColor = new THREE.Color(0xffffff), wetColor = new THREE.Color(0x9fa4ad);
   return {
@@ -838,6 +847,8 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     loops, // đường vòng cho xe bot (traffic.addLoop)
     barriers, // barie chân dốc sân bay (giữa cần chắn: x, z)
     bus, // xe buýt: tuyến + trạm (src/sim/bus.js)
+    seats, // chỗ ngồi được (ghế quán, ghế đá công viên, ghế trạm xe buýt…)
+    parked, // xe máy đậu (lề đường, bãi giữ xe…): parked.update(x, z) hiện các ô gần
     // mỗi khung hình: nâng / hạ cần barie theo xe bot gần đó
     update(dt, cars = []) {
       for (const b of barriers) {

@@ -40,14 +40,14 @@ export const HINT = {
 
   // ---------- đồ dùng ----------
   goods: {
-    price: '0–100 000k. Tham khảo: cà phê 20k (+30 tinh thần) · phở 35k (+45 thể lực) · nước tăng lực 15k (+25 thể lực).',
+    price: '0–100 000k. Tham khảo: cà phê 20k (+30 tinh thần) · bánh mì 15k (+22 thể lực) · cơm hộp 35k (+45 thể lực) · nước tăng lực 15k (+25 thể lực).',
     type: 'Dùng 1 lần: mua được nhiều, mỗi lần dùng mất 1. Trang bị: mua 1 lần, tác dụng mãi (kể cả các ngày sau). Dùng tại địa điểm: chỉ mang theo, đem tới nơi có hoạt động cần nó (vd nhang → chùa). Trang phục: áo / quần / mũ bảo hiểm của shipper, mua rồi về tủ đồ phòng trọ để mặc; giá 0 = có sẵn.',
     carry: 'Tác dụng (tinh thần, thời gian…) đặt ở hoạt động của nơi dùng, không đặt ở đây. Món giữ qua các ngày.',
   },
   use: {
     minutes: '0–240 phút. Thời gian trôi khi dùng (trong lúc đó không chạy đơn). 1 = dùng liền.',
-    phys: '−100 → +100. Thanh thể lực 0–100, về 0 là THUA. Tham khảo: phở +45 · nước tăng lực +25.',
-    mental: '−100 → +100. Thanh tinh thần 0–100, về 0 là THUA. Tham khảo: cà phê +30 · đọc sách +20.',
+    phys: '−100 → +100. Thanh thể lực 0–100, về 0 là ngất (về nhà nằm 6 tiếng, mất tiền thuốc). Đồ ăn uống là cách chính để hồi thể lực (ngoài ngủ / chợp mắt). Tham khảo: bánh mì +22 · cơm hộp +45 · nước tăng lực +25.',
+    mental: '−100 → +100. Thanh tinh thần 0–100, về 0 là suy sụp (về nhà nằm 6 tiếng). Tham khảo: cà phê +30 · đọc sách +20.',
     fuel: '0–10 lít đổ thêm vào bình (không vượt dung tích bình). Ở cây xăng 1 lít = 23k.',
     bikeHp: '0–100. Độ bền xe 0–100%; sửa xe ở tiệm 40k về 100%.',
   },
@@ -68,8 +68,8 @@ export const HINT = {
     label: 'Chữ trên nút trong hộp thoại, vd "Ăn một tô phở".',
     cost: '0–10 000k. Trừ tiền ngay khi làm. Tham khảo: cà phê 20k · phở 35k · karaoke 80k.',
     minutes: '0–480 phút. Thời gian trôi trong lúc làm (đồng hồ chạy 24h; ngủ ở phòng trọ để hồi sức).',
-    phys: '−100 → +100, cộng/trừ ngay. ⚠️ Thanh về 0 là THUA; −100 = thua chắc. Tham khảo: ăn phở +45 · hát karaoke −5.',
-    mental: '−100 → +100, cộng/trừ ngay. ⚠️ Thanh về 0 là THUA. Tham khảo: cà phê +30 · hát karaoke +40.',
+    phys: 'Nên để 0: địa điểm chỉ dùng để tăng / giảm tinh thần. Thể lực hồi bằng đồ ăn uống (mua ở Triangle K…) và ngủ / chợp mắt.',
+    mental: '−100 → +100, cộng/trừ ngay. ⚠️ Thanh về 0 là suy sụp. Tham khảo: cà phê +30 · hát karaoke +40.',
     perDay: '0 = không giới hạn. Vd hát karaoke 1 lần/ngày, đọc sách 3 lần/ngày.',
     stopOnOrder: 'Tick: đang làm mà có đơn mời thì dừng ngay để nhận đơn (vd "Ngồi cà phê chờ đơn" 60 phút). Tiền và thể lực / tinh thần vẫn tính đủ. Không tick: làm xong mới xem điện thoại.',
     needs: 'Người chơi phải mang theo đồ này (mua ở nơi khác) mới làm được; làm xong trừ đúng số lượng. Vd chùa "Thắp nhang" cần 1 Bó nhang. Số bên cạnh = số cái cần.',
@@ -164,19 +164,20 @@ export const EXPLAIN = {
     <p>Trễ giờ cũng trừ sao (trễ ≤ 25%: −1, ≤ 50%: −2, hơn nữa: −3). Điểm đánh giá dưới <b>4,0</b> → app khóa tài khoản → thua.</p>
     <p>Tiền mỗi đơn ≈ cước − 20% phí − 1,5% thuế + thưởng quãng đường (6k/km) + boa (4★: 3k, 5★: 8k). Bot chơi thử lãi trung bình ~39k/đơn → tiền nhà kỳ 1 (3 ngày, 1.000k) cần khoảng 26 đơn.</p>`],
   goods: ['Thể lực, tinh thần và đồ dùng', `
-    <p>Hai thanh <b>thể lực</b> và <b>tinh thần</b> từ 0 đến 100, đầu ngày đầy. Về 0 là <b>thua</b> (ngất / suy sụp). Thanh không vượt quá 100.</p>
-    ${T([['Thứ', 'Thể lực', 'Tinh thần'], ['Ăn phở / cơm tấm (35k)', '+45', '+5'], ['Cà phê / trà sữa (20k)', '+5', '+30'], ['Nước tăng lực (15k)', '+25', '+5'], ['Cả ngày tụt dần (chạy xe, nắng, chờ, kẹt xe)', '≈ −40 đến −60', '≈ −20 đến −40'], ['Leo thang chung cư (mỗi tầng)', '−3,5', ''], ['Bị CSGT phạt · bị 1★ · đơn bị hủy', '', '−10 · −12 · −6']])}
+    <p>Hai thanh <b>thể lực</b> và <b>tinh thần</b> từ 0 đến 100, đầu ngày đầy. Về 0 là <b>ngất / suy sụp</b>: về nhà nằm 6 tiếng (ngất mất thêm tiền thuốc). Thanh không vượt quá 100.</p>
+    <p><b>Thể lực</b> hồi bằng <b>đồ ăn uống</b> (dùng 1 lần, mua ở Triangle K…) và ngủ / chợp mắt. <b>Hoạt động ở địa điểm</b> chỉ cộng / trừ <b>tinh thần</b>.</p>
+    ${T([['Thứ', 'Thể lực', 'Tinh thần'], ['Bánh mì / cơm nắm (15k)', '+22', '0 – +2'], ['Cơm hộp (35k)', '+45', '+5'], ['Nước tăng lực (15k)', '+25', '+5'], ['Cà phê / trà sữa ở quán (20k)', '', '+30'], ['Cả ngày tụt dần (chạy xe, nắng, chờ, kẹt xe)', '≈ −40 đến −60', '≈ −20 đến −40'], ['Leo thang chung cư (mỗi tầng)', '−3,5', ''], ['Bị CSGT phạt · bị 1★ · đơn bị hủy', '', '−10 · −12 · −6']])}
     <p><b>Dùng 1 lần</b>: cộng/trừ ngay khi dùng từ túi đồ (phím I). <b>Trang bị</b>: tác dụng lâu dài; "Hao … (%)" làm thanh tụt chậm/nhanh hơn theo %, chỉ với phần tụt dần (không giảm các cú trừ ngay như bị phạt, té xe).</p>`],
   vehicles: ['Xe ảnh hưởng gì', `
     <p>Xe nhanh giao kịp giờ hơn (ít bị trừ sao trễ giờ) nhưng hao xăng hơn, và chạy quá <b>40 km/h</b> qua chốt CSGT bị phạt <b>150k</b>. Giảm xóc tốt làm hàng ít hư khi qua ổ gà. Xem bảng <b>So sánh cả nhóm</b> ở cuối trang.</p>`],
   bags: ['Túi ảnh hưởng gì', `
     <p>Túi quyết định <b>loại đơn nhận được</b> (giữ nhiệt ≥ 50% mới có đơn trà sữa, kem) và <b>hàng hư nhanh hay chậm</b>. Số ô = số món chở cùng lúc. Thẻ 📦 Vật phẩm có biểu đồ xem trước món hư thế nào với từng túi.</p>`],
   act: ['Hoạt động hoạt động thế nào', `
-    <p>Khi người chơi bấm E ở cửa (trong giờ mở cửa), hộp thoại hiện các hoạt động. Chọn một hoạt động: <b>trừ tiền</b> → <b>thời gian trôi</b> đúng số phút → <b>cộng/trừ thể lực, tinh thần</b> ngay.</p>
-    ${T([['Hoạt động mẫu', 'Giá', 'Phút', 'Thể lực', 'Tinh thần', 'Lần/ngày'], ['Ăn tô phở', '35k', '15', '+45', '+5', '∞'], ['Cà phê sữa đá', '20k', '10', '+5', '+30', '∞'], ['Đọc sách tại chỗ', '5k', '30', '+5', '+20', '3'], ['Hát karaoke 1 tiếng', '80k', '60', '−5', '+40', '1']])}
+    <p>Khi người chơi bấm E ở cửa (trong giờ mở cửa), hộp thoại hiện các hoạt động. Chọn một hoạt động: <b>trừ tiền</b> → <b>thời gian trôi</b> đúng số phút → <b>cộng/trừ tinh thần</b> ngay. Thể lực của hoạt động để <b>0</b> (thể lực hồi bằng đồ ăn uống, ngủ / chợp mắt).</p>
+    ${T([['Hoạt động mẫu', 'Giá', 'Phút', 'Thể lực', 'Tinh thần', 'Lần/ngày'], ['Ăn tô phở', '35k', '15', '0', '+5', '∞'], ['Cà phê sữa đá', '20k', '10', '0', '+30', '∞'], ['Đọc sách tại chỗ', '5k', '30', '0', '+20', '3'], ['Hát karaoke 1 tiếng', '80k', '60', '0', '+40', '1']])}
     <p><b>Dừng khi có đơn</b>: đang làm mà điện thoại reo thì dừng ngay để nhận đơn — hợp với kiểu "ngồi cà phê chờ đơn". <b>Chợp mắt</b>: tick ô 💤 dưới danh sách hoạt động để người chơi ngủ ngắn ở đây khi vắng đơn.</p>
     <p><b>Cần đồ</b>: hoạt động chỉ làm được khi người chơi mang theo món đó (mua ở nơi khác, vd mua nhang ở tiệm trà rồi đem tới chùa thắp). Thiếu đồ thì nút mờ và ghi nơi bán.</p>
-    <p>⚠️ Số âm lớn (dưới −30) có thể làm người chơi đang yếu thua ngay; <b>−100 là thua chắc</b>.</p>`],
+    <p>⚠️ Số âm lớn (dưới −30) có thể làm người chơi đang yếu ngất / suy sụp ngay.</p>`],
   map: ['Bản đồ hoạt động thế nào', `
     <p>Thành phố là lưới khối nhà, giữa các khối là đường lớn. Khối <b>không hẻm</b> có 8 lô quanh mép (như cũ). Khối <b>có hẻm</b> được chia lại: nhà mặt phố dọc 4 cạnh + mạng hẻm bên trong + nhà hai bên hẻm; phần còn lại là nhà phía sau (không có cửa).</p>
     <p>Địa điểm đặt được vào nhà trong hẻm (quán trong hẻm): chọn khối có hẻm ở thẻ Địa điểm rồi bấm vào một nhà. Đổi kiểu / hướng hẻm sẽ xếp lại nhà → các địa điểm trong khối đó cần chọn lại lô.</p>

@@ -80,6 +80,8 @@ export const BALANCE_GROUPS = [
       ['energy.sleep.napLongMin', 'Ngủ một giấc ngắn: mấy phút', { min: 5, max: 480, step: 5, hint: 'Mặc định 120 (2 tiếng).' }],
       ['energy.sleep.napMul', 'Chợp mắt hồi bằng × ngủ ở nhà', { min: 0, max: 2, step: 0.05, hint: 'Ngủ võng / gục ở quán kém giường nhà. 0,6 = hồi 60% (2 tiếng ≈ +14 thể lực, +12 tinh thần). Mặc định 0,6.' }],
       ['energy.sleep.napAwakeCut', 'Chợp mắt: mỗi phút ngủ bớt mấy phút "đã thức"', { min: 0, max: 20, step: 0.5, hint: 'Đỡ buồn ngủ. 4 = ngủ 2 tiếng như bớt 8 tiếng thức. Mặc định 4.' }],
+      ['energy.seat.mentalPerMin', 'Ngồi ghế: hồi tinh thần mỗi phút', { min: 0, max: 2, step: 0.01, hint: 'Ngồi ghế quán / ghế đá công viên / ghế trạm xe buýt (bấm E). 0,1 = ngồi 10 phút +1. 0 = ngồi chỉ cho vui. Mặc định 0,1.' }],
+      ['energy.seat.mentalMax', 'Ngồi ghế: hồi tới tối đa', { min: 0, max: 100, step: 1, hint: 'Ngồi chơi chỉ kéo tinh thần lên tới mức này (muốn vui hơn thì ghé quán / địa điểm). Mặc định 70.' }],
       ['energy.collapse.hours', 'Kiệt sức: nằm nghỉ bắt buộc (giờ)', { min: 0, max: 24, step: 0.5, hint: 'Ngất / suy sụp → về phòng trọ nằm, đơn đang chạy bị hủy. Mặc định 6.' }],
       ['energy.collapse.phys', 'Sau khi ngất: thể lực còn', { min: 1, max: 100, step: 1, hint: 'Mặc định 40.' }],
       ['energy.collapse.mental', 'Sau khi suy sụp: tinh thần còn', { min: 1, max: 100, step: 1, hint: 'Mặc định 40.' }],

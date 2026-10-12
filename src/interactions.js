@@ -23,6 +23,7 @@ import { inGarage, parkSlots, PARK_SLOTS } from './sim/garage.js';
 import { uniformOf } from './sim/GameState.js';
 import { signaturePad } from './ui/signature.js';
 import { splitPages } from './ui/modal.js';
+import { lookOf } from './data/looks.js';
 import { headOf } from './ui/bubbles.js';
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -114,6 +115,13 @@ export function gatherInteractions(g) {
     const d = dist(p, stop.wait) - 0.6;
     E.push(foot ? { label: fmt('act.bus', { stop: stop.name }), dist: d, busStop: stop.id, run: () => busDialog(g, stop) } : { label: fmt('act.busNeedFoot'), dist: d, busStop: stop.id, disabled: true });
   }
+  // ghế (quán, công viên, trạm xe buýt…): đứng sát ghế bấm E ngồi · đang ngồi thì E đứng dậy (bấm đi cũng đứng dậy)
+  if (foot && g.walker.seat) E.push({ label: fmt('act.standUp'), dist: -5, seatAct: true, run: () => g.walker.leaveSeat() });
+  else if (foot) {
+    // đứng sát ghế (≤ 0,9 m) thì "Ngồi" được ưu tiên hơn cửa quán ngay bên cạnh (đôn quán ăn đặt sát cửa)
+    const s = nearestSeat(g, p, 0.9);
+    if (s) E.push({ label: fmt('act.sit'), dist: s.d - 0.5, seatAct: true, run: () => g.walker.sitSeat(s.seat) });
+  }
   if (foot || slow) {
     const ped = g.traffic.nearestPed(p.x, p.z, foot ? 2.6 : 3.5);
     if (ped) E.push({ label: fmt('act.talkPed', { name: ped.name }), dist: dist(p, ped) + 0.5, run: () => talkPed(g, ped) });
@@ -124,7 +132,19 @@ export function gatherInteractions(g) {
   return out;
 }
 
+// Ghế trống gần nhất trong bán kính r (cùng độ cao: không ngồi được ghế dưới gầm cầu khi đang ở trên cầu)
+function nearestSeat(g, p, r) {
+  const y = g.walker.mesh.position.y;
+  let best = null;
+  for (const seat of g.city.seats || []) {
+    const d = Math.hypot(seat.x - p.x, seat.z - p.z);
+    if (d < r && Math.abs(seat.y - y) < 1.2 && (!best || d < best.d)) best = { seat, d };
+  }
+  return best;
+}
+
 function mount(g) {
+  g.walker.leaveSeat(false);
   g.gs.parked = null; // hết lần đậu
   g.mode = 'bike';
   g.walker.sitOn(g.bike);
@@ -273,7 +293,7 @@ export function phoneAction(g, a, ds) {
   else if (a === 'cancel') confirmCancel(g);
   else if (a === 'cancelFlood') confirmFloodCancel(g);
   else if (a === 'wallet') viewWallet(g);
-  else if (a === 'waypoint' && g.layout.placeById[ds?.id]) g.waypoint = ds.id; // bản đồ điện thoại: Chỉ đường
+  else if (a === 'waypoint' && (g.layout.placeById[ds?.id] || g.bus?.byId?.[String(ds?.id).replace(/^stop:/, '')])) g.waypoint = ds.id; // bản đồ điện thoại: Chỉ đường (địa điểm hoặc 'stop:<trạm>')
   else if (a === 'waypointClear') g.waypoint = null;
   else if (a === 'wantFood' || a === 'wantRide') toggleWant(g, a === 'wantFood' ? 'food' : 'ride');
   else if (a === 'findBike') findBike(g);
@@ -770,9 +790,21 @@ export function placeAction(g, pl) {
     case 'market': return (pl.activities || []).length || hasStock(pl) ? generic('act.market') : null;
     case 'police': return generic('act.police', { run: () => openPlace(g, pl, policeChoices(g, pl)) });
     // cảnh quan (công viên, đất trống…): chỉ có nút E khi đã thêm hoạt động / hàng bán ở thẻ Địa điểm
-    case 'scenery': return (pl.activities || []).length || hasStock(pl) ? generic('act.scenery') : null;
+    // · bãi giữ xe: E xem bảng luật gửi xe (đi xe hay đi bộ đều xem được)
+    case 'scenery':
+      if ((pl.activities || []).length || hasStock(pl)) return generic('act.scenery');
+      return lookOf(pl) === 'parkingLot' ? { label: fmt('act.parkInfo', p), parkLot: pl.id, disabled: g.mode !== 'foot' && Math.abs(g.bike.speed) > 1.2, run: () => parkingInfo(g, pl) } : null;
     default: return generic('act.service'); // 'service' và mọi loại mới tạo trong công cụ
   }
+}
+
+// Bảng thông tin ở bãi giữ xe: phí gửi, luật đậu xe ngoài đường (số lấy từ thẻ ⚖️ Cân bằng → parking)
+function parkingInfo(g, pl) {
+  const n = npc(g, pl.id);
+  say(g, n.name, n.portrait, fmt('dlg.parkInfo', {
+    fee: PARKING.fee ?? 5, grace: PARKING.graceMin ?? 20, ticket: PARKING.ticketFine ?? 50, days: PARKING.fineDays ?? 3,
+    tow: PARKING.towFee ?? 150, towFrom: PARKING.towFrom ?? 7, towTo: PARKING.towTo ?? 18,
+  }));
 }
 
 const hasStock = (pl) => !!pl.sells && ['goods', 'bags', 'vehicles'].some((k) => (pl.sells[k] || []).length);

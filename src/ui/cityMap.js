@@ -3,6 +3,8 @@
 // Thu nhỏ: điểm gần nhau gộp thành vòng có số · phóng gần: biểu tượng + tên (không chồng chữ).
 // Chạm một địa điểm → thẻ thông tin + nút Chỉ đường (handlers.action('waypoint', { id })).
 // Tìm kiếm: gõ tên / loại (bỏ dấu cũng được) hoặc bấm nút loại nhanh → danh sách xếp theo gần nhất; bản đồ chỉ hiện chỗ khớp.
+// Trạm xe buýt: hiện khi bật lọc 🚌 (phóng gần) · nút "🚏 Trạm gần nhất" chọn trạm gần nhất theo đường đi bộ thật.
+// Xe đang bị giữ ở đồn công an (d.planFor): thẻ địa điểm / trạm ghi thêm cách đi xe buýt tuyến nào.
 import { CITY, HALF, roadPos, blockBounds, segmentRect, roadGraph, joinList, joinGap, routeDist } from '../sim/cityLayout.js';
 import { allSegments, tierOf, TIER_GEO } from '../sim/roads.js';
 import { STREETS_X, STREETS_Z } from '../data/places.js';
@@ -66,7 +68,7 @@ export class CityMap {
     try { saved = JSON.parse(localStorage.getItem(STORE) || 'null'); } catch { saved = null; }
     this.on = new Set(Array.isArray(saved) ? saved : FILTERS.filter(([id]) => id !== 'park').map(([id]) => id));
     this.el.innerHTML = `<div class="cm-top"><input class="cm-q" type="search" placeholder="${fmt('map.searchPh')}"><button data-ft="1" class="cm-ft">${fmt('map.filter')}</button></div>
-      <div class="cm-types">${TYPES.map(([id, ic, key]) => `<button data-t="${id}">${ic} ${fmt(key)}</button>`).join('')}</div>
+      <div class="cm-types"><button data-near="stop">🚏 ${fmt('map.nearStop')}</button>${TYPES.map(([id, ic, key]) => `<button data-t="${id}">${ic} ${fmt(key)}</button>`).join('')}</div>
       <div class="cm-filters hidden">${FILTERS.map(([id, ic, , key]) => `<button data-f="${id}">${ic} ${fmt(key)}</button>`).join('')}</div>
       <div class="cm-view"><canvas></canvas><div class="cm-results hidden"></div>
         <div class="cm-zoom"><button data-z="in" title="${fmt('map.zoomIn')}">＋</button><button data-z="out" title="${fmt('map.zoomOut')}">－</button><button data-z="me" title="${fmt('map.center')}">◎</button></div>
@@ -89,6 +91,7 @@ export class CityMap {
     this.qEl.addEventListener('keydown', (e) => { if (e.key === 'Escape') this.qEl.blur(); });
     this.syncFilters();
     this.el.addEventListener('click', (e) => {
+      if (e.target.closest('[data-near]')) return this.nearestStop();
       const t = e.target.closest('[data-t]');
       if (t) {
         this.type = this.type === t.dataset.t ? null : t.dataset.t;
@@ -132,7 +135,7 @@ export class CityMap {
       }
       const b = e.target.closest('[data-cm]');
       if (b && this.sel) {
-        if (b.dataset.cm === 'route') this.handlers.action('waypoint', { id: this.sel.id });
+        if (b.dataset.cm === 'route') this.handlers.action('waypoint', { id: this.sel.stop ? `stop:${this.sel.stop.id}` : this.sel.id });
         else if (b.dataset.cm === 'clear') this.handlers.action('waypointClear', {});
         else if (b.dataset.cm === 'close') this.select(null);
       }
@@ -149,8 +152,10 @@ export class CityMap {
       if (!drag.moved && Math.hypot(dx, dy) < 5) return;
       drag.moved = true;
       this.follow = false;
-      this.view.cx -= dx / this.view.k;
-      this.view.cz -= dy / this.view.k;
+      // điện thoại đang thu nhỏ (--ph-s) → đổi khoảng kéo trên màn hình về điểm ảnh của bản đồ
+      const s = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ph-s')) || 1;
+      this.view.cx -= dx / s / this.view.k;
+      this.view.cz -= dy / s / this.view.k;
       drag.x = e.clientX;
       drag.y = e.clientY;
     });
@@ -163,6 +168,20 @@ export class CityMap {
       e.stopPropagation();
       this.zoomAt(e.deltaY < 0 ? 1.25 : 1 / 1.25, e.offsetX, e.offsetY);
     }, { passive: false });
+  }
+
+  // Nút "🚏 Trạm gần nhất": chọn trạm xe buýt gần nhất (theo đường đi bộ thật), đưa bản đồ tới đó
+  nearestStop() {
+    const d = this.last;
+    const stops = d?.bus?.stops || [];
+    if (!stops.length) return;
+    const st = stops.map((s) => ({ s, dist: routeDist(d.player, s.wait) })).sort((a, b) => a.dist - b.dist)[0].s;
+    this.clearSearch();
+    this.select({ stop: st });
+    this.follow = false;
+    this.view.cx = st.wait.x;
+    this.view.cz = st.wait.z;
+    this.view.k = Math.max(this.view.k, 2.2);
   }
 
   // Bỏ nút loại đang chọn + chữ đang tìm (bản đồ hiện lại theo bộ lọc)
@@ -194,6 +213,7 @@ export class CityMap {
     const hit = this.hits.filter((h) => Math.hypot(h.x - x, h.y - y) <= h.r + 4).sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0];
     this.listOpen = false;
     if (!hit) return this.select(null);
+    if (hit.stop) return this.select({ stop: hit.stop });
     if (hit.cluster) { // vòng gộp: phóng gần vào đó
       this.follow = false;
       this.view.cx = hit.cluster.x;
@@ -214,7 +234,9 @@ export class CityMap {
   renderCard(d) {
     const p = this.sel;
     if (!p) return;
+    if (p.stop) return this.renderStopCard(d, p.stop);
     const dist = fmtDist(routeDist(d.player, p.door)); // theo đường đi thật
+    const plan = d.planFor?.(p); // xe đang ở đồn: đi xe buýt tuyến nào
     const grp = placeGroup(p), f = FILTERS.find(([id]) => id === grp), tp = typeOf(p);
     const open = isOpen(p, d.now, d.day);
     const hours = fmtHours(p.hours) || fmt('map.allDay');
@@ -227,10 +249,25 @@ export class CityMap {
     const html = `<div class="cm-c1"><b>${iconOf(p)} ${p.name}</b><button data-cm="close">✕</button></div>
       <small>${tp ? fmt(tp[2]) : f ? fmt(f[3]) : ''}${p.address ? ' · ' + p.address : ''} · ${dist}</small>
       ${brand}<small class="${open && !p.soon ? 'ok' : 'warn'}">${status}</small>
+      ${plan ? `<small class="cm-plan">${plan}</small>` : ''}
       ${d.busy ? `<small>${fmt('map.busy')}</small>` : routed ? `<button class="btn small" data-cm="clear">${fmt('map.unroute')}</button>` : `<button class="btn small primary${tut}" data-cm="route">${fmt('map.route')}</button>`}`;
     if (html === this.cardKey) return;
     this.cardKey = html;
     morph(this.card, html); // sửa tại chỗ: nút Chỉ đường không bị dựng lại khi khoảng cách đổi
+    this.card.classList.remove('hidden');
+  }
+
+  // Thẻ trạm xe buýt: tên, các tuyến đi qua (màu tuyến), khoảng cách đi bộ, nút Chỉ đường
+  renderStopCard(d, st) {
+    const routed = d.waypoint && d.waypoint.id === `stop:${st.id}`;
+    const routes = st.routes.map((ref) => d.bus.routeById[ref.id]).filter(Boolean)
+      .map((r) => `<span class="cm-route" style="border-color:${r.color}">${r.name}</span>`).join('');
+    const html = `<div class="cm-c1"><b>🚏 ${st.name}</b><button data-cm="close">✕</button></div>
+      <small>${fmt('map.stopKind')} · ${fmtDist(routeDist(d.player, st.wait))}</small>${routes ? `<div class="cm-routes">${routes}</div>` : ''}
+      ${d.busy ? `<small>${fmt('map.busy')}</small>` : routed ? `<button class="btn small" data-cm="clear">${fmt('map.unroute')}</button>` : `<button class="btn small primary" data-cm="route">${fmt('map.route')}</button>`}`;
+    if (html === this.cardKey) return;
+    this.cardKey = html;
+    morph(this.card, html);
     this.card.classList.remove('hidden');
   }
 
@@ -262,6 +299,7 @@ export class CityMap {
   // d: mapData của game + { now, day, route, ferries, waypoint, busy }
   draw(d) {
     const { c, g } = this;
+    this.last = d;
     // hướng dẫn người mới (chưa vào hãng): nhấp nháy nút "Văn phòng hãng"
     if (d.tut !== this.tutKey) {
       if (this.tutKey === 'route' && this.type === 'office') this.clearSearch(); // xong hướng dẫn: bỏ chọn sẵn nút "Văn phòng hãng"
@@ -457,6 +495,20 @@ export class CityMap {
           g.fillText(t, x, y + r + 7.5);
         }
       }
+    }
+    // trạm xe buýt: khi bật lọc 🚌 (hoặc đang chọn 1 trạm), phóng gần mới hiện cho đỡ rối
+    const selStop = this.sel?.stop;
+    if (k >= CLUSTER_BELOW && (this.on.has('transit') || selStop) && !match) {
+      for (const st of d.bus?.stops || []) {
+        if (!vis(st.wait.x, st.wait.z) || (!this.on.has('transit') && st !== selStop)) continue;
+        const x = X(st.wait.x), y = Z(st.wait.z), r = st === selStop ? 10 : 7;
+        badge(x, y, '🚏', '#16a085', r);
+        this.hits.push({ x, y, r: r + 2, stop: st });
+      }
+    } else if (selStop && vis(selStop.wait.x, selStop.wait.z)) {
+      const x = X(selStop.wait.x), y = Z(selStop.wait.z);
+      badge(x, y, '🚏', '#16a085', 10);
+      this.hits.push({ x, y, r: 12, stop: selStop });
     }
     // CSGT đã biết, xe đang dựng, điểm đến
     for (const p of d.police || []) if (vis(p.x, p.z)) badge(X(p.x), Z(p.z), '👮', COLOR.police, 9);

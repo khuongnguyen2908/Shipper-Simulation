@@ -173,7 +173,14 @@ export function makeQuestTexture() {
 // Nhãn nổi trên đầu NPC
 export function makeLabelTexture(text, bg = 'rgba(20,24,32,0.8)') {
   const [c, g] = canvas(512, 96);
-  g.font = '700 44px "Segoe UI", Arial, sans-serif';
+  // chữ dài thì co cỡ chữ cho vừa khung (không bị cắt 2 đầu)
+  let size = 44;
+  g.font = `700 ${size}px "Segoe UI", Arial, sans-serif`;
+  const tw = g.measureText(text).width;
+  if (tw > 460) {
+    size = Math.max(24, Math.floor((size * 460) / tw));
+    g.font = `700 ${size}px "Segoe UI", Arial, sans-serif`;
+  }
   const w = Math.min(500, g.measureText(text).width + 40);
   g.fillStyle = bg;
   const x = (512 - w) / 2;

@@ -178,6 +178,11 @@ function matFor(kind) {
 class Kit {
   constructor() {
     this.parts = new Map();
+    this.parked = []; // xe máy đậu (vẽ bằng mẫu xe thật ở world/parkedBikes.js): { x, z, ry, c } — toạ độ riêng của kit
+    this.seats = []; // chỗ ngồi được (người chơi bấm E ngồi): { x, y (mặt ghế), z, ry (hướng mặt người ngồi) } — toạ độ riêng của kit
+  }
+  seat(x, y, z, ry = 0) {
+    this.seats.push({ x, y, z, ry });
   }
   add(geo, color, kind = '', x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, ao = 0.8) {
     if (!this.parts.has(kind)) this.parts.set(kind, new PartList(kind.startsWith('tex:') || kind.startsWith('glow:')));
@@ -323,12 +328,9 @@ function tileRoofZ(k, len, d, h, x, y, z) {
 }
 
 // xe máy đậu dáng đơn giản (gộp chung vào bộ khối, bãi giữ xe bày nhiều xe mà không nặng)
-function parkedBike(k, x, z, c) {
-  for (const dz of [-0.62, 0.62]) k.cyl(0.3, 0.3, 0.1, x, 0.3, z + dz, 0x1b1b1b, '', 10, [0, 0, PI / 2]);
-  k.box(0.28, 0.35, 1.0, x, 0.55, z, c);
-  k.box(0.26, 0.1, 0.55, x, 0.78, z + 0.2, 0x222222);
-  k.box(0.08, 0.5, 0.08, x, 0.85, z - 0.55, 0x555555);
-  k.box(0.6, 0.05, 0.05, x, 1.1, z - 0.58, 0x333333);
+// xe máy đậu: chỉ ghi chỗ + màu, thân xe dọc trục z, đầu xe quay về −z (ry = π); city.js vẽ bằng mẫu xe thật
+function parkedBike(k, x, z, c, ry = PI) {
+  k.parked.push({ x, z, ry, c });
 }
 
 // ======================= TỪNG KIỂU NHÀ =======================
@@ -338,7 +340,11 @@ const BUILD = {
   tube(k, o) {
     const sh = shell(o, { ground: o.kind === 'home' || o.kind === 'gate' ? 'home' : 'shop' });
     if (o.kind !== 'home' && o.kind !== 'gate') awning(k, o.W, hexNum(o.signBg, 0x1e8449));
-    if (!o.inAlley && (o.kind === 'restaurant' || o.kind === 'cafe')) for (let i = 0; i < 4; i++) stool(k, (i / 3 - 0.5) * (o.W - 3), 2.2 + (i % 2) * 0.6, o.kind === 'cafe' ? 0x2e86c1 : 0xe74c3c);
+    if (!o.inAlley && (o.kind === 'restaurant' || o.kind === 'cafe')) for (let i = 0; i < 4; i++) {
+      const x = (i / 3 - 0.5) * (o.W - 3), z = 2.2 + (i % 2) * 0.6;
+      stool(k, x, z, o.kind === 'cafe' ? 0x2e86c1 : 0xe74c3c);
+      k.seat(x, 0.4, z, 0);
+    }
     return { shell: sh, sign: o.kind === 'gate' ? null : { y: 3.7 }, height: houseTop(o.floors) };
   },
 
@@ -361,6 +367,8 @@ const BUILD = {
       table(k, x, z, c);
       stool(k, x - 0.45, z + 0.1, c);
       stool(k, x + 0.45, z - 0.1, c);
+      k.seat(x - 0.5, 0.4, z + 0.1, PI / 2); // quay mặt vào bàn
+      k.seat(x + 0.5, 0.4, z - 0.1, -PI / 2);
     }
     // bảng thực đơn trên mặt tiền
     k.plane(0.9, 0.68, W / 2 - 0.9, 1.75, 0.03, 0xffffff, 'tex:' + T.menu(fmt('city.menuTitle'), o.menu || []));
@@ -415,6 +423,7 @@ const BUILD = {
       const x = -W / 2 + 0.9 + i * 1.0, c = [0x2e86c1, 0xe74c3c][i % 2];
       k.box(0.4, 0.04, 0.38, x, 0.32, 1.45, c);
       k.box(0.4, 0.38, 0.04, x, 0.5, 1.25, c);
+      k.seat(x, 0.34, 1.5, 0);
       for (const [dx, dz] of [[-0.17, -0.15], [0.17, -0.15], [-0.17, 0.15], [0.17, 0.15]]) k.box(0.03, 0.3, 0.03, x + dx, 0.15, 1.45 + dz, c);
     }
     // tầng lầu: lam gỗ trước cửa sổ + cây rủ
@@ -853,6 +862,7 @@ const BUILD = {
       paint(pk, 0x2e8b57);
       signPost(fmt('city.airportPickupSign'), '#1e8449', 3.4, pk.x1 - 0.4, 2.4, pk.z1 - 0.2);
       k.box(2.2, 0.08, 0.5, (pk.x0 + pk.x1) / 2, 0.45, pk.z0 + 0.5, 0x95a5a6, 'metal');
+      for (const dx of [-0.7, 0, 0.7]) k.seat((pk.x0 + pk.x1) / 2 + dx, 0.49, pk.z0 + 0.5, 0);
       for (const s of [-1, 1]) k.box(0.08, 0.45, 0.4, (pk.x0 + pk.x1) / 2 + s * 1, 0.22, pk.z0 + 0.5, 0x555555);
       // bãi xe máy: nền xám, vạch ô, mái tôn che nửa sau, xe đậu thành hàng, biển
       const pr = zn.park, roofZ = (pr.z0 + (pr.z0 + pr.z1) / 2) / 2;
@@ -1177,10 +1187,10 @@ const BUILD = {
         fence(yard.x0, yard.z0, yard.x0, yard.z1);
         fence(yard.x0, yard.z1, ycx - 1.4, yard.z1);
         fence(ycx + 1.4, yard.z1, yard.x1, yard.z1);
-        k.plane(Math.min(4, yw - 1), 0.7, yard.x1 - Math.min(4, yw - 1) / 2 - 0.3, 2.5, yard.z1 + 0.05, 0xffffff, 'tex:' + textTex('BÃI GIỮ XE VI PHẠM', { bg: '#1f3a93', w: 1024, h: 192 }));
+        k.plane(Math.min(4, yw - 1), 0.7, yard.x1 - Math.min(4, yw - 1) / 2 - 0.3, 2.5, yard.z1 + 0.05, 0xffffff, 'tex:' + textTex(fmt('city.impoundSign'), { bg: '#1f3a93', w: 1024, h: 192 }));
       } else {
         fence(yard.x0, yard.z0, yard.x0, yard.z1);
-        k.plane(Math.min(4, yw - 1), 0.7, ycx, 2.5, yard.z0 + 0.06, 0xffffff, 'tex:' + textTex('BÃI GIỮ XE VI PHẠM', { bg: '#1f3a93', w: 1024, h: 192 }));
+        k.plane(Math.min(4, yw - 1), 0.7, ycx, 2.5, yard.z0 + 0.06, 0xffffff, 'tex:' + textTex(fmt('city.impoundSign'), { bg: '#1f3a93', w: 1024, h: 192 }));
       }
       // xe bị tạm giữ: xếp hàng sát nhau, màu cũ bụi
       const cs = [0x7f8c8d, 0x8e2b2b, 0x2c3e50, 0x6e5a3a, 0x34495e, 0x556b2f];
@@ -1232,6 +1242,7 @@ const BUILD = {
       const x = side * (pw / 2 + 0.6), z = cz + (D > 8 ? side * Math.min(4, D / 4) : 0);
       k.box(0.5, 0.42, 1.6, x, 0.21, z, 0x9e9a92);
       k.box(0.12, 0.45, 1.6, x + side * 0.25, 0.65, z, 0x9e9a92);
+      for (const dz of [-0.45, 0.45]) k.seat(x + side * 0.05, 0.42, z + dz, side > 0 ? -PI / 2 : PI / 2); // lưng tựa phía ngoài
       cols.push({ x0: x - 0.3, z0: z - 0.8, x1: x + 0.3, z1: z + 0.8, h: 0.8 });
       const lx = side * (pw / 2 + 0.4), lz = -1.6;
       k.cyl(0.06, 0.08, 3.2, lx, 1.6, lz, 0x2c3e50, 'metal', 8);
@@ -1320,7 +1331,7 @@ const BUILD = {
     k.box(1.8, 2.3, 1.6, bx, 1.15, bz, 0xf2f2f2);
     k.box(1.4, 0.8, 0.03, bx, 1.5, bz + 0.81, 0xbfd6e2, 'glass');
     k.box(2.1, 0.12, 1.9, bx, 2.36, bz, 0x2e86c1);
-    k.plane(1.6, 0.4, bx, 2.65, bz + 0.5, 0xffffff, 'tex:' + textTex('GIỮ XE 24/24', { bg: '#1f618d', w: 512, h: 128 }));
+    k.plane(1.6, 0.4, bx, 2.65, bz + 0.5, 0xffffff, 'tex:' + textTex(fmt('city.parkLotSign'), { bg: '#1f618d', w: 512, h: 128 }));
     k.box(0.06, 0.3, 0.6, bx, 2.65, bz + 0.45, 0x1f618d);
     cols.push({ x0: bx - 0.9, z0: bz - 0.8, x1: bx + 0.9, z1: bz + 0.8, h: 2.4 });
     // thanh chắn ở lối vào
@@ -1435,6 +1446,7 @@ const BUILD = {
     // vợt + bóng trên ghế chờ
     k.box(1.6, 0.08, 0.4, -W / 2 + 1.6, 0.45, -0.8, 0x8d6e63);
     k.ball(0.07, -W / 2 + 1.2, 0.55, -0.8, 0xd4e157);
+    k.seat(-W / 2 + 2.0, 0.49, -0.8, 0);
     return { sign: null, height: 7.2, colliders: cols };
   },
   // sân pickleball: 2–4 sân nhỏ xếp cạnh nhau (dài theo chiều sâu lô), lưới thấp, vùng "bếp" sát lưới, rào thấp, mái bạt che ghế chờ
@@ -1475,6 +1487,7 @@ const BUILD = {
     for (const s of [-1, 1]) k.cyl(0.05, 0.05, 2.6, s * (sw / 2), 1.3, -1.2, 0x7f8c8d, 'metal', 6);
     k.box(sw + 0.4, 0.04, 1.6, 0, 2.6, -1.2, 0xf39c12, 'double', [0.1, 0, 0]);
     k.box(sw - 1, 0.08, 0.4, 0, 0.45, -1.3, 0x8d6e63);
+    for (const dx of [-0.6, 0.6]) k.seat(dx, 0.49, -1.3, 0);
     k.plane(Math.min(4, W - 2), 0.7, 0, 2.3, -D + 0.25, 0xffffff, 'tex:' + textTex(fmt('city.pickleSign'), { bg: '#2a9d8f', w: 768, h: 128 }));
     return { sign: null, height: 3, colliders: cols };
   },
@@ -1549,7 +1562,10 @@ const BUILD = {
     const lz0 = fz + 2.6, lz1 = -0.6;
     if (lz1 - lz0 > 1) {
       for (const s of [-1, 1]) k.box(W / 2 - 2.5, 0.08, lz1 - lz0, s * (W / 4 + 1.25), 0.06, (lz0 + lz1) / 2, 0x5f9e45);
-      for (const s of [-1, 1]) k.box(1.8, 0.1, 0.5, s * (W / 4 + 1), 0.45, (lz0 + lz1) / 2, 0x8d6e63);
+      for (const s of [-1, 1]) {
+        k.box(1.8, 0.1, 0.5, s * (W / 4 + 1), 0.45, (lz0 + lz1) / 2, 0x8d6e63);
+        for (const dx of [-0.45, 0.45]) k.seat(s * (W / 4 + 1) + dx, 0.5, (lz0 + lz1) / 2, 0);
+      }
     }
     k.box(Math.min(6, W * 0.35), 1.1, 0.5, -W / 4 - 1, 0.55, -0.9, 0x2b2b2b);
     k.plane(Math.min(6, W * 0.35) - 0.3, 0.8, -W / 4 - 1, 0.6, -0.64, 0xffffff, 'tex:' + textTex(firstWords(o.sign, 4), { bg: '#2b2b2b', fg: '#ffffff', w: 768, h: 128 }));
@@ -1799,7 +1815,10 @@ const BUILD = {
       cols.push({ x0: x - 0.15, z0: cz - 0.15, x1: x + 0.15, z1: cz + 0.15, h: 3.2 });
     }
     k.box(cw + 0.6, 0.15, 2.8, 0, 3.25, cz, 0x1e8449, '', [0.06, 0, 0]);
-    for (let x = -cw / 2 + 1.5; x < cw / 2 - 1; x += 3.4) k.box(1.8, 0.08, 0.45, x, 0.45, cz - 0.6, 0x95a5a6, 'metal');
+    for (let x = -cw / 2 + 1.5; x < cw / 2 - 1; x += 3.4) {
+      k.box(1.8, 0.08, 0.45, x, 0.45, cz - 0.6, 0x95a5a6, 'metal');
+      for (const dx of [-0.45, 0.45]) k.seat(x + dx, 0.49, cz - 0.6, 0);
+    }
     k.plane(Math.min(6, cw * 0.4), 0.8, 0, 2.7, cz + 1.42, 0xffffff, 'tex:' + textTex(fmt('city.busStationBoard'), { bg: '#1e8449', w: 768, h: 128 }));
     return { sign: { y: 3.9, z: cz + 1.45, w: Math.min(8, cw * 0.5) }, height: 4, colliders: cols };
   },
@@ -1832,6 +1851,10 @@ export function busStopModel(k, x, z, ry = 0) {
   box(3.0, 2.0, 0.04, 0, 1.3, -0.6, 0xbcdff1, 'glass');
   for (const lx of [-1.5, 1.5]) box(0.08, 2.5, 0.08, lx, 1.25, -0.6, 0x555555, 'metal');
   box(2.2, 0.08, 0.4, 0, 0.45, -0.35, 0x95a5a6, 'metal');
+  for (const lx of [-0.6, 0.6]) {
+    const [sx, sz] = P(lx, -0.32);
+    k.seat(sx, 0.49, sz, ry);
+  }
   const [px, pz] = P(1.9, 0.3);
   k.cyl(0.05, 0.05, 2.8, px, 1.4, pz, 0x555555, 'metal', 6);
   k.plane(0.7, 0.7, px, 2.7, pz, 0xffffff, 'tex:' + textTex(fmt('city.busStopSign'), { bg: '#2e86c1', w: 256, h: 256 }), [0, ry, 0]);
@@ -2027,5 +2050,5 @@ export function buildPlace(o) {
     group.add(s);
   }
   for (const e of res.extra || []) group.add(e); // người đứng chờ…
-  return { group, glow, colliders: res.colliders ?? 'full', height: res.height, look, ramp: res.ramp || null, barriers: res.barriers || null };
+  return { group, glow, colliders: res.colliders ?? 'full', height: res.height, look, ramp: res.ramp || null, barriers: res.barriers || null, seats: k.seats, parked: k.parked };
 }

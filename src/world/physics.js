@@ -33,9 +33,9 @@ export class SpatialGrid {
     }
     return out;
   }
-  // Điểm (x,y,z) có nằm trong khối nhà nào không (dùng cho camera)
-  inside(x, y, z) {
-    for (const c of this.query(x, z, 0.1)) if (x > c.x0 && x < c.x1 && z > c.z0 && z < c.z1 && y < c.h && y > (c.y0 || 0)) return true;
+  // Điểm (x,y,z) có nằm trong khối nhà nào không (dùng cho camera). tags: chỉ xét các loại vật cản này (Set), bỏ trống = mọi loại
+  inside(x, y, z, tags = null) {
+    for (const c of this.query(x, z, 0.1)) if ((!tags || tags.has(c.tag)) && x > c.x0 && x < c.x1 && z > c.z0 && z < c.z1 && y < c.h && y > (c.y0 || 0)) return true;
     return false;
   }
 }

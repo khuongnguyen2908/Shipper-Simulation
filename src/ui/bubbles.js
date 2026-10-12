@@ -55,8 +55,11 @@ export class Bubbles {
         continue;
       }
       b.el.style.display = '';
-      b.el.style.left = `${((tmp.x + 1) / 2) * W}px`;
-      b.el.style.top = `${((1 - tmp.y) / 2) * H}px`;
+      // giữa đáy bong bóng = đỉnh đầu; làm tròn điểm ảnh (chữ không rung), giữ trọn trong màn hình (không bị cắt ở mép)
+      const w = b.el.offsetWidth, h = b.el.offsetHeight;
+      const x = Math.round(Math.max(4, Math.min(W - w - 4, ((tmp.x + 1) / 2) * W - w / 2)));
+      const y = Math.round(Math.max(4, ((1 - tmp.y) / 2) * H - h));
+      b.el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
       b.el.style.opacity = String(Math.min(1, b.t / 0.4)); // mờ dần lúc sắp tắt
     }
   }
