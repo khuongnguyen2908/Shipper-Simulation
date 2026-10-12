@@ -3,10 +3,12 @@
 // File đặt trong src/sounds/ (tải lên ngay ở đây khi chạy npm run dev). Mã chưa gắn file → game dùng tiếng tổng hợp (nếu có).
 import { SOUNDS, SOUND_CATS, SOUND_FILE_RE, SOUND_EXT } from '../../data/soundSpec.js';
 import { el, field, numInput, button, sideList, selectInput } from './ui.js';
+import { previewSynth } from '../../audio.js';
 
 const KIND = { sfx: 'Tiếng ngắn', loop: 'Tiếng lặp liên tục', music: 'Bài nhạc' };
 const lib = { files: null, error: null, loading: false }; // file đang có trong src/sounds (hỏi máy chủ dev)
-let player = null; // đang nghe thử
+const kho = { files: null, loading: false, shown: 40 }; // kho tiếng để nghe thử (thư mục sound-library, không gói vào game)
+const LIB_SHOW = 40; // số dòng kho hiện mỗi lần (bấm "xem thêm" để hiện tiếp)
 
 function loadFiles(ctx) {
   if (lib.loading) return;
@@ -17,13 +19,77 @@ function loadFiles(ctx) {
     .catch(() => { lib.files = lib.files || []; lib.error = 'Không nói chuyện được với máy chủ dev (chạy npm run dev để tải file lên / nghe thử).'; })
     .finally(() => { lib.loading = false; ctx.rerender(); });
 }
+function loadKho(ctx) {
+  if (kho.loading) return;
+  kho.loading = true;
+  fetch('/__editor/sound-library')
+    .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+    .then((j) => { kho.files = j.files || []; })
+    .catch(() => { kho.files = []; })
+    .finally(() => { kho.loading = false; ctx.rerender(); });
+}
 
-// Nghe thử: âm lượng = âm lượng của mã (100% = mức gốc)
-function preview(name, level = 1) {
-  player?.pause();
-  player = new Audio(`/src/sounds/${encodeURIComponent(name)}`);
-  player.volume = Math.max(0, Math.min(1, level * 0.8));
-  player.play().catch(() => {});
+// ---------- nghe thử: mỗi lúc chỉ phát 1 tiếng; nút ▶ Nghe đang phát thì thành ■ Dừng ----------
+const now = { audio: null, url: '', btns: new Set(), loop: '' }; // loop: mã tiếng tổng hợp lặp đang phát
+const PLAY = '▶ Nghe', STOP = '■ Dừng';
+function stopPreview() {
+  now.audio?.pause();
+  now.audio = null;
+  now.url = '';
+  if (now.loop) previewSynth(now.loop, false);
+  now.loop = '';
+  for (const b of now.btns) { b.textContent = b.dataset.label || PLAY; b.classList.remove('playing'); }
+  now.btns.clear();
+}
+// url: đường dẫn file · level: âm lượng của mã (100% = mức gốc) · btn: nút bấm để đổi chữ
+function togglePreview(url, level, btn) {
+  if (now.url === url && now.btns.has(btn)) return stopPreview();
+  stopPreview();
+  const a = new Audio(url);
+  a.volume = Math.max(0, Math.min(1, level * 0.8));
+  now.audio = a;
+  now.url = url;
+  now.btns.add(btn);
+  btn.textContent = STOP;
+  btn.classList.add('playing');
+  a.addEventListener('ended', () => { if (now.audio === a) stopPreview(); });
+  a.play().catch(() => { if (now.audio === a) stopPreview(); });
+}
+// nút ▶ Nghe / ■ Dừng; getUrl gọi lúc bấm (vd chọn ngẫu nhiên 1 file)
+function playButton(getUrl, getLevel = () => 1, label = PLAY) {
+  const b = button(label, () => togglePreview(getUrl(), getLevel(), b), 'small');
+  b.dataset.label = label;
+  return b;
+}
+// nút nghe tiếng tổng hợp: tiếng ngắn phát 1 lần; tiếng lặp bấm lần nữa (■ Dừng) mới tắt
+function synthButton(id, kind, getSpeed) {
+  const label = '▶ Nghe tiếng tổng hợp';
+  const b = button(label, () => {
+    if (kind !== 'loop') { stopPreview(); return previewSynth(id); }
+    if (now.loop === id) return stopPreview();
+    stopPreview();
+    previewSynth(id, true, getSpeed());
+    now.loop = id;
+    now.btns.add(b);
+    b.textContent = STOP;
+    b.classList.add('playing');
+  }, 'small');
+  b.dataset.label = label;
+  return b;
+}
+const soundUrl = (name) => `/src/sounds/${encodeURIComponent(name)}`;
+const khoUrl = (p) => `/sound-library/${p.split('/').map(encodeURIComponent).join('/')}`;
+
+// chép file từ kho sang src/sounds → tên file trong src/sounds
+function importFromKho(p, onDone) {
+  fetch('/__editor/sound-import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: p }) })
+    .then((r) => r.json())
+    .then((j) => {
+      if (!j.ok) throw new Error(j.error || 'lỗi');
+      if (lib.files && !lib.files.includes(j.name)) lib.files.push(j.name);
+      onDone(j.name);
+    })
+    .catch((e) => alert(`Không chép được: ${e.message}`));
 }
 
 // Tên file gọn: bỏ dấu, chữ thường, khoảng trắng → "-"
@@ -54,7 +120,9 @@ export function render(root, ctx) {
   const sel = (ctx.sel.sound = ctx.sel.sound || {});
   if (!SOUNDS[sel.id]) sel.id = Object.keys(SOUNDS)[0];
   const changed = () => ctx.changed('sounds');
+  stopPreview(); // vẽ lại → nút cũ mất, dừng tiếng đang nghe
   if (lib.files == null) loadFiles(ctx);
+  if (kho.files == null) loadKho(ctx);
   const filesOf = (id) => data.sounds[id]?.files || [];
   const status = (id) => (filesOf(id).length ? '🎧' : SOUNDS[id].synth ? '🔉' : '🔇');
 
@@ -93,13 +161,25 @@ export function render(root, ctx) {
   );
   if (lib.error) body.append(el('p', { class: 'warn' }, lib.error));
 
+  // tiếng tổng hợp (tiếng do máy tạo, dùng khi chưa gắn file) — nghe để so với file
+  if (spec.synth) {
+    const speed = el('input', { type: 'range', min: 0, max: 100, value: 50 });
+    speed.addEventListener('input', () => { if (now.loop === id) previewSynth(id, true, speed.value / 100); });
+    body.append(field('Tiếng tổng hợp', el('div', { class: 'inline' },
+      synthButton(id, spec.kind, () => speed.value / 100),
+      spec.synth === 'engine' ? el('label', { class: 'inline', style: 'align-items:center' }, 'Tốc độ xe', speed) : null,
+    ), { ref: id, fieldKey: 'synth', hint: filesOf(id).length
+      ? 'Mã này đã gắn file nên game KHÔNG dùng tiếng tổng hợp nữa — nút này chỉ để so sánh.'
+      : 'Tiếng do máy tự tạo (không cần file), game đang dùng tiếng này. Gắn file thì game dùng file thay thế.' }));
+  }
+
   // danh sách file đã gắn
   const files = filesOf(id);
   body.append(field('File đã gắn', el('div', { class: 'snd-files' },
     files.length ? files.map((f, i) => el('div', { class: 'snd-row' },
       el('b', {}, f),
       lib.files && !lib.files.includes(f) ? el('span', { class: 'warn' }, ' ⚠️ không thấy file') : null,
-      button('▶ Nghe', () => preview(f, data.sounds[id]?.volume ?? 1), 'small'),
+      playButton(() => soundUrl(f), () => data.sounds[id]?.volume ?? 1),
       button('✕ Bỏ', () => { entry().files.splice(i, 1); cleanup(); changed(); ctx.rerender(); }, 'small'))) : el('span', { class: 'muted' }, 'Chưa gắn file nào.')),
   opt('files')));
 
@@ -116,7 +196,37 @@ export function render(root, ctx) {
 
   body.append(el('div', { class: 'grid' },
     field('Âm lượng riêng (%)', numInput(data.sounds[id]?.volume ?? 1, (v) => { entry().volume = Number.isFinite(v) ? v : 1; cleanup(); changed(); }, { step: 5, min: 0, max: 2, scale: 100 }), { ...opt('volume'), hint: '100% = như file gốc. Chỉnh để các tiếng to nhỏ đều nhau (0–200%).' }),
-    files.length ? field('', button('▶ Nghe thử (ngẫu nhiên 1 file)', () => preview(files[Math.floor(Math.random() * files.length)], data.sounds[id]?.volume ?? 1)), opt('play')) : null,
+    files.length ? field('', playButton(() => soundUrl(files[Math.floor(Math.random() * files.length)]), () => data.sounds[id]?.volume ?? 1, '▶ Nghe thử (ngẫu nhiên 1 file)'), opt('play')) : null,
   ));
+
+  // ---------- kho tiếng (sound-library): tìm, nghe thử, bấm + Gắn để chép vào src/sounds và gắn cho mã này ----------
+  if (kho.files?.length) {
+    const box = el('div', { class: 'snd-files snd-kho' });
+    const count = el('small', { class: 'muted' });
+    const search = el('input', { type: 'search', value: sel.khoQuery || '', placeholder: 'tìm: click, footstep, coin, error, jingles…' });
+    const draw = () => {
+      if (now.btns.size && [...now.btns].some((b) => box.contains(b))) stopPreview(); // nút đang phát sắp bị xóa
+      box.innerHTML = '';
+      const words = search.value.toLowerCase().split(/\s+/).filter(Boolean);
+      const hits = kho.files.filter((p) => words.every((w) => p.toLowerCase().includes(w)));
+      count.textContent = ` ${hits.length}/${kho.files.length} tiếng`;
+      const list = hits.slice(0, kho.shown);
+      if (!list.length) box.append(el('span', { class: 'muted' }, 'Không có tiếng nào khớp.'));
+      for (const p of list) {
+        const i = p.lastIndexOf('/');
+        box.append(el('div', { class: 'snd-row' },
+          el('b', {}, p.slice(i + 1)), el('small', { class: 'muted' }, p.slice(0, i)),
+          playButton(() => khoUrl(p), () => data.sounds[id]?.volume ?? 1),
+          button('+ Gắn', () => importFromKho(p, add), 'small')));
+      }
+      if (hits.length > list.length) box.append(button(`Xem thêm (${hits.length - list.length} tiếng nữa)`, () => { kho.shown += LIB_SHOW; draw(); }, 'small'));
+    };
+    search.addEventListener('input', () => { sel.khoQuery = search.value; kho.shown = LIB_SHOW; draw(); });
+    draw();
+    body.append(field('Kho tiếng', el('div', {}, el('div', { class: 'inline' }, search, count), box), {
+      ref: id, fieldKey: 'kho', wide: true,
+      hint: 'Tiếng mẫu trong thư mục sound-library/ (Kenney.nl, CC0 — dùng tự do). Nghe thử thoải mái; bấm "+ Gắn" mới chép file vào src/sounds và gắn cho mã này. Không gắn thì không vào game.',
+    }));
+  }
   body.append(el('p', { class: 'muted' }, 'Danh sách mọi chỗ phát tiếng (để đánh dấu khi làm sound): docs/am-thanh.md. Lưu xong, tab game tự tải lại và dùng file mới.'));
 }

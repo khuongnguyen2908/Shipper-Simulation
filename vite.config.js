@@ -8,6 +8,9 @@ const EDITABLE = ['src/data/items.json', 'src/data/gear.json', 'src/data/goods.j
 // File âm thanh: editor tải lên vào thư mục này (thẻ 🔊 Âm thanh)
 const SOUND_DIR = 'src/sounds';
 const SOUND_NAME = /^[a-z0-9_\-.]+\.(ogg|mp3|wav|m4a)$/i;
+// Kho tiếng để nghe thử (không gói vào game): editor chép file chọn được sang SOUND_DIR
+const LIB_DIR = 'sound-library';
+const LIB_PATH = /^[a-z0-9_\-./]+\.(ogg|mp3|wav|m4a)$/i;
 
 const norm = (f) => path.resolve(f).toLowerCase();
 // file → lúc editor vừa ghi. Để ngoài plugin: Vite có thể tạo plugin nhiều lần, phải dùng chung một bảng.
@@ -39,6 +42,44 @@ function editorSavePlugin() {
         const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => SOUND_NAME.test(f)).sort() : [];
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify({ ok: true, files }));
+      });
+      // kho tiếng: mọi file trong sound-library (kể cả thư mục con) → ['kenney/ui-audio/click1.ogg', …]
+      server.middlewares.use('/__editor/sound-library', (req, res) => {
+        const dir = path.resolve(server.config.root, LIB_DIR);
+        const walk = (d, pre) => (fs.existsSync(d) ? fs.readdirSync(d, { withFileTypes: true }) : [])
+          .flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name), `${pre}${e.name}/`) : LIB_PATH.test(pre + e.name) ? [pre + e.name] : []));
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ ok: true, files: walk(dir, '').sort() }));
+      });
+      // chép 1 file từ kho sang src/sounds: { path } → { name }. Đã có file trùng nội dung thì dùng lại, trùng tên khác nội dung thì thêm -2, -3…
+      server.middlewares.use('/__editor/sound-import', (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405;
+          return res.end('POST only');
+        }
+        const chunks = [];
+        req.on('data', (c) => chunks.push(c));
+        req.on('end', () => {
+          res.setHeader('Content-Type', 'application/json');
+          try {
+            const rel = String(JSON.parse(Buffer.concat(chunks).toString('utf8')).path || '');
+            if (!LIB_PATH.test(rel) || rel.split('/').includes('..')) throw new Error('Đường dẫn không hợp lệ');
+            const src = path.resolve(server.config.root, LIB_DIR, rel);
+            if (!fs.existsSync(src)) throw new Error('Không thấy file trong kho');
+            const buf = fs.readFileSync(src);
+            const dir = path.resolve(server.config.root, SOUND_DIR);
+            fs.mkdirSync(dir, { recursive: true });
+            const name = path.basename(rel).toLowerCase();
+            const dot = name.lastIndexOf('.');
+            let out = name;
+            for (let n = 2; fs.existsSync(path.join(dir, out)) && !fs.readFileSync(path.join(dir, out)).equals(buf); n++) out = `${name.slice(0, dot)}-${n}${name.slice(dot)}`;
+            if (!fs.existsSync(path.join(dir, out))) fs.writeFileSync(path.join(dir, out), buf);
+            res.end(JSON.stringify({ ok: true, name: out }));
+          } catch (e) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ ok: false, error: e.message }));
+          }
+        });
       });
       // tải file âm thanh lên: { name, data (base64) } → src/sounds/name (không ghi đè file đã có: thêm -2, -3…)
       server.middlewares.use('/__editor/sound-upload', (req, res) => {

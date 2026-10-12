@@ -14,7 +14,7 @@
       "color": "#2c3e50",
       "model": "bicycle",
       "power": "pedal",
-      "desc": "Chiếc xe đạp mang theo từ quê. Đi lại được, nhưng chưa vào hãng thì chưa chạy đơn được."
+      "desc": "Chiếc xe đạp mang theo từ quê."
     },
     "cub": {
       "id": "cub",
@@ -168,7 +168,7 @@
       "insulation": 0,
       "waterproof": 0,
       "padding": 0,
-      "cols": 2,
+      "cols": 1,
       "rows": 2,
       "price": 0,
       "color": "#f2f2f2",
@@ -176,6 +176,18 @@
     },
     "thermal": {
       "id": "thermal",
+      "name": "Túi cơ bản",
+      "insulation": 0.1,
+      "waterproof": 0.2,
+      "padding": 0.1,
+      "cols": 2,
+      "rows": 2,
+      "price": 50,
+      "color": "#27ae60",
+      "desc": "Mở khóa đơn trà sữa, kem (cước cao hơn)."
+    },
+    "thermal_2": {
+      "id": "thermal_2",
       "name": "Túi giữ nhiệt",
       "insulation": 0.55,
       "waterproof": 0.5,
@@ -183,8 +195,8 @@
       "cols": 3,
       "rows": 2,
       "price": 120,
-      "color": "#27ae60",
-      "desc": "Mở khóa đơn trà sữa, kem (cước cao hơn)."
+      "color": "#3128af",
+      "desc": "Túi rộng hơn, xịn hơn"
     },
     "box": {
       "id": "box",

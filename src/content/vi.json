@@ -195,7 +195,7 @@
   "toast.boughtOutfit": "🛍️ {msg}! Về tủ đồ ở phòng trọ để mặc 👕",
   "toast.boughtVehicle": "🛵 {msg}!",
   "toast.walletReturned": "😇 Nhận {k}k tiền cảm ơn · tinh thần tăng mạnh!",
-  "chat.group": "Hội Shipper Q1",
+  "chat.group": "Hội Shipper Thành Phố",
   "chat.shopOwner": "Anh Long (Đồ Nghề)",
   "chat.admin": "Admin nhóm",
   "chat.tuan": "Tuấn \"Grab\"",
@@ -794,7 +794,7 @@
   "menu.page": "{n} / {total}",
   "menu.keysHint": "← → chuyển trang · Enter tiếp · Esc về menu",
   "intro.p1.icon": "🏙️",
-  "intro.p1.title": "Chào {name}, tới Sài Gòn rồi!",
+  "intro.p1.title": "Chào {name}, tới thành phố rồi!",
   "intro.p1.body": "Bạn vừa đón xe buýt lên thành phố, trong túi chỉ có <b>{money}k</b>. Chỗ ở đã hỏi trước: phòng trọ của Cô Hai — xuống bến thì đi tìm nhà trọ, chào Cô Hai trước đã.<br><br>Muốn chạy đơn phải <b>vào hãng</b>: hãng chạy <b>xe xăng</b> hoặc hãng chạy <b>xe điện</b>, đặt cọc để nhận xe của hãng.<br><br>Cô Hai dặn: <i>\"Tiền phòng <b>{rent}k</b>, {every} ngày đóng một lần, trước {hour}:00 nghe con.\"</i> Trễ <b>{late} lần liền</b> là bị đuổi khỏi phòng.",
   "intro.p2.icon": "📱",
   "intro.p2.title": "Kiếm tiền bằng app của hãng",
@@ -1218,8 +1218,8 @@
   "goal.talkLandlordHint": "Tới gần Cô Hai (người có dấu chấm than), bấm E",
   "goal.mountBike": "🚲 Leo lên xe đạp",
   "goal.mountBikeHint": "Xe đạp dựng trong hầm xe nhà trọ — tới gần, bấm F",
-  "dlg.arriveTitle": "🚌 Đã tới Sài Gòn!",
-  "dlg.arriveText": "Xe buýt thắng cái két ở <b>{place}</b>. Kèn xe inh ỏi, bên kia đường có hai ông đang cãi nhau ỏm tỏi.[tiếp]{name} xách túi đồ bước xuống. Sài Gòn đây rồi — đông đúc, ồn ào, khác hẳn ở quê.[tiếp]Chỗ ở đã hỏi trước: <b>{home}</b> ({address}).<br>Đi tìm nhà trọ, chào Cô Hai trước đã — mũi tên trên màn hình sẽ chỉ đường.",
+  "dlg.arriveTitle": "🚌 Đã tới Thành Phố!",
+  "dlg.arriveText": "Xe buýt thắng cái két ở <b>{place}</b>. Kèn xe inh ỏi, bên kia đường có hai ông đang cãi nhau ỏm tỏi.[tiếp]{name} xách túi đồ bước xuống. Thành Phố đây rồi — đông đúc, ồn ào, khác hẳn ở quê.[tiếp]Chỗ ở đã hỏi trước: <b>{home}</b> ({address}).<br>Đi tìm nhà trọ, chào Cô Hai trước đã — mũi tên trên màn hình sẽ chỉ đường.",
   "dlg.arriveGo": "🏠 Đi tìm nhà trọ",
   "dlg.landlordIntro": "\"Con là {name} hả? Lên tới rồi đó hả con!\"[tiếp]\"Phòng cô dọn sẵn rồi. Tiền phòng <b>3 ngày đóng một lần</b> nghe con.\"[tiếp]\"Giờ lo đi kiếm việc làm đi. Dạo này <b>xe công nghệ</b> làm ăn được lắm, mấy đứa trong xóm chạy cũng khá.\"[tiếp]\"Cô có chiếc <b>xe đạp cũ</b> trong hầm xe, con lấy chạy tạm. Rồi ra <b>văn phòng hãng</b> đăng ký nghe chưa!\"",
   "dlg.landlordIntroOk": "Dạ con cảm ơn cô!",
@@ -1290,5 +1290,6 @@
   "settings.sfx": "💥 Hiệu ứng",
   "settings.muteHint": "Đang chơi: phím M bật / tắt nhanh",
   "settings.other": "🎮 Điều khiển & đồ họa",
-  "menu.soundToggle": "Bật / tắt âm thanh"
+  "menu.soundToggle": "Bật / tắt âm thanh",
+  "npc.cafevong_3.greet": "\"Chào em! Đơn của em đây.\""
 }

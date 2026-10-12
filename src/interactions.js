@@ -357,8 +357,11 @@ export function comfortKmh(g, o) {
   return Math.round((rider && rider.comfortKmh ? rider.comfortKmh : ECONOMY.speedLimit * 3.6) + g.gs.effect('comfortKmh'));
 }
 
+// Tên người nói khi app nhắn: tên hãng đang chạy (GripBike / CamSM), chưa vào hãng thì tên chung dlg.app
+const appName = (g) => g.gs.brandSpec?.name || fmt('dlg.app');
+
 function confirmCancel(g) {
-  say(g, fmt('dlg.app'), '📱', fmt('dlg.cancelAsk', { stars: APP.account.cancelStars }), [
+  say(g, appName(g), '📱', fmt('dlg.cancelAsk', { stars: APP.account.cancelStars }), [
     { label: fmt('dlg.cancelYes'), onSelect: () => g.om.cancel(fmt('cancel.driver'), g.clockMin, { byDriver: true }) },
     { label: fmt('dlg.cancelNo'), primary: true },
   ]);
@@ -722,7 +725,7 @@ export function viewWallet(g) {
       onSelect: () => {
         gs.keepWalletCash();
         sound('quest.walletKept');
-        say(g, fmt('dlg.app'), '📱', fmt('dlg.walletComplaint', { fine: WALLET_QUEST.complaintFine, n: WALLET_QUEST.keepPenaltyStars.length, rating: gs.rating.toFixed(2) }), [{ label: fmt('dlg.ellipsis') }]);
+        say(g, appName(g), '📱', fmt('dlg.walletComplaint', { fine: WALLET_QUEST.complaintFine, n: WALLET_QUEST.keepPenaltyStars.length, rating: gs.rating.toFixed(2) }), [{ label: fmt('dlg.ellipsis') }]);
         g.checkEnd();
       },
     },

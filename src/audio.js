@@ -9,7 +9,7 @@ import soundsJson from './data/sounds.json' with { type: 'json' };
 import { SOUNDS } from './data/soundSpec.js';
 import { SOUND_URLS } from './soundFiles.js';
 
-let ctx = null, master = null, fxBus = null;
+let ctx = null, master = null, fxBus = null, musicBus = null;
 let muted = false;
 const vol = { music: 0.6, sfx: 0.8 }; // người chơi chọn (0–1)
 const BASE = 0.5; // mức gốc của hiệu ứng
@@ -26,6 +26,9 @@ function ensure() {
   fxBus = ctx.createGain();
   fxBus.gain.value = BASE * vol.sfx;
   fxBus.connect(master);
+  musicBus = ctx.createGain();
+  musicBus.gain.value = vol.music;
+  musicBus.connect(master);
   return true;
 }
 
@@ -34,7 +37,7 @@ export function unlockAudio() {
   if (!ensure()) return;
   if (ctx.state === 'suspended') ctx.resume();
   preload();
-  if (music.el && music.el.paused && !muted) music.el.play().catch(() => {});
+  if (music.id && !music.track) switchTrack(); // nhạc chờ cú bấm đầu tiên mới phát được
 }
 
 export function setMuted(on) {
@@ -125,33 +128,83 @@ function loopFile(id, level, rate = 1) {
   return true;
 }
 
-// ---------- nhạc (HTML audio: bài dài không cần giải mã hết vào bộ nhớ) ----------
-const music = { id: null, el: null, list: [], i: 0 };
+// ---------- nhạc ----------
+// Phát bằng Web Audio (giải mã cả bài vào bộ nhớ) để lặp liền mạch: gần hết bài thì lượt sau bắt đầu,
+// 2 lượt chồng lên nhau XF giây (tiếng cũ nhỏ dần, tiếng mới to dần) → chỗ nối không bị giật.
+// Đổi bài (ngày ↔ đêm, menu ↔ chơi): bài cũ nhỏ dần, bài mới to dần trong SWITCH giây.
+const XF = 3; // giây chồng tiếng ở chỗ nối (bài ngắn thì tối đa 1/4 bài)
+const SWITCH = 1.5; // giây hòa khi đổi bài
+const music = { id: null, track: null };
 function applyMusicVolume() {
-  if (music.el) music.el.volume = muted ? 0 : Math.min(1, vol.music * levelOf(music.id));
+  if (musicBus) musicBus.gain.value = vol.music; // tắt tiếng: master = 0
 }
-// Đổi bài theo mã (music.menu / music.day / music.night); null = tắt. Nhiều file = phát lần lượt, hết vòng lại
+// đường cong to dần / nhỏ dần giữ độ to đều khi 2 tiếng chồng nhau
+const FADE_IN = Float32Array.from({ length: 32 }, (_, i) => Math.sin((i / 31) * Math.PI / 2));
+const FADE_OUT = Float32Array.from(FADE_IN).reverse();
+
+// Đổi bài theo mã (music.menu / music.day / music.night); null = tắt. Gọi mỗi khung hình: cùng mã thì chỉ lo lặp tiếp.
+// Nhiều file = phát lần lượt (cũng chồng tiếng ở chỗ nối), hết vòng lại
 export function setMusic(id) {
-  if (id === music.id) return;
-  if (music.el) {
-    const old = music.el;
-    const fade = setInterval(() => { old.volume = Math.max(0, old.volume - 0.05); if (old.volume <= 0) { clearInterval(fade); old.pause(); } }, 60);
-  }
-  music.id = id;
-  music.el = null;
-  music.list = id ? filesOf(id) : [];
-  music.i = Math.floor(Math.random() * Math.max(1, music.list.length));
-  if (music.list.length) nextTrack();
+  if (id !== music.id) {
+    music.id = id;
+    if (ctx) switchTrack();
+  } else if (music.track) pump(music.track);
 }
-function nextTrack() {
-  const name = music.list[music.i % music.list.length];
-  music.i++;
-  const el = new Audio(SOUND_URLS[name]);
-  el.loop = music.list.length === 1;
-  el.onended = () => music.el === el && nextTrack();
-  music.el = el;
-  applyMusicVolume();
-  el.play().catch(() => {}); // chưa bấm gì → trình duyệt chặn; unlockAudio() phát lại
+function switchTrack() {
+  const old = music.track;
+  music.track = null;
+  if (old) {
+    old.dead = true;
+    clearTimeout(old.timer);
+    const t = ctx.currentTime;
+    old.out.gain.cancelScheduledValues(t);
+    old.out.gain.setValueAtTime(old.out.gain.value, t);
+    old.out.gain.linearRampToValueAtTime(0, t + SWITCH);
+    setTimeout(() => { for (const p of old.passes) try { p.src.stop(); } catch { /* đã dừng */ } old.out.disconnect(); }, SWITCH * 1000 + 300);
+  }
+  const list = music.id ? filesOf(music.id) : [];
+  if (!list.length) return;
+  const out = ctx.createGain(), t = ctx.currentTime;
+  out.gain.setValueAtTime(0, t);
+  out.gain.linearRampToValueAtTime(levelOf(music.id), t + (old ? SWITCH : 0.5));
+  out.connect(musicBus);
+  music.track = { list, i: Math.floor(Math.random() * list.length), out, passes: [], nextAt: 0, timer: 0, busy: false, dead: false };
+  pump(music.track);
+}
+// Lên lịch lượt phát kế tiếp khi còn ~2 giây nữa tới chỗ nối (gọi mỗi khung hình + hẹn giờ dự phòng khi tab bị ẩn)
+function pump(tr) {
+  if (tr.dead || tr.busy) return;
+  const wait = tr.nextAt - 2 - ctx.currentTime;
+  if (tr.passes.length && wait > 0) {
+    clearTimeout(tr.timer);
+    tr.timer = setTimeout(() => pump(tr), Math.max(250, wait * 1000));
+    return;
+  }
+  tr.busy = true;
+  // load() trả về buffer luôn nếu đã giải mã rồi → bọc Promise.resolve
+  Promise.resolve(load(tr.list[tr.i++ % tr.list.length])).then((buf) => {
+    tr.busy = false;
+    if (tr.dead || !buf) return;
+    const first = !tr.passes.length;
+    const start = first ? ctx.currentTime : Math.max(ctx.currentTime, tr.nextAt);
+    const xf = Math.min(XF, buf.duration / 4), end = start + buf.duration;
+    const src = ctx.createBufferSource(), g = ctx.createGain();
+    src.buffer = buf;
+    src.connect(g).connect(tr.out);
+    if (!first) g.gain.setValueCurveAtTime(FADE_IN, start, xf); // to dần, chồng lên đoạn cuối lượt trước
+    g.gain.setValueCurveAtTime(FADE_OUT, end - xf, xf); // nhỏ dần ở cuối (lượt sau to dần cùng lúc)
+    src.start(start);
+    const pass = { src, g };
+    tr.passes.push(pass);
+    src.onended = () => { tr.passes = tr.passes.filter((p) => p !== pass); g.disconnect(); };
+    tr.nextAt = end - xf;
+    pump(tr); // hẹn giờ cho lượt sau
+  });
+}
+// ?debug: xem nhạc đang chạy thế nào
+export function musicState() {
+  const tr = music.track;
+  return { id: music.id, now: ctx?.currentTime ?? 0, nextAt: tr?.nextAt ?? 0, passes: tr?.passes.length ?? 0, files: tr?.list ?? [] };
 }
 
 // ---------- tiếng tổng hợp (dự phòng khi chưa gắn file) ----------
@@ -211,6 +264,9 @@ export function setEngine(on, speed01) {
     if (engine) engine.g.gain.setTargetAtTime(0, ctx.currentTime, 0.15); // vừa gắn file: tắt tiếng tổng hợp
     return;
   }
+  engineSynth(on, speed01);
+}
+function engineSynth(on, speed01) {
   if (!engine) {
     const o = ctx.createOscillator();
     o.type = 'sawtooth';
@@ -233,6 +289,9 @@ let rainNode = null;
 export function setRain(amount) {
   if (!ensure()) return;
   if (loopFile('loop.rain', amount)) return;
+  rainSynth(amount);
+}
+function rainSynth(amount) {
   if (!rainNode) {
     const len = ctx.sampleRate * 2;
     const buf = ctx.createBuffer(1, len, ctx.sampleRate);
@@ -260,6 +319,9 @@ export function setRain(amount) {
 let amb = null;
 export function cityAmbience(on) {
   if (ensure() && filesOf('loop.city').length) { loopFile('loop.city', on ? 1 : 0); return; }
+  citySynth(on);
+}
+function citySynth(on) {
   if (!on) {
     if (!amb || !ctx) return;
     const a = amb;
@@ -367,4 +429,16 @@ export function cityAmbience(on) {
   passBy();
   later(400, honk);
   later(900, argue);
+}
+
+// ---------- nghe thử tiếng tổng hợp (editor) — luôn phát tiếng tổng hợp, kể cả khi mã đã gắn file ----------
+// Tiếng ngắn: phát 1 lần. Tiếng lặp (máy xe, mưa, phố): on = bật / tắt; speed01 = tốc độ xe (0–1) cho tiếng máy
+export function previewSynth(id, on = true, speed01 = 0.5) {
+  const syn = SOUNDS[id]?.synth;
+  if (!syn || !ensure()) return;
+  if (ctx.state === 'suspended') ctx.resume();
+  if (syn === 'engine') return engineSynth(on, speed01);
+  if (syn === 'rain') return rainSynth(on ? 1 : 0);
+  if (syn === 'city') return citySynth(on);
+  if (on) SYNTH[syn]?.();
 }

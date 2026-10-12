@@ -154,7 +154,8 @@ export function playRun(seed, strat, days = 9, brand = null) {
     if (!st.buyGear) return;
     // nón chở khách: được tặng khi vào hãng; mất (khách cầm đi) thì mua lại nón của hãng ở văn phòng hãng
     const seatId = Object.values(GOODS).find((g) => g.brand === gs.brand && g.type === 'equipment' && g.effects?.passengerSeat)?.id || 'spareHelmet';
-    const want = [['bags', 'thermal', 60], ['goods', seatId, 60], ['goods', 'raincoat', 40]];
+    const thermalId = Object.values(BAGS).filter((b) => b.insulation >= 0.5).sort((a, b) => a.price - b.price)[0]?.id; // túi rẻ nhất mở đơn lạnh
+    const want = [...(thermalId ? [['bags', thermalId, 60]] : []), ['goods', seatId, 60], ['goods', 'raincoat', 40]];
     for (const [cat, id, reserve] of want) {
       if (cat === 'goods' ? (id === seatId ? gs.effect('passengerSeat') : gs.has(id)) : gs.owned[cat].includes(id)) continue;
       const price = (cat === 'goods' ? GOODS[id]?.price : BAGS[id]?.price) ?? 0;

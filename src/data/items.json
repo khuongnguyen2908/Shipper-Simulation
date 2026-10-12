@@ -314,7 +314,8 @@
     ],
     "base": 30,
     "parcel": true,
-    "cod": 900
+    "cod": 900,
+    "openDay": 2
   },
   "taiLieu": {
     "id": "taiLieu",
@@ -767,7 +768,8 @@
     "base": 35,
     "group": "parcel",
     "parcel": true,
-    "cod": 1500
+    "cod": 1500,
+    "openDay": 4
   },
   "daQuy": {
     "id": "daQuy",
@@ -780,7 +782,8 @@
     "base": 40,
     "group": "parcel",
     "parcel": true,
-    "cod": 2500
+    "cod": 2500,
+    "openDay": 5
   },
   "pet1": {
     "id": "pet1",

@@ -834,7 +834,8 @@
         ],
         "bags": [
           "thermal",
-          "box"
+          "box",
+          "thermal_2"
         ]
       },
       "hours": "caNgay"
@@ -879,6 +880,54 @@
       "signBg": "#2c3e50",
       "npc": {
         "name": "Chú Năm Lùn",
+        "shirt": "#7f8c8d",
+        "pants": "#1c2833",
+        "hat": null,
+        "scale": 0.85,
+        "portrait": "🔧"
+      },
+      "hours": "caNgay"
+    },
+    {
+      "id": "garage_3",
+      "name": "Tiệm Xe Sáu Lùn",
+      "short": "Xe",
+      "kind": "garage",
+      "block": [
+        0,
+        9
+      ],
+      "lot": "N0",
+      "floors": 1,
+      "color": "#bdc3c7",
+      "sign": "SỬA XE SÁU LÙN",
+      "signBg": "#2c3e50",
+      "npc": {
+        "name": "Chú Sáu Lùn",
+        "shirt": "#7f8c8d",
+        "pants": "#1c2833",
+        "hat": null,
+        "scale": 0.85,
+        "portrait": "🔧"
+      },
+      "hours": "caNgay"
+    },
+    {
+      "id": "garage_4",
+      "name": "Tiệm Xe Bảy Lùn",
+      "short": "Xe",
+      "kind": "garage",
+      "block": [
+        5,
+        0
+      ],
+      "lot": "N0",
+      "floors": 1,
+      "color": "#bdc3c7",
+      "sign": "SỬA XE BẢY LÙN",
+      "signBg": "#2c3e50",
+      "npc": {
+        "name": "Chú Bảy Lùn",
         "shirt": "#7f8c8d",
         "pants": "#1c2833",
         "hat": null,
@@ -1036,6 +1085,59 @@
         3
       ],
       "lot": "N1",
+      "floors": 2,
+      "color": "#c8a27a",
+      "sign": "CÀ PHÊ VÕNG",
+      "signBg": "#4e342e",
+      "npc": {
+        "name": "Chị chủ quán",
+        "shirt": "#ff7142",
+        "pants": "#ffffff",
+        "hat": null,
+        "portrait": "☕",
+        "skin": "#ffdbac",
+        "gender": "f",
+        "hairStyle": "long",
+        "skirt": true,
+        "hair": "#d4a94f"
+      },
+      "icon": "☕",
+      "hours": "sangDenToi",
+      "nap": true,
+      "activities": [
+        {
+          "id": "drink",
+          "label": "Uống cà phê ",
+          "cost": 20,
+          "minutes": 10,
+          "phys": 5,
+          "mental": 30,
+          "perDay": 0
+        },
+        {
+          "id": "fun",
+          "label": "Làm gì đó vui vẻ",
+          "cost": 200,
+          "minutes": 15,
+          "phys": -5,
+          "mental": 30,
+          "perDay": 0
+        }
+      ],
+      "orders": {
+        "rideWeight": 1
+      }
+    },
+    {
+      "id": "cafevong_3",
+      "name": "Cà phê Võng",
+      "short": "Uống",
+      "kind": "service",
+      "block": [
+        0,
+        0
+      ],
+      "lot": "N0",
       "floors": 2,
       "color": "#c8a27a",
       "sign": "CÀ PHÊ VÕNG",
@@ -1327,7 +1429,7 @@
     },
     {
       "id": "vanphong",
-      "name": "Tòa Nhà Công Ty",
+      "name": "Tòa Nhà Công Ty D",
       "short": "Công Ty",
       "kind": "service",
       "icon": "🏢",
@@ -1360,10 +1462,10 @@
         }
       ],
       "orders": {
-        "hours": [
-          9,
-          17
-        ]
+        "hours": "hanhChinh",
+        "rideWeight": 5,
+        "parcelWeight": 0,
+        "foodWeight": 5
       }
     },
     {
@@ -1420,7 +1522,8 @@
           5,
           19
         ],
-        "rideWeight": 1
+        "rideWeight": 2,
+        "foodWeight": 0
       },
       "look": "pagodaCourtyard",
       "face": "E"
@@ -1900,7 +2003,10 @@
         5
       ],
       "lot": "N0",
-      "hours": "caNgay"
+      "hours": "caNgay",
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "id": "canhquan2_2",
@@ -1915,7 +2021,10 @@
         5
       ],
       "lot": "S12",
-      "hours": "caNgay"
+      "hours": "caNgay",
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "id": "congan1",
@@ -2115,7 +2224,7 @@
     },
     {
       "id": "sanbay",
-      "name": "Sân bay quốc tế Tân Sơn Tứ",
+      "name": "Sân bay quốc tế Tân Sơn Tam",
       "short": "Sân bay",
       "kind": "service",
       "icon": "✈️",
@@ -2127,7 +2236,7 @@
       "face": "S",
       "look": "airport",
       "color": "#e0e0e0",
-      "sign": "SÂN BAY TÂN SƠN TỨ",
+      "sign": "SÂN BAY TÂN SƠN TAM",
       "signBg": "#2b2b2b",
       "npc": {
         "name": "Chị nhân viên quầy thông tin",
@@ -2152,10 +2261,7 @@
       ],
       "orders": {
         "rideWeight": 4,
-        "hours": [
-          5,
-          23
-        ]
+        "hours": "haiTuGio"
       }
     },
     {
@@ -2186,7 +2292,10 @@
         3,
         3
       ],
-      "lot": "f1"
+      "lot": "f1",
+      "orders": {
+        "rideWeight": 2
+      }
     },
     {
       "kind": "restaurant",
@@ -2214,7 +2323,10 @@
         4,
         2
       ],
-      "lot": "f2"
+      "lot": "f2",
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "kind": "service",
@@ -2261,7 +2373,8 @@
         "parcelWeight": 1,
         "parcelItems": [
           "aoQuan"
-        ]
+        ],
+        "rideWeight": 1
       }
     },
     {
@@ -2291,7 +2404,10 @@
         2,
         6
       ],
-      "lot": "S0"
+      "lot": "S0",
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "kind": "restaurant",
@@ -2319,7 +2435,10 @@
         2,
         5
       ],
-      "lot": "N2"
+      "lot": "N2",
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "kind": "service",
@@ -2355,7 +2474,10 @@
         0,
         7
       ],
-      "lot": "E1"
+      "lot": "E1",
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "kind": "restaurant",
@@ -2384,7 +2506,10 @@
         0,
         2
       ],
-      "lot": "N0"
+      "lot": "N0",
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "kind": "restaurant",
@@ -2412,7 +2537,10 @@
         0,
         3
       ],
-      "lot": "W1"
+      "lot": "W1",
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "kind": "service",
@@ -2448,7 +2576,10 @@
         0,
         4
       ],
-      "lot": "S1"
+      "lot": "S1",
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "kind": "service",
@@ -2485,7 +2616,10 @@
         3,
         0
       ],
-      "lot": "S2"
+      "lot": "S2",
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "kind": "restaurant",
@@ -2514,7 +2648,10 @@
         3,
         0
       ],
-      "lot": "W1"
+      "lot": "W1",
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "kind": "service",
@@ -2593,7 +2730,10 @@
         4,
         0
       ],
-      "lot": "W1"
+      "lot": "W1",
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "kind": "restaurant",
@@ -2621,7 +2761,10 @@
         5,
         0
       ],
-      "lot": "W1"
+      "lot": "W1",
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "kind": "restaurant",
@@ -2649,7 +2792,10 @@
         4,
         1
       ],
-      "lot": "N1"
+      "lot": "N1",
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "kind": "restaurant",
@@ -2678,7 +2824,10 @@
         5,
         1
       ],
-      "lot": "f0"
+      "lot": "f0",
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "kind": "service",
@@ -2736,7 +2885,10 @@
         5,
         2
       ],
-      "lot": "N1"
+      "lot": "N1",
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "kind": "service",
@@ -3001,7 +3153,11 @@
         3,
         8
       ],
-      "lot": "S2"
+      "lot": "S2",
+      "orders": {
+        "rideWeight": 1
+      },
+      "icon": "🧋"
     },
     {
       "kind": "restaurant",
@@ -3249,11 +3405,7 @@
         }
       ],
       "orders": {
-        "rideWeight": 1.5,
-        "hours": [
-          17,
-          21
-        ]
+        "rideWeight": 1.5
       }
     },
     {
@@ -3282,11 +3434,7 @@
         }
       ],
       "orders": {
-        "rideWeight": 1,
-        "hours": [
-          17,
-          21
-        ]
+        "rideWeight": 1
       }
     },
     {
@@ -3480,7 +3628,7 @@
         "gender": "m"
       },
       "orders": {
-        "rideWeight": 3,
+        "rideWeight": 2,
         "foodWeight": 1,
         "hours": [
           [
@@ -3568,6 +3716,9 @@
         "goods": [
           "tuiTraiCay"
         ]
+      },
+      "orders": {
+        "rideWeight": 1
       }
     },
     {
@@ -3683,7 +3834,7 @@
         }
       ],
       "orders": {
-        "rideWeight": 3,
+        "rideWeight": 5,
         "hours": [
           5,
           21
@@ -3857,7 +4008,10 @@
           "mental": 5,
           "perDay": 1
         }
-      ]
+      ],
+      "orders": {
+        "rideWeight": 4
+      }
     },
     {
       "id": "benPhaTrungTam",

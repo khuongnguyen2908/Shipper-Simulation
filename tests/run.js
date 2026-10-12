@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ITEMS as DATA_ITEMS } from '../src/data/items.js';
-import { ECONOMY, TIME, ENERGY, HAZARD as HAZARD_DATA, rentFor, VEHICLES as VEHICLES_T, WALLET_QUEST } from '../src/data/balance.js';
+import { ECONOMY, TIME, ENERGY, HAZARD as HAZARD_DATA, rentFor, VEHICLES as VEHICLES_T, WALLET_QUEST, BAGS } from '../src/data/balance.js';
 import { BRANDS as BRANDS_T } from '../src/data/apps.js';
 import { DeliveryItem } from '../src/sim/ItemPhysics.js';
 import { evaluateOrder } from '../src/sim/OrderCondition.js';
@@ -153,6 +153,8 @@ function workerState({ day = 1, carry = {} } = {}) {
   if (!('gifted' in c)) c.gifted = c.brand;
   return new GameState({ day, carry: c });
 }
+// ngày mà mọi món đã có đơn (món có "mở từ ngày" do người dùng đặt trong ?editor) — cho bài thử dùng món cụ thể
+const DAY_ALL = Math.max(1, ...Object.values(DATA_ITEMS).map((it) => (Number.isInteger(it.openDay) ? it.openDay : 1)));
 function mkOM(seed = 1, gsOpts = {}) {
   const gs = workerState(gsOpts);
   const om = new OrderManager({ rng: makeRng(seed), layout, gs });
@@ -247,7 +249,10 @@ test('Đơn kem/trà sữa chỉ xuất hiện khi có túi giữ nhiệt', () =
     const o = om.makeOffer(480, { x: 0, z: 0 });
     assert.ok(!o.itemIds.some((id) => DATA_ITEMS[id].traits.includes('cold')));
   }
-  gs.buy('bags', 'thermal');
+  // túi giữ nhiệt: túi rẻ nhất giữ nhiệt ≥ 50% (mã túi do người dùng đặt trong ?editor)
+  const thermal = Object.values(BAGS).filter((b) => b.insulation >= 0.5).sort((a, b) => a.price - b.price)[0];
+  if (!thermal) return; // dữ liệu không còn túi giữ nhiệt
+  assert.ok(gs.buy('bags', thermal.id).ok, `không mua được túi ${thermal.id}`);
   // chọn giờ quán có món lạnh đang mở (giờ mở cửa do người dùng chỉnh trong ?editor)
   const coldShop = om.layout.places.find((p) => (p.menu || []).some((id) => DATA_ITEMS[id]?.traits.includes('cold')));
   if (!coldShop) return; // dữ liệu không còn quán nào bán món lạnh
@@ -896,7 +901,7 @@ console.log('App giao hàng, loại đơn, tài khoản, loại khách (apps.jso
     assert.equal(om.state, S.IDLE);
   });
   test('Hàng giao hỏng bị từ chối → mất tiền đã ứng; hủy khi đang giữ hàng COD → được hoàn', () => {
-    const { om, gs } = mkOM(10, { carry: { money: 1000 } });
+    const { om, gs } = mkOM(10, { day: DAY_ALL, carry: { money: 1000 } });
     const o = forceOffer(om, () => om.makeParcel({ ...ORDER_TYPES.parcel, items: ['dienThoai'], codChance: 1, bomChance: 0 }, 600, { x: 0, z: 0 }));
     o.flags.noAnswer = false; o.revealed = true; o.dropoff.apartment = false;
     om.finishPacking(om.collectParcel(600).items.map(() => ({ upright: true })), 601);
@@ -905,7 +910,7 @@ console.log('App giao hàng, loại đơn, tài khoản, loại khách (apps.jso
     const rec = om.handOver(611);
     assert.ok(rec.ev.refused && rec.pay.cod === 0 && rec.codLost === o.cod);
     let refund = 0;
-    const b = mkOM(11, { carry: { money: 1000 } });
+    const b = mkOM(11, { day: DAY_ALL, carry: { money: 1000 } });
     b.om.on((e) => { if (e.type === 'cancelled') refund = e.codRefund; });
     const o2 = forceOffer(b.om, () => b.om.makeParcel({ ...ORDER_TYPES.parcel, items: ['hopGiay'], codChance: 1, bomChance: 0 }, 600, { x: 0, z: 0 }));
     b.om.collectParcel(600);
@@ -3188,7 +3193,7 @@ console.log('Xe buýt (tuyến, trạm, lịch chạy)');
     const shop = { ...layout.places.find((p) => p.kind !== 'scenery'), id: 'shopThu', orders: { parcelWeight: 10, parcelItems: ['dienThoai'] } };
     const others = layout.places.map((p) => (p.orders?.parcelWeight ? { ...p, orders: { ...p.orders, parcelWeight: 0 } } : p));
     const lay = { ...layout, places: [...others, shop], placeById: { ...layout.placeById, shopThu: shop } };
-    const om = new OrderManager({ rng: makeRng(5), layout: lay, gs: workerState() });
+    const om = new OrderManager({ rng: makeRng(5), layout: lay, gs: workerState({ day: DAY_ALL }) });
     for (let i = 0; i < 20; i++) {
       const o = om.makeParcel({ ...ORDER_TYPES.parcel, items: ['taiLieu'], shopItems: true, codChance: 0 }, 600, shop.door);
       assert.equal(o.pickup.placeId, 'shopThu');
@@ -3536,6 +3541,11 @@ console.log('Âm thanh: mã từng chỗ phát tiếng, file gắn trong sounds.
     assert.equal(SP.validateSounds({}).length, 1);
     assert.equal(SP.volumeGroup('music.menu'), 'music');
     assert.equal(SP.volumeGroup('drive.horn'), 'sfx');
+  });
+  const { SYNTH, previewSynth } = await import('../src/audio.js');
+  test('Mọi tiếng tổng hợp ghi trong danh mục đều có thật (nghe thử được trong editor)', () => {
+    assert.equal(typeof previewSynth, 'function');
+    for (const s2 of Object.values(SP.SOUNDS)) if (s2.synth) assert.ok(SYNTH[s2.synth] || (s2.kind === 'loop' && ['engine', 'rain', 'city'].includes(s2.synth)), `${s2.id}: không có tiếng tổng hợp "${s2.synth}"`);
   });
   test('docs/am-thanh.md có đủ mọi mã âm thanh (danh sách để làm sound)', () => {
     const doc = fs.readFileSync(`${root}docs/am-thanh.md`, 'utf8');

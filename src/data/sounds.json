@@ -1,3 +1,279 @@
 {
-  "sounds": {}
+  "sounds": {
+    "ui.click": {
+      "files": [
+        "button.mp3"
+      ]
+    },
+    "ui.next": {
+      "files": [
+        "button.mp3"
+      ]
+    },
+    "drive.hitDog": {
+      "files": [
+        "dog.mp3"
+      ]
+    },
+    "ui.interact": {
+      "files": [
+        "item.mp3"
+      ]
+    },
+    "music.menu": {
+      "files": [
+        "BGM.mp3"
+      ]
+    },
+    "ui.hover": {
+      "files": [
+        "rollover2.ogg"
+      ]
+    },
+    "ui.modal": {
+      "files": [
+        "button.mp3"
+      ],
+      "volume": 0.8
+    },
+    "ui.tutorial": {
+      "files": [
+        "pluck_001.ogg"
+      ]
+    },
+    "phone.open": {
+      "files": [
+        "button.mp3"
+      ]
+    },
+    "phone.close": {
+      "files": [
+        "button.mp3"
+      ]
+    },
+    "phone.app": {
+      "files": [
+        "select_002.ogg"
+      ]
+    },
+    "phone.offer": {
+      "files": [
+        "bong_001.ogg"
+      ]
+    },
+    "phone.accept": {
+      "files": [
+        "confirmation_002.ogg"
+      ]
+    },
+    "phone.decline": {
+      "files": [
+        "back_002.ogg"
+      ]
+    },
+    "phone.message": {
+      "files": [
+        "notification.mp3"
+      ]
+    },
+    "chat.send": {
+      "files": [
+        "drop_002.ogg"
+      ]
+    },
+    "drive.dismount": {
+      "files": [
+        "bike.mp3"
+      ]
+    },
+    "drive.bump": {
+      "files": [
+        "impactsoft_heavy_000.ogg",
+        "impactsoft_heavy_001.ogg"
+      ]
+    },
+    "drive.crash": {
+      "files": [
+        "impactmetal_heavy_000.ogg",
+        "impactmetal_heavy_001.ogg",
+        "impactmetal_heavy_002.ogg"
+      ]
+    },
+    "drive.hitPed": {
+      "files": [
+        "impactpunch_heavy_000.ogg",
+        "impactpunch_heavy_001.ogg"
+      ]
+    },
+    "drive.noFuel": {
+      "files": [
+        "lowdown.ogg"
+      ]
+    },
+    "walk.step": {
+      "files": [
+        "footstep_concrete_000.ogg",
+        "footstep_concrete_001.ogg",
+        "footstep_concrete_002.ogg",
+        "footstep_concrete_003.ogg",
+        "footstep_concrete_004.ogg"
+      ]
+    },
+    "order.pickup": {
+      "files": [
+        "handlesmallleather.ogg"
+      ]
+    },
+    "order.pack": {
+      "files": [
+        "dropleather.ogg"
+      ]
+    },
+    "order.badStars": {
+      "files": [
+        "error_005.ogg"
+      ]
+    },
+    "order.cancelled": {
+      "files": [
+        "error_003.ogg"
+      ]
+    },
+    "progress.objective": {
+      "files": [
+        "confirmation_004.ogg"
+      ]
+    },
+    "progress.collapse": {
+      "files": [
+        "impactsoft_heavy_002.ogg"
+      ]
+    },
+    "money.pay": {
+      "files": [
+        "handlecoins.ogg"
+      ]
+    },
+    "money.earn": {
+      "files": [
+        "handlecoins2.ogg"
+      ]
+    },
+    "money.rentPaid": {
+      "files": [
+        "chips-stack-1.ogg"
+      ]
+    },
+    "place.buy": {
+      "files": [
+        "handlecoins.ogg"
+      ]
+    },
+    "place.wear": {
+      "files": [
+        "cloth1.ogg",
+        "cloth2.ogg",
+        "cloth3.ogg"
+      ]
+    },
+    "place.repair": {
+      "files": [
+        "impactmetal_light_000.ogg",
+        "metalclick.ogg"
+      ]
+    },
+    "place.takeVehicle": {
+      "files": [
+        "metallatch.ogg",
+        "bike.mp3"
+      ]
+    },
+    "music.day": {
+      "files": [
+        "morning-street.mp3"
+      ],
+      "volume": 0.8
+    },
+    "music.night": {
+      "files": [
+        "night.mp3"
+      ]
+    },
+    "drive.horn": {
+      "files": [
+        "horn.mp3"
+      ],
+      "volume": 2
+    },
+    "city.morning": {
+      "files": [
+        "rooster.mp3"
+      ]
+    },
+    "city.thunder": {
+      "files": [
+        "thunder.mp3"
+      ],
+      "volume": 0.6
+    },
+    "city.busArrive": {
+      "files": [
+        "bus.mp3"
+      ]
+    },
+    "city.ferry": {
+      "files": [
+        "cargoship.mp3"
+      ]
+    },
+    "drive.pedal": {
+      "files": [
+        "bycicle.mp3"
+      ]
+    },
+    "drive.brake": {
+      "files": [
+        "brake.mp3"
+      ]
+    },
+    "city.honk": {
+      "files": [
+        "horn-2.mp3"
+      ]
+    },
+    "city.dog": {
+      "files": [
+        "dog.mp3"
+      ]
+    },
+    "law.whistle": {
+      "files": [
+        "police.mp3",
+        "police-2.mp3"
+      ]
+    },
+    "law.fine": {
+      "files": [
+        "police.mp3",
+        "police-2.mp3"
+      ]
+    },
+    "law.towed": {
+      "files": [
+        "police.mp3",
+        "police-2.mp3"
+      ]
+    },
+    "law.parking": {
+      "files": [
+        "police.mp3",
+        "police-2.mp3"
+      ]
+    },
+    "drive.mount": {
+      "files": [
+        "bike.mp3"
+      ]
+    }
+  }
 }
