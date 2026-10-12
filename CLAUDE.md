@@ -17,7 +17,7 @@ src/
              editor.json (cảnh báo đã "Bỏ qua" trong ?editor) · itemGroups.js (nhóm món — chỉ để xếp trong editor)
              phone.json + phoneApps.js (thứ tự / biểu tượng / màu / ẩn app trên điện thoại = phím 1–9; app có thật ở APP_DEFS)
              sounds.json + soundSpec.js (gắn file âm thanh cho từng mã; thêm chỗ phát tiếng mới = thêm mã vào soundSpec + gọi sound() + ghi vào docs/am-thanh.md)
-             map.json + map.js (cỡ bản đồ, kiểu hẻm từng khối, sông + cầu; mặt bằng hẻm ở sim/blockPlan.js, đường đi ở cityLayout.routeDist)
+             map.json + map.js (cỡ bản đồ, kiểu hẻm từng khối, sông + cầu, đường ngập floodSegs; mặt bằng hẻm ở sim/blockPlan.js, đường đi ở cityLayout.routeDist; ngập + triều cường ở sim/flood.js)
   content/   vi.json — MỌI chữ hiển thị; code gọi fmt(khóa, tham số) / pick / list
   sim/       mô phỏng thuần (không Three.js, không DOM): clock (đồng hồ 24h liên tục), OrderManager (máy trạng thái), ItemPhysics,
              OrderCondition, economy, hazards, GameState, objectives, cityLayout, rng
@@ -37,6 +37,7 @@ Nguyên tắc:
 
 ## 3. Công cụ qua tham số địa chỉ
 - `?debug`: `window.game` (step, press, snapshot), `window.autopilot`; phím T tua 30 phút, K +100k, L đầy xăng.
+- `?cheat` (chỉ khi `npm run dev`, bản build không có): bảng cheat để test (`src/devtools/cheat.js`), bấm phím ` để mở — tiền/chỉ số, tua giờ, thời tiết/ngập, gọi đơn theo loại / quán / loại khách, lấy hàng ngay, ép sự cố, xe/túi/đồ, vào hãng, dịch chuyển, bất tử, cốt truyện, bảng soi.
 - `?editor`: công cụ nội dung (Vật phẩm · Xe/Túi/Đồ nghề · Địa điểm & NPC · Bản đồ · 🏗️ Xây dựng (bản đồ 3D: kéo địa điểm từ danh sách thả vào lô, dời, xoay, đổi kiểu hẻm) · App & Đơn · 📱 Giao diện app · Cân bằng · Chữ & hội thoại). Địa điểm mới tạo nằm "chưa đặt" (không có block/lot) → game bỏ qua tới khi kéo vào bản đồ (`isPlaced` trong data/places.js); khi chạy `npm run dev`, Lưu ghi thẳng vào file JSON. Người dùng hay tự sửa dữ liệu bằng công cụ này — tôn trọng các thay đổi đó, không ghi đè.
 
 ## 4. Kiểm thử (bắt buộc trước mỗi lần giao)
@@ -46,6 +47,7 @@ Nguyên tắc:
 - `npm run build` = bộ thử + build.
 
 ## 5. Quy trình làm việc với tôi
+- Đầu mỗi phiên làm việc: đọc `docs/viec-dang-do.md` (việc đang dở / đã hoãn / cần theo dõi); xong hay phát sinh việc dở thì cập nhật file đó.
 - Mỗi yêu cầu: phân tích trước, đưa phương án kèm ưu nhược, CHỜ tôi duyệt rồi mới viết code.
 - Làm từng điểm, tự kiểm tra, báo kết quả từng điểm (Ổn / Đã sửa / Còn vấn đề), nói rõ khi lỗi do chính bạn gây ra.
 - Chỉ build và giao một lần khi xong tất cả các điểm của đợt.

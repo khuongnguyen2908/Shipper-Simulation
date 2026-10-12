@@ -665,6 +665,13 @@ export function validateMap(map, placesData = null) {
     if (!m || +m[2] > size || +m[3] >= size) add('error', 'roads', key, `Đoạn đường ${key} không có trên bản đồ.`);
     else if (!ROAD_TIER_IDS.includes(t)) add('error', 'roads', key, `Cấp đường lạ "${t}" (chỉ big / normal / small).`);
   }
+  // đoạn đường hay ngập (floodSegs): "low" = Trũng · "tide" = Rất trũng
+  if (map.floodSegs != null && (typeof map.floodSegs !== 'object' || Array.isArray(map.floodSegs))) add('error', 'flood', 'floodSegs', 'Đường ngập phải là bảng { "x3:5": "low" | "tide" }.');
+  else for (const [key, lv] of Object.entries(map.floodSegs || {})) {
+    const m = /^([xz])(\d+):(\d+)$/.exec(key);
+    if (!m || +m[2] > size || +m[3] >= size) add('error', 'flood', key, `Đoạn ngập ${key} không có trên bản đồ.`);
+    else if (!['low', 'tide'].includes(lv)) add('error', 'flood', key, `Mức ngập lạ "${lv}" (chỉ low = Trũng / tide = Rất trũng).`);
+  }
   // sông
   (map.rivers || []).forEach((r, i) => {
     const ref = `river${i}`;

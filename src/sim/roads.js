@@ -107,3 +107,22 @@ export function suggestRoadTiers(map = MAP, mainRoads = []) {
 
 // Giới hạn tốc độ (m/s) trên cấp đường t — base: giới hạn đường thường (balance.json → economy.speedLimit)
 export const speedLimitOf = (t, base) => base * tierRule(t, 'speedMul');
+
+// Chỗ tấp vào lề gần điểm (x, z) nhất — dùng khi công an đưa người chơi đứng chắn đường vào lề.
+// Đi bộ: lên vỉa hè sát mép đường · đi xe: sát mép lòng đường. Giữa ngã tư: ra góc gần nhất. Không ở trên đường: giữ nguyên.
+export function curbSpot(x, z, onBike = false) {
+  const H = CITY.ROAD / 2, off = onBike ? H - 0.9 : H + 1.2;
+  const s = roadSegAt(x, z);
+  if (s) {
+    const c = roadPos(s.line);
+    if (s.axis === 'x') return { x: c + (x >= c ? off : -off), z };
+    return { x, z: c + (z >= c ? off : -off) };
+  }
+  const i = Math.round((x - CITY.ORIGIN) / CITY.PITCH), j = Math.round((z - CITY.ORIGIN) / CITY.PITCH);
+  const cx = roadPos(i), cz = roadPos(j);
+  if (Math.abs(x - cx) > H || Math.abs(z - cz) > H) return { x, z }; // trên vỉa hè / trong khối
+  const sx = x >= cx ? 1 : -1, sz = z >= cz ? 1 : -1;
+  if (!onBike) return { x: cx + sx * off, z: cz + sz * off };
+  // đi xe: ra khỏi ngã tư theo hướng gần hơn, đỗ sát mép đường ngay sau góc
+  return Math.abs(x - cx) >= Math.abs(z - cz) ? { x: cx + sx * (H + 3), z: cz + sz * off } : { x: cx + sx * off, z: cz + sz * (H + 3) };
+}

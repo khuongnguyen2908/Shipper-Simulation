@@ -60,6 +60,8 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [ ] | `drive.crash` | Đâm xe | Đâm vào ô tô, xe máy, tường | tiếng ngắn | 🎧 có file |
 | [ ] | `drive.hitPed` | Đâm người | Tông người đi đường | tiếng ngắn | 🎧 có file |
 | [ ] | `drive.hitDog` | Đâm chó | Tông chó | tiếng ngắn | 🎧 có file |
+| [ ] | `drive.splash` | Lội nước ngập | Chạy xe vào đoạn đường ngập (nước bắn) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `drive.stall` | Chết máy vì ngập | Chạy nhanh qua nước sâu, xe tắt máy | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `drive.noFuel` | Hết xăng / hết pin | Xe vừa cạn xăng / pin | tiếng ngắn | 🎧 có file |
 | [ ] | `drive.pedal` | Đạp xe đạp | Mỗi vòng đạp khi chạy xe đạp | tiếng ngắn | 🔇 im |
 | [ ] | `walk.step` | Bước chân | Mỗi bước khi đi bộ / chạy | tiếng ngắn | 🎧 có file |

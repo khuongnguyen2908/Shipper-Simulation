@@ -54,6 +54,8 @@ const LIST = [
   ['drive.crash', 'drive', 'Đâm xe', 'Đâm vào ô tô, xe máy, tường', 'crash', 'sfx'],
   ['drive.hitPed', 'drive', 'Đâm người', 'Tông người đi đường', 'crash', 'sfx'],
   ['drive.hitDog', 'drive', 'Đâm chó', 'Tông chó', 'bark', 'sfx'],
+  ['drive.splash', 'drive', 'Lội nước ngập', 'Chạy xe vào đoạn đường ngập (nước bắn)', 'splash', 'sfx'],
+  ['drive.stall', 'drive', 'Chết máy vì ngập', 'Chạy nhanh qua nước sâu, xe tắt máy', 'stall', 'sfx'],
   ['drive.noFuel', 'drive', 'Hết xăng / hết pin', 'Xe vừa cạn xăng / pin', '', 'sfx'],
   ['drive.pedal', 'drive', 'Đạp xe đạp', 'Mỗi vòng đạp khi chạy xe đạp', '', 'sfx'],
   ['walk.step', 'drive', 'Bước chân', 'Mỗi bước khi đi bộ / chạy', '', 'sfx'],

@@ -315,6 +315,7 @@ export class CityMap {
     for (const key of G.bridgeNodes) R(node(key), SOFT.bridge);
     if (k >= 1.2) for (const ab of d.alleyBlocks || []) for (const r of ab.alleys) R(r, ab.walk ? SOFT.walk : SOFT.alley);
     for (const p of d.places) if (p.kind === 'scenery') R(p, SOFT.park);
+    for (const s of d.floods || []) R(segmentRect(s), `rgba(41,128,185,${(0.35 + 0.5 * Math.min(1, s.depth)).toFixed(2)})`); // đường ngập
     for (const s of d.jams || []) R(segmentRect(s), 'rgba(231,76,60,.8)');
     if (d.zone) {
       g.fillStyle = 'rgba(155,89,182,.25)';

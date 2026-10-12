@@ -10,7 +10,9 @@ import { OrderManager, S } from '../src/sim/OrderManager.js';
 import { GameState } from '../src/sim/GameState.js';
 import { HazardManager } from '../src/sim/hazards.js';
 import { makeRng } from '../src/sim/rng.js';
-import { buildLayout, routeDist } from '../src/sim/cityLayout.js';
+import { buildLayout, routeDist, routeNodes, CITY } from '../src/sim/cityLayout.js';
+import { routeFloodDelay, floodSpeedCap } from '../src/sim/flood.js';
+import { segKeyOf } from '../src/sim/roads.js';
 import { TIME, ENERGY, DIST, ORDER, ECONOMY, NIGHT, AIRPORT, BAGS, dueDayOf } from '../src/data/balance.js';
 import { airportAt } from '../src/sim/airport.js';
 import { GOODS } from '../src/data/goods.js';
@@ -64,8 +66,9 @@ export function playRun(seed, strat, days = 9, brand = null) {
     gs.startDay(d);
     hz = new HazardManager(makeRng(seed * 7 + d * 101), d);
   };
+  let wading = 0; // mực nước đang lội (đoạn ngập trên đường đi)
   const envAt = (speed) => ({
-    ambient: hz.ambient(now), sun: hz.sun(now), raining: hz.isRaining(now), exposed: true,
+    ambient: hz.ambient(now), sun: hz.sun(now), raining: hz.isRaining(now), exposed: true, flood: speed > 0 ? wading : 0,
     speed, comfortSpeed: 11, suspension: gs.vehicleSpec.suspension, bag: gs.bagSpec, passengerRaincoat: gs.effect('rainProtect'),
   });
   const pass = (min, activity, speed = 0) => {
@@ -83,6 +86,16 @@ export function playRun(seed, strat, days = 9, brand = null) {
     const v = st.speed * st.eff;
     let min = d / v; // m game / phút game = m/s × 1 giây thật
     if (rng.chance(0.15)) min += rng.range(2, 6); // kẹt xe, chốt CSGT
+    // đường ngập: lội chậm trên các đoạn ngập (bot chạy chậm qua nước sâu nên không chết máy)
+    const nodes = routeNodes(pos, to), depthOf = (id) => hz.floodDepth(id, now);
+    min += routeFloodDelay(nodes, depthOf, v);
+    let wetMin = 0, deepest = 0;
+    for (let k = 1; k < nodes.length; k++) {
+      const [a, b] = [nodes[k - 1], nodes[k]];
+      const dep = depthOf(a[0] === b[0] ? segKeyOf('x', a[0], Math.min(a[1], b[1])) : segKeyOf('z', a[1], Math.min(a[0], b[0])));
+      const cap = floodSpeedCap(dep);
+      if (cap > 0) { wetMin += CITY.PITCH / Math.min(cap, v); deepest = Math.max(deepest, dep); }
+    }
     // áo mưa: mưa thì gắn vào, tạnh thì tháo ra (gắn khi trời khô thì nóng — GameState.drain)
     if (gs.ownsOutfit('raincoat')) {
       const wet = hz.isRaining(now);
@@ -102,7 +115,11 @@ export function playRun(seed, strat, days = 9, brand = null) {
     const dark = isDark(now) ? NIGHT.potholeMul || 1 : 1; // đêm tối: ổ gà xóc mạnh hơn
     for (let i = 0; i < bumps; i++) om.itemEvent('bump', (st.speed / 12.5) * rng.range(0.7, 1.2) * dark, e);
     for (let i = 0; i < brakes; i++) om.itemEvent('brake', st.brakeMag, e);
-    pass(Math.ceil(min), 'drive', st.speed);
+    // phần đường lội nước (hàng hộp giấy dễ ướt), rồi phần đường khô
+    wading = deepest;
+    pass(Math.min(Math.ceil(min), Math.round(wetMin)), 'drive', st.speed);
+    wading = 0;
+    pass(Math.max(0, Math.ceil(min) - Math.round(wetMin)), 'drive', st.speed);
     // chạy xe vào khuôn viên sân bay (đón / trả khách ở điểm đón xe công nghệ) → trả phí vào cổng
     if (airportAt(layout.places, to.x, to.z) && !airportAt(layout.places, pos.x, pos.z)) gs.spend(AIRPORT.gateFee ?? 0, 'airportGate', true);
     pos = { ...to };

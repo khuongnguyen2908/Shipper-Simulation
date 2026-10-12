@@ -11,9 +11,9 @@ import { isOpen, fmtHours, placesUsing, placesSelling, unlocked, openDayOf } fro
 import { ITEMS } from './data/items.js';
 import { S } from './sim/OrderManager.js';
 import { fmtK } from './sim/economy.js';
-import { intersectionName } from './sim/cityLayout.js';
+import { intersectionName, routeDist } from './sim/cityLayout.js';
 import { tierLabel } from './sim/roads.js';
-import { nearestStop, destinations, inService, busRule } from './sim/bus.js';
+import { nearestStop, routeDestinations, inService, busRule } from './sim/bus.js';
 import { nextBoat, ferryFare, ferryOpen, ferryRule } from './sim/ferry.js';
 import { fmt, pick, has } from './content/index.js';
 import { fmtClock, minutesUntil } from './sim/clock.js';
@@ -110,8 +110,9 @@ export function gatherInteractions(g) {
   // trạm xe buýt (src/sim/bus.js): đi bộ tới trạm, bấm E chọn trạm xuống
   const stop = g.bus && nearestStop(g.bus, p.x, p.z, foot ? 3 : 4.5);
   if (stop) {
-    const d = dist(p, stop.wait) + 0.4;
-    E.push(foot ? { label: fmt('act.bus', { stop: stop.name }), dist: d, run: () => busDialog(g, stop) } : { label: fmt('act.busNeedFoot'), dist: d, disabled: true });
+    // trong vùng trạm (vòng xanh) thì đi xe buýt được ưu tiên hơn cửa địa điểm sát bên (vd Bến Xe Buýt) — đứng hẳn sát cửa thì vẫn vào cửa
+    const d = dist(p, stop.wait) - 0.6;
+    E.push(foot ? { label: fmt('act.bus', { stop: stop.name }), dist: d, busStop: stop.id, run: () => busDialog(g, stop) } : { label: fmt('act.busNeedFoot'), dist: d, busStop: stop.id, disabled: true });
   }
   if (foot || slow) {
     const ped = g.traffic.nearestPed(p.x, p.z, foot ? 2.6 : 3.5);
@@ -270,6 +271,7 @@ export function phoneAction(g, a, ds) {
   else if (a === 'decline') declineOffer(g);
   else if (a === 'call') callCustomer(g);
   else if (a === 'cancel') confirmCancel(g);
+  else if (a === 'cancelFlood') confirmFloodCancel(g);
   else if (a === 'wallet') viewWallet(g);
   else if (a === 'waypoint' && g.layout.placeById[ds?.id]) g.waypoint = ds.id; // bản đồ điện thoại: Chỉ đường
   else if (a === 'waypointClear') g.waypoint = null;
@@ -359,6 +361,15 @@ export function comfortKmh(g, o) {
 
 // Tên người nói khi app nhắn: tên hãng đang chạy (GripBike / CamSM), chưa vào hãng thì tên chung dlg.app
 const appName = (g) => g.gs.brandSpec?.name || fmt('dlg.app');
+
+// Hủy vì ngập: chỉ khi chưa lấy hàng / chưa đón khách và chỗ lấy hoặc chỗ giao đang ngập → không bị trừ sao
+function confirmFloodCancel(g) {
+  if (!g.floodCancelOk()) return g.renderPhone();
+  say(g, appName(g), '🌊', fmt('dlg.cancelFloodAsk'), [
+    { label: fmt('dlg.cancelFloodYes'), onSelect: () => { if (g.floodCancelOk()) g.om.cancel(fmt('cancel.flood'), g.clockMin, { byDriver: false, flood: true }); } },
+    { label: fmt('dlg.cancelNo'), primary: true },
+  ]);
+}
 
 function confirmCancel(g) {
   say(g, appName(g), '📱', fmt('dlg.cancelAsk', { stars: APP.account.cancelStars }), [
@@ -1232,23 +1243,54 @@ function scamResult(g, r) {
   } else if (r.refused) say(g, fmt('dlg.scamTitle'), '🕵️', fmt('dlg.scamRefused'));
 }
 
+// ======================== CẢN TRỞ GIAO THÔNG ========================
+// Đứng chắn xe quá lâu (game.blockTick): công an tới đưa vào lề, lập biên bản phạt nguội — nộp ở đồn công an
+export function blockTicket(g) {
+  const { gs } = g, fine = ECONOMY.blockFine ?? 100;
+  g.moveToCurb();
+  g.spawnCop();
+  gs.addFine(fine, 'blocking', g.clockMin);
+  sound('law.whistle');
+  const p = g.playerPos;
+  const station = g.layout.places.filter((x) => x.kind === 'police' && x.door).sort((a, b) => routeDist(p, a.door) - routeDist(p, b.door))[0];
+  const done = () => g.hud.toast(fmt('toast.blockFined', { fine }), 'bad', 5000);
+  say(g, fmt('npc.trafficCop.name'), '👮', fmt('dlg.blockTicket', { fine, place: station?.name || fmt('dlg.blockTicketAnyStation') }), [{ label: fmt('dlg.blockTicketOk'), onSelect: done }], { dismissible: false });
+}
+
 // ======================== XE BUÝT ========================
-// Chọn trạm xuống trước khi lên xe; xe chạy một chiều theo vòng tuyến → chọn nhầm thì phải đi tiếp / chờ chuyến khác
-function busDialog(g, stop) {
+// Chọn trạm xuống trước khi lên xe; xe chạy một chiều theo vòng tuyến → chọn nhầm thì phải đi tiếp / chờ chuyến khác.
+// Trạm có nhiều tuyến: các dòng tuyến (chấm màu + tên) xếp dọc; bấm tuyến nào thì danh sách trạm của tuyến đó xổ ra
+// ngay bên dưới (theo thứ tự xe chạy), bấm lại thì thu vào. openId: tuyến đang mở (null = chưa mở tuyến nào)
+function busDialog(g, stop, openId = null, reopen = false) {
   const { gs } = g, now = g.clockMin, fare = busRule('fare', 7);
-  const speak = (text, choices) => say(g, fmt('dlg.busSpeaker', { stop: stop.name }), '🚏', text, choices);
+  const speaker = fmt('dlg.busSpeaker', { stop: stop.name });
+  // mở / thu một tuyến: vẽ lại hộp thoại tại chỗ, không ghi thêm lời vào ô chat
+  const speak = (text, choices) => (reopen ? g.modal.show({ speaker, portrait: '🚏', text, choices }) : say(g, speaker, '🚏', text, choices));
   if (g.om.order?.kind === 'ride' && g.om.hasCargo) return speak(fmt('dlg.busPassenger'));
-  if (!inService(now)) return speak(fmt('dlg.busNoService', { from: busRule('from', 5), to: busRule('to', 21) }));
-  const dests = destinations(g.bus, stop.id, now).filter((d) => inService(d.trip.board));
-  if (!dests.length) return speak(fmt('dlg.busNoService', { from: busRule('from', 5), to: busRule('to', 21) }));
-  const choices = dests.map((d) => ({
-    label: fmt('dlg.busDest', { stop: d.stop.name, route: d.route.name }),
+  const noService = fmt('dlg.busNoService', { from: busRule('from', 5), to: busRule('to', 21) });
+  if (!inService(now)) return speak(noService);
+  const routes = stop.routes.map((ref) => g.bus.routeById[ref.id]).filter((r) => r && !r.error);
+  if (!routes.length) return speak(noService);
+  const single = routes.length === 1;
+  const stopsOf = (r) => routeDestinations(g.bus, r.id, stop.id, now).filter((d) => inService(d.trip.board)).map((d) => ({
+    label: fmt('dlg.busStopDest', { stop: d.stop.name }),
     hint: fmt('dlg.busDestHint', { wait: Math.round(d.trip.wait), ride: Math.round(d.trip.ride), at: fmtClock(d.trip.arrive) }),
     disabled: gs.money < fare,
+    cls: single ? '' : 'sub',
     onSelect: () => rideBus(g, d, fare),
   }));
+  const choices = [];
+  if (single) choices.push(...stopsOf(routes[0]));
+  else for (const r of routes) {
+    const open = r.id === openId;
+    choices.push({ label: fmt(open ? 'dlg.busRouteOpen' : 'dlg.busRouteClosed', { color: r.color || '#1e8449', route: r.name }), hint: open ? '' : fmt('dlg.busRouteHint'), primary: open, cls: 'group', keepOpen: true, onSelect: () => busDialog(g, stop, open ? null : r.id, true) });
+    if (open) {
+      const list = stopsOf(r);
+      choices.push(...(list.length ? list : [{ label: noService, disabled: true, cls: 'sub' }]));
+    }
+  }
   choices.push({ label: fmt('dlg.leave') });
-  speak(fmt('dlg.bus', { fare, money: fmtK(gs.money) }), choices);
+  speak(fmt('dlg.bus', { fare, money: fmtK(gs.money) }) + (single ? '' : `<br>${fmt('dlg.busPickRoute')}`), choices);
 }
 function rideBus(g, d, fare) {
   g.gs.spend(fare, 'bus');

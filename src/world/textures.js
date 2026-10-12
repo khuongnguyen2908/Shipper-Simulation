@@ -97,6 +97,40 @@ export function makeAsphaltTexture() {
   return t;
 }
 
+// Mặt nước ngập (nâu đục, gợn sáng) — lặp liền, trượt chậm để thấy nước chảy
+export function makeWaterTexture() {
+  const S = 256;
+  const [c, g] = canvas(S, S);
+  let seed = 23;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  g.fillStyle = '#9a8761';
+  g.fillRect(0, 0, S, S);
+  // mảng đục / trong lốm đốm
+  for (let i = 0; i < 26; i++) {
+    const r = 20 + rnd() * 50, x = rnd() * S, y = rnd() * S;
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, rnd() < 0.5 ? 'rgba(80,66,40,0.25)' : 'rgba(170,160,130,0.22)');
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr;
+    for (const dx of [-S, 0, S]) for (const dy of [-S, 0, S]) g.fillRect(x - r + dx, y - r + dy, r * 2, r * 2); // vẽ cả 8 ô bên cạnh → lặp liền
+  }
+  // gợn sóng sáng (vệt cong ngắn)
+  g.strokeStyle = 'rgba(235,228,205,0.55)';
+  g.lineWidth = 1.6;
+  for (let i = 0; i < 70; i++) {
+    const x = rnd() * S, y = rnd() * S, w = 8 + rnd() * 18;
+    for (const dx of [-S, 0, S]) for (const dy of [-S, 0, S]) {
+      g.beginPath();
+      g.moveTo(x + dx, y + dy);
+      g.quadraticCurveTo(x + dx + w / 2, y + dy - 3, x + dx + w, y + dy);
+      g.stroke();
+    }
+  }
+  const t = toTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+
 // Biển hiệu chữ tiếng Việt
 export function makeSignTexture(text, bg = '#b03a2e', fg = '#ffffff') {
   const [c, g] = canvas(1024, 192);

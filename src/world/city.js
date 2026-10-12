@@ -10,7 +10,7 @@ import { buildStreetDecor } from './streetDecor.js';
 import { ALLEY } from '../data/places.js';
 import { makeRng } from '../sim/rng.js';
 import { SpatialGrid } from './physics.js';
-import { makeTileTexture, makeAsphaltTexture, makeSignTexture, makeGlowTexture } from './textures.js';
+import { makeTileTexture, makeAsphaltTexture, makeSignTexture, makeGlowTexture, makeWaterTexture } from './textures.js';
 import { HouseGeo, buildHouse, housesForLot, houseMaterial, houseTop } from './houses.js';
 import { buildPlace, buildResidential, mergeKits, makeKit, busStopModel, airportPath, AIRPORT_MIN_W } from './placeBuildings.js';
 import { Elevated } from './elevated.js';
@@ -22,6 +22,7 @@ import { hashStr } from '../sim/people.js';
 import { mat } from './models.js';
 import { tierOf, TIER_GEO, allSegments } from '../sim/roads.js';
 import { buildBusSystem } from '../sim/bus.js';
+import { floodMap, segOfId } from '../sim/flood.js';
 
 const WALL_COLORS = [0xe8d5b7, 0xf4c095, 0x9fd8cb, 0xf6e27f, 0xe7a9a9, 0xb8d8e8, 0xd9c3e8, 0xf2f2f2, 0xc9e4a6, 0xf7b267, 0xffe0b5, 0xa9cce3];
 const AWNING_COLORS = [0xc0392b, 0x2980b9, 0x27ae60, 0xf39c12, 0x8e44ad, 0x16a085];
@@ -806,6 +807,29 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   ph.receiveShadow = true;
   scene.add(ph);
 
+  // ---------- nước ngập trên các đoạn đường trũng (map.json → floodSegs; ẩn khi khô) ----------
+  // Mỗi đoạn một tấm nước phủ lòng đường + một phần vỉa hè; nước càng sâu càng đục và càng cao
+  const floodGeo = new THREE.PlaneGeometry(1, 1);
+  const floods = new Map(); // id → mesh
+  const waterTex = makeWaterTexture();
+  for (const id of Object.keys(floodMap())) {
+    const sg = segOfId(id);
+    const r = segmentRect(sg);
+    const wide = 1.6; // lấn ra vỉa hè mỗi bên (m)
+    const tex = waterTex.clone(); // mỗi tấm lặp vân theo kích thước riêng (1 lần lặp ≈ 8 m)
+    const m = new THREE.Mesh(floodGeo, new THREE.MeshStandardMaterial({ map: tex, color: 0xffffff, roughness: 0.2, metalness: 0, transparent: true, opacity: 0, depthWrite: false }));
+    m.rotation.x = -Math.PI / 2;
+    m.position.set((r.x0 + r.x1) / 2, 0.02, (r.z0 + r.z1) / 2);
+    // nối liền qua ngã tư: kéo dài thêm nửa lòng đường mỗi đầu
+    const ext = CITY.ROAD / 2;
+    m.scale.set(sg.axis === 'x' ? r.x1 - r.x0 + wide * 2 : r.x1 - r.x0 + ext * 2, sg.axis === 'x' ? r.z1 - r.z0 + ext * 2 : r.z1 - r.z0 + wide * 2, 1);
+    tex.repeat.set(m.scale.x / 8, m.scale.y / 8);
+    m.visible = false;
+    m.renderOrder = 2;
+    scene.add(m);
+    floods.set(id, m);
+  }
+
   // ---------- đổi theo giờ / thời tiết ----------
   const dryColor = new THREE.Color(0xffffff), wetColor = new THREE.Color(0x9fa4ad);
   return {
@@ -827,6 +851,18 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
       poolMat.opacity = 0.85 * n;
       houseMat.emissiveIntensity = 1.6 * n;
       for (const m of signMats) m.emissiveIntensity = (m.userData.glowBase ?? 0.15) + 0.7 * n;
+    },
+    // depth: { id → mực nước 0..1 } (HazardManager.floodState)
+    setFlood(depth) {
+      const t = performance.now() / 1000;
+      for (const [id, m] of floods) {
+        const d = depth[id] || 0;
+        m.visible = d > 0.01;
+        if (!m.visible) continue;
+        m.material.opacity = Math.min(0.9, 0.3 + 0.6 * d);
+        m.position.y = 0.02 + d * 0.2; // ngập sâu thì nước dâng quá mép vỉa hè (0,15 m)
+        m.material.map.offset.set(t * 0.015, t * 0.025); // nước trôi chậm
+      }
     },
     setWet(w) {
       roadMat.color.copy(dryColor).lerp(wetColor, w);

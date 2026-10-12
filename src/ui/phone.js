@@ -24,7 +24,7 @@ import { profileLook } from '../sim/people.js';
 const PHONE = phoneApps();
 export const APPS = PHONE.visible;
 // lý do biên bản phạt nguội (gs.fines[].reason) → khóa chữ
-const FINE_REASON = { parking: 'csgt.rParking', airport: 'csgt.rAirport' };
+const FINE_REASON = { parking: 'csgt.rParking', airport: 'csgt.rAirport', blocking: 'csgt.rBlocking' };
 const APP_BY_ID = Object.fromEntries(PHONE.all.map((a) => [a[0], a]));
 
 // App chỉ có khi đã vào hãng: app nhận đơn của hãng + Hồ sơ tài xế (điểm đánh giá, tỉ lệ nhận đơn, đơn gần đây)
@@ -89,7 +89,9 @@ const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Mat
 function orderTags(o) {
   const tags = [];
   const rider = o.rider && RIDER_TYPES[o.rider];
-  if (rider) tags.push(`<span class="tag">${rider.icon || ''} ${rider.name}</span>`);
+  // khách lừa đảo đội lốt khách app bình thường (không lộ tên loại khách) — chỉ còn các dấu hiệu tinh ý bên dưới
+  const shown = rider?.scam ? RIDER_TYPES.app || null : rider;
+  if (shown) tags.push(`<span class="tag">${shown.icon || ''} ${shown.name}</span>`);
   if (o.viaApp === false) tags.push(`<span class="tag good">${fmt('phone.regular')}</span>`);
   if (o.booker) tags.push(`<span class="tag">${fmt('phone.booked', { booker: o.booker })}</span>`);
   if (o.cod) tags.push(`<span class="tag warn">${fmt('phone.cod', { cod: o.cod })}</span>`);
@@ -378,8 +380,8 @@ export class Phone {
       <ul class="steps">${stepHtml}</ul>
       ${items}
       <div class="row"><button class="btn primary" data-app="map">${fmt('phone.openMap')}</button><button class="btn" data-act="call" ${canCall ? '' : 'disabled'}>${fmt('phone.call')}</button></div>
-      <div class="row"><button class="btn danger" data-act="cancel">${fmt('phone.cancel')}</button></div>
-      <div class="ph-note small">${fmt('phone.cancelNote', { stars: APP.account.cancelStars })}</div>
+      <div class="row"><button class="btn danger" data-act="cancel">${fmt('phone.cancel')}</button>${d.floodCancel ? `<button class="btn" data-act="cancelFlood">${fmt('phone.cancelFlood')}</button>` : ''}</div>
+      <div class="ph-note small">${fmt('phone.cancelNote', { stars: APP.account.cancelStars })}${d.floodCancel ? `<br>${fmt('phone.cancelFloodNote')}` : ''}</div>
     </div>`;
   }
 

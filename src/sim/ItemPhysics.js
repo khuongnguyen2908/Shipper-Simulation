@@ -9,7 +9,7 @@
 //     bump (ổ gà, lề đường, cầu thang) · brake (phanh gấp) · swerve (ôm cua gắt) · collision (đâm)
 //
 // env = {
-//   ambient: nhiệt độ ngoài trời °C, sun: 0..1 (nắng chiếu), raining, exposed (đang ở ngoài trời),
+//   ambient: nhiệt độ ngoài trời °C, sun: 0..1 (nắng chiếu), raining, exposed (đang ở ngoài trời), flood: mực nước đang lội 0..1,
 //   speed: m/s, comfortSpeed: m/s, suspension: 0..1 (giảm xóc của xe),
 //   bag: { insulation 0..1, waterproof 0..1, padding 0..1 }, passengerRaincoat
 // }
@@ -17,6 +17,7 @@
 
 import { fmt } from '../content/index.js';
 import { DRIVING } from '../data/balance.js';
+import { floodNum } from './flood.js';
 // số đổ / hoảng khi ôm cua, phanh, xóc (balance.json → driving, thẻ Cân bằng → Lái xe & sóng sánh)
 const DV = (k, def) => (Number.isFinite(DRIVING[k]) ? DRIVING[k] : def);
 
@@ -101,6 +102,11 @@ export class FragileTrait extends Trait {
 export class PaperTrait extends Trait {
   tick(env, dt) {
     if (env.raining && env.exposed) this.item.damage(0.5 * (1 - env.bag.waterproof) * dt, 'wet');
+    // lội nước ngập (từ mức xăm xắp): nước bắn / ngấm vào túi — càng sâu càng ướt (balance.json → flood.itemWet)
+    if (env.flood >= floodNum('shallow')) {
+      const k = floodNum('itemWet');
+      this.item.damage(0.5 * k * env.flood * (1 - env.bag.waterproof) * dt, 'wet');
+    }
   }
 }
 
@@ -111,6 +117,7 @@ export class PassengerTrait extends Trait {
     const comfort = env.comfortSpeed + (this.item.comfortDelta || 0);
     if (env.speed > comfort) this.item.damage((env.speed - comfort) * 0.6 * dt, 'scaredSpeed');
     if (env.raining && env.exposed && !env.passengerRaincoat) this.item.damage(0.3 * dt, 'passengerWet');
+    if (env.flood >= floodNum('deep')) this.item.damage(0.3 * env.flood * dt, 'passengerWet'); // lội nước sâu: khách ướt chân, khó chịu
   }
   onBrake(mag) {
     this.item.damage(mag * DV('riderBrake', 10), 'hardBrake');

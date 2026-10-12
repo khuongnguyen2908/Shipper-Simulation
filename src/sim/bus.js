@@ -272,6 +272,26 @@ export function destinations(sys, fromId, now) {
   return [...best.values()].sort((a, b) => a.trip.arrive - b.trip.arrive);
 }
 
+// Các trạm của MỘT tuyến theo thứ tự xe chạy tới, tính từ trạm `fromId` (hộp thoại ở trạm chia theo tuyến):
+// [{ stop, route, trip }] — mỗi tên trạm 1 lần (2 trạm cùng tên ở 2 bên đường → giữ trạm tới sớm hơn),
+// bỏ trạm đang đứng và trạm cùng tên với nó
+export function routeDestinations(sys, routeId, fromId, now) {
+  const r = sys?.routeById?.[routeId];
+  if (!r || r.error) return [];
+  const i = r.stops.findIndex((s) => s.id === fromId);
+  if (i < 0) return [];
+  const out = [], seen = new Set([sys.byId[fromId]?.name]);
+  for (let k = 1; k < r.stops.length; k++) {
+    const st = r.stops[(i + k) % r.stops.length];
+    const name = sys.byId[st.id]?.name;
+    if (st.id === fromId || seen.has(name)) continue;
+    seen.add(name);
+    const trip = tripOn(r, fromId, st.id, now);
+    if (trip) out.push({ stop: sys.byId[st.id], route: r, trip });
+  }
+  return out;
+}
+
 // Trạm gần điểm (x, z) nhất (trong maxD m), hoặc null
 export function nearestStop(sys, x, z, maxD = Infinity) {
   let best = null, bd = maxD;

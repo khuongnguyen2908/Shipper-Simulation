@@ -1,6 +1,7 @@
 // =============================================================
 // QUẢN LÝ CHƯỚNG NGẠI MÔI TRƯỜNG (HazardManager)
-// Lập lịch theo seed cho MỘT ngày chơi (06:00 → 06:00 hôm sau): mưa, chốt CSGT, kẹt xe giờ cao điểm, ổ gà.
+// Lập lịch theo seed cho MỘT ngày chơi (06:00 → 06:00 hôm sau): mưa, chốt CSGT, kẹt xe giờ cao điểm, ổ gà, triều cường.
+// Ngập đường: mực nước từng đoạn theo mưa to + triều (src/sim/flood.js).
 // Đồng hồ game chạy liên tục (phút tuyệt đối) → mỗi hàm đổi về "phút kể từ 00:00 của ngày đó" (360…1800).
 // Chó băng qua đường do phần thế giới 3D kích hoạt (cần vị trí xe).
 // =============================================================
@@ -17,6 +18,7 @@ const noRoadSeg = (axis, line, from) => {
 };
 import { fmt } from '../content/index.js';
 import { segKeyOf, tierOf, tierRule, TIER_GEO, TIER_IDS } from './roads.js';
+import { floodMap, rainWaterAt, makeTide, tideWaterAt, segDepth, segOfId, floodBand } from './flood.js';
 
 const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}`;
 
@@ -78,7 +80,10 @@ export class HazardManager {
     }));
 
     this.potholes = makePotholes(rng);
+    // Triều cường: tung sau cùng để không làm đổi lịch mưa / chốt / kẹt / ổ gà của các bản lưu cũ
+    this.tide = makeTide(rng, day);
     this._active = new Set();
+    this._floodAt = null; // nhớ mực nước theo phút (gọi nhiều lần mỗi khung hình)
   }
 
   rel(min) {
@@ -98,6 +103,39 @@ export class HazardManager {
   activeJams(min) {
     const m = this.rel(min);
     return this.jams.filter((j) => m >= j.start && m < j.end).flatMap((j) => j.segments);
+  }
+  // ---------- ngập đường ----------
+  // Mực nước nền { rain, tide } 0..1 lúc min (chưa nhân theo cấp trũng của từng đoạn)
+  waterAt(min) {
+    const m = this.rel(min);
+    return { rain: rainWaterAt(m, this.rain), tide: tideWaterAt(m, this.tide) };
+  }
+  // Mực nước từng đoạn ngập lúc min: { id → 0..1 } (chỉ đoạn đang có nước); tính lại mỗi phút game
+  floodState(min) {
+    const k = Math.floor(min);
+    if (this._floodAt && this._floodAt.k === k) return this._floodAt.depth;
+    const { rain, tide } = this.waterAt(k);
+    const depth = {};
+    if (rain > 0 || tide > 0) for (const [id, lv] of Object.entries(floodMap())) {
+      const d = segDepth(lv, rain, tide);
+      if (d > 0.005) depth[id] = d;
+    }
+    this._floodAt = { k, depth };
+    return depth;
+  }
+  floodDepth(id, min) {
+    return this.floodState(min)[id] || 0;
+  }
+  // Các đoạn đang ngập (từ mức xăm xắp): [{ axis, line, from, id, depth }] — bản đồ nhỏ, xe NPC né
+  floodedSegs(min) {
+    return Object.entries(this.floodState(min)).filter(([, d]) => floodBand(d) >= 1).map(([id, depth]) => ({ ...segOfId(id), depth }));
+  }
+  // tên các đường đang ngập (gọn, không trùng) để báo trong chat nhóm
+  floodNames(min) {
+    return [...new Set(this.floodedSegs(min).map(segmentName))].slice(0, 4);
+  }
+  isTide(min) {
+    return floodBand(this.waterAt(min).tide) >= 1;
   }
   isHarshSun(min) {
     const m = this.rel(min);
@@ -120,7 +158,8 @@ export class HazardManager {
 
   forecastText() {
     const parts = this.rain.map((r) => fmt(r.heavy ? 'forecast.heavy' : 'forecast.light', { from: hhmm(r.start), to: hhmm(r.end) }));
-    return fmt('forecast.text', { rains: parts.join(', ') });
+    const t = this.tide;
+    return fmt('forecast.text', { rains: parts.join(', ') }) + (t ? fmt('forecast.tide', { from: hhmm(t.start), peak: hhmm(t.peak), to: hhmm(t.end) }) : '');
   }
 
   // Gọi mỗi khung hình: trả về các sự kiện bắt đầu/kết thúc để báo cho người chơi
@@ -131,9 +170,15 @@ export class HazardManager {
     if (r) now.add('rain');
     for (const p of this.activePolice(min)) now.add(p.id);
     for (const j of this.jams) if (this.rel(min) >= j.start && this.rel(min) < j.end) now.add(j.id);
+    // ngập: triều lên (mức xăm xắp) · mưa to bắt đầu làm ngập đường
+    const w = this.waterAt(min);
+    if (floodBand(w.tide) >= 1) now.add('tide');
+    if (floodBand(w.rain) >= 1) now.add('flood');
     for (const k of now) {
       if (this._active.has(k)) continue;
       if (k === 'rain') events.push({ type: 'rainStart', heavy: r.heavy });
+      else if (k === 'tide') events.push({ type: 'tideStart', names: this.floodNames(min) });
+      else if (k === 'flood') events.push({ type: 'floodStart', names: this.floodNames(min) });
       else if (k.startsWith('p')) events.push({ type: 'policeStart', police: this.police.find((p) => p.id === k) });
       else if (k.startsWith('j')) {
         const j = this.jams.find((x) => x.id === k);
@@ -143,6 +188,8 @@ export class HazardManager {
     for (const k of this._active) {
       if (now.has(k)) continue;
       if (k === 'rain') events.push({ type: 'rainEnd' });
+      else if (k === 'tide') events.push({ type: 'tideEnd' });
+      else if (k === 'flood') events.push({ type: 'floodEnd' });
       else if (k.startsWith('p')) events.push({ type: 'policeEnd', police: this.police.find((p) => p.id === k) });
       else events.push({ type: 'jamEnd' });
     }

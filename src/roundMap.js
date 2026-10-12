@@ -124,14 +124,14 @@ export function roundMapData(game, tgt, dt) {
     color = '#5dade2';
     chip = fmt('mm.bike', { dist: fmtDist(d2(at, base.bike)) });
   }
-  if (!chip) chip = ferryChip || (base.raining ? fmt('mm.rain') : '');
+  if (!chip) chip = ferryChip || (base.floods?.length ? fmt('mm.flood') : base.raining ? fmt('mm.rain') : '');
 
   game.mmR = game.mmR == null ? want : game.mmR + (want - game.mmR) * Math.min(1, dt * 2.5);
   return {
     draw: {
       at, heading: walk ? game.walker.heading : game.bike.heading, radius: game.mmR, walk,
       night: (game.nightLevel || 0) > 0.5, rain: base.raining,
-      places: base.places, alleyBlocks: base.alleyBlocks, jams: base.jams, zone,
+      places: base.places, alleyBlocks: base.alleyBlocks, jams: base.jams, floods: base.floods, zone,
       route: path, routeDashed: dashed, routeColor: color, ferryLines, markers, edge, north: fmt('mm.north'),
     },
     chip: chip.replace(/\s{2,}/g, ' ').trim(),

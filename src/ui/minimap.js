@@ -123,6 +123,8 @@ export class MiniMap {
       g.stroke();
       g.setLineDash([]);
     }
+    // đường ngập: xanh nước, càng sâu càng đậm
+    for (const s of o.floods || []) R(segmentRect(s), `rgba(41,128,185,${(0.35 + 0.55 * Math.min(1, s.depth)).toFixed(2)})`);
     // kẹt xe (vẽ sau cùng để đè lên đường chỉ đường)
     for (const s of o.jams || []) R(segmentRect(s), 'rgba(231,76,60,.9)');
     g.restore();

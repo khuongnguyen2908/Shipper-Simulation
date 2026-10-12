@@ -8,7 +8,7 @@ import { CITY, roadPos, blockBounds, segmentRect, neighbors, traitAtBlock, isJoi
 import { HAZARD } from '../data/balance.js';
 import { makeCar, makeNpcMoto, makePerson, makeDog, makeCone, animatePerson, randomPersonOpts, jamCarGeo, jamMotoGeo } from './models.js';
 import { guessGender } from '../sim/people.js';
-import { pushCircle } from './physics.js';
+import { pushCircle, circleFree } from './physics.js';
 import { list } from '../content/index.js';
 import { tierBetween, tierRule, tierOf, TIER_GEO } from '../sim/roads.js';
 import { busPoses, inService } from '../sim/bus.js';
@@ -107,6 +107,18 @@ export function ringPos(bx, bz, t, inset) {
   return { x: b.x0 + inset, z: b.z1 - inset - u };
 }
 
+// Người đi bộ: vị trí trên vòng vỉa hè theo t (tính ở làn giữa PED_LANE để t không nhảy khi đổi làn),
+// rồi lệch vào phía nhà / ra phía lề theo `lane` (m tính từ mép lề, vỉa hè rộng 3 m)
+const PED_LANE = 1.7; // giữa vỉa hè: hàng cây trồng sát lề (0,9 m) nằm ngoài lối đi
+const PED_LANES = [1.7, 1.4, 2.0, 1.2, 2.2]; // né nhẹ: lệch tối đa 0,5 m, gần làn giữa trước
+const IN = [[0, 1], [-1, 0], [0, -1], [1, 0]]; // hướng vào trong khối của 4 cạnh vòng (theo thứ tự ringPos)
+function pedPos(bx, bz, t, lane) {
+  const L = CITY.BLOCK - 2 * PED_LANE, per = 4 * L;
+  const side = Math.floor((((t % per) + per) % per) / L);
+  const q = ringPos(bx, bz, t, PED_LANE), [nx, nz] = IN[side];
+  return { x: q.x + nx * (lane - PED_LANE), z: q.z + nz * (lane - PED_LANE) };
+}
+
 // Điểm bất kỳ → khối gần nhất và tham số t trên vòng vỉa hè
 function projectToRing(x, z, inset) {
   const off = CITY.ORIGIN + CITY.ROAD / 2;
@@ -189,14 +201,37 @@ export class Traffic {
       }
     });
   }
-  // now: phút game · px, pz: người chơi (xa thì ẩn cho nhẹ)
+  // now: phút game · px, pz: người chơi (xa thì ẩn cho nhẹ). Trả về sự cố để game phát tiếng: [{ type: 'busHonk' }]
+  // Xe buýt chạy theo lịch, nhưng gặp xe / người chắn ngay trước đầu (trong làn) thì PHANH ĐỨNG CHỜ: lịch của xe đó
+  // lùi lại (lag, phút); hết chắn thì chạy nhanh hơn chút để đuổi kịp lịch. Đi xe buýt của người chơi tính theo lịch gốc
+  // (tua thời gian) nên trễ vài phút chỉ là chuyện hiển thị.
   updateBuses(now, px, pz, dt = 0.016) {
-    if (!this.buses.length) return;
+    const events = [];
+    this.busBlockedByPlayer = false; // có xe buýt đang đứng chờ vì người chơi chắn trước đầu
+    if (!this.buses.length) return events;
     const on = inService(now);
-    const poses = new Map();
     for (const b of this.buses) {
-      if (!poses.has(b.route)) poses.set(b.route, busPoses(b.route, now));
-      const p = poses.get(b.route)[b.idx];
+      const dNow = b.lastNow == null ? 0 : now - b.lastNow;
+      b.lastNow = now;
+      if (dNow < 0 || dNow > 5) b.lag = 0; // tua giờ / sang ngày: về đúng lịch
+      b.lag = b.lag || 0;
+      // chắn trước đầu xe? (chỉ xét khi xe đang hiện và đang chạy, không xét lúc đậu ở trạm)
+      const block = b.ready && b.mesh.visible ? this.busBlocker(b, px, pz) : null;
+      if (block === 'npc') b.npcWait = (b.npcWait || 0) + dt;
+      else b.npcWait = 0;
+      const pushThrough = block === 'npc' && b.npcWait > 30; // xe NPC kẹt cứng quá 30 giây: xe buýt đi tiếp (không đứng mãi)
+      if (block && !pushThrough) {
+        b.lag += dNow; // đứng yên: lịch của xe này lùi lại đúng bằng thời gian vừa trôi
+        if (block === 'player') {
+          this.busBlockedByPlayer = true;
+          b.honkT = (b.honkT || 0) + dt;
+          if (b.honkT > 1.5) { b.honkT = -2; events.push({ type: 'busHonk' }); } // chắn lâu: bóp còi, ~3,5 giây 1 lần
+        }
+      } else {
+        b.honkT = 0;
+        b.lag = Math.max(0, b.lag - dNow * 0.35); // đuổi kịp lịch: chạy nhanh hơn 35%
+      }
+      const p = busPoses(b.route, now - b.lag)[b.idx];
       if (!p) continue;
       const mv = Math.hypot(p.x - b.x, p.z - b.z);
       b.speed = b.ready && dt > 0 ? Math.min(20, mv / dt) : 0;
@@ -212,6 +247,22 @@ export class Traffic {
       b.mesh.position.set(p.x, this.elev ? this.elev.topAt(p.x, p.z) : 0, p.z);
       b.mesh.rotation.y = b.heading;
     }
+    return events;
+  }
+  // Có gì chắn ngay trước đầu xe buýt (trong làn, khoảng trống từ đầu xe buýt tới đuôi vật chắn ≤ 3 m)? 'player' | 'npc' | null
+  busBlocker(b, px, pz) {
+    const [hw, half] = SIZE.bus;
+    // w, l: nửa bề ngang / nửa chiều dài vật chắn
+    const ahead = (x, z, w, l) => {
+      const rx = x - b.x, rz = z - b.z;
+      const along = rx * b.dx + rz * b.dz, lat = Math.abs(rx * b.dz - rz * b.dx);
+      return along > 0 && along - l - half < 3 && lat < hw + w * 0.6;
+    };
+    if (ahead(px, pz, 0.6, 0.9)) return 'player';
+    for (const a of this.agents) if (!a.isFar && ahead(a.x, a.z, SIZE[a.kind][0], SIZE[a.kind][1])) return 'npc';
+    for (const a of this.loopCars) if (a.mesh.visible && ahead(a.x, a.z, SIZE.car[0], SIZE.car[1])) return 'npc';
+    for (const o of this.buses) if (o !== b && o.mesh.visible && ahead(o.x, o.z, hw, half)) return 'npc';
+    return null;
   }
 
   // ---------------- xe chạy vòng cố định ----------------
@@ -267,6 +318,7 @@ export class Traffic {
         };
         if (Math.abs((ctx.py ?? 0) - a.y) < 1.5 && ahead(ctx.px, ctx.pz, 7)) {
           v = 0;
+          this.blockedByPlayer = true;
           if (a.honk <= 0 && a.speed < 1) {
             a.honk = 4 + this.rng.next() * 4;
             if (this.honkCd <= 0 && Math.hypot(ctx.px - a.x, ctx.pz - a.z) < 14) {
@@ -403,7 +455,13 @@ export class Traffic {
       }
     }
     const cx = roadPos(a.to[0]), cz = roadPos(a.to[1]);
-    for (const b of this.buses) if (b.mesh.visible && Math.abs(b.x - cx) < 14 && Math.abs(b.z - cz) < 14) return ((a.waitWhy = 'bus'), false);
+    for (const b of this.buses) {
+      if (!b.mesh.visible || Math.abs(b.x - cx) >= 14 || Math.abs(b.z - cz) >= 14) continue;
+      // xe này đang đứng ngay trước đầu xe buýt (cùng làn) → cứ đi, xe buýt đang chờ nó (chờ nhau thì kẹt cứng)
+      const rx = a.x - b.x, rz = a.z - b.z;
+      if (rx * b.dx + rz * b.dz > 0 && Math.abs(rx * b.dz - rz * b.dx) < 2.5) continue;
+      return ((a.waitWhy = 'bus'), false);
+    }
     a.waitWhy = null;
     return true;
   }
@@ -477,7 +535,9 @@ export class Traffic {
     // ưu tiên đi thẳng; ô tô chuộng đại lộ, xe máy chuộng đường nhỏ (balance.json → roads.*.cars / motos)
     const straight = prev && [i + (i - prev[0]), j + (j - prev[1])];
     const key = kind === 'car' ? 'cars' : 'motos';
-    const w = c.map((n) => (straight && n[0] === straight[0] && n[1] === straight[1] ? 2.5 : 1) * (tierRule(tierBetween(node, n), key) + 0.02));
+    // đoạn đang ngập sâu: gần như không ai chạy vào (còn lối khác thì né)
+    const flooded = (n) => this.floodIds?.has(segKeyOf(node, n));
+    const w = c.map((n) => (straight && n[0] === straight[0] && n[1] === straight[1] ? 2.5 : 1) * (tierRule(tierBetween(node, n), key) + 0.02) * (flooded(n) ? 0.02 : 1));
     return this.rng.weighted(c, w);
   }
 
@@ -495,7 +555,40 @@ export class Traffic {
       this.pedW = this.pedBlocks.map(([bx, bz]) => traitAtBlock(bx, bz, 'traffic') + 1e-3);
     }
     const [pbx, pbz] = rng.weighted(this.pedBlocks, this.pedW);
-    this.peds.push({ id: i, mesh, bx: pbx, bz: pbz, t: rng.range(0, 140), speed: rng.range(0.9, 1.4), dir: rng.chance(0.5) ? 1 : -1, pause: 0, talk: 0, knock: 0, phase: rng.range(0, 6), name, x: 0, z: 0, asked: false });
+    this.peds.push({ id: i, mesh, bx: pbx, bz: pbz, t: rng.range(0, 140), speed: rng.range(0.9, 1.4), dir: rng.chance(0.5) ? 1 : -1, pause: 0, talk: 0, knock: 0, phase: rng.range(0, 6), name, x: 0, z: 0, asked: false, lane: PED_LANE, want: PED_LANE, probe: 0 });
+  }
+
+  // Người đi bộ nhìn trước ~1,5 m: bị chắn thì lệch nhẹ sang làn trống (tối đa 0,5 m); không qua được thì đứng đợi, đợi lâu mới quay đầu.
+  // Hết vật cản thì từ từ về làn giữa. Kiểm tra ~6 lần mỗi giây cho nhẹ. Cần this.grid (lưới va chạm của thành phố).
+  pedAvoid(p, dt, ctx) {
+    p.probe -= dt;
+    if (p.probe > 0 || !this.grid) return;
+    p.probe = 0.1;
+    const free = (lane) => {
+      for (const ahead of [0.3, 0.8, 1.5]) {
+        const q = pedPos(p.bx, p.bz, p.t + p.dir * ahead, lane);
+        if (!circleFree(this.grid, q.x, q.z, 0.3, SW_H)) return false;
+        if (Math.hypot(q.x - ctx.px, q.z - ctx.pz) < 0.8) return false; // người chơi đứng chắn
+      }
+      return true;
+    };
+    if (free(p.want)) {
+      if (p.want !== PED_LANE && free(PED_LANE)) p.want = PED_LANE; // hết vật cản: về làn giữa
+      return;
+    }
+    const lane = PED_LANES.find((l) => free(l));
+    if (lane != null) {
+      p.want = lane;
+      p.stuck = 0;
+      return;
+    }
+    // lệch nhẹ không qua được: đứng đợi (người / xe chắn thường tự đi); đợi lâu vẫn kẹt (vật cố định) thì quay đầu
+    p.stuck = (p.stuck || 0) + 0.4;
+    p.pause = 0.4;
+    if (p.stuck > 6) {
+      p.dir *= -1;
+      p.stuck = 0;
+    }
   }
 
   spawnDog() {
@@ -517,6 +610,11 @@ export class Traffic {
     this.jamMotoMesh.count = 0;
     this.jamMotoMesh.castShadow = true;
     this.scene.add(this.jamCarMesh, this.jamMotoMesh);
+  }
+
+  // Đoạn đường đang ngập sâu (mã đoạn): xe NPC chọn đường khác khi tới ngã tư
+  setFlood(ids) {
+    this.floodIds = new Set(ids);
   }
 
   setJams(segments) {
@@ -610,6 +708,7 @@ export class Traffic {
   update(dt, ctx) {
     const events = [];
     this.honkCd -= dt;
+    this.blockedByPlayer = false; // khung hình này có xe NPC phải dừng vì người chơi đứng chắn (game đếm để công an nhắc)
     // NPC ở xa người chơi (ngoài tầm nhìn sương mù) thì ẩn và cập nhật đơn giản để đỡ nặng máy
     const far = (x, z) => Math.abs(x - ctx.px) > FAR || Math.abs(z - ctx.pz) > FAR;
     // xe NPC — ẩn / hiện có vùng đệm 2 phía mép tầm nhìn (xe không bật tắt liên tục ở mép)
@@ -699,6 +798,7 @@ export class Traffic {
         if (p.player && Math.abs((ctx.py ?? 0) - 0) > 1.5) continue; // người chơi đang trên cầu
         if (along > 0 && along < (a.kind === 'car' ? 7 : 5) && Math.abs(lat) < 1.8) {
           v = 0;
+          if (p.player) this.blockedByPlayer = true;
           if (p.player && a.honk <= 0 && a.speed < 1) {
             a.honk = 4 + this.rng.next() * 4;
             if (this.honkCd <= 0 && Math.hypot(ox, oz) < 14) {
@@ -802,9 +902,12 @@ export class Traffic {
         if (this.rng.next() < dt * 0.05) p.pause = this.rng.range(2, 5);
         if (this.rng.next() < dt * 0.015) p.dir *= -1;
       }
-      const pos = ringPos(p.bx, p.bz, p.t, 1.3);
+      // né vật cản trên vỉa hè (cây, cột, trạm xe buýt, xe dựng…) và người chơi: bước lệch làn, hết lối thì quay đầu
+      if (moving && !far(p.x, p.z)) this.pedAvoid(p, dt, ctx);
+      p.lane += ((p.want ?? PED_LANE) - p.lane) * Math.min(1, dt * 2.5); // bước lệch từ từ, không giật
+      const pos = pedPos(p.bx, p.bz, p.t, p.lane);
       if (moving) {
-        const nxt = ringPos(p.bx, p.bz, p.t + p.dir * 0.2, 1.3);
+        const nxt = pedPos(p.bx, p.bz, p.t + p.dir * 0.2, p.lane);
         p.mesh.rotation.y = Math.atan2(nxt.x - pos.x, nxt.z - pos.z);
       }
       p.x = pos.x;

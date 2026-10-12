@@ -63,6 +63,7 @@ export const BUS = balanceData.bus || {}; // xe buýt: giá vé, giờ chạy, t
 export const FERRY = balanceData.ferry || {}; // phà: giá vé, giờ chạy, phút đậu bến / qua sông, số phà (src/sim/ferry.js)
 export const RIDE_EVENTS = balanceData.rideEvents || {}; // sự cố khi chở khách: lừa đảo, đổi điểm đến, vali, khách nước ngoài
 export const DRIVING = balanceData.driving || {}; // lái xe & sóng sánh: tay lái bẻ dần, ngưỡng ôm cua / phanh gấp, mức đổ / hoảng
+export const FLOOD = balanceData.flood || {}; // ngập đường: mưa to + triều cường, lội nước, chết máy (src/sim/flood.js)
 
 // Tiền nhà trả theo KỲ (mỗi rentEveryDays ngày). Kỳ `period` (1, 2, 3…): có số tự đặt trong rentByPeriod thì dùng,
 // không thì = tiền kỳ 1 + tăng mỗi kỳ
@@ -95,5 +96,6 @@ export function applyBalance(data) {
   into(FERRY, data.ferry);
   into(RIDE_EVENTS, data.rideEvents);
   into(DRIVING, data.driving);
+  into(FLOOD, data.flood);
 }
 

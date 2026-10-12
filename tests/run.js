@@ -3602,5 +3602,191 @@ console.log('Màn hình chính: hồ sơ shipper, cài đặt');
   });
 }
 
+console.log('Ngập đường & triều cường');
+{
+  const FL = await import('../src/sim/flood.js');
+  const { FLOOD } = await import('../src/data/balance.js');
+  const { roadGraph, roadPos, CITY } = CITYLAYOUT;
+  const MAPD = readJson('src/data/map.json');
+  // số cố định cho bộ thử (không phụ thuộc số người dùng chỉnh trong ⚖️ Cân bằng)
+  const F = { ...FLOOD, tideChance: 0.2, tideFromDay: 2, tidePeakFrom: 17, tidePeakTo: 19, tideRiseMin: 60, tideHoldMin: 30, tideFallMin: 60, tideDepth: 0.9, rainDelayMin: 20, rainRiseMin: 40, rainDrainMin: 60, lowDepth: 0.6, shallow: 0.15, deep: 0.5, shallowKmh: 25, deepKmh: 10, autoLowPct: 0.12, autoTidePct: 0.4 };
+  test('Gợi ý tự động: đường sát sông là "Rất trũng", không có mặt cầu / dốc cầu; đã tô thì theo dữ liệu (bỏ mã sai)', () => {
+    const G = roadGraph(MAPD);
+    const sug = FL.suggestFlood(MAPD, F);
+    const tide = Object.keys(sug).filter((k) => sug[k] === 'tide');
+    assert.ok(tide.length > 0, 'có đoạn sát sông');
+    for (const id of Object.keys(sug)) assert.ok(!G.rampSegs.has(id) && !G.highSegs.has(id) && !G.bridgeSegs.has(id) && !G.waterSegs.has(id), id);
+    // đoạn Rất trũng nằm trên đường song song ngay sát một con sông
+    for (const id of tide) {
+      const sg = FL.segOfId(id);
+      assert.ok((MAPD.rivers || []).some((r) => r.axis === sg.axis && (sg.line === r.line - 1 || sg.line === r.line + (r.wide ? 2 : 1))), id);
+    }
+    assert.deepEqual(FL.suggestFlood(MAPD, F), sug, 'gợi ý lần nào cũng như nhau');
+    const own = FL.floodMap({ ...MAPD, floodSegs: { 'x1:1': 'tide', 'z2:3': 'low', 'x1:2': 'sâu', bậy: 'low' } });
+    assert.deepEqual(own, { 'x1:1': 'tide', 'z2:3': 'low' });
+    assert.deepEqual(FL.floodMap({ ...MAPD, floodSegs: {} }), {}, 'tô xóa hết = không đoạn nào ngập');
+  });
+  test('Mực nước: mưa to một lúc mới ngập, tạnh thì rút; mưa phùn không ngập; triều lên – giữ – rút', () => {
+    const rains = [{ start: 600, end: 700, heavy: true }, { start: 400, end: 500, heavy: false }];
+    assert.equal(FL.rainWaterAt(450, rains, F), 0, 'mưa phùn');
+    assert.equal(FL.rainWaterAt(615, rains, F), 0, 'chưa đủ 20 phút');
+    assert.ok(Math.abs(FL.rainWaterAt(640, rains, F) - 0.5) < 1e-9, 'dâng nửa chừng');
+    assert.equal(FL.rainWaterAt(690, rains, F), 1);
+    assert.ok(Math.abs(FL.rainWaterAt(730, rains, F) - 0.5) < 1e-9, 'tạnh 30/60 phút → còn nửa');
+    assert.equal(FL.rainWaterAt(760, rains, F), 0);
+    const tide = { start: 1000, top: 1060, topEnd: 1090, end: 1150, peak: 1075 };
+    assert.equal(FL.tideWaterAt(990, tide, F), 0);
+    assert.ok(Math.abs(FL.tideWaterAt(1030, tide, F) - 0.45) < 1e-9);
+    assert.equal(FL.tideWaterAt(1075, tide, F), 0.9);
+    assert.ok(Math.abs(FL.tideWaterAt(1120, tide, F) - 0.45) < 1e-9);
+    assert.equal(FL.tideWaterAt(1200, tide, F), 0);
+    assert.equal(FL.tideWaterAt(1075, null, F), 0);
+    // cấp trũng: Trũng chỉ ngập mưa (thấp hơn) · Rất trũng ngập cả triều, trùng nhau thì sâu hơn (tối đa 100%)
+    assert.equal(FL.segDepth('low', 1, 0.9, F), 0.6);
+    assert.equal(FL.segDepth('low', 0, 0.9, F), 0);
+    assert.equal(FL.segDepth('tide', 0, 0.9, F), 0.9);
+    assert.equal(FL.segDepth('tide', 0.5, 0.9, F), 1);
+    assert.equal(FL.segDepth(null, 1, 1, F), 0);
+  });
+  test('Triều cường: ngày đầu không có; tỉ lệ ngày có triều theo số chỉnh; giờ cao nhất trong khung đã đặt', () => {
+    assert.equal(FL.makeTide(makeRng(1), 1, { ...F, tideChance: 1 }), null, 'ngày 1 chưa có');
+    assert.equal(FL.makeTide(makeRng(1), 5, { ...F, tideChance: 0 }), null, '0% = tắt');
+    let n = 0;
+    for (let d = 2; d < 1002; d++) {
+      const t = FL.makeTide(makeRng(d * 7919), d, F);
+      if (!t) continue;
+      n++;
+      assert.ok(t.peak >= 17 * 60 && t.peak <= 19 * 60 && t.start < t.top && t.top <= t.topEnd && t.topEnd < t.end);
+    }
+    assert.ok(n > 150 && n < 250, `1000 ngày có ${n} ngày triều (mong ~200)`);
+    // HazardManager dùng số đang chỉnh trong ⚖️ Cân bằng
+    let m = 0;
+    for (let d = 2; d < 402; d++) if (new HazardManager(makeRng(3 + d * 101), d).tide) m++;
+    const want = (FLOOD.tideChance ?? 0.2) * 400;
+    assert.ok(Math.abs(m - want) < 60, `400 ngày có ${m} ngày triều (mong ~${want})`);
+  });
+  test('Lội nước: tốc độ tối đa giảm dần theo mực nước; mức khô / xăm xắp / sâu; đường qua đoạn ngập thì chậm thêm', () => {
+    assert.equal(FL.floodSpeedCap(0.1, F), 0, 'khô: không giới hạn');
+    assert.ok(Math.abs(FL.floodSpeedCap(0.15, F) - 25 / 3.6) < 1e-9);
+    assert.ok(Math.abs(FL.floodSpeedCap(0.8, F) - 10 / 3.6) < 1e-9);
+    assert.ok(FL.floodSpeedCap(0.3, F) < FL.floodSpeedCap(0.2, F));
+    assert.deepEqual([0.1, 0.2, 0.6].map((d) => FL.floodBand(d, F)), [0, 1, 2]);
+    const nodes = [[1, 1], [1, 2], [2, 2]];
+    assert.equal(FL.routeFloodDelay(nodes, () => 0, 12, F), 0);
+    const extra = FL.routeFloodDelay(nodes, (id) => (id === 'x1:1' ? 0.9 : 0), 12, F);
+    assert.ok(Math.abs(extra - (CITY.PITCH / (10 / 3.6) - CITY.PITCH / 12)) < 1e-9);
+  });
+  test('Vị trí → đoạn ngập: giữa đoạn, giữa ngã tư (lấy đoạn ngập nhất), trong khối thì khô; cửa trong hẻm tính theo miệng hẻm', () => {
+    const depth = (id) => ({ 'x2:3': 0.7, 'z3:2': 0.3 })[id] || 0;
+    const mid = roadPos(3) + CITY.PITCH / 2;
+    assert.equal(FL.depthAtPoint(roadPos(2), mid, depth), 0.7, 'giữa đoạn x2:3');
+    assert.equal(FL.depthAtPoint(roadPos(2), roadPos(3), depth), 0.7, 'ngã tư (2,3)');
+    assert.equal(FL.depthAtPoint(roadPos(2) + CITY.PITCH / 2, roadPos(2) + CITY.PITCH / 2, depth), 0, 'giữa khối nhà');
+    assert.equal(FL.nearestSegId({ x: roadPos(2) + 8, z: mid }), 'x2:3', 'cửa nhà sát đường dọc');
+    assert.equal(FL.nearestSegId({ x: roadPos(1) + 20, z: roadPos(3) - 7, mouth: { x: roadPos(2) + 2, z: mid } }), 'x2:3', 'nhà trong hẻm');
+  });
+  test('Hủy vì ngập: chỉ khi chưa lấy hàng / chưa đón khách và chỗ lấy hoặc chỗ giao đang ngập; không bị trừ sao', () => {
+    const mid = roadPos(3) + CITY.PITCH / 2;
+    const order = { pickup: { door: { x: roadPos(2) + 8, z: mid } }, dropoff: { door: { x: roadPos(6) + 8, z: roadPos(6) + CITY.PITCH / 2 } } };
+    const wetPickup = (id) => (id === 'x2:3' ? 0.4 : 0);
+    const wetDrop = (id) => (id === 'x6:6' ? 0.6 : 0);
+    for (const st of ['TO_PICKUP', 'WAITING_FOOD', 'OUT_OF_STOCK']) assert.ok(FL.floodCancelOk(st, order, wetPickup, F), st);
+    assert.ok(FL.floodCancelOk('TO_PICKUP', order, wetDrop, F), 'chỗ giao ngập cũng được');
+    for (const st of ['PACKING', 'DELIVERING', 'AT_DROPOFF', 'IDLE', 'OFFERED']) assert.ok(!FL.floodCancelOk(st, order, wetPickup, F), `${st}: đã lấy hàng / chưa nhận → không`);
+    assert.ok(!FL.floodCancelOk('TO_PICKUP', order, () => 0.1, F), 'nước dưới mức xăm xắp → không');
+    assert.ok(!FL.floodCancelOk('TO_PICKUP', null, wetPickup, F));
+    for (const st of FL.FLOOD_CANCEL_STATES) assert.ok(TRANSITIONS[st].includes('IDLE'), `${st} hủy được`);
+    // hủy vì ngập qua OrderManager: không tính là tài xế tự hủy (không trừ sao, không cộng lần tự hủy)
+    const { om, gs } = mkOM(4);
+    let ev = null;
+    om.on((e) => { if (e.type === 'cancelled') ev = e; });
+    om.goOnline();
+    om.offer = om.makeOffer(600, { x: 0, z: 0 });
+    om.go(S.OFFERED);
+    om.accept(600, { x: 0, z: 0 });
+    const before = gs.rating;
+    om.cancel('ngập', 605, { byDriver: false, flood: true });
+    assert.ok(ev && ev.flood && !ev.byDriver);
+    gs.applyCancel(ev, 605);
+    assert.equal(gs.rating, before);
+    assert.equal(gs.account.driverCancels, 0);
+  });
+  test('HazardManager: chỉ đoạn trũng mới ngập; đoạn Rất trũng ngập khi triều lên; báo triều lên / rút; dự báo có triều', () => {
+    let hz = null;
+    for (let d = 2; d < 300 && !hz; d++) { const h = new HazardManager(makeRng(11 + d * 101), d); if (h.tide) hz = h; }
+    assert.ok(hz, 'tìm được 1 ngày có triều');
+    const fm = FL.floodMap();
+    const peak = hz.base + (hz.tide.top + hz.tide.topEnd) / 2;
+    const st = hz.floodState(peak);
+    for (const id of Object.keys(st)) assert.ok(fm[id], `${id} không phải đoạn trũng mà vẫn ngập`);
+    for (const id of Object.keys(fm).filter((k) => fm[k] === 'tide')) assert.ok(st[id] > 0, `${id}: Rất trũng mà không ngập lúc triều cao`);
+    const types = [];
+    for (let m = hz.base + hz.tide.start - 10; m < hz.base + hz.tide.end + 10; m++) for (const e of hz.poll(m)) types.push(e.type);
+    assert.ok(types.includes('tideStart') && types.includes('tideEnd'), types.join(','));
+    assert.ok(hz.forecastText().includes(CONTENT.fmt('forecast.tide', { from: '', to: '', peak: '' }).split(' ')[1]), 'dự báo có triều cường');
+  });
+  test('Bộ kiểm tra bản đồ: mức ngập lạ, đoạn ngoài bản đồ → lỗi', () => {
+    const { validateMap } = VALIDATE;
+    const bad = { ...MAPD, floodSegs: { 'x1:1': 'sâu lắm', 'x99:1': 'low', 'x2:2': 'tide' } };
+    const errs = validateMap(bad, DATA.places).filter((i) => i.level === 'error' && i.ref === 'flood').map((i) => i.field);
+    assert.deepEqual(errs.sort(), ['x1:1', 'x99:1']);
+    assert.ok(validateMap({ ...MAPD, floodSegs: [] }, DATA.places).some((i) => i.level === 'error' && i.field === 'floodSegs'));
+  });
+}
+
+console.log('Trạm xe buýt: chia theo tuyến');
+{
+  const { buildBusSystem, routeDestinations, tripOn } = await import('../src/sim/bus.js');
+  const sys = buildBusSystem(layout);
+  test('Hộp thoại ở trạm: mỗi tuyến liệt kê các trạm theo thứ tự xe chạy tới, không lặp tên, không có trạm đang đứng', () => {
+    const routes = sys.routes.filter((r) => !r.error);
+    assert.ok(routes.length > 0, 'có tuyến chạy được');
+    for (const r of routes) {
+      const from = r.stops[0].id;
+      const list = routeDestinations(sys, r.id, from, 8 * 60);
+      const ids = list.map((d) => d.stop.id);
+      assert.ok(!ids.includes(from), `${r.id}: có cả trạm đang đứng`);
+      assert.equal(new Set(ids).size, ids.length, `${r.id}: trạm lặp`);
+      assert.ok(list.every((d) => d.route === r), 'đúng tuyến');
+      // thứ tự xe chạy: thời gian đi tăng dần
+      for (let k = 1; k < list.length; k++) assert.ok(list[k].trip.ride >= list[k - 1].trip.ride, `${r.id}: sai thứ tự ở ${ids[k]}`);
+      // mỗi tên trạm 1 lần, không có tên trạm đang đứng; đủ mọi tên trạm khác của tuyến
+      const names = list.map((d) => d.stop.name);
+      assert.equal(new Set(names).size, names.length, `${r.id}: tên trạm lặp`);
+      assert.ok(!names.includes(sys.byId[from].name), `${r.id}: có trạm cùng tên trạm đang đứng`);
+      const expect = new Set(r.stops.map((s) => sys.byId[s.id].name).filter((n) => n !== sys.byId[from].name));
+      assert.deepEqual(new Set(names), expect);
+    }
+    assert.deepEqual(routeDestinations(sys, 'khongCo', 'x', 480), []);
+    assert.deepEqual(routeDestinations(sys, routes[0].id, 'khongCoTram', 480), []);
+  });
+}
+
+console.log('Cản trở giao thông: đưa vào lề');
+{
+  const { curbSpot, roadSegAt } = await import('../src/sim/roads.js');
+  const { roadPos, CITY } = CITYLAYOUT;
+  const H = CITY.ROAD / 2;
+  test('Công an đưa vào lề: đi bộ lên vỉa hè, đi xe sát mép đường, giữa ngã tư ra góc; ngoài đường thì giữ nguyên', () => {
+    const mid = roadPos(3) + CITY.PITCH / 2;
+    // giữa lòng đường dọc (x = roadPos(2)), lệch phải 1 m
+    const foot = curbSpot(roadPos(2) + 1, mid, false), bike = curbSpot(roadPos(2) + 1, mid, true);
+    assert.ok(Math.abs(foot.x - roadPos(2)) > H && foot.z === mid, 'đi bộ: lên vỉa hè, cùng bên');
+    assert.ok(foot.x > roadPos(2) && bike.x > roadPos(2), 'tấp vào lề bên gần hơn');
+    assert.ok(Math.abs(bike.x - roadPos(2)) < H && Math.abs(bike.x - roadPos(2)) > H - 1.5, 'đi xe: sát mép lòng đường');
+    // đường ngang, lệch trái
+    const f2 = curbSpot(mid, roadPos(4) - 2, false);
+    assert.ok(f2.z < roadPos(4) - H && f2.x === mid);
+    // giữa ngã tư (2,3)
+    const c = curbSpot(roadPos(2) + 2, roadPos(3) + 1, false);
+    assert.ok(c.x > roadPos(2) + H && c.z > roadPos(3) + H, 'ra góc vỉa hè gần nhất');
+    const cb = curbSpot(roadPos(2) + 2, roadPos(3) + 1, true);
+    assert.ok(roadSegAt(cb.x, cb.z), 'đi xe: ra khỏi ngã tư, nằm trên một đoạn đường');
+    // đang trong khối nhà / vỉa hè: giữ nguyên
+    const inBlock = { x: roadPos(2) + CITY.PITCH / 2, z: mid };
+    assert.deepEqual(curbSpot(inBlock.x, inBlock.z, false), inBlock);
+  });
+}
+
 console.log(`\n${pass} đạt, ${fail} lỗi`);
 if (fail) process.exit(1);

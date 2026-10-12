@@ -8,6 +8,7 @@ import { DISTRICT_TRAITS, DISTRICT_PRESETS, TRAIT_IDS, TRAIT_RANGE, traitOf, HOU
 import { ROAD_TIERS, TIER_IDS, tierOf, roadSegAt, allSegments, suggestRoadTiers } from '../../sim/roads.js';
 import { buildLayout } from '../../sim/cityLayout.js';
 import { buildBusSystem, pointAt } from '../../sim/bus.js';
+import { FLOOD_LEVELS, floodMap, suggestFlood } from '../../sim/flood.js';
 
 // khu phố đang mở bảng "tính cách" (⚙️)
 let openKhu = null;
@@ -16,6 +17,9 @@ let brush = null;
 // cọ tô cấp đường: null = không tô · 'big' | 'normal' | 'small'
 let roadBrush = null;
 const TIER_COLOR = { big: '#e0b84a', normal: '#7d8794', small: '#a1785c' };
+// cọ tô đường ngập: null = không tô · 'none' (xóa) | 'low' (Trũng) | 'tide' (Rất trũng)
+let floodBrush = null;
+const FLOOD_COLOR = { low: '#5dade2', tide: '#1f4e8c' };
 // tuyến xe buýt đang bật 👁 (soi lộ trình + đánh số trạm) — null = không soi
 let busEye = null;
 // mục đang mở / gập (nhớ trong trình duyệt, lỗi bộ nhớ thì dùng mặc định)
@@ -104,6 +108,7 @@ export function render(root, ctx) {
   if (brush && !map.districts[brush]) brush = null;
   const dBox = el('div');
   let drawRoads = null; // vẽ lại mục Đường to / nhỏ (đếm số đoạn)
+  let drawFlood = null; // vẽ lại mục Đường ngập (đếm số đoạn)
   body.append(
     el('div', { class: 'body-head' }, el('h2', {}, `🗺️ Bản đồ ${CITY.N}×${CITY.N} khối`),
       el('span', { class: 'inline' },
@@ -133,6 +138,7 @@ export function render(root, ctx) {
     fold('districts', '🏙️ Khu phố', dBox),
     explain(EXPLAIN.map),
     fold('roads', '🛣️ Đường to / nhỏ', roadsBox()),
+    fold('flood', '🌊 Đường ngập (mưa to, triều cường)', floodBox()),
     fold('bus', '🚌 Xe buýt', busBox()),
     fold('rivers', '🌊 Sông & cầu', riversBox()),
     fold('joins', '🧩 Gộp khối', joinsBox()),
@@ -150,7 +156,7 @@ export function render(root, ctx) {
       textInput(d.name, (v) => { d.name = v; changed(); drawMap(); }, { class: 'dist-name' }),
       el('small', { class: 'muted' }, `${count[id] || 0} khối`),
       button(openKhu === id ? '⚙️ Đóng' : '⚙️ Tính cách', () => { openKhu = openKhu === id ? null : id; drawDistricts(); }, openKhu === id ? 'small primary' : 'small'),
-      button(brush === id ? '✔ Đang tô' : '🖌 Tô', () => { brush = brush === id ? null : id; roadBrush = null; drawRoads?.(); drawDistricts(); }, brush === id ? 'small primary' : 'small'),
+      button(brush === id ? '✔ Đang tô' : '🖌 Tô', () => { brush = brush === id ? null : id; roadBrush = null; floodBrush = null; drawRoads?.(); drawFlood?.(); drawDistricts(); }, brush === id ? 'small primary' : 'small'),
       button('🗑', () => {
         if (count[id] && !confirm(`Xóa "${d.name}"? ${count[id]} khối sẽ thành chưa gán khu phố.`)) return;
         ctx.historyBreak();
@@ -176,7 +182,7 @@ export function render(root, ctx) {
           changed();
           drawDistricts();
         }, 'small primary'),
-        button(brush === '' ? '✔ Đang xóa khu phố khỏi khối' : '🧽 Xóa khu phố khỏi khối', () => { brush = brush === '' ? null : ''; roadBrush = null; drawRoads?.(); drawDistricts(); }, brush === '' ? 'small primary' : 'small')),
+        button(brush === '' ? '✔ Đang xóa khu phố khỏi khối' : '🧽 Xóa khu phố khỏi khối', () => { brush = brush === '' ? null : ''; roadBrush = null; floodBrush = null; drawRoads?.(); drawFlood?.(); drawDistricts(); }, brush === '' ? 'small primary' : 'small')),
     );
   }
   // Bảng "tính cách" của một khu phố: mẫu khu + các hệ số (1 = bình thường như mọi nơi)
@@ -269,7 +275,7 @@ export function render(root, ctx) {
         el('div', { class: 'inline wrap' },
           ...ROAD_TIERS.map(([k, label]) => button(`${roadBrush === k ? '✔ Đang tô ' : '🖌 '}${label} (${cnt[k]})`, () => {
             roadBrush = roadBrush === k ? null : k;
-            if (roadBrush) brush = null; // không tô khu phố cùng lúc
+            if (roadBrush) { brush = null; floodBrush = null; drawFlood?.(); } // không tô khu phố / đường ngập cùng lúc
             draw();
             drawDistricts();
             drawMap();
@@ -290,6 +296,53 @@ export function render(root, ctx) {
     drawRoads = draw;
     return box;
   }
+  // ---------- đường ngập (map.json → floodSegs) ----------
+  function floodBox() {
+    const box = el('div');
+    const draw = () => {
+      box.innerHTML = '';
+      const fm = floodMap(map), cnt = { low: 0, tide: 0 };
+      for (const lv of Object.values(fm)) cnt[lv]++;
+      box.append(
+        el('p', { class: 'muted' }, 'Đoạn "💧 Trũng" chỉ ngập khi mưa to; đoạn "🌊 Rất trũng" (thường sát sông) ngập cả khi triều cường. Nước ngập làm xe chạy chậm, hàng hộp giấy dễ ướt, chạy nhanh qua nước sâu dễ chết máy; xe NPC né đoạn ngập sâu. Triều cường mấy ngày 1 lần, giờ nào, sâu bao nhiêu: thẻ ⚖️ Cân bằng → 🌊 Ngập đường & triều cường. Chọn cọ rồi bấm / kéo lên đường trên bản đồ để tô (vạch xanh giữa đường: nhạt = Trũng, đậm = Rất trũng).'),
+        map.floodSegs ? null : el('p', { class: 'warn' }, 'Chưa tô đoạn nào → game đang dùng GỢI Ý TỰ ĐỘNG (đường sát sông + vài đoạn ngẫu nhiên). Tô thử 1 đoạn là bảng gợi ý được chép vào để bạn sửa tiếp.'),
+        el('div', { class: 'inline wrap' },
+          ...FLOOD_LEVELS.map(([k, label]) => button(`${floodBrush === k ? '✔ Đang tô ' : k === 'none' ? '🧽 ' : '🖌 '}${label}${k === 'none' ? '' : ` (${cnt[k]})`}`, () => {
+            floodBrush = floodBrush === k ? null : k;
+            if (floodBrush) { brush = null; roadBrush = null; drawRoads?.(); drawDistricts(); } // không tô khu phố / cấp đường cùng lúc
+            draw();
+            drawMap();
+          }, floodBrush === k ? 'small primary' : 'small')),
+          button('🔄 Gợi ý tự động', () => {
+            if (map.floodSegs && !confirm('Đặt lại đường ngập theo gợi ý tự động (đường sát sông = Rất trũng, vài đoạn Trũng ngẫu nhiên). Các đoạn đã tô tay sẽ bị ghi đè. Tiếp tục?')) return;
+            ctx.historyBreak();
+            map.floodSegs = suggestFlood(map);
+            changed();
+            ctx.historyBreak();
+            draw();
+            drawMap();
+          }, 'small'),
+        ),
+      );
+    };
+    draw();
+    drawFlood = draw;
+    return box;
+  }
+  // tô 1 đoạn đường bằng cọ đường ngập (lần đầu: chép bảng gợi ý tự động vào để sửa tiếp)
+  function paintFlood(wx, wz) {
+    const s = roadSegAt(wx, wz);
+    if (!s || !allSegments(map).some((x) => x.id === s.id)) return;
+    const cur = floodMap(map)[s.id] || 'none';
+    if (cur === floodBrush) return;
+    if (!map.floodSegs) map.floodSegs = { ...floodMap(map) };
+    if (floodBrush === 'none') delete map.floodSegs[s.id];
+    else map.floodSegs[s.id] = floodBrush;
+    changed();
+    drawMap();
+    drawFlood?.();
+  }
+
   // ---------- xe buýt (map.json → busRoutes, busStopNames) ----------
   // dựng tuyến từ bản đang sửa (địa điểm + bản đồ) để xem trước lộ trình, trạm, lỗi
   function busSystem() {
@@ -516,6 +569,13 @@ export function render(root, ctx) {
       const rr = sg.axis === 'x' ? { x0: cx - (CITY.ROAD * f) / 2, x1: cx + (CITY.ROAD * f) / 2, z0: r.z0, z1: r.z1 } : { x0: r.x0, x1: r.x1, z0: cz - (CITY.ROAD * f) / 2, z1: cz + (CITY.ROAD * f) / 2 };
       R(rr, TIER_COLOR[t]);
     }
+    // đường ngập: vạch xanh giữa đường (nhạt = Trũng, đậm = Rất trũng)
+    for (const [id, lv] of Object.entries(floodMap(map))) {
+      const sg = allSegments(map).find((x) => x.id === id);
+      if (!sg) continue;
+      const r = segmentRect(sg), cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2, w = CITY.ROAD * 0.28;
+      R(sg.axis === 'x' ? { x0: cx - w / 2, x1: cx + w / 2, z0: r.z0, z1: r.z1 } : { x0: r.x0, x1: r.x1, z0: cz - w / 2, z1: cz + w / 2 }, FLOOD_COLOR[lv]);
+    }
     // tuyến xe buýt + trạm (bản đang sửa); đang soi 1 tuyến (👁) thì tuyến khác mờ đi
     const bs = busSystem();
     const eye = busEye && bs?.routeById[busEye] && !bs.routeById[busEye].error ? bs.routeById[busEye] : null;
@@ -638,24 +698,26 @@ export function render(root, ctx) {
     };
     // có cọ: bấm / kéo để tô khu phố · không cọ: bấm để chọn khối
     c.addEventListener('pointerdown', (e) => {
-      if (brush === null && roadBrush === null) return;
+      if (brush === null && roadBrush === null && floodBrush === null) return;
       painting = ctx;
       ctx.historyBreak();
+      if (floodBrush !== null) return paintFlood(...worldAt(e));
       if (brush === null) return paintRoad(...worldAt(e));
       const key = blockAtEvent(e);
       if (key) paint(key);
     });
     c.addEventListener('pointermove', (e) => {
       if (!painting || !e.buttons) return;
+      if (floodBrush !== null) return paintFlood(...worldAt(e));
       if (brush === null && roadBrush !== null) return paintRoad(...worldAt(e));
       const key = blockAtEvent(e);
       if (key) paint(key);
     });
     c.addEventListener('click', (e) => {
-      if (brush !== null || roadBrush !== null) return;
+      if (brush !== null || roadBrush !== null || floodBrush !== null) return;
       const key = blockAtEvent(e);
       if (key) ctx.select('map', { id: key });
     });
-    canvasBox.append(c, el('small', { class: 'muted' }, 'Vàng = khối đang chọn · xám sáng = khối có địa điểm · nâu = hẻm xe máy · be = hẻm đi bộ · xanh rêu = nhà trong hẻm · đường: vàng to = đại lộ, xám = thường, nâu hẹp = đường nhỏ'));
+    canvasBox.append(c, el('small', { class: 'muted' }, 'Vàng = khối đang chọn · xám sáng = khối có địa điểm · nâu = hẻm xe máy · be = hẻm đi bộ · xanh rêu = nhà trong hẻm · đường: vàng to = đại lộ, xám = thường, nâu hẹp = đường nhỏ · vạch xanh giữa đường = đường ngập (nhạt: Trũng, đậm: Rất trũng)'));
   }
 }

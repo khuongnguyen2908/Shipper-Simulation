@@ -184,7 +184,7 @@
       "rows": 2,
       "price": 50,
       "color": "#27ae60",
-      "desc": "Mở khóa đơn trà sữa, kem (cước cao hơn)."
+      "desc": "Túi rộng hơn tí."
     },
     "thermal_2": {
       "id": "thermal_2",
@@ -196,7 +196,7 @@
       "rows": 2,
       "price": 120,
       "color": "#3128af",
-      "desc": "Túi rộng hơn, xịn hơn"
+      "desc": "Mở khóa đơn trà sữa, kem (cước cao hơn)."
     },
     "box": {
       "id": "box",

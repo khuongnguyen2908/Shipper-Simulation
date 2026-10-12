@@ -13,6 +13,8 @@ const lerpAngle = (a, b, t) => {
   if (d < -Math.PI) d += Math.PI * 2;
   return a + d * t;
 };
+// Cỡ túi trên xe theo sức chứa (cột × hàng ô): 2 ô (túi nylon) = 0,8 · 9 ô (thùng 3×3) = 1,25; to hơn nữa thì dừng ở 1,4
+export const bagScale = (spec) => Math.min(1.4, 0.8 + ((Math.max(1, spec?.cols || 1) * Math.max(1, spec?.rows || 1) - 2) / 7) * 0.45);
 
 // ======================== XE MÁY ========================
 export class Bike {
@@ -68,7 +70,7 @@ export class Bike {
     const b = ud.bagMesh;
     b.material = b.material.clone();
     b.material.color.setHex(bagSpec.color);
-    const s = bagSpec.id === 'box' ? 1.25 : bagSpec.id === 'thermal' ? 1.05 : 0.8;
+    const s = bagScale(bagSpec);
     b.scale.setScalar(s);
     b.position.y = ud.bagY + (s - 1) * 0.2;
   }
@@ -223,6 +225,7 @@ export class Walker {
       const run = input.run && ctx.phys > 8;
       let v = run ? 6.2 : 3.4;
       if (ctx.phys < 15) v *= 0.7;
+      v *= ctx.speedMul ?? 1; // lội nước ngập sâu: đi chậm hơn
       this.pos.x += mx * v * dt;
       this.pos.z += mz * v * dt;
       this.heading = lerpAngle(this.heading, Math.atan2(mx, mz), 1 - Math.exp(-14 * dt));

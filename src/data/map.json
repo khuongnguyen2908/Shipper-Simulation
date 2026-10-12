@@ -16,6 +16,7 @@
       "bridgeStyles": {
         "0": "concrete",
         "3": "iron",
+        "6": "iron",
         "10": "concrete"
       }
     },
@@ -31,7 +32,8 @@
       "name": "Sông Ngân",
       "wide": true,
       "bridgeStyles": {
-        "2": "arch"
+        "2": "arch",
+        "5": "arch"
       }
     }
   ],
@@ -715,5 +717,48 @@
       ]
     }
   ],
-  "busStopNames": {}
+  "busStopNames": {},
+  "floodSegs": {
+    "x5:7": "low",
+    "x6:9": "low",
+    "x7:8": "low",
+    "x7:9": "low",
+    "x10:0": "low",
+    "x10:1": "low",
+    "x10:4": "low",
+    "z1:9": "low",
+    "z8:3": "tide",
+    "z8:4": "tide",
+    "z8:5": "tide",
+    "z8:6": "low",
+    "z8:9": "tide",
+    "z9:7": "low",
+    "z10:5": "tide",
+    "z10:9": "tide",
+    "x1:7": "low",
+    "x2:7": "low",
+    "x3:7": "low",
+    "x6:7": "low",
+    "x7:7": "low",
+    "z10:7": "tide",
+    "z10:6": "tide",
+    "x10:8": "tide",
+    "x10:9": "tide",
+    "x10:2": "low",
+    "x10:3": "low",
+    "x10:5": "low",
+    "x10:6": "low",
+    "x10:7": "tide",
+    "z8:7": "low",
+    "z9:6": "low",
+    "z9:9": "tide",
+    "z2:9": "low",
+    "z3:9": "low",
+    "z4:9": "low",
+    "z5:9": "low",
+    "z6:9": "low",
+    "z10:4": "low",
+    "z10:2": "low",
+    "z10:3": "low"
+  }
 }

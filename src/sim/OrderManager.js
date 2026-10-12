@@ -863,7 +863,8 @@ export class OrderManager {
     return receipt;
   }
 
-  cancel(reason, now, { byDriver = true, comp = 0 } = {}) {
+  // flood: tài xế hủy vì đường ngập (chưa lấy hàng) → không tính là tự hủy (byDriver = false)
+  cancel(reason, now, { byDriver = true, comp = 0, flood = false } = {}) {
     const o = this.order;
     if (!o) return false;
     this.order = null;
@@ -872,7 +873,7 @@ export class OrderManager {
     this.go(S.IDLE);
     this.schedulePing(now);
     // hủy khi đang giữ hàng COD: app thu hồi hàng và hoàn tiền đã ứng
-    this.emit('cancelled', { order: o, reason, byDriver, comp, codRefund: o.codPaid ? o.cod : 0, now });
+    this.emit('cancelled', { order: o, reason, byDriver, comp, flood, codRefund: o.codPaid ? o.cod : 0, now });
     return true;
   }
 
