@@ -781,5 +781,45 @@
     "group": "parcel",
     "parcel": true,
     "cod": 2500
+  },
+  "pet1": {
+    "id": "pet1",
+    "name": "Thú cưng",
+    "icon": "🐶",
+    "traits": [
+      "paper",
+      "fragile"
+    ],
+    "base": 40,
+    "parcel": true,
+    "cod": 200,
+    "group": "parcel",
+    "openDay": 3
+  },
+  "sach1": {
+    "id": "sach1",
+    "name": "Sách giáo khoa",
+    "icon": "📘",
+    "traits": [
+      "paper"
+    ],
+    "base": 20,
+    "parcel": true,
+    "cod": 0,
+    "group": "parcel",
+    "openDay": 2
+  },
+  "sach2": {
+    "id": "sach2",
+    "name": "Truyện tranh",
+    "icon": "📕",
+    "traits": [
+      "paper"
+    ],
+    "base": 20,
+    "parcel": true,
+    "cod": 0,
+    "group": "parcel",
+    "openDay": 2
   }
 }

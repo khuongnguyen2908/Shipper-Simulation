@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ITEMS as DATA_ITEMS } from '../src/data/items.js';
-import { ECONOMY, TIME, ENERGY, HAZARD as HAZARD_DATA, rentFor, VEHICLES as VEHICLES_T } from '../src/data/balance.js';
+import { ECONOMY, TIME, ENERGY, HAZARD as HAZARD_DATA, rentFor, VEHICLES as VEHICLES_T, WALLET_QUEST } from '../src/data/balance.js';
 import { BRANDS as BRANDS_T } from '../src/data/apps.js';
 import { DeliveryItem } from '../src/sim/ItemPhysics.js';
 import { evaluateOrder } from '../src/sim/OrderCondition.js';
@@ -147,8 +147,11 @@ test('Công thức: (cước + quãng đường) − 20% − thuế − xăng', 
 
 console.log('Máy trạng thái đơn hàng');
 // Người chơi đã vào GoShip, đang chạy Cub đầy xăng (bộ thử luật đơn hàng; người chơi mới thì đi xe đạp, chưa có đơn)
+// Bản lưu mẫu của tài xế đã ở hãng (đã nhận quà vào hãng từ trước: gifted = hãng → không được tặng bù nón / mũ)
 function workerState({ day = 1, carry = {} } = {}) {
-  return new GameState({ day, carry: { brand: 'goship', vehicle: 'cub', owned: { vehicles: ['xeDap', 'cub'], bags: ['nylon'], gear: [] }, vstate: { cub: { fuel: 3, hp: 100, maintKm: 0 } }, ...carry } });
+  const c = { brand: 'goship', vehicle: 'cub', owned: { vehicles: ['xeDap', 'cub'], bags: ['nylon'], gear: [] }, vstate: { cub: { fuel: 3, hp: 100, maintKm: 0 } }, ...carry };
+  if (!('gifted' in c)) c.gifted = c.brand;
+  return new GameState({ day, carry: c });
 }
 function mkOM(seed = 1, gsOpts = {}) {
   const gs = workerState(gsOpts);
@@ -254,12 +257,23 @@ test('Đơn kem/trà sữa chỉ xuất hiện khi có túi giữ nhiệt', () =
   for (let i = 0; i < 200 && !sawCold; i++) if (om.makeOffer(t, { x: 0, z: 0 }).itemIds.some((id) => DATA_ITEMS[id].traits.includes('cold'))) sawCold = true;
   assert.ok(sawCold, `không thấy đơn món lạnh lúc ${t / 60}h từ ${coldShop.id}`);
 });
-test('Có mũ cho khách → đơn chở anh Minh (nhiệm vụ ví)', () => {
+test('Có nón chở khách + giao xong vài đơn → đơn chở anh Minh; từ chối thì một lúc sau mới mời lại, ở giữa có đơn thường', () => {
   const { om, gs } = mkOM(9, { carry: { money: 500 } });
   gs.buy('goods', 'spareHelmet');
+  const need = WALLET_QUEST.minOrders ?? 3, wait = WALLET_QUEST.retryMin ?? 60;
+  gs.account.completed = need - 1;
+  for (let i = 0; i < 20; i++) assert.notEqual(om.makeOffer(480, { x: 0, z: 0 })?.story, 'wallet', 'chưa đủ số đơn thì chưa có chuyến anh Minh');
+  gs.account.completed = need;
   const o = om.makeOffer(480, { x: 0, z: 0 });
   assert.equal(o.kind, 'ride');
   assert.equal(o.story, 'wallet');
+  om.goOnline();
+  om.offer = o;
+  om.go(S.OFFERED);
+  om.decline(480);
+  assert.equal(gs.flags.walletRetryAt, 480 + wait);
+  for (let i = 0; i < 20; i++) assert.notEqual(om.makeOffer(480 + wait - 1, { x: 0, z: 0 })?.story, 'wallet', 'vừa từ chối: có đơn thường');
+  assert.equal(om.makeOffer(480 + wait, { x: 0, z: 0 }).story, 'wallet', 'hết thời gian chờ thì mời lại');
 });
 
 console.log('Trạng thái người chơi');
@@ -430,7 +444,7 @@ console.log('Đồ dùng, hoạt động, điểm đến (luật bằng dữ li�
   const { isOpen } = await import('../src/sim/placeRules.js');
   test('Trang bị cộng dồn tác dụng; bản lưu cũ (owned.gear) vẫn có tác dụng', () => {
     GOODS.__rc = { id: '__rc', name: 'r', price: 1, type: 'equipment', effects: { rainProtect: true } };
-    const gs = new GameState({ carry: { money: 1000, owned: { vehicles: ['cub'], bags: ['nylon'], gear: ['__rc'] } } });
+    const gs = new GameState({ carry: { money: 1000, gifted: 'goship', owned: { vehicles: ['cub'], bags: ['nylon'], gear: ['__rc'] } } });
     assert.equal(gs.effect('rainProtect'), true);
     assert.equal(gs.effect('passengerSeat'), false);
     delete GOODS.__rc;
@@ -866,7 +880,10 @@ console.log('App giao hàng, loại đơn, tài khoản, loại khách (apps.jso
     om.finishPacking(om.collectParcel(600).items.map(() => ({ upright: true })), 601);
     assert.equal(om.arriveAtDropoff(610), 'bom');
     assert.equal(om.handOver(611), null, 'đang bị bom thì không giao được');
-    assert.equal(om.persuadeBom(611).accepted, false);
+    // năn nỉ dùng tỉ lệ của loại đơn trong dữ liệu (sửa trong editor) → tạm đặt 0 để chắc chắn "không được"
+    const oldPersuade = ORDER_TYPES.parcel.persuadeChance;
+    ORDER_TYPES.parcel.persuadeChance = 0;
+    try { assert.equal(om.persuadeBom(611).accepted, false); } finally { ORDER_TYPES.parcel.persuadeChance = oldPersuade; }
     assert.equal(om.persuadeBom(612), null, 'chỉ năn nỉ được 1 lần');
     assert.ok(om.startReturn(612));
     assert.equal(om.state, S.RETURNING);
@@ -3314,6 +3331,101 @@ console.log('Điện thoại: thứ tự app (phone.json, thẻ 📱 Giao diện
     assert.ok(bad.some((i) => i.level === 'error' && i.ref === 'zzz'));
     assert.ok(bad.some((i) => i.level === 'warn'), 'thiếu app → cảnh báo');
     for (const d of Object.values(APP_DEFS)) assert.ok(CONTENT.has(d.key), d.key);
+  });
+}
+
+console.log('Đồ của hãng: quà khi vào hãng, nón chở khách bị mất');
+{
+  const { GOODS } = await import('../src/data/goods.js');
+  const { ORDER_TYPES, RIDER_TYPES } = await import('../src/data/apps.js');
+  const { RIDE_EVENTS, PARKING } = await import('../src/data/balance.js');
+  const PK = await import('../src/sim/parking.js');
+  const seatOf = (brand) => Object.values(GOODS).find((g) => g.brand === brand && g.type === 'equipment' && g.effects?.passengerSeat);
+  test('Vào hãng: được tặng quà (mũ hãng đội luôn, nón chở khách → nhận được đơn chở khách); đổi hãng thì trả hết đồ hãng cũ', () => {
+    const gs = new GameState({ day: 1, carry: { money: 5000, flags: { story: 2 } } });
+    gs.leaveBrand(); // bản lưu mẫu mặc định đang ở hãng → nghỉ để thử đăng ký từ đầu
+    assert.ok(!gs.effect('passengerSeat'));
+    assert.ok(gs.joinBrand('goship').ok);
+    for (const id of BRANDS_T.goship.gifts) assert.ok(gs.owned.gear.includes(id), `được tặng ${id}`);
+    const helmet = BRANDS_T.goship.gifts.map((id) => GOODS[id]).find((g) => g.slot === 'helmet');
+    if (helmet) assert.equal(gs.wornIds().helmet, helmet.id, 'mũ hãng đội luôn');
+    assert.ok(gs.effect('passengerSeat'), 'có nón chở khách');
+    assert.ok(gs.joinBrand('hongsm').ok);
+    assert.ok(!gs.owned.gear.some((id) => GOODS[id]?.brand === 'goship'), 'trả hết đồ GripBike (đồng phục, mũ, nón)');
+    for (const id of BRANDS_T.hongsm.gifts) assert.ok(gs.owned.gear.includes(id), `được tặng ${id}`);
+    const camHelmet = BRANDS_T.hongsm.gifts.map((id) => GOODS[id]).find((g) => g.slot === 'helmet');
+    if (camHelmet) assert.equal(gs.wornIds().helmet, camHelmet.id);
+  });
+  test('Bản lưu cũ đã ở hãng mà chưa nhận quà → tặng bù 1 lần (lưu rồi mở lại không tặng thêm)', () => {
+    const gs = new GameState({ day: 3, carry: { money: 100, brand: 'goship', owned: { vehicles: ['xeDap', 'cub'], bags: ['nylon'], gear: [] } } });
+    for (const id of BRANDS_T.goship.gifts) assert.ok(gs.owned.gear.includes(id));
+    const seat = seatOf('goship');
+    gs.losePassengerHelmet();
+    const again = new GameState({ day: 4, carry: gs.carryOver() });
+    assert.ok(!again.owned.gear.includes(seat.id), 'mất nón rồi thì mở lại vẫn mất (không tặng lại)');
+  });
+  test('Chở khách xong khách cầm luôn nón đi: theo tỉ lệ chung / riêng loại khách; hết nón thì không còn đơn chở khách', () => {
+    const { om, gs } = mkOM(21, { carry: { money: 500, gifted: null, flags: { wallet: 5 } } });
+    assert.ok(gs.passengerHelmets().length >= 1, 'được tặng bù nón');
+    const ride = (pct) => {
+      const old = RIDE_EVENTS.helmetTaken, oldR = RIDER_TYPES.app.helmetTaken;
+      RIDE_EVENTS.helmetTaken = pct;
+      delete RIDER_TYPES.app.helmetTaken;
+      const orig = om.pickRider;
+      om.pickRider = () => RIDER_TYPES.app;
+      try {
+        if (om.state === S.OFFLINE) om.goOnline();
+        om.offer = om.makeRide({ x: 0, z: 0 }, false, 600);
+        om.go(S.OFFERED);
+        om.accept(600, { x: 0, z: 0 });
+        om.boardPassenger(600);
+        om.arriveAtDropoff(610);
+        return om.handOver(612);
+      } finally {
+        om.pickRider = orig;
+        RIDE_EVENTS.helmetTaken = old;
+        if (oldR !== undefined) RIDER_TYPES.app.helmetTaken = oldR;
+      }
+    };
+    const n = gs.passengerHelmets().length;
+    assert.ok(!ride(0).helmetLost && gs.passengerHelmets().length === n, 'tỉ lệ 0 → không mất');
+    const events = [];
+    om.on((e) => e.type === 'helmetTaken' && events.push(e));
+    const r = ride(1);
+    assert.ok(r.helmetLost && gs.passengerHelmets().length === n - 1 && events.length === 1, 'tỉ lệ 100% → mất 1 nón, báo sự kiện');
+    while (gs.passengerHelmets().length) gs.losePassengerHelmet();
+    assert.ok(!gs.effect('passengerSeat'), 'hết nón → khóa đơn chở khách');
+    assert.equal(gs.losePassengerHelmet(), null);
+    assert.ok(gs.buy('goods', seatOf('goship').id).ok && gs.effect('passengerSeat'), 'mua lại nón của hãng');
+  });
+  test('Đậu xe: mất nón ngoài đường / bãi giữ xe theo tỉ lệ riêng; hầm nhà trọ không mất; chưa hết thời gian được để yên thì chưa mất', () => {
+    const always = { next: () => 0 }, never = { next: () => 0.999999 };
+    const P = { ...PARKING, graceMin: 20, helmetStreetPerHour: 0.5, helmetLotPerHour: 0 };
+    const street = { since: 0, safe: false, kind: 'street' };
+    assert.ok(!PK.helmetRoll(always, 10, street, {}, P), 'chưa hết 20 phút');
+    assert.ok(PK.helmetRoll(always, 30, street, {}, P));
+    assert.ok(!PK.helmetRoll(never, 30, street, {}, P));
+    assert.ok(!PK.helmetRoll(always, 30, { ...street, helmetLost: true }, {}, P), 'mỗi lần đậu tối đa 1 lần');
+    assert.ok(!PK.helmetRoll(always, 30, { since: 0, safe: true, kind: 'lot' }, {}, P), 'bãi giữ xe tỉ lệ 0');
+    assert.ok(PK.helmetRoll(always, 30, { since: 0, safe: true, kind: 'lot' }, {}, { ...P, helmetLotPerHour: 0.1 }));
+    assert.ok(!PK.helmetRoll(always, 300, { since: 0, safe: true, kind: 'garage' }, {}, { ...P, helmetLotPerHour: 0.9 }), 'hầm nhà trọ');
+    assert.ok(!PK.helmetRoll(always, 300, { since: 0, safe: true }, {}, P), 'bản lưu cũ (chưa có loại chỗ đậu) → như cũ');
+    assert.ok(!PK.helmetRoll(always, 30, street, { theftMul: 0 }, P), 'khu phố không trộm');
+  });
+  test('Bộ kiểm tra: quà khi vào hãng phải có thật, là trang phục / trang bị; đồ của hãng bán ngoài văn phòng → cảnh báo', () => {
+    const goods = JSON.parse(JSON.stringify(readJson('src/data/goods.json')));
+    const apps = JSON.parse(JSON.stringify(DATA.apps));
+    apps.brands.goship.gifts = ['khongCo', 'raincoat'];
+    const places = JSON.parse(JSON.stringify(DATA.places));
+    const shop = places.places.find((p) => p.kind === 'shop');
+    const seat = seatOf('hongsm');
+    shop.sells = { ...(shop.sells || {}), goods: [...(shop.sells?.goods || []), seat.id] };
+    const iss = VALIDATE.validateBrands(apps, DATA.gear, places, goods);
+    assert.ok(iss.some((i) => i.ref === 'goship' && i.field === 'gifts' && i.level === 'error' && i.msg.includes('khongCo')));
+    assert.ok(!iss.some((i) => i.ref === 'goship' && i.field === 'gifts' && i.msg.includes(goods.raincoat.name)), 'áo mưa (đồ thường) tặng được');
+    assert.ok(iss.some((i) => i.ref === shop.id && i.field === 'sells' && i.level === 'warn'));
+    goods[seat.id].brand = 'khongCoHang';
+    assert.ok(VALIDATE.validateBrands(DATA.apps, DATA.gear, DATA.places, goods).some((i) => i.ref === seat.id && i.field === 'brand' && i.level === 'error'));
   });
 }
 

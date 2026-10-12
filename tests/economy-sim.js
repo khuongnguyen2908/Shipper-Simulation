@@ -11,7 +11,7 @@ import { GameState } from '../src/sim/GameState.js';
 import { HazardManager } from '../src/sim/hazards.js';
 import { makeRng } from '../src/sim/rng.js';
 import { buildLayout, routeDist } from '../src/sim/cityLayout.js';
-import { TIME, ENERGY, DIST, ORDER, ECONOMY, NIGHT, AIRPORT, dueDayOf } from '../src/data/balance.js';
+import { TIME, ENERGY, DIST, ORDER, ECONOMY, NIGHT, AIRPORT, BAGS, dueDayOf } from '../src/data/balance.js';
 import { airportAt } from '../src/sim/airport.js';
 import { GOODS } from '../src/data/goods.js';
 import { APP, ORDER_TYPES, RIDER_TYPES } from '../src/data/apps.js';
@@ -152,12 +152,15 @@ export function playRun(seed, strat, days = 9, brand = null) {
     if (gs.phys < 40 && gs.money > 60 + rentReserve()) { drive(P.comtam.door); gs.spend(ENERGY.meal.cost, 'meal'); gs.addEnergy(ENERGY.meal.phys, ENERGY.meal.mental); pass(15, 'idle'); }
     if (gs.mental < 40 && gs.money > 40 + rentReserve()) { drive(P.cafe.door); gs.spend(ENERGY.drink.cost, 'meal'); gs.addEnergy(ENERGY.drink.phys, ENERGY.drink.mental); pass(10, 'idle'); }
     if (!st.buyGear) return;
-    const want = [['bags', 'thermal', 60], ['goods', 'spareHelmet', 60], ['goods', 'raincoat', 40]];
+    // nón chở khách: được tặng khi vào hãng; mất (khách cầm đi) thì mua lại nón của hãng ở văn phòng hãng
+    const seatId = Object.values(GOODS).find((g) => g.brand === gs.brand && g.type === 'equipment' && g.effects?.passengerSeat)?.id || 'spareHelmet';
+    const want = [['bags', 'thermal', 60], ['goods', seatId, 60], ['goods', 'raincoat', 40]];
     for (const [cat, id, reserve] of want) {
-      if (cat === 'goods' ? gs.has(id) : gs.owned[cat].includes(id)) continue;
-      const price = { thermal: 120, spareHelmet: 50, raincoat: 40 }[id];
+      if (cat === 'goods' ? (id === seatId ? gs.effect('passengerSeat') : gs.has(id)) : gs.owned[cat].includes(id)) continue;
+      const price = (cat === 'goods' ? GOODS[id]?.price : BAGS[id]?.price) ?? 0;
       if (gs.money >= price + reserve + rentReserve()) {
-        drive(P.gear.door);
+        const at = GOODS[id]?.brand ? layout.places.find((p) => p.kind === 'office' && p.brand === gs.brand && p.door) : P.gear;
+        drive((at || P.gear).door);
         if (gs.buy(cat, id).ok) log.purchases.push(`${id}@${Math.round(now)}`);
       }
       break;

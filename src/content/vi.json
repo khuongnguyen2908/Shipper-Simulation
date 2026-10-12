@@ -878,7 +878,7 @@
   "dlg.carryItem": "{icon} {name} ×{n} — dùng ở {where}",
   "dlg.carryShop": "Đang có {n}. {desc} Dùng ở: {where}",
   "phone.carryWhere": "· dùng ở {where}",
-  "npc.clothestore.greet": "\"Thay bộ đồ sáng sủa, khách nó còn lên xe\"",
+  "npc.clothestore.greet": "\"Kính chào quý khách\"",
   "npc.goship.greet": "\"Xin chào, a muốn làm gì ở đây?\"",
   "npc.gas2.greet": "\"Chào bạn! Vào chơi nha.\"",
   "act.soon": " (sắp khai trương — ngày {day})",
@@ -937,10 +937,10 @@
     "CƠM TẤM",
     "SỬA XE",
     "NHÀ THUỐC",
-    "TIỆM VÀNG",
+    "QUÁN ĂN",
     "CÀ PHÊ",
     "BÁNH MÌ",
-    "ĐIỆN THOẠI",
+    "ĐIỆN TỬ",
     "GIẶT ỦI",
     "HỚT TÓC",
     "BÚN BÒ"
@@ -1240,11 +1240,19 @@
     "Nóng quá trời luôn!",
     "Ủa ăn gì chưa ta…",
     "Kẹt xe nữa rồi!",
-    "Trời ơi giá xăng lên nữa kìa.",
-    "Chiều nay chắc mưa đó.",
+    "Trời ơi giá xăng lên nữa kìa",
+    "Chiều nay chắc mưa đó",
     "Mua vé số không con?",
     "Đi đâu mà vội dữ vậy!",
-    "Ly trà đá nữa đi chị ơi!"
+    "Đi kiếm gì uống thôi",
+    "Là lá la là la",
+    "Còn thở là còn gỡ",
+    "Đi về quê sống cho sướng!",
+    "Có anh cảnh sát nào quanh đây không ta?",
+    "Mỏi chân quá!",
+    "Đi mãi chưa tới nữa!",
+    "Bến xe buýt ở đâu vậy?",
+    "Có tiền không cho xin một ít"
   ],
   "bubble.pedHit": [
     "Ê! Chạy kiểu gì vậy!",
@@ -1257,5 +1265,22 @@
     "Đi lẹ giùm em, em trễ rồi!",
     "Cho em xuống đúng chỗ nha.",
     "Trời nóng ghê ha."
+  ],
+  "npc.dichvu2.greet": "\"Mua iphone thì ghé vào!\"",
+  "npc.dichvu3.greet": "\"Gửi chó mèo vào đây tôi chăm cho nha\"",
+  "npc.clothestore_2.greet": "\"Kính chào quý khách\"",
+  "npc.clothestore_3.greet": "\"Kính chào quý khách\"",
+  "npc.clothestore_4.greet": "\"Kính chào quý khách\"",
+  "toast.helmetTaken": "😅 {customer} cầm luôn nón đi mất!",
+  "toast.helmetStolen": "🔓 Đậu xe ngoài đường: bị lấy mất nón chở khách!",
+  "toast.helmetStolenLot": "🔓 Gửi xe ở bãi mà vẫn bị lấy mất nón chở khách!",
+  "toast.helmetLeft": "Mất {item}, còn nón khác để chở khách.",
+  "toast.helmetNone": "Mất {item} — hết nón, tạm không nhận được đơn chở khách. Mua lại ở văn phòng {brand}.",
+  "phone.lockRideBrand": "Đơn chở khách: cần nón chở khách — mua lại ở văn phòng {brand}",
+  "bubble.helmetTaken": [
+    "Ủa… thôi em cầm luôn nha 😅",
+    "Nón đẹp ghê, cho em xin nha!",
+    "Ơ quên trả nón… thôi kệ.",
+    "Mai em trả… chắc vậy."
   ]
 }

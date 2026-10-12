@@ -46,6 +46,16 @@ export function safeSpot(places, x, z) {
   return !!home && inGarage(home, x, z);
 }
 
+// Mỗi phút xe đứng một mình: có bị lấy mất nón chở khách không (mỗi lần đậu tối đa 1 lần).
+// Ngoài đường: helmetStreetPerHour × hệ số trộm của khu phố · bãi giữ xe / chỗ gửi bảo vệ: helmetLotPerHour · hầm nhà trọ: không mất
+// parked.kind: 'garage' | 'lot' | 'guard' | 'street'
+export function helmetRoll(rng, now, parked, { theftMul = 1 } = {}, P = PARKING) {
+  if (!parked || parked.kind === 'garage' || !parked.kind || parked.helmetLost) return false;
+  if (now - parked.since < (P.graceMin ?? 20)) return false;
+  const rate = parked.safe ? P.helmetLotPerHour ?? 0 : (P.helmetStreetPerHour ?? 0) * theftMul;
+  return rate > 0 && rng.next() < perMin(rate);
+}
+
 // Mỗi phút xe đứng ngoài đường: trả về 'ticket' | 'tow' | 'theft' | null
 // parked: { since, safe, ticketed, robbed } · canTow: bản đồ có bãi để cẩu về và xe không chở hàng
 // towMul / theftMul: hệ số khu phố nơi đậu (thẻ Bản đồ → Khu phố: "tow", "theft")

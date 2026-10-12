@@ -189,7 +189,7 @@ export function validateApps(ad, items = {}, placesData = null) {
     inRange(add, key, 'deadlineMult', r.deadlineMult, 0.2, 3, 'Hệ số thời hạn', { optional: true });
     inRange(add, key, 'quitBelow', r.quitBelow, 0, 90, 'Đòi xuống khi thoải mái dưới (%)', { optional: true });
     inRange(add, key, 'minRides', r.minRides, 0, 500, 'Mở sau số chuyến', { int: true, optional: true });
-    for (const f of ['vagueChance', 'vomitChance', 'noPayChance', 'bigTipChance', 'changeDestChance', 'changeDestPays', 'robPctMin']) inRange(add, key, f, r[f], 0, 1, 'Tỉ lệ', { optional: true });
+    for (const f of ['vagueChance', 'vomitChance', 'noPayChance', 'bigTipChance', 'changeDestChance', 'changeDestPays', 'robPctMin', 'helmetTaken']) inRange(add, key, f, r[f], 0, 1, 'Tỉ lệ', { optional: true });
     inRange(add, key, 'robMax', r.robMax, 0, 5000, 'Bị lấy tối đa (k)', { optional: true });
     for (const f of ['scam', 'luggage', 'foreign']) if (r[f] != null && typeof r[f] !== 'boolean') add('error', key, f, 'Phải là có / không.');
     if (r.names != null && (!Array.isArray(r.names) || r.names.some((s) => typeof s !== 'string' || !s.trim()))) add('error', key, 'names', 'Tên khách: mỗi dòng một tên, không để trống.');
@@ -230,15 +230,24 @@ export function validateBrands(apps, gear, placesData, goods = null) {
     if (!num(b.deposit) || b.deposit < 0 || b.deposit > 100000) add('error', key, 'deposit', 'Tiền cọc phải từ 0 đến 100000.');
     if (placesData && !places.some((p) => p.kind === 'office' && p.brand === key)) add('warn', key, 'office', `Chưa có văn phòng ${b.name || key} trên bản đồ → người chơi không đăng ký hãng này được.`);
     if (b.perks != null && (!Array.isArray(b.perks) || b.perks.some((x) => typeof x !== 'string'))) add('error', key, 'perks', 'Đãi ngộ phải là danh sách câu chữ.');
+    // quà khi vào hãng: món có thật, là trang phục / trang bị; món của hãng khác thì nhắc
+    if (b.gifts != null && !Array.isArray(b.gifts)) add('error', key, 'gifts', 'Quà khi vào hãng phải là danh sách món.');
+    for (const gid of Array.isArray(b.gifts) ? b.gifts : []) {
+      const g = goods?.[gid];
+      if (goods && !g) add('error', key, 'gifts', `Quà "${gid}" không có trong danh sách đồ dùng.`);
+      else if (g && g.type !== 'outfit' && g.type !== 'equipment') add('error', key, 'gifts', `Quà "${g.name}" phải là trang phục hoặc trang bị.`);
+      else if (g && g.brand && g.brand !== key) add('warn', key, 'gifts', `Quà "${g.name}" là đồ của hãng khác.`);
+    }
     if (goods && !Object.values(goods).some((g) => g.type === 'outfit' && g.slot === 'uniform' && g.brand === key)) add('error', key, 'uniform', `${b.name || key} chưa có đồng phục (thẻ 🛵 Xe · Túi · Đồ dùng → trang phục, chỗ mặc "Đồng phục", chọn hãng) → người chơi không bật được app.`);
   }
-  // đồng phục: phải thuộc 1 hãng có thật; chỉ bán ở văn phòng của đúng hãng đó
+  // đồ của hãng (đồng phục bắt buộc chọn hãng; mũ, nón chở khách… tùy): hãng phải có thật; chỉ bán ở văn phòng của đúng hãng đó
   for (const g of Object.values(goods || {})) {
-    if (g.type !== 'outfit' || g.slot !== 'uniform') continue;
-    if (!brands[g.brand]) out.push({ level: 'error', tab: 'gear', cat: 'goods', ref: g.id, field: 'brand', msg: 'Đồng phục chưa chọn hãng (hoặc hãng đã bị xóa).' });
+    const uniform = g.type === 'outfit' && g.slot === 'uniform';
+    if (!uniform && g.brand == null) continue;
+    if (!brands[g.brand]) out.push({ level: 'error', tab: 'gear', cat: 'goods', ref: g.id, field: 'brand', msg: uniform ? 'Đồng phục chưa chọn hãng (hoặc hãng đã bị xóa).' : 'Hãng của món này đã bị xóa.' });
     for (const p of placesData?.places || []) {
       if (!(p.sells?.goods || []).includes(g.id)) continue;
-      if (p.kind !== 'office' || p.brand !== g.brand) out.push({ level: 'warn', tab: 'places', ref: p.id, field: 'sells', msg: `"${g.name}" chỉ nên bán ở văn phòng ${brands[g.brand]?.name || 'của hãng'} (đồng phục chỉ cấp hoặc mua tại văn phòng).` });
+      if (p.kind !== 'office' || p.brand !== g.brand) out.push({ level: 'warn', tab: 'places', ref: p.id, field: 'sells', msg: `"${g.name}" chỉ nên bán ở văn phòng ${brands[g.brand]?.name || 'của hãng'} (đồ của hãng chỉ cấp hoặc mua tại văn phòng).` });
     }
   }
   for (const p of placesData?.places || []) if (p.kind === 'office' && !brands[p.brand]) out.push({ level: 'error', tab: 'places', ref: p.id, field: 'brand', msg: 'Văn phòng chưa chọn hãng (hoặc hãng đã bị xóa).' });

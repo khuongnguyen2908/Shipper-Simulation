@@ -3,7 +3,7 @@
 // =============================================================
 import * as THREE from 'three';
 import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, NIGHT, PARKING, AIRPORT, RIDE_EVENTS } from './data/balance.js';
-import { parkingRoll, parkingLotAt, nearestStation, towTarget, safeSpot } from './sim/parking.js';
+import { parkingRoll, helmetRoll, parkingLotAt, nearestStation, towTarget, safeSpot } from './sim/parking.js';
 import { garageSpots, inGarage, parkSlots } from './sim/garage.js';
 import { airportAt, airportParkAt, airportNoStopAt, noStopStep } from './sim/airport.js';
 import { roadSegAt, tierOf, tierLabel, speedLimitOf } from './sim/roads.js';
@@ -934,7 +934,25 @@ export class Game {
     } else if (e.type === 'jamEnd') this.groupChat(fmt('chat.group'), fmt('chat.jamEnd'));
   }
 
+  // Mất 1 nón chở khách: báo + ghi log; hết nón thì nhắc mua lại ở văn phòng hãng
+  onHelmetLost(goods, why) {
+    if (!goods) return;
+    const brand = this.gs.brandSpec?.name || '';
+    const left = this.gs.passengerHelmets().length;
+    const msg = `${why} ${fmt(left ? 'toast.helmetLeft' : 'toast.helmetNone', { item: goods.name, brand })}`;
+    sfx.bad();
+    this.hud.toast(msg, 'warn', 7000);
+    this.chatCh.local('system', '', msg, { time: fmtTime(this.clockMin) });
+  }
+
   onOrderEvent(e) {
+    // chở khách xong, khách cầm luôn nón đi: bong bóng trên đầu khách + báo
+    if (e.type === 'helmetTaken') {
+      const line = pick('bubble.helmetTaken', Math.floor(this.clockMin));
+      this.bubbles.show('rider', () => headOf(this.passengerMesh, 1.9), line);
+      this.chatCh.local('npc', e.order.customer, line, { time: fmtTime(this.clockMin) });
+      return this.onHelmetLost(e.goods, fmt('toast.helmetTaken', { customer: e.order.customer }));
+    }
     if (e.type === 'offer') {
       sfx.ping();
       this.phone.openApp('goship'); // đơn mời có hạn giây → mở thẳng app GoShip
@@ -1017,24 +1035,34 @@ export class Game {
         if (!quiet) this.hud.toast(fmt('toast.parkLot', { place: lot.name, fee }), 'good', 4000);
       } else if (!quiet) this.hud.toast(fmt('toast.parkNoMoney', { fee }), 'warn', 4000);
     }
-    gs.parked = { since: this.clockMin, safe, ticketed: false, robbed: false, checked: Math.floor(this.clockMin) };
+    // kind: chỗ đậu (hầm nhà trọ an toàn tuyệt đối; bãi giữ xe / ngoài đường vẫn có thể mất nón chở khách)
+    const kind = safe ? (lot ? 'lot' : 'garage') : 'street';
+    gs.parked = { since: this.clockMin, safe, kind, ticketed: false, robbed: false, checked: Math.floor(this.clockMin) };
     if (!safe && !quiet) this.toastOnce('parkHint', fmt('toast.parkHint', { min: PARKING.graceMin }), 'info', 600);
     if (safe && !lot && !quiet) this.toastOnce('parkGarage', fmt('toast.parkGarage'), 'good', 60); // dựng xe trong hầm phòng trọ
   }
   // Gửi bảo vệ (chung cư…) → xe được trông tới khi lấy
   markParkedSafe() {
-    if (this.gs.parked) this.gs.parked.safe = true;
+    if (!this.gs.parked) return;
+    this.gs.parked.safe = true;
+    if (this.gs.parked.kind === 'street') this.gs.parked.kind = 'guard';
   }
   // Mỗi phút xe đứng ngoài đường (người chơi đang đi bộ): xét rủi ro dán phạt / cẩu / trộm
   parkTick() {
     const p = this.gs.parked;
-    if (!p || p.safe || this.mode !== 'foot' || !this.parkRng) return;
+    if (!p || (p.safe && (!p.kind || p.kind === 'garage')) || this.mode !== 'foot' || !this.parkRng) return;
     const to = Math.floor(this.clockMin);
     for (let m = p.checked + 1; m <= to && this.gs.parked === p; m++) {
       p.checked = m;
-      const canTow = !!towTarget(this.layout.places, this.bike.pos.x, this.bike.pos.z);
-      const bx = this.bike.pos.x, bz = this.bike.pos.z;
-      const ev = parkingRoll(this.parkRng, m, p, { canTow, hasCargo: this.om.hasCargo, towMul: traitAt(bx, bz, 'tow'), theftMul: traitAt(bx, bz, 'theft') });
+      const bx = this.bike.pos.x, bz = this.bike.pos.z, theftMul = traitAt(bx, bz, 'theft');
+      // nón chở khách để trên xe bị lấy mất (cả ở bãi giữ xe)
+      if (this.gs.passengerHelmets().length && helmetRoll(this.parkRng, m, p, { theftMul })) {
+        p.helmetLost = true;
+        this.onHelmetLost(this.gs.losePassengerHelmet(), fmt(p.safe ? 'toast.helmetStolenLot' : 'toast.helmetStolen'));
+      }
+      if (p.safe) continue;
+      const canTow = !!towTarget(this.layout.places, bx, bz);
+      const ev = parkingRoll(this.parkRng, m, p, { canTow, hasCargo: this.om.hasCargo, towMul: traitAt(bx, bz, 'tow'), theftMul });
       if (ev) this.onParkingEvent(ev);
     }
   }
@@ -1541,7 +1569,7 @@ export class Game {
     if (gs.workBlock() === 'noUniform') locked.push(fmt('phone.lockUniform', { brand: gs.brandSpec.name }));
     if (gs.workBlock() === 'wrongVehicle') locked.push(fmt('phone.lockVehicle', { brand: gs.brandSpec.name, kind: fmt(`power.${gs.brandSpec.power}`) }));
     if (gs.bagSpec.insulation < 0.5) locked.push(fmt('phone.lockCold'));
-    if (!gs.effect('passengerSeat')) locked.push(fmt('phone.lockRide'));
+    if (!gs.effect('passengerSeat')) locked.push(gs.brand ? fmt('phone.lockRideBrand', { brand: gs.brandSpec.name }) : fmt('phone.lockRide'));
     else if (gs.flags.noRide && this.om.state !== S.OFFLINE) locked.push(fmt('phone.rideOff')); // có mũ cho khách mà đang tắt Chở khách
     const st = this.nearestStation(), pp = this.playerPos;
     // app Xe: nơi bảo dưỡng gần nhất (tiệm sửa xe / trạm đổi pin) + nơi nạp năng lượng (cây xăng / trụ sạc)

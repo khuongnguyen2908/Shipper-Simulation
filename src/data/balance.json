@@ -1,10 +1,10 @@
 {
   "economy": {
-    "startMoney": 1000,
+    "startMoney": 500,
     "fuelPrice": 23,
     "refuseBelow": 25,
     "scaredFarePct": 0.5,
-    "rentBase": 1000,
+    "rentBase": 200,
     "rentStep": 200,
     "rentEveryDays": 3,
     "rentDueHour": 22,
@@ -106,7 +106,7 @@
       18
     ],
     "prepAllowance": 8,
-    "planSpeed": 6.5,
+    "planSpeed": 5.5,
     "slack": 6,
     "outOfStockChance": 0.15,
     "noAnswerChance": 0.2,
@@ -136,7 +136,9 @@
       1,
       1
     ],
-    "complaintFine": 100
+    "complaintFine": 100,
+    "minOrders": 3,
+    "retryMin": 60
   },
   "night": {
     "start": 21,
@@ -157,7 +159,9 @@
     "theftFuelPct": 0.6,
     "theftHp": 15,
     "fineDays": 3,
-    "overduePct": 0.5
+    "overduePct": 0.5,
+    "helmetStreetPerHour": 0.06,
+    "helmetLotPerHour": 0.02
   },
   "airport": {
     "gateFee": 5,
@@ -215,7 +219,8 @@
     "robbedMental": 25,
     "scamRefuseMental": 5,
     "luggageSpeedMul": 0.8,
-    "foreignCallMin": 4
+    "foreignCallMin": 4,
+    "helmetTaken": 0.08
   },
   "driving": {
     "steerRampSec": 0.3,

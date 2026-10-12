@@ -919,14 +919,15 @@ function officeDialog(g, pl) {
       onSelect: () => contractDialog(g, pl, b), // popup hợp đồng: đãi ngộ + ký tên rồi mới vào hãng
     });
   }
-  // đồng phục: chỉ cấp hoặc mua tại văn phòng hãng (places.json → sells.goods của văn phòng); thành viên mất áo thì mua lại
+  // đồ của hãng (đồng phục, nón chở khách…): chỉ cấp hoặc mua tại văn phòng hãng (places.json → sells.goods của văn phòng);
+  // chỉ tài xế hãng mua được — mất áo / bị khách cầm nón đi thì mua lại ở đây
   for (const id of pl.sells?.goods || []) {
     const u = GOODS[id];
-    if (!u || u.slot !== 'uniform' || u.brand !== b.id) continue;
-    const owned = gs.ownsOutfit(id);
+    if (!u || u.brand !== b.id) continue;
+    const owned = u.type === 'outfit' ? gs.ownsOutfit(id) : gs.owned.gear.includes(id);
     choices.push({
       label: `${owned ? '✔ ' : ''}${u.icon || ''} ${u.name} – ${u.price}k`,
-      hint: owned ? fmt('dlg.outfitOwnedAcc') : !mine ? fmt('dlg.uniformMembersOnly', { brand: b.name }) : u.desc || '',
+      hint: owned ? fmt(u.type === 'outfit' ? 'dlg.outfitOwnedAcc' : 'dlg.shopOwned') : !mine ? fmt('dlg.uniformMembersOnly', { brand: b.name }) : u.desc || '',
       disabled: owned || !mine || gs.money < u.price,
       keepOpen: true,
       onSelect: () => {
@@ -953,7 +954,8 @@ function contractDialog(g, pl, b) {
     fmt('dlg.perkSurcharge', { rain: APP.rainSurcharge || 0, peak: APP.peakSurcharge || 0, night: APP.nightSurcharge || 0 }),
     ...(b.perks || []),
   ];
-  const gives = [bike && `🛵 ${bike.name}`, u && `${u.icon || '🦺'} ${u.name}`, fmt('dlg.contractDeposit', { k: b.deposit || 0 })].filter(Boolean);
+  const gifts = (b.gifts || []).map((id) => GOODS[id]).filter((x) => x && x !== u).map((x) => `${x.icon || '🎁'} ${x.name}`);
+  const gives = [bike && `🛵 ${bike.name}`, u && `${u.icon || '🦺'} ${u.name}`, ...gifts, fmt('dlg.contractDeposit', { k: b.deposit || 0 })].filter(Boolean);
   const html = `<div class="ct">
     <div class="ct-sec">${fmt('dlg.contractPerks')}</div><ul class="ct-list">${perks.map((t) => `<li>${t}</li>`).join('')}</ul>
     <div class="ct-sec">${fmt('dlg.contractGive')}</div><div class="ct-chips">${gives.map((t) => `<span class="tag good">${t}</span>`).join('')}</div>

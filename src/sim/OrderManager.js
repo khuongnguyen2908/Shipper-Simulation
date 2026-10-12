@@ -15,7 +15,7 @@
 // Loại đơn, loại khách xe ôm, phí app đọc từ apps.json (sửa bằng ?editor, thẻ 📱 App & Đơn).
 // =============================================================
 import { ITEMS } from '../data/items.js';
-import { ORDER, DIST, ECONOMY, RIDE_EVENTS } from '../data/balance.js';
+import { ORDER, DIST, ECONOMY, RIDE_EVENTS, WALLET_QUEST } from '../data/balance.js';
 import { APP, ORDER_TYPES, RIDER_TYPES, ORDER_KINDS, FROM_HOMES, typeOpen, isPeak, surchargeAt, demandAt } from '../data/apps.js';
 import { CUSTOMER_NAMES } from '../data/places.js';
 import { lookOf } from '../data/looks.js';
@@ -161,6 +161,7 @@ export class OrderManager {
         const offer = this.offer;
         this.offer = null;
         this.gs.recordOffer(false);
+        this.storyLater(offer, now);
         this.go(S.IDLE);
         this.schedulePing(now);
         this.emit('offerExpired', { offer });
@@ -196,8 +197,10 @@ export class OrderManager {
 
   makeOffer(now, pos = { x: 0, z: 0 }) {
     const gs = this.gs;
-    // Đơn cốt truyện: lần đầu có mũ cho khách → đơn chở anh Minh
-    if (gs.flags.wallet === 0 && gs.effect('passengerSeat') && this.wants('ride')) {
+    // Đơn cốt truyện: có nón chở khách + đã giao xong vài đơn (walletQuest.minOrders) → đơn chở anh Minh.
+    // Từ chối / để trôi thì walletQuest.retryMin phút sau mới mời lại (ở giữa vẫn có đơn thường)
+    const storyReady = (gs.account.completed || 0) >= (WALLET_QUEST.minOrders ?? 3) && now >= (gs.flags.walletRetryAt ?? 0);
+    if (gs.flags.wallet === 0 && storyReady && gs.effect('passengerSeat') && this.wants('ride')) {
       const rideType = ORDER_TYPES.ride || Object.values(ORDER_TYPES).find((t) => t.kind === 'ride');
       if (rideType) return this.makeRide(pos, true, now, rideType);
     }
@@ -458,11 +461,16 @@ export class OrderManager {
     return o;
   }
 
+  // Bỏ qua đơn cốt truyện (chuyến anh Minh) → hẹn mời lại sau walletQuest.retryMin phút
+  storyLater(offer, now) {
+    if (offer?.story === 'wallet') this.gs.flags.walletRetryAt = now + (WALLET_QUEST.retryMin ?? 60);
+  }
   decline(now = 0) {
     if (this.state !== S.OFFERED) return false;
     const offer = this.offer;
     this.offer = null;
     this.gs.recordOffer(false);
+    this.storyLater(offer, now);
     this.go(S.IDLE);
     this.schedulePing(now);
     this.emit('declined', { offer });
@@ -736,11 +744,17 @@ export class OrderManager {
     pay.cod = o.codPaid && !ev.refused ? o.cod : 0;
     const codLost = o.codPaid && ev.refused ? o.cod : 0;
     const receipt = { order: o, ev, pay, elapsed, at: now, noPay, bigTip, earlyTip, codLost };
+    // chở khách xong, khách cầm luôn nón đi (thẻ Cân bằng → Sự cố khi chở khách; loại khách có thể đặt tỉ lệ riêng)
+    if (o.kind === 'ride' && !ev.refused) {
+      const ch = rider?.helmetTaken ?? RIDE_EVENTS.helmetTaken ?? 0;
+      if (ch > 0 && this.gs.passengerHelmets().length && this.rng.chance(ch)) receipt.helmetLost = this.gs.losePassengerHelmet();
+    }
     this.history.push(receipt);
     this.order = null;
     this.go(S.IDLE);
     this.schedulePing(now);
     this.emit('completed', { receipt });
+    if (receipt.helmetLost) this.emit('helmetTaken', { order: o, goods: receipt.helmetLost });
     return receipt;
   }
 

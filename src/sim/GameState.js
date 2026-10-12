@@ -102,7 +102,9 @@ export class GameState {
     this.lockedUntil = 0; // tạm khóa nhận đơn tới phút này (tự hủy quá nhiều trong ngày)
     // hợp đồng đã ký với các hãng: mã hãng → { sig (ảnh chữ ký), day, at (phút tuyệt đối) } — hiện ở app Hồ sơ
     this.contracts = { ...(c.contracts || {}) };
+    this.gifted = c.gifted ?? null; // đã nhận quà vào hãng của hãng nào (bản lưu cũ chưa có → tặng bù 1 lần)
     this.ensureUniform(); // bản lưu cũ đã ở hãng mà chưa có đồng phục → cấp + mặc sẵn
+    if (this.brand && this.gifted !== this.brand) this.giveBrandGifts(this.brand);
     this.outcome = null;
   }
 
@@ -222,6 +224,7 @@ export class GameState {
       if (!this.owned.gear.includes(u.id)) this.owned.gear.push(u.id);
       this.outfit.uniform = u.id;
     }
+    this.giveBrandGifts(id);
     if (sig !== undefined) this.contracts[id] = { sig, day: this.day, at: now };
     return { ok: true, switched, msg: fmt(switched ? 'gs.brandSwitched' : 'gs.brandJoined', { brand: b.name, k: dep }) };
   }
@@ -237,7 +240,29 @@ export class GameState {
     this.owned.gear.push(u.id);
     if (this.outfit.uniform === undefined) this.outfit.uniform = u.id;
   }
-  // Nghỉ hãng (khi đổi hãng): trả xe hãng cấp, trả đồng phục, hoàn tiền cọc
+  // Quà khi vào hãng (apps.json → brands.<hãng>.gifts, sửa ở thẻ App & Đơn → Hãng): trang phục thì mặc / đội luôn
+  // (trừ phụ kiện), trang bị thì có tác dụng ngay
+  giveBrandGifts(id) {
+    for (const gid of BRANDS[id]?.gifts || []) {
+      const g = GOODS[gid];
+      if (!g || (g.type !== 'outfit' && g.type !== 'equipment')) continue;
+      if (!this.owned.gear.includes(gid)) this.owned.gear.push(gid);
+      if (g.type === 'outfit' && g.slot && g.slot !== 'uniform' && !isAccessorySlot(g.slot)) this.outfit[g.slot] = gid;
+    }
+    this.gifted = id;
+  }
+  // Nón chở khách còn mấy cái (trang bị có tác dụng "chở khách") — mất hết thì không nhận được đơn chở khách
+  passengerHelmets() {
+    return this.owned.gear.filter((id) => GOODS[id]?.type === 'equipment' && GOODS[id].effects?.passengerSeat);
+  }
+  // Mất 1 nón chở khách (khách cầm đi / bị lấy khi đậu xe). Trả về món bị mất (null = không có nón)
+  losePassengerHelmet() {
+    const id = this.passengerHelmets().at(-1);
+    if (!id) return null;
+    this.owned.gear.splice(this.owned.gear.lastIndexOf(id), 1);
+    return GOODS[id];
+  }
+  // Nghỉ hãng (khi đổi hãng): trả xe hãng cấp, trả đồ của hãng (đồng phục, mũ, nón chở khách…), hoàn tiền cọc
   leaveBrand() {
     const cv = this.companyVehicle;
     if (cv) {
@@ -246,12 +271,14 @@ export class GameState {
       if (this.vehicle === cv) this.vehicle = START_VEHICLE;
     }
     if (this.depositPaid) this.earn(this.depositPaid, 'depositBack');
-    // trả đồng phục hãng cũ (cả áo mua thêm)
-    const u = uniformOf(this.brand);
-    if (u) {
-      this.owned.gear = this.owned.gear.filter((g) => g !== u.id);
-      if (this.outfit.uniform === u.id) this.outfit.uniform = null;
+    // trả mọi đồ của hãng cũ (goods có brand = hãng cũ: đồng phục, mũ, nón chở khách — cả đồ mua thêm)
+    const old = this.brand, mine = (gid) => !!GOODS[gid] && GOODS[gid].brand === old;
+    for (const [slot, gid] of Object.entries(this.outfit)) {
+      if (!gid || !mine(gid)) continue;
+      if (slot === 'uniform') this.outfit.uniform = null;
+      else delete this.outfit[slot]; // mũ hãng → đội lại mũ có sẵn
     }
+    this.owned.gear = this.owned.gear.filter((g) => !mine(g));
     this.brand = null;
     this.companyVehicle = null;
     this.depositPaid = 0;
@@ -769,12 +796,13 @@ export class GameState {
       brand: this.brand,
       companyVehicle: this.companyVehicle,
       depositPaid: this.depositPaid,
+      gifted: this.gifted,
       odoKm: this.odoKm,
       inventory: this.inventory,
       consumables: this.consumables,
       outfit: this.outfit,
       account: this.account,
-      flags: { wallet: this.flags.wallet, walletDay: this.flags.walletDay, story: this.flags.story, tutSkip: this.flags.tutSkip },
+      flags: { wallet: this.flags.wallet, walletDay: this.flags.walletDay, walletRetryAt: this.flags.walletRetryAt, story: this.flags.story, tutSkip: this.flags.tutSkip },
       towed: this.towed,
       fines: this.fines.map((f) => ({ ...f })),
     };

@@ -698,7 +698,8 @@
         "hours": [
           8,
           21
-        ]
+        ],
+        "rideWeight": 1
       },
       "sells": {
         "goods": [
@@ -777,10 +778,10 @@
       "kind": "gas",
       "icon": "⛽",
       "block": [
-        7,
-        2
+        1,
+        1
       ],
-      "lot": "N0",
+      "lot": "f4",
       "floors": 1,
       "color": "#ffffff",
       "sign": "XĂNG DẦU",
@@ -829,19 +830,12 @@
       "sells": {
         "goods": [
           "raincoat",
-          "spareHelmet",
-          "jacket",
-          "comfyShoes",
-          "gangTay",
-          "kinhRam"
+          "spareHelmet"
         ],
         "bags": [
           "thermal",
           "box"
         ]
-      },
-      "orders": {
-        "parcelWeight": 1
       },
       "hours": "caNgay"
     },
@@ -974,7 +968,8 @@
         "hours": [
           4,
           21
-        ]
+        ],
+        "rideWeight": 1
       },
       "look": "cafe"
     },
@@ -1026,7 +1021,10 @@
           "mental": 30,
           "perDay": 0
         }
-      ]
+      ],
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "id": "cafevong_2",
@@ -1076,7 +1074,10 @@
           "mental": 30,
           "perDay": 0
         }
-      ]
+      ],
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "id": "taphoa",
@@ -1115,9 +1116,6 @@
         "goods": [
           "energyDrink"
         ]
-      },
-      "orders": {
-        "parcelWeight": 3
       },
       "hours": "caNgay",
       "look": "tube"
@@ -1189,7 +1187,16 @@
       "orders": {
         "rideWeight": 3,
         "foodWeight": 0,
-        "parcelWeight": 3
+        "parcelWeight": 5,
+        "parcelItems": [
+          "hopGiay",
+          "aoQuan",
+          "dienThoai",
+          "doChoiLapRap",
+          "gauBong",
+          "trangSuc",
+          "daQuy"
+        ]
       },
       "icon": "🏬",
       "hours": "caNgay",
@@ -1200,7 +1207,7 @@
       "name": "Nhà Sách Tự Do",
       "short": "Sách",
       "kind": "service",
-      "icon": "📚",
+      "icon": "⭐",
       "block": [
         1,
         5
@@ -1258,7 +1265,11 @@
           10,
           20
         ],
-        "parcelWeight": 2
+        "parcelWeight": 2,
+        "parcelItems": [
+          "sach2",
+          "sach1"
+        ]
       }
     },
     {
@@ -1427,10 +1438,10 @@
       "lot": "S0",
       "floors": 2,
       "color": "#d6eaf8",
-      "sign": "SHOP",
-      "signBg": "#2e86c1",
+      "sign": "QUẦN ÁO",
+      "signBg": "#2ec246",
       "npc": {
-        "name": "Anh Bình",
+        "name": "Nhân viên bán hàng",
         "shirt": "#d9f37c",
         "pants": "#a5ff38",
         "hat": null,
@@ -1444,6 +1455,10 @@
         "hours": [
           8,
           21
+        ],
+        "parcelWeight": 2,
+        "parcelItems": [
+          "aoQuan"
         ]
       },
       "sells": {
@@ -1453,10 +1468,140 @@
           "aoSoMi",
           "quanKaki",
           "quanShort",
+          "aoThuong",
+          "jacket",
+          "jacket_2"
+        ]
+      }
+    },
+    {
+      "id": "clothestore_2",
+      "name": "Shop Giầy Dép",
+      "short": "Giầy",
+      "kind": "service",
+      "icon": "👕",
+      "block": [
+        2,
+        4
+      ],
+      "lot": "S1",
+      "floors": 2,
+      "color": "#d6eaf8",
+      "sign": "GIẦY DÉP",
+      "signBg": "#7f2ec2",
+      "npc": {
+        "name": "Nhân viên bán hàng",
+        "shirt": "#8880ff",
+        "pants": "#3e0070",
+        "hat": null,
+        "portrait": "👨",
+        "hairStyle": "bun",
+        "hair": "#5a3825",
+        "gender": "m"
+      },
+      "hours": "caNgay",
+      "orders": {
+        "hours": [
+          8,
+          21
+        ],
+        "parcelWeight": 2,
+        "parcelItems": [
+          "hopGiay"
+        ]
+      },
+      "sells": {
+        "goods": [
+          "depToOng",
+          "comfyShoes",
+          "comfyShoes_2"
+        ]
+      }
+    },
+    {
+      "id": "clothestore_3",
+      "name": "Shop Phụ Kiện",
+      "short": "Phụ kiện",
+      "kind": "service",
+      "icon": "👕",
+      "block": [
+        2,
+        4
+      ],
+      "lot": "S2",
+      "floors": 2,
+      "color": "#d6eaf8",
+      "sign": "PHỤ KIỆN",
+      "signBg": "#ffdd00",
+      "npc": {
+        "name": "Nhân viên bán hàng",
+        "shirt": "#ffe380",
+        "pants": "#564b01",
+        "hat": null,
+        "portrait": "👨",
+        "hairStyle": "bun",
+        "hair": "#5a3825",
+        "gender": "m"
+      },
+      "hours": "caNgay",
+      "orders": {
+        "hours": [
+          8,
+          21
+        ],
+        "parcelWeight": 2
+      },
+      "sells": {
+        "goods": [
+          "kinhRam",
+          "gangTay",
+          "raincoat",
+          "khauTrang",
+          "gangTay_2",
+          "khauTrang_2"
+        ]
+      }
+    },
+    {
+      "id": "clothestore_4",
+      "name": "Shop Mũ Bảo Hiểm",
+      "short": "Mũ",
+      "kind": "service",
+      "icon": "👕",
+      "block": [
+        2,
+        4
+      ],
+      "lot": "W1",
+      "floors": 2,
+      "color": "#d6eaf8",
+      "sign": "MŨ NÓN",
+      "signBg": "#ff0000",
+      "npc": {
+        "name": "Nhân viên bán hàng",
+        "shirt": "#ffe380",
+        "pants": "#564b01",
+        "hat": null,
+        "portrait": "👨",
+        "hairStyle": "bun",
+        "hair": "#5a3825",
+        "gender": "m"
+      },
+      "hours": "caNgay",
+      "orders": {
+        "hours": [
+          8,
+          21
+        ],
+        "parcelWeight": 2
+      },
+      "sells": {
+        "goods": [
           "muDo",
           "muFullface",
-          "aoThuong",
-          "depToOng"
+          "muFullface_2",
+          "muFullface_3",
+          "muDo_2"
         ]
       }
     },
@@ -1494,13 +1639,18 @@
       "orders": {
         "rideWeight": 2,
         "foodWeight": 2,
-        "parcelWeight": 3
+        "parcelWeight": 0
       },
       "block": [
         5,
         4
       ],
-      "lot": "f8"
+      "lot": "f8",
+      "sells": {
+        "goods": [
+          "energyDrink"
+        ]
+      }
     },
     {
       "id": "dichvu1_2",
@@ -1536,13 +1686,18 @@
       "orders": {
         "rideWeight": 2,
         "foodWeight": 2,
-        "parcelWeight": 3
+        "parcelWeight": 0
       },
       "block": [
         1,
         1
       ],
-      "lot": "f0"
+      "lot": "f0",
+      "sells": {
+        "goods": [
+          "energyDrink"
+        ]
+      }
     },
     {
       "id": "dichvu1_3",
@@ -1578,13 +1733,18 @@
       "orders": {
         "rideWeight": 2,
         "foodWeight": 2,
-        "parcelWeight": 3
+        "parcelWeight": 0
       },
       "block": [
         1,
         9
       ],
-      "lot": "N2"
+      "lot": "N2",
+      "sells": {
+        "goods": [
+          "energyDrink"
+        ]
+      }
     },
     {
       "id": "dichvu1_4",
@@ -1620,13 +1780,18 @@
       "orders": {
         "rideWeight": 2,
         "foodWeight": 2,
-        "parcelWeight": 3
+        "parcelWeight": 0
       },
       "block": [
         9,
         4
       ],
-      "lot": "N0"
+      "lot": "N0",
+      "sells": {
+        "goods": [
+          "energyDrink"
+        ]
+      }
     },
     {
       "id": "dichvu1_5",
@@ -1662,13 +1827,18 @@
       "orders": {
         "rideWeight": 2,
         "foodWeight": 2,
-        "parcelWeight": 3
+        "parcelWeight": 0
       },
       "block": [
         7,
         1
       ],
-      "lot": "f3"
+      "lot": "f3",
+      "sells": {
+        "goods": [
+          "energyDrink"
+        ]
+      }
     },
     {
       "id": "dichvu1_6",
@@ -1704,13 +1874,18 @@
       "orders": {
         "rideWeight": 2,
         "foodWeight": 2,
-        "parcelWeight": 3
+        "parcelWeight": 0
       },
       "block": [
         6,
         8
       ],
-      "lot": "S0"
+      "lot": "S0",
+      "sells": {
+        "goods": [
+          "energyDrink"
+        ]
+      }
     },
     {
       "id": "canhquan2",
@@ -2081,7 +2256,13 @@
         5,
         2
       ],
-      "lot": "N0"
+      "lot": "N0",
+      "orders": {
+        "parcelWeight": 1,
+        "parcelItems": [
+          "aoQuan"
+        ]
+      }
     },
     {
       "kind": "restaurant",
@@ -2358,7 +2539,14 @@
         0,
         0
       ],
-      "lot": "E1"
+      "lot": "E1",
+      "orders": {
+        "parcelItems": [
+          "taiLieu"
+        ],
+        "parcelWeight": 1,
+        "rideWeight": 2
+      }
     },
     {
       "kind": "scenery",
@@ -2372,7 +2560,10 @@
         1
       ],
       "lot": "N2",
-      "icon": "🅿️"
+      "icon": "🅿️",
+      "orders": {
+        "rideWeight": 2
+      }
     },
     {
       "kind": "restaurant",
@@ -2512,7 +2703,10 @@
         6,
         0
       ],
-      "lot": "W1"
+      "lot": "W1",
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "kind": "restaurant",
@@ -2579,7 +2773,10 @@
         0
       ],
       "lot": "S0",
-      "face": "W"
+      "face": "W",
+      "orders": {
+        "rideWeight": 2
+      }
     },
     {
       "kind": "restaurant",
@@ -2608,7 +2805,10 @@
         7,
         7
       ],
-      "lot": "S1"
+      "lot": "S1",
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "kind": "garage",
@@ -2718,10 +2918,7 @@
       "hours": "sangDenToi",
       "sells": {
         "goods": [
-          "energyDrink",
-          "raincoat",
-          "jacket",
-          "khauTrang"
+          "energyDrink"
         ]
       },
       "npc": {
@@ -2736,7 +2933,15 @@
         3,
         9
       ],
-      "lot": "S0"
+      "lot": "S0",
+      "orders": {
+        "rideWeight": 1,
+        "parcelWeight": 2,
+        "parcelItems": [
+          "aoQuan",
+          "hopGiay"
+        ]
+      }
     },
     {
       "kind": "restaurant",
@@ -2764,7 +2969,10 @@
         5,
         8
       ],
-      "lot": "N2"
+      "lot": "N2",
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "kind": "restaurant",
@@ -2821,7 +3029,10 @@
         9,
         0
       ],
-      "lot": "S1"
+      "lot": "S1",
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "kind": "restaurant",
@@ -2850,7 +3061,10 @@
         9,
         3
       ],
-      "lot": "S0"
+      "lot": "S0",
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "kind": "restaurant",
@@ -2879,7 +3093,10 @@
         9,
         1
       ],
-      "lot": "N2"
+      "lot": "N2",
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "kind": "service",
@@ -2915,7 +3132,10 @@
         9,
         2
       ],
-      "lot": "S1"
+      "lot": "S1",
+      "orders": {
+        "rideWeight": 2
+      }
     },
     {
       "kind": "restaurant",
@@ -2943,7 +3163,10 @@
         9,
         8
       ],
-      "lot": "S2"
+      "lot": "S2",
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "kind": "service",
@@ -2979,7 +3202,10 @@
         9,
         8
       ],
-      "lot": "S1"
+      "lot": "S1",
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "kind": "scenery",
@@ -2992,7 +3218,10 @@
         9,
         4
       ],
-      "lot": "S"
+      "lot": "S",
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "id": "tennisDoThi",
@@ -3097,7 +3326,7 @@
       ],
       "orders": {
         "foodWeight": 1,
-        "rideWeight": 1.5,
+        "rideWeight": 2,
         "hours": [
           [
             10.5,
@@ -3217,7 +3446,10 @@
           "mental": 15,
           "perDay": 1
         }
-      ]
+      ],
+      "orders": {
+        "rideWeight": 1
+      }
     },
     {
       "id": "truongTieuHoc",
@@ -3373,6 +3605,9 @@
           "evPlus",
           "evPro"
         ]
+      },
+      "orders": {
+        "rideWeight": 1
       }
     },
     {
@@ -3489,7 +3724,10 @@
           "mental": 20,
           "perDay": 1
         }
-      ]
+      ],
+      "orders": {
+        "rideWeight": 3
+      }
     },
     {
       "id": "buuDienTP",
@@ -3527,7 +3765,8 @@
         }
       ],
       "orders": {
-        "parcelWeight": 3
+        "parcelWeight": 3,
+        "rideWeight": 2
       }
     },
     {
@@ -3644,6 +3883,9 @@
         "hat": null,
         "portrait": "⛴️",
         "gender": "m"
+      },
+      "orders": {
+        "rideWeight": 2
       }
     },
     {
@@ -3699,7 +3941,8 @@
       ],
       "sells": {
         "goods": [
-          "aoDongPhuc"
+          "aoDongPhuc",
+          "nonKhachGrip"
         ]
       }
     },
@@ -3730,20 +3973,21 @@
       ],
       "sells": {
         "goods": [
-          "aoDongPhucHong"
+          "aoDongPhucCam",
+          "nonKhachCam"
         ]
       }
     },
     {
       "id": "chargerA",
-      "name": "Trụ sạc HồngSM",
+      "name": "Trụ sạc CamSM",
       "short": "Sạc",
       "kind": "charger",
       "lot": "S0",
       "floors": 1,
       "color": "#fdedec",
       "sign": "TRẠM SẠC XE ĐIỆN",
-      "signBg": "#e84393",
+      "signBg": "#ff7b00",
       "look": "gas",
       "hours": "caNgay",
       "block": [
@@ -3753,19 +3997,53 @@
     },
     {
       "id": "chargerB",
-      "name": "Trụ sạc Bến Xanh",
+      "name": "Trụ sạc CamSM",
       "short": "Sạc",
       "kind": "charger",
-      "lot": "S2",
+      "lot": "N2",
       "floors": 1,
       "color": "#fdedec",
       "sign": "TRẠM SẠC XE ĐIỆN",
-      "signBg": "#e84393",
+      "signBg": "#ff7b00",
       "look": "gas",
       "hours": "caNgay",
       "block": [
         9,
+        6
+      ]
+    },
+    {
+      "id": "chargerB_3",
+      "name": "Trụ sạc CamSM",
+      "short": "Sạc",
+      "kind": "charger",
+      "lot": "N2",
+      "floors": 1,
+      "color": "#fdedec",
+      "sign": "TRẠM SẠC XE ĐIỆN",
+      "signBg": "#ff7b00",
+      "look": "gas",
+      "hours": "caNgay",
+      "block": [
+        0,
         9
+      ]
+    },
+    {
+      "id": "chargerB_2",
+      "name": "Trụ sạc CamSM",
+      "short": "Sạc",
+      "kind": "charger",
+      "lot": "f7",
+      "floors": 1,
+      "color": "#fdedec",
+      "sign": "TRẠM SẠC XE ĐIỆN",
+      "signBg": "#ff7b00",
+      "look": "gas",
+      "hours": "caNgay",
+      "block": [
+        1,
+        1
       ]
     },
     {
@@ -3791,6 +4069,92 @@
         7,
         6
       ]
+    },
+    {
+      "id": "dichvu2",
+      "name": "Cửa hàng điện thoại Hai Thông",
+      "short": "Điện thoại",
+      "kind": "service",
+      "icon": "⭐",
+      "floors": 2,
+      "color": "#d6eaf8",
+      "sign": "ĐT HAI THÔNG",
+      "signBg": "#2e86c1",
+      "npc": {
+        "name": "Hai Thông",
+        "shirt": "#2e86c1",
+        "pants": "#333344",
+        "hat": null,
+        "portrait": "🙂"
+      },
+      "hours": "hanhChinh",
+      "activities": [
+        {
+          "id": "nghi",
+          "label": "Ngồi nghỉ",
+          "cost": 0,
+          "minutes": 15,
+          "phys": 5,
+          "mental": 5,
+          "perDay": 0
+        }
+      ],
+      "block": [
+        2,
+        2
+      ],
+      "lot": "S2",
+      "orders": {
+        "parcelItems": [
+          "dienThoai"
+        ],
+        "parcelWeight": 1,
+        "rideWeight": 1
+      }
+    },
+    {
+      "id": "dichvu3",
+      "name": "Tiệm thú cưng Lan Anh",
+      "short": "Mới",
+      "kind": "service",
+      "icon": "⭐",
+      "floors": 2,
+      "color": "#d6eaf8",
+      "sign": "PET LAN ANH",
+      "signBg": "#2e86c1",
+      "npc": {
+        "name": "Chăm sóc viên",
+        "shirt": "#757575",
+        "pants": "#000000",
+        "hat": null,
+        "portrait": "👩",
+        "gender": "f",
+        "hairStyle": "bun",
+        "skin": "#ffdbac"
+      },
+      "hours": "hanhChinh",
+      "activities": [
+        {
+          "id": "nghi",
+          "label": "Vào sờ mèo",
+          "cost": 20,
+          "minutes": 15,
+          "phys": 5,
+          "mental": 5,
+          "perDay": 0
+        }
+      ],
+      "orders": {
+        "parcelItems": [
+          "pet1"
+        ],
+        "parcelWeight": 1
+      },
+      "block": [
+        1,
+        3
+      ],
+      "lot": "f5"
     }
   ]
 }

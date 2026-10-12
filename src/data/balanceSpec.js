@@ -121,6 +121,8 @@ export const BALANCE_GROUPS = [
       ['parking.theftPerHour', 'Ban đêm bị trộm: xác suất mỗi giờ', { min: 0, max: 0.99, step: 0.05, hint: 'Lúc trời tối (mục Ban đêm), khi xe không chở hàng. Mỗi lần đậu tối đa 1 lần. Mặc định 0,25.' }],
       ['parking.theftFuelPct', 'Bị trộm: mất bao nhiêu xăng (%)', { min: 0, max: 1, step: 5, scale: 100, hint: 'Mặc định 60%.' }],
       ['parking.theftHp', 'Bị trộm: xe hư thêm (%)', { min: 0, max: 100, step: 1, hint: 'Bẻ gương, cắt dây… Mặc định 15.' }],
+      ['parking.helmetStreetPerHour', 'Đậu ngoài đường: mất nón chở khách, xác suất mỗi giờ', { min: 0, max: 0.99, step: 0.01, hint: 'Cả ngày lẫn đêm, nhân thêm hệ số trộm của khu phố. Mỗi lần đậu mất tối đa 1 nón. Hầm nhà trọ không mất. Mặc định 0,06.' }],
+      ['parking.helmetLotPerHour', 'Gửi bãi giữ xe / bảo vệ: mất nón chở khách, xác suất mỗi giờ', { min: 0, max: 0.99, step: 0.01, hint: 'Gửi bãi vẫn có thể bị lấy nón. Mặc định 0,02.' }],
       ['parking.fineDays', 'Phạt nguội: hạn nộp (ngày)', { min: 1, max: 30, step: 1, hint: 'Có đồn công an trên bản đồ thì phạt đậu xe thành phạt nguội, nộp ở đồn. Không có đồn → trừ tiền ngay. Mặc định 3 ngày.' }],
       ['parking.overduePct', 'Phạt nguội quá hạn: tăng thêm (%)', { min: 0, max: 5, step: 5, scale: 100, hint: 'Quá hạn thì tiền phạt tăng; bị CSGT dừng xe khi còn phạt quá hạn → giữ xe về đồn. Mặc định 50%.' }],
     ],
@@ -152,6 +154,7 @@ export const BALANCE_GROUPS = [
       ['rideEvents.scamRefuseMental', 'Đuổi khách lừa đảo xuống: mất tinh thần', { min: 0, max: 100, step: 1, hint: 'Mặc định 5.' }],
       ['rideEvents.luggageSpeedMul', 'Chở khách mang vali: tốc độ tối đa × (%)', { min: 0.3, max: 1, step: 5, scale: 100, hint: 'Xe nặng chạy chậm. Mặc định 80%.' }],
       ['rideEvents.foreignCallMin', 'Khách nước ngoài: gọi hỏi đường mất (phút)', { min: 1, max: 30, step: 1, hint: 'Dịch bằng điện thoại, khách chỉ trên bản đồ. Mặc định 4.' }],
+      ['rideEvents.helmetTaken', 'Chở xong, khách cầm luôn nón đi (%)', { min: 0, max: 1, step: 1, scale: 100, hint: 'Mỗi chuyến. Loại khách có thể đặt tỉ lệ riêng (thẻ App & Đơn → Loại khách). Hết nón thì phải mua lại ở văn phòng hãng mới nhận được đơn chở khách. Mặc định 8%.' }],
     ],
   },
   {
@@ -220,6 +223,8 @@ export const BALANCE_GROUPS = [
   {
     id: 'wallet', title: '👛 Nhiệm vụ chiếc ví',
     fields: [
+      ['walletQuest.minOrders', 'Chuyến anh Minh: có sau khi giao xong (đơn)', { min: 0, max: 100, step: 1, hint: 'Cần có nón chở khách + đã giao xong số đơn này thì app mới mời chuyến chở anh Minh (mở nhiệm vụ ví). Mặc định 3.' }],
+      ['walletQuest.retryMin', 'Chuyến anh Minh: từ chối thì mời lại sau (phút)', { min: 0, max: 1440, step: 5, hint: 'Ở giữa vẫn có đơn thường. Mặc định 60.' }],
       ['walletQuest.reward', 'Thưởng khi trả ví (k)', { min: 0, max: 5000, step: 10, hint: 'Mặc định 150k.' }],
       ['walletQuest.cash', 'Tiền trong ví (k)', { min: 0, max: 5000, step: 10, hint: 'Giữ ví thì được số này nhưng có thể bị tố. Mặc định 300k.' }],
       ['walletQuest.complaintFine', 'Phạt khi giữ ví bị tố (k)', { min: 0, max: 5000, step: 10, hint: 'Mặc định 100k.' }],

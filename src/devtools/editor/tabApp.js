@@ -93,6 +93,14 @@ export function render(root, ctx) {
       ),
       field('Giới thiệu (văn phòng hãng nói)', areaInput(x.desc, (v) => { x.desc = v; changed(); }, 2), opt('desc', { wide: true })),
       field('Đãi ngộ riêng của hãng (mỗi dòng 1 ý)', areaInput((x.perks || []).join('\n'), (v) => { x.perks = v.split('\n').map((t) => t.trim()).filter(Boolean); changed(); }, 3), opt('perks', { wide: true, hint: 'Hiện trong popup hợp đồng khi người chơi đăng ký, dưới các đãi ngộ chung (phí, thuế, boa, phụ phí lấy từ mục 📱 App). Chỉ là chữ, không đổi luật chơi.' })),
+      field('Quà khi vào hãng', el('div', { class: 'chips' }, Object.values(ctx.data.goods)
+        .filter((g) => (g.type === 'outfit' || g.type === 'equipment') && g.slot !== 'uniform' && (!g.brand || g.brand === x.id))
+        .map((g) => checkInput((x.gifts || []).includes(g.id), (on) => {
+          const list = new Set(x.gifts || []);
+          if (on) list.add(g.id); else list.delete(g.id);
+          x.gifts = [...list];
+          changed();
+        }, `${g.icon || ''} ${g.name}${g.brand ? ' 🏢' : ''}`))), opt('gifts', { wide: true, hint: 'Tặng ngay khi đăng ký (ngoài xe hãng + đồng phục). Trang phục thì tự mặc / đội luôn (trừ phụ kiện). Đồ có 🏢 là đồ của hãng: đổi hãng thì phải trả lại; đồ thường thì giữ luôn. Người đang chơi mà đã vào hãng từ trước thì được tặng bù 1 lần.' })),
       field('Văn phòng trên bản đồ', el('div', { class: offices.length ? 'chips' : 'muted' }, offices.length
         ? offices.map((p) => button(`🏢 ${p.name}`, () => ctx.select('places', { id: p.id }), 'small'))
         : 'Chưa có. Thẻ 🏪 Địa điểm → tạo địa điểm mới, loại "Văn phòng hãng" (sao chép văn phòng có sẵn), chọn hãng này, rồi kéo vào bản đồ ở thẻ 🏗️ Xây dựng.'), opt('office', { wide: true })),
@@ -290,6 +298,7 @@ export function render(root, ctx) {
         optNum('vomitMental', 'Ói: trừ tinh thần', { step: 1, min: 0, max: 100, hint: H.vomitMental }),
         optNum('vomitCost', 'Ói: tiền rửa xe (k)', { step: 1, min: 0, hint: H.vomitCost }),
         optNum('noPayChance', 'Quỵt tiền (%)', { ...pct, min: 0, max: 100, hint: H.noPayChance }),
+        optNum('helmetTaken', 'Chở xong cầm luôn nón đi (%)', { ...pct, min: 0, max: 100, hint: 'Để trống = dùng mức chung (thẻ ⚖️ Cân bằng → Sự cố khi chở khách, mặc định 8%). Mẫu: khách say 25%, khách vội 12%.' }),
         optNum('bigTipChance', 'Boa đậm (%)', { ...pct, min: 0, max: 100, hint: H.bigTipChance }),
         optNum('bigTip', 'Tiền boa đậm (k)', { step: 1, min: 0, hint: H.bigTip }),
         optNum('changeDestChance', 'Đổi điểm đến giữa đường (%)', { ...pct, min: 0, max: 100, hint: 'Đang chở thì khách xin đổi qua chỗ khác (60–220 m quanh đó). Đồng ý → chở tới chỗ mới; từ chối → khách xuống, trả theo quãng đã đi, chấm sao thấp (thẻ Cân bằng → Sự cố khi chở khách).' }),

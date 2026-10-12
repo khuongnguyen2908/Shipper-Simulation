@@ -220,6 +220,7 @@ function renderGoods(body, s, ctx, opt, changed) {
       field(r.label, numInput(s.use[k] ?? 0, (v) => { s.use[k] = v; changed(); }, { step: k === 'fuel' ? 0.1 : 1, min: r.min, max: r.max }), opt(`use.${k}`, { hint: HINT.use[k] })))));
     return;
   }
+  if (s.type === 'equipment') body.append(el('div', { class: 'grid' }, brandField(s, ctx, opt, changed)));
   // chỉ ghi "effects" vào dữ liệu khi thật sự tích một tác dụng (mở xem không làm file bị coi là đã sửa)
   if (s.type === 'equipment') s.effects = s.effects || {};
   const effects = s.effects || {};
@@ -243,6 +244,16 @@ function renderGoods(body, s, ctx, opt, changed) {
   body.append(field(s.type === 'outfit' ? 'Tác dụng khi mặc' : '', el('div', { class: 'traits' }, rows), opt('effects', { wide: true, hint })));
 }
 
+// Ô "Hãng" của trang phục / trang bị: đồ của hãng chỉ tài xế hãng đó mua được (ở văn phòng hãng), đổi hãng thì trả lại.
+// Đồng phục bắt buộc chọn hãng; món khác để trống = đồ thường. Muốn tặng khi vào hãng: thẻ App & Đơn → Hãng → Quà khi vào hãng.
+function brandField(s, ctx, opt, changed) {
+  const uniform = s.slot === 'uniform';
+  return field('Hãng', selectInput(s.brand || '', [['', uniform ? '— chọn hãng —' : '— không (đồ thường) —'], ...Object.values(ctx.data.apps.brands || {}).map((b) => [b.id, `${b.icon || ''} ${b.name}`])], (v) => { if (v) s.brand = v; else delete s.brand; changed(); }),
+    opt('brand', { hint: uniform
+      ? 'Đồng phục của hãng nào: cấp khi vào hãng đó, chỉ bán ở văn phòng hãng đó; phải mặc mới bật được app nhận đơn.'
+      : 'Đồ của hãng: chỉ tài xế hãng đó mua được ở văn phòng hãng; đổi sang hãng khác thì phải trả lại. Để trống = đồ thường.' }));
+}
+
 // Phần riêng của trang phục: chỗ mặc, kiểu, màu + xem trước 3D (mặc cùng đồ có sẵn ở các chỗ khác)
 function renderOutfit(body, s, ctx, opt, changed) {
   const prev = personPreview(`outfit-${s.id}`);
@@ -257,15 +268,12 @@ function renderOutfit(body, s, ctx, opt, changed) {
       field('Chỗ mặc', selectInput(s.slot, Object.entries(OUTFIT_SLOTS).map(([k, d]) => [k, d.label]), (v) => {
         s.slot = v;
         if (!(s.style in OUTFIT_SLOTS[v].styles)) s.style = Object.keys(OUTFIT_SLOTS[v].styles)[0];
-        if (v !== 'uniform') delete s.brand; // chỉ đồng phục mới thuộc hãng
         changed();
         ctx.rerender();
       }), opt('slot', { hint: 'Mỗi chỗ mặc 1 món. Món giá 0 là đồ có sẵn từ đầu. Áo / quần / mũ / giày thay ở tủ đồ phòng trọ; 3 ô phụ kiện (áo mưa · áo khoác, kính · khẩu trang, găng tay) được để trống, người chơi gắn / tháo trong túi đồ.' })),
       field('Kiểu', selectInput(s.style, Object.entries(slot.styles), (v) => { s.style = v; changed(); draw(); }), opt('style')),
       field('Màu', colorInput(s.color, (v) => { s.color = v; changed(); draw(); }), opt('color')),
-      s.slot === 'uniform'
-        ? field('Hãng', selectInput(s.brand || '', [['', '— chọn hãng —'], ...Object.values(ctx.data.apps.brands || {}).map((b) => [b.id, `${b.icon || ''} ${b.name}`])], (v) => { if (v) s.brand = v; else delete s.brand; changed(); }), opt('brand', { hint: 'Đồng phục của hãng nào: cấp khi vào hãng đó, chỉ bán ở văn phòng hãng đó; phải mặc mới bật được app nhận đơn.' }))
-        : null,
+      brandField(s, ctx, opt, changed),
     ),
     field('Xem trước', prev.el, opt('preview', { hint: 'Mặc cùng đồ có sẵn ở các chỗ còn lại.' })),
   );

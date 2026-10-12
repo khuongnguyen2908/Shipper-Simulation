@@ -8,14 +8,14 @@
     "type": "outfit",
     "slot": "acc",
     "style": "raincoat",
-    "color": "#2e86c1",
+    "color": "#aca5a5",
     "effects": {
       "rainProtect": true
     }
   },
   "jacket": {
     "id": "jacket",
-    "name": "Áo khoác chống nắng",
+    "name": "Áo khoác chống nắng xám",
     "icon": "🧢",
     "price": 60,
     "desc": "Không mệt thêm khi nắng gắt 11h–15h.",
@@ -23,6 +23,20 @@
     "slot": "acc",
     "style": "jacket",
     "color": "#5d6d7e",
+    "effects": {
+      "sunProtect": true
+    }
+  },
+  "jacket_2": {
+    "id": "jacket_2",
+    "name": "Áo khoác chống nắng hồng",
+    "icon": "🧢",
+    "price": 60,
+    "desc": "Không mệt thêm khi nắng gắt 11h–15h.",
+    "type": "outfit",
+    "slot": "acc",
+    "style": "jacket",
+    "color": "#ff00bb",
     "effects": {
       "sunProtect": true
     }
@@ -40,7 +54,7 @@
   },
   "comfyShoes": {
     "id": "comfyShoes",
-    "name": "Giày êm chân",
+    "name": "Giày bata trắng",
     "icon": "👟",
     "price": 150,
     "desc": "Leo cầu thang đỡ mệt hơn, đi lại cả ngày bớt mỏi.",
@@ -48,6 +62,21 @@
     "slot": "shoes",
     "style": "sneaker",
     "color": "#ecf0f1",
+    "effects": {
+      "stairsPct": -30,
+      "physDrainPct": -10
+    }
+  },
+  "comfyShoes_2": {
+    "id": "comfyShoes_2",
+    "name": "Giày bata  đen",
+    "icon": "👟",
+    "price": 150,
+    "desc": "Leo cầu thang đỡ mệt hơn, đi lại cả ngày bớt mỏi.",
+    "type": "outfit",
+    "slot": "shoes",
+    "style": "sneaker",
+    "color": "#000000",
     "effects": {
       "stairsPct": -30,
       "physDrainPct": -10
@@ -91,7 +120,7 @@
   },
   "khauTrang": {
     "id": "khauTrang",
-    "name": "Khẩu trang vải",
+    "name": "Khẩu trang y tế",
     "icon": "😷",
     "price": 10,
     "desc": "Đỡ khói bụi giờ cao điểm, thở dễ hơn.",
@@ -100,12 +129,26 @@
     "style": "mask",
     "color": "#5dade2",
     "effects": {
+      "physDrainPct": -2
+    }
+  },
+  "khauTrang_2": {
+    "id": "khauTrang_2",
+    "name": "Khẩu trang vải",
+    "icon": "😷",
+    "price": 10,
+    "desc": "Đỡ khói bụi giờ cao điểm, thở dễ hơn.",
+    "type": "outfit",
+    "slot": "face",
+    "style": "mask",
+    "color": "#1f1f1f",
+    "effects": {
       "physDrainPct": -5
     }
   },
   "gangTay": {
     "id": "gangTay",
-    "name": "Găng tay chống nắng",
+    "name": "Găng tay chống nắng trắng",
     "icon": "🧤",
     "price": 30,
     "desc": "Găng ống dài che kín cẳng tay, đỡ rát nắng.",
@@ -113,6 +156,20 @@
     "slot": "hands",
     "style": "armSleeves",
     "color": "#ecf0f1",
+    "effects": {
+      "physDrainPct": -5
+    }
+  },
+  "gangTay_2": {
+    "id": "gangTay_2",
+    "name": "Găng tay chống nắng hồng",
+    "icon": "🧤",
+    "price": 30,
+    "desc": "Găng ống dài che kín cẳng tay, đỡ rát nắng.",
+    "type": "outfit",
+    "slot": "hands",
+    "style": "armSleeves",
+    "color": "#ff00f7",
     "effects": {
       "physDrainPct": -5
     }
@@ -240,6 +297,61 @@
     "style": "half",
     "color": "#454545"
   },
+  "muDo": {
+    "id": "muDo",
+    "name": "Mũ bảo hiểm đỏ",
+    "icon": "⛑️",
+    "price": 50,
+    "desc": "Mũ nửa đầu màu đỏ.",
+    "type": "outfit",
+    "slot": "helmet",
+    "style": "half",
+    "color": "#c0392b"
+  },
+  "muDo_2": {
+    "id": "muDo_2",
+    "name": "Mũ bảo hiểm trắng",
+    "icon": "⛑️",
+    "price": 50,
+    "desc": "Mũ nửa đầu màu đỏ.",
+    "type": "outfit",
+    "slot": "helmet",
+    "style": "half",
+    "color": "#ffffff"
+  },
+  "muFullface": {
+    "id": "muFullface",
+    "name": "Mũ fullface đen",
+    "icon": "⛑️",
+    "price": 150,
+    "desc": "Mũ trùm kín đầu, có kính chắn gió.",
+    "type": "outfit",
+    "slot": "helmet",
+    "style": "full",
+    "color": "#1c1c1c"
+  },
+  "muFullface_2": {
+    "id": "muFullface_2",
+    "name": "Mũ fullface đỏ",
+    "icon": "⛑️",
+    "price": 150,
+    "desc": "Mũ trùm kín đầu, có kính chắn gió.",
+    "type": "outfit",
+    "slot": "helmet",
+    "style": "full",
+    "color": "#ff0000"
+  },
+  "muFullface_3": {
+    "id": "muFullface_3",
+    "name": "Mũ fullface trắng",
+    "icon": "⛑️",
+    "price": 150,
+    "desc": "Mũ trùm kín đầu, có kính chắn gió.",
+    "type": "outfit",
+    "slot": "helmet",
+    "style": "full",
+    "color": "#ffffff"
+  },
   "aoTrang": {
     "id": "aoTrang",
     "name": "Áo thun trắng",
@@ -278,7 +390,7 @@
     "name": "Áo khoác đồng phục GripBike",
     "icon": "🦺",
     "price": 90,
-    "desc": "Đồng phục tài xế GripBike: mặc vào mới bật được app nhận đơn. Khách tin tưởng hơn: đơn 4–5★ được boa thêm 1k.",
+    "desc": "Đồng phục tài xế GripBike: mặc vào mới bật được app nhận đơn. ",
     "type": "outfit",
     "slot": "uniform",
     "style": "jacket",
@@ -288,16 +400,16 @@
     },
     "brand": "goship"
   },
-  "aoDongPhucHong": {
-    "id": "aoDongPhucHong",
-    "name": "Áo khoác đồng phục HồngSM",
+  "aoDongPhucCam": {
+    "id": "aoDongPhucCam",
+    "name": "Áo khoác đồng phục CamSM",
     "icon": "🦺",
     "price": 90,
-    "desc": "Đồng phục tài xế HồngSM: mặc vào mới bật được app nhận đơn. Khách tin tưởng hơn: đơn 4–5★ được boa thêm 1k.",
+    "desc": "Đồng phục tài xế CamSM: mặc vào mới bật được app nhận đơn.",
     "type": "outfit",
     "slot": "uniform",
     "style": "jacket",
-    "color": "#e84393",
+    "color": "#e88645",
     "brand": "hongsm",
     "effects": {
       "tipBonus": 1
@@ -324,28 +436,6 @@
     "slot": "pants",
     "style": "shorts",
     "color": "#222222"
-  },
-  "muDo": {
-    "id": "muDo",
-    "name": "Mũ bảo hiểm đỏ",
-    "icon": "⛑️",
-    "price": 50,
-    "desc": "Mũ nửa đầu màu đỏ.",
-    "type": "outfit",
-    "slot": "helmet",
-    "style": "half",
-    "color": "#c0392b"
-  },
-  "muFullface": {
-    "id": "muFullface",
-    "name": "Mũ fullface đen",
-    "icon": "⛑️",
-    "price": 150,
-    "desc": "Mũ trùm kín đầu, có kính chắn gió.",
-    "type": "outfit",
-    "slot": "helmet",
-    "style": "full",
-    "color": "#1c1c1c"
   },
   "aoDaiTrang": {
     "id": "aoDaiTrang",
@@ -383,5 +473,53 @@
       "fuel": 0,
       "bikeHp": 0
     }
+  },
+  "muGrip": {
+    "id": "muGrip",
+    "name": "Mũ bảo hiểm GripBike",
+    "icon": "⛑️",
+    "price": 60,
+    "desc": "Mũ nửa đầu màu hãng, tặng khi vào GripBike. Đổi hãng thì trả lại.",
+    "type": "outfit",
+    "slot": "helmet",
+    "style": "half",
+    "color": "#00b14f",
+    "brand": "goship"
+  },
+  "muCam": {
+    "id": "muCam",
+    "name": "Mũ bảo hiểm CamSM",
+    "icon": "⛑️",
+    "price": 60,
+    "desc": "Mũ nửa đầu màu hãng, tặng khi vào CamSM. Đổi hãng thì trả lại.",
+    "type": "outfit",
+    "slot": "helmet",
+    "style": "half",
+    "color": "#ff7300",
+    "brand": "hongsm"
+  },
+  "nonKhachGrip": {
+    "id": "nonKhachGrip",
+    "name": "Nón chở khách GripBike",
+    "icon": "⛑️",
+    "price": 50,
+    "desc": "Mở khóa đơn chở khách. Tặng khi vào GripBike; khách cầm đi hay bị lấy mất thì mua lại ở văn phòng GripBike.",
+    "type": "equipment",
+    "effects": {
+      "passengerSeat": true
+    },
+    "brand": "goship"
+  },
+  "nonKhachCam": {
+    "id": "nonKhachCam",
+    "name": "Nón chở khách CamSM",
+    "icon": "⛑️",
+    "price": 50,
+    "desc": "Mở khóa đơn chở khách. Tặng khi vào CamSM; khách cầm đi hay bị lấy mất thì mua lại ở văn phòng CamSM.",
+    "type": "equipment",
+    "effects": {
+      "passengerSeat": true
+    },
+    "brand": "hongsm"
   }
 }
