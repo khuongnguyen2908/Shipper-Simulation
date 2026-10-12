@@ -103,7 +103,7 @@ export function render(root, ctx) {
   });
   body.append(
     el('div', { class: 'text-tools' }, search, onlyEdited, onlyIssues, editedInfo),
-    el('p', { class: 'muted' }, 'Bấm vào một câu để sửa — phần xem trước hiện ngay bên dưới. Dùng được HTML đơn giản: <b>đậm</b>, <i>nghiêng</i>, <small>nhỏ</small>, <br> xuống dòng. {tên} là tham số game tự điền — chỉ dùng những tham số có sẵn của câu đó.'),
+    el('p', { class: 'muted' }, 'Bấm vào một câu để sửa — phần xem trước hiện ngay bên dưới. Dùng được HTML đơn giản: <b>đậm</b>, <i>nghiêng</i>, <small>nhỏ</small>, <br> xuống dòng. {tên} là tham số game tự điền — chỉ dùng những tham số có sẵn của câu đó. Hội thoại dài thì chèn [tiếp] vào chỗ muốn ngắt trang: người chơi bấm "Tiếp ▸" để đọc trang sau (vd thoại Cô Hai dlg.landlordIntro).'),
     listBox,
   );
 

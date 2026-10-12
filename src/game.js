@@ -2,13 +2,13 @@
 // GAME — điều phối: vòng lặp, nối mô phỏng (src/sim) với thế giới 3D (src/world) và giao diện (src/ui)
 // =============================================================
 import * as THREE from 'three';
-import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, BAGS, NIGHT, PARKING, AIRPORT, RIDE_EVENTS } from './data/balance.js';
+import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, NIGHT, PARKING, AIRPORT, RIDE_EVENTS } from './data/balance.js';
 import { parkingRoll, parkingLotAt, nearestStation, towTarget, safeSpot } from './sim/parking.js';
 import { garageSpots, inGarage } from './sim/garage.js';
 import { airportAt, airportParkAt, airportNoStopAt, noStopStep } from './sim/airport.js';
 import { roadSegAt, tierOf, tierLabel, speedLimitOf } from './sim/roads.js';
 import { busHint, inService } from './sim/bus.js';
-import { GOODS, outfitLook } from './data/goods.js';
+import { outfitLook } from './data/goods.js';
 import { lookOf } from './data/looks.js';
 import { APP, RIDER_TYPES } from './data/apps.js';
 import { ITEMS } from './data/items.js';
@@ -29,16 +29,17 @@ import { buildFerries } from './world/ferry.js';
 import { nextBoat, BOAT_DECK } from './sim/ferry.js';
 import { Sky } from './world/sky.js';
 import { makePerson, makeBeacon, makeZoneRing, setSitting, pedalPerson, randomPersonOpts, npcLook, sitY } from './world/models.js';
-import { guessGender } from './sim/people.js';
+import { guessGender, profileLook } from './sim/people.js';
 import { makeLabelTexture, makeQuestTexture } from './world/textures.js';
 import { Input } from './input.js';
 import { Hud } from './ui/hud.js';
 import { Phone } from './ui/phone.js';
 import { Modal } from './ui/modal.js';
+import { Spotlight } from './ui/spotlight.js';
 import { Screens } from './ui/screens.js';
 import * as act from './interactions.js';
 import { roundMapData } from './roundMap.js';
-import { sfx, setEngine, setRain, unlockAudio, setMuted, setVolume } from './audio.js';
+import { sfx, setEngine, setRain, unlockAudio, setMuted, setVolume, cityAmbience } from './audio.js';
 import { loadSettings, saveSettings, normSettings } from './settings.js';
 import { fmt } from './content/index.js';
 import { fmtK } from './sim/economy.js';
@@ -50,10 +51,6 @@ export const fmtTime = (m) => `${String(Math.floor(m / 60) % 24).padStart(2, '0'
 const NORMAL = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] };
 const dist2 = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const inRect = (r, p) => p.x > r.x0 && p.x < r.x1 && p.z > r.z0 && p.z < r.z1;
-// Túi giữ nhiệt rẻ nhất (mở khóa đơn lạnh) — dùng cho gợi ý mục tiêu
-const cheapestInsulatedBag = () => Object.values(BAGS).filter((b) => b.insulation >= 0.5).sort((a, b) => a.price - b.price)[0];
-// Trang bị chở khách rẻ nhất (mở khóa đơn xe ôm)
-const cheapestSeatGoods = () => Object.values(GOODS).filter((x) => x.type === 'equipment' && x.effects?.passengerSeat).sort((a, b) => a.price - b.price)[0];
 
 export class Game {
   constructor(canvas, uiRoot) {
@@ -100,6 +97,7 @@ export class Game {
     this.input.onUnlock = () => { if (this.state === 'play' && !this.paused) this.pauseGame(); }; // Esc thả con trỏ → tạm dừng
     this.hud = new Hud(uiRoot);
     this.modal = new Modal(uiRoot);
+    this.spotlight = new Spotlight(uiRoot); // hướng dẫn người mới: làm tối xung quanh nút cần bấm
     this.phone = new Phone(uiRoot, {
       refresh: () => this.renderPhone(),
       action: (a, ds) => act.phoneAction(this, a, ds),
@@ -348,14 +346,25 @@ export class Game {
     return (this.gs?.flags.story ?? 2) >= 1;
   }
   // Hộp thoại "Đã tới Sài Gòn!" lúc vừa vào game → mục tiêu tìm đường tới nhà trọ Cô Hai
+  // Nền đen + tiếng phố xá (kèn xe, xe cộ, người cãi nhau); bấm đi tìm nhà trọ thì tiếng nhỏ dần, màn đen mở dần ra cảnh bến xe
   arriveInCity() {
     const home = this.layout.placeById.home;
+    cityAmbience(true);
     this.modal.show({
       title: fmt('dlg.arriveTitle'),
       text: fmt('dlg.arriveText', { name: this.gs.profile.name, place: this.arrivedAt || '', home: home?.name || '', address: home?.address || '' }),
-      choices: [{ label: fmt('dlg.arriveGo'), primary: true }],
+      choices: [{ label: fmt('dlg.arriveGo'), primary: true, onSelect: () => { cityAmbience(false); this.fadeFromBlack(); } }],
       dismissible: false,
+      backdrop: 'black',
     });
+  }
+  fadeFromBlack() {
+    document.getElementById('fadeIn')?.remove();
+    const el = document.createElement('div');
+    el.id = 'fadeIn';
+    document.body.appendChild(el);
+    requestAnimationFrame(() => requestAnimationFrame(() => { el.style.opacity = '0'; }));
+    setTimeout(() => el.remove(), 2200);
   }
   // Xe đang dựng trong hầm xe phòng trọ (không ngồi trên xe) — điều kiện để đi ngủ
   bikeInGarage() {
@@ -1207,12 +1216,6 @@ export class Game {
         } else if (gs.power === 'gas') return { ...P.gas.door, text: fmt('goal.fuel'), sub: fmt('goal.fuelHint'), color: '#5dade2' };
       }
       if (ob.id === 'online') return { text: fmt('goal.online'), sub: '' };
-      const thermal = cheapestInsulatedBag();
-      if (ob.id === 'thermal' && thermal && gs.money >= thermal.price && om.state !== S.OFFERED) return { ...P.gear.door, text: fmt('goal.thermal', { price: thermal.price }), sub: fmt('goal.thermalHint'), color: '#5dade2' };
-      const seat = cheapestSeatGoods();
-      if (ob.id === 'helmet' && seat && gs.money >= seat.price && gs.bagSpec.insulation >= 0.5 && om.state !== S.OFFERED) return { ...P.gear.door, text: fmt('goal.helmet', { price: seat.price }), sub: fmt('goal.helmetHint'), color: '#5dade2' };
-      if (ob.id === 'wallet' && ob.target) return { ...P[ob.target].door, text: fmt('goal.wallet', { text: ob.text }), sub: fmt('goal.walletHint'), color: '#bb8fce' };
-      if (ob.id === 'wallet') return { text: fmt('goal.wallet', { text: ob.text }), sub: fmt('goal.walletHint') };
       if (ob.id === 'rent' && gs.money >= gs.rent) return { ...P.home.door, text: fmt('goal.rent', { rent: gs.rent, day: gs.rentDueDay }), sub: fmt('goal.rentHint'), color: '#e74c3c' };
     }
     if (gs.fines.length && gs.money >= gs.finesTotal && (gs.hasOverdueFines || gs.finesDueAt - this.clockMin < 1440)) {
@@ -1320,7 +1323,7 @@ export class Game {
 
   // Ngoại hình shipper: trang phục đang mặc (phụ kiện: áo mưa / áo khoác người chơi tự gắn trong túi đồ)
   applyLook() {
-    const look = { ...outfitLook(this.gs.wornGoods()), gender: this.gs.profile.gender }; // nữ: dáng nữ, tóc dài
+    const look = { ...outfitLook(this.gs.wornGoods()), ...profileLook(this.gs.profile) }; // dáng, kiểu tóc, màu tóc, màu da theo hồ sơ
     const key = JSON.stringify(look);
     if (key === this.lookKey) return;
     this.lookKey = key;
@@ -1441,6 +1444,7 @@ export class Game {
       round: roundMapData(this, tgt, dt), // bản đồ tròn góc màn hình
     });
     if (this.phone.open || this.om.state === S.OFFERED) this.renderPhone(tgt);
+    this.spotlight.update(this.modal.open ? null : this.tutorialStep());
   }
 
   mapData(tgt) {

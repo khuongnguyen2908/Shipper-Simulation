@@ -126,3 +126,117 @@ export function setRain(amount) {
   }
   rainNode.gain.setTargetAtTime(muted ? 0 : amount * 0.12, ctx.currentTime, 0.5);
 }
+
+// ---------- Tiếng phố xá lúc vừa tới Sài Gòn (màn mở đầu) ----------
+// Tạo hoàn toàn bằng máy: tiếng xe cộ rì rầm, xe máy chạy ngang, kèn xe lác đác, 2 người cãi nhau
+// (giọng tổng hợp: nghe như người nói chồng lên nhau, gắt, không ra chữ). Gọi cityAmbience(false) để nhỏ dần rồi tắt.
+let amb = null;
+export function cityAmbience(on) {
+  if (!on) {
+    if (!amb || !ctx) return;
+    const a = amb;
+    amb = null;
+    a.timers.forEach(clearTimeout);
+    a.out.gain.setTargetAtTime(0, ctx.currentTime, 0.5);
+    setTimeout(() => { try { a.src.stop(); a.out.disconnect(); } catch { /* đã tắt */ } }, 2500);
+    return;
+  }
+  if (amb || !ensure()) return;
+  const out = ctx.createGain();
+  out.gain.value = 0;
+  out.gain.setTargetAtTime(1, ctx.currentTime, 0.4);
+  out.connect(master);
+  // tiếng xe cộ rì rầm: nhiễu nâu qua lọc thấp, lên xuống chậm
+  const len = ctx.sampleRate * 4, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+  let last = 0;
+  for (let i = 0; i < len; i++) { last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = last * 3.5; }
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.loop = true;
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = 600;
+  const rum = ctx.createGain();
+  rum.gain.value = 0.35;
+  src.connect(lp).connect(rum).connect(out);
+  src.start();
+  const a = { out, src, timers: [] };
+  amb = a;
+  const later = (ms, fn) => a.timers.push(setTimeout(() => amb === a && fn(), ms));
+  const R = (x, y) => x + Math.random() * (y - x);
+  // xe máy chạy ngang: tiếng máy kêu to dần rồi nhỏ dần, cao rồi trầm (hiệu ứng xe chạy qua)
+  const passBy = () => {
+    const t = ctx.currentTime, dur = R(1.4, 2.6), f0 = R(70, 110);
+    const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(f0 * 1.25, t);
+    o.frequency.linearRampToValueAtTime(f0 * 0.8, t + dur);
+    f.type = 'bandpass';
+    f.frequency.value = 380;
+    f.Q.value = 0.8;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(R(0.05, 0.1), t + dur * 0.45);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(f).connect(g).connect(out);
+    o.start(t);
+    o.stop(t + dur + 0.05);
+    later(R(500, 1800), passBy);
+  };
+  // kèn xe: 1–3 tiếng bíp, cao độ khác nhau mỗi xe
+  const honk = () => {
+    const t = ctx.currentTime, f = R(330, 520), n = 1 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) {
+      const at = t + i * R(0.18, 0.3), dur = R(0.12, i === n - 1 ? 0.5 : 0.18);
+      for (const mul of [1, 1.26]) {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = 'square';
+        o.frequency.value = f * mul;
+        g.gain.setValueAtTime(0.0001, at);
+        g.gain.exponentialRampToValueAtTime(0.045, at + 0.02);
+        g.gain.setValueAtTime(0.045, at + dur);
+        g.gain.exponentialRampToValueAtTime(0.0001, at + dur + 0.05);
+        o.connect(g).connect(out);
+        o.start(at);
+        o.stop(at + dur + 0.1);
+      }
+    }
+    later(R(700, 2600), honk);
+  };
+  // một tràng "nói" gắt: các âm tiết ngắn, cao độ nhảy lên xuống, lọc qua 2 vùng âm (giống nguyên âm)
+  const say = (base) => {
+    let at = ctx.currentTime;
+    const n = 3 + Math.floor(Math.random() * 6);
+    for (let i = 0; i < n; i++) {
+      const dur = R(0.09, 0.2), p = base * R(0.85, 1.35) * (i === n - 1 ? 1.25 : 1);
+      const o = ctx.createOscillator(), g = ctx.createGain(), f1 = ctx.createBiquadFilter(), f2 = ctx.createBiquadFilter();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(p, at);
+      o.frequency.linearRampToValueAtTime(p * R(0.8, 1.2), at + dur);
+      f1.type = f2.type = 'bandpass';
+      f1.frequency.value = R(500, 900);
+      f2.frequency.value = R(1100, 1900);
+      f1.Q.value = f2.Q.value = 6;
+      const mix = ctx.createGain();
+      mix.gain.value = 1;
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.exponentialRampToValueAtTime(R(0.25, 0.4), at + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+      o.connect(f1).connect(mix);
+      o.connect(f2).connect(mix);
+      mix.connect(g).connect(out);
+      o.start(at);
+      o.stop(at + dur + 0.02);
+      at += dur + R(0.02, 0.07);
+    }
+    return at - ctx.currentTime;
+  };
+  // 2 người cãi qua cãi lại (giọng trầm / giọng cao), có lúc nói chồng lên nhau
+  let turn = 0;
+  const argue = () => {
+    const sec = say(turn++ % 2 ? R(190, 250) : R(110, 150));
+    later((sec + R(-0.15, 0.6)) * 1000, argue);
+  };
+  passBy();
+  later(400, honk);
+  later(900, argue);
+}

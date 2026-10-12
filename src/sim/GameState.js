@@ -10,13 +10,22 @@ import { GOODS, EFFECTS, OUTFIT_SLOTS, freeOutfit, isAccessorySlot } from '../da
 import { isOpen } from './placeRules.js';
 import { RatingBook } from './economy.js';
 import { fmt } from '../content/index.js';
+import { HAIR_STYLES, HAIR_COLORS, PLAYER_SKINS } from './people.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 export const NAME_MAX = 20;
-// Hồ sơ shipper (đặt khi Chơi mới): tên + giới tính 'm' | 'f'. Thiếu / hỏng → tên mặc định, nam
+// Hồ sơ shipper (đặt khi Chơi mới): tên, giới tính 'm' | 'f', kiểu tóc, màu tóc, màu da.
+// Thiếu / hỏng → tên mặc định, nam, tóc theo giới tính, tóc đen, da sáng (bản lưu cũ vẫn mở được)
 export function normProfile(p) {
   const name = String(p?.name ?? '').replace(/\s+/g, ' ').trim().slice(0, NAME_MAX);
-  return { name: name || fmt('profile.defaultName'), gender: p?.gender === 'f' ? 'f' : 'm' };
+  const gender = p?.gender === 'f' ? 'f' : 'm';
+  return {
+    name: name || fmt('profile.defaultName'),
+    gender,
+    hairStyle: HAIR_STYLES.includes(p?.hairStyle) ? p.hairStyle : gender === 'f' ? 'long' : 'short',
+    hair: HAIR_COLORS.includes(p?.hair) ? p.hair : HAIR_COLORS[0],
+    skin: PLAYER_SKINS.includes(p?.skin) ? p.skin : PLAYER_SKINS[1],
+  };
 }
 const freshStats = () => ({ completed: 0, refused: 0, cancelled: 0, driverCancels: 0, bom: 0, stars: [], income: {}, expense: {}, distanceKm: 0, crashes: 0, fines: 0 });
 // Đồng phục của hãng (goods.json: trang phục ô "uniform", brand = mã hãng)

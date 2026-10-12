@@ -1,6 +1,6 @@
 {
   "economy": {
-    "startMoney": 150,
+    "startMoney": 1000,
     "fuelPrice": 23,
     "refuseBelow": 25,
     "scaredFarePct": 0.5,

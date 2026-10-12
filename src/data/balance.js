@@ -28,7 +28,7 @@ export const DIST = { displayPerUnit: 10 };
 
 export const RATING = {
   startCount: 10,          // coi như đã có 10 đánh giá trước đó
-  startAvg: 4.8,           // (ngưỡng khóa tài khoản: apps.json → account.lockBelow)
+  startAvg: 5.0,           // người mới vào hãng: 5,0 sao (ngưỡng khóa tài khoản: apps.json → account.lockBelow)
 };
 
 

@@ -17,6 +17,7 @@ import { fmt, list, has } from '../content/index.js';
 import { CityMap } from './cityMap.js';
 import { createAvatar } from './avatar.js';
 import { morph } from './morph.js';
+import { profileLook } from '../sim/people.js';
 
 // [mã app, biểu tượng, màu, khóa chữ tên app] — APPS: app đang hiện (theo thứ tự, phím 1–9); app ẩn vẫn mở được qua liên kết
 const PHONE = phoneApps();
@@ -491,7 +492,7 @@ export class Phone {
       const host = this.outfitEl.querySelector('.op-avatar');
       if (host && host.firstChild !== this.avatar.el) host.replaceChildren(this.avatar.el);
     }
-    this.avatar.show({ ...outfitLook(worn), gender: d.gs.profile.gender });
+    this.avatar.show({ ...outfitLook(worn), ...profileLook(d.gs.profile) });
     this.avatar.start();
   }
 

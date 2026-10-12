@@ -12,9 +12,11 @@ import { OrderManager, S, TRANSITIONS } from '../src/sim/OrderManager.js';
 import { GameState } from '../src/sim/GameState.js';
 import { HazardManager } from '../src/sim/hazards.js';
 import { makeRng } from '../src/sim/rng.js';
+import * as PE from '../src/sim/people.js';
+import { splitPages } from '../src/ui/modal.js';
 import { buildLayout, blockAt, HALF } from '../src/sim/cityLayout.js';
 import * as CITYLAYOUT from '../src/sim/cityLayout.js';
-import { objectives } from '../src/sim/objectives.js';
+import { objectives, ORDERS_GOAL } from '../src/sim/objectives.js';
 import { ranges } from '../src/sim/hours.js';
 import { dayOf, dayStartAt, atHour, fmtClock, minutesUntil } from '../src/sim/clock.js';
 import { isOpen } from '../src/sim/placeRules.js';
@@ -366,19 +368,37 @@ test('Đổ xăng trừ tiền đúng giá; xe điện / xe đạp không đổ 
   assert.ok(!new GameState().refuel().ok, 'xe đạp không đổ xăng');
   assert.ok(!workerState({ carry: { brand: 'hongsm', vehicle: 'evStd', owned: { vehicles: ['xeDap', 'evStd'], bags: ['nylon'], gear: [] }, vstate: {} } }).refuel().ok, 'xe điện không đổ xăng');
 });
-test('Chưa vào hãng: mục tiêu duy nhất là đăng ký hãng; vào rồi mới có mục tiêu giao hàng (ngày 1 thêm hướng dẫn, ngày 2 thì không)', () => {
+test('Mục tiêu: mở đầu từng bước; ngày 1 đổ xăng → đơn đầu tiên → giao 10 đơn; luôn có tiền nhà', () => {
   // mở đầu: chỉ hiện bước đang làm — tìm nhà trọ gặp Cô Hai → leo lên xe đạp → đăng ký hãng
   const gs0 = new GameState();
   assert.deepEqual(objectives(gs0).map((o) => o.id), ['findHome'], 'mới vào: tìm nhà trọ');
   gs0.flags.story = 1;
-  assert.deepEqual(objectives(gs0).map((o) => o.id), ['mountBike'], 'Cô Hai cho xe: leo lên xe đạp');
+  assert.deepEqual(objectives(gs0).map((o) => o.id), ['mountBike', 'rent'], 'Cô Hai cho xe: leo lên xe đạp (+ tiền nhà)');
   gs0.flags.story = 2;
-  assert.deepEqual(objectives(gs0).map((o) => o.id), ['brand'], 'đã lên xe: đăng ký hãng');
-  assert.deepEqual(objectives(new GameState({ day: 5, carry: { money: 10 } })).map((o) => o.id), ['brand'], 'bản lưu cũ chưa có hãng: bỏ qua mở đầu');
+  assert.deepEqual(objectives(gs0).map((o) => o.id), ['brand', 'rent'], 'đã lên xe: đăng ký hãng');
+  assert.deepEqual(objectives(new GameState({ day: 5, carry: { money: 10 } })).map((o) => o.id), ['brand', 'rent'], 'bản lưu cũ chưa có hãng: bỏ qua mở đầu');
   assert.equal(new GameState({ day: 2, carry: new GameState({ carry: { flags: { story: 1 } } }).carryOver() }).flags.story, 1, 'bước mở đầu được lưu');
-  const d1 = objectives(workerState()).map((o) => o.id);
-  assert.ok(d1.includes('fuel') && d1.includes('online') && d1.includes('first') && !d1.includes('brand'));
-  assert.ok(!objectives(workerState({ day: 2 })).some((o) => o.id === 'fuel' || o.id === 'online'));
+  // ngày 1 đi lần lượt: chưa đổ xăng → chỉ "đổ xăng"; đổ rồi → "đơn đầu tiên"; giao xong đơn đầu → hiện "giao 10 đơn"
+  const w1 = workerState(), ids = () => objectives(w1).map((o) => o.id);
+  assert.deepEqual(ids(), ['fuel', 'rent']);
+  w1.flags.refueled = true;
+  assert.deepEqual(ids(), ['first', 'rent']);
+  w1.stats.completed = 1;
+  assert.deepEqual(ids(), ['first', 'orders', 'rent']);
+  assert.ok(objectives(w1)[0].done && !objectives(w1)[1].done);
+  w1.stats.completed = ORDERS_GOAL;
+  assert.ok(objectives(w1)[1].done, `đủ ${ORDERS_GOAL} đơn`);
+  assert.equal(ORDERS_GOAL, 10);
+  // không còn túi giữ nhiệt / mũ khách / ví anh Minh trong danh sách
+  assert.ok(!objectives(w1).some((o) => ['thermal', 'helmet', 'wallet', 'online'].includes(o.id)));
+  assert.deepEqual(objectives(workerState({ day: 2 })).map((o) => o.id), ['orders', 'rent'], 'ngày 2: tạm chỉ giao 10 đơn + tiền nhà');
+});
+
+test('Hội thoại nhiều trang: [tiếp] chia trang, bỏ trang trống; lời Cô Hai + "Đã tới Sài Gòn" có nhiều trang', () => {
+  assert.deepEqual(splitPages('Một [tiếp] Hai\n[TIẾP]\nBa'), ['Một', 'Hai', 'Ba']);
+  assert.deepEqual(splitPages('Không ngắt'), ['Không ngắt']);
+  assert.deepEqual(splitPages('A [tiếp] [tiếp] B [tiếp]'), ['A', 'B']);
+  for (const k of ['dlg.arriveText', 'dlg.landlordIntro']) assert.ok(splitPages(CONTENT.fmt(k, {})).length >= 2, k);
 });
 
 console.log('Bản đồ & chướng ngại');
@@ -3302,7 +3322,15 @@ console.log('Màn hình chính: hồ sơ shipper, cài đặt');
   const { normProfile, NAME_MAX } = await import('../src/sim/GameState.js');
   const { normSettings, DEFAULTS, SENS_RANGE } = await import('../src/settings.js');
   test('Hồ sơ: tên gọn khoảng trắng, tối đa ký tự, trống → tên mặc định; giới tính lạ → nam; lưu qua ngày', () => {
-    assert.deepEqual(normProfile({ name: '  Lan   Anh ', gender: 'f' }), { name: 'Lan Anh', gender: 'f' });
+    const lan = normProfile({ name: '  Lan   Anh ', gender: 'f' });
+    assert.equal(lan.name, 'Lan Anh');
+    assert.equal(lan.gender, 'f');
+    assert.equal(lan.hairStyle, 'long', 'nữ chưa chọn tóc → tóc dài');
+    // tóc / da chọn ở màn hình tạo nhân vật; giá trị lạ → mặc định
+    const pick = normProfile({ gender: 'm', hairStyle: 'bun', hair: PE.HAIR_COLORS[3], skin: PE.PLAYER_SKINS[4] });
+    assert.deepEqual([pick.hairStyle, pick.hair, pick.skin], ['bun', PE.HAIR_COLORS[3], PE.PLAYER_SKINS[4]]);
+    const odd = normProfile({ hairStyle: 'mohawk', hair: 123, skin: 'xanh' });
+    assert.ok(PE.HAIR_STYLES.includes(odd.hairStyle) && PE.HAIR_COLORS.includes(odd.hair) && PE.PLAYER_SKINS.includes(odd.skin));
     assert.equal(normProfile({ name: 'x'.repeat(50) }).name.length, NAME_MAX);
     assert.equal(normProfile({ name: '   ' }).name, CONTENT.fmt('profile.defaultName'));
     assert.equal(normProfile(null).gender, 'm');
@@ -3310,7 +3338,8 @@ console.log('Màn hình chính: hồ sơ shipper, cài đặt');
     const gs = new GameState({ carry: { profile: { name: 'Lan', gender: 'f' } } });
     assert.equal(gs.money, ECONOMY.startMoney, 'chơi mới có hồ sơ vẫn bắt đầu như thường');
     const next = new GameState({ day: 2, carry: gs.carryOver() });
-    assert.deepEqual(next.profile, { name: 'Lan', gender: 'f' });
+    assert.deepEqual(next.profile, gs.profile, 'lưu qua ngày giữ nguyên ngoại hình');
+    assert.equal(next.profile.name, 'Lan');
     assert.ok(new GameState({ day: 2, carry: { money: 5 } }).profile.name, 'bản lưu cũ chưa có hồ sơ → tên mặc định');
     assert.ok(CONTENT.has('profile.defaultName'));
   });

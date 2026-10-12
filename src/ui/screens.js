@@ -6,7 +6,9 @@ import { fmtK } from '../sim/economy.js';
 import { APP } from '../data/apps.js';
 import { fmt } from '../content/index.js';
 import { ECONOMY } from '../data/balance.js';
-import { NAME_MAX } from '../sim/GameState.js';
+import { NAME_MAX, normProfile } from '../sim/GameState.js';
+import { HAIR_STYLES, HAIR_COLORS, PLAYER_SKINS, profileLook } from '../sim/people.js';
+import { createAvatar } from './avatar.js';
 import { DEFAULTS, SENS_RANGE, normSettings } from '../settings.js';
 
 const INTRO = ['p1', 'p2', 'p3', 'p4', 'p5']; // trang giới thiệu: intro.pN.icon / .title / .body
@@ -36,6 +38,7 @@ export class Screens {
   hide() {
     this.open = false;
     this.keyHandler = null;
+    this.avatar?.stop(); // dừng vòng vẽ hình xem trước nhân vật
     this.el.className = 'hidden';
     this.el.innerHTML = '';
   }
@@ -81,15 +84,32 @@ export class Screens {
       <div class="row"><button class="btn big" data-mm="menu">${fmt('menu.cancel')}</button><button class="btn big danger" data-mm="profile">${fmt('menu.confirmOk')}</button></div>`;
   }
 
-  // Đặt tên + chọn nam / nữ
+  // Tạo nhân vật: tên, nam / nữ, kiểu tóc, màu tóc, màu da + hình 3D xoay xem trước
   profileHtml() {
-    const p = this.t.profile;
+    const p = this.t.profile, n = normProfile(p); // n: giá trị đang dùng (chưa chọn → mặc định theo giới tính)
     const g = (v, key) => `<button class="mm-gender${p.gender === v ? ' on' : ''}" data-gender="${v}">${fmt(key)}</button>`;
+    const hex = (c) => '#' + c.toString(16).padStart(6, '0');
+    const styles = HAIR_STYLES.map((s) => `<button class="mm-chip${n.hairStyle === s ? ' on' : ''}" data-hairstyle="${s}">${fmt(`hair.${s}`)}</button>`).join('');
+    const swatch = (attr, list, cur) => list.map((c) => `<button class="mm-swatch${cur === c ? ' on' : ''}" data-${attr}="${c}" style="background:${hex(c)}" title="${hex(c)}"></button>`).join('');
     return `<h2>${fmt('menu.profileTitle')}</h2>
+      <div class="mm-create"><div class="mm-create-form">
       <label class="mm-field"><span>${fmt('menu.profileName')}</span><input type="text" id="mmName" maxlength="${NAME_MAX}" value="${esc(p.name)}" placeholder="${esc(fmt('profile.defaultName'))}" autocomplete="off"></label>
       <small class="mm-note">${fmt('menu.profileNote', { name: esc(fmt('profile.defaultName')) })}</small>
       <div class="mm-field"><span>${fmt('menu.profileGender')}</span><div class="mm-genders">${g('m', 'menu.male')}${g('f', 'menu.female')}</div></div>
+      <div class="mm-field"><span>${fmt('menu.profileHair')}</span><div class="mm-chips">${styles}</div></div>
+      <div class="mm-field"><span>${fmt('menu.profileHairColor')}</span><div class="mm-swatches">${swatch('hair', HAIR_COLORS, n.hair)}</div></div>
+      <div class="mm-field"><span>${fmt('menu.profileSkin')}</span><div class="mm-swatches">${swatch('skin', PLAYER_SKINS, n.skin)}</div></div>
+      </div><div class="mm-avatar" id="mmAvatar"></div></div>
       <div class="row"><button class="btn big" data-mm="${this.t.save ? 'confirm' : 'menu'}">${fmt('menu.prev')}</button><button class="btn big primary" data-mm="toIntro">${fmt('menu.next')}</button></div>`;
+  }
+  // hình xem trước nhân vật (một bộ vẽ dùng lại; chỉ chạy khi đang ở bước tạo nhân vật)
+  showAvatar() {
+    const box = this.el.querySelector('#mmAvatar');
+    if (!box) return this.avatar?.stop();
+    this.avatar ??= createAvatar();
+    box.appendChild(this.avatar.el);
+    this.avatar.show({ shirt: 0x5dade2, pants: 0x34495e, ...profileLook(normProfile(this.t.profile)) });
+    this.avatar.start();
   }
 
   // Giới thiệu game (Chơi mới) / Hướng dẫn: 5 trang, ← → chuyển trang
@@ -125,6 +145,10 @@ export class Screens {
     };
     el.querySelectorAll('[data-mm]').forEach((b) => b.addEventListener('click', () => go(b.dataset.mm)));
     el.querySelectorAll('[data-gender]').forEach((b) => b.addEventListener('click', () => { t.profile.gender = b.dataset.gender; go('profile'); }));
+    el.querySelectorAll('[data-hairstyle]').forEach((b) => b.addEventListener('click', () => { t.profile.hairStyle = b.dataset.hairstyle; go('profile'); }));
+    el.querySelectorAll('[data-hair]').forEach((b) => b.addEventListener('click', () => { t.profile.hair = Number(b.dataset.hair); go('profile'); }));
+    el.querySelectorAll('[data-skin]').forEach((b) => b.addEventListener('click', () => { t.profile.skin = Number(b.dataset.skin); go('profile'); }));
+    this.showAvatar();
     if (t.view === 'settings') bindSettings(el, t.settings, (s) => { t.settings = s; t.onSettings?.(s); }, () => this.showView('settings'));
     if (t.view === 'profile') { const n = name(); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }
     // phím: ← → chuyển trang · Enter tiếp · Esc quay lại menu
