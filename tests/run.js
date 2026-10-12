@@ -3507,6 +3507,42 @@ console.log('Chat: log + bong bóng (chuẩn bị chơi nhiều người)');
   });
 }
 
+console.log('Âm thanh: mã từng chỗ phát tiếng, file gắn trong sounds.json');
+{
+  const SP = await import('../src/data/soundSpec.js');
+  const root = fileURLToPath(new URL('..', import.meta.url));
+  const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? walk(`${dir}/${d.name}`) : d.name.endsWith('.js') ? [`${dir}/${d.name}`] : []));
+  const code = walk(`${root}src`).filter((f) => !f.endsWith('soundSpec.js')).map((f) => fs.readFileSync(f, 'utf8')).join('\n');
+  test('Mọi sound(\'mã\') trong code đều có trong danh mục; mọi mã trong danh mục đều được code dùng tới', () => {
+    const used = [...code.matchAll(/\bsound\(\s*'([\w.]+)'/g)].map((m) => m[1]);
+    // sound(điều kiện ? 'a' : 'b')
+    for (const m of code.matchAll(/\bsound\([^)]*\?\s*'([\w.]+)'\s*:\s*'([\w.]+)'/g)) used.push(m[1], m[2]);
+    for (const id of used) assert.ok(SP.SOUNDS[id], `sound('${id}') chưa có trong soundSpec.js`);
+    for (const id of SP.SOUND_IDS) assert.ok(code.includes(`'${id}'`), `mã ${id} không chỗ nào dùng`);
+    assert.ok(!/\bsfx\.\w+\(\)/.test(code), 'còn chỗ gọi sfx.xxx() kiểu cũ');
+    for (const s2 of Object.values(SP.SOUNDS)) assert.ok(SP.SOUND_CATS[s2.cat] && ['sfx', 'loop', 'music'].includes(s2.kind), s2.id);
+  });
+  test('sounds.json hợp lệ, file đã gắn có trong src/sounds; bộ kiểm tra bắt tên file sai / thiếu file / âm lượng lạ', () => {
+    const data = readJson('src/data/sounds.json');
+    const dir = `${root}src/sounds`;
+    const files = fs.existsSync(dir) ? fs.readdirSync(dir) : [];
+    assert.deepEqual(SP.validateSounds(data, files).filter((i) => i.level === 'error'), []);
+    const bad = { sounds: { 'ui.click': { files: ['Tiếng Bấm.mp3', 'khongco.ogg'], volume: 5 }, 'khong.co': { files: [] } } };
+    const iss = SP.validateSounds(bad, ['a.ogg']);
+    assert.ok(iss.some((i) => i.ref === 'ui.click' && i.field === 'files' && i.msg.includes('Tiếng Bấm')));
+    assert.ok(iss.some((i) => i.ref === 'ui.click' && i.field === 'files' && i.msg.includes('khongco.ogg')));
+    assert.ok(iss.some((i) => i.ref === 'ui.click' && i.field === 'volume'));
+    assert.ok(iss.some((i) => i.ref === 'khong.co' && i.level === 'warn'));
+    assert.equal(SP.validateSounds({}).length, 1);
+    assert.equal(SP.volumeGroup('music.menu'), 'music');
+    assert.equal(SP.volumeGroup('drive.horn'), 'sfx');
+  });
+  test('docs/am-thanh.md có đủ mọi mã âm thanh (danh sách để làm sound)', () => {
+    const doc = fs.readFileSync(`${root}docs/am-thanh.md`, 'utf8');
+    for (const id of SP.SOUND_IDS) assert.ok(doc.includes(`\`${id}\``), `docs/am-thanh.md thiếu ${id}`);
+  });
+}
+
 console.log('Màn hình chính: hồ sơ shipper, cài đặt');
 {
   const { normProfile, NAME_MAX } = await import('../src/sim/GameState.js');
@@ -3536,14 +3572,20 @@ console.log('Màn hình chính: hồ sơ shipper, cài đặt');
   test('Cài đặt: thiếu / hỏng → mặc định; số bị giới hạn trong khoảng', () => {
     assert.deepEqual(normSettings(null), DEFAULTS);
     assert.deepEqual(normSettings('rác'), DEFAULTS);
-    const s = normSettings({ volume: 7, sens: -3, quality: 'siêu', invertY: 1, muted: 'có' });
-    assert.equal(s.volume, 1);
+    const s = normSettings({ music: 7, sfx: -1, sens: -3, quality: 'siêu', invertY: 1, muted: 'có' });
+    assert.equal(s.music, 1);
+    assert.equal(s.sfx, 0);
     assert.equal(s.sens, SENS_RANGE[0]);
     assert.equal(s.quality, 'high');
     assert.equal(s.invertY, true);
     assert.equal(s.muted, true);
-    assert.equal(normSettings({ quality: 'low', volume: 'abc' }).quality, 'low');
-    assert.equal(normSettings({ volume: 'abc' }).volume, DEFAULTS.volume);
+    assert.equal(normSettings({ quality: 'low', music: 'abc' }).quality, 'low');
+    assert.equal(normSettings({ music: 'abc' }).music, DEFAULTS.music);
+    // cài đặt cũ (1 thanh "Âm lượng") → Hiệu ứng lấy theo, Nhạc mặc định
+    const old = normSettings({ volume: 0.3 });
+    assert.equal(old.sfx, 0.3);
+    assert.equal(old.music, DEFAULTS.music);
+    assert.ok(!('volume' in old));
   });
   test('Chữ của màn hình chính, giới thiệu 5 trang, cài đặt đều có trong kho chữ', () => {
     for (let i = 1; i <= 5; i++) for (const k of ['icon', 'title', 'body']) assert.ok(CONTENT.has(`intro.p${i}.${k}`), `intro.p${i}.${k}`);

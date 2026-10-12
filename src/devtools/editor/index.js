@@ -16,6 +16,7 @@ import mapJson from '../../data/map.json' with { type: 'json' };
 import balanceJson from '../../data/balance.json' with { type: 'json' };
 import editorJson from '../../data/editor.json' with { type: 'json' };
 import phoneJson from '../../data/phone.json' with { type: 'json' };
+import soundsJson from '../../data/sounds.json' with { type: 'json' };
 import { validateAll } from '../../data/validate.js';
 import { setContentTable } from '../../content/index.js';
 import { el, button, clone, markSubTabs, revealField } from './ui.js';
@@ -28,6 +29,7 @@ import * as tabMap from './tabMap.js';
 import * as tabBalance from './tabBalance.js';
 import * as tabBuild from './tabBuild.js';
 import * as tabPhone from './tabPhone.js';
+import * as tabSound from './tabSound.js';
 import { selKey, planScroll, selToSave } from './viewState.js';
 import { createHistory, syncMirror, record, breakStep, undo, redo } from './history.js';
 import { currentEntry, parseClip } from './ops.js';
@@ -45,6 +47,7 @@ const FILES = {
   balance: { path: 'src/data/balance.json', label: 'Cân bằng', src: balanceJson },
   editor: { path: 'src/data/editor.json', label: 'Cảnh báo đã bỏ qua', src: editorJson },
   phone: { path: 'src/data/phone.json', label: 'Giao diện app', src: phoneJson },
+  sounds: { path: 'src/data/sounds.json', label: 'Âm thanh', src: soundsJson },
 };
 const TABS = [
   { id: 'items', icon: '🍜', label: 'Vật phẩm', mod: tabItems },
@@ -55,6 +58,7 @@ const TABS = [
   { id: 'app', icon: '📲', label: 'App & Đơn', mod: tabApp },
   { id: 'phone', icon: '📱', label: 'Giao diện app', mod: tabPhone },
   { id: 'balance', icon: '⚖️', label: 'Cân bằng', mod: tabBalance },
+  { id: 'sound', icon: '🔊', label: 'Âm thanh', mod: tabSound },
   { id: 'text', icon: '💬', label: 'Chữ & hội thoại', mod: tabText },
 ];
 const DRAFT_KEY = 'shipper-editor-draft-v1';
@@ -172,7 +176,7 @@ export async function startEditor(root) {
   ctx.issuesFor = (tab, ref, extra = {}) => ctx.issues.filter((i) => i.tab === tab && i.ref === ref && (!extra.cat || i.cat === extra.cat));
 
   function validate() {
-    const all = validateAll({ items: ctx.data.items, gear: ctx.data.gear, goods: ctx.data.goods, places: ctx.data.places, content: ctx.data.content, baseContent: ctx.base.content, apps: ctx.data.apps, map: ctx.data.map, balance: ctx.data.balance, phone: ctx.data.phone });
+    const all = validateAll({ items: ctx.data.items, gear: ctx.data.gear, goods: ctx.data.goods, places: ctx.data.places, content: ctx.data.content, baseContent: ctx.base.content, apps: ctx.data.apps, map: ctx.data.map, balance: ctx.data.balance, phone: ctx.data.phone, sounds: ctx.data.sounds });
     const { shown, ignored } = splitIgnored(all, ctx.data.editor?.ignoredWarnings);
     ctx.issues = shown; // cảnh báo đã bỏ qua không tính, không hiện ở ô
     ctx.ignored = ignored;
@@ -329,6 +333,7 @@ export async function startEditor(root) {
     else if (i.tab === 'map') ctx.select('map', /^\d+,\d+$/.test(i.ref) ? { id: i.ref } : {});
     else if (i.tab === 'balance') ctx.select('balance', { id: tabBalance.sectionOf(i.field) });
     else if (i.tab === 'phone') ctx.select('phone');
+    else if (i.tab === 'sound') ctx.select('sound', { id: i.ref });
     // mở đúng thẻ con / mục Nâng cao chứa ô bị lỗi rồi cuộn tới
     const f = [...main.querySelectorAll('.fld.has-err, .fld.has-warn')].find((x) => x.dataset.field && (i.field === x.dataset.field || String(i.field).startsWith(`${x.dataset.field}.`)) && (!i.ref || x.dataset.ref === String(i.ref)));
     if (f) {

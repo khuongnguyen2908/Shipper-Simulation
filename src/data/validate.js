@@ -4,6 +4,7 @@
 //  - error: game sẽ chạy sai → công cụ không cho lưu
 //  - warn : chạy được nhưng nên xem lại
 // =============================================================
+import { validateSounds } from './soundSpec.js';
 import { CITY, LOT_IDS, MULTI_LOTS, lotParts, lotFaces, blockPlan, blockLotIds, roadGraph, neighbors, cutCell, joinList, joinSeg, joinPartner, isJoinLot, riverInfo, BRIDGE_STYLES } from '../sim/cityLayout.js';
 import { ALLEY_TEMPLATES } from '../sim/blockPlan.js';
 import { EFFECTS, CONSUMABLE_FIELDS, OUTFIT_SLOTS } from './goods.js';
@@ -743,8 +744,9 @@ export function validateBalance(b) {
   return out;
 }
 
-export function validateAll({ items, gear, goods, places, content, baseContent, apps = null, map = undefined, balance = null, phone = null }) {
+export function validateAll({ items, gear, goods, places, content, baseContent, apps = null, map = undefined, balance = null, phone = null, sounds = null }) {
   return [
+    ...(sounds ? validateSounds(sounds) : []),
     ...(phone ? validatePhone(phone) : []),
     ...(balance ? validateBalance(balance) : []),
     ...validateItems(items, places, apps),

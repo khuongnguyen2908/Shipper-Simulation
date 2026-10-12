@@ -3,6 +3,7 @@
 //      · Xe (xăng, tình trạng, nhớt, km) · CSGT (phạt nguội, chốt đã biết). Chữ lấy từ kho chữ phone.*
 // Thứ tự / biểu tượng / màu / ẩn app: phone.json (thẻ 📱 Giao diện app trong ?editor).
 // Phím khi mở điện thoại: 1–9 mở app · Esc về màn hình chính (đang ở màn hình chính thì cất máy).
+import { sound } from '../audio.js';
 import { stateLabel, S } from '../sim/OrderManager.js';
 import { APP, ORDER_TYPES, RIDER_TYPES, BRANDS } from '../data/apps.js';
 import { traitLabel } from '../data/items.js';
@@ -209,6 +210,7 @@ export class Phone {
 
   openApp(id) {
     if (!APP_BY_ID[id]) return;
+    if (id !== this.app) sound('phone.app');
     this.app = id;
     this.bagMenu = null;
     this.unread[id] = 0;

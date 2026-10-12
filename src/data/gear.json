@@ -123,7 +123,7 @@
       "fuelPer100km": 2,
       "tank": 1.5,
       "price": 0,
-      "color": "#e84393",
+      "color": "#ff8800",
       "model": "scooter",
       "power": "electric",
       "desc": "Xe HồngSM cấp khi vào hãng (đặt cọc). Sạc ở trụ sạc, đổi pin ở trạm đổi pin."
@@ -155,7 +155,7 @@
       "fuelPer100km": 2.6,
       "tank": 3.5,
       "price": 3000,
-      "color": "#1abc9c",
+      "color": "#bc1a1a",
       "model": "scooter",
       "power": "electric",
       "desc": "Mạnh, pin rất lớn, giảm xóc tốt."

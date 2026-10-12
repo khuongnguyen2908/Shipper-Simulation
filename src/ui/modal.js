@@ -1,6 +1,7 @@
 // Hộp thoại dùng chung: hội thoại NPC, lựa chọn, cửa hàng, hóa đơn…
 // Khi hộp thoại mở, thế giới tạm dừng. Phím 1–9 chọn nhanh, Esc đóng (nếu cho phép).
 import { fmt } from '../content/index.js';
+import { sound } from '../audio.js';
 const PAGE_BREAK = /\s*\[tiếp\]\s*/i; // chỗ ngắt trang trong lời thoại
 // Chia lời thoại thành các trang theo dấu [tiếp] (bỏ trang trống)
 export const splitPages = (text) => String(text ?? '').split(PAGE_BREAK).map((s) => s.trim()).filter(Boolean);
@@ -39,13 +40,14 @@ export class Modal {
       if (pages.length > 1) {
         const i = Math.min(page, pages.length - 1), last = i === pages.length - 1;
         const nav = `<small class="m-page">${i + 1}/${pages.length}</small>`;
-        const choices = last ? opts.choices : [{ label: fmt('modal.next'), primary: true, keepOpen: true, onSelect: () => this.show(opts, i + 1) }];
+        const choices = last ? opts.choices : [{ label: fmt('modal.next'), primary: true, keepOpen: true, onSelect: () => { sound('ui.next'); this.show(opts, i + 1); } }];
         return this.render({ ...opts, text: pages[i] + nav, choices: choices || [{ label: fmt('dlg.ok') }] });
       }
     }
     return this.render(opts);
   }
   render(opts) {
+    if (!this.open) sound('ui.modal'); // chỉ khi hộp thoại vừa mở (sang trang / vẽ lại thì thôi)
     this.open = true;
     this.dismissible = opts.dismissible !== false;
     this.onClose = opts.onClose || null;

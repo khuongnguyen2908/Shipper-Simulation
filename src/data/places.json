@@ -3942,25 +3942,26 @@
       "sells": {
         "goods": [
           "aoDongPhuc",
-          "nonKhachGrip"
+          "nonKhachGrip",
+          "muGrip"
         ]
       }
     },
     {
       "id": "officeHongsm",
-      "name": "Văn phòng HồngSM",
-      "short": "HồngSM",
+      "name": "Văn phòng CamSM",
+      "short": "CamSM",
       "kind": "office",
       "brand": "hongsm",
       "lot": "N0",
       "floors": 3,
       "color": "#fadbd8",
-      "sign": "HỒNGSM – TUYỂN TÀI XẾ",
-      "signBg": "#e84393",
+      "sign": "CAMSM – TUYỂN TÀI XẾ",
+      "signBg": "#ffae00",
       "look": "modern",
       "npc": {
         "name": "Anh Huy tuyển dụng",
-        "shirt": "#e84393",
+        "shirt": "#ff9500",
         "pants": "#2c3e50",
         "hat": null,
         "portrait": "⚡",
@@ -3974,7 +3975,8 @@
       "sells": {
         "goods": [
           "aoDongPhucCam",
-          "nonKhachCam"
+          "nonKhachCam",
+          "muCam"
         ]
       }
     },

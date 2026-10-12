@@ -1,5 +1,6 @@
 // Ô ký tên (popup hợp đồng khi đăng ký hãng): kéo chuột / vuốt ngón tay để ký.
 // signaturePad(tên) → { el, signed(), dataURL(), clear() } — dataURL lưu vào GameState.contracts, hiện ở app Hồ sơ.
+import { sound } from '../audio.js';
 import { fmt } from '../content/index.js';
 
 const W = 420, H = 120, INK = 24; // phải vẽ dài ít nhất INK px mới tính là đã ký
@@ -41,6 +42,7 @@ export function signaturePad(name) {
     return { x: ((e.clientX - r.left) / r.width) * W, y: ((e.clientY - r.top) / r.height) * H };
   };
   c.addEventListener('pointerdown', (e) => {
+    sound('ui.sign');
     e.preventDefault();
     e.stopPropagation();
     c.setPointerCapture(e.pointerId);

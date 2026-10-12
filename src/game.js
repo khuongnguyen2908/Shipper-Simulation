@@ -39,7 +39,7 @@ import { Spotlight } from './ui/spotlight.js';
 import { Screens } from './ui/screens.js';
 import * as act from './interactions.js';
 import { roundMapData } from './roundMap.js';
-import { sfx, setEngine, setRain, unlockAudio, setMuted, setVolume, cityAmbience } from './audio.js';
+import { sound, setEngine, setRain, unlockAudio, setMuted, setVolumes, setMusic, cityAmbience } from './audio.js';
 import { loadSettings, saveSettings, normSettings } from './settings.js';
 import { fmt, pick } from './content/index.js';
 import { ChatChannel } from './sim/chat.js';
@@ -125,6 +125,13 @@ export class Game {
     this.resize();
     window.addEventListener('pointerdown', unlockAudio);
     window.addEventListener('keydown', unlockAudio);
+    // tiếng bấm nút / rê chuột qua nút (menu, hộp thoại, điện thoại) — mã ui.click, ui.hover
+    uiRoot.addEventListener('click', (e) => { if (e.target.closest?.('button:not([disabled])')) sound('ui.click'); }, true);
+    uiRoot.addEventListener('mouseover', (e) => {
+      const b = e.target.closest?.('button:not([disabled])');
+      if (b && b !== this.hoverBtn) sound('ui.hover');
+      this.hoverBtn = b;
+    });
     if (this.debug) {
       window.game = this;
       import('./devtools/autopilot.js').then((m) => (window.autopilot = m));
@@ -225,7 +232,7 @@ export class Game {
     const prev = this.settings;
     this.settings = normSettings(s);
     const st = this.settings;
-    setVolume(st.volume);
+    setVolumes({ music: st.music, sfx: st.sfx });
     this.muted = setMuted(st.muted);
     const high = st.quality === 'high';
     this.renderer.setPixelRatio(high ? Math.min(window.devicePixelRatio, 2) : 1);
@@ -383,6 +390,7 @@ export class Game {
 
   // 06:00: sang ngày mới (không dừng game): số liệu theo ngày, thời tiết / CSGT mới, khai trương, tự lưu
   beginDay(day) {
+    sound('city.morning');
     this.gs.startDay(day);
     this.hz = new HazardManager(makeRng(this.seed + day * 101), day);
     this.knownPolice = new Set();
@@ -416,7 +424,7 @@ export class Game {
     setRain(0);
     this.modal.hide();
     this.phone.toggle(false);
-    sfx.lose();
+    sound('progress.gameOver');
     const gs = this.gs;
     this.screens.end({
       outcome,
@@ -453,6 +461,8 @@ export class Game {
   // ======================== VÒNG LẶP ========================
   frame(t) {
     requestAnimationFrame((tt) => this.frame(tt));
+    // nhạc nền: màn hình chính → music.menu · đang chơi → music.day / music.night theo giờ trong game
+    setMusic(this.state === 'play' ? (isDark(this.clockMin) ? 'music.night' : 'music.day') : 'music.menu');
     const dt = Math.min(0.05, Math.max(0, (t - this.lastT) / 1000));
     this.lastT = t;
     if (this.state === 'play') this.update(dt);
@@ -512,10 +522,14 @@ export class Game {
     if (this.paused) return;
     const frozen = this.modal.open || this.screens.open;
     if (!frozen) {
-      if (inp.was('Tab')) this.phone.toggle();
+      if (inp.was('Tab')) {
+        this.phone.toggle();
+        sound(this.phone.open ? 'phone.open' : 'phone.close');
+      }
       // Enter: mở ô chat (thả hết phím đang giữ để nhân vật đứng lại trong lúc gõ)
       if (inp.was('Enter') || inp.was('NumpadEnter')) {
         for (const k of Object.keys(inp.state)) inp.state[k] = false;
+        if (!this.chatBox.typing) sound('chat.open');
         this.chatBox.open();
       }
       if (this.phone.open) this.phone.visibleApps(this.gs).forEach(([id], i) => inp.was(`Digit${i + 1}`) && this.phone.openApp(id)); // phím 1–9 mở app (thứ tự ở phone.json; chưa vào hãng thì không có app hãng)
@@ -523,7 +537,7 @@ export class Game {
       if (inp.was('KeyI')) this.toggleBag();
       if (inp.was('KeyY')) act.acceptOffer(this);
       if (inp.was('KeyN')) act.declineOffer(this);
-      if (inp.was('KeyH') && this.mode === 'bike') sfx.horn();
+      if (inp.was('KeyH') && this.mode === 'bike') sound('drive.horn');
       if (this.debug) this.debugKeys(inp);
       this.simulate(dt);
     } else setEngine(false, 0);
@@ -652,11 +666,11 @@ export class Game {
     this.ferries.update(this.clockMin, performance.now() / 1000);
     for (const e of this.traffic.update(dt, { px: pp.x, pz: pp.z, py, onBike: mounted, speed, fx: f.x, fz: f.z })) {
       if (e.type === 'honk' && Math.random() < 0.5) {
-        sfx.horn();
+        sound('city.honk');
         this.toastOnce('honk', fmt('toast.honk'), 'info', 15);
       }
       if (e.type === 'dogDart') {
-        sfx.bark();
+        sound('city.dog');
         this.hud.toast(fmt('toast.dogDart'), 'warn', 2500);
       }
     }
@@ -690,7 +704,7 @@ export class Game {
     if (inp.was('KeyE')) {
       const p = this.prompts.find((x) => x.key === 'E' && !x.disabled);
       if (p) {
-        sfx.click();
+        sound('ui.interact');
         p.run();
       }
     }
@@ -715,7 +729,7 @@ export class Game {
 
   onRentEvent(e) {
     if (e.type === 'late') {
-      sfx.bad();
+      sound('money.rentLate');
       this.hud.toast(fmt('toast.rentLate', { fine: fmtK(e.fine), rent: fmtK(e.rent), day: e.dueDay }), 'bad', 9000);
       this.addChat(fmt('npc.home.name'), fmt('chat.rentLate', { fine: fmtK(e.fine), rent: fmtK(e.rent), day: e.dueDay }));
     } else if (e.type === 'newPeriod') {
@@ -737,7 +751,7 @@ export class Game {
     gs.wake(this.clockMin);
     this.collapsing = false;
     this.saveGame();
-    sfx.bad();
+    sound('progress.collapse');
     this.modal.show({
       speaker: fmt('npc.home.name'),
       portrait: '🏥',
@@ -862,12 +876,12 @@ export class Game {
     const liquid = this.om.hasCargo && this.om.order.items.some((i) => i.has('liquid') || i.has('passenger'));
     if (type === 'bump') {
       if (mag > 0.25) {
-        sfx.bump();
+        sound('drive.bump');
         this.shake = Math.max(this.shake, mag * 0.25);
         if (info && info.what === 'pothole') this.toastOnce('pothole', fmt(liquid ? 'toast.potholeCargo' : 'toast.pothole'), 'warn', 4);
       }
     } else if (type === 'collision') {
-      mag > 0.4 ? sfx.crash() : sfx.bump();
+      sound(mag > 0.4 ? 'drive.crash' : 'drive.bump');
       this.shake = Math.max(this.shake, Math.min(0.8, mag * 0.4));
       this.gs.bikeHp = Math.max(0, this.gs.bikeHp - mag * 8);
       if (mag > 0.6) {
@@ -890,19 +904,19 @@ export class Game {
       gs.addEnergy(-mag * 6, -ENERGY.mental.carCrash);
       gs.bikeHp = Math.max(0, gs.bikeHp - mag * 10);
       msg = fmt(h.what === 'car' ? 'toast.hitCar' : 'toast.hitMoto');
-      sfx.crash();
+      sound('drive.crash');
     } else if (h.what === 'ped' && speed > 2) {
       mag = speed / 8;
       const ped = h.obj;
       if (ped) this.bubbles.show(`ped:${ped.id}`, () => headOf(ped.mesh, 1.95), pick('bubble.pedHit', Math.floor(Math.random() * 1000)));
       gs.addEnergy(-2, -ENERGY.mental.pedHit);
       msg = fmt('toast.hitPed');
-      sfx.crash();
+      sound('drive.hitPed');
     } else if (h.what === 'dog' && speed > 1.5) {
       mag = speed / 6;
       gs.addEnergy(-2, -ENERGY.mental.dogHit);
       msg = fmt('toast.hitDog');
-      sfx.bark();
+      sound('drive.hitDog');
     }
     if (!mag) return;
     this.cooldowns.set('hit', performance.now() + 900);
@@ -917,6 +931,7 @@ export class Game {
   onHazard(e) {
     const t = fmtTime(this.clockMin);
     if (e.type === 'rainStart') {
+      sound('city.thunder');
       const coat = this.gs.effect('rainProtect');
       this.hud.toast(fmt(e.heavy ? 'toast.rainHeavy' : 'toast.rainLight') + fmt(coat ? 'toast.rainCoat' : 'toast.rainNoCoat'), 'warn', 5000);
       this.groupChat(fmt('chat.group'), fmt('chat.rain', { time: t }));
@@ -940,7 +955,7 @@ export class Game {
     const brand = this.gs.brandSpec?.name || '';
     const left = this.gs.passengerHelmets().length;
     const msg = `${why} ${fmt(left ? 'toast.helmetLeft' : 'toast.helmetNone', { item: goods.name, brand })}`;
-    sfx.bad();
+    sound('order.helmetLost');
     this.hud.toast(msg, 'warn', 7000);
     this.chatCh.local('system', '', msg, { time: fmtTime(this.clockMin) });
   }
@@ -954,7 +969,7 @@ export class Game {
       return this.onHelmetLost(e.goods, fmt('toast.helmetTaken', { customer: e.order.customer }));
     }
     if (e.type === 'offer') {
-      sfx.ping();
+      sound('phone.offer');
       this.phone.openApp('goship'); // đơn mời có hạn giây → mở thẳng app GoShip
       this.phone.toggle(true);
       this.hud.toast(fmt('toast.offer'), 'good', 3500);
@@ -965,11 +980,11 @@ export class Game {
       this.bike.showBag(true);
       this.hud.toast(fmt('toast.cancelled', { reason: e.reason }) + (e.comp ? fmt('toast.cancelComp', { k: e.comp }) : '') + (e.byDriver ? fmt('toast.cancelDriver', { stars: APP.account.cancelStars }) : ''), 'bad', 5000);
       if (r.locked) this.hud.toast(fmt('toast.accountLocked', { n: APP.account.cancelLimitPerDay, time: fmtTime(r.until) }), 'bad', 7000);
-      sfx.bad();
+      sound('order.cancelled');
     } else if (e.type === 'returning') this.hud.toast(fmt('toast.returning', { place: e.order.pickup.name }), 'warn', 5000);
     else if (e.type === 'rideEvent') act.rideEventDialog(this, e.event); // khách đổi điểm đến / khách lừa đảo
     else if (e.type === 'vomit') {
-      sfx.bad();
+      sound('order.vomit');
       this.shake = Math.max(this.shake, 0.3);
       this.hud.toast(fmt('toast.vomit', { mental: e.mental, cost: e.cost }), 'bad', 4500);
     } else if (e.type === 'redirect') {
@@ -983,6 +998,7 @@ export class Game {
   sendChat(text) {
     this.chatCh.me.name = this.gs?.profile.name || '';
     const r = this.chatCh.send(text, { time: fmtTime(this.clockMin) });
+    if (r.ok) sound('chat.send');
     if (!r.ok && r.reason === 'spam') this.hud.toast(fmt('chat.spam'), 'warn', 2000);
   }
   // Người đi đường gần mình thỉnh thoảng nói một câu (bong bóng trên đầu, không ghi vào log)
@@ -995,11 +1011,13 @@ export class Game {
     if (!near.length) return;
     const p = near[Math.floor(Math.random() * near.length)];
     this.bubbles.show(`ped:${p.id}`, () => headOf(p.mesh, 1.95), pick('bubble.ped', Math.floor(Math.random() * 1000)));
+    sound('chat.bubble');
   }
 
   addChat(from, text) {
     this.chat.push({ from, text, time: fmtTime(this.clockMin) });
     this.chatCh.local('phone', from, text, { time: fmtTime(this.clockMin) }); // tin điện thoại cũng ghi vào log bên trái
+    sound('phone.message');
     this.phone.notify('chat', { title: from, text });
   }
   // Tin nhắn nhóm Hội shipper (thời tiết, kẹt xe, chốt CSGT, mẹo, khai trương): chỉ người đã vào hãng mới thấy
@@ -1093,7 +1111,7 @@ export class Game {
       this.towBikeTo(lot, P.towFee ?? 150);
       msg = fmt('toast.parkTow', { place: lot.name, fee: P.towFee ?? 150 });
     }
-    sfx.bad();
+    sound('law.parking');
     this.hud.toast(msg, 'bad', 8000);
     this.addChat(fmt('chat.ward'), msg);
   }
@@ -1147,7 +1165,7 @@ export class Game {
     const ev = noStopStep(this.noStop, this.clockMin, AIRPORT);
     if (ev === 'warn') {
       this.noStop.warned = true;
-      sfx.whistle();
+      sound('law.airport');
       this.hud.toast(fmt('toast.airportWarn'), 'warn', 6000);
     } else if (ev === 'fine') {
       this.noStop.warned = this.noStop.fined = true;
@@ -1161,7 +1179,7 @@ export class Game {
         gs.spend(fine, 'airportFine', true);
         msg = fmt('toast.airportFineNow', { fine });
       }
-      sfx.whistle();
+      sound('law.airport');
       this.hud.toast(msg, 'bad', 8000);
       this.addChat(fmt('chat.airportGuard'), msg);
     }
@@ -1419,10 +1437,36 @@ export class Game {
     this.scene.add(this.garageFleet);
   }
 
+  // Tiếng theo chuyển động: bước chân / đạp xe theo quãng đi, phanh gấp, xe vừa cạn xăng / pin
+  moveSounds() {
+    const gs = this.gs, p = this.playerPos, mounted = this.mode === 'bike';
+    const last = this.soundPos || p, d = Math.hypot(p.x - last.x, p.z - last.z);
+    this.soundPos = { x: p.x, z: p.z };
+    if (d < 3) { // nhảy chỗ (ngủ, đi xe buýt, phà…) thì không tính
+      this.strideM = (this.strideM || 0) + d;
+      const stride = mounted ? (gs.power === 'pedal' ? 2.2 : Infinity) : this.input.state.run ? 1.1 : 0.8;
+      if (this.strideM >= stride) {
+        this.strideM = 0;
+        sound(mounted ? 'drive.pedal' : 'walk.step');
+      }
+    }
+    const brake = mounted && this.input.state.brake && Math.abs(this.bike.speed) > 6;
+    if (brake && !this.braking) sound('drive.brake');
+    this.braking = brake;
+    const has = gs.power === 'pedal' || gs.fuel > 0;
+    if (mounted && this.hadFuel && !has) sound('drive.noFuel');
+    this.hadFuel = has;
+    // hướng dẫn sang bước mới (chỗ sáng đổi chỗ)
+    const tut = this.spotlight.step;
+    if (tut && tut !== this.lastTut) sound('ui.tutorial');
+    this.lastTut = tut;
+  }
+
   updateVisuals(dt) {
     const { gs, om, hz } = this;
     const now = this.clockMin;
     this.syncGarage();
+    this.moveSounds();
     this.chatBox.update();
     this.bubbles.update(dt);
     this.pedChatter(dt);
@@ -1504,6 +1548,11 @@ export class Game {
     const left = o ? Math.round(o.allowedMin - (now - o.acceptedAt)) : 0;
     const objs = objectives(gs);
     const firstOpen = objs.find((x) => !x.done && !x.optional);
+    // mục tiêu vừa xong (đã tick, hoặc biến khỏi danh sách vì xong — vd đổ xăng xong đổi sang "giao đơn đầu tiên") → tiếng
+    const open = new Set(objs.filter((x) => !x.done).map((x) => x.id));
+    if (this.objOpen && this.objDay === gs.day && [...this.objOpen].some((id) => !open.has(id))) sound('progress.objective');
+    this.objOpen = open;
+    this.objDay = gs.day;
     const amb = hz.ambient(now);
     const weather = rain ? (rain.heavy ? '⛈️' : '🌦️') : hz.isHarshSun(now) ? '☀️🔥' : night > 0.5 ? '🌙' : '⛅';
     // khu phố đang đứng (map.json → districts); đổi khu phố thì báo

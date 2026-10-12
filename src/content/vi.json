@@ -1282,5 +1282,13 @@
     "Nón đẹp ghê, cho em xin nha!",
     "Ơ quên trả nón… thôi kệ.",
     "Mai em trả… chắc vậy."
-  ]
+  ],
+  "settings.sound": "🔊 Âm thanh",
+  "settings.soundOn": "🔊 Bật",
+  "settings.soundOff": "🔇 Tắt",
+  "settings.music": "🎵 Nhạc",
+  "settings.sfx": "💥 Hiệu ứng",
+  "settings.muteHint": "Đang chơi: phím M bật / tắt nhanh",
+  "settings.other": "🎮 Điều khiển & đồ họa",
+  "menu.soundToggle": "Bật / tắt âm thanh"
 }

@@ -4,7 +4,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 // Chỉ những file dữ liệu này được công cụ ?editor ghi đè
-const EDITABLE = ['src/data/items.json', 'src/data/gear.json', 'src/data/goods.json', 'src/data/places.json', 'src/content/vi.json', 'src/data/apps.json', 'src/data/map.json', 'src/data/balance.json', 'src/data/editor.json', 'src/data/phone.json'];
+const EDITABLE = ['src/data/items.json', 'src/data/gear.json', 'src/data/goods.json', 'src/data/places.json', 'src/content/vi.json', 'src/data/apps.json', 'src/data/map.json', 'src/data/balance.json', 'src/data/editor.json', 'src/data/phone.json', 'src/data/sounds.json'];
+// File âm thanh: editor tải lên vào thư mục này (thẻ 🔊 Âm thanh)
+const SOUND_DIR = 'src/sounds';
+const SOUND_NAME = /^[a-z0-9_\-.]+\.(ogg|mp3|wav|m4a)$/i;
 
 const norm = (f) => path.resolve(f).toLowerCase();
 // file → lúc editor vừa ghi. Để ngoài plugin: Vite có thể tạo plugin nhiều lần, phải dùng chung một bảng.
@@ -29,6 +32,41 @@ function editorSavePlugin() {
       server.middlewares.use('/__editor/ping', (req, res) => {
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify({ ok: true, files: EDITABLE }));
+      });
+      // danh sách file âm thanh đang có
+      server.middlewares.use('/__editor/sounds', (req, res) => {
+        const dir = path.resolve(server.config.root, SOUND_DIR);
+        const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => SOUND_NAME.test(f)).sort() : [];
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ ok: true, files }));
+      });
+      // tải file âm thanh lên: { name, data (base64) } → src/sounds/name (không ghi đè file đã có: thêm -2, -3…)
+      server.middlewares.use('/__editor/sound-upload', (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405;
+          return res.end('POST only');
+        }
+        const chunks = [];
+        req.on('data', (c) => chunks.push(c));
+        req.on('end', () => {
+          res.setHeader('Content-Type', 'application/json');
+          try {
+            const { name, data } = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+            if (!SOUND_NAME.test(name || '')) throw new Error('Tên file không hợp lệ');
+            const buf = Buffer.from(String(data || ''), 'base64');
+            if (!buf.length || buf.length > 15 * 1024 * 1024) throw new Error('File rỗng hoặc quá 15 MB');
+            const dir = path.resolve(server.config.root, SOUND_DIR);
+            fs.mkdirSync(dir, { recursive: true });
+            const dot = name.lastIndexOf('.');
+            let out = name;
+            for (let n = 2; fs.existsSync(path.join(dir, out)); n++) out = `${name.slice(0, dot)}-${n}${name.slice(dot)}`;
+            fs.writeFileSync(path.join(dir, out), buf);
+            res.end(JSON.stringify({ ok: true, name: out }));
+          } catch (e) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ ok: false, error: e.message }));
+          }
+        });
       });
       server.middlewares.use('/__editor/save', (req, res) => {
         if (req.method !== 'POST') {

@@ -18,7 +18,7 @@ import { nextBoat, ferryFare, ferryOpen, ferryRule } from './sim/ferry.js';
 import { fmt, pick, has } from './content/index.js';
 import { fmtClock, minutesUntil } from './sim/clock.js';
 import { buildPacking } from './ui/packing.js';
-import { sfx } from './audio.js';
+import { sound } from './audio.js';
 import { inGarage, parkSlots, PARK_SLOTS } from './sim/garage.js';
 import { uniformOf } from './sim/GameState.js';
 import { signaturePad } from './ui/signature.js';
@@ -128,7 +128,7 @@ function mount(g) {
   g.mode = 'bike';
   g.walker.sitOn(g.bike);
   g.gs.flags.mounted = true;
-  sfx.click();
+  sound('drive.mount');
   // mở đầu: lần đầu leo lên xe đạp Cô Hai cho → bắt đầu hướng dẫn đi đăng ký hãng
   if (g.gs.flags.story === 1) {
     g.gs.flags.story = 2;
@@ -143,10 +143,12 @@ function takeVehicle(g, id) {
   g.bike.setSpec(g.gs.vehicleSpec);
   g.bike.setBag(g.gs.bagSpec);
   g.hud.toast(r.msg, 'good');
+  sound('place.takeVehicle');
   mount(g);
 }
 
 function dismount(g) {
+  sound('drive.dismount');
   g.mode = 'foot';
   g.walker.standUp(g.scene, g.bike);
   const w = g.walker, el = g.city.elev;
@@ -185,13 +187,13 @@ function redeemBike(g, { ride = true } = {}) {
     gs.spend(gs.towed.fee, 'tow');
     const fines = gs.payFines() || 0;
     gs.towed = null;
-    sfx.cash();
+    sound('money.pay');
     g.hud.toast(fmt('toast.redeemedPolice', { total, fines }), 'info', 6000);
   } else {
     const fee = Math.min(Math.max(0, gs.money), gs.towed.fee);
     gs.spend(fee, 'tow', true);
     gs.towed = null;
-    sfx.cash();
+    sound('money.pay');
     g.hud.toast(fmt('toast.redeemed', { fee }), 'info', 5000);
   }
   if (ride && dist(g.playerPos, g.bike.pos) < 3.2) mount(g);
@@ -220,7 +222,7 @@ function policeChoices(g, pl) {
       onSelect: () => {
         const paid = gs.payFines();
         if (paid == null) return;
-        sfx.cash();
+        sound('money.pay');
         g.hud.toast(fmt('toast.finePaid', { fine: paid }), 'good', 5000);
       },
     });
@@ -233,7 +235,7 @@ export function acceptOffer(g) {
   if (g.om.state !== S.OFFERED) return;
   const o = g.om.accept(g.clockMin, g.playerPos);
   if (!o) return;
-  sfx.click();
+  sound('phone.accept');
   const what = o.kind === 'ride' ? fmt('toast.acceptedRide', { customer: o.customer })
     : o.kind === 'parcel' ? fmt('toast.acceptedParcel', { type: ORDER_TYPES[o.type]?.name || '', place: o.pickup.name })
     : fmt('toast.acceptedFood', { place: o.pickup.name });
@@ -243,7 +245,9 @@ export function acceptOffer(g) {
 }
 
 export function declineOffer(g) {
-  if (g.om.decline(g.clockMin)) g.hud.toast(fmt('toast.declined'), 'info', 1800);
+  if (!g.om.decline(g.clockMin)) return;
+  sound('phone.decline');
+  g.hud.toast(fmt('toast.declined'), 'info', 1800);
 }
 
 export function phoneAction(g, a, ds) {
@@ -282,7 +286,7 @@ function findBike(g) {
   const w = g.bikeWhere();
   g.waypoint = null;
   g.findBike = !w.towed; // xe bị cẩu: mục tiêu "chuộc xe" đã chỉ tới chỗ giữ xe
-  sfx.click();
+  sound('ui.click');
   g.hud.toast(fmt(w.towed ? 'toast.bikeTowedWhere' : 'toast.bikeWhere', { street: w.street || fmt('phone.bikeNoStreet'), dist: w.dist }), 'good', 6000);
 }
 
@@ -292,7 +296,7 @@ function bagUse(g, id) {
   const r = g.gs.useConsumable(id);
   if (!s || !r.ok) return;
   if (r.minutes) g.advance(r.minutes, 'idle', { waiting: false });
-  sfx.click();
+  sound('place.use');
   g.hud.toast(fmt('toast.used', { name: s.name, gains: gainText(s.use || {}) }), 'good');
 }
 
@@ -304,7 +308,7 @@ function bagWear(g, id, on) {
   if (!isAccessorySlot(s.slot)) return g.hud.toast(fmt('toast.wearAtHome'), 'warn');
   if (g.mode === 'bike' && Math.abs(g.bike.speed) > 0.5) return g.hud.toast(fmt('toast.stopToWear'), 'warn');
   if (!(on ? g.gs.wear(id) : g.gs.takeOff(s.slot))) return;
-  sfx.click();
+  sound('place.wear');
   g.hud.toast(fmt(on ? 'toast.woreAcc' : 'toast.tookOffAcc', { name: s.name }), 'good', 1800);
   // cởi đồng phục hãng: app không nhận đơn mới nữa
   if (!on && s.slot === 'uniform' && s.brand === g.gs.brand) g.hud.toast(fmt('toast.uniformOff', { brand: g.gs.brandSpec?.name || '' }), 'warn', 4500);
@@ -334,7 +338,7 @@ function callCustomer(g) {
   const { om } = g;
   const o = om.order;
   if (!o) return;
-  sfx.phone();
+  sound('phone.call');
   if (om.state === S.NO_ANSWER) return noAnswer(g, true);
   const wasHidden = !o.revealed;
   const r = om.callCustomer(g.clockMin);
@@ -399,7 +403,7 @@ function outOfStock(g, item) {
     {
       label: fmt('dlg.oosCall'),
       onSelect: () => {
-        sfx.phone();
+        sound('phone.call');
         g.advance(2, 'idle');
         const r = om.resolveOutOfStock('call', g.clockMin);
         if (r.accepted) say(g, who, '📱', fmt('dlg.oosSubOk', { item: r.sub.name }), [{ label: fmt('dlg.oosSubOrder'), onSelect: () => waitFood(g, fmt('dlg.oosSubReady', { item: r.sub.name })) }]);
@@ -435,7 +439,8 @@ function parcelPickup(g) {
       onSelect: () => {
         const r = om.collectParcel(g.clockMin);
         if (!r || r.noMoney) return;
-        if (r.cod) sfx.cash();
+        sound('order.pickup');
+        if (r.cod) sound('money.pay');
         startPacking(g, r.items);
       },
     },
@@ -447,6 +452,7 @@ function startPacking(g, items = null) {
   const { om, gs } = g;
   items = items || om.collectFood(g.clockMin);
   if (!items) return;
+  sound('order.pickup');
   const node = buildPacking({
     items,
     bag: gs.bagSpec,
@@ -464,10 +470,11 @@ function boardPassenger(g) {
   const { om } = g;
   const o = om.order;
   om.boardPassenger(g.clockMin);
-  sfx.click();
+  sound('order.boarded');
   // khách chào khi leo lên xe: bong bóng trên đầu khách + ghi log
   const hi = pick('bubble.riderHi', Math.floor(g.clockMin));
   g.bubbles?.show('rider', () => headOf(g.passengerMesh, 1.9), hi);
+  sound('chat.bubble');
   g.chatCh?.local('npc', o.customer, hi, { time: fmtClock(g.clockMin) });
   g.hud.toast(fmt('toast.boarded', { customer: o.customer, kmh: comfortKmh(g, o) }), 'good');
 }
@@ -483,7 +490,7 @@ export function dropoff(g) {
     om.arriveAtDropoff(now);
     const r = om.finishAtPolice(now);
     if (r) {
-      sfx.win();
+      sound('order.scamCaught');
       say(g, fmt('dlg.police'), '👮', fmt('dlg.scamCaught', { reward: r.reward }));
     }
     return;
@@ -510,7 +517,7 @@ function noAnswer(g, fromPhone = false) {
     {
       label: fmt('dlg.callAgain'),
       onSelect: () => {
-        sfx.phone();
+        sound('phone.call');
         const r = om.callCustomer(g.clockMin);
         g.advance(r.waitMin, 'idle');
         if (r.answered) say(g, fmt('dlg.phoneCall', { customer: o.customer }), '📱', fmt('dlg.answered'), [{ label: fmt('dlg.handOver'), primary: true, onSelect: () => handOver(g) }], { dismissible: false });
@@ -572,7 +579,7 @@ function bom(g) {
     primary: !choices.length,
     onSelect: () => {
       om.startReturn(g.clockMin);
-      sfx.bad();
+      sound('order.bom');
     },
   });
   choices.push({ label: fmt('dlg.bomWait') });
@@ -585,7 +592,7 @@ function returnParcel(g) {
   const n = sender(g, o);
   const r = om.returnToShop(g.clockMin);
   if (!r) return;
-  sfx.cash();
+  sound('order.returned');
   say(g, n.name, n.portrait, fmt('dlg.returned', { refund: r.refund, fee: r.fee }));
 }
 
@@ -596,7 +603,7 @@ export function passengerQuit(g) {
   if (!receipt) return;
   gs.applyReceipt(receipt);
   g.bike.speed *= 0.3;
-  sfx.bad();
+  sound('order.quit');
   showReceipt(g, receipt);
 }
 
@@ -628,7 +635,7 @@ function stairs(g) {
         gs.spend(ECONOMY.parkingFee, 'parking', true);
         g.markParkedSafe(); // đã gửi xe cho bảo vệ
         const r = om.resolveStairs('callDown');
-        sfx.phone();
+        sound('phone.call');
         g.advance(r.minutes, 'idle');
         if (g.state === 'play') handOver(g);
       },
@@ -651,7 +658,7 @@ function showReceipt(g, receipt) {
   const { gs } = g;
   const { ev, pay, order: o } = receipt;
   const ride = o.kind === 'ride'; // chở khách: chấm theo mức thoải mái, lời khách kiểu đi xe
-  ev.refused || ev.stars <= 2 ? sfx.bad() : sfx.cash();
+  sound(ev.refused || ev.stars <= 2 ? 'order.badStars' : 'order.done');
   const comment = ev.refused ? fmt('dlg.refusedComment') : receipt.quit ? fmt('dlg.quitComment') : receipt.noPay ? fmt('dlg.noPayComment') : ev.scared ? fmt('dlg.scaredComment') : pick(`comment.${ride ? 'ride.' : ''}${ev.stars}`, o.id);
   const reasons = ev.reasons.map(([k, v]) => `<span class="tag">${fmt(`dmg.${k}`)} −${v.toFixed(0)}%</span>`).join('') || `<span class="tag ok">${fmt(ride ? 'receipt.noDamageRide' : 'receipt.noDamage')}</span>`;
   const pens = ev.penalties.map((p) => `<div class="kv"><span>${p.label}</span><b class="minus">−${p.value} ★</b></div>`).join('');
@@ -698,7 +705,7 @@ function afterDelivery(g, o) {
   g.clearTempNpcs();
   g.checkEnd();
   if (o.story === 'wallet' && g.gs.findWallet()) {
-    sfx.ping();
+    sound('quest.walletFound');
     say(g, fmt('dlg.you'), '🤔', fmt('dlg.walletFound'), [{ label: fmt('dlg.walletOpen'), primary: true, onSelect: () => viewWallet(g) }]);
   }
 }
@@ -714,7 +721,7 @@ export function viewWallet(g) {
       hint: fmt('dlg.walletTakeHint'),
       onSelect: () => {
         gs.keepWalletCash();
-        sfx.bad();
+        sound('quest.walletKept');
         say(g, fmt('dlg.app'), '📱', fmt('dlg.walletComplaint', { fine: WALLET_QUEST.complaintFine, n: WALLET_QUEST.keepPenaltyStars.length, rating: gs.rating.toFixed(2) }), [{ label: fmt('dlg.ellipsis') }]);
         g.checkEnd();
       },
@@ -810,7 +817,8 @@ function ferryChoices(g, pl) {
       disabled: g.gs.money < fare,
       onSelect: () => {
         g.gs.spend(fare, 'ferry');
-        sfx.cash();
+        sound('money.pay');
+        sound('city.ferry');
         g.startFerry(pair, side, withBike);
       },
     };
@@ -846,7 +854,7 @@ function placeActivities(g, pl) {
         const r = gs.doActivity(pl, act, g.clockMin);
         if (!r.ok) return;
         if (r.minutes) g.advance(r.minutes, 'idle', { indoor: true, waiting: false, stopOnOffer: !!act.stopOnOrder });
-        sfx.cash();
+        sound('place.activity');
         g.hud.toast(fmt('toast.activity', { label: act.label, gains: gainText(act) }), 'good');
         if (act.stopOnOrder && g.om.state === S.OFFERED) g.hud.toast(fmt('toast.orderWake'), 'info', 4000);
       },
@@ -870,7 +878,7 @@ function chargeChoices(g, pl) {
       const r = gs.charge();
       if (!r.ok) return say(g, n.name, n.portrait, r.msg);
       g.advance(r.minutes, 'idle', { waiting: true });
-      sfx.cash();
+      sound('place.charge');
       g.hud.toast(r.msg, 'good');
     },
   }];
@@ -892,7 +900,7 @@ function swapChoices(g, pl) {
       const r = gs.swapBattery();
       if (!r.ok) return say(g, n.name, n.portrait, r.msg);
       g.advance(r.minutes, 'idle', { indoor: true, waiting: false });
-      sfx.cash();
+      sound('place.swap');
       g.hud.toast(r.msg, 'good');
     },
   }];
@@ -933,7 +941,7 @@ function officeDialog(g, pl) {
       onSelect: () => {
         const r = gs.buy('goods', id);
         g.hud.toast(r.ok ? fmt('toast.bought', { msg: r.msg }) : r.msg, r.ok ? 'good' : 'bad');
-        if (r.ok) sfx.cash();
+        if (r.ok) sound('place.buy');
         officeDialog(g, pl);
       },
     });
@@ -995,7 +1003,7 @@ function joinBrand(g, pl, b, sig) {
   gs.flags.online = false;
   g.bike.setSpec(gs.vehicleSpec);
   g.lookKey = null;
-  sfx.win();
+  sound('place.joinBrand');
   g.hud.toast(r.msg, 'big', 6000);
   g.addChat(b.name, fmt(r.switched ? 'chat.brandSwitched' : 'chat.brandWelcome', { name: gs.profile.name, brand: b.name, bike: bike?.name || '' }));
   if (!r.switched) g.joinGroupChat(); // lần đầu vào hãng: được thêm vào nhóm Hội shipper
@@ -1014,7 +1022,7 @@ function gasChoices(g, pl) {
       const r = gs.refuel();
       if (r.ok) {
         g.advance(2, 'idle', { waiting: false });
-        sfx.cash();
+        sound('place.fuel');
         g.hud.toast(fmt('toast.refuel', { msg: r.msg }), 'good');
       } else say(g, n.name, n.portrait, `"${r.msg}"`);
     },
@@ -1045,7 +1053,7 @@ function shopDialog(g, pl) {
       onSelect: () => {
         const r = gs.buy('goods', id);
         g.hud.toast(r.ok ? fmt(outfit ? 'toast.boughtOutfit' : 'toast.bought', { msg: r.msg }) : r.msg, r.ok ? 'good' : 'bad');
-        if (r.ok) sfx.cash();
+        if (r.ok) sound('place.buy');
         reopen();
       },
     });
@@ -1065,7 +1073,7 @@ function shopDialog(g, pl) {
         else {
           const r = gs.buy('bags', id);
           g.hud.toast(r.ok ? fmt('toast.bought', { msg: r.msg }) : r.msg, r.ok ? 'good' : 'bad');
-          if (r.ok) sfx.cash();
+          if (r.ok) sound('place.buy');
         }
         g.bike.setBag(gs.bagSpec);
         reopen();
@@ -1097,7 +1105,7 @@ function shopDialog(g, pl) {
           const r = gs.buy('vehicles', id);
           g.hud.toast(r.ok ? fmt('toast.boughtVehicle', { msg: r.msg }) : r.msg, r.ok ? 'good' : 'bad');
           if (r.ok) {
-            sfx.win();
+            sound('place.buyVehicle');
             g.hud.toast(fmt('toast.oldToGarage', { name: old }), 'info', 5000);
           }
           g.bike.setSpec(gs.vehicleSpec);
@@ -1115,7 +1123,7 @@ function shopDialog(g, pl) {
           const active = gs.vehicle === id;
           const r = gs.sellVehicle(id);
           g.hud.toast(r.msg, r.ok ? 'good' : 'bad');
-          if (r.ok) sfx.cash();
+          if (r.ok) sound('money.earn');
           // bán đúng chiếc đang chạy → đi bộ; xe thay thế (xe đạp / xe hãng) vẫn đang dựng trong hầm nhà trọ
           if (r.ok && active) {
             if (g.mode === 'bike') dismount(g);
@@ -1134,7 +1142,7 @@ function shopDialog(g, pl) {
       hint: fmt('dlg.repairHint', { hp: gs.bikeHp.toFixed(0) }),
       disabled: gs.bikeHp >= 99 || gs.money < ECONOMY.repairCost || dist(g.bike.pos, pl.door) > 10,
       keepOpen: true,
-      onSelect: () => { const r = gs.repair(); g.hud.toast(r.msg, r.ok ? 'good' : 'bad'); reopen(); },
+      onSelect: () => { const r = gs.repair(); g.hud.toast(r.msg, r.ok ? 'good' : 'bad'); if (r.ok) sound('place.repair'); reopen(); },
     });
     // thay nhớt (chỉ xe xăng): mất vài phút, nhớt về đầy (balance.json → economy.oilCost / oilIntervalKm / oilChangeMin)
     // xe điện: bảo dưỡng = đổi pin ở trạm đổi pin
@@ -1151,7 +1159,7 @@ function shopDialog(g, pl) {
         const r = gs.changeOil();
         g.hud.toast(r.msg, r.ok ? 'good' : 'bad');
         if (r.ok) {
-          sfx.cash();
+          sound('place.oil');
           g.advance(r.minutes, 'idle', { indoor: true, waiting: true });
         }
         if (g.state === 'play') reopen();
@@ -1213,7 +1221,7 @@ function scamResult(g, r) {
   if (!r) return;
   g.bike.speed = 0;
   if (r.robbed != null) {
-    sfx.bad();
+    sound('order.robbed');
     g.shake = Math.max(g.shake, 0.5);
     const msg = fmt('dlg.scamRobbed', { amount: fmtK(r.robbed) });
     say(g, fmt('dlg.scamTitle'), '🕵️', msg);
@@ -1241,13 +1249,14 @@ function busDialog(g, stop) {
 }
 function rideBus(g, d, fare) {
   g.gs.spend(fare, 'bus');
-  sfx.cash();
+  sound('money.pay');
   g.advance(d.trip.total, 'idle', { indoor: true, waiting: true, quiet: true });
   const w = d.stop.wait, wk = g.walker;
   wk.pos.set(w.x, 0, w.z);
   wk._ex = w.x;
   wk._ez = w.z;
   wk.deckY = null;
+  sound('city.busArrive');
   g.hud.toast(fmt('toast.busArrive', { stop: d.stop.name, time: fmtClock(g.clockMin), min: Math.round(d.trip.total) }), 'good', 5000);
 }
 
@@ -1266,7 +1275,7 @@ function landlord(g, pl) {
       onSelect: () => {
         const r = gs.payRent();
         if (r.ok) {
-          sfx.cash();
+          sound('money.rentPaid');
           g.hud.toast(fmt('toast.rentPaid', { rent: fmtK(r.paid), day: gs.rentDueDay }), 'good', 6000);
         }
       },
@@ -1293,7 +1302,7 @@ function napChoices(g, pl) {
     onSelect: () => {
       const r = g.nap(min);
       if (!r) return;
-      sfx.click();
+      sound('place.nap');
       const p = { min: r.slept, time: fmtClock(g.clockMin), phys: Math.round(g.gs.phys), mental: Math.round(g.gs.mental) };
       g.hud.toast(fmt(r.byOrder ? 'toast.napOrder' : 'toast.napDone', p), r.byOrder ? 'info' : 'good', 6000);
     },
@@ -1314,7 +1323,7 @@ function sleepChoices(g) {
     disabled: !!why,
     onSelect: () => {
       if (g.sleep(min) == null) return;
-      sfx.click();
+      sound('place.sleep');
       g.hud.toast(fmt('toast.woke', { time: fmtClock(g.clockMin), phys: Math.round(gs.phys), mental: Math.round(gs.mental) }), 'good', 7000);
     },
   });
@@ -1334,7 +1343,7 @@ function landlordIntro(g, pl) {
     onSelect: () => {
       g.gs.flags.story = 1;
       g.placeAtHomeBike();
-      sfx.win();
+      sound('place.gotBike');
       g.hud.toast(fmt('toast.gotBike'), 'big', 6000);
     },
   }], { dismissible: false });
@@ -1363,7 +1372,7 @@ function wardrobe(g) {
         onSelect: () => {
           if (on) gs.takeOff(slot);
           else gs.wear(s.id);
-          sfx.click();
+          sound('place.wear');
           wardrobe(g);
         },
       });
@@ -1381,7 +1390,7 @@ function minhReturn(g) {
       primary: true,
       onSelect: () => {
         gs.returnWallet();
-        sfx.win();
+        sound('quest.walletReturned');
         g.addChat(fmt('npc.minh.name'), fmt('chat.minhThanks'));
         g.hud.toast(fmt('toast.walletReturned', { k: WALLET_QUEST.reward }), 'good', 5000);
       },
@@ -1437,7 +1446,7 @@ export function policeStop(g, p, speed) {
   const speeding = speed > g.speedLimit(); // giới hạn theo cấp đường đang chạy (src/sim/roads.js)
   bike.speed = 0;
   bike.vel.set(0, 0);
-  sfx.whistle();
+  sound('law.whistle');
   const kmh = Math.round(speed * 3.6);
   // còn phạt nguội quá hạn → tạm giữ xe về đồn công an gần nhất (đóng hết mới lấy lại)
   const station = gs.hasOverdueFines && !g.om.hasCargo && g.nearestStation();
@@ -1448,7 +1457,7 @@ export function policeStop(g, p, speed) {
         dismount(g);
         g.towBikeTo(station, PARKING.towFee ?? 150);
         gs.addEnergy(0, -ENERGY.mental.fine);
-        sfx.bad();
+        sound('law.towed');
         g.advance(10, 'idle');
       },
     }], { dismissible: false });
@@ -1462,7 +1471,7 @@ export function policeStop(g, p, speed) {
           gs.spend(ECONOMY.policeFine, 'fine', true);
           gs.stats.fines += 1;
           gs.addEnergy(0, -ENERGY.mental.fine);
-          sfx.bad();
+          sound('law.fine');
         } else gs.addEnergy(0, -ENERGY.mental.police / 2);
         g.advance(speeding ? 15 : 6, 'idle');
       },

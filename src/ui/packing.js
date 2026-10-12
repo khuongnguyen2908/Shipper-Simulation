@@ -2,6 +2,7 @@
 // Luật: 🔥 món nóng và ❄️ món lạnh không được nằm sát nhau (ngang/dọc)
 //       💧 món nước phải dựng đứng (bấm Xoay / phím R)
 //       ⚠️ đồ dễ vỡ không được có món khác đè lên (ô phía trên)
+import { sound } from '../audio.js';
 import { traitLabel } from '../data/items.js';
 import { fmt } from '../content/index.js';
 
@@ -96,6 +97,7 @@ export function buildPacking({ items, bag, onDone }) {
     } else if (from >= 0) slots[from] = -1;
     slots[c] = selected;
     placed[selected] = c;
+    sound('order.pack');
     const next = placed.findIndex((p) => p < 0);
     if (next >= 0) selected = next;
     render();

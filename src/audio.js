@@ -1,41 +1,161 @@
-// Âm thanh tổng hợp bằng Web Audio API (không cần file âm thanh).
-// Kiến trúc đơn giản: mỗi hiệu ứng là một hàm; sau này có thể thay bằng file.
-let ctx = null, master = null, engine = null, rainNode = null;
+// =============================================================
+// ÂM THANH (Web Audio API)
+// Mỗi chỗ trong game gọi sound('mã') — danh mục mã ở src/data/soundSpec.js.
+// Mã đã gắn file (src/data/sounds.json, thẻ 🔊 Âm thanh của ?editor; file trong src/sounds/) → phát file
+// (nhiều file thì chọn ngẫu nhiên mỗi lần). Chưa gắn file → tiếng tổng hợp bằng máy như trước, không có thì im.
+// 2 nhóm âm lượng (Cài đặt): Nhạc (bài nhạc) · Hiệu ứng (mọi tiếng còn lại). Tắt tiếng = tắt cả hai.
+// =============================================================
+import soundsJson from './data/sounds.json' with { type: 'json' };
+import { SOUNDS } from './data/soundSpec.js';
+import { SOUND_URLS } from './soundFiles.js';
+
+let ctx = null, master = null, fxBus = null;
 let muted = false;
-let volume = 1; // âm lượng người chơi chọn (0–1, màn hình Cài đặt); 1 = mức gốc của game
-const BASE = 0.5;
-const gainNow = () => (muted ? 0 : BASE * volume);
+const vol = { music: 0.6, sfx: 0.8 }; // người chơi chọn (0–1)
+const BASE = 0.5; // mức gốc của hiệu ứng
+const data = soundsJson.sounds || {};
 
 function ensure() {
   if (ctx) return true;
-  const AC = window.AudioContext || window.webkitAudioContext;
+  const AC = typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext);
   if (!AC) return false;
   ctx = new AC();
   master = ctx.createGain();
-  master.gain.value = gainNow();
+  master.gain.value = muted ? 0 : 1;
   master.connect(ctx.destination);
+  fxBus = ctx.createGain();
+  fxBus.gain.value = BASE * vol.sfx;
+  fxBus.connect(master);
   return true;
 }
 
+// Trình duyệt chỉ cho phát tiếng sau cú bấm đầu tiên → gọi ở mọi cú bấm / phím
 export function unlockAudio() {
   if (!ensure()) return;
   if (ctx.state === 'suspended') ctx.resume();
+  preload();
+  if (music.el && music.el.paused && !muted) music.el.play().catch(() => {});
 }
 
-export function toggleMute() {
-  return setMuted(!muted);
-}
 export function setMuted(on) {
   muted = !!on;
-  if (master) master.gain.value = gainNow();
+  if (master) master.gain.value = muted ? 0 : 1;
+  applyMusicVolume();
   return muted;
 }
-export function setVolume(v) {
-  volume = Math.max(0, Math.min(1, Number(v) || 0));
-  if (master) master.gain.value = gainNow();
+// { music, sfx }: 0–1
+export function setVolumes(v) {
+  if (Number.isFinite(v.music)) vol.music = Math.max(0, Math.min(1, v.music));
+  if (Number.isFinite(v.sfx)) vol.sfx = Math.max(0, Math.min(1, v.sfx));
+  if (fxBus) fxBus.gain.value = BASE * vol.sfx;
+  applyMusicVolume();
 }
 
-function tone(freq, dur, { type = 'square', vol = 0.15, at = 0, slide = 0 } = {}) {
+// ---------- file âm thanh ----------
+const buffers = new Map(); // tên file → AudioBuffer | Promise
+const filesOf = (id) => (data[id]?.files || []).filter((f) => SOUND_URLS[f]);
+const levelOf = (id) => data[id]?.volume ?? 1;
+function load(name) {
+  if (buffers.has(name)) return buffers.get(name);
+  const p = fetch(SOUND_URLS[name])
+    .then((r) => r.arrayBuffer())
+    .then((b) => ctx.decodeAudioData(b))
+    .then((buf) => { buffers.set(name, buf); return buf; })
+    .catch(() => { buffers.set(name, null); return null; });
+  buffers.set(name, p);
+  return p;
+}
+// tải sẵn mọi file hiệu ứng đã gắn (lần đầu phát không bị trễ)
+let preloaded = false;
+function preload() {
+  if (preloaded || !ctx) return;
+  preloaded = true;
+  for (const [id, d] of Object.entries(data)) if (SOUNDS[id]?.kind !== 'music') for (const f of d.files || []) if (SOUND_URLS[f]) load(f);
+}
+function playBuffer(buf, gain, rate = 1) {
+  const s = ctx.createBufferSource(), g = ctx.createGain();
+  s.buffer = buf;
+  s.playbackRate.value = rate;
+  g.gain.value = gain;
+  s.connect(g).connect(fxBus);
+  s.start();
+}
+
+// Phát tiếng theo mã. opt: { vol (nhân thêm), rate (tốc độ / cao độ) }
+export function sound(id, opt = {}) {
+  const spec = SOUNDS[id];
+  if (!spec || muted || !ensure()) return;
+  const files = filesOf(id);
+  if (files.length) {
+    const name = files[Math.floor(Math.random() * files.length)];
+    const gain = levelOf(id) * (opt.vol ?? 1) * 2; // ×2: file thường nhỏ hơn tiếng tổng hợp
+    const b = buffers.get(name);
+    if (b && !(b instanceof Promise)) return playBuffer(b, gain, opt.rate ?? 1);
+    const t0 = performance.now();
+    load(name).then((buf) => buf && performance.now() - t0 < 600 && playBuffer(buf, gain, opt.rate ?? 1)); // tải lâu quá thì thôi
+    return;
+  }
+  SYNTH[spec.synth]?.();
+}
+
+// Tiếng lặp từ file (máy xe, mưa, phố): level 0 = tắt dần. Trả về false nếu mã chưa gắn file (dùng tiếng tổng hợp)
+const loops = new Map();
+function loopFile(id, level, rate = 1) {
+  const files = filesOf(id);
+  if (!files.length) return false;
+  let L = loops.get(id);
+  if (!L) {
+    if (level <= 0) return true;
+    L = { g: ctx.createGain(), src: null };
+    L.g.gain.value = 0;
+    L.g.connect(fxBus);
+    loops.set(id, L);
+    load(files[0]).then((buf) => {
+      if (!buf || loops.get(id) !== L) return;
+      L.src = ctx.createBufferSource();
+      L.src.buffer = buf;
+      L.src.loop = true;
+      L.src.connect(L.g);
+      L.src.start();
+    });
+  }
+  const t = ctx.currentTime;
+  L.g.gain.setTargetAtTime(muted ? 0 : level * levelOf(id) * 2, t, 0.15);
+  if (L.src) L.src.playbackRate.setTargetAtTime(rate, t, 0.1);
+  return true;
+}
+
+// ---------- nhạc (HTML audio: bài dài không cần giải mã hết vào bộ nhớ) ----------
+const music = { id: null, el: null, list: [], i: 0 };
+function applyMusicVolume() {
+  if (music.el) music.el.volume = muted ? 0 : Math.min(1, vol.music * levelOf(music.id));
+}
+// Đổi bài theo mã (music.menu / music.day / music.night); null = tắt. Nhiều file = phát lần lượt, hết vòng lại
+export function setMusic(id) {
+  if (id === music.id) return;
+  if (music.el) {
+    const old = music.el;
+    const fade = setInterval(() => { old.volume = Math.max(0, old.volume - 0.05); if (old.volume <= 0) { clearInterval(fade); old.pause(); } }, 60);
+  }
+  music.id = id;
+  music.el = null;
+  music.list = id ? filesOf(id) : [];
+  music.i = Math.floor(Math.random() * Math.max(1, music.list.length));
+  if (music.list.length) nextTrack();
+}
+function nextTrack() {
+  const name = music.list[music.i % music.list.length];
+  music.i++;
+  const el = new Audio(SOUND_URLS[name]);
+  el.loop = music.list.length === 1;
+  el.onended = () => music.el === el && nextTrack();
+  music.el = el;
+  applyMusicVolume();
+  el.play().catch(() => {}); // chưa bấm gì → trình duyệt chặn; unlockAudio() phát lại
+}
+
+// ---------- tiếng tổng hợp (dự phòng khi chưa gắn file) ----------
+function tone(freq, dur, { type = 'square', vol: v = 0.15, at = 0, slide = 0 } = {}) {
   if (!ensure() || muted) return;
   const t = ctx.currentTime + at;
   const o = ctx.createOscillator();
@@ -43,14 +163,14 @@ function tone(freq, dur, { type = 'square', vol = 0.15, at = 0, slide = 0 } = {}
   o.type = type;
   o.frequency.setValueAtTime(freq, t);
   if (slide) o.frequency.linearRampToValueAtTime(freq + slide, t + dur);
-  g.gain.setValueAtTime(vol, t);
+  g.gain.setValueAtTime(v, t);
   g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-  o.connect(g).connect(master);
+  o.connect(g).connect(fxBus);
   o.start(t);
   o.stop(t + dur + 0.02);
 }
 
-function noise(dur, { vol = 0.3, freq = 800, at = 0 } = {}) {
+function noise(dur, { vol: v = 0.3, freq = 800, at = 0 } = {}) {
   if (!ensure() || muted) return;
   const t = ctx.currentTime + at;
   const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
@@ -62,12 +182,12 @@ function noise(dur, { vol = 0.3, freq = 800, at = 0 } = {}) {
   f.type = 'lowpass';
   f.frequency.value = freq;
   const g = ctx.createGain();
-  g.gain.value = vol;
-  s.connect(f).connect(g).connect(master);
+  g.gain.value = v;
+  s.connect(f).connect(g).connect(fxBus);
   s.start(t);
 }
 
-export const sfx = {
+export const SYNTH = {
   ping() { tone(880, 0.12, { type: 'sine', vol: 0.25 }); tone(1320, 0.18, { type: 'sine', vol: 0.25, at: 0.12 }); },
   cash() { [660, 880, 1100, 1320].forEach((f, i) => tone(f, 0.1, { type: 'triangle', vol: 0.18, at: i * 0.07 })); },
   bad() { tone(300, 0.25, { type: 'sawtooth', vol: 0.12, slide: -120 }); },
@@ -83,9 +203,14 @@ export const sfx = {
   lose() { [440, 370, 311, 262].forEach((f, i) => tone(f, 0.35, { type: 'triangle', vol: 0.2, at: i * 0.2 })); },
 };
 
-// Tiếng máy xe liên tục (cao độ theo tốc độ)
+// Tiếng máy xe liên tục (cao độ theo tốc độ) — mã loop.engine
+let engine = null;
 export function setEngine(on, speed01) {
   if (!ensure()) return;
+  if (loopFile('loop.engine', on ? 0.5 + speed01 * 0.5 : 0, 0.7 + speed01 * 0.9)) {
+    if (engine) engine.g.gain.setTargetAtTime(0, ctx.currentTime, 0.15); // vừa gắn file: tắt tiếng tổng hợp
+    return;
+  }
   if (!engine) {
     const o = ctx.createOscillator();
     o.type = 'sawtooth';
@@ -94,7 +219,7 @@ export function setEngine(on, speed01) {
     f.frequency.value = 400;
     const g = ctx.createGain();
     g.gain.value = 0;
-    o.connect(f).connect(g).connect(master);
+    o.connect(f).connect(g).connect(fxBus);
     o.start();
     engine = { o, g, f };
   }
@@ -103,9 +228,11 @@ export function setEngine(on, speed01) {
   engine.g.gain.setTargetAtTime(on && !muted ? 0.035 + speed01 * 0.03 : 0, t, 0.15);
 }
 
-// Tiếng mưa liên tục
+// Tiếng mưa liên tục — mã loop.rain
+let rainNode = null;
 export function setRain(amount) {
   if (!ensure()) return;
+  if (loopFile('loop.rain', amount)) return;
   if (!rainNode) {
     const len = ctx.sampleRate * 2;
     const buf = ctx.createBuffer(1, len, ctx.sampleRate);
@@ -120,18 +247,19 @@ export function setRain(amount) {
     f.Q.value = 0.4;
     const g = ctx.createGain();
     g.gain.value = 0;
-    s.connect(f).connect(g).connect(master);
+    s.connect(f).connect(g).connect(fxBus);
     s.start();
     rainNode = g;
   }
   rainNode.gain.setTargetAtTime(muted ? 0 : amount * 0.12, ctx.currentTime, 0.5);
 }
 
-// ---------- Tiếng phố xá lúc vừa tới Sài Gòn (màn mở đầu) ----------
-// Tạo hoàn toàn bằng máy: tiếng xe cộ rì rầm, xe máy chạy ngang, kèn xe lác đác, 2 người cãi nhau
+// ---------- Tiếng phố xá lúc vừa tới Sài Gòn (màn mở đầu) — mã loop.city ----------
+// Tổng hợp: tiếng xe cộ rì rầm, xe máy chạy ngang, kèn xe lác đác, 2 người cãi nhau
 // (giọng tổng hợp: nghe như người nói chồng lên nhau, gắt, không ra chữ). Gọi cityAmbience(false) để nhỏ dần rồi tắt.
 let amb = null;
 export function cityAmbience(on) {
+  if (ensure() && filesOf('loop.city').length) { loopFile('loop.city', on ? 1 : 0); return; }
   if (!on) {
     if (!amb || !ctx) return;
     const a = amb;
@@ -145,7 +273,7 @@ export function cityAmbience(on) {
   const out = ctx.createGain();
   out.gain.value = 0;
   out.gain.setTargetAtTime(1, ctx.currentTime, 0.4);
-  out.connect(master);
+  out.connect(fxBus);
   // tiếng xe cộ rì rầm: nhiễu nâu qua lọc thấp, lên xuống chậm
   const len = ctx.sampleRate * 4, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
   let last = 0;

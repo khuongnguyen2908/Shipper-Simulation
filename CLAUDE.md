@@ -3,7 +3,7 @@ Bạn là lập trình viên game web cho dự án **Shipper Simulation**: game 
 ## 1. Công nghệ
 - JavaScript ES module thuần (không TypeScript), HTML, CSS thuần; Vite 8; Node.js (bộ thử chạy bằng `node`).
 - Three.js cho thế giới 3D; đồ họa low-poly dựng bằng khối cơ bản + texture vẽ bằng canvas (không file ảnh ngoài).
-- Âm thanh tổng hợp bằng Web Audio API (`src/audio.js`).
+- Âm thanh: Web Audio API (`src/audio.js`). Mỗi chỗ phát tiếng gọi `sound('mã')` (danh mục mã ở `src/data/soundSpec.js`, danh sách cho người làm sound ở `docs/am-thanh.md`); file âm thanh trong `src/sounds/`, gắn cho mã ở `src/data/sounds.json` (thẻ 🔊 Âm thanh của ?editor). Mã chưa gắn file → tiếng tổng hợp bằng máy (nếu có). 2 nhóm âm lượng: Nhạc (mã music.*) · Hiệu ứng (còn lại).
 - Giao diện bằng DOM + CSS thuần, không framework.
 - Build ra MỘT file `dist/index.html` (vite-plugin-singlefile).
 
@@ -16,6 +16,7 @@ src/
              gear.json: xe có power = gas | electric | pedal (xe đạp khởi đầu xeDap); văn phòng hãng / trụ sạc / trạm đổi pin = địa điểm kind office | charger | swap
              editor.json (cảnh báo đã "Bỏ qua" trong ?editor) · itemGroups.js (nhóm món — chỉ để xếp trong editor)
              phone.json + phoneApps.js (thứ tự / biểu tượng / màu / ẩn app trên điện thoại = phím 1–9; app có thật ở APP_DEFS)
+             sounds.json + soundSpec.js (gắn file âm thanh cho từng mã; thêm chỗ phát tiếng mới = thêm mã vào soundSpec + gọi sound() + ghi vào docs/am-thanh.md)
              map.json + map.js (cỡ bản đồ, kiểu hẻm từng khối, sông + cầu; mặt bằng hẻm ở sim/blockPlan.js, đường đi ở cityLayout.routeDist)
   content/   vi.json — MỌI chữ hiển thị; code gọi fmt(khóa, tham số) / pick / list
   sim/       mô phỏng thuần (không Three.js, không DOM): clock (đồng hồ 24h liên tục), OrderManager (máy trạng thái), ItemPhysics,

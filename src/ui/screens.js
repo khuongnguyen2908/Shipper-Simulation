@@ -2,6 +2,7 @@
 // Màn hình chính: menu cột trái (Tiếp tục · Chơi mới · Hướng dẫn · Cài đặt), thành phố 3D chạy phía sau.
 // Chơi mới: (có bản lưu thì hỏi lại) → đặt tên + chọn nam/nữ → giới thiệu game 5 trang → vào game.
 // Hướng dẫn dùng lại đúng 5 trang giới thiệu.
+import { sound } from '../audio.js';
 import { fmtK } from '../sim/economy.js';
 import { APP } from '../data/apps.js';
 import { fmt } from '../content/index.js';
@@ -70,7 +71,8 @@ export class Screens {
       ${cont}
       ${btn('new', fmt('menu.new'), s ? '' : ' primary')}${btn('help', fmt('menu.help'))}${btn('settings', fmt('menu.settings'))}
       ${t.webgl2 ? '' : `<div class="warn">${fmt('screen.noWebgl')}</div>`}
-      <div class="credit">${fmt('screen.credit')}</div></nav>`;
+      <div class="credit">${fmt('screen.credit')}</div></nav>
+      <button class="mm-sound" data-sound="1" title="${esc(fmt('menu.soundToggle'))}">${t.settings.muted ? '🔇' : '🔊'}</button>`;
     const panel = view === 'confirm' ? this.confirmHtml() : view === 'profile' ? this.profileHtml() : view === 'intro' ? this.introHtml() : view === 'settings' ? settingsHtml(t.settings) : '';
     this.el.innerHTML = `${menu}<div class="mm-stage">${panel ? `<div class="mm-panel">${panel}</div>` : ''}</div>`;
     this.el.classList.toggle('mm-sub', !!panel); // màn hình hẹp: đang mở bảng phụ thì ẩn menu
@@ -147,12 +149,18 @@ export class Screens {
       if (act === 'new') return this.showView(t.save ? 'confirm' : 'profile');
       if (act === 'help') { t.mode = 'help'; t.page = 0; return this.showView('intro'); }
       if (act === 'toIntro') { t.mode = 'intro'; t.page = 0; return this.showView('intro'); }
-      if (act === 'next') { t.page = Math.min(INTRO.length - 1, t.page + 1); return this.showView('intro'); }
-      if (act === 'prev') { t.page = Math.max(0, t.page - 1); return this.showView('intro'); }
+      if (act === 'next') { sound('ui.next'); t.page = Math.min(INTRO.length - 1, t.page + 1); return this.showView('intro'); }
+      if (act === 'prev') { sound('ui.next'); t.page = Math.max(0, t.page - 1); return this.showView('intro'); }
       if (act === 'play') return t.onNew({ ...t.profile });
       this.showView(act); // menu · confirm · profile · settings
     };
     el.querySelectorAll('[data-mm]').forEach((b) => b.addEventListener('click', () => go(b.dataset.mm)));
+    // nút loa góc màn hình chính: bật / tắt âm thanh nhanh (lưu vào cài đặt)
+    el.querySelector('[data-sound]')?.addEventListener('click', () => {
+      t.settings = normSettings({ ...t.settings, muted: !t.settings.muted });
+      t.onSettings?.(t.settings);
+      this.showView(t.view);
+    });
     // chọn ngoại hình: chỉ đổi ô đang chọn + tô lại hình 3D (không dựng lại cả màn → không giật)
     el.querySelectorAll('[data-gender]').forEach((b) => b.addEventListener('click', () => { t.profile.gender = b.dataset.gender; this.refreshLook(); }));
     el.querySelectorAll('[data-hairstyle]').forEach((b) => b.addEventListener('click', () => { t.profile.hairStyle = b.dataset.hairstyle; this.refreshLook(); }));
@@ -239,9 +247,15 @@ export class Screens {
 // ======================== CÀI ĐẶT (dùng chung: màn hình chính + tạm dừng) ========================
 function settingsHtml(s) {
   const pct = (v) => `${Math.round(v * 100)}%`;
+  const slider = (k) => `<label class="mm-field${s.muted ? ' off' : ''}"><span>${fmt(`settings.${k}`)} <b data-out="${k}">${pct(s[k])}</b></span><input type="range" data-set="${k}" min="0" max="1" step="0.05" value="${s[k]}"></label>`;
   return `<h2>${fmt('settings.title')}</h2>
-    <label class="mm-field"><span>${fmt('settings.volume')} <b data-out="volume">${pct(s.volume)}</b></span><input type="range" data-set="volume" min="0" max="1" step="0.05" value="${s.volume}"></label>
-    <label class="mm-check"><input type="checkbox" data-set="muted"${s.muted ? ' checked' : ''}> ${fmt('settings.muted')}</label>
+    <div class="mm-sec">${fmt('settings.sound')}</div>
+    <div class="mm-field"><div class="mm-genders">
+      <button class="mm-gender${s.muted ? '' : ' on'}" data-muted="0">${fmt('settings.soundOn')}</button>
+      <button class="mm-gender${s.muted ? ' on' : ''}" data-muted="1">${fmt('settings.soundOff')}</button></div>
+      <small class="mm-note">${fmt('settings.muteHint')}</small></div>
+    ${slider('music')}${slider('sfx')}
+    <div class="mm-sec">${fmt('settings.other')}</div>
     <label class="mm-field"><span>${fmt('settings.sens')} <b data-out="sens">×${s.sens.toFixed(1)}</b></span><input type="range" data-set="sens" min="${SENS_RANGE[0]}" max="${SENS_RANGE[1]}" step="0.1" value="${s.sens}"></label>
     <label class="mm-check"><input type="checkbox" data-set="invertY"${s.invertY ? ' checked' : ''}> ${fmt('settings.invert')}</label>
     <div class="mm-field"><span>${fmt('settings.quality')}</span><div class="mm-genders">
@@ -264,10 +278,11 @@ function bindSettings(el, s, onChange, redraw) {
     inp.addEventListener(inp.type === 'range' ? 'input' : 'change', () => {
       set(k, inp.type === 'checkbox' ? inp.checked : Number(inp.value));
       const out = el.querySelector(`[data-out="${k}"]`);
-      if (out) out.textContent = k === 'volume' ? `${Math.round(s.volume * 100)}%` : `×${s.sens.toFixed(1)}`;
+      if (out) out.textContent = k === 'sens' ? `×${s.sens.toFixed(1)}` : `${Math.round(s[k] * 100)}%`;
     });
   });
   el.querySelectorAll('[data-quality]').forEach((b) => b.addEventListener('click', () => set('quality', b.dataset.quality, true)));
+  el.querySelectorAll('[data-muted]').forEach((b) => b.addEventListener('click', () => set('muted', b.dataset.muted === '1', true)));
   el.querySelector('[data-reset]')?.addEventListener('click', () => {
     Object.assign(s, DEFAULTS);
     onChange(normSettings(DEFAULTS));
