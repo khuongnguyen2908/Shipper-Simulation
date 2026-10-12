@@ -3317,6 +3317,84 @@ console.log('Điện thoại: thứ tự app (phone.json, thẻ 📱 Giao diện
   });
 }
 
+console.log('Hầm xe nhà trọ: xe để dành, đổi xe');
+{
+  const G = await import('../src/sim/garage.js');
+  test('Chỗ dựng xe để dành: đủ PARK_SLOTS chỗ, nằm trong hầm, không đè nhau, không đè chỗ xe đang dùng (4 hướng)', () => {
+    for (const face of ['N', 'S', 'E', 'W']) {
+      const p = { x0: 0, x1: face === 'E' || face === 'W' ? 9 : 4, z0: 0, z1: face === 'E' || face === 'W' ? 4 : 9, face };
+      const sl = G.parkSlots(p), main = G.garageSpots(p).bike;
+      assert.equal(sl.length, G.PARK_SLOTS, face);
+      for (const a of sl) {
+        assert.ok(G.inGarage(p, a.x, a.z, 0.5), `${face}: chỗ dựng nằm trong hầm`);
+        assert.ok(Math.hypot(a.x - main.x, a.z - main.z) > 0.6, `${face}: không đè xe đang dùng`);
+      }
+      for (let i = 1; i < sl.length; i++) assert.ok(Math.hypot(sl[i].x - sl[i - 1].x, sl[i].z - sl[i - 1].z) > 1.8, `${face}: hai xe để dành cách nhau`);
+    }
+    const home = layout.placeById.home;
+    for (const a of G.parkSlots(home)) assert.ok(G.inGarage(home, a.x, a.z, 0.5), 'phòng trọ thật');
+  });
+  test('Xe không dùng nằm trong hầm; lấy xe ra thì xe đang dùng dựng vào đúng chỗ đó; hầm đầy thì không mua thêm được', () => {
+    const gs = workerState({ carry: { money: 99999 } });
+    assert.deepEqual(gs.parkedVehicles, ['xeDap'], 'đang chạy cub → xe đạp trong hầm');
+    assert.ok(gs.buy('vehicles', 'wave').ok);
+    assert.equal(gs.vehicle, 'wave', 'xe mới chạy luôn');
+    assert.deepEqual(gs.parkedVehicles, ['xeDap', 'cub'], 'xe cũ về hầm');
+    const r = gs.swapVehicle('xeDap');
+    assert.ok(r.ok && gs.vehicle === 'xeDap');
+    assert.deepEqual(gs.parkedVehicles, ['wave', 'cub'], 'wave dựng vào chỗ xe đạp vừa lấy (chỗ số 1)');
+    assert.ok(!gs.swapVehicle('xeDap').ok, 'đang dùng rồi');
+    assert.ok(!gs.swapVehicle('SH').ok, 'không có xe này');
+    assert.ok(gs.buy('vehicles', 'scooter').ok);
+    assert.equal(gs.parkedVehicles.length, G.PARK_SLOTS, 'hầm đầy');
+    const m = gs.money, b = gs.buy('vehicles', 'exciter');
+    assert.ok(!b.ok && gs.money === m && !gs.owned.vehicles.includes('exciter'), 'hầm đầy: không mua được, không mất tiền');
+    assert.ok(gs.sellVehicle('wave').ok);
+    assert.ok(gs.buy('vehicles', 'exciter').ok, 'bán bớt rồi mua được');
+  });
+  test('Vào hãng khi hầm đầy: chưa vào được (không mất cọc); đủ chỗ thì xe đang dùng về hầm', () => {
+    const full = new GameState({ day: 1, carry: { money: 5000, vehicle: 'wave', owned: { vehicles: ['xeDap', 'cub', 'wave', 'scooter'], bags: ['nylon'], gear: [] }, flags: { story: 2 } } });
+    const m = full.money, before = full.brand, r = full.joinBrand('hongsm');
+    assert.ok(!r.ok && full.brand === before && full.money === m, 'hầm đầy → chưa vào hãng mới');
+    const ok = new GameState({ day: 1, carry: { money: 5000, flags: { story: 2 } } });
+    assert.ok(ok.joinBrand('hongsm').ok);
+    assert.ok(ok.parkedVehicles.includes('xeDap') && ok.vehicle !== 'xeDap', 'xe đạp về hầm, chạy xe hãng');
+  });
+}
+
+console.log('Chat: log + bong bóng (chuẩn bị chơi nhiều người)');
+{
+  const C = await import('../src/sim/chat.js');
+  test('Làm sạch tin: bỏ ký tự điều khiển, gộp khoảng trắng, cắt độ dài; rỗng → không gửi', () => {
+    assert.equal(C.cleanChat('  xin\n\tchào   bạn  '), 'xin chào bạn');
+    assert.equal(C.cleanChat('a'.repeat(500)).length, C.CHAT_MAX);
+    assert.equal(C.cleanChat('   '), '');
+    assert.equal(C.cleanChat(null), '');
+  });
+  test('Kênh chat: gửi qua đường truyền rồi nhận lại; chống spam; lời NPC chỉ ở máy mình; log giữ giới hạn', () => {
+    let t = 0;
+    const sent = [];
+    const tr = C.localTransport(), spy = { send: (m) => { sent.push(m); tr.send(m); }, onReceive: tr.onReceive };
+    const ch = new C.ChatChannel({ me: { id: 'me', name: 'Tèo' }, transport: spy, now: () => t });
+    const got = [];
+    ch.on((l) => got.push(l));
+    assert.ok(ch.send('chào cả nhà', { time: '06:10' }).ok);
+    assert.equal(sent.length, 1);
+    assert.ok(got[0].mine && got[0].name === 'Tèo' && got[0].text === 'chào cả nhà' && got[0].time === '06:10');
+    assert.equal(ch.send('lần nữa').reason, 'spam', 'gửi liền tay → chặn');
+    t += C.CHAT_GAP_MS;
+    assert.ok(ch.send('lần nữa').ok);
+    assert.equal(ch.send('   ').reason, 'empty');
+    ch.local('npc', 'Cô Hai', 'Về rồi hả con');
+    assert.equal(sent.length, 2, 'lời NPC không gửi lên đường truyền');
+    assert.equal(got.at(-1).kind, 'npc');
+    tr.send({ kind: 'chat', from: 'p2', name: 'Bạn khác', text: 'hi\u0007 ' });
+    assert.ok(!got.at(-1).mine && got.at(-1).text === 'hi', 'tin người khác cũng được làm sạch');
+    for (let i = 0; i < C.LOG_KEEP + 20; i++) ch.local('system', '', `dòng ${i}`);
+    assert.equal(ch.lines.length, C.LOG_KEEP);
+  });
+}
+
 console.log('Màn hình chính: hồ sơ shipper, cài đặt');
 {
   const { normProfile, NAME_MAX } = await import('../src/sim/GameState.js');

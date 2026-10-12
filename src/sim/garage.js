@@ -35,12 +35,38 @@ export function inGarage(p, x, z, deep = 0.9) {
   return !!g && x >= g.x0 && x <= g.x1 && z >= g.z0 && z <= g.z1 && depthIn(g, x, z) >= deep;
 }
 
-// Chỗ dựng xe (sâu trong hầm, đầu xe quay ra đường) + chỗ người đứng (gần cửa hầm, nhìn ra đường) — lúc mới vào game / sau khi ngất
+// Toạ độ trong hầm theo (d = sâu vào từ cửa hầm, l = lệch ngang khỏi giữa hầm, dương = phía tường "phải")
+function frame(g) {
+  const cx = (g.x0 + g.x1) / 2, cz = (g.z0 + g.z1) / 2;
+  const ns = g.face === 'S' || g.face === 'N';
+  return {
+    at: (d, l = 0) => (g.face === 'S' ? { x: cx + l, z: g.z1 - d } : g.face === 'N' ? { x: cx - l, z: g.z0 + d } : g.face === 'E' ? { x: g.x1 - d, z: cz - l } : { x: g.x0 + d, z: cz + l }),
+    len: ns ? g.z1 - g.z0 : g.x1 - g.x0, // độ sâu hầm
+    half: (ns ? g.x1 - g.x0 : g.z1 - g.z0) / 2, // nửa bề ngang hầm
+  };
+}
+
+// Số chỗ dựng xe để dành trong hầm (dọc tường phải), ngoài chỗ của xe đang dùng. Hầm đầy thì phải bán bớt mới mua thêm.
+export const PARK_SLOTS = 3;
+
+// Chỗ dựng xe đang dùng (sâu trong hầm, lệch sang trái chừa chỗ cho xe để dành, đầu xe quay ra đường)
+// + chỗ người đứng (gần cửa hầm, nhìn ra đường) — lúc mới vào game / sau khi ngất
 export function garageSpots(p) {
   const g = garageRect(p);
   if (!g) return null;
-  const cx = (g.x0 + g.x1) / 2, cz = (g.z0 + g.z1) / 2;
-  const at = (d) => (g.face === 'S' ? { x: cx, z: g.z1 - d } : g.face === 'N' ? { x: cx, z: g.z0 + d } : g.face === 'E' ? { x: g.x1 - d, z: cz } : { x: g.x0 + d, z: cz });
-  const len = g.face === 'S' || g.face === 'N' ? g.z1 - g.z0 : g.x1 - g.x0;
-  return { bike: { ...at(Math.min(len - 1.2, 3.6)), heading: OUT_HEADING[g.face] }, walker: { ...at(1.4), heading: OUT_HEADING[g.face] } };
+  const f = frame(g), h = OUT_HEADING[g.face];
+  return { bike: { ...f.at(Math.min(f.len - 1.2, 3.6), -0.3), heading: h }, walker: { ...f.at(1.4, -0.3), heading: h } };
+}
+
+// Các chỗ dựng xe để dành (xe không dùng tới nằm ở đây), dọc tường phải, đầu xe quay ra đường
+export function parkSlots(p) {
+  const g = garageRect(p);
+  if (!g) return [];
+  const f = frame(g), h = OUT_HEADING[g.face], l = f.half - 0.42;
+  const out = [];
+  for (let i = 0; i < PARK_SLOTS; i++) {
+    const d = Math.min(f.len - 1, 2 + i * 2.1);
+    out.push({ ...f.at(d, l), heading: h });
+  }
+  return out;
 }

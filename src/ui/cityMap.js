@@ -115,6 +115,8 @@ export class CityMap {
       }
       const f = e.target.closest('[data-f]');
       if (f) {
+        // đang chọn nút loại / đang gõ tìm thì bản đồ chỉ hiện kết quả tìm (bộ lọc không có tác dụng) → bấm lọc thì bỏ tìm
+        this.clearSearch();
         const id = f.dataset.f;
         if (this.on.has(id)) this.on.delete(id);
         else this.on.add(id);
@@ -163,6 +165,14 @@ export class CityMap {
     }, { passive: false });
   }
 
+  // Bỏ nút loại đang chọn + chữ đang tìm (bản đồ hiện lại theo bộ lọc)
+  clearSearch() {
+    this.type = null;
+    this.q = '';
+    this.qEl.value = '';
+    this.listOpen = false;
+    this.el.querySelectorAll('[data-t]').forEach((b) => b.classList.remove('on'));
+  }
   syncFilters() {
     this.el.querySelectorAll('[data-f]').forEach((b) => b.classList.toggle('off', !this.on.has(b.dataset.f)));
   }
@@ -254,6 +264,7 @@ export class CityMap {
     const { c, g } = this;
     // hướng dẫn người mới (chưa vào hãng): nhấp nháy nút "Văn phòng hãng"
     if (d.tut !== this.tutKey) {
+      if (this.tutKey === 'route' && this.type === 'office') this.clearSearch(); // xong hướng dẫn: bỏ chọn sẵn nút "Văn phòng hãng"
       this.tutKey = d.tut;
       this.el.querySelector('[data-t="office"]')?.classList.toggle('tut', d.tut === 'office');
     }

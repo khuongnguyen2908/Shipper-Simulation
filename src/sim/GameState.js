@@ -11,6 +11,7 @@ import { isOpen } from './placeRules.js';
 import { RatingBook } from './economy.js';
 import { fmt } from '../content/index.js';
 import { HAIR_STYLES, HAIR_COLORS, PLAYER_SKINS } from './people.js';
+import { PARK_SLOTS } from './garage.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 export const NAME_MAX = 20;
@@ -193,6 +194,9 @@ export class GameState {
     if (this.brand === id) return { ok: false, msg: fmt('gs.brandAlready', { brand: b.name }) };
     const dep = b.deposit || 0, refund = this.brand ? this.depositPaid : 0;
     if (this.money + refund < dep) return { ok: false, msg: fmt('gs.short', { k: Math.ceil(dep - this.money - refund) }) };
+    // xe hãng cấp chạy luôn, mọi xe còn lại về hầm nhà trọ (xe hãng cũ thì trả lại) → hầm không đủ chỗ thì chưa vào được
+    const keep = this.owned.vehicles.filter((v) => VEHICLES[v] && v !== b.vehicle && !(this.brand && v === this.companyVehicle));
+    if (VEHICLES[b.vehicle] && keep.length > PARK_SLOTS) return { ok: false, msg: fmt('gs.garageFull', { n: PARK_SLOTS }) };
     const switched = !!this.brand;
     if (switched) {
       this.leaveBrand();
@@ -260,6 +264,21 @@ export class GameState {
   canSell(id) {
     const v = VEHICLES[id];
     return !!v && this.owned.vehicles.includes(id) && id !== START_VEHICLE && id !== this.companyVehicle && v.power !== 'pedal' && this.sellPrice(id) > 0;
+  }
+  // Xe đang để trong hầm nhà trọ = mọi xe đang có trừ xe đang dùng (thứ tự = chỗ dựng trong hầm)
+  get parkedVehicles() {
+    return this.owned.vehicles.filter((v) => v !== this.vehicle && VEHICLES[v]);
+  }
+  garageFull() {
+    return this.parkedVehicles.length >= PARK_SLOTS;
+  }
+  // Lấy xe trong hầm ra dùng: xe đang dùng dựng vào đúng chỗ của xe vừa lấy (đổi chỗ trong danh sách)
+  swapVehicle(id) {
+    const list = this.owned.vehicles, i = list.indexOf(id), j = list.indexOf(this.vehicle);
+    if (i < 0 || id === this.vehicle || !VEHICLES[id]) return { ok: false, msg: fmt('gs.noSuchItem') };
+    if (j >= 0) [list[i], list[j]] = [list[j], list[i]];
+    this.vehicle = id;
+    return { ok: true, msg: fmt('gs.tookVehicle', { name: VEHICLES[id].name }) };
   }
   sellVehicle(id) {
     if (!this.canSell(id)) return { ok: false, msg: fmt('gs.cantSell') };
@@ -483,6 +502,8 @@ export class GameState {
     const stack = category === 'goods' && (spec.type === 'consumable' || spec.type === 'carry');
     const ownList = category === 'goods' ? this.owned.gear : this.owned[category];
     if (!stack && (ownList.includes(id) || this.ownsOutfit(id))) return { ok: false, msg: fmt('gs.alreadyOwned') };
+    // xe mới chạy luôn, xe đang dùng được chở về hầm nhà trọ → hầm đầy thì không mua được
+    if (category === 'vehicles' && this.garageFull()) return { ok: false, msg: fmt('gs.garageFull', { n: PARK_SLOTS }) };
     if (!this.spend(spec.price, 'purchase')) return { ok: false, msg: fmt('gs.short', { k: Math.ceil(spec.price - this.money) }) };
     if (stack) {
       this.consumables[id] = this.countOf(id) + 1;
@@ -753,7 +774,7 @@ export class GameState {
       consumables: this.consumables,
       outfit: this.outfit,
       account: this.account,
-      flags: { wallet: this.flags.wallet, walletDay: this.flags.walletDay, story: this.flags.story },
+      flags: { wallet: this.flags.wallet, walletDay: this.flags.walletDay, story: this.flags.story, tutSkip: this.flags.tutSkip },
       towed: this.towed,
       fines: this.fines.map((f) => ({ ...f })),
     };

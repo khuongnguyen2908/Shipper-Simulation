@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, NIGHT, PARKING, AIRPORT, RIDE_EVENTS } from './data/balance.js';
 import { parkingRoll, parkingLotAt, nearestStation, towTarget, safeSpot } from './sim/parking.js';
-import { garageSpots, inGarage } from './sim/garage.js';
+import { garageSpots, inGarage, parkSlots } from './sim/garage.js';
 import { airportAt, airportParkAt, airportNoStopAt, noStopStep } from './sim/airport.js';
 import { roadSegAt, tierOf, tierLabel, speedLimitOf } from './sim/roads.js';
 import { busHint, inService } from './sim/bus.js';
@@ -28,7 +28,7 @@ import { Traffic } from './world/traffic.js';
 import { buildFerries } from './world/ferry.js';
 import { nextBoat, BOAT_DECK } from './sim/ferry.js';
 import { Sky } from './world/sky.js';
-import { makePerson, makeBeacon, makeZoneRing, setSitting, pedalPerson, randomPersonOpts, npcLook, sitY } from './world/models.js';
+import { makePerson, makeBeacon, makeZoneRing, setSitting, pedalPerson, randomPersonOpts, npcLook, sitY, makeBike } from './world/models.js';
 import { guessGender, profileLook } from './sim/people.js';
 import { makeLabelTexture, makeQuestTexture } from './world/textures.js';
 import { Input } from './input.js';
@@ -41,7 +41,10 @@ import * as act from './interactions.js';
 import { roundMapData } from './roundMap.js';
 import { sfx, setEngine, setRain, unlockAudio, setMuted, setVolume, cityAmbience } from './audio.js';
 import { loadSettings, saveSettings, normSettings } from './settings.js';
-import { fmt } from './content/index.js';
+import { fmt, pick } from './content/index.js';
+import { ChatChannel } from './sim/chat.js';
+import { ChatBox } from './ui/chatBox.js';
+import { Bubbles, headOf } from './ui/bubbles.js';
 import { fmtK } from './sim/economy.js';
 
 const SAVE_KEY = 'shipper-sim-save-v1';
@@ -97,7 +100,14 @@ export class Game {
     this.input.onUnlock = () => { if (this.state === 'play' && !this.paused) this.pauseGame(); }; // Esc thả con trỏ → tạm dừng
     this.hud = new Hud(uiRoot);
     this.modal = new Modal(uiRoot);
-    this.spotlight = new Spotlight(uiRoot); // hướng dẫn người mới: làm tối xung quanh nút cần bấm
+    this.spotlight = new Spotlight(uiRoot, () => { if (this.gs) this.gs.flags.tutSkip = true; }); // hướng dẫn người mới: làm tối xung quanh nút cần bấm
+    // chat: log bên trái + bong bóng trên đầu (tin người chơi đi qua ChatChannel — sau này nối mạng để chơi nhiều người)
+    this.chatCh = new ChatChannel({ me: { id: 'me', name: '' } });
+    this.chatBox = new ChatBox(uiRoot, this.chatCh, (t) => this.sendChat(t));
+    this.bubbles = new Bubbles(uiRoot, this.camera);
+    this.chatCh.on((l) => {
+      if (l.kind === 'chat') this.bubbles.show(`p:${l.from}`, () => (l.mine ? headOf(this.walker.mesh) : null), l.text, 'chat'); // người chơi khác: sau này bám theo nhân vật của họ
+    });
     this.phone = new Phone(uiRoot, {
       refresh: () => this.renderPhone(),
       action: (a, ds) => act.phoneAction(this, a, ds),
@@ -484,18 +494,30 @@ export class Game {
   update(dt) {
     const inp = this.input;
     // con trỏ: ẩn + xoay camera theo chuột khi đang chơi; mở điện thoại / hộp thoại / tạm dừng thì hiện lại
-    inp.setLock(this.state === 'play' && !this.paused && !this.phone.open && !this.modal.open && !this.screens.open);
+    inp.setLock(this.state === 'play' && !this.paused && !this.phone.open && !this.modal.open && !this.screens.open && !this.chatBox.typing);
     // Esc vừa thả con trỏ (trình duyệt) → onUnlock đã tạm dừng; bỏ qua phím Esc đó để không bật tắt 2 lần
     if (inp.was('Escape') && performance.now() - (inp.unlockedAt || 0) < 400) inp.pressed.delete('Escape');
+    // đang hướng dẫn (màn hình tối, chỉ sáng nút cần bấm): chặn mọi phím trừ Esc (tạm dừng) và phím số của app Bản đồ
+    const tut = !this.modal.open && !this.paused && this.spotlight.step;
+    if (tut) {
+      const mapKey = tut === 'map' ? `Digit${this.phone.visibleApps(this.gs).findIndex(([id]) => id === 'map') + 1}` : null;
+      for (const c of [...inp.pressed]) if (c !== 'Escape' && c !== mapKey) inp.pressed.delete(c);
+      for (const k of Object.keys(inp.state)) inp.state[k] = false;
+    }
     if (inp.was('Escape') && !this.modal.open) {
       if (this.paused) this.resume();
-      else if (this.phone.open) this.phone.back(); // trong app → về màn hình chính, rồi mới cất máy
+      else if (this.phone.open && !tut) this.phone.back(); // trong app → về màn hình chính, rồi mới cất máy
       else this.pauseGame();
     }
     if (this.paused) return;
     const frozen = this.modal.open || this.screens.open;
     if (!frozen) {
       if (inp.was('Tab')) this.phone.toggle();
+      // Enter: mở ô chat (thả hết phím đang giữ để nhân vật đứng lại trong lúc gõ)
+      if (inp.was('Enter') || inp.was('NumpadEnter')) {
+        for (const k of Object.keys(inp.state)) inp.state[k] = false;
+        this.chatBox.open();
+      }
       if (this.phone.open) this.phone.visibleApps(this.gs).forEach(([id], i) => inp.was(`Digit${i + 1}`) && this.phone.openApp(id)); // phím 1–9 mở app (thứ tự ở phone.json; chưa vào hãng thì không có app hãng)
       if (inp.was('KeyM')) this.setMute(!this.muted);
       if (inp.was('KeyI')) this.toggleBag();
@@ -871,6 +893,8 @@ export class Game {
       sfx.crash();
     } else if (h.what === 'ped' && speed > 2) {
       mag = speed / 8;
+      const ped = h.obj;
+      if (ped) this.bubbles.show(`ped:${ped.id}`, () => headOf(ped.mesh, 1.95), pick('bubble.pedHit', Math.floor(Math.random() * 1000)));
       gs.addEnergy(-2, -ENERGY.mental.pedHit);
       msg = fmt('toast.hitPed');
       sfx.crash();
@@ -937,8 +961,27 @@ export class Game {
     else if (e.type === 'state') this.renderPhone();
   }
 
+  // Người chơi gửi tin chat (Enter) → log + bong bóng trên đầu mình
+  sendChat(text) {
+    this.chatCh.me.name = this.gs?.profile.name || '';
+    const r = this.chatCh.send(text, { time: fmtTime(this.clockMin) });
+    if (!r.ok && r.reason === 'spam') this.hud.toast(fmt('chat.spam'), 'warn', 2000);
+  }
+  // Người đi đường gần mình thỉnh thoảng nói một câu (bong bóng trên đầu, không ghi vào log)
+  pedChatter(dt) {
+    this.pedChatT = (this.pedChatT ?? 4) - dt;
+    if (this.pedChatT > 0) return;
+    this.pedChatT = 6 + Math.random() * 8;
+    const pp = this.playerPos;
+    const near = this.traffic.peds.filter((p) => p.mesh.visible && p.knock <= 0 && Math.hypot(p.x - pp.x, p.z - pp.z) < 16);
+    if (!near.length) return;
+    const p = near[Math.floor(Math.random() * near.length)];
+    this.bubbles.show(`ped:${p.id}`, () => headOf(p.mesh, 1.95), pick('bubble.ped', Math.floor(Math.random() * 1000)));
+  }
+
   addChat(from, text) {
     this.chat.push({ from, text, time: fmtTime(this.clockMin) });
+    this.chatCh.local('phone', from, text, { time: fmtTime(this.clockMin) }); // tin điện thoại cũng ghi vào log bên trái
     this.phone.notify('chat', { title: from, text });
   }
   // Tin nhắn nhóm Hội shipper (thời tiết, kẹt xe, chốt CSGT, mẹo, khai trương): chỉ người đã vào hãng mới thấy
@@ -1122,7 +1165,7 @@ export class Game {
   // Hướng dẫn người mới (chưa vào hãng): Tab mở điện thoại → app Bản đồ → nút "Văn phòng hãng" → chọn 1 hãng, Chỉ đường
   // → cất máy, đi theo mũi tên → bấm E ở văn phòng để đăng ký. Bước tính lại theo trạng thái lúc này (đóng máy giữa chừng thì quay lại bước 1).
   tutorialStep() {
-    if (!this.gs || this.gs.brand || (this.gs.flags.story ?? 2) < 2) return null; // chỉ sau khi đã leo lên xe đạp Cô Hai cho
+    if (!this.gs || this.gs.brand || (this.gs.flags.story ?? 2) < 2 || this.gs.flags.tutSkip) return null; // chỉ sau khi đã leo lên xe đạp Cô Hai cho; bấm "Bỏ qua hướng dẫn" thì thôi
     const wp = this.waypoint && this.layout.placeById[this.waypoint];
     if (wp?.kind === 'office') return this.phone.open ? 'close' : 'go';
     if (!this.phone.open) return 'phone';
@@ -1330,9 +1373,31 @@ export class Game {
     this.walker.setLook(look);
   }
 
+  // Xe để dành dựng trong hầm nhà trọ (mọi xe đang có trừ xe đang dùng) — chỉ dựng lại khi danh sách đổi
+  syncGarage() {
+    const home = this.layout.placeById.home, slots = parkSlots(home);
+    const ids = this.gs.parkedVehicles.slice(0, slots.length), key = ids.join(',');
+    if (key === this.garageKey) return;
+    this.garageKey = key;
+    if (this.garageFleet) this.scene.remove(this.garageFleet);
+    this.garageFleet = new THREE.Group();
+    ids.forEach((id, i) => {
+      const v = VEHICLES[id], m = makeBike(v.color, v.model || 'underbone'), s = slots[i];
+      if (m.userData.bagMesh) m.userData.bagMesh.visible = false; // túi đồ đi theo xe đang dùng
+      m.position.set(s.x, 0, s.z);
+      m.rotation.y = s.heading;
+      this.garageFleet.add(m);
+    });
+    this.scene.add(this.garageFleet);
+  }
+
   updateVisuals(dt) {
     const { gs, om, hz } = this;
     const now = this.clockMin;
+    this.syncGarage();
+    this.chatBox.update();
+    this.bubbles.update(dt);
+    this.pedChatter(dt);
     const rain = hz.rainAt(now);
     const pp = this.playerPos;
     this.applyLook();

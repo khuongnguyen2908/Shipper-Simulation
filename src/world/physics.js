@@ -82,6 +82,17 @@ export function resolveCircle(pos, r, grid, y = 0) {
   return normals;
 }
 
+// Hình tròn bán kính r tại (x, z) có trống không (không chạm khối nhà / tường nào) — dùng chọn chỗ đứng khi xuống xe
+export function circleFree(grid, x, z, r, y = 0) {
+  for (const c of grid.query(x, z, r + 1)) {
+    if (c.cam) continue;
+    if (y > 0.5 && c.h <= y + 0.3) continue;
+    const px = Math.max(c.x0, Math.min(x, c.x1)), pz = Math.max(c.z0, Math.min(z, c.z1));
+    if ((x - px) ** 2 + (z - pz) ** 2 < r * r) return false;
+  }
+  return true;
+}
+
 // Va chạm tròn – tròn (xe NPC, người đi đường). Trả về pháp tuyến nếu chạm.
 export function pushCircle(pos, r, cx, cz, cr) {
   const dx = pos.x - cx, dz = pos.z - cz;

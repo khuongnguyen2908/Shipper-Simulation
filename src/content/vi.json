@@ -530,7 +530,7 @@
   "hud.fuel": "⛽ Xăng",
   "hud.hp": "🔧 Xe",
   "hud.objectives": "📋 Mục tiêu hôm nay",
-  "hud.keys": "WASD lái/đi · Shift chạy · Space phanh · F lên/xuống xe · E tương tác · Tab điện thoại · I túi đồ · H còi · M tắt tiếng · Esc tạm dừng · Chuột: xoay camera (bấm vào màn hình nếu con trỏ còn hiện)",
+  "hud.keys": "WASD lái/đi · Shift chạy · Space phanh · F lên/xuống xe · E tương tác · Tab điện thoại · I túi đồ · H còi · M tắt tiếng · Enter chat · Esc tạm dừng · Chuột: xoay camera (bấm vào màn hình nếu con trỏ còn hiện)",
   "hud.cargo": "📦 Đang chở · còn {left}",
   "hud.minutes": "{min} phút",
   "hud.late": "<span class=\"red\">trễ {min} phút</span>",
@@ -1224,5 +1224,38 @@
   "dlg.landlordIntro": "\"Con là {name} hả? Lên tới rồi đó hả con!\"[tiếp]\"Phòng cô dọn sẵn rồi. Tiền phòng <b>3 ngày đóng một lần</b> nghe con.\"[tiếp]\"Giờ lo đi kiếm việc làm đi. Dạo này <b>xe công nghệ</b> làm ăn được lắm, mấy đứa trong xóm chạy cũng khá.\"[tiếp]\"Cô có chiếc <b>xe đạp cũ</b> trong hầm xe, con lấy chạy tạm. Rồi ra <b>văn phòng hãng</b> đăng ký nghe chưa!\"",
   "dlg.landlordIntroOk": "Dạ con cảm ơn cô!",
   "toast.gotBike": "🚲 Cô Hai cho chiếc <b>xe đạp cũ</b> — đang dựng trong hầm xe nhà trọ. Tới gần, bấm <kbd>F</kbd> để leo lên.",
-  "toast.firstRide": "🚲 Lên xe rồi! Giờ tìm văn phòng hãng xe để đăng ký: bấm <kbd>Tab</kbd> mở điện thoại → <b>Bản đồ</b> → <b>Văn phòng hãng</b>."
+  "toast.firstRide": "🚲 Lên xe rồi! Giờ tìm văn phòng hãng xe để đăng ký: bấm <kbd>Tab</kbd> mở điện thoại → <b>Bản đồ</b> → <b>Văn phòng hãng</b>.",
+  "gs.garageFull": "Hầm xe nhà trọ đã đầy ({n} xe để dành) — bán bớt xe cũ trước đã",
+  "gs.tookVehicle": "Lấy {name} ra chạy — xe kia dựng lại trong hầm",
+  "act.takeVehicle": "Lấy {name} ra chạy",
+  "act.takeVehicleNeedBike": "Lấy {name}: dựng xe đang chạy vào hầm trước",
+  "dlg.vehicleInGarage": "Đang để trong hầm xe nhà trọ — về hầm, tới chỗ xe bấm E để lấy ra chạy",
+  "dlg.garageFullHint": "Hầm xe nhà trọ đã đầy ({n} xe để dành) — bán bớt xe cũ trước",
+  "toast.oldToGarage": "Xe {name} được chở về hầm xe nhà trọ",
+  "toast.soldActive": "Đã bán xe đang chạy — đi bộ về hầm nhà trọ lấy {name} nhé",
+  "tut.skip": "Bỏ qua hướng dẫn ✕",
+  "chat.placeholder": "Nhập tin nhắn… (Enter gửi · Esc hủy)",
+  "chat.spam": "Gõ chậm thôi 😅",
+  "bubble.ped": [
+    "Nóng quá trời luôn!",
+    "Ủa ăn gì chưa ta…",
+    "Kẹt xe nữa rồi!",
+    "Trời ơi giá xăng lên nữa kìa.",
+    "Chiều nay chắc mưa đó.",
+    "Mua vé số không con?",
+    "Đi đâu mà vội dữ vậy!",
+    "Ly trà đá nữa đi chị ơi!"
+  ],
+  "bubble.pedHit": [
+    "Ê! Chạy kiểu gì vậy!",
+    "Trời đất ơi, đi đứng cẩn thận chứ!",
+    "Mắt để đâu vậy hả?!",
+    "Á! Đau quá!"
+  ],
+  "bubble.riderHi": [
+    "Chạy chậm giùm em nha.",
+    "Đi lẹ giùm em, em trễ rồi!",
+    "Cho em xuống đúng chỗ nha.",
+    "Trời nóng ghê ha."
+  ]
 }

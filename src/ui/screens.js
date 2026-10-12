@@ -102,6 +102,15 @@ export class Screens {
       </div><div class="mm-avatar" id="mmAvatar"></div></div>
       <div class="row"><button class="btn big" data-mm="${this.t.save ? 'confirm' : 'menu'}">${fmt('menu.prev')}</button><button class="btn big primary" data-mm="toIntro">${fmt('menu.next')}</button></div>`;
   }
+  // Đổi ngoại hình tại chỗ: bật ô đang chọn (giới tính đổi thì kiểu tóc mặc định cũng đổi theo) + vẽ lại nhân vật
+  refreshLook() {
+    const p = this.t.profile, n = normProfile(p), el = this.el;
+    el.querySelectorAll('[data-gender]').forEach((b) => b.classList.toggle('on', b.dataset.gender === p.gender));
+    el.querySelectorAll('[data-hairstyle]').forEach((b) => b.classList.toggle('on', b.dataset.hairstyle === n.hairStyle));
+    el.querySelectorAll('[data-hair]').forEach((b) => b.classList.toggle('on', Number(b.dataset.hair) === n.hair));
+    el.querySelectorAll('[data-skin]').forEach((b) => b.classList.toggle('on', Number(b.dataset.skin) === n.skin));
+    this.avatar?.show({ shirt: 0x5dade2, pants: 0x34495e, ...profileLook(n) });
+  }
   // hình xem trước nhân vật (một bộ vẽ dùng lại; chỉ chạy khi đang ở bước tạo nhân vật)
   showAvatar() {
     const box = this.el.querySelector('#mmAvatar');
@@ -144,10 +153,11 @@ export class Screens {
       this.showView(act); // menu · confirm · profile · settings
     };
     el.querySelectorAll('[data-mm]').forEach((b) => b.addEventListener('click', () => go(b.dataset.mm)));
-    el.querySelectorAll('[data-gender]').forEach((b) => b.addEventListener('click', () => { t.profile.gender = b.dataset.gender; go('profile'); }));
-    el.querySelectorAll('[data-hairstyle]').forEach((b) => b.addEventListener('click', () => { t.profile.hairStyle = b.dataset.hairstyle; go('profile'); }));
-    el.querySelectorAll('[data-hair]').forEach((b) => b.addEventListener('click', () => { t.profile.hair = Number(b.dataset.hair); go('profile'); }));
-    el.querySelectorAll('[data-skin]').forEach((b) => b.addEventListener('click', () => { t.profile.skin = Number(b.dataset.skin); go('profile'); }));
+    // chọn ngoại hình: chỉ đổi ô đang chọn + tô lại hình 3D (không dựng lại cả màn → không giật)
+    el.querySelectorAll('[data-gender]').forEach((b) => b.addEventListener('click', () => { t.profile.gender = b.dataset.gender; this.refreshLook(); }));
+    el.querySelectorAll('[data-hairstyle]').forEach((b) => b.addEventListener('click', () => { t.profile.hairStyle = b.dataset.hairstyle; this.refreshLook(); }));
+    el.querySelectorAll('[data-hair]').forEach((b) => b.addEventListener('click', () => { t.profile.hair = Number(b.dataset.hair); this.refreshLook(); }));
+    el.querySelectorAll('[data-skin]').forEach((b) => b.addEventListener('click', () => { t.profile.skin = Number(b.dataset.skin); this.refreshLook(); }));
     this.showAvatar();
     if (t.view === 'settings') bindSettings(el, t.settings, (s) => { t.settings = s; t.onSettings?.(s); }, () => this.showView('settings'));
     if (t.view === 'profile') { const n = name(); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }

@@ -1,8 +1,9 @@
 import { fmt } from '../content/index.js';
 
 // Hướng dẫn người mới: làm tối cả màn hình, chỉ chừa một "lỗ sáng" quanh nút đang cần bấm (nút có class .tut)
-// + bong bóng chữ chỉ dẫn bên cạnh. Lớp phủ không chặn chuột (bấm xuyên qua được), vẽ nằm ngoài điện thoại
-// nên viền sáng không bị khung điện thoại cắt mất / đè lên nút bên cạnh.
+// + bong bóng chữ chỉ dẫn bên cạnh. Chỉ bấm được trong lỗ sáng: 4 tấm chắn trong suốt phủ phần tối xung quanh
+// (phím tắt thì game.js chặn). Có nút "Bỏ qua hướng dẫn" cho người đã biết chơi.
+// Vẽ nằm ngoài điện thoại nên viền sáng không bị khung điện thoại cắt mất / đè lên nút bên cạnh.
 const TARGETS = {
   map: ['.ph-apps button.tut'], // app Bản đồ (biểu tượng + tên)
   office: ['.cm-types .tut'], // nút "Văn phòng hãng"
@@ -11,14 +12,20 @@ const TARGETS = {
 const PAD = 6; // lỗ sáng rộng hơn nút một chút
 
 export class Spotlight {
-  constructor(root) {
+  // onSkip: người chơi bấm "Bỏ qua hướng dẫn"
+  constructor(root, onSkip) {
     this.el = document.createElement('div');
     this.el.id = 'spotlight';
     this.el.className = 'hidden';
-    this.el.innerHTML = '<div class="sp-hole"></div><div class="sp-tip"><b></b><small></small></div>';
+    this.el.innerHTML = `<div class="sp-hole"></div>${'<div class="sp-block"></div>'.repeat(4)}
+      <div class="sp-tip"><b></b><small></small></div><button class="sp-skip">${fmt('tut.skip')}</button>`;
     root.appendChild(this.el);
     this.hole = this.el.querySelector('.sp-hole');
     this.tip = this.el.querySelector('.sp-tip');
+    this.blocks = [...this.el.querySelectorAll('.sp-block')];
+    // tấm chắn: nuốt mọi cú bấm ngoài lỗ sáng
+    for (const b of this.blocks) for (const ev of ['pointerdown', 'click', 'wheel', 'contextmenu']) b.addEventListener(ev, (e) => { e.preventDefault(); e.stopPropagation(); });
+    this.el.querySelector('.sp-skip').addEventListener('click', () => { onSkip?.(); this.hide(); });
     this.step = null;
   }
 
@@ -40,6 +47,12 @@ export class Spotlight {
     if (key === this.key) return;
     this.key = key;
     Object.assign(this.hole.style, { left: `${x}px`, top: `${y}px`, width: `${w}px`, height: `${h}px`, borderRadius: getComputedStyle(target).borderRadius === '0px' ? '10px' : `calc(${getComputedStyle(target).borderRadius} + ${PAD}px)` });
+    // 4 tấm chắn: trên · dưới · trái · phải lỗ sáng
+    const W = innerWidth, H = innerHeight, box = (b, l, t, bw, bh) => Object.assign(b.style, { left: `${l}px`, top: `${t}px`, width: `${Math.max(0, bw)}px`, height: `${Math.max(0, bh)}px` });
+    box(this.blocks[0], 0, 0, W, y);
+    box(this.blocks[1], 0, y + h, W, H - y - h);
+    box(this.blocks[2], 0, y, x, h);
+    box(this.blocks[3], x + w, y, W - x - w, h);
     // bong bóng chữ: bên trái lỗ sáng nếu đủ chỗ (điện thoại nằm bên phải), không thì ở trên / dưới
     const tw = Math.min(260, innerWidth - 32), t = this.tip.style;
     t.width = `${tw}px`;

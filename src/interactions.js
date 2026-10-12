@@ -4,6 +4,7 @@
 // Mọi chữ lấy từ kho chữ qua fmt() — sửa bằng công cụ ?editor.
 // =============================================================
 import { TIME, ECONOMY, ENERGY, ORDER, VEHICLES, BAGS, WALLET_QUEST, PARKING } from './data/balance.js';
+import { circleFree } from './world/physics.js';
 import { APP, ORDER_TYPES, RIDER_TYPES, BRANDS } from './data/apps.js';
 import { GOODS, OUTFIT_SLOTS, isAccessorySlot } from './data/goods.js';
 import { isOpen, fmtHours, placesUsing, placesSelling, unlocked, openDayOf } from './sim/placeRules.js';
@@ -18,15 +19,20 @@ import { fmt, pick, has } from './content/index.js';
 import { fmtClock, minutesUntil } from './sim/clock.js';
 import { buildPacking } from './ui/packing.js';
 import { sfx } from './audio.js';
-import { inGarage } from './sim/garage.js';
+import { inGarage, parkSlots, PARK_SLOTS } from './sim/garage.js';
 import { uniformOf } from './sim/GameState.js';
 import { signaturePad } from './ui/signature.js';
+import { splitPages } from './ui/modal.js';
+import { headOf } from './ui/bubbles.js';
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const stars = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
 
 function say(g, speaker, portrait, text, choices = [{ label: fmt('dlg.ok') }], extra = {}) {
   g.modal.show({ speaker, portrait, text, choices, ...extra });
+  // ghi lời NPC vào log chat bên trái (trang đầu, bỏ định dạng, cắt ngắn)
+  const plain = splitPages(String(text).replace(/<[^>]+>/g, ''))[0] || '';
+  g.chatCh?.local('npc', speaker, plain.length > 160 ? plain.slice(0, 157) + '…' : plain, { time: fmtClock(g.clockMin) });
 }
 
 // NPC của một địa điểm (tên + chân dung)
@@ -60,6 +66,16 @@ export function gatherInteractions(g) {
   if (!foot) out.push({ key: 'F', label: fmt('act.dismount'), dist: 0, disabled: !slow, run: () => dismount(g) });
 
   const E = [];
+  // hầm xe nhà trọ: tới gần xe để dành, bấm E lấy ra chạy (xe đang dùng phải dựng trong hầm, không có đơn, xe không bị giữ)
+  if (foot && g.bikeReady() && !g.gs.towed && !om.order) {
+    const home = g.layout.placeById.home, slots = parkSlots(home);
+    g.gs.parkedVehicles.slice(0, slots.length).forEach((id, i) => {
+      const d = dist(p, slots[i]);
+      if (d > 1.6) return;
+      const name = VEHICLES[id].name, here = g.bikeInGarage();
+      E.push({ label: fmt(here ? 'act.takeVehicle' : 'act.takeVehicleNeedBike', { name }), dist: here ? d - 30 : d, disabled: !here, run: () => takeVehicle(g, id) }); // đứng sát xe: ưu tiên hơn "Lên phòng"
+    });
+  }
   const o = om.order;
   if (o) {
     const dp = dist(p, o.pickup.door);
@@ -120,10 +136,27 @@ function mount(g) {
   }
 }
 
+// Lấy xe trong hầm ra chạy: xe đang dùng dựng vào chỗ xe vừa lấy, rồi leo lên xe mới luôn
+function takeVehicle(g, id) {
+  const r = g.gs.swapVehicle(id);
+  if (!r.ok) return g.hud.toast(r.msg, 'bad');
+  g.bike.setSpec(g.gs.vehicleSpec);
+  g.bike.setBag(g.gs.bagSpec);
+  g.hud.toast(r.msg, 'good');
+  mount(g);
+}
+
 function dismount(g) {
   g.mode = 'foot';
   g.walker.standUp(g.scene, g.bike);
   const w = g.walker, el = g.city.elev;
+  // chỗ đứng không dính tường (xe dựng sát tường hầm thì xuống bên kia): trái → phải → sau → trước xe → ngay chỗ xe.
+  // Trước đây luôn xuống bên trái → lọt vào trong tường → bị đẩy văng ra ngoài nhà.
+  const f = g.bike.forward(), b = g.bike.pos, y = w.deckY ?? 0;
+  const spots = [[f.z * 0.9, -f.x * 0.9], [-f.z * 0.9, f.x * 0.9], [-f.x * 1.4, -f.z * 1.4], [f.x * 1.4, f.z * 1.4]];
+  const [dx, dz] = spots.find(([sx, sz]) => circleFree(g.city.grid, b.x + sx, b.z + sz, 0.4, y)) || [0, 0];
+  w.pos.x = w._ex = b.x + dx;
+  w.pos.z = w._ez = b.z + dz;
   if (w.deckY != null && el && el.heightAt(w.pos.x, w.pos.z, w.deckY, 0.35) == null) {
     w.pos.x = w._ex = g.bike.pos.x;
     w.pos.z = w._ez = g.bike.pos.z;
@@ -432,6 +465,10 @@ function boardPassenger(g) {
   const o = om.order;
   om.boardPassenger(g.clockMin);
   sfx.click();
+  // khách chào khi leo lên xe: bong bóng trên đầu khách + ghi log
+  const hi = pick('bubble.riderHi', Math.floor(g.clockMin));
+  g.bubbles?.show('rider', () => headOf(g.passengerMesh, 1.9), hi);
+  g.chatCh?.local('npc', o.customer, hi, { time: fmtClock(g.clockMin) });
   g.hud.toast(fmt('toast.boarded', { customer: o.customer, kmh: comfortKmh(g, o) }), 'good');
 }
 
@@ -1037,7 +1074,8 @@ function shopDialog(g, pl) {
     const free = Object.values(BAGS).find((b) => b.price === 0);
     if (free && gs.bag !== free.id && gs.owned.bags.includes(free.id)) choices.push({ label: fmt('dlg.shopUseNylon'), keepOpen: true, onSelect: () => { gs.bag = free.id; g.bike.setBag(gs.bagSpec); reopen(); } });
   }
-  // Xe: mua xe tiệm bán + đổi qua lại giữa các xe đang có (kể cả xe đạp, xe hãng) + bán xe cũ (50% giá xe mới)
+  // Xe: mua xe tiệm bán (xe mới chạy luôn, xe đang dùng chở về hầm nhà trọ) + bán xe cũ (50% giá xe mới).
+  // Xe đang có mà không dùng thì nằm trong hầm nhà trọ — muốn đổi xe phải về hầm lấy (không đổi ở tiệm nữa)
   if ((sells.vehicles || []).length) {
     const list = [...new Set([...(sells.vehicles || []), ...gs.owned.vehicles])].filter((id) => VEHICLES[id]);
     for (const id of list) {
@@ -1048,16 +1086,17 @@ function shopDialog(g, pl) {
       const spec = v.power === 'pedal' ? fmt('dlg.garageSpecPedal', { kmh: Math.round(v.maxSpeed * 3.6), desc: v.desc })
         : fmt(v.power === 'electric' ? 'dlg.garageSpecEv' : 'dlg.garageSpec', { kmh: Math.round(v.maxSpeed * 3.6), susp: Math.round(v.suspension * 100), fuel: v.fuelPer100km, tank: v.tank, desc: v.desc });
       choices.push({
-        label: `${using ? '🛵 ' : owned ? '✔ ' : ''}${v.name} · ${kind}${owned ? (using ? '' : ` ${fmt('dlg.useVehicle')}`) : ` – ${v.price}k`}`,
-        hint: spec,
-        disabled: using || (!owned && gs.money < v.price),
+        label: `${using ? '🛵 ' : owned ? '✔ ' : ''}${v.name} · ${kind}${owned ? '' : ` – ${v.price}k`}`,
+        hint: owned && !using ? fmt('dlg.vehicleInGarage') : !owned && gs.garageFull() ? fmt('dlg.garageFullHint', { n: PARK_SLOTS }) : spec,
+        disabled: owned || gs.money < v.price || gs.garageFull(),
         keepOpen: true,
         onSelect: () => {
-          if (owned) gs.vehicle = id;
-          else {
-            const r = gs.buy('vehicles', id);
-            g.hud.toast(r.ok ? fmt('toast.boughtVehicle', { msg: r.msg }) : r.msg, r.ok ? 'good' : 'bad');
-            if (r.ok) sfx.win();
+          const old = gs.vehicleSpec.name;
+          const r = gs.buy('vehicles', id);
+          g.hud.toast(r.ok ? fmt('toast.boughtVehicle', { msg: r.msg }) : r.msg, r.ok ? 'good' : 'bad');
+          if (r.ok) {
+            sfx.win();
+            g.hud.toast(fmt('toast.oldToGarage', { name: old }), 'info', 5000);
           }
           g.bike.setSpec(gs.vehicleSpec);
           reopen();
@@ -1071,9 +1110,16 @@ function shopDialog(g, pl) {
         hint: fmt('dlg.sellHint', { pct: Math.round((ECONOMY.sellPct ?? 0.5) * 100), price: VEHICLES[id].price }),
         keepOpen: true,
         onSelect: () => {
+          const active = gs.vehicle === id;
           const r = gs.sellVehicle(id);
           g.hud.toast(r.msg, r.ok ? 'good' : 'bad');
           if (r.ok) sfx.cash();
+          // bán đúng chiếc đang chạy → đi bộ; xe thay thế (xe đạp / xe hãng) vẫn đang dựng trong hầm nhà trọ
+          if (r.ok && active) {
+            if (g.mode === 'bike') dismount(g);
+            g.placeAtHomeBike();
+            g.hud.toast(fmt('toast.soldActive', { name: gs.vehicleSpec.name }), 'info', 6000);
+          }
           g.bike.setSpec(gs.vehicleSpec);
           reopen();
         },
