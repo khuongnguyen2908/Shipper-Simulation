@@ -779,5 +779,24 @@ export function validateAll({ items, gear, goods, places, content, baseContent, 
     ...(goods ? validateGoods(goods, places) : []),
     ...validatePlaces(places, items, goods, gear, map),
     ...validateContent(content, baseContent || content),
+    ...validateFeedLines(content, places),
   ];
+}
+
+// App Tích Tắc (sim/feed.js): mỗi mẫu tin "[photo:here|food|place hoặc clip:dog|dance|food|rain|text|meme] @tác_giả | chú thích | nhạc | chữ trên ảnh"
+export const FEED_MEDIA = ['photo:here', 'photo:food', 'photo:place', 'clip:dog', 'clip:dance', 'clip:food', 'clip:rain', 'clip:text', 'clip:meme'];
+export function validateFeedLines(content, placesData = null) {
+  const out = [];
+  const placeIds = new Set((placesData?.places || []).map((p) => p.id));
+  for (const [key, v] of Object.entries(content || {})) {
+    if (!/^tt\.(hot|me)\.|^tt\.(fun|spot)$/.test(key)) continue;
+    for (const s of Array.isArray(v) ? v : [v]) {
+      const m = /^\s*\[([^\]]*)\]/.exec(String(s));
+      const add = (msg) => out.push({ level: 'error', tab: 'text', ref: key, field: 'text', msg: `"${String(s).slice(0, 40)}…": ${msg}` });
+      if (!m) add(`Thiếu loại ảnh ở đầu câu, vd [photo:food] hoặc [clip:dog]. Có: ${FEED_MEDIA.join(', ')}.`);
+      else if (!FEED_MEDIA.includes(m[1].trim()) && !(/^photo:/.test(m[1].trim()) && placeIds.has(m[1].trim().slice(6)))) add(`Loại ảnh lạ "${m[1]}". Có: ${FEED_MEDIA.join(', ')} hoặc photo:<mã địa điểm> (vd photo:tra).`);
+      if (String(s).split('|').length < 2) add('Thiếu dấu | giữa tác giả và chú thích: "[clip:dog] @ten | chú thích | nhạc | chữ trên ảnh".');
+    }
+  }
+  return out;
 }

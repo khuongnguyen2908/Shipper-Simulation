@@ -52,6 +52,19 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
 - Chỗ nối sẵn: `map.json` dạng `floodSegs`, cọ vẽ như `floodBox/paintFlood` trong `tabMap.js`; xe NPC giữ chỗ ngã tư ở `traffic.canEnter`;
   rẽ phải là cung bậc hai `makeTurn` (TURN_R = 8 m) chạy sát góc cong vỉa hè (~1–2 m) nên không còn chỗ cho đảo nổi trong ngã tư hiện tại.
 
+## ✅ Đã xong (13/10/2026 khuya) — chưa commit
+- App điện thoại **⏱️ Tích Tắc** (tên chọn để tránh trùng nhãn hiệu TikTok): lướt tin, thả tim, xem bình luận — chỉ để vui.
+  Tin nóng theo chuyện trong game (dự báo, mưa, ngập, triều cường, kẹt xe, chốt CSGT, khai trương, điểm nóng lừa đảo, ví anh Minh),
+  tin về mình (tân binh, số đơn, điểm), tin vui ngẫu nhiên. Ảnh = chụp thật trong thế giới 3D (game.snapPhoto), clip = vẽ 2D.
+  Mẫu tin ở vi.json `tt.*` ("[loại ảnh] @tác_giả | chú thích | nhạc | chữ trên ảnh"), kiểm tra ở validate.js `validateFeedLines`.
+  Tiếng mới `phone.swipe`, `phone.like` (chưa gắn file).
+  Thêm: 18 tin theo trend TikTok VN (tháng 10/2026: "Ai đưa em về", 20/10, cạn phước, trùng sinh chắc luôn, delulu…),
+  nhóm `tt.spot` (tin quán quen, luôn có 2 tin) = Tiệm Trà A Di Đà chị Linh; `photo:<mã địa điểm>` chụp đúng nơi đó.
+- Người đi đường **TikToker** (vai `[tiktok]`): kiểu A giơ điện thoại trước mặt / kiểu B gậy tự sướng, đi chậm (models.holdPhone).
+- Xưng hô: thẻ tuổi / giới tính trước tên ("[kid] Con nít", "[f] …"); tên không rõ nam nữ → mỗi người đi đường ngẫu nhiên;
+  "Thằng …" = thanh niên ("Thằng nhóc / bé …" = trẻ con); tên Tây chỉ đoán theo danh sách tên quen.
+- `?editor`: sửa lỗi "Lưu thất bại … reading '0'" (thẻ Địa điểm vẽ bản đồ lô khi có địa điểm chưa đặt); lưu xong mà vẽ lại lỗi thì báo riêng.
+
 ## ✅ Đã xong (13/10/2026 tối) — 16 lỗi chủ game báo
 - Điện thoại: tới văn phòng hãng thì hướng dẫn "bấm E đăng ký" (không quay lại bước mở Bản đồ) · có đơn mới khi đang xem app khác
   chỉ hiện thông báo (không tự nhảy app) · sửa Bản đồ bị đen (lỗi cập nhật giao diện khi nhảy thẳng từ Bản đồ sang app khác)

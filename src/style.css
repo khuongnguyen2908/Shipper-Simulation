@@ -479,3 +479,34 @@ b.plus { color: #58d68d; }
 ::-webkit-scrollbar-thumb { background: transparent; border-radius: 4px; }
 *:hover::-webkit-scrollbar-thumb { background: rgba(140, 150, 165, 0.55); }
 ::-webkit-scrollbar-thumb:hover { background: rgba(160, 170, 185, 0.85); }
+
+/* ---- app Tích Tắc (ui/tictac.js): mỗi tin chiếm cả màn hình điện thoại ---- */
+.ph-body.ph-ttbody { padding: 0; overflow: hidden; background: #000; position: relative; }
+.tt { position: absolute; inset: 0; overflow: hidden; color: #fff; user-select: none; touch-action: none; }
+.tt-media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.tt-top { position: absolute; top: 8px; left: 0; right: 0; text-align: center; font-size: 13px; z-index: 2; text-shadow: 0 1px 3px #000; }
+.tt-top span { opacity: 0.75; cursor: pointer; }
+.tt-top b { border-bottom: 2px solid #fff; padding-bottom: 2px; }
+.tt-tag { position: absolute; top: 34px; left: 10px; background: #e24b4a; font: 700 11px var(--font); padding: 2px 7px; border-radius: 4px; z-index: 2; }
+.tt-side { position: absolute; right: 6px; bottom: 96px; display: flex; flex-direction: column; gap: 8px; align-items: center; z-index: 2; }
+.tt-side button { background: none; border: 0; color: #fff; font: 600 11px var(--font); display: flex; flex-direction: column; align-items: center; cursor: pointer; text-shadow: 0 1px 3px #000; padding: 0; }
+.tt-side button i { font-style: normal; font-size: 24px; line-height: 1.1; }
+.tt-side button[data-tt='prev'], .tt-side button[data-tt='next'] { width: 28px; height: 22px; border-radius: 6px; background: rgba(0, 0, 0, 0.35); font-size: 11px; justify-content: center; }
+.tt-cap { position: absolute; left: 10px; right: 52px; bottom: 26px; z-index: 2; font-size: 12.5px; line-height: 1.35; text-shadow: 0 1px 3px #000; }
+.tt-cap p { margin: 3px 0; }
+.tt-cap small { opacity: 0.85; }
+.tt-bar { position: absolute; left: 0; right: 0; bottom: 4px; height: 3px; background: rgba(255, 255, 255, 0.25); z-index: 2; }
+.tt-bar span { display: block; height: 100%; background: #fff; }
+.tt-heart { position: absolute; left: 50%; top: 45%; font-size: 90px; transform: translate(-50%, -50%); z-index: 3; pointer-events: none; }
+.tt-heart.pop { animation: ttpop 0.7s ease-out forwards; }
+@keyframes ttpop { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); } 25% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); } 100% { opacity: 0; transform: translate(-50%, -80%) scale(1); } }
+.tt-sheet { position: absolute; left: 0; right: 0; bottom: 0; max-height: 60%; overflow-y: auto; background: #1b222d; border-radius: 14px 14px 0 0; padding: 10px 12px; z-index: 4; font-size: 12.5px; }
+.tt-sheet button { position: absolute; right: 8px; top: 6px; background: none; border: 0; color: #fff; cursor: pointer; font-size: 14px; }
+.tt-sheet p { margin: 8px 0 0; }
+.tt-sheet small { display: block; color: var(--muted); }
+.tt-hint { position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; font-size: 10px; opacity: 0; transition: opacity 0.3s; z-index: 2; pointer-events: none; }
+.tt-hint.on { opacity: 1; background: rgba(0, 0, 0, 0.55); padding: 4px; }
+.tt.tt-in-up .tt-media { animation: ttup 0.22s ease-out; }
+.tt.tt-in-down .tt-media { animation: ttdown 0.22s ease-out; }
+@keyframes ttup { from { transform: translateY(40%); opacity: 0.4; } }
+@keyframes ttdown { from { transform: translateY(-40%); opacity: 0.4; } }

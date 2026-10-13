@@ -4078,6 +4078,13 @@ console.log('Xưng hô theo người nói');
     assert.equal(personOf('Bác Năm (mẹ anh Minh)', { gender: 'f' }).gender, 'f');
     // không đoán được → cố định theo tên (lần nào cũng như nhau)
     assert.equal(personOf('Hai Thông').gender, personOf('Hai Thông').gender);
+    // thẻ trước tên đặt được tuổi / giới tính; "Thằng …" là thanh niên, "Thằng nhóc …" là trẻ con
+    assert.equal(personOf('[kid] Con nít').age, 'kid');
+    assert.equal(personOf('[elder,f] Người bán xôi').gender, 'f');
+    assert.equal(personOf('[elder,f] Người bán xôi').age, 'elder');
+    assert.equal(personOf('[khung] Thằng khùng').age, 'young');
+    assert.equal(personOf('Thằng nhóc bán kẹo').age, 'kid');
+    assert.ok(personOf('Sinh viên').guessed && !personOf('Anh sinh viên').guessed && !personOf('[f] Sinh viên').guessed);
   });
   test('Câu gắn thẻ vai chỉ người đúng vai nói ("[veso] Mua vé số…"); tên người đi đường bỏ thẻ khi hiện', () => {
     const veso = personOf('[veso] Cô bán vé số'), hs = personOf('Cậu học sinh');
@@ -4121,6 +4128,46 @@ console.log('Trạm sạc, cản trở giao thông lúc kẹt xe');
     assert.ok(!t.blameable({ px: cx, pz: cz, onBike: false }), 'trong đoạn kẹt');
     assert.ok(!t.blameable({ px: cx + 300, pz: cz + 300, onBike: true, speed: 3 }), 'đang chạy theo dòng');
     assert.ok(t.blameable({ px: cx + 300, pz: cz + 300, onBike: false }), 'đứng yên giữa đường thường');
+  });
+}
+
+console.log('App Tích Tắc (sim/feed.js)');
+{
+  const { buildFeed, parsePost, fmtCount } = await import('../src/sim/feed.js');
+  const { validateFeedLines } = await import('../src/data/validate.js');
+  test('Mẫu tin: tách loại ảnh / tác giả / chú thích / nhạc / chữ trên ảnh; số like kiểu 12,4K', () => {
+    const p = parsePost('[photo:food] anuong | Phở {place} ngon | nhạc nền | 10/10', { place: 'Bà Tư' });
+    assert.deepEqual(p.media, { type: 'photo', what: 'food' });
+    assert.equal(p.author, '@anuong');
+    assert.equal(p.caption, 'Phở Bà Tư ngon');
+    assert.equal(p.overlay, '10/10');
+    assert.equal(fmtCount(12400), '12,4K');
+    assert.equal(fmtCount(1200000), '1,2M');
+  });
+  test('Tin nóng theo chuyện trong game (ngập, khai trương…) nằm đầu danh sách, có chỗ chụp ảnh; cùng seed ra cùng danh sách', () => {
+    const facts = { forecast: 'mưa chiều', flood: [{ street: 'Đường số 16', at: { x: 0, z: 0, axis: 'x' } }], openings: [{ place: 'Quán Mới', at: { placeId: layout.places[0].id } }], me: { name: 'Tí', orders: 12, stars: 4.9, day: 3 } };
+    const f = buildFeed({ facts, places: layout.places, seed: 5 });
+    assert.ok(f.length > 15);
+    assert.ok(f.slice(0, 4).some((p) => p.hot));
+    const flood = f.find((p) => p.key === 'tt.hot.flood');
+    assert.ok(flood && flood.caption.includes('Đường số 16') && flood.media.at?.axis === 'x');
+    assert.ok(f.some((p) => p.key === 'tt.me.orders' && p.caption.includes('Tí')));
+    for (const p of f) {
+      assert.ok(p.likes > 0 && p.comments >= 0 && p.id, p.caption);
+      if (p.media.type === 'photo') assert.ok(p.media.at, `tin ảnh chưa có chỗ chụp: ${p.caption}`);
+      assert.ok(!/\{\w+\}/.test(p.caption + p.overlay), `còn chỗ trống chưa điền: ${p.caption}`);
+    }
+    assert.deepEqual(buildFeed({ facts, places: layout.places, seed: 5 }).map((p) => p.caption), f.map((p) => p.caption));
+    // tin quán quen (tt.spot) lần nào cũng có 2 tin; photo:tra chụp đúng Tiệm Trà A Di Đà
+    const spot = f.filter((p) => p.key === 'tt.spot');
+    assert.equal(spot.length, 2);
+    for (const p of spot) if (p.media.type === 'photo') assert.equal(p.media.at?.placeId, 'tra');
+  });
+  test('Bộ kiểm tra: mẫu tin Tích Tắc trong vi.json đúng dạng; sai loại ảnh / thiếu dấu | → lỗi', () => {
+    assert.deepEqual(validateFeedLines(CONTENT.contentTable(), DATA.places), []);
+    assert.equal(validateFeedLines({ 'tt.spot': ['[photo:khongCo] @a | b'] }, DATA.places).length, 1, 'photo:<mã địa điểm> không có → lỗi');
+    const bad = validateFeedLines({ 'tt.fun': ['[photo:xyz] @a | b', '[clip:dog] không có dấu gạch', 'thiếu thẻ | x'] });
+    assert.equal(bad.length, 3);
   });
 }
 

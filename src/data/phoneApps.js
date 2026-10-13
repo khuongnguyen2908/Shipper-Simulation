@@ -13,6 +13,7 @@ export const APP_DEFS = {
   bag: { icon: '🎒', color: '#7f8c8d', key: 'phone.tabBag', locked: true },
   bike: { icon: '🏍️', color: '#c0392b', key: 'phone.appBike' },
   police: { icon: '🚓', color: '#34495e', key: 'phone.appPolice' },
+  tictac: { icon: '⏱️', color: '#ff7a00', key: 'phone.appTictac' }, // Tích Tắc: lướt tin cho vui (ui/tictac.js)
 };
 export const MAX_VISIBLE = 9; // bàn phím chỉ có phím 1–9
 

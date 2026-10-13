@@ -17,7 +17,8 @@ import { ITEMS } from './data/items.js';
 import { unlocked, openDayOf } from './sim/placeRules.js';
 import { dayOf, dayStartAt, tod, isDark } from './sim/clock.js';
 import { inHours } from './sim/hours.js';
-import { buildLayout, segmentRect, roadPos, districtAtPoint, traitAt, routeDist, streetAt } from './sim/cityLayout.js';
+import { buildLayout, segmentRect, roadPos, districtAtPoint, traitAt, routeDist, streetAt, segmentName, intersectionName, nodePos } from './sim/cityLayout.js';
+import { buildFeed } from './sim/feed.js';
 import { fmtDist } from './sim/nav.js';
 import { makeRng } from './sim/rng.js';
 import { GameState, START_VEHICLE } from './sim/GameState.js';
@@ -124,6 +125,7 @@ export class Game {
     this.phone = new Phone(uiRoot, {
       refresh: () => this.renderPhone(),
       action: (a, ds) => act.phoneAction(this, a, ds),
+      snap: (post) => this.snapPhoto(post), // app Tích Tắc: chụp ảnh trong thế giới 3D cho tin "photo"
     });
     this.screens = new Screens(uiRoot);
 
@@ -1929,6 +1931,70 @@ export class Game {
     };
   }
 
+  // ======================== APP TÍCH TẮC (chỉ để vui) ========================
+  // Chuyện đang xảy ra trong game lúc này → tin nóng (sim/feed.js). Danh sách đổi mỗi giờ trong game.
+  feedNow() {
+    const now = this.clockMin, hz = this.hz, gs = this.gs;
+    const key = `${gs.day}:${Math.floor(tod(now) / 60)}`;
+    if (this.feedCache?.key === key) return this.feedCache.feed;
+    const mid = (seg) => { const r = segmentRect(seg); return { x: (r.x0 + r.x1) / 2, z: (r.z0 + r.z1) / 2, axis: seg.axis }; };
+    const uniq = (arr) => arr.filter((x, i) => arr.findIndex((y) => y.street === x.street) === i);
+    const rain = hz.rainAt(now);
+    const t = hz.tide, hhmm = (m) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}`;
+    const h = tod(now) / 60, late = h < TIME.dayStart / 60 ? h + 24 : h;
+    const scam = gs.brand && late >= (RIDE_EVENTS.rumorHour ?? 20.5) ? scamHotspot(gs.day, this.layout) : null;
+    const facts = {
+      forecast: hz.forecastText(),
+      raining: !!rain,
+      heavy: !!rain?.heavy,
+      flood: uniq(hz.floodedSegs(now).map((s) => ({ street: segmentName(s), at: mid(s) }))),
+      tide: t ? { from: hhmm(t.start), peak: hhmm(t.peak), to: hhmm(t.end) } : null,
+      jams: uniq(hz.activeJams(now).map((s) => ({ street: segmentName(s), at: mid(s) }))),
+      police: hz.activePolice(now).map((p) => ({ place: intersectionName(...p.node), at: { ...nodePos(...p.node), axis: 'x' } })),
+      openings: this.layout.places.filter((p) => openDayOf(p) === gs.day && gs.day > 1).map((p) => ({ place: p.name, at: { placeId: p.id } })),
+      scam: scam ? { place: scam.name, at: { placeId: scam.id } } : null,
+      wallet: gs.hasItem('wallet'),
+      me: { name: gs.profile?.name || fmt('profile.defaultName'), orders: gs.stats.completed, stars: gs.rating, day: gs.day },
+    };
+    const feed = buildFeed({ facts, places: this.layout.places, seed: gs.day * 97 + Math.floor(tod(now) / 60) });
+    this.feedCache = { key, feed };
+    return feed;
+  }
+  // Chụp ảnh cho tin "photo" của app Tích Tắc: camera đặt bên kia đường nhìn vào mặt tiền địa điểm (hoặc nhìn dọc đoạn đường),
+  // vẽ 1 khung vào canvas chính rồi cắt khung dọc 9:16, vẽ lại khung game ngay sau đó (không bị chớp). Trả về canvas 270×480.
+  snapPhoto(post) {
+    const at = post.media.at;
+    if (!at) return null;
+    let eye, look;
+    if (at.placeId) {
+      const p = this.layout.placeById[at.placeId];
+      if (!p?.door) return null;
+      const n = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] }[p.face] || [0, 1];
+      eye = new THREE.Vector3(p.door.x + n[0] * 12, 1.8, p.door.z + n[1] * 12);
+      look = new THREE.Vector3(p.door.x - n[0] * 3, 3.2, p.door.z - n[1] * 3);
+    } else {
+      const along = at.axis === 'x' ? [0, 1] : [1, 0]; // đoạn đường dọc (x cố định) chạy theo z
+      eye = new THREE.Vector3(at.x + along[0] * 16 + along[1] * 2, 4.5, at.z + along[1] * 16 + along[0] * 2);
+      look = new THREE.Vector3(at.x, 0.5, at.z);
+    }
+    const cam = (this.snapCam ||= new THREE.PerspectiveCamera(55, 1, 0.1, 900));
+    const r = this.renderer, cv = r.domElement;
+    if (!cv.width || !cv.height) return null;
+    cam.aspect = cv.width / cv.height;
+    cam.fov = 55;
+    cam.updateProjectionMatrix();
+    cam.position.copy(eye);
+    cam.lookAt(look);
+    const out = document.createElement('canvas');
+    out.width = 270;
+    out.height = 480;
+    r.render(this.scene, cam);
+    const ch = cv.height, cw = Math.min(cv.width, ch * (270 / 480));
+    out.getContext('2d').drawImage(cv, (cv.width - cw) / 2, 0, cw, ch, 0, 0, 270, 480);
+    r.render(this.scene, this.camera);
+    return out;
+  }
+
   renderPhone(tgt) {
     if (!this.gs) return;
     const gs = this.gs;
@@ -1951,6 +2017,7 @@ export class Game {
       bikeWhere: app === 'bike' ? this.bikeWhere() : null,
       tut: this.tutorialStep(), // hướng dẫn người mới: nhấp nháy app Bản đồ / nút Văn phòng hãng / nút Chỉ đường
       atOffice: !!this.nearOffice(), // đang đứng ở văn phòng hãng (chưa vào hãng): ô tóm tắt nhắc bấm E
+      feed: app === 'tictac' ? this.feedNow() : null, // app Tích Tắc
       garage: near(gar),
       fuelStop: near(stop),
       offices,

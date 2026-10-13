@@ -10,6 +10,7 @@ import { traitLabel } from '../data/items.js';
 import { ORDER, ECONOMY } from '../data/balance.js';
 import { GOODS, OUTFIT_SLOTS, isAccessorySlot, outfitLook } from '../data/goods.js';
 import { PLACES } from '../data/places.js';
+import { TicTac } from './tictac.js';
 import { phoneApps } from '../data/phoneApps.js';
 import { placesUsing } from '../sim/placeRules.js';
 import { fmtK } from '../sim/economy.js';
@@ -135,6 +136,7 @@ export class Phone {
     this.screen = this.el.querySelector('#phScreen');
     this.notifEl = this.el.querySelector('#phNotif');
     this.cityMap = new CityMap({ action: (a, ds) => this.handlers.action(a, ds) });
+    this.tictac = new TicTac({ snap: (post) => this.handlers.snap?.(post) }); // app Tích Tắc (lướt tin cho vui)
     this.lastHtml = '';
     // Túi đồ: nút lọc đang chọn, món đang chọn (khóa 'g:mã'), menu chuột phải { key, x, y }
     this.bagFilter = 'all';
@@ -292,7 +294,7 @@ export class Phone {
       const [id, ic, color, name] = appLook(APP_BY_ID[this.app], d.gs);
       const body = id === 'goship' ? this.orderTab(d) : id === 'chat' ? this.chatTab(d) : id === 'wallet' ? this.walletTab(d) : id === 'account' ? this.accountTab(d) : id === 'bag' ? this.bagTab(d) : id === 'bike' ? this.bikeTab(d) : id === 'police' ? this.policeTab(d) : '';
       html = `<div class="ph-appbar" style="background:${color}"><button data-home="1" title="${fmt('phone.home')}">‹</button><b>${ic} ${name}</b><span></span></div>
-        <div class="ph-body${id === 'map' ? ' ph-mapbody' : ''}"${id === 'map' ? ' data-keep' : ''}>${body}</div>${id === 'bag' ? this.bagMenuHtml(d) : ''}`;
+        <div class="ph-body${id === 'map' ? ' ph-mapbody' : id === 'tictac' ? ' ph-ttbody' : ''}"${id === 'map' || id === 'tictac' ? ' data-keep' : ''}>${body}</div>${id === 'bag' ? this.bagMenuHtml(d) : ''}`;
     }
     this.showOutfit(this.app === 'bag' ? d : null);
     if (html !== this.lastHtml) {
@@ -300,9 +302,11 @@ export class Phone {
       this.lastHtml = html;
       const body = this.screen.querySelector('.ph-body');
       if (this.app === 'map' && (body.childNodes.length !== 1 || body.firstChild !== this.cityMap.el)) body.replaceChildren(this.cityMap.el);
+      if (this.app === 'tictac' && (body.childNodes.length !== 1 || body.firstChild !== this.tictac.el)) body.replaceChildren(this.tictac.el);
       if (body && this.shownApp !== this.app) body.scrollTop = 0; // đổi app → cuộn về đầu
       this.shownApp = this.app;
     }
+    if (this.app === 'tictac') this.tictac.update(d.feed);
     if (this.app === 'map') this.cityMap.draw({ ...d.mapData, now: d.now, day: d.gs.day, busy: !!d.order || d.state === S.OFFERED, tut: d.tut });
   }
 

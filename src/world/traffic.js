@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { CITY, roadPos, blockBounds, segmentRect, neighbors, traitAtBlock, isJoinedBlock, isWaterBlock } from '../sim/cityLayout.js';
 import { HAZARD } from '../data/balance.js';
-import { makeCar, makeNpcMoto, makePerson, makeDog, makeCone, animatePerson, randomPersonOpts, jamCarGeo, jamMotoGeo } from './models.js';
+import { holdPhone, makeCar, makeNpcMoto, makePerson, makeDog, makeCone, animatePerson, randomPersonOpts, jamCarGeo, jamMotoGeo } from './models.js';
 import { personOf } from '../sim/people.js';
 import { pushCircle, circleFree } from './physics.js';
 import { list } from '../content/index.js';
@@ -581,11 +581,16 @@ export class Traffic {
   spawnPed(i) {
     const rng = this.rng;
     // tên có thể kèm thẻ vai "[veso] Cô bán vé số" (vi.json → ped.names): who = giới tính + tuổi + vai, để hình và lời nói khớp
-    const who = personOf(rng.pick(list('ped.names'))), name = who.name;
+    const raw = rng.pick(list('ped.names'));
+    let who = personOf(raw);
+    // tên không rõ nam / nữ ("Sinh viên", "Khách ngoại quốc"): mỗi người ngẫu nhiên, lưu lại để hình và lời nói luôn khớp
+    if (who.guessed) who = personOf(raw, { gender: rng.chance(0.5) ? 'f' : 'm' });
+    const name = who.name;
     const look = randomPersonOpts(rng, who.gender);
     if (who.age === 'elder') look.hair = 0x9a9a9a; // người già tóc bạc
     if (who.age === 'kid') look.scale = 0.85; // học sinh, trẻ con nhỏ hơn
     const mesh = makePerson(look);
+    if (who.role === 'tiktok') holdPhone(mesh, rng.chance(0.5) ? 'vlog' : 'stick'); // TikToker: giơ điện thoại quay (kiểu A / B)
     this.scene.add(mesh);
     // khối có người đi bộ đông / vắng theo khu phố ("traffic")
     if (!this.pedBlocks) {
@@ -595,7 +600,7 @@ export class Traffic {
       this.pedW = this.pedBlocks.map(([bx, bz]) => traitAtBlock(bx, bz, 'traffic') + 1e-3);
     }
     const [pbx, pbz] = rng.weighted(this.pedBlocks, this.pedW);
-    this.peds.push({ id: i, mesh, bx: pbx, bz: pbz, t: rng.range(0, 140), speed: rng.range(0.9, 1.4), dir: rng.chance(0.5) ? 1 : -1, pause: 0, talk: 0, knock: 0, phase: rng.range(0, 6), name, who, x: 0, z: 0, asked: false, lane: PED_LANE, want: PED_LANE, probe: 0 });
+    this.peds.push({ id: i, mesh, bx: pbx, bz: pbz, t: rng.range(0, 140), speed: who.role === 'tiktok' ? rng.range(0.55, 0.85) : rng.range(0.9, 1.4), dir: rng.chance(0.5) ? 1 : -1, pause: 0, talk: 0, knock: 0, phase: rng.range(0, 6), name, who, x: 0, z: 0, asked: false, lane: PED_LANE, want: PED_LANE, probe: 0 });
   }
 
   // Người đi bộ nhìn trước ~1,5 m: bị chắn thì lệch nhẹ sang làn trống (tối đa 0,5 m); không qua được thì đứng đợi, đợi lâu mới quay đầu.

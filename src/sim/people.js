@@ -32,13 +32,16 @@ export function guessGender(name) {
 // =============================================================
 // Chữ đầu tên → tuổi (+ giới tính nếu rõ). "Bé Na" → trẻ con · "Anh Tuấn" → thanh niên · "Cô Mai" → trung niên · "Bà Sáu" → già
 const KIN = {
-  bé: { age: 'kid' }, nhóc: { age: 'kid' }, thằng: { age: 'kid', g: 'm' }, cậu: { age: 'kid', g: 'm' }, em: { age: 'kid' },
+  bé: { age: 'kid' }, nhóc: { age: 'kid' }, thằng: { age: 'young', g: 'm' }, cậu: { age: 'kid', g: 'm' }, em: { age: 'kid' },
   anh: { age: 'young', g: 'm' }, chị: { age: 'young', g: 'f' },
   cô: { age: 'adult', g: 'f' }, chú: { age: 'adult', g: 'm' }, dì: { age: 'adult', g: 'f' }, thím: { age: 'adult', g: 'f' }, mợ: { age: 'adult', g: 'f' }, dượng: { age: 'adult', g: 'm' },
   bác: { age: 'elder' }, bà: { age: 'elder', g: 'f' }, ông: { age: 'elder', g: 'm' }, cụ: { age: 'elder' },
 };
-// tên nước ngoài hay gặp (khách du lịch): đoán nữ — còn lại coi là nam
+// "Thằng nhóc", "Thằng bé"… → trẻ con (chỉ "Thằng …" thì là thanh niên, vd "Thằng khùng")
+const KID_WORDS = new Set(['nhóc', 'bé', 'nhỏ', 'con']);
+// tên nước ngoài hay gặp (khách du lịch): danh sách tên nữ / tên nam — tên lạ thì không đoán
 const FOREIGN_F = new Set(['emma', 'sophie', 'min-ji', 'yuki', 'anna', 'mary', 'lisa', 'olivia', 'mia', 'hana', 'sakura', 'ji-woo', 'linda', 'julia', 'laura', 'marie', 'sarah', 'kate']);
+const FOREIGN_M = new Set(['john', 'kenji', 'lucas', 'hans', 'david', 'michael', 'tom', 'peter', 'james', 'mike', 'alex', 'paul', 'mark', 'kevin', 'jack', 'leo', 'max', 'ben', 'sam', 'chris', 'daniel', 'thomas', 'pierre', 'carlos', 'takeshi', 'hiroshi', 'min-ho', 'ji-hoon', 'wei', 'raj']);
 export const AGES = ['kid', 'young', 'adult', 'elder'];
 
 // Bỏ thẻ đầu câu: "[veso] Cô bán vé số" → { tags: ['veso'], text: 'Cô bán vé số' }
@@ -48,19 +51,25 @@ export function untag(s) {
 }
 
 // Hồ sơ người nói từ tên. opts: { gender (đặt sẵn trong dữ liệu), age, role ('staff' = nhân viên quán / tiệm, 'veso'…) }
-// Giới tính không đoán được từ tên → cố định theo tên (băm), để hình 3D và lời nói luôn khớp nhau.
+// Thẻ trước tên: vai ("[veso] Cô bán vé số"), tuổi ([kid] [young] [adult] [elder]), giới tính ([m] nam · [f] nữ),
+// ghép được: "[kid,f] Bé gái bán kẹo". Ưu tiên: opts → thẻ → chữ đầu tên → tên Tây → cố định theo tên (băm).
+// guessed = true: giới tính không có căn cứ (chỉ băm theo tên) — người đi đường thì chọn ngẫu nhiên từng người (traffic.js).
 export function personOf(rawName, opts = {}) {
   const { tags, text: name } = untag(rawName);
-  const first = name.trim().split(/\s+/)[0]?.toLowerCase() || '';
+  const words = name.trim().toLowerCase().split(/\s+/);
+  const first = words[0] || '';
   const kin = KIN[first] ? first : null;
   const k = kin ? KIN[kin] : null;
-  // tên Tây (chỉ chữ cái a–z, không dấu, không có chữ xưng hô đầu): đoán theo danh sách tên nữ hay gặp, còn lại nam
-  const foreign = !kin && /^[a-z][a-z-]*$/i.test(first);
-  const gender = opts.gender === 'f' || opts.gender === 'm' ? opts.gender
-    : k?.g || (foreign ? (FOREIGN_F.has(first) ? 'f' : 'm') : hashStr(name) % 2 ? 'f' : 'm');
-  const age = AGES.includes(opts.age) ? opts.age : k?.age || 'young';
+  // tên Tây = CẢ tên chỉ chữ a–z không dấu, không có chữ xưng hô đầu ("Sinh viên" có dấu ở chữ sau nên không tính)
+  const foreign = !kin && /^[a-z][a-z -]*$/i.test(name.trim());
+  const tagG = tags.find((t) => t === 'm' || t === 'f'), tagA = tags.find((t) => AGES.includes(t));
+  // tên Tây: chỉ chắc khi có trong danh sách tên nam / nữ hay gặp; tên lạ (vd "TikToker") coi như không rõ
+  const known = opts.gender === 'f' || opts.gender === 'm' ? opts.gender : tagG || k?.g || (foreign && FOREIGN_F.has(first) ? 'f' : foreign && FOREIGN_M.has(first) ? 'm' : null);
+  const gender = known || (hashStr(name) % 2 ? 'f' : 'm');
+  const kinAge = kin === 'thằng' && KID_WORDS.has(words[1]) ? 'kid' : k?.age;
+  const age = AGES.includes(opts.age) ? opts.age : tagA || kinAge || 'young';
   const role = opts.role || tags.find((t) => !AGES.includes(t) && t !== 'm' && t !== 'f') || null;
-  return { name, gender, age, role, kin };
+  return { name, gender, age, role, kin, guessed: !known };
 }
 
 const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);

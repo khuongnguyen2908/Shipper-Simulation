@@ -373,6 +373,52 @@ export function animatePerson(g, phase, amount) {
   p.armR.rotation.x = a * 0.8;
   p.elbowL.rotation.x = p.elbowR.rotation.x = -0.15 - 0.35 * amount;
   p.body.position.y = Math.abs(s) * 0.04 * amount;
+  if (p.hold) holdPose(p, s * amount); // TikToker: tay phải luôn giơ điện thoại (rung nhẹ theo bước chân)
+}
+
+// ---------- TikToker: người đi đường lúc nào cũng giơ điện thoại quay ----------
+// style 'vlog' (kiểu A): giơ điện thoại trước mặt quay phía trước · 'stick' (kiểu B): gậy tự sướng giơ cao, quay chính mình.
+// Điện thoại gắn vào cẳng tay phải; màn hình sáng quay về phía người cầm, mặt sau có chấm đỏ đang quay.
+const HOLD = { vlog: { arm: -1.5, elbow: -0.85 }, stick: { arm: -2.6, elbow: -0.2 } }; // góc quay quanh trục ngang (âm = đưa ra trước)
+const PHONE_MATS = {};
+function phoneMats() {
+  if (!PHONE_MATS.body) {
+    PHONE_MATS.body = new THREE.MeshStandardMaterial({ color: 0x1b1b1f, roughness: 0.4, metalness: 0.3 });
+    PHONE_MATS.screen = new THREE.MeshBasicMaterial({ color: 0x9fd4ff });
+    PHONE_MATS.rec = new THREE.MeshBasicMaterial({ color: 0xff2d2d });
+    PHONE_MATS.stick = new THREE.MeshStandardMaterial({ color: 0x2c2c2a, roughness: 0.5, metalness: 0.5 });
+  }
+  return PHONE_MATS;
+}
+function holdPose(p, bob = 0) {
+  const h = HOLD[p.hold];
+  p.armR.rotation.x = h.arm + bob * 0.04;
+  p.elbowR.rotation.x = h.elbow;
+}
+export function holdPhone(g, style = 'vlog') {
+  const p = g.userData.parts, M = phoneMats();
+  p.hold = HOLD[style] ? style : 'vlog';
+  const total = HOLD[p.hold].arm + HOLD[p.hold].elbow; // góc cẳng tay so với thẳng đứng → xoay ngược lại cho điện thoại đứng thẳng
+  const at = new THREE.Group();
+  at.position.y = p.hold === 'stick' ? -0.92 : -0.33; // bàn tay (−0,3) · đầu gậy tự sướng (cách tay ~0,6 m)
+  at.rotation.x = -total;
+  p.elbowR.add(at);
+  const body = new THREE.Mesh(boxGeo(0.075, 0.15, 0.012), M.body);
+  body.castShadow = true;
+  at.add(body);
+  const screen = new THREE.Mesh(boxGeo(0.064, 0.134, 0.002), M.screen);
+  screen.position.z = -0.0075; // mặt trước (về phía người cầm)
+  at.add(screen);
+  const rec = new THREE.Mesh(boxGeo(0.014, 0.014, 0.004), M.rec);
+  rec.position.set(-0.02, 0.055, 0.008); // mặt sau: đèn đỏ đang quay
+  at.add(rec);
+  if (p.hold === 'stick') {
+    const stick = new THREE.Mesh(boxGeo(0.018, 0.62, 0.018), M.stick);
+    stick.position.y = -0.61; // từ bàn tay tới đầu gậy
+    p.elbowR.add(stick);
+  }
+  holdPose(p);
+  return g;
 }
 
 // Ngồi (trên xe / ghế): đùi đưa ra trước, cẳng chân thả xuống chỗ gác chân, hai tay đưa ra trước (cầm lái).

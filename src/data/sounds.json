@@ -1,10 +1,5 @@
 {
   "sounds": {
-    "ui.click": {
-      "files": [
-        "button.mp3"
-      ]
-    },
     "ui.next": {
       "files": [
         "button.mp3"
@@ -27,7 +22,7 @@
     },
     "ui.hover": {
       "files": [
-        "rollover2.ogg"
+        "bong_001.ogg"
       ]
     },
     "ui.modal": {
@@ -58,7 +53,7 @@
     },
     "phone.offer": {
       "files": [
-        "bong_001.ogg"
+        "confirmation_004.ogg"
       ]
     },
     "phone.accept": {
@@ -184,7 +179,6 @@
     },
     "place.takeVehicle": {
       "files": [
-        "metallatch.ogg",
         "bike.mp3"
       ]
     },
@@ -214,7 +208,7 @@
       "files": [
         "thunder.mp3"
       ],
-      "volume": 0.6
+      "volume": 0.4
     },
     "city.busArrive": {
       "files": [
@@ -229,7 +223,8 @@
     "drive.pedal": {
       "files": [
         "bycicle.mp3"
-      ]
+      ],
+      "volume": 0.6
     },
     "drive.brake": {
       "files": [
@@ -274,6 +269,15 @@
       "files": [
         "bike.mp3"
       ]
+    },
+    "ui.click": {
+      "files": [
+        "item.mp3"
+      ]
+    },
+    "phone.call": {
+      "files": [],
+      "volume": 1.5
     }
   }
 }
