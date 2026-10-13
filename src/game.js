@@ -2,7 +2,7 @@
 // GAME — điều phối: vòng lặp, nối mô phỏng (src/sim) với thế giới 3D (src/world) và giao diện (src/ui)
 // =============================================================
 import * as THREE from 'three';
-import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, NIGHT, PARKING, AIRPORT, RIDE_EVENTS, ORDER } from './data/balance.js';
+import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, NIGHT, PARKING, AIRPORT, RIDE_EVENTS, ORDER, LIGHTS } from './data/balance.js';
 import { parkingRoll, helmetRoll, parkingLotAt, nearestStation, towTarget, safeSpot } from './sim/parking.js';
 import { garageSpots, inGarage, parkSlots } from './sim/garage.js';
 import { airportAt, airportParkAt, airportNoStopAt, noStopStep } from './sim/airport.js';
@@ -17,8 +17,10 @@ import { ITEMS } from './data/items.js';
 import { unlocked, openDayOf } from './sim/placeRules.js';
 import { dayOf, dayStartAt, tod, isDark } from './sim/clock.js';
 import { inHours } from './sim/hours.js';
-import { buildLayout, segmentRect, roadPos, districtAtPoint, traitAt, routeDist, streetAt, segmentName, intersectionName, nodePos } from './sim/cityLayout.js';
+import { CITY, buildLayout, segmentRect, roadPos, districtAtPoint, traitAt, routeDist, streetAt, segmentName, intersectionName, nodePos } from './sim/cityLayout.js';
 import { buildFeed } from './sim/feed.js';
+import { lightMap, lightColor, ticketChance, turnOf } from './sim/lights.js';
+import { buildTrafficLights } from './world/trafficLights.js';
 import { fmtDist } from './sim/nav.js';
 import { makeRng } from './sim/rng.js';
 import { GameState, START_VEHICLE } from './sim/GameState.js';
@@ -91,6 +93,12 @@ export class Game {
     this.traffic.grid = this.city.grid; // người đi bộ né cây, cột, trạm xe buýt… trên vỉa hè
     this.stallPeople = makeStallPeople(this.scene, this.city.seats); // khách ngồi ghế nhựa quán cóc (chỉ để nhìn)
     this.bgTraffic = new BgTraffic({ scene: this.scene }); // xe máy chạy ở xa cho đường đông (chỉ để nhìn, không va chạm)
+    // đèn giao thông (sim/lights.js): đồng hồ đèn tính bằng giây thật; xe NPC / xe nền dừng đèn đỏ, người chơi vượt đèn đỏ có thể bị phạt nguội
+    this.lmap = lightMap();
+    this.trafficLights = buildTrafficLights(this.scene, this.lmap, this.city.grid);
+    this.lightT = 0;
+    this.traffic.lights = { map: this.lmap, t: 0 };
+    this.pendingTickets = []; // phạt nguội vượt đèn đỏ chờ báo: { at (phút game), place }
     this.ferries = buildFerries(this.scene, this.layout.places); // phà chạy qua sông theo lịch (src/sim/ferry.js)
     this.ferryRide = null; // đang đi phà: { pair, i, to, withBike, off }
     for (const l of this.city.loops || []) this.traffic.addLoop(l); // xe bot chạy vòng lên sàn ga đi sân bay
@@ -287,6 +295,8 @@ export class Game {
   }
 
   startGame({ clock, carry, seed }) {
+    this.pendingTickets = []; // ván mới: bỏ phạt nguội vượt đèn đỏ đang chờ báo của ván cũ
+    this.inLight = null;
     this.screens.hide();
     this.modal.hide();
     this.seed = seed;
@@ -417,6 +427,9 @@ export class Game {
     this.knownPolice = new Set();
     this.policeChecked = new Set();
     this.groupChat(fmt('chat.group'), fmt('chat.forecast', { forecast: this.hz.forecastText() }));
+    // nhóm tài xế báo ngã tư có camera phạt nguội vượt đèn đỏ
+    const cams = [...this.lmap.values()].filter((n) => n.cam).map((n) => intersectionName(n.i, n.j));
+    if (cams.length) this.groupChat(fmt('chat.group'), fmt('chat.cameras', { list: cams.slice(0, 6).join(', ') + (cams.length > 6 ? fmt('chat.camerasMore', { n: cams.length - 6 }) : '') }));
     this.hud.toast(fmt('toast.newDay', { day, rent: this.gs.rent, dueDay: this.gs.rentDueDay, paid: this.gs.rentPaid ? fmt('toast.rentPaidNote') : '' }), 'big', 6000);
     this.announceOpenings(day);
     this.saveGame();
@@ -691,6 +704,7 @@ export class Game {
     this.clockMin += dMin;
     this.parkTick();
     this.fineTick();
+    this.ticketTick();
     this.airportTick(mounted ? speed : 0);
     this.roadTick(mounted);
     gs.drain(activity, dMin, { harshSun: hz.isHarshSun(now), raining: !!rain, outdoor: true, inJam: this.inJam, waiting: false, now: this.clockMin });
@@ -706,8 +720,12 @@ export class Game {
     const pp = this.playerPos;
     const py = (mounted ? bike.mesh : this.walker.mesh).position.y;
     this.ferries.update(this.clockMin, performance.now() / 1000);
+    this.lightT += dt;
+    this.traffic.lights.t = this.lightT;
+    this.trafficLights.update(this.lightT);
+    this.redLightTick(mounted, speed);
     const trafficEvents = this.traffic.update(dt, { px: pp.x, pz: pp.z, py, onBike: mounted, speed, fx: f.x, fz: f.z });
-    this.bgTraffic.update(dt, pp.x, pp.z, { onSeg: this.traffic.onSeg, floodIds: this.traffic.floodIds, elev: this.city.elev });
+    this.bgTraffic.update(dt, pp.x, pp.z, { onSeg: this.traffic.onSeg, floodIds: this.traffic.floodIds, elev: this.city.elev, lights: this.traffic.lights });
     for (const e of trafficEvents) {
       if (e.type === 'honk' && Math.random() < 0.5) {
         sound('city.honk');
@@ -910,6 +928,7 @@ export class Game {
       for (const e of this.hz.poll(now)) this.onHazard(e);
       this.parkTick();
       this.fineTick();
+      this.ticketTick();
       this.airportTick();
       if (this.gs.checkEnd(now)) break;
       if (this.gs.collapsed && activity !== 'rest') break; // kiệt sức giữa chừng → xử lý ngay
@@ -1929,6 +1948,58 @@ export class Game {
       floods: this.hz.floodedSegs(this.clockMin), // đoạn đang ngập (tô xanh, đậm theo mực nước)
       raining: this.hz.isRaining(this.clockMin),
     };
+  }
+
+  // ======================== ĐÈN GIAO THÔNG: VƯỢT ĐÈN ĐỎ ========================
+  // Đi xe vào lòng ngã tư có đèn: nhớ phía đi vào + màu đèn lúc vào. Ra khỏi ngã tư: biết rẽ hướng nào →
+  // vào lúc đèn đỏ mà không rẽ phải (và chạy nhanh hơn lights.minSpeed) = vượt đèn đỏ → redLightViolation.
+  redLightTick(mounted, speed) {
+    const p = this.bike.pos;
+    const i = Math.round((p.x - CITY.ORIGIN) / CITY.PITCH), j = Math.round((p.z - CITY.ORIGIN) / CITY.PITCH);
+    const key = `${i},${j}`, dx = p.x - roadPos(i), dz = p.z - roadPos(j), H = CITY.ROAD / 2;
+    const inside = mounted && this.lmap.has(key) && Math.abs(dx) < H && Math.abs(dz) < H && (this.bike.mesh.position.y || 0) < 1;
+    const cur = this.inLight;
+    if (inside && !cur) {
+      // đi vào từ phía nào: phía lệch xa tâm nhất (vd đang ở phía z âm → đang chạy theo +z)
+      const din = Math.abs(dz) > Math.abs(dx) ? [0, -Math.sign(dz) || 1] : [-Math.sign(dx) || 1, 0];
+      this.inLight = { key, din, red: lightColor(key, din, this.lightT) === 'r', fast: speed > (LIGHTS.minSpeed ?? 2.5) };
+    } else if (cur && (!inside || key !== cur.key)) {
+      this.inLight = null;
+      if (!cur.red || !cur.fast) return;
+      const [ci, cj] = cur.key.split(',').map(Number);
+      const ex = p.x - roadPos(ci), ez = p.z - roadPos(cj);
+      const dout = Math.abs(ez) > Math.abs(ex) ? [0, Math.sign(ez) || 1] : [Math.sign(ex) || 1, 0];
+      if (turnOf(cur.din, dout) !== 'right') this.redLightViolation(cur.key, ci, cj);
+    }
+  }
+  // Vượt đèn đỏ: tài xế quanh đó bóp còi; lần đầu mỗi ngày chỉ nhắc (lights.warnFirst); đã bị phạt đủ maxPerDay thì thôi;
+  // còn lại tung xúc xắc theo % (chốt CSGT > camera > thường) → bị ghi hình thì sau delayMin–delayMax phút app CSGT báo phạt nguội.
+  redLightViolation(key, i, j) {
+    const L = LIGHTS, gs = this.gs, now = this.clockMin;
+    if (Math.random() < 0.6) sound('city.honk');
+    if (this.redDay !== gs.day) Object.assign(this, { redDay: gs.day, redCount: 0, redTickets: 0 });
+    this.redCount++;
+    const place = intersectionName(i, j);
+    if (this.redCount === 1 && (L.warnFirst ?? 1)) return this.hud.toast(fmt('toast.redWarn', { place }), 'warn', 5000);
+    if (this.redTickets >= (L.maxPerDay ?? 2)) return;
+    const police = this.hz.activePolice(now).some((c) => c.node && c.node[0] === i && c.node[1] === j);
+    if (Math.random() >= ticketChance({ cam: this.lmap.get(key)?.cam, police })) return;
+    this.redTickets++;
+    const lo = L.delayMin ?? 30, hi = Math.max(lo, L.delayMax ?? 60);
+    this.pendingTickets.push({ at: now + lo + Math.random() * (hi - lo), place });
+  }
+  // phạt nguội đến hạn báo: cộng vào phạt nguội (nộp ở đồn), app CSGT có chấm đỏ + thông báo
+  ticketTick() {
+    if (!this.pendingTickets.length) return;
+    const now = this.clockMin;
+    for (const t of this.pendingTickets.filter((x) => now >= x.at)) {
+      const fine = LIGHTS.fine ?? 100;
+      this.gs.addFine(fine, 'redLight', now);
+      this.hud.toast(fmt('toast.redTicket', { fine, place: t.place }), 'bad', 7000);
+      this.phone.notify('police', { title: fmt('phone.redTicketTitle'), text: fmt('phone.redTicketText', { place: t.place, fine }) });
+      sound('phone.message');
+    }
+    this.pendingTickets = this.pendingTickets.filter((x) => now < x.at);
   }
 
   // ======================== APP TÍCH TẮC (chỉ để vui) ========================

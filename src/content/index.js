@@ -38,14 +38,17 @@ export function pick(key, i = 0, params = {}) {
   return fill(untag(l[((i % l.length) + l.length) % l.length]).text, params);
 }
 
-// Như pick nhưng chỉ chọn trong các câu hợp với người nói who (sim/people.js personOf): câu có thẻ "[veso] …" chỉ người
-// có vai / tuổi / giới tính trùng thẻ mới nói; không câu nào hợp thì lấy trong các câu không thẻ
+// Như pick nhưng chỉ chọn câu hợp với người nói who (sim/people.js personOf): câu có thẻ "[veso] …" chỉ người có vai / tuổi /
+// giới tính trùng thẻ mới nói. Người có câu riêng thì ROLE_SHARE số lần nói câu riêng, còn lại câu chung (không thẻ) —
+// không vậy thì câu chung (nhiều hơn hẳn) lấn hết, vd khách nước ngoài toàn nói tiếng Việt, con nít hỏi giá vàng.
+export const ROLE_SHARE = 0.7;
 export function pickFor(key, who, i = 0, params = {}) {
   const all = list(key).map(untag);
-  let l = all.filter((x) => lineFits(x.tags, who));
-  if (!l.length) l = all.filter((x) => !x.tags.length);
+  const own = all.filter((x) => x.tags.length && lineFits(x.tags, who)), plain = all.filter((x) => !x.tags.length);
+  const n = ((i % 1000) + 1000) % 1000, roll = ((Math.imul(n + 1, 2654435761) >>> 0) % 1000) / 1000; // cố định theo i
+  let l = own.length && (!plain.length || roll < ROLE_SHARE) ? own : plain;
   if (!l.length) l = all;
-  return fill(l[((i % l.length) + l.length) % l.length].text, params);
+  return fill(l[(Math.imul(n + 7, 40503) >>> 0) % l.length].text, params); // mỗi số i một câu (i liền nhau ra câu khác nhau)
 }
 
 // Công cụ ?editor dùng để xem trước bản đang sửa

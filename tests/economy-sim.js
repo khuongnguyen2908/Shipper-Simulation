@@ -11,9 +11,11 @@ import { GameState } from '../src/sim/GameState.js';
 import { HazardManager } from '../src/sim/hazards.js';
 import { makeRng } from '../src/sim/rng.js';
 import { buildLayout, routeDist, routeNodes, CITY } from '../src/sim/cityLayout.js';
+import { lightMap, lightColor, ticketChance, turnOf } from '../src/sim/lights.js';
+const lmap = lightMap();
 import { routeFloodDelay, floodSpeedCap, floodBand, nearestSegId } from '../src/sim/flood.js';
 import { segKeyOf } from '../src/sim/roads.js';
-import { TIME, ENERGY, DIST, ORDER, ECONOMY, NIGHT, AIRPORT, BAGS, dueDayOf } from '../src/data/balance.js';
+import { TIME, ENERGY, DIST, ORDER, ECONOMY, NIGHT, AIRPORT, BAGS, LIGHTS, dueDayOf } from '../src/data/balance.js';
 import { airportAt } from '../src/sim/airport.js';
 import { GOODS } from '../src/data/goods.js';
 import { APP, ORDER_TYPES, RIDER_TYPES } from '../src/data/apps.js';
@@ -28,7 +30,7 @@ export const STRATEGIES = {
   // cẩn thận: chạy chậm, ít xóc, mua đồ nghề sớm
   careful: { speed: 9, eff: 0.7, bumpsPer100: 0.25, brakesPer100: 0.1, brakeMag: 0.3, buyGear: true, maxD1: 999, honest: true },
   // ẩu: chạy max ga, hay xóc, phanh gấp
-  rush: { speed: 12.5, eff: 0.75, bumpsPer100: 0.8, brakesPer100: 0.5, brakeMag: 0.6, buyGear: true, maxD1: 999, honest: true },
+  rush: { speed: 12.5, eff: 0.75, bumpsPer100: 0.8, brakesPer100: 0.5, brakeMag: 0.6, buyGear: true, maxD1: 999, honest: true, runReds: true }, // vượt đèn đỏ
   // kén đơn: chỉ nhận đơn gần, không mua đồ
   picky: { speed: 10, eff: 0.7, bumpsPer100: 0.4, brakesPer100: 0.2, brakeMag: 0.4, buyGear: false, maxD1: 120, honest: true },
   // bình thường: như 'tham' nhưng trả ví (để so sánh)
@@ -82,11 +84,48 @@ export function playRun(seed, strat, days = 9, brand = null) {
       if (gs.collapsed && activity !== 'rest') break; // kiệt sức → dừng để xử lý (đang nằm nghỉ thì thôi)
     }
   };
+  // Đèn giao thông (sim/lights.js): qua mỗi ngã tư có đèn (trừ rẽ phải) gặp màu ngẫu nhiên theo chu kỳ.
+  // Không xanh → bot thường đứng chờ tới xanh (1 giây thật = 1 phút game); bot ẩu (runReds) vượt luôn: đèn đỏ thì tính 1 lần vi phạm
+  // như game.js (lần đầu mỗi ngày chỉ nhắc, tối đa maxPerDay lần phạt, tung % theo camera) — phạt trừ tiền ngay cho gọn.
+  const G = LIGHTS.greenSec ?? 8, Y = LIGHTS.yellowSec ?? 2, cycle = 2 * (G + Y);
+  const red = { day: 0, n: 0, tickets: 0 };
+  const lightDelay = (nodes) => {
+    let wait = 0;
+    for (let k = 1; k < nodes.length - 1; k++) {
+      const key = nodes[k].join(',');
+      if (!lmap.has(key)) continue;
+      const din = [Math.sign(nodes[k][0] - nodes[k - 1][0]), Math.sign(nodes[k][1] - nodes[k - 1][1])];
+      const dout = [Math.sign(nodes[k + 1][0] - nodes[k][0]), Math.sign(nodes[k + 1][1] - nodes[k][1])];
+      if (turnOf(din, dout) === 'right') continue;
+      let t = rng.range(0, cycle);
+      const c = lightColor(key, din, t);
+      if (c === 'g') continue;
+      if (st.runReds) {
+        if (c !== 'r') continue;
+        if (red.day !== gs.day) Object.assign(red, { day: gs.day, n: 0, tickets: 0 });
+        red.n++;
+        log.redRuns = (log.redRuns || 0) + 1;
+        if ((red.n === 1 && (LIGHTS.warnFirst ?? 1)) || red.tickets >= (LIGHTS.maxPerDay ?? 2)) continue;
+        if (rng.next() < ticketChance({ cam: lmap.get(key).cam })) {
+          red.tickets++;
+          log.redFines = (log.redFines || 0) + 1;
+          gs.spend(LIGHTS.fine ?? 100, 'fine', true);
+        }
+        continue;
+      }
+      let w = 0;
+      while (lightColor(key, din, t) !== 'g' && w < cycle) { t += 0.5; w += 0.5; }
+      wait += w;
+      log.lightWait = (log.lightWait || 0) + w;
+    }
+    return wait;
+  };
   const drive = (to) => {
     const d = routeDist(pos, to);
     const v = st.speed * st.eff;
     let min = d / v; // m game / phút game = m/s × 1 giây thật
     if (rng.chance(0.15)) min += rng.range(2, 6); // kẹt xe, chốt CSGT
+    min += lightDelay(routeNodes(pos, to)); // đèn giao thông: chờ đèn đỏ (bot ẩu thì vượt, có thể bị phạt nguội)
     // đường ngập: lội chậm trên các đoạn ngập (bot chạy chậm qua nước sâu nên không chết máy)
     const nodes = routeNodes(pos, to), depthOf = (id) => hz.floodDepth(id, now);
     min += routeFloodDelay(nodes, depthOf, v);
@@ -362,6 +401,8 @@ export function summarize(runs, days) {
     topReason: Object.entries(reasons).sort((a, b) => b[1] - a[1])[0] || null,
     kmPerDay: runs.reduce((s, r) => s + r.gs.odoKm, 0) / dayCount,
     oilChanges: runs.reduce((s, r) => s + (r.log.oil || 0), 0) / n,
+    lightWaitPerDay: runs.reduce((s, r) => s + (r.log.lightWait || 0), 0) / dayCount, // phút game chờ đèn đỏ mỗi ngày
+    redFinesPerDay: runs.reduce((s, r) => s + (r.log.redFines || 0), 0) / dayCount, // lần bị phạt nguội vượt đèn đỏ mỗi ngày
   };
 }
 
@@ -379,6 +420,6 @@ if (isMain) {
     for (let s = 1; s <= N; s++) runs.push(playRun(s, strat, D));
     const r = summarize(runs, D);
     const cps = r.checkpoints.map((c) => `qua ngày ${c.day}: ${String(c.pct).padStart(3)}%`).join(' · ');
-    console.log(`${strat.padEnd(8)} | ${cps} | ${r.ordersPerDay.toFixed(1)} đơn/ngày | sao ${r.stars.toFixed(2)} | tiền cuối ${Math.round(r.endMoney)}k | ngất/suy sụp ${r.faints.toFixed(2)} | trễ ${r.lates.toFixed(2)} | ${r.kmPerDay.toFixed(1)} km/ngày · thay nhớt ${r.oilChanges.toFixed(1)} lần | ${r.topReason ? `${r.topReason[0]}… (${r.topReason[1]})` : 'không ai thua'}`);
+    console.log(`${strat.padEnd(8)} | ${cps} | ${r.ordersPerDay.toFixed(1)} đơn/ngày | sao ${r.stars.toFixed(2)} | tiền cuối ${Math.round(r.endMoney)}k | ngất/suy sụp ${r.faints.toFixed(2)} | trễ ${r.lates.toFixed(2)} | ${r.kmPerDay.toFixed(1)} km/ngày · thay nhớt ${r.oilChanges.toFixed(1)} lần | chờ đèn ${Math.round(r.lightWaitPerDay)} phút/ngày · phạt đèn đỏ ${r.redFinesPerDay.toFixed(2)}/ngày | ${r.topReason ? `${r.topReason[0]}… (${r.topReason[1]})` : 'không ai thua'}`);
   }
 }

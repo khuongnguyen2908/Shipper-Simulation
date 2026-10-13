@@ -9,6 +9,7 @@ import { ROAD_TIERS, TIER_IDS, tierOf, roadSegAt, allSegments, suggestRoadTiers 
 import { buildLayout } from '../../sim/cityLayout.js';
 import { buildBusSystem, pointAt } from '../../sim/bus.js';
 import { FLOOD_LEVELS, floodMap, suggestFlood } from '../../sim/flood.js';
+import { lightMap, suggestLights, lightable } from '../../sim/lights.js';
 
 // khu phố đang mở bảng "tính cách" (⚙️)
 let openKhu = null;
@@ -19,6 +20,7 @@ let roadBrush = null;
 const TIER_COLOR = { big: '#e0b84a', normal: '#7d8794', small: '#a1785c' };
 // cọ tô đường ngập: null = không tô · 'none' (xóa) | 'low' (Trũng) | 'tide' (Rất trũng)
 let floodBrush = null;
+let lightBrush = null; // cọ đèn giao thông: 'light' (đặt đèn) | 'camera' (đèn + camera phạt nguội) | 'none' (bỏ đèn)
 const FLOOD_COLOR = { low: '#5dade2', tide: '#1f4e8c' };
 // tuyến xe buýt đang bật 👁 (soi lộ trình + đánh số trạm) — null = không soi
 let busEye = null;
@@ -109,6 +111,7 @@ export function render(root, ctx) {
   const dBox = el('div');
   let drawRoads = null; // vẽ lại mục Đường to / nhỏ (đếm số đoạn)
   let drawFlood = null; // vẽ lại mục Đường ngập (đếm số đoạn)
+  let drawLights = null; // vẽ lại mục Đèn giao thông (đếm số đèn / camera)
   body.append(
     el('div', { class: 'body-head' }, el('h2', {}, `🗺️ Bản đồ ${CITY.N}×${CITY.N} khối`),
       el('span', { class: 'inline' },
@@ -139,6 +142,7 @@ export function render(root, ctx) {
     explain(EXPLAIN.map),
     fold('roads', '🛣️ Đường to / nhỏ', roadsBox()),
     fold('flood', '🌊 Đường ngập (mưa to, triều cường)', floodBox()),
+    fold('lights', '🚦 Đèn giao thông & camera phạt nguội', lightsBox()),
     fold('bus', '🚌 Xe buýt', busBox()),
     fold('rivers', '🌊 Sông & cầu', riversBox()),
     fold('joins', '🧩 Gộp khối', joinsBox()),
@@ -156,7 +160,7 @@ export function render(root, ctx) {
       textInput(d.name, (v) => { d.name = v; changed(); drawMap(); }, { class: 'dist-name' }),
       el('small', { class: 'muted' }, `${count[id] || 0} khối`),
       button(openKhu === id ? '⚙️ Đóng' : '⚙️ Tính cách', () => { openKhu = openKhu === id ? null : id; drawDistricts(); }, openKhu === id ? 'small primary' : 'small'),
-      button(brush === id ? '✔ Đang tô' : '🖌 Tô', () => { brush = brush === id ? null : id; roadBrush = null; floodBrush = null; drawRoads?.(); drawFlood?.(); drawDistricts(); }, brush === id ? 'small primary' : 'small'),
+      button(brush === id ? '✔ Đang tô' : '🖌 Tô', () => { brush = brush === id ? null : id; roadBrush = null; floodBrush = null; lightBrush = null; drawRoads?.(); drawFlood?.(); drawLights?.(); drawDistricts(); }, brush === id ? 'small primary' : 'small'),
       button('🗑', () => {
         if (count[id] && !confirm(`Xóa "${d.name}"? ${count[id]} khối sẽ thành chưa gán khu phố.`)) return;
         ctx.historyBreak();
@@ -182,7 +186,7 @@ export function render(root, ctx) {
           changed();
           drawDistricts();
         }, 'small primary'),
-        button(brush === '' ? '✔ Đang xóa khu phố khỏi khối' : '🧽 Xóa khu phố khỏi khối', () => { brush = brush === '' ? null : ''; roadBrush = null; floodBrush = null; drawRoads?.(); drawFlood?.(); drawDistricts(); }, brush === '' ? 'small primary' : 'small')),
+        button(brush === '' ? '✔ Đang xóa khu phố khỏi khối' : '🧽 Xóa khu phố khỏi khối', () => { brush = brush === '' ? null : ''; roadBrush = null; floodBrush = null; lightBrush = null; drawRoads?.(); drawFlood?.(); drawLights?.(); drawDistricts(); }, brush === '' ? 'small primary' : 'small')),
     );
   }
   // Bảng "tính cách" của một khu phố: mẫu khu + các hệ số (1 = bình thường như mọi nơi)
@@ -285,7 +289,7 @@ export function render(root, ctx) {
         el('div', { class: 'inline wrap' },
           ...ROAD_TIERS.map(([k, label]) => button(`${roadBrush === k ? '✔ Đang tô ' : '🖌 '}${label} (${cnt[k]})`, () => {
             roadBrush = roadBrush === k ? null : k;
-            if (roadBrush) { brush = null; floodBrush = null; drawFlood?.(); } // không tô khu phố / đường ngập cùng lúc
+            if (roadBrush) { brush = null; floodBrush = null; lightBrush = null; drawFlood?.(); drawLights?.(); } // không tô khu phố / đường ngập cùng lúc
             draw();
             drawDistricts();
             drawMap();
@@ -319,7 +323,7 @@ export function render(root, ctx) {
         el('div', { class: 'inline wrap' },
           ...FLOOD_LEVELS.map(([k, label]) => button(`${floodBrush === k ? '✔ Đang tô ' : k === 'none' ? '🧽 ' : '🖌 '}${label}${k === 'none' ? '' : ` (${cnt[k]})`}`, () => {
             floodBrush = floodBrush === k ? null : k;
-            if (floodBrush) { brush = null; roadBrush = null; drawRoads?.(); drawDistricts(); } // không tô khu phố / cấp đường cùng lúc
+            if (floodBrush) { brush = null; roadBrush = null; lightBrush = null; drawRoads?.(); drawLights?.(); drawDistricts(); } // không tô khu phố / cấp đường cùng lúc
             draw();
             drawMap();
           }, floodBrush === k ? 'small primary' : 'small')),
@@ -351,6 +355,62 @@ export function render(root, ctx) {
     changed();
     drawMap();
     drawFlood?.();
+  }
+
+  // ---------- đèn giao thông (map.json → lights, cameras) ----------
+  function lightsBox() {
+    const box = el('div');
+    const LB = [['light', '🚦 Đặt đèn'], ['camera', '📸 Đèn + camera'], ['none', '🧽 Bỏ đèn']];
+    const draw = () => {
+      box.innerHTML = '';
+      const lm = lightMap(map), cams = [...lm.values()].filter((n) => n.cam).length;
+      box.append(
+        el('p', { class: 'muted' }, `Đang có ${lm.size} ngã tư có đèn, ${cams} chỗ có camera phạt nguội. Xe NPC dừng đèn đỏ / vàng; rẽ phải khi đèn đỏ luôn được. Người chơi vượt đèn đỏ thì có % bị ghi hình → phạt nguội (số % / tiền / giây đèn: thẻ ⚖️ Cân bằng → 🚦). Mỗi sáng nhóm tài xế báo trong chat ngã tư nào có camera. Chọn cọ rồi bấm vào ngã tư trên bản đồ (chấm đỏ = đèn, chấm có viền trắng = có camera). Chỉ đặt được ở ngã tư có ≥ 3 hướng, không phải cầu.`),
+        Array.isArray(map.lights) ? null : el('p', { class: 'warn' }, 'Chưa đặt đèn nào → game đang dùng GỢI Ý TỰ ĐỘNG (chỗ đại lộ cắt đường thường / đại lộ). Đặt hoặc bỏ thử 1 đèn là bảng gợi ý được chép vào để bạn sửa tiếp.'),
+        el('div', { class: 'inline wrap' },
+          ...LB.map(([k, label]) => button(`${lightBrush === k ? '✔ ' : ''}${label}`, () => {
+            lightBrush = lightBrush === k ? null : k;
+            if (lightBrush) { brush = null; roadBrush = null; floodBrush = null; drawRoads?.(); drawFlood?.(); drawDistricts(); } // một cọ một lúc
+            draw();
+            drawMap();
+          }, lightBrush === k ? 'small primary' : 'small')),
+          button('🔄 Gợi ý tự động', () => {
+            if (Array.isArray(map.lights) && !confirm('Đặt lại đèn + camera theo gợi ý tự động (chỗ đại lộ cắt đường thường / đại lộ). Đèn đã đặt tay sẽ bị ghi đè. Tiếp tục?')) return;
+            ctx.historyBreak();
+            const sg = suggestLights(map, ctx.data.balance?.lights);
+            map.lights = sg.lights;
+            map.cameras = sg.cameras;
+            changed();
+            ctx.historyBreak();
+            draw();
+            drawMap();
+          }, 'small'),
+        ),
+      );
+    };
+    draw();
+    drawLights = draw;
+    return box;
+  }
+  // bấm vào ngã tư bằng cọ đèn (lần đầu: chép bảng gợi ý tự động vào để sửa tiếp)
+  function paintLight(wx, wz) {
+    const i = Math.round((wx - CITY.ORIGIN) / CITY.PITCH), j = Math.round((wz - CITY.ORIGIN) / CITY.PITCH);
+    if (Math.hypot(wx - roadPos(i), wz - roadPos(j)) > CITY.ROAD || !lightable(i, j, map)) return;
+    const k = `${i},${j}`;
+    if (!Array.isArray(map.lights)) {
+      const lm = lightMap(map);
+      map.lights = [...lm.keys()];
+      map.cameras = [...lm.entries()].filter(([, n]) => n.cam).map(([key]) => key);
+    }
+    const has = map.lights.includes(k), cam = (map.cameras || []).includes(k);
+    if (lightBrush === 'none' ? !has : has && cam === (lightBrush === 'camera')) return;
+    map.lights = map.lights.filter((x) => x !== k);
+    map.cameras = (map.cameras || []).filter((x) => x !== k);
+    if (lightBrush !== 'none') map.lights.push(k);
+    if (lightBrush === 'camera') map.cameras.push(k);
+    changed();
+    drawMap();
+    drawLights?.();
   }
 
   // ---------- xe buýt (map.json → busRoutes, busStopNames) ----------
@@ -586,6 +646,18 @@ export function render(root, ctx) {
       const r = segmentRect(sg), cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2, w = CITY.ROAD * 0.28;
       R(sg.axis === 'x' ? { x0: cx - w / 2, x1: cx + w / 2, z0: r.z0, z1: r.z1 } : { x0: r.x0, x1: r.x1, z0: cz - w / 2, z1: cz + w / 2 }, FLOOD_COLOR[lv]);
     }
+    // đèn giao thông: chấm đỏ ở ngã tư (viền trắng = có camera phạt nguội)
+    for (const n of lightMap(map).values()) {
+      g.beginPath();
+      g.arc(X(roadPos(n.i)), Z(roadPos(n.j)), 5, 0, Math.PI * 2);
+      g.fillStyle = '#e74c3c';
+      g.fill();
+      if (n.cam) {
+        g.lineWidth = 2.5;
+        g.strokeStyle = '#ffffff';
+        g.stroke();
+      }
+    }
     // tuyến xe buýt + trạm (bản đang sửa); đang soi 1 tuyến (👁) thì tuyến khác mờ đi
     const bs = busSystem();
     const eye = busEye && bs?.routeById[busEye] && !bs.routeById[busEye].error ? bs.routeById[busEye] : null;
@@ -708,9 +780,10 @@ export function render(root, ctx) {
     };
     // có cọ: bấm / kéo để tô khu phố · không cọ: bấm để chọn khối
     c.addEventListener('pointerdown', (e) => {
-      if (brush === null && roadBrush === null && floodBrush === null) return;
+      if (brush === null && roadBrush === null && floodBrush === null && lightBrush === null) return;
       painting = ctx;
       ctx.historyBreak();
+      if (lightBrush !== null) return paintLight(...worldAt(e));
       if (floodBrush !== null) return paintFlood(...worldAt(e));
       if (brush === null) return paintRoad(...worldAt(e));
       const key = blockAtEvent(e);
@@ -718,16 +791,17 @@ export function render(root, ctx) {
     });
     c.addEventListener('pointermove', (e) => {
       if (!painting || !e.buttons) return;
+      if (lightBrush !== null) return paintLight(...worldAt(e));
       if (floodBrush !== null) return paintFlood(...worldAt(e));
       if (brush === null && roadBrush !== null) return paintRoad(...worldAt(e));
       const key = blockAtEvent(e);
       if (key) paint(key);
     });
     c.addEventListener('click', (e) => {
-      if (brush !== null || roadBrush !== null || floodBrush !== null) return;
+      if (brush !== null || roadBrush !== null || floodBrush !== null || lightBrush !== null) return;
       const key = blockAtEvent(e);
       if (key) ctx.select('map', { id: key });
     });
-    canvasBox.append(c, el('small', { class: 'muted' }, 'Vàng = khối đang chọn · xám sáng = khối có địa điểm · nâu = hẻm xe máy · be = hẻm đi bộ · xanh rêu = nhà trong hẻm · đường: vàng to = đại lộ, xám = thường, nâu hẹp = đường nhỏ · vạch xanh giữa đường = đường ngập (nhạt: Trũng, đậm: Rất trũng)'));
+    canvasBox.append(c, el('small', { class: 'muted' }, 'Vàng = khối đang chọn · xám sáng = khối có địa điểm · nâu = hẻm xe máy · be = hẻm đi bộ · xanh rêu = nhà trong hẻm · đường: vàng to = đại lộ, xám = thường, nâu hẹp = đường nhỏ · vạch xanh giữa đường = đường ngập (nhạt: Trũng, đậm: Rất trũng) · chấm đỏ ở ngã tư = đèn giao thông (viền trắng: có camera phạt nguội)'));
   }
 }

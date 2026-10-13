@@ -39,20 +39,17 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   🏍️ Xe chạy nền (`districts[mã].street.flow`, để trống = theo "người đi bộ"). Cả đàn 5 lần vẽ, đo không thấy chậm hơn.
 - Có thể làm sau (B): xe nền chạy vào gần thì chuyển thành xe NPC thật nếu còn chỗ (khỏi thấy xe mờ đi giữa đường).
 
-### 🚦 Luật giao thông — TẠM DỪNG (13/10, chủ game bảo dừng để làm phố trước)
-- Đã chốt (13/10):
-  - Làm **đèn giao thông trước**; đường một chiều + 11c (chạy vỉa hè, bấm điện thoại, cấm rẽ trái) để sau.
-  - Vị trí đèn: **máy tự gợi ý** (ngã tư có đại lộ), chủ game sửa trong thẻ 🗺️ Bản đồ (như đường ngập).
-  - Vượt đèn đỏ chỉ bị phạt ở ngã tư có **camera phạt nguội** (đặt / gợi ý trong editor) hoặc đang có **chốt CSGT**;
-    **nhóm tài xế báo trong chat ở đâu có camera phạt nguội**.
-  - Phạt vượt đèn đỏ **200k** (thẻ Cân bằng). Chu kỳ đèn **xanh 8 · vàng 2 · đỏ 8 giây thật** (1 giây thật = 1 phút game nên phải ngắn), chỉnh ở thẻ Cân bằng;
-    bot tính thêm thời gian chờ đèn, đo trước / sau.
-- **Điểm 5 (đã phác thảo B, chờ chốt) "rẽ phải khi đèn đỏ: tùy chỗ, có tiểu đảo phân luồng được không"**: đã đưa 3 phương án
-  (A: cài từng ngã tư Được / Cấm + biển nhỏ · B: A + vạch sơn đảo phân luồng ở góc · C: tiểu đảo nổi thật + làn rẽ phải riêng — phải khoét góc khối nhà, rất lớn).
-- Chỗ nối sẵn: `map.json` dạng `floodSegs`, cọ vẽ như `floodBox/paintFlood` trong `tabMap.js`; xe NPC giữ chỗ ngã tư ở `traffic.canEnter`;
-  rẽ phải là cung bậc hai `makeTurn` (TURN_R = 8 m) chạy sát góc cong vỉa hè (~1–2 m) nên không còn chỗ cho đảo nổi trong ngã tư hiện tại.
+### 🚦 Đèn giao thông — đã làm (13/10 khuya)
+- `sim/lights.js` + `world/trafficLights.js`: đèn ở ngã tư đại lộ cắt đường thường / đại lộ (gợi ý tự động 27 đèn, 10 camera;
+  sửa ở thẻ 🗺️ Bản đồ → 🚦), 2 pha theo giây thật (xanh 8 / vàng 2), xe NPC + xe nền dừng đỏ / vàng, rẽ phải luôn được.
+- Vượt đèn đỏ (game.js redLightTick): lần đầu mỗi ngày chỉ nhắc; sau đó % bị ghi hình (thường 15%, camera 70%, chốt CSGT 100%),
+  tối đa 2 lần phạt / ngày, 30–60 phút sau app CSGT báo phạt nguội 100k (nộp ở đồn như phạt nguội khác). Mỗi sáng nhóm tài xế báo
+  ngã tư có camera. Số ở thẻ ⚖️ Cân bằng → 🚦 (đặt 3 ô % = 0 là chỉ để nhìn).
+- Sim 9 ngày (trước → sau): bot tuân thủ chờ đèn ~70 phút game / ngày → normal 10,9 → 10,1 đơn/ngày, tiền cuối 2765k → 2372k;
+  bot ẩu (vượt đèn) bị phạt 1,75 lần / ngày → tiền cuối 3688k → 2036k. Muốn nhẹ hơn: giảm giây đèn xanh / vàng hoặc bớt đèn.
+- Chưa làm: xe buýt chạy theo lịch nên không dừng đèn; đường một chiều, 11c (chạy vỉa hè, bấm điện thoại, cấm rẽ trái) để sau.
 
-## ✅ Đã xong (13/10/2026 khuya) — chưa commit
+## ✅ Đã xong (13/10/2026 khuya)
 - App điện thoại **⏱️ Tích Tắc** (tên chọn để tránh trùng nhãn hiệu TikTok): lướt tin, thả tim, xem bình luận — chỉ để vui.
   Tin nóng theo chuyện trong game (dự báo, mưa, ngập, triều cường, kẹt xe, chốt CSGT, khai trương, điểm nóng lừa đảo, ví anh Minh),
   tin về mình (tân binh, số đơn, điểm), tin vui ngẫu nhiên. Ảnh = chụp thật trong thế giới 3D (game.snapPhoto), clip = vẽ 2D.
@@ -63,6 +60,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
 - Người đi đường **TikToker** (vai `[tiktok]`): kiểu A giơ điện thoại trước mặt / kiểu B gậy tự sướng, đi chậm (models.holdPhone).
 - Xưng hô: thẻ tuổi / giới tính trước tên ("[kid] Con nít", "[f] …"); tên không rõ nam nữ → mỗi người đi đường ngẫu nhiên;
   "Thằng …" = thanh niên ("Thằng nhóc / bé …" = trẻ con); tên Tây chỉ đoán theo danh sách tên quen.
+- Người đi đường: chép câu ped.smallTalk sang bubble.ped (bỏ ngoặc kép); người có câu riêng 70% nói câu đúng vai (content/index.js ROLE_SHARE).
 - `?editor`: sửa lỗi "Lưu thất bại … reading '0'" (thẻ Địa điểm vẽ bản đồ lô khi có địa điểm chưa đặt); lưu xong mà vẽ lại lỗi thì báo riêng.
 
 ## ✅ Đã xong (13/10/2026 tối) — 16 lỗi chủ game báo

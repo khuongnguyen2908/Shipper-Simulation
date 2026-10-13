@@ -13,6 +13,7 @@ import { streetOf } from '../data/districtTraits.js';
 import { BG_TRAFFIC } from '../data/balance.js';
 import { makeRng } from '../sim/rng.js';
 import { TURN_R, makeTurn, bez, bezDir, pickNextNode } from './traffic.js';
+import { mustStop, turnOf } from '../sim/lights.js';
 
 const POOL_MAX = 300;
 const ON_LINE = 15; // đường người chơi đang ở (nhìn thấy xa nhất): rải xe gấp mấy lần đường khác
@@ -139,11 +140,22 @@ export class BgTraffic {
     if (!b.turn) {
       b.t += step;
       b.lane += (this.laneFor(b, b.from, b.to) - b.lane) * Math.min(1, dt * 2.5);
-      if (b.t >= CITY.PITCH - TURN_R) {
+      const line = CITY.PITCH - TURN_R;
+      if (b.t >= line - 12) {
+        // chọn sẵn hướng ở ngã tư sắp tới; đèn đỏ / vàng (không phải rẽ phải) → giảm tốc, đứng ở vạch
         const din = [b.to[0] - b.from[0], b.to[1] - b.from[1]];
-        b.next = pickNextNode(this.rng, b.to, b.from, 'moto', ctx.floodIds);
+        if (!b.next) b.next = pickNextNode(this.rng, b.to, b.from, 'moto', ctx.floodIds);
         const d = [Math.sign(b.next[0] - b.to[0]), Math.sign(b.next[1] - b.to[1])];
-        const dout = d[0] || d[1] ? d : [-din[0], -din[1]];
+        b.dout = d[0] || d[1] ? d : [-din[0], -din[1]];
+        if (ctx.lights && mustStop(ctx.lights.map, b.to.join(','), din, turnOf(din, b.dout), ctx.lights.t)) {
+          b.speed = Math.min(b.speed, Math.max(0, (line - 0.3 - (b.t - step)) * 1.5));
+          b.t = Math.min(b.t, line - 0.01);
+        }
+      }
+      if (b.t >= line) {
+        const din = [b.to[0] - b.from[0], b.to[1] - b.from[1]];
+        const d = [Math.sign(b.next[0] - b.to[0]), Math.sign(b.next[1] - b.to[1])];
+        const dout = b.dout;
         if (!(d[0] || d[1])) b.next = b.from; // ngã tư cụt: quay đầu
         const lout = this.laneFor(b, b.to, b.next);
         b.turn = makeTurn(roadPos(b.to[0]), roadPos(b.to[1]), din, dout, b.lane, lout);
@@ -156,6 +168,7 @@ export class BgTraffic {
       b.from = b.to;
       b.to = b.next;
       b.next = null;
+      b.dout = null;
       b.lane = b.turn.lout;
       b.turn = null;
       b.t = TURN_R + extra;

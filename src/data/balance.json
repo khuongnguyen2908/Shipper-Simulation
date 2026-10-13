@@ -276,5 +276,19 @@
     "far": 140,
     "speedMin": 7,
     "speedMax": 10.5
+  },
+  "lights": {
+    "greenSec": 8,
+    "yellowSec": 2,
+    "basePct": 0.15,
+    "cameraPct": 0.7,
+    "policePct": 1,
+    "fine": 100,
+    "delayMin": 30,
+    "delayMax": 60,
+    "maxPerDay": 2,
+    "warnFirst": 1,
+    "minSpeed": 2.5,
+    "autoCameraPct": 0.34
   }
 }

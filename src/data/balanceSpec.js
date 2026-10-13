@@ -259,6 +259,24 @@ export const BALANCE_GROUPS = [
     ],
   },
   {
+    id: 'lights', title: '🚦 Đèn giao thông & phạt nguội',
+    note: 'Đèn đặt ở ngã tư nào, ngã tư nào có camera phạt nguội: thẻ 🗺️ Bản đồ → 🚦 Đèn giao thông (chưa đặt thì máy tự gợi ý ngã tư có đại lộ). Rẽ phải khi đèn đỏ luôn được phép, vượt đèn vàng không sao. Vượt đèn đỏ thì tung xúc xắc theo % bên dưới; bị ghi hình thì sau một lúc app CSGT báo phạt nguội (nộp ở đồn công an như phạt nguội khác). Đặt cả 3 ô % = 0 là đèn chỉ để nhìn, không bao giờ bị phạt.',
+    fields: [
+      ['lights.greenSec', 'Đèn xanh (giây thật)', { min: 1, max: 60, step: 1, hint: 'Đèn tính theo giây thật (1 giây thật = 1 phút game) nên để ngắn. Đèn đỏ = xanh + vàng của hướng kia. Mặc định 8.' }],
+      ['lights.yellowSec', 'Đèn vàng (giây thật)', { min: 0, max: 10, step: 0.5, hint: 'Mặc định 2.' }],
+      ['lights.basePct', 'Ngã tư thường: vượt đèn đỏ bị ghi hình (%)', { min: 0, max: 1, scale: 100, step: 1, hint: 'Mặc định 15%.' }],
+      ['lights.cameraPct', 'Ngã tư có camera: bị ghi hình (%)', { min: 0, max: 1, scale: 100, step: 1, hint: 'Nhóm tài xế báo trong chat mỗi sáng ngã tư nào có camera. Mặc định 70%.' }],
+      ['lights.policePct', 'Ngã tư đang có chốt CSGT: bị ghi hình (%)', { min: 0, max: 1, scale: 100, step: 1, hint: 'Mặc định 100%.' }],
+      ['lights.fine', 'Tiền phạt mỗi lần (k)', { min: 0, max: 5000, step: 10, hint: 'Dồn vào phạt nguội, nộp ở đồn công an trước hạn. Mặc định 100k.' }],
+      ['lights.delayMin', 'Báo phạt sau: sớm nhất (phút game)', { min: 0, max: 600, step: 5, hint: 'Vượt xong không biết ngay có bị chụp không. Mặc định 30.' }],
+      ['lights.delayMax', 'Báo phạt sau: muộn nhất (phút game)', { min: 0, max: 600, step: 5, hint: 'Mặc định 60.' }],
+      ['lights.maxPerDay', 'Bị phạt tối đa mỗi ngày (lần)', { min: 0, max: 20, step: 1, hint: 'Khỏi bị phạt dồn dập. Mặc định 2.' }],
+      ['lights.warnFirst', 'Lần vượt đèn đỏ đầu tiên mỗi ngày chỉ nhắc nhở (1 = có, 0 = không)', { min: 0, max: 1, step: 1, hint: 'Mặc định 1 (có).' }],
+      ['lights.minSpeed', 'Chỉ tính vượt đèn khi chạy nhanh hơn (km/h)', { min: 0, max: 40, scale: 3.6, step: 1, hint: 'Dắt xe / bò chậm qua không tính. Mặc định 9 km/h (xe đạp chạy tối đa ~18 km/h).' }],
+      ['lights.autoCameraPct', 'Gợi ý tự động: % ngã tư có đèn được gắn camera', { min: 0, max: 1, scale: 100, step: 1, hint: 'Dùng khi chưa đặt camera tay ở thẻ Bản đồ. Mặc định 34%.' }],
+    ],
+  },
+  {
     id: 'bgTraffic', title: '🏍️ Xe nền (chỉ để nhìn)',
     note: 'Xe máy chạy ở xa cho đường đông vui, không va chạm, không tính luật. Chạy vào gần người chơi thì mờ dần rồi hiện lại ở chỗ khác xa hơn. Khu nào đông / vắng chỉnh ở thẻ 🗺️ Bản đồ → Khu phố → 🏍️ Xe chạy nền. Xe NPC thật (va chạm, bóp còi) không đổi.',
     fields: [

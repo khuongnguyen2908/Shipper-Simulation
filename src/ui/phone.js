@@ -25,7 +25,7 @@ import { profileLook } from '../sim/people.js';
 const PHONE = phoneApps();
 export const APPS = PHONE.visible;
 // lý do biên bản phạt nguội (gs.fines[].reason) → khóa chữ
-const FINE_REASON = { parking: 'csgt.rParking', airport: 'csgt.rAirport', blocking: 'csgt.rBlocking' };
+const FINE_REASON = { parking: 'csgt.rParking', airport: 'csgt.rAirport', blocking: 'csgt.rBlocking', redLight: 'csgt.rRedLight' };
 const APP_BY_ID = Object.fromEntries(PHONE.all.map((a) => [a[0], a]));
 
 // App chỉ có khi đã vào hãng: app nhận đơn của hãng + Hồ sơ tài xế (điểm đánh giá, tỉ lệ nhận đơn, đơn gần đây)

@@ -4062,7 +4062,7 @@ console.log('Vựa ve chai: bán đồ cũ, vỏ chai');
 
 console.log('Xưng hô theo người nói');
 {
-  const { personOf, pronouns } = await import('../src/sim/people.js');
+  const { personOf, pronouns, untag: untagLine } = await import('../src/sim/people.js');
   const { pickFor } = await import('../src/content/index.js');
   test('Tên → giới tính + tuổi; tự xưng / gọi người chơi đúng vai vế', () => {
     const t = (name, pg, opts) => { const p = pronouns(personOf(name, opts), pg); return `${p.toi}/${p.ban}`; };
@@ -4093,6 +4093,15 @@ console.log('Xưng hô theo người nói');
     const say = (who) => Array.from({ length: 60 }, (_, i) => pickFor('bubble.ped', who, i, pronouns(who, 'm')));
     assert.ok(say(veso).some((s) => /vé số/i.test(s)));
     assert.ok(!say(hs).some((s) => /vé số|\[/.test(s)));
+    // người có câu riêng: phần lớn nói câu đúng vai (ROLE_SHARE), vẫn có câu chung; i liền nhau ra câu khác nhau
+    const { ROLE_SHARE } = CONTENT;
+    const own = new Set(CONTENT.list('bubble.ped').map(untagLine).filter((x) => x.tags.includes('veso')).map((x) => x.text.replace(/\{(\w+)\}/g, (m, k) => pronouns(veso, 'm')[k])));
+    const lines = Array.from({ length: 400 }, (_, i) => pickFor('bubble.ped', veso, i, pronouns(veso, 'm')));
+    const share = lines.filter((s) => own.has(s)).length / lines.length;
+    assert.ok(Math.abs(share - ROLE_SHARE) < 0.12, `câu đúng vai ${Math.round(share * 100)}%`);
+    assert.ok(new Set(lines.slice(0, 6)).size >= 4, 'i liền nhau phải ra câu khác nhau');
+    // câu bong bóng không bọc ngoặc kép
+    assert.ok(CONTENT.list('bubble.ped').every((s) => !/^\s*(\[[^\]]*\]\s*)?"/.test(s)), 'bubble.ped có câu bọc ngoặc kép');
   });
   test('Mọi câu có chỗ trống xưng hô đều điền được (không còn {toi} / {ban} sót lại)', () => {
     const v = pronouns(personOf('Chú Bảy'), 'f');
@@ -4168,6 +4177,59 @@ console.log('App Tích Tắc (sim/feed.js)');
     assert.equal(validateFeedLines({ 'tt.spot': ['[photo:khongCo] @a | b'] }, DATA.places).length, 1, 'photo:<mã địa điểm> không có → lỗi');
     const bad = validateFeedLines({ 'tt.fun': ['[photo:xyz] @a | b', '[clip:dog] không có dấu gạch', 'thiếu thẻ | x'] });
     assert.equal(bad.length, 3);
+  });
+}
+
+console.log('Đèn giao thông & phạt nguội (sim/lights.js)');
+{
+  const L = await import('../src/sim/lights.js');
+  const { LIGHTS } = await import('../src/data/balance.js');
+  test('Hai trục đèn ngược pha: hướng này xanh / vàng thì hướng kia đỏ; đủ xanh → vàng → đỏ trong 1 chu kỳ', () => {
+    const key = '3,4', cycle = 2 * ((LIGHTS.greenSec ?? 8) + (LIGHTS.yellowSec ?? 2));
+    const seen = new Set();
+    for (let t = 0; t < cycle; t += 0.25) {
+      const z = L.lightColor(key, [0, 1], t), x = L.lightColor(key, [1, 0], t);
+      seen.add(z);
+      assert.ok(z === 'r' || x === 'r', `t=${t}: trục z ${z}, trục x ${x} — phải có 1 hướng đỏ`);
+      assert.equal(L.lightColor(key, [0, -1], t), z, 'cùng trục 2 chiều cùng màu');
+    }
+    assert.deepEqual([...seen].sort(), ['g', 'r', 'y']);
+  });
+  test('Xe NPC dừng khi đỏ / vàng, rẽ phải luôn được, ngã tư không đèn không dừng', () => {
+    const lm = new Map([['3,4', { i: 3, j: 4, cam: false }]]);
+    let tRed = 0;
+    while (L.lightColor('3,4', [0, 1], tRed) !== 'r') tRed += 0.5;
+    assert.ok(L.mustStop(lm, '3,4', [0, 1], 'straight', tRed));
+    assert.ok(L.mustStop(lm, '3,4', [0, 1], 'left', tRed));
+    assert.ok(!L.mustStop(lm, '3,4', [0, 1], 'right', tRed));
+    assert.ok(!L.mustStop(lm, '5,5', [0, 1], 'straight', tRed));
+    assert.equal(L.turnOf([0, 1], [-1, 0]), 'right'); // bên phải của (x, z) là (−z, x)
+  });
+  test('Gợi ý tự động: đèn ở ngã tư ≥ 3 hướng nơi đại lộ cắt đường thường; camera là tập con; bản đồ đặt tay thì theo bản đồ', () => {
+    const sg = L.suggestLights();
+    assert.ok(sg.lights.length > 5, `chỉ có ${sg.lights.length} đèn`);
+    for (const k of sg.lights) assert.ok(L.lightable(...k.split(',').map(Number)), k);
+    assert.ok(sg.cameras.every((k) => sg.lights.includes(k)) && sg.cameras.length > 0);
+    const MAPD = readJson('src/data/map.json');
+    const own = L.lightMap({ ...MAPD, lights: [sg.lights[0]], cameras: [sg.lights[0]] });
+    assert.equal(own.size, 1);
+    assert.ok(own.get(sg.lights[0]).cam);
+    assert.equal(L.lightMap({ ...MAPD, lights: [] }).size, 0, 'đặt danh sách rỗng = không có đèn nào');
+  });
+  test('% bị ghi hình: chốt CSGT > camera > ngã tư thường (thẻ Cân bằng)', () => {
+    assert.equal(L.ticketChance({ police: true, cam: true }), LIGHTS.policePct ?? 1);
+    assert.equal(L.ticketChance({ cam: true }), LIGHTS.cameraPct ?? 0.7);
+    assert.equal(L.ticketChance({}), LIGHTS.basePct ?? 0.15);
+  });
+  test('Bộ kiểm tra bản đồ: đèn ở ngã tư lạ → lỗi, camera không có đèn → cảnh báo', () => {
+    const { validateMap } = VALIDATE;
+    const MAPD = readJson('src/data/map.json');
+    const k = L.suggestLights().lights[0];
+    const iss = (m) => validateMap(m, DATA.places).filter((i) => i.ref === 'lights');
+    assert.deepEqual(iss({ ...MAPD, lights: [k], cameras: [k] }), []);
+    assert.ok(iss({ ...MAPD, lights: ['99,99'] }).some((i) => i.level === 'error'));
+    assert.ok(iss({ ...MAPD, lights: 'abc' }).some((i) => i.level === 'error'));
+    assert.ok(iss({ ...MAPD, lights: [k], cameras: [k, '0,0'] }).some((i) => i.level === 'warn'));
   });
 }
 

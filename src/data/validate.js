@@ -19,6 +19,7 @@ import { ITEM_GROUP_IDS } from './itemGroups.js';
 import { DISTRICT_TRAITS, TRAIT_RANGE, HOUSE_STYLE_IDS, DECOR_IDS, TREES_RANGE, STREET_IDS, STREET_RANGE } from './districtTraits.js';
 const ROAD_TIER_IDS = ['big', 'normal', 'small']; // cấp đường (giống TIER_IDS trong src/sim/roads.js)
 import { isPlaced } from './places.js';
+import { lightable } from '../sim/lights.js';
 
 const MAX_OPEN_DAY = 60;
 // "Mở từ ngày" / "Có đơn từ ngày": số nguyên 1–60, bỏ trống = ngày 1
@@ -687,6 +688,17 @@ export function validateMap(map, placesData = null) {
     if (!m || +m[2] > size || +m[3] >= size) add('error', 'flood', key, `Đoạn ngập ${key} không có trên bản đồ.`);
     else if (!['low', 'tide'].includes(lv)) add('error', 'flood', key, `Mức ngập lạ "${lv}" (chỉ low = Trũng / tide = Rất trũng).`);
   }
+  // đèn giao thông (lights) + camera phạt nguội (cameras): danh sách ngã tư "i,j"; chưa có lights = gợi ý tự động
+  for (const f of ['lights', 'cameras']) {
+    if (map[f] == null) continue;
+    if (!Array.isArray(map[f])) { add('error', 'lights', f, `${f === 'lights' ? 'Đèn giao thông' : 'Camera'} phải là danh sách ngã tư ["i,j", …].`); continue; }
+    for (const k of map[f]) {
+      const m = /^(\d+),(\d+)$/.exec(String(k));
+      if (!m || +m[1] > size || +m[2] > size) add('error', 'lights', f, `Ngã tư "${k}" không có trên bản đồ.`);
+      else if (!lightable(+m[1], +m[2], map)) add('warn', 'lights', f, `Ngã tư ${k} không đặt đèn được (ít hơn 3 hướng / cầu) → bỏ qua.`);
+    }
+  }
+  if (Array.isArray(map.cameras) && Array.isArray(map.lights)) for (const k of map.cameras) if (!map.lights.includes(k)) add('warn', 'lights', 'cameras', `Ngã tư ${k} có camera mà không có đèn → camera không dùng tới.`);
   // sông
   (map.rivers || []).forEach((r, i) => {
     const ref = `river${i}`;

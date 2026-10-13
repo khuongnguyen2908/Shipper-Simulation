@@ -12,6 +12,7 @@ import { pushCircle, circleFree } from './physics.js';
 import { list } from '../content/index.js';
 import { tierBetween, tierRule, tierOf, TIER_GEO } from '../sim/roads.js';
 import { busPoses, inService } from '../sim/bus.js';
+import { mustStop } from '../sim/lights.js';
 import { makeKit, busModel } from './placeBuildings.js';
 
 const SW_H = 0.15;
@@ -463,6 +464,11 @@ export class Traffic {
   canEnter(a, din, kind) {
     const key = a.to.join(','), n = this.nodeOf(key), me = { din, kind, vk: a.kind };
     if (n.occ.has(a.uid)) return true;
+    // đèn giao thông (sim/lights.js; game.js gán this.lights = { map, t }): đỏ / vàng thì đứng ở vạch, rẽ phải vẫn đi
+    if (this.lights && mustStop(this.lights.map, key, din, kind, this.lights.t)) {
+      n.wait.delete(a.uid);
+      return ((a.waitWhy = 'light'), false);
+    }
     // còn xe cùng chiều đứng chắn trước mặt → chưa phải đầu hàng: chưa tính lượt (giờ "tới trước" tính từ lúc lên đầu hàng)
     const ahead = a.blockedBy != null && this.agents.find((b) => b.uid === a.blockedBy);
     if (ahead && Math.sin(ahead.heading) * Math.sin(a.heading) + Math.cos(ahead.heading) * Math.cos(a.heading) > 0.7) {

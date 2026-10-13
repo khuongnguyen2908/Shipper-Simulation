@@ -63,6 +63,7 @@ export const BUS = balanceData.bus || {}; // xe buýt: giá vé, giờ chạy, t
 export const FERRY = balanceData.ferry || {}; // phà: giá vé, giờ chạy, phút đậu bến / qua sông, số phà (src/sim/ferry.js)
 export const RIDE_EVENTS = balanceData.rideEvents || {}; // sự cố khi chở khách: lừa đảo, đổi điểm đến, vali, khách nước ngoài
 export const DRIVING = balanceData.driving || {}; // lái xe & sóng sánh: tay lái bẻ dần, ngưỡng ôm cua / phanh gấp, mức đổ / hoảng
+export const LIGHTS = balanceData.lights || {}; // đèn giao thông + phạt nguội vượt đèn đỏ (src/sim/lights.js)
 export const BG_TRAFFIC = balanceData.bgTraffic || {}; // xe nền chỉ để nhìn: số xe tối đa, vùng hiện (src/world/bgTraffic.js)
 export const FLOOD = balanceData.flood || {}; // ngập đường: mưa to + triều cường, lội nước, chết máy (src/sim/flood.js)
 
@@ -99,5 +100,6 @@ export function applyBalance(data) {
   into(DRIVING, data.driving);
   into(FLOOD, data.flood);
   into(BG_TRAFFIC, data.bgTraffic);
+  into(LIGHTS, data.lights);
 }
 
