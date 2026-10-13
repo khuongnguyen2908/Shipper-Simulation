@@ -1,7 +1,7 @@
 # Việc đang dở — Shipper Simulation
 
 Ghi lại những việc đã bàn mà chưa làm / còn treo, để đổi máy hay đổi tài khoản Claude vẫn làm tiếp được.
-Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây"). Cập nhật lần cuối: 13/10/2026 (khuya).
+Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây"). Cập nhật lần cuối: 14/10/2026.
 
 ## ⏸ Hoãn có chủ đích
 
@@ -18,6 +18,34 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   - Chủ game tự tạo dự án Firebase (Claude hướng dẫn từng bước), dán cấu hình vào code.
 
 ## 💬 Đang bàn
+### 🌐 Chuẩn bị chơi nhiều người: lương cứng 2 hãng · biển số tài xế · bỏ tua thời gian (14/10 — đã góp ý, CHỜ chủ game chọn)
+- **Số đo (bot 6 ngày × 30 lượt, tiền kiếm/ngày sau phí sàn, chưa trừ tiền nhà)**: normal ~530k GripBike / ~510k CamSM (~11 đơn) ·
+  careful ~480k / ~460k · picky ~400k / ~390k · rush ~740k / ~680k (bị phạt ~190k). Xăng + nhớt ~60k/ngày, sạc + đổi pin ~15k/ngày.
+  Script đo: cộng dồn `gs.stats` mỗi ngày (vá `GameState.startDay`), thu nhập thật = income − codAdvance.
+- **1. Lương cứng** (đề xuất, ≈ 10–30% thu nhập, mỗi hãng một kiểu người chơi):
+  - GripBike "tự do + thưởng": 60k/ngày nếu bật app ≥ 4 giờ game; thưởng mốc 8 đơn +30k · 12 đơn +60k · 16 đơn +100k; phí sàn 20%; đơn ×1,1.
+  - CamSM "lương cao + ràng buộc": 160k/ngày nếu bật app ≥ 8 giờ trong ca 7h–22h, nhận ≥ 80% đơn mời, điểm ≥ 4,5; phí sàn 25%; đơn ×0,9.
+  - Ước tính/ngày: normal Grip ~620k vs Cam ~637k · rush 860k vs 793k · picky 490k vs ~364k (rớt chỉ tiêu) · careful 570k vs 586k.
+  - Trả lương: chốt lúc app đóng (24h), cộng vào ví 06:00 hôm sau. Đổi hãng: mất cọc + chờ 1 ngày (chọn phe là quyết định thật).
+  - Hướng mở khi có máy chủ: thị phần theo khu phố, bảng xếp hạng hãng theo tuần, giờ vàng riêng mỗi hãng.
+- **2. Biển số = mã tài xế**: 1 người 1 số cố định dạng `59-G1 234.56` (G = GripBike, C = CamSM), đổi xe vẫn giữ số;
+  hiện ở biển sau xe (mô hình xe có sẵn tấm biển), áo đồng phục, hồ sơ app. Tố cáo ẩn danh ở văn phòng hãng (lỗi dịch vụ)
+  hoặc công an (lỗi giao thông): chỉ tố được người đã gặp (≤ 30 m trong 30 phút trước), tối đa 3 lần/ngày, cần ≥ 3 người khác nhau
+  mới bị phạt, hay tố sai thì giảm uy tín; che biển số bị CSGT phạt. Làm được ngay: phần hiển thị; tố cáo chờ có máy chủ.
+- **3. Bỏ tua thời gian** (đồng hồ: 1 giây thật = 1 phút game; 1 ngày = 24 phút thật). Chỗ đang tua: `g.advance` ở game.js
+  (ngủ, chợp mắt, ngất 6 tiếng, chờ phà, phím T) và interactions.js (hoạt động, xe buýt cả chuyến, sạc / đổi pin / thay nhớt,
+  chờ quán / chờ khách, leo thang, CSGT giữ 6–15 phút, dùng đồ 1–10 phút, mua đồ 2 phút).
+  Hoạt động: 32/50 ≤ 15 phút · 11 ở 16–30 · 6 ở 31–60 · "đi làm văn phòng" 480 phút. Đề xuất:
+  - Việc tốn thời gian: thanh tiến độ + động tác, đồng hồ vẫn chạy, đơn vẫn đổ về; dừng / bước đi lúc nào cũng được → nhận đúng phần đã làm.
+    Tiền: món ăn / vé trả trước; dịch vụ tính giờ (karaoke, massage, thuê phòng, sạc) trả theo phút đã dùng.
+  - Rút hoạt động còn tối đa ~20–30 phút game, giữ tổng tác dụng; "đi làm văn phòng 8 tiếng" bỏ hoặc thành ca 30 phút.
+  - Ngủ: (a) ngủ thật hồi nhanh (~1 phút thật là đầy) + (b) đăng xuất ở nhà trọ = ngủ; bỏ luật "buồn ngủ sau 16 giờ thức" (= 16 phút thật).
+  - Xe buýt: lên đúng xe đang chạy trên bản đồ, tới trạm bấm E xuống. Ngất: ~1 phút màn hình mờ, tỉnh ở bệnh viện, mất tiền + đơn.
+  - Phím T / tua trong cheat chỉ còn ở ?debug / ?cheat. Câu hỏi để sau: có chậm đồng hồ chung lại khi chơi nhiều người không.
+- Thứ tự đề xuất: (3) bỏ tua → (1) lương cứng (cân lại trên nền mới, đo bot trước/sau) → (2) biển số (phần hiển thị).
+- **Chờ chủ game chọn**: kiểu lương 2 hãng · luật đổi hãng · dạng biển số + chỉ làm phần hiển thị · cách ngủ (a)+(b) và bỏ luật 16 giờ ·
+  cách tính tiền dịch vụ (trả trước / trả theo phút).
+
 ### 🏙️ Phố giống Việt Nam hơn — đã làm A (13/10, chờ chủ game xem trong game)
 - Đã làm (giữ lưới đường, không đổi tên đường): nhà ống 2–3 căn / lô (3,4–6,3 m, `houses.js splitFrontage`), biển hiệu to ngang mặt tiền,
   bậc dắt xe, cơi nới mái tôn, thêm màu tường; gạch vỉa hè lộn xộn (gạch đỏ, terrazzo, mảng vá, lặp mỗi 8 m); ~45% cây thân cao;
