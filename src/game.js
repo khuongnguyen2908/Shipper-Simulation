@@ -2,7 +2,7 @@
 // GAME — điều phối: vòng lặp, nối mô phỏng (src/sim) với thế giới 3D (src/world) và giao diện (src/ui)
 // =============================================================
 import * as THREE from 'three';
-import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, NIGHT, PARKING, AIRPORT, RIDE_EVENTS } from './data/balance.js';
+import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, NIGHT, PARKING, AIRPORT, RIDE_EVENTS, ORDER } from './data/balance.js';
 import { parkingRoll, helmetRoll, parkingLotAt, nearestStation, towTarget, safeSpot } from './sim/parking.js';
 import { garageSpots, inGarage, parkSlots } from './sim/garage.js';
 import { airportAt, airportParkAt, airportNoStopAt, noStopStep } from './sim/airport.js';
@@ -21,18 +21,21 @@ import { buildLayout, segmentRect, roadPos, districtAtPoint, traitAt, routeDist,
 import { fmtDist } from './sim/nav.js';
 import { makeRng } from './sim/rng.js';
 import { GameState, START_VEHICLE } from './sim/GameState.js';
-import { OrderManager, S } from './sim/OrderManager.js';
+import { OrderManager, S, scamHotspot } from './sim/OrderManager.js';
 import { HazardManager } from './sim/hazards.js';
-import { depthAtPoint, floodBand, floodSpeedCap, floodNum, floodCancelOk } from './sim/flood.js';
+import { depthAtPoint, floodBand, floodSpeedCap, floodNum, floodCancelOk, nearestSegId } from './sim/flood.js';
 import { objectives } from './sim/objectives.js';
 import { buildCity } from './world/city.js';
 import { Bike, Walker, CameraRig } from './world/controllers.js';
 import { Traffic } from './world/traffic.js';
 import { buildFerries } from './world/ferry.js';
+import { makeStallPeople } from './world/stallPeople.js';
+import { BgTraffic } from './world/bgTraffic.js';
+import { pushCircle } from './world/physics.js';
 import { nextBoat, BOAT_DECK } from './sim/ferry.js';
 import { Sky } from './world/sky.js';
 import { makePerson, makeBeacon, makeZoneRing, setSitting, pedalPerson, randomPersonOpts, npcLook, sitY, makeBike } from './world/models.js';
-import { guessGender, profileLook } from './sim/people.js';
+import { personOf, pronouns, profileLook } from './sim/people.js';
 import { makeLabelTexture, makeQuestTexture } from './world/textures.js';
 import { Input } from './input.js';
 import { Hud } from './ui/hud.js';
@@ -44,7 +47,7 @@ import * as act from './interactions.js';
 import { roundMapData } from './roundMap.js';
 import { sound, setEngine, setRain, unlockAudio, setMuted, setVolumes, setMusic, cityAmbience } from './audio.js';
 import { loadSettings, saveSettings, normSettings } from './settings.js';
-import { fmt, pick } from './content/index.js';
+import { fmt, pick, pickFor } from './content/index.js';
 import { ChatChannel } from './sim/chat.js';
 import { ChatBox } from './ui/chatBox.js';
 import { Bubbles, headOf } from './ui/bubbles.js';
@@ -85,6 +88,8 @@ export class Game {
     this.traffic = new Traffic(this.scene, makeRng(99));
     this.traffic.elev = this.city.elev; // xe bot chạy lên cầu theo độ cao mặt cầu
     this.traffic.grid = this.city.grid; // người đi bộ né cây, cột, trạm xe buýt… trên vỉa hè
+    this.stallPeople = makeStallPeople(this.scene, this.city.seats); // khách ngồi ghế nhựa quán cóc (chỉ để nhìn)
+    this.bgTraffic = new BgTraffic({ scene: this.scene }); // xe máy chạy ở xa cho đường đông (chỉ để nhìn, không va chạm)
     this.ferries = buildFerries(this.scene, this.layout.places); // phà chạy qua sông theo lịch (src/sim/ferry.js)
     this.ferryRide = null; // đang đi phà: { pair, i, to, withBike, off }
     for (const l of this.city.loops || []) this.traffic.addLoop(l); // xe bot chạy vòng lên sàn ga đi sân bay
@@ -272,7 +277,8 @@ export class Game {
   newGame(profile = null) {
     this.startGame({ clock: TIME.dayStart, carry: { ...(profile ? { profile } : {}), flags: { story: 0 } }, seed: Math.floor(Math.random() * 1e6) });
   }
-  // Lưu tự động (06:00 mỗi ngày, mỗi lần ngủ dậy). Mở lại → đứng trước phòng trọ đúng giờ đã lưu.
+  // Lưu: tự động lúc 06:00 mỗi ngày, mỗi lần ngủ dậy; tự lưu ở nhà trọ (nói chuyện Cô Hai → 💾 Lưu game).
+  // Mở lại → đứng trước phòng trọ đúng giờ đã lưu (xe trong hầm). Đơn đang chạy không lưu (đang chạy đơn thì không cho lưu tay).
   saveGame() {
     this.lastSave = { v: 2, clock: Math.floor(this.clockMin), carry: JSON.parse(JSON.stringify(this.gs.carryOver())), seed: this.seed };
     this.writeSave(this.lastSave);
@@ -286,7 +292,7 @@ export class Game {
     this.gs = new GameState({ day, carry });
     if (!carry || carry.awakeSince == null) this.gs.wake(clock); // bản lưu cũ chưa có giờ thức dậy
     this.hz = new HazardManager(makeRng(seed + day * 101), day);
-    this.om = new OrderManager({ rng: makeRng(seed * 7 + day), layout: this.layout, gs: this.gs, isRaining: (m) => this.hz.isRaining(m) });
+    this.om = new OrderManager({ rng: makeRng(seed * 7 + day), layout: this.layout, gs: this.gs, isRaining: (m) => this.hz.isRaining(m), isFlooded: (door, m) => floodBand(this.hz.floodDepth(nearestSegId(door), m)) >= 1 });
     this.om.on((e) => this.onOrderEvent(e));
     this.clockMin = clock;
     this.chat = [];
@@ -412,6 +418,7 @@ export class Game {
     this.hud.toast(fmt('toast.newDay', { day, rent: this.gs.rent, dueDay: this.gs.rentDueDay, paid: this.gs.rentPaid ? fmt('toast.rentPaidNote') : '' }), 'big', 6000);
     this.announceOpenings(day);
     this.saveGame();
+    this.hud.toast(fmt('toast.autoSaved'), 'info', 2500);
   }
   // đồng hồ vừa qua 06:00 → sang ngày mới
   rollDay() {
@@ -469,6 +476,15 @@ export class Game {
   resume() {
     this.paused = false;
     this.screens.hide();
+  }
+
+  // Đi bộ không xuyên qua xe của mình: thân xe = 2 vòng tròn nhỏ (đầu xe, đuôi xe). Xe bị giữ / đang ẩn thì bỏ qua.
+  blockOwnBike() {
+    const b = this.bike, w = this.walker;
+    if (this.gs.towed || !b.mesh.visible || b.mesh.parent !== this.scene) return;
+    if (Math.abs(b.mesh.position.y - w.mesh.position.y) > 1 || Math.hypot(b.pos.x - w.pos.x, b.pos.z - w.pos.z) > 3) return;
+    const f = b.forward();
+    for (const s of [-0.55, 0.55]) pushCircle(w.pos, 0.35, b.pos.x + f.x * s, b.pos.z + f.z * s, 0.33);
   }
 
   // ======================== VÒNG LẶP ========================
@@ -661,6 +677,7 @@ export class Game {
         // đang ngồi ghế: người đi đường / chó không đẩy được, giữ đúng chỗ ngồi (Walker đã đặt sẵn)
         if (!this.walker.seat) {
           this.traffic.collidePlayer(this.walker.pos, 0.35, { x: 0, y: 0 }, false, this.walker.mesh.position.y);
+          this.blockOwnBike();
           this.walker.mesh.position.set(this.walker.pos.x, this.walker.mesh.position.y, this.walker.pos.z);
         }
         // bước chân ra lề / vào nhà không tính, chỉ cập nhật vị trí
@@ -687,7 +704,9 @@ export class Game {
     const pp = this.playerPos;
     const py = (mounted ? bike.mesh : this.walker.mesh).position.y;
     this.ferries.update(this.clockMin, performance.now() / 1000);
-    for (const e of this.traffic.update(dt, { px: pp.x, pz: pp.z, py, onBike: mounted, speed, fx: f.x, fz: f.z })) {
+    const trafficEvents = this.traffic.update(dt, { px: pp.x, pz: pp.z, py, onBike: mounted, speed, fx: f.x, fz: f.z });
+    this.bgTraffic.update(dt, pp.x, pp.z, { onSeg: this.traffic.onSeg, floodIds: this.traffic.floodIds, elev: this.city.elev });
+    for (const e of trafficEvents) {
       if (e.type === 'honk' && Math.random() < 0.5) {
         sound('city.honk');
         this.toastOnce('honk', fmt('toast.honk'), 'info', 15);
@@ -703,6 +722,7 @@ export class Game {
     for (const e of hz.poll(this.clockMin)) this.onHazard(e);
     this.floodTick(dt, water, mounted ? speed : 0, mounted);
     this.blockTick(dMin, dt);
+    this.scamRumorTick();
     if (mounted && !this.cheat.noPolice) {
       for (const p of hz.activePolice(this.clockMin)) {
         if (this.policeChecked.has(p.id)) continue;
@@ -877,6 +897,7 @@ export class Game {
   advance(min, activity = 'idle', { indoor = false, waiting = true, quiet = false, stopOnOffer = false } = {}) {
     const n = Math.max(1, Math.round(min));
     const start = this.clockMin;
+    this.skipping = true; // đang tua giờ (ngủ, chợp mắt, phím T…): không phát tiếng sấm (cơn mưa có thể bắt đầu rồi tạnh ngay trong lúc tua)
     for (let i = 0; i < n; i++) {
       this.clockMin += 1;
       const now = this.clockMin;
@@ -892,6 +913,7 @@ export class Game {
       if (this.gs.collapsed && activity !== 'rest') break; // kiệt sức giữa chừng → xử lý ngay
       if (stopOnOffer && this.om.state === S.OFFERED) break; // điện thoại reo có đơn
     }
+    this.skipping = false;
     if (!quiet) this.hud.toast(fmt('toast.timeSkip', { min: Math.round(this.clockMin - start), time: fmtTime(this.clockMin) }), 'info', 2200);
     this.checkEnd();
   }
@@ -971,7 +993,7 @@ export class Game {
   onHazard(e) {
     const t = fmtTime(this.clockMin);
     if (e.type === 'rainStart') {
-      sound('city.thunder');
+      if (!this.skipping) sound('city.thunder'); // sấm chỉ khi trời bắt đầu mưa lúc đang chơi, không phát khi đang tua giờ
       const coat = this.gs.effect('rainProtect');
       this.hud.toast(fmt(e.heavy ? 'toast.rainHeavy' : 'toast.rainLight') + fmt(coat ? 'toast.rainCoat' : 'toast.rainNoCoat'), 'warn', 5000);
       this.groupChat(fmt('chat.group'), fmt('chat.rain', { time: t }));
@@ -1010,15 +1032,19 @@ export class Game {
   onOrderEvent(e) {
     // chở khách xong, khách cầm luôn nón đi: bong bóng trên đầu khách + báo
     if (e.type === 'helmetTaken') {
-      const line = pick('bubble.helmetTaken', Math.floor(this.clockMin));
+      const line = pick('bubble.helmetTaken', Math.floor(this.clockMin), pronouns(personOf(e.order.customer), this.gs.profile?.gender));
       this.bubbles.show('rider', () => headOf(this.passengerMesh, 1.9), line);
       this.chatCh.local('npc', e.order.customer, line, { time: fmtTime(this.clockMin) });
       return this.onHelmetLost(e.goods, fmt('toast.helmetTaken', { customer: e.order.customer }));
     }
     if (e.type === 'offer') {
       sound('phone.offer');
-      this.phone.openApp('goship'); // đơn mời có hạn giây → mở thẳng app GoShip
-      this.phone.toggle(true);
+      // đơn mời có hạn giây: máy đang cất / ở màn hình chính → mở thẳng app GoShip;
+      // đang xem app khác thì chỉ trượt thông báo xuống (bấm vào để mở; Y / N nhận / bỏ qua ở app nào cũng được)
+      if (!this.phone.open || !this.phone.app) {
+        this.phone.openApp('goship');
+        this.phone.toggle(true);
+      } else if (this.phone.app !== 'goship') this.phone.notify('goship', { title: fmt('phone.offerNoteTitle'), text: fmt('phone.offerNoteText'), ms: ORDER.offerTimeoutSec * 1000 });
       this.hud.toast(fmt('toast.offer'), 'good', 3500);
     } else if (e.type === 'offerExpired') this.hud.toast(fmt('toast.offerExpired'), 'info');
     else if (e.type === 'cancelled') {
@@ -1057,7 +1083,7 @@ export class Game {
     const near = this.traffic.peds.filter((p) => p.mesh.visible && p.knock <= 0 && Math.hypot(p.x - pp.x, p.z - pp.z) < 16);
     if (!near.length) return;
     const p = near[Math.floor(Math.random() * near.length)];
-    this.bubbles.show(`ped:${p.id}`, () => headOf(p.mesh, 1.95), pick('bubble.ped', Math.floor(Math.random() * 1000)));
+    this.bubbles.show(`ped:${p.id}`, () => headOf(p.mesh, 1.95), pickFor('bubble.ped', p.who, Math.floor(Math.random() * 1000), pronouns(p.who || personOf(p.name), this.gs.profile?.gender))); // câu hợp vai người nói (vé số…)
     sound('chat.bubble');
   }
 
@@ -1210,6 +1236,17 @@ export class Game {
     this.hud.toast(fmt(ev ? 'toast.stallElec' : 'toast.stall', { hp }), 'bad', 6000);
   }
 
+  // Mỗi tối (rideEvents.rumorHour) nhóm tài xế đồn 1 "điểm nóng" hay có khách lừa đảo — đúng nơi kẻ lừa đảo hay đón đêm nay
+  // (OrderManager.scamHotspot). Chỉ người đã vào hãng (ở trong nhóm) mới đọc được.
+  scamRumorTick() {
+    const gs = this.gs;
+    const h = tod(this.clockMin) / 60, late = h < TIME.dayStart / 60 ? h + 24 : h; // sau nửa đêm vẫn là "tối nay" của ngày chơi này
+    if (!gs.brand || this.rumorDay === gs.day || late < (RIDE_EVENTS.rumorHour ?? 20.5)) return;
+    this.rumorDay = gs.day;
+    const p = scamHotspot(gs.day, this.layout);
+    if (p) this.groupChat(fmt('chat.group'), fmt('chat.scamRumor', { place: p.name }));
+  }
+
   // ======================== CẢN TRỞ GIAO THÔNG ========================
   // Có xe (buýt, ô tô, xe máy NPC) phải dừng vì mình đứng chắn liên tục: phút blockWarnMin → cảnh báo,
   // phút blockFineMin → công an tới (interactions.blockTicket). Tránh ra quá 3 giây thật thì đếm lại từ đầu.
@@ -1353,12 +1390,19 @@ export class Game {
   // → cất máy, đi theo mũi tên → bấm E ở văn phòng để đăng ký. Bước tính lại theo trạng thái lúc này (đóng máy giữa chừng thì quay lại bước 1).
   tutorialStep() {
     if (!this.gs || this.gs.brand || (this.gs.flags.story ?? 2) < 2 || this.gs.flags.tutSkip) return null; // chỉ sau khi đã leo lên xe đạp Cô Hai cho; bấm "Bỏ qua hướng dẫn" thì thôi
+    if (this.nearOffice()) return 'talk'; // đã tới văn phòng hãng: chỉ còn bấm E nói chuyện (không quay lại bước mở Bản đồ)
     const wp = this.waypoint && this.layout.placeById[this.waypoint];
     if (wp?.kind === 'office') return this.phone.open ? 'close' : 'go';
     if (!this.phone.open) return 'phone';
     if (this.phone.app !== 'map') return 'map';
     const cm = this.phone.cityMap;
     return cm.type === 'office' || cm.sel?.kind === 'office' ? 'route' : 'office';
+  }
+  // Văn phòng hãng ngay cạnh (≤ 8 m) khi chưa vào hãng → hướng dẫn "bấm E đăng ký" thay cho "mở Bản đồ tìm văn phòng"
+  nearOffice() {
+    if (!this.gs || this.gs.brand) return null;
+    const off = this.nearestPlace((p) => p.kind === 'office');
+    return off && dist2(this.playerPos, off.door) < 8 ? off : null;
   }
   // Xe đang ở đâu (app Xe → Định vị xe): tên đường gần nhất (không có thì tên khu phố), quãng đường từ chỗ mình đứng
   bikeWhere() {
@@ -1474,17 +1518,20 @@ export class Game {
       if (ob.id === 'brand') {
         const st = this.tutorialStep();
         if (['phone', 'map', 'office', 'route'].includes(st)) return { text: fmt(`goal.tut.${st}`), sub: fmt(`goal.tut.${st}Hint`) };
+        const at = this.nearOffice();
+        if (at) return { ...at.door, text: fmt('goal.atOffice', { place: at.name }), sub: fmt(this.phone.open ? 'goal.atOfficeClose' : 'goal.atOfficeHint'), color: '#1e90ff' };
         const off = this.nearestPlace((p) => p.kind === 'office');
         return off ? { ...off.door, text: fmt('goal.brand'), sub: fmt('goal.brandHint', { place: off.name }), color: '#5dade2' } : { text: fmt('goal.brand'), sub: '' };
       }
       if (ob.id === 'fuel') {
         if (gs.power === 'electric') {
           const ch = this.nearestPlace((p) => p.kind === 'charger');
-          if (ch) return { ...ch.door, text: fmt('goal.charge'), sub: fmt('goal.chargeHint'), color: '#5dade2' };
+          if (ch) return { ...(ch.chargeSpot || ch.door), text: fmt('goal.charge'), sub: fmt('goal.chargeHint'), color: '#5dade2' };
         } else if (gs.power === 'gas') return { ...P.gas.door, text: fmt('goal.fuel'), sub: fmt('goal.fuelHint'), color: '#5dade2' };
       }
       if (ob.id === 'online') return { text: fmt('goal.online'), sub: '' };
-      if (ob.id === 'rent' && gs.money >= gs.rent) return { ...P.home.door, text: fmt('goal.rent', { rent: gs.rent, day: gs.rentDueDay }), sub: fmt('goal.rentHint'), color: '#e74c3c' };
+      // nhắc về trả tiền nhà chỉ vào NGÀY hạn trả (đủ tiền từ sớm thì cứ chạy đơn, không bị kéo về nhà sau khi đổ xăng / sạc)
+      if (ob.id === 'rent' && gs.money >= gs.rent && gs.day >= gs.rentDueDay) return { ...P.home.door, text: fmt('goal.rent', { rent: gs.rent, day: gs.rentDueDay }), sub: fmt('goal.rentHint'), color: '#e74c3c' };
     }
     if (gs.fines.length && gs.money >= gs.finesTotal && (gs.hasOverdueFines || gs.finesDueAt - this.clockMin < 1440)) {
       const st = this.nearestStation();
@@ -1540,7 +1587,7 @@ export class Game {
     if (o.kind === 'ride') {
       if (!this.passengerMesh) {
         // đặt xe dùm cho cụ già / em bé: tóc bạc, dáng nhỏ
-        const look = { ...randomPersonOpts(rng, guessGender(o.customer), { sitting: true }), hat: 'helmet', hatColor: 0xffffff };
+        const look = { ...randomPersonOpts(rng, personOf(o.customer).gender, { sitting: true }), hat: 'helmet', hatColor: 0xffffff };
         if (/^(Bà|Ông|Cụ)\s/.test(o.customer)) look.hair = 0xc8c8c8;
         if (/^Bé\s/.test(o.customer)) look.scale = 0.72;
         this.passengerMesh = makePerson(look);
@@ -1572,7 +1619,7 @@ export class Game {
       const hideCustomer = o.flags.noAnswer && !o.noAnswerResolved; // khách vắng nhà
       if (near && !hideCustomer && this.customerFor !== key && !o.dropoff.apartment) {
         this.clearTempNpcs();
-        const m = makePerson(randomPersonOpts(rng, guessGender(o.customer)));
+        const m = makePerson(randomPersonOpts(rng, personOf(o.customer).gender));
         m.position.set(o.dropoff.door.x, SW_H, o.dropoff.door.z);
         this.scene.add(m);
         this.customerMesh = m;
@@ -1732,6 +1779,7 @@ export class Game {
     this.updateBusSigns();
     this.updateParkSigns();
     this.city.parked?.update(this.playerPos.x, this.playerPos.z); // xe máy đậu: hiện các ô gần người chơi
+    this.stallPeople?.update(dt, this.playerPos.x, this.playerPos.z, this.walker.seat); // khách ngồi quán cóc quanh người chơi
     const rain = hz.rainAt(now);
     const pp = this.playerPos;
     this.applyLook();
@@ -1902,6 +1950,7 @@ export class Game {
     this.phone.render({
       bikeWhere: app === 'bike' ? this.bikeWhere() : null,
       tut: this.tutorialStep(), // hướng dẫn người mới: nhấp nháy app Bản đồ / nút Văn phòng hãng / nút Chỉ đường
+      atOffice: !!this.nearOffice(), // đang đứng ở văn phòng hãng (chưa vào hãng): ô tóm tắt nhắc bấm E
       garage: near(gar),
       fuelStop: near(stop),
       offices,

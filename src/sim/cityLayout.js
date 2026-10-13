@@ -5,7 +5,8 @@ import { MAP } from '../data/map.js';
 import { fmt } from '../content/index.js';
 import { planBlock, ALLEY_TEMPLATES } from './blockPlan.js';
 import { traitOf } from '../data/districtTraits.js';
-import { airportRideDoor } from './airport.js';
+import { airportRideDoor, lotFrame } from './airport.js';
+import { lookOf } from '../data/looks.js';
 
 // Lưới N × N khối (N lấy từ map.json), mỗi khối 40 m, đường 12 m; tâm bản đồ ở (0, 0)
 const N = Number.isInteger(MAP.size) && MAP.size >= 3 ? MAP.size : 8;
@@ -274,12 +275,23 @@ export function placeCells(p) {
 
 const key = (bx, bz, lot) => `${bx},${bz},${lot}`;
 
+// Trạm sạc (kiểu nhà cây xăng, world/placeBuildings.js BUILD.gas): chỗ sạc = bên phải trụ đầu tiên dưới mái che
+// (trụ ở x = ±(W−1)/4 nếu lô rộng > 9 m, không thì giữa lô; mái che lùi vào z = −0,42·D). Kiểu nhà khác → dùng cửa.
+export function chargeSpot(p) {
+  if (p.kind !== 'charger' || lookOf(p) !== 'gas' || p.x0 == null) return null;
+  const fr = lotFrame(p), cw = fr.W - 1, ix = fr.W > 9 ? -cw / 4 : 0;
+  const [x, z] = fr.toWorld(ix + 1.3, -fr.D * 0.42);
+  return { x, z };
+}
+
 // Dựng danh sách địa điểm đặc biệt + các lô nhà dân (khách hàng) + mặt bằng các khối có hẻm
 export function buildLayout(placesData = PLACES, map = MAP) {
   const places = placesData.filter(isPlaced).map((p) => ({ ...p, ...lotInfo(p.block[0], p.block[1], p.lot, p.face, map) }));
   for (const p of places) {
     const rd = airportRideDoor(p); // sân bay: xe ôm đón / trả ở điểm đón xe công nghệ
     if (rd) p.rideDoor = rd;
+    const cs = chargeSpot(p); // trạm sạc: chỗ dựng xe sạc nằm trong sân trạm (cạnh trụ), không phải cửa ngoài vỉa hè
+    if (cs) p.chargeSpot = cs;
   }
   const taken = new Set();
   for (const p of places) for (const [bx, bz, id] of placeCells(p)) taken.add(key(bx, bz, id));

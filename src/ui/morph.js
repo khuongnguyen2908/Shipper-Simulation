@@ -18,6 +18,9 @@ function patch(a, b) {
       if (x.nodeValue !== y.nodeValue) x.nodeValue = y.nodeValue;
       continue;
     }
+    // khung giữ nguyên (data-keep) ↔ khung thường: thay hẳn, không sửa tại chỗ — nếu không, phần tử do code khác vẽ
+    // (vd bản đồ) bị ghi đè thành nội dung app khác và hỏng luôn (bản đồ đen)
+    if (x.hasAttribute('data-keep') !== y.hasAttribute('data-keep')) { a.replaceChild(y, x); continue; }
     for (const at of [...x.attributes]) if (!y.hasAttribute(at.name)) x.removeAttribute(at.name);
     for (const at of [...y.attributes]) if (x.getAttribute(at.name) !== at.value) x.setAttribute(at.name, at.value);
     if (!x.hasAttribute('data-keep')) patch(x, y);

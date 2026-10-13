@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { CITY, LOT_W, blockBounds, districtAt, riverInfo, joinedSide } from '../sim/cityLayout.js';
 import { makeKit, mergeKits, kitLantern } from './placeBuildings.js';
+import { streetOf } from '../data/districtTraits.js';
 
 const W = LOT_W;
 const has = (d, k) => !!(d && d.decor && d.decor[k]);
@@ -67,7 +68,7 @@ export function buildStreetDecor(scene, { map, rng, addBox, blockStyle, isPlaceD
   for (let bz = 0; bz < CITY.N; bz++) {
     for (let bx = 0; bx < CITY.N; bx++) {
       const d = districtAt(bx, bz, map);
-      if (!d || !d.decor) continue;
+      if (!d) continue;
       const b = blockBounds(bx, bz);
       // dây đèn lồng: giăng qua đường phía Bắc / Tây của khối (và Nam / Đông nếu khối bên kia không giăng), bỏ đoạn là sông
       if (has(d, 'lanterns')) {
@@ -101,12 +102,13 @@ export function buildStreetDecor(scene, { map, rng, addBox, blockStyle, isPlaceD
           }
         }
       }
-      // xe hàng rong: 0–2 xe mỗi cạnh, lệch khỏi cửa nhà và cây (khối đã có đèn lồng giấy thì thôi)
-      if (has(d, 'vendors') && !chochin) {
+      // xe hàng rong: 0–2 xe mỗi cạnh theo độ đông của khu (streetOf), lệch khỏi cửa nhà và cây (khối đã có đèn lồng giấy thì thôi)
+      const pv = Math.min(0.85, 0.3 * streetOf(d, 'vendors'));
+      if (pv > 0 && !chochin) {
         for (const side of ['N', 'S', 'W', 'E']) {
           if (joinedSide(bx, bz, side, map)) continue; // cạnh giáp khối đã gộp
-          for (const kk of [0.75, 2.25]) {
-            if (rng.next() > 0.3) continue;
+          for (const kk of [0.75, 2.25]) { // không đặt giữa cạnh khối: có thể là miệng hẻm
+            if (rng.next() > pv) continue;
             const [x, z] = sidePoint(b, side, kk, 1.1);
             if (isPlaceDoor(x, z)) continue;
             const along = side === 'N' || side === 'S' ? 'x' : 'z';

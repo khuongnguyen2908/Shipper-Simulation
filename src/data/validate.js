@@ -16,7 +16,7 @@ import { LOOKS, lookOf, looksFor } from './looks.js';
 import { hoursProblem, totalHours } from '../sim/hours.js';
 import { BALANCE_GROUPS, KNOWN_PATHS, getPath } from './balanceSpec.js';
 import { ITEM_GROUP_IDS } from './itemGroups.js';
-import { DISTRICT_TRAITS, TRAIT_RANGE, HOUSE_STYLE_IDS, DECOR_IDS, TREES_RANGE } from './districtTraits.js';
+import { DISTRICT_TRAITS, TRAIT_RANGE, HOUSE_STYLE_IDS, DECOR_IDS, TREES_RANGE, STREET_IDS, STREET_RANGE } from './districtTraits.js';
 const ROAD_TIER_IDS = ['big', 'normal', 'small']; // cấp đường (giống TIER_IDS trong src/sim/roads.js)
 import { isPlaced } from './places.js';
 
@@ -133,6 +133,7 @@ export function validateApps(ad, items = {}, placesData = null) {
     inRange(add, key, 'cancelComp', a.cancelComp, 0, 200, 'Bù khi đơn bị hủy');
     inRange(add, key, 'rainSurcharge', a.rainSurcharge, 0, 100, 'Phụ phí mưa');
     inRange(add, key, 'peakSurcharge', a.peakSurcharge, 0, 100, 'Phụ phí giờ cao điểm');
+    if (a.floodSurcharge != null) inRange(add, key, 'floodSurcharge', a.floodSurcharge, 0, 100, 'Phụ phí ngập');
     if (a.airportFee != null) inRange(add, key, 'airportFee', a.airportFee, 0, 100, 'Phụ phí sân bay');
     if (!Array.isArray(a.tipByStars) || a.tipByStars.length !== 6 || a.tipByStars.some((v) => !num(v) || v < 0 || v > 500)) add('error', key, 'tipByStars', 'Tiền boa: đủ 1★ → 5★, mỗi mức 0–500k.');
     if (!Array.isArray(a.peakHours) || a.peakHours.some(badHours)) add('error', key, 'peakHours', 'Giờ cao điểm: mỗi khung là giờ bắt đầu < giờ kết thúc, trong 0–24.');
@@ -421,6 +422,7 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null, m
     for (const [k, table] of [['goods', goodsTable], ['bags', gearTable?.bags], ['vehicles', gearTable?.vehicles]]) {
       for (const id of p.sells?.[k] || []) if (table && !table[id]) add('error', p.id, `sells.${k}`, `Bán "${id}" nhưng không có trong danh mục.`);
     }
+    if (p.buys != null && typeof p.buys !== 'boolean') add('error', p.id, 'buys', '"Thu mua đồ cũ" phải là true/false.');
     // điểm đến của đơn
     if (p.orders) {
       for (const k of ['rideWeight', 'foodWeight', 'parcelWeight']) if (p.orders[k] != null && (!num(p.orders[k]) || p.orders[k] < 0 || p.orders[k] > 10)) add('error', p.id, `orders.${k}`, 'Mức độ thường xuyên từ 0 đến 10.');
@@ -528,6 +530,7 @@ export function validateGoods(goods, placesData) {
       const u = s.use || {};
       for (const [k, r] of Object.entries(CONSUMABLE_FIELDS)) if (u[k] != null && (!num(u[k]) || u[k] < r.min || u[k] > r.max)) add('error', key, `use.${k}`, `Phải từ ${r.min} đến ${r.max}.`);
       if (!u.phys && !u.mental && !u.fuel && !u.bikeHp) add('warn', key, 'use', 'Dùng xong không có tác dụng gì.');
+      if (u.leaves != null && goods[u.leaves]?.type !== 'carry') add('error', key, 'use.leaves', `"Dùng xong còn lại" phải là món loại "dùng tại địa điểm" (vd vỏ chai), không phải: ${u.leaves}.`);
       drainWarn(add, key, u.phys <= -30 ? 'use.phys' : 'use.mental', u.phys, u.mental, '');
       const gain = Math.max(0, u.phys || 0) + Math.max(0, u.mental || 0);
       if (num(s.price) && gain > 0) {
@@ -549,11 +552,15 @@ export function validateGoods(goods, placesData) {
         if (!COLOR_RE.test(s.color || '')) add('error', key, 'color', 'Màu phải dạng #rrggbb.');
       }
     } else if (s.type === 'carry') {
-      // dùng tại địa điểm: phải có hoạt động nào đó cần món này
-      if (placesData && !(placesData.places || []).some((p) => (p.activities || []).some((a) => a.needs?.id === key))) add('warn', key, 'type', 'Chưa địa điểm nào có hoạt động cần món này → mua về không dùng được. Thêm ô "Cần đồ" ở hoạt động (thẻ Địa điểm).');
+      if (s.scrapPrice != null && (!num(s.scrapPrice) || s.scrapPrice < 0 || s.scrapPrice > 100)) add('error', key, 'scrapPrice', 'Giá bán ve chai phải từ 0 đến 100.');
+      const scrap = s.scrapPrice > 0;
+      if (scrap && placesData && !(placesData.places || []).some((p) => p.buys)) add('warn', key, 'scrapPrice', 'Chưa địa điểm nào "Thu mua đồ cũ" → không bán được.');
+      // dùng tại địa điểm: phải có hoạt động nào đó cần món này (phế liệu bán ve chai thì thôi)
+      if (!scrap && placesData && !(placesData.places || []).some((p) => (p.activities || []).some((a) => a.needs?.id === key))) add('warn', key, 'type', 'Chưa địa điểm nào có hoạt động cần món này → mua về không dùng được. Thêm ô "Cần đồ" ở hoạt động (thẻ Địa điểm).');
     } else add('error', key, 'type', 'Loại phải là "đồ dùng 1 lần", "trang bị", "dùng tại địa điểm" hoặc "trang phục".');
     // trang phục giá 0 là đồ có sẵn, không cần nơi bán
-    if (placesData && !sold.has(key) && !(s.type === 'outfit' && s.price === 0)) add('warn', key, 'sells', 'Chưa địa điểm nào bán món này.');
+    const madeInGame = Object.values(goods).some((x) => x.use?.leaves === key); // vỏ chai: có sau khi uống, không cần nơi bán
+    if (placesData && !sold.has(key) && !madeInGame && !(s.type === 'outfit' && s.price === 0)) add('warn', key, 'sells', 'Chưa địa điểm nào bán món này.');
   }
   for (const [slot, def] of Object.entries(OUTFIT_SLOTS)) {
     if (def.accessory) continue; // phụ kiện được để trống
@@ -625,6 +632,14 @@ export function validateMap(map, placesData = null) {
       else for (const k of Object.keys(d.decor)) if (!DECOR_IDS.includes(k)) add('error', `district:${id}`, 'decor', `Trang trí lạ: ${k}.`);
     }
     if (d && d.trees != null && (!num(d.trees) || d.trees < TREES_RANGE[0] || d.trees > TREES_RANGE[1])) add('error', `district:${id}`, 'trees', `Cây xanh: số từ ${TREES_RANGE[0]} đến ${TREES_RANGE[1]} (1 = như cũ).`);
+    // độ đông vỉa hè: { bikes, stalls, vendors } mỗi số 0–2
+    if (d && d.street != null) {
+      if (typeof d.street !== 'object' || Array.isArray(d.street)) add('error', `district:${id}`, 'street', 'Độ đông vỉa hè phải là bảng { bikes, stalls, vendors }.');
+      else for (const [k, v] of Object.entries(d.street)) {
+        if (!STREET_IDS.includes(k)) add('error', `district:${id}`, `street.${k}`, `Mục độ đông vỉa hè lạ: ${k}.`);
+        else if (!num(v) || v < STREET_RANGE[0] || v > STREET_RANGE[1]) add('error', `district:${id}`, `street.${k}`, `Độ đông vỉa hè: số từ ${STREET_RANGE[0]} đến ${STREET_RANGE[1]}.`);
+      }
+    }
   }
   for (const [key, id] of Object.entries(map.districtBlocks || {})) {
     const m = /^(\d+),(\d+)$/.exec(key);

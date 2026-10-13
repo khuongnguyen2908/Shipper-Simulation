@@ -63,6 +63,7 @@ function bagEntries(gs) {
 function bagActions(e) {
   const acts = [], notes = [];
   if (e.kind === 'use') acts.push({ act: 'bagUse', label: fmt('phone.bagUse', { min: e.g.use?.minutes || 0 }) });
+  else if (e.kind === 'carry' && e.g.scrapPrice > 0) notes.push(fmt('phone.bagScrap', { where: PLACES.filter((p) => p.buys).map((p) => p.short || p.name).join(', ') || '—', k: e.g.scrapPrice }));
   else if (e.kind === 'carry') notes.push(fmt('phone.bagCarry', { where: placesUsing(e.id, PLACES).map((p) => p.short || p.name).join(', ') || '—' }));
   else if (e.kind === 'outfit') {
     if (isAccessorySlot(e.g.slot)) acts.push(e.worn ? { act: 'bagOff', label: fmt('phone.bagOff') } : { act: 'bagWear', label: fmt('phone.bagWear') });
@@ -97,9 +98,12 @@ function orderTags(o) {
   if (o.booker) tags.push(`<span class="tag">${fmt('phone.booked', { booker: o.booker })}</span>`);
   if (o.cod) tags.push(`<span class="tag warn">${fmt('phone.cod', { cod: o.cod })}</span>`);
   if (o.surcharge) tags.push(`<span class="tag good">${fmt('phone.surcharge', { k: o.surcharge })}</span>`);
+  if (o.flags?.flood) tags.push(`<span class="tag warn">${fmt('phone.floodTag')}</span>`); // chỗ lấy / chỗ giao đang ngập
   if (o.airportFee) tags.push(`<span class="tag good">${fmt('phone.airportFee', { k: o.airportFee })}</span>`);
   // dấu hiệu khách lừa đảo (người chơi tinh ý thì từ chối từ đầu)
-  if (o.flags?.scam) tags.push(`<span class="tag warn">${fmt('phone.scamNew')}</span>`, `<span class="tag warn">${fmt('phone.scamCash')}</span>`);
+  // (khách thường đôi khi cũng có — không chắc chắn là lừa đảo)
+  if (o.flags?.newAcct) tags.push(`<span class="tag warn">${fmt('phone.scamNew')}</span>`);
+  if (o.flags?.cashOnly) tags.push(`<span class="tag warn">${fmt('phone.scamCash')}</span>`);
   if (rider?.luggage) tags.push(`<span class="tag">${fmt('phone.luggage')}</span>`);
   if (rider?.foreign) tags.push(`<span class="tag">${fmt('phone.foreign')}</span>`);
   return tags.join('');
@@ -266,12 +270,12 @@ export class Phone {
     if (this.open && note) this.showNotif(app, note);
   }
 
-  showNotif(app, { title, text }) {
+  showNotif(app, { title, text, ms = 4000 }) {
     const a = APP_BY_ID[app];
     this.notifEl.innerHTML = `<button data-app="${app}"><b>${a[1]} ${title}</b><span>${text}</span></button>`;
     this.notifEl.classList.remove('hidden');
     clearTimeout(this.notifTimer);
-    this.notifTimer = setTimeout(() => this.hideNotif(), 4000);
+    this.notifTimer = setTimeout(() => this.hideNotif(), ms);
   }
 
   hideNotif() {
@@ -314,7 +318,7 @@ export class Phone {
     const work = gs.brand
       ? `<div class="w-big">${fmtK(income)} · ${fmt('phone.homeOrders', { n: gs.stats.completed })} · ⭐${gs.rating.toFixed(2)}</div>
         <small>${fmt(online ? 'phone.online' : 'phone.offline')} · 💰 ${fmtK(gs.money)}</small>`
-      : `<div class="w-big">💰 ${fmtK(gs.money)}</div><small>${fmt('phone.homeNoBrand')}</small>`;
+      : `<div class="w-big">💰 ${fmtK(gs.money)}</div><small>${fmt(d.atOffice ? 'phone.homeAtOffice' : 'phone.homeNoBrand')}</small>`;
     // hướng dẫn người mới: nhấp nháy app Bản đồ
     const tut = (id) => (d.tut === 'map' && id === 'map' ? ' class="tut"' : '');
     return `<div class="ph-home">

@@ -4,7 +4,7 @@ import { ALLEY_TEMPLATES } from '../../sim/blockPlan.js';
 import { isPlaced } from '../../data/places.js';
 import { el, field, button, selectInput, checkInput, numInput, explain, textInput, colorInput, advanced } from './ui.js';
 import { HINT, EXPLAIN } from './help.js';
-import { DISTRICT_TRAITS, DISTRICT_PRESETS, TRAIT_IDS, TRAIT_RANGE, traitOf, HOUSE_STYLES, DECOR, LOOK_PRESETS, TREES_RANGE, treesOf } from '../../data/districtTraits.js';
+import { DISTRICT_TRAITS, DISTRICT_PRESETS, TRAIT_IDS, TRAIT_RANGE, traitOf, HOUSE_STYLES, DECOR, LOOK_PRESETS, TREES_RANGE, treesOf, STREET_LIFE, STREET_RANGE, streetOf } from '../../data/districtTraits.js';
 import { ROAD_TIERS, TIER_IDS, tierOf, roadSegAt, allSegments, suggestRoadTiers } from '../../sim/roads.js';
 import { buildLayout } from '../../sim/cityLayout.js';
 import { buildBusSystem, pointAt } from '../../sim/bus.js';
@@ -250,6 +250,16 @@ export function render(root, ctx) {
         else delete d.trees;
         changed();
       }, { step: 0.1, min: TREES_RANGE[0], max: TREES_RANGE[1] }), { ref: `district:${id}`, fieldKey: 'trees', hint: '0 = không cây · 1 = như cũ (8 cây mỗi khối) · 2 = gấp đôi.' }),
+      el('h4', {}, '🛵 Độ đông vỉa hè (trước nhà phố)'),
+      el('p', { class: 'muted' }, '0 = không có · 1 = vừa · 2 = kín vỉa hè. Để trống = theo "🚶 Người đi bộ" của khu (xe hàng rong: khu chưa bật 🛒 thì 40%). Không dựng trước biệt thự / cao ốc / chung cư. Lối đi bộ giữa vỉa hè luôn được chừa. Đổi xong tải lại game để thấy.'),
+      el('div', { class: 'grid tight' }, STREET_LIFE.map(([k, label, hint]) => field(label, numInput(d.street?.[k] ?? null, (v) => {
+        const st = { ...(d.street || {}) };
+        if (Number.isFinite(v) && v >= 0) st[k] = Math.min(v, STREET_RANGE[1]);
+        else delete st[k];
+        if (Object.keys(st).length) d.street = st;
+        else delete d.street;
+        changed();
+      }, { step: 0.1, min: STREET_RANGE[0], max: STREET_RANGE[1] }), { ref: `district:${id}`, fieldKey: `street.${k}`, hint: `${hint} Đang dùng: ${streetOf(d, k).toFixed(2)}.` }))),
       el('h4', {}, '🛣️ Tỉ lệ cấp đường trong khu'),
       el('p', { class: 'muted' }, 'Dùng khi bấm "🔄 Chia lại theo khu phố" ở mục Đường to / nhỏ: mỗi tuyến đường trong khu chọn 1 cấp theo tỉ lệ này (cả tuyến cùng cấp, không loang lổ); đoạn giáp 2 khu lấy mức giữa. Đường chính (thẻ Địa điểm) luôn là đại lộ.'),
       el('div', { class: 'grid tight' }, ROAD_TIERS.map(([k, label]) => field(label, numInput(d.roads?.[k] ?? null, (v) => {

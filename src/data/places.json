@@ -812,10 +812,10 @@
       "short": "Đồ",
       "kind": "shop",
       "block": [
-        5,
-        6
+        4,
+        5
       ],
-      "lot": "E1",
+      "lot": "N1",
       "floors": 2,
       "color": "#9fd8cb",
       "sign": "ĐỒ NGHỀ SHIPPER",
@@ -1138,7 +1138,7 @@
         0,
         0
       ],
-      "lot": "N0",
+      "lot": "N2",
       "floors": 2,
       "color": "#c8a27a",
       "sign": "CÀ PHÊ VÕNG",
@@ -1180,7 +1180,8 @@
       ],
       "orders": {
         "rideWeight": 1
-      }
+      },
+      "face": "E"
     },
     {
       "id": "taphoa",
@@ -1241,7 +1242,8 @@
         "shirt": "#5d6d7e",
         "pants": "#1c2833",
         "hat": null,
-        "portrait": "👵"
+        "portrait": "👵",
+        "gender": "f"
       },
       "hours": "caNgay"
     },
@@ -1862,10 +1864,10 @@
         "parcelWeight": 0
       },
       "block": [
-        1,
-        9
+        2,
+        8
       ],
-      "lot": "N2",
+      "lot": "f5",
       "sells": {
         "goods": [
           "energyDrink",
@@ -2076,6 +2078,42 @@
       }
     },
     {
+      "id": "canhquan2_3",
+      "name": "Bãi Giữ Xe",
+      "short": "Bãi xe",
+      "kind": "scenery",
+      "icon": "🅿️",
+      "look": "parkingLot",
+      "color": "#91e36d",
+      "block": [
+        2,
+        9
+      ],
+      "lot": "W1",
+      "hours": "caNgay",
+      "orders": {
+        "rideWeight": 1
+      }
+    },
+    {
+      "id": "canhquan2_4",
+      "name": "Bãi Giữ Xe",
+      "short": "Bãi xe",
+      "kind": "scenery",
+      "icon": "🅿️",
+      "look": "parkingLot",
+      "color": "#91e36d",
+      "block": [
+        9,
+        8
+      ],
+      "lot": "S1",
+      "hours": "caNgay",
+      "orders": {
+        "rideWeight": 1
+      }
+    },
+    {
       "id": "canhquan2_2",
       "name": "Bãi Giữ Xe Khách",
       "short": "Bãi xe",
@@ -2207,6 +2245,76 @@
       "block": [
         0,
         5
+      ],
+      "lot": "M"
+    },
+    {
+      "id": "canhquan9_2",
+      "name": "Công viên sân banh",
+      "short": "",
+      "kind": "scenery",
+      "icon": "🌳",
+      "look": "park",
+      "color": "#5f9e45",
+      "block": [
+        1,
+        9
+      ],
+      "lot": "M"
+    },
+    {
+      "id": "canhquan9_5",
+      "name": "Công viên sân banh",
+      "short": "",
+      "kind": "scenery",
+      "icon": "🌳",
+      "look": "park",
+      "color": "#5f9e45",
+      "block": [
+        2,
+        9
+      ],
+      "lot": "M"
+    },
+    {
+      "id": "canhquan9_4",
+      "name": "Công viên sân banh",
+      "short": "",
+      "kind": "scenery",
+      "icon": "🌳",
+      "look": "park",
+      "color": "#5f9e45",
+      "block": [
+        1,
+        9
+      ],
+      "lot": "N1"
+    },
+    {
+      "id": "canhquan9_3",
+      "name": "Công viên sân bây",
+      "short": "",
+      "kind": "scenery",
+      "icon": "🌳",
+      "look": "park",
+      "color": "#5f9e45",
+      "block": [
+        0,
+        0
+      ],
+      "lot": "S1"
+    },
+    {
+      "id": "canhquan9_6",
+      "name": "Công viên sân bây",
+      "short": "",
+      "kind": "scenery",
+      "icon": "🌳",
+      "look": "park",
+      "color": "#5f9e45",
+      "block": [
+        0,
+        0
       ],
       "lot": "M"
     },
@@ -2761,9 +2869,9 @@
       "color": "#9aa0a6",
       "block": [
         0,
-        1
+        0
       ],
-      "lot": "N2",
+      "lot": "S2",
       "icon": "🅿️",
       "orders": {
         "rideWeight": 2
@@ -3106,7 +3214,7 @@
       "signBg": "#1d5fa8",
       "hours": "haiTuGio",
       "npc": {
-        "name": "Chú Hai chủ trọ",
+        "name": "Quản gia dãy trọ",
         "shirt": "#7f8c8d",
         "pants": "#2c3e50",
         "hat": null,
@@ -3386,7 +3494,7 @@
         9,
         8
       ],
-      "lot": "S2",
+      "lot": "N1",
       "orders": {
         "rideWeight": 1
       }
@@ -3425,7 +3533,7 @@
         9,
         8
       ],
-      "lot": "S1",
+      "lot": "S2",
       "orders": {
         "rideWeight": 1
       }
@@ -3442,6 +3550,38 @@
         4
       ],
       "lot": "S",
+      "orders": {
+        "rideWeight": 1
+      }
+    },
+    {
+      "kind": "scenery",
+      "id": "sanBongMini_2",
+      "name": "Sân Bóng Mini Bán Đảo",
+      "short": "Sân bóng",
+      "look": "soccer",
+      "color": "#2e7d32",
+      "block": [
+        1,
+        9
+      ],
+      "lot": "E",
+      "orders": {
+        "rideWeight": 1
+      }
+    },
+    {
+      "kind": "scenery",
+      "id": "sanBongMini_3",
+      "name": "Sân Bóng Mini Bán Đảo",
+      "short": "Sân bóng",
+      "look": "soccer",
+      "color": "#2e7d32",
+      "block": [
+        1,
+        9
+      ],
+      "lot": "W",
       "orders": {
         "rideWeight": 1
       }
@@ -3484,10 +3624,10 @@
       "look": "pickleball",
       "color": "#2a9d8f",
       "block": [
-        3,
+        2,
         9
       ],
-      "lot": "N01",
+      "lot": "S01",
       "hours": "caNgay",
       "activities": [
         {
@@ -3557,13 +3697,13 @@
     {
       "id": "rmit",
       "name": "Đại học RMEET",
-      "short": "RMIT",
+      "short": "RMEET",
       "kind": "service",
       "icon": "🎓",
       "look": "university",
       "floors": 5,
       "color": "#6f8fa8",
-      "sign": "RMIT VIỆT NAM",
+      "sign": "RMEET VIỆT NAM",
       "signBg": "#d71920",
       "block": [
         5,
@@ -4038,7 +4178,8 @@
         "hat": "nonla",
         "portrait": "♻️",
         "gender": "f"
-      }
+      },
+      "buys": true
     },
     {
       "id": "benhVienQT",
@@ -4138,13 +4279,13 @@
     {
       "id": "officeGoship",
       "name": "Văn phòng GripBike",
-      "short": "GoShip",
+      "short": "GripBike",
       "kind": "office",
       "brand": "goship",
       "lot": "N0",
       "floors": 3,
       "color": "#d5f5e3",
-      "sign": "GOSHIP – TUYỂN TÀI XẾ",
+      "sign": "GRIPBIKE – TUYỂN TÀI XẾ",
       "signBg": "#00b14f",
       "look": "tower",
       "npc": {

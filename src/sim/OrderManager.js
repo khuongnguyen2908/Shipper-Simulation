@@ -66,13 +66,24 @@ const r1 = (v) => Math.round(v * 10) / 10;
 // Hệ số "xa" khi chọn nơi lấy hàng: (30 + d)² → quán / shop gần tài xế được chọn nhiều hơn hẳn
 const near = (d) => (30 + d) ** 2;
 
+// "Điểm nóng" lừa đảo của ngày `day`: 1 trong các nơi "Đón ở" của loại khách lừa đảo (apps.json), đổi theo ngày.
+// Nhóm tài xế báo nơi này mỗi tối (game.js); khách lừa đảo phần lớn đón ở đây (rideEvents.hotspotPct)
+export function scamHotspot(day, layout) {
+  const r = Object.values(RIDER_TYPES).find((x) => x.scam);
+  const ids = (r?.from || []).filter((id) => id !== FROM_HOMES && layout.placeById[id]);
+  if (!ids.length) return null;
+  return layout.placeById[ids[(Math.imul(day + 7, 2654435761) >>> 0) % ids.length]];
+}
+
 export class OrderManager {
   // isRaining(phút): để tính phụ phí mưa lúc có đơn (game / bot truyền vào; bỏ trống = không mưa)
-  constructor({ rng, layout, gs, isRaining = () => false }) {
+  // isFlooded(cửa, phút): chỗ lấy / chỗ giao đang ngập không → phụ phí ngập (bỏ trống = không ngập)
+  constructor({ rng, layout, gs, isRaining = () => false, isFlooded = () => false }) {
     this.rng = rng;
     this.layout = layout;
     this.gs = gs;
     this.isRaining = isRaining;
+    this.isFlooded = isFlooded;
     this.state = S.OFFLINE;
     this.order = null;
     this.offer = null;
@@ -300,7 +311,9 @@ export class OrderManager {
       const l = this.pickLotAround(pos, 40, 180);
       pickup = { name: l.address, address: l.address, door: rideDoor(l), lotKey: l.key };
     } else if (atPlace) {
-      const p = this.rng.pick(from); // khách say đi ra từ karaoke…
+      // khách lừa đảo: phần lớn đón ở "điểm nóng" đêm nay mà nhóm tài xế đã đồn (scamHotspot), còn lại đón ở nơi khác
+      const hot = rider.scam ? scamHotspot(this.gs.day, this.layout) : null;
+      const p = hot && from.includes(hot) && this.rng.chance(RIDE_EVENTS.hotspotPct ?? 0.7) ? hot : this.rng.pick(from); // khách say đi ra từ karaoke…
       pickup = { placeId: p.id, name: p.name, address: p.name, door: rideDoor(p) };
     } else if ((pickup = this.placeDestination('rideWeight', now, null, 0.5, false, true))) {
       // khách xuất phát từ một địa điểm (vd. hát karaoke xong về nhà)
@@ -324,6 +337,9 @@ export class OrderManager {
     // sự cố giữa đường (lừa đảo / đổi điểm đến) — xảy ra khi đã đi được `at` phần quãng đường
     if (rider?.foreign) o.flags.foreign = true;
     if (!story && rider) {
+      // dấu hiệu tinh ý trên thẻ đơn: khách lừa đảo luôn có cả 2; khách app thường đôi khi cũng có (gây nhiễu, balance.json → rideEvents)
+      o.flags.newAcct = !!rider.scam || (rider.viaApp !== false && this.rng.chance(RIDE_EVENTS.decoyNew ?? 0.08));
+      o.flags.cashOnly = !!rider.scam || (rider.viaApp !== false && this.rng.chance(RIDE_EVENTS.decoyCash ?? 0.1));
       if (rider.scam) {
         o.flags.scam = true;
         o.flags.vague = true; // chỉ cho khu vực, không địa chỉ rõ
@@ -389,7 +405,9 @@ export class OrderManager {
     const fareMult = (type.fareMult ?? 1) * (rider ? rider.fareMult ?? 1 : 1);
     const baseFare = r1((Math.max(...defs.map((d) => d.base)) + (defs.length - 1) * APP.extraItemFare) * fareMult);
     const viaApp = rider ? rider.viaApp !== false : true;
-    const surcharge = viaApp ? surchargeAt(now, this.isRaining(now)) : 0; // khách quen gọi thẳng: không có phụ phí app
+    // khách quen gọi thẳng: không có phụ phí app · chỗ lấy hoặc chỗ giao đang ngập → thêm phụ phí ngập (apps.json → floodSurcharge)
+    const flooded = viaApp && (this.isFlooded(pickup.door, now) || this.isFlooded(dropoff.door, now));
+    const surcharge = viaApp ? surchargeAt(now, this.isRaining(now)) + (flooded ? APP.floodSurcharge || 0 : 0) : 0;
     // đón / trả ở sân bay → khách trả thêm phụ phí sân bay (apps.json → airportFee), tài xế nhận đủ để bù phí vào cổng
     const atAirport = [pickup, dropoff].some((x) => x.placeId && lookOf(this.layout.placeById[x.placeId] || {}) === 'airport');
     const airportFee = atAirport ? APP.airportFee || 0 : 0;
@@ -425,6 +443,7 @@ export class OrderManager {
         outOfStock: kind === 'food' && rng.chance(ORDER.outOfStockChance),
         liftBroken: !!dropoff.apartment && rng.chance(ORDER.liftBrokenChance),
         bom: false,
+        flood: flooded, // có phụ phí ngập (thẻ đơn hiện nhãn 🌊)
       },
       revealed: !vague,
       zone: null,

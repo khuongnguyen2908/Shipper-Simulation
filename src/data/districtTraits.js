@@ -71,6 +71,24 @@ export function pickHouseStyle(d, rng, inAlley = false, primary = null) {
   if (primary && rng.next() < BLOCK_STYLE_SHARE && (!inAlley || ALLEY_STYLES.includes(primary))) return primary;
   return pickByMix(d, rng, inAlley);
 }
+// ĐỘ ĐÔNG VỈA HÈ theo khu (districts[mã].street = { bikes, stalls, vendors }): 0 = không có · 1 = vừa · 2 = kín vỉa hè.
+// Chưa đặt → theo "🚶 Người đi bộ" của khu (traffic); xe hàng rong: khu chưa bật 🛒 thì chỉ 40%. Chỉ dựng trước nhà phố
+// (nhà ống, mái tôn, phố Hoa, phố Nhật), không dựng trước biệt thự / cao ốc / chung cư.
+export const STREET_LIFE = [
+  ['bikes', '🛵 Xe máy đậu trên vỉa hè', 'Xe đậu xiên thành hàng ở dải sát lề (né cây, cột điện).'],
+  ['stalls', '🪑 Quán cóc ghế nhựa', 'Ghế nhựa + bàn thấp (có khi dù) sát mặt tiền các căn có cửa hàng.'],
+  ['vendors', '🛒 Xe hàng rong', 'Xe đẩy có dù ở dải sát lề.'],
+  ['flow', '🏍️ Xe chạy nền', 'Xe máy chỉ để nhìn chạy ở xa (số tối đa ở thẻ ⚖️ Cân bằng → Xe nền). 2 = đông nhất.'],
+];
+export const STREET_IDS = STREET_LIFE.map(([k]) => k);
+export const STREET_RANGE = [0, 2];
+export function streetOf(d, k) {
+  const v = d && d.street && d.street[k];
+  if (Number.isFinite(v) && v >= 0) return Math.min(v, STREET_RANGE[1]);
+  const base = Math.min(STREET_RANGE[1], traitOf(d, 'traffic'));
+  return k === 'vendors' && !(d && d.decor && d.decor.vendors) ? base * 0.4 : base;
+}
+
 export const TREES_RANGE = [0, 2]; // 0 = không cây · 1 = như cũ · 2 = gấp đôi
 export const treesOf = (d) => (d && Number.isFinite(d.trees) && d.trees >= 0 ? Math.min(d.trees, TREES_RANGE[1]) : 1);
 

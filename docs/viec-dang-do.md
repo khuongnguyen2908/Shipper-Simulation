@@ -1,7 +1,7 @@
 # Việc đang dở — Shipper Simulation
 
 Ghi lại những việc đã bàn mà chưa làm / còn treo, để đổi máy hay đổi tài khoản Claude vẫn làm tiếp được.
-Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây"). Cập nhật lần cuối: 13/10/2026.
+Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây"). Cập nhật lần cuối: 13/10/2026 (khuya).
 
 ## ⏸ Hoãn có chủ đích
 
@@ -17,50 +17,76 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
     → chuyển vào tài khoản đầu tiên đăng nhập trên máy đó.
   - Chủ game tự tạo dự án Firebase (Claude hướng dẫn từng bước), dán cấu hình vào code.
 
-### 🚦 Luật giao thông (chủ game: "để làm sau, bàn kỹ hơn")
-- Đề xuất đã đưa (chưa chốt):
-  - **11a Đèn giao thông**: cọ "🚦 Đèn" trong thẻ Bản đồ (bấm ngã tư đặt/gỡ, chỉnh xanh/vàng/đỏ + độ lệch), lưu map.json;
-    cột đèn có số đếm ngược; xe NPC dừng vạch; người chơi vượt đỏ bị phạt khi có camera phạt nguội (đặt trong editor) hoặc chốt CSGT.
-  - **11b Đường một chiều**: cọ "➡️ Một chiều" tô đoạn đường (bấm lại đổi chiều); mũi tên sơn + biển; NPC, xe buýt, chỉ đường
-    (khi đi xe) tránh ngược chiều; tuyến buýt bị kẹt → báo lỗi trong editor; đi ngược chiều bị phạt (dắt bộ thì không).
-  - **11c** (tùy chọn): chạy trên vỉa hè, bấm điện thoại khi chạy xe, cấm rẽ trái.
-  - Mỗi vi phạm = 1 lý do phạt mới trong app CSGT; mức phạt / tỉ lệ bị bắt ở thẻ Cân bằng; bot phải tính thêm thời gian chờ đèn.
-  - Chỗ nối sẵn: `map.json` dạng `floodSegs` (theo đoạn `x3:5`), cọ vẽ như `floodBox/paintFlood` trong `tabMap.js`;
-    xe NPC chọn hướng ở `traffic.pickNext`, giữ chỗ ngã tư ở `traffic.canEnter`; đường đi `cityLayout.roadGraph` (đang vô hướng).
+## 💬 Đang bàn
+### 🏙️ Phố giống Việt Nam hơn — đã làm A (13/10, chờ chủ game xem trong game)
+- Đã làm (giữ lưới đường, không đổi tên đường): nhà ống 2–3 căn / lô (3,4–6,3 m, `houses.js splitFrontage`), biển hiệu to ngang mặt tiền,
+  bậc dắt xe, cơi nới mái tôn, thêm màu tường; gạch vỉa hè lộn xộn (gạch đỏ, terrazzo, mảng vá, lặp mỗi 8 m); ~45% cây thân cao;
+  xe máy đậu xiên sát lề (trước nhà dân + trước địa điểm, né cửa) + quán cóc ghế nhựa ngồi được (căn có cửa hàng); xe hàng rong ở mọi khu
+  theo độ đông. Độ đông theo khu: `districts[mã].street = { bikes, stalls, vendors }` (thẻ 🗺️ Bản đồ → Khu phố, để trống = theo "người đi bộ").
+  Lối đi bộ dời về 2,05 m từ lề (`traffic.js PED_LANE`).
+- Làm thêm (13/10 tối): khách ngồi quán cóc (`world/stallPeople.js`, 12 người dùng lại, ~55% ghế có khách, ghế có khách thì người chơi
+  không ngồi được); quán cóc luôn có bạt che; kho chữ biển hiệu 22 chữ (`city.shopSigns`), vẫn giữ nhà ở bình thường;
+  **nhà góc 2 mặt tiền**: căn ngoài cùng ở góc khối (phía hông ra đường thật, không phải sông / khối gộp) có mặt hông sơn màu,
+  cửa sổ từng tầng, trệt mở cửa hàng, biển chữ L chạy sang hông (`houses.js h.corner`, `city.js cornerDirOf`) — đã xem trong game: ổn.
+- Có thể làm sau: B (ngã ba bằng gộp khối, vòng xoay).
 
-## 🔊 Âm thanh (chủ game làm trong `?editor` → 🔊 Âm thanh)
-- Đã có file: **51/86 mã**. Cột "Xong" trong `docs/am-thanh.md` chưa đánh dấu mã nào (cần nghe duyệt).
-- **35 mã chưa có file** (đang dùng tiếng tổng hợp hoặc im):
-  `ui.sign`, `phone.call`, `chat.open`, `chat.bubble`, `loop.engine`, `drive.splash`, `drive.stall`, `order.boarded`, `order.done`,
-  `order.quit`, `order.vomit`, `order.bom`, `order.returned`, `order.robbed`, `order.scamCaught`, `order.helmetLost`,
-  `quest.walletFound`, `quest.walletKept`, `quest.walletReturned`, `loop.rain`, `loop.city`, `place.fuel`, `place.charge`,
-  `place.swap`, `place.oil`, `place.buyVehicle`, `place.activity`, `place.use`, `place.nap`, `place.sleep`, `place.joinBrand`,
-  `place.gotBike`, `law.airport`, `money.rentLate`, `progress.gameOver`.
-- Kho tiếng mẫu CC0 (Kenney) ở `sound-library/` — nghe thử, bấm "+ Gắn" trong editor. Tiếng đặc trưng VN (gà gáy, còi xe máy, phà, tiếng phố)
-  thì tìm trên Pixabay (miễn phí, không cần ghi tên) với từ khóa như `scooter horn`, `rooster`, `rain loop`, `asian street`, `ship horn`.
-- **Dung lượng:** `night.mp3` nặng 3,8 MB làm `dist/index.html` ~11 MB → nên cắt 1–2 phút hoặc xuất lại 128 kbps.
-- Nhạc ban ngày `morning-street.mp3` chỉ 30 giây nên lặp dày (đã chồng tiếng ở chỗ nối, không còn giật) → nên thay bài dài hơn / bài "loop".
-- 2 mã mới cho ngập đường: `drive.splash` (lội nước), `drive.stall` (chết máy) — đang dùng tiếng tổng hợp.
+### 🏍️ Xe nền (chỉ để nhìn) — đã làm A (13/10 tối)
+- `src/world/bgTraffic.js`: xe máy khối đơn giản (~220 tam giác) chạy theo làn xe máy trong vùng 35–140 m quanh người chơi,
+  rẽ ở ngã tư như xe NPC, không va chạm. Vào gần < 35 m (hoặc ra quá xa) thì mờ dần lấm tấm rồi hiện lại phía xa.
+  Rải nhiều trên đường người chơi đang đứng; xe ở đường khuất sau 15–30 giây thì nhường chỗ. Đèn pha / đèn hậu luôn sáng.
+  Dừng sau đuôi xe NPC thật cùng làn; qua ngã tư KHÔNG nhường xe khác (ở xa nên khó thấy).
+- Số liệu: thẻ ⚖️ Cân bằng → 🏍️ Xe nền (tối đa 150, gần 35 m, xa 140 m, tốc độ); độ đông theo khu: thẻ 🗺️ Bản đồ → Khu phố →
+  🏍️ Xe chạy nền (`districts[mã].street.flow`, để trống = theo "người đi bộ"). Cả đàn 5 lần vẽ, đo không thấy chậm hơn.
+- Có thể làm sau (B): xe nền chạy vào gần thì chuyển thành xe NPC thật nếu còn chỗ (khỏi thấy xe mờ đi giữa đường).
 
-## 🐞 Cần theo dõi
-- **IDM tự tải file tiếng khi chạy `npm run dev`**: đã đổi `src/soundFiles.js` sang nhúng tiếng (`?inline`) — bản build vốn đã nhúng sẵn.
-  Chưa thử với IDM thật (đường dẫn dev vẫn có đuôi `.mp3?import&inline`). Nếu IDM vẫn bắt: gom 64 tiếng thành 1 module không đuôi .mp3.
-  Nút nghe thử kho tiếng trong editor: thêm `localhost` vào danh sách loại trừ của IDM.
-- Điện thoại ở cửa sổ hẹp < 1100px: máy dời lên trên bản đồ tròn nên thu nhỏ nhiều (cửa sổ 1000×600 → ~45%). Không méo, nhưng nhỏ.
-- **Esc đóng popup lại bật màn hình tạm dừng:** đã sửa chung (Esc lúc đang mở hộp thoại / điện thoại / chat / bảng cheat chỉ để đóng popup,
-  kể cả khi trình duyệt dùng Esc để thả chuột) nhưng **chưa tái hiện được đúng popup chủ game gặp**. Gặp lại thì ghi rõ popup nào.
+### 🚦 Luật giao thông — TẠM DỪNG (13/10, chủ game bảo dừng để làm phố trước)
+- Đã chốt (13/10):
+  - Làm **đèn giao thông trước**; đường một chiều + 11c (chạy vỉa hè, bấm điện thoại, cấm rẽ trái) để sau.
+  - Vị trí đèn: **máy tự gợi ý** (ngã tư có đại lộ), chủ game sửa trong thẻ 🗺️ Bản đồ (như đường ngập).
+  - Vượt đèn đỏ chỉ bị phạt ở ngã tư có **camera phạt nguội** (đặt / gợi ý trong editor) hoặc đang có **chốt CSGT**;
+    **nhóm tài xế báo trong chat ở đâu có camera phạt nguội**.
+  - Phạt vượt đèn đỏ **200k** (thẻ Cân bằng). Chu kỳ đèn **xanh 8 · vàng 2 · đỏ 8 giây thật** (1 giây thật = 1 phút game nên phải ngắn), chỉnh ở thẻ Cân bằng;
+    bot tính thêm thời gian chờ đèn, đo trước / sau.
+- **Điểm 5 (đã phác thảo B, chờ chốt) "rẽ phải khi đèn đỏ: tùy chỗ, có tiểu đảo phân luồng được không"**: đã đưa 3 phương án
+  (A: cài từng ngã tư Được / Cấm + biển nhỏ · B: A + vạch sơn đảo phân luồng ở góc · C: tiểu đảo nổi thật + làn rẽ phải riêng — phải khoét góc khối nhà, rất lớn).
+- Chỗ nối sẵn: `map.json` dạng `floodSegs`, cọ vẽ như `floodBox/paintFlood` trong `tabMap.js`; xe NPC giữ chỗ ngã tư ở `traffic.canEnter`;
+  rẽ phải là cung bậc hai `makeTurn` (TURN_R = 8 m) chạy sát góc cong vỉa hè (~1–2 m) nên không còn chỗ cho đảo nổi trong ngã tư hiện tại.
 
-## 💡 Tùy chọn (đã đề xuất, chủ game chưa quyết)
-- Chữ "GoShip" còn sót: `npc.goship.greet` không chỗ nào dùng (văn phòng hãng đã đổi mã thành `officeGoship`) → xóa hoặc đổi thành
-  `npc.officeGoship.greet`; `phone.app` người chơi gần như không thấy → có thể đổi thành "Nhận đơn".
-- Ngập đường: **phụ phí ngập** trên app (để sau); xe buýt vẫn chạy qua chỗ ngập (cao gầm); game chưa có đường chỉ dẫn vẽ trên bản đồ
-  nên chưa "né đường ngập" cho người chơi — đoạn ngập chỉ tô xanh trên bản đồ.
-- Bảng cheat (`?cheat`): đổi tên 2 ô "Loại khách (chở khách)" và "Khách xe ôm LUÔN là" cho đỡ nhầm (vd "Khách cho đơn gọi ngay" /
-  "Khách cho đơn tự đến") hoặc gộp làm một.
-- Khách lừa đảo: thẻ đơn đã đội lốt "Khách app"; còn 2 dấu hiệu tinh ý ("Tài khoản mới · 0 chuyến", "Đòi trả tiền mặt").
-  Có thể làm khó hơn: bỏ bớt dấu hiệu, hoặc thỉnh thoảng khách thường cũng có dấu hiệu đó để gây nhiễu.
+## ✅ Đã xong (13/10/2026 tối) — 16 lỗi chủ game báo
+- Điện thoại: tới văn phòng hãng thì hướng dẫn "bấm E đăng ký" (không quay lại bước mở Bản đồ) · có đơn mới khi đang xem app khác
+  chỉ hiện thông báo (không tự nhảy app) · sửa Bản đồ bị đen (lỗi cập nhật giao diện khi nhảy thẳng từ Bản đồ sang app khác)
+  · điện thoại nằm trên bong bóng thoại (lớp 7).
+- Đổ xăng / sạc xong không chỉ đường về nhà nữa: nhắc trả tiền nhà chỉ vào ngày hạn trả.
+- Cản trở giao thông: không tính khi đang kẹt xe, khi xe phía sau vốn đã bị xe khác chặn, khi mình đang chạy theo dòng;
+  xe buýt xét xe NPC chắn trước rồi mới tới người chơi.
+- Tiếng sấm chỉ khi trời bắt đầu mưa lúc đang chơi (không phát khi tua giờ: ngủ, chợp mắt, phím T…).
+- Trạm sạc: chỗ sạc dưới mái che cạnh trụ (cityLayout.chargeSpot), phải chạy vào sân (≤ 3,5 m) mới sạc.
+- Xuống xe không giật camera · đi bộ không xuyên qua xe của mình.
+- Xe đậu lề đường giảm một nửa; không đậu trước bệnh viện, đồn công an, trường, bến xe, cây xăng, trạm sạc / đổi pin, nhà thờ,
+  bưu điện, sân bay, bến phà, góc ngã tư (vạch qua đường), trạm xe buýt.
+- Độ khó giao hàng / chở khách giảm 40% (mọi mức hư hại do chạy xe; số viết cứng chuyển ra thẻ Cân bằng → Lái xe).
+  Sim 9 ngày: rush qua ngày 9 từ 20% → 97%, sao TB 3,85 → 4,18; careful 4,34 → 4,40; normal 4,30 → 4,43.
+- Vựa ve chai: nút "♻️ Bán đồ cũ" (places.json `buys`): quần áo / trang bị đã mua 30% giá (economy.resalePct), vỏ chai / vỏ lon
+  1k mỗi cái (goods `voChai`, `scrapPrice`); uống nước suối / soda / trà xanh / nước tăng lực xong còn vỏ (`use.leaves`).
+- Chó: mẫu chó ta vàng; không lao qua sông, chạy xong về lại khối nhà của mình.
+- Xưng hô (sim/people.js personOf + pronouns): lời thoại dùng {toi} {ban} {khach} {minh} {anhchi} theo người nói (giới tính + tuổi
+  đoán từ tên, nhân viên quán lễ phép) và giới tính nhân vật mình; câu / tên gắn thẻ vai "[veso] …" (vé số, xe ôm, ăn xin,
+  bán kẹo). Thêm người đi đường "Ông lão ăn xin", "Thằng nhóc bán kẹo". Bác Năm (mẹ anh Minh) là nữ.
+- Lưu game: vẫn tự lưu lúc 06:00 (có báo "💾 Đã tự lưu"), thêm nút "💾 Lưu game" khi nói chuyện Cô Hai ở nhà trọ
+  (đang chạy đơn thì không lưu được). Ngủ dậy / chợp mắt / bị ngất vẫn tự lưu như cũ.
 
-## ✅ Đã xong gần đây (13/10/2026 — đã đẩy lên GitHub)
+## ✅ Đã xong (13/10/2026 chiều)
+- Khách lừa đảo khó nhận ra hơn (A + D): khách app thường đôi khi cũng hiện "Tài khoản mới" (8%) / "Đòi trả tiền mặt" (10%);
+  mỗi tối 20:30 nhóm Hội Shipper đồn 1 "điểm nóng" (`scamHotspot`, đổi theo ngày) — kẻ lừa đảo 70% đón ở đó.
+  Số ở thẻ Cân bằng → 🧍 Sự cố khi chở khách. Bot cẩn thận chỉ từ chối khi thấy đủ 2 dấu hiệu (không còn "nhìn trộm" nhãn ẩn).
+- Âm thanh: chủ game đánh dấu "Xong" cả 86 mã trong `docs/am-thanh.md` (có gì cập nhật sau). Bỏ theo dõi: `night.mp3` nặng,
+  nhạc ngày ngắn (chủ game: "kệ đi"); IDM, điện thoại ở cửa sổ hẹp, lỗi Esc (chủ game đã thử: ổn / tạm xong).
+- Chữ "GoShip" còn sót: `npc.goship.greet` → `npc.officeGoship.greet` (câu chào văn phòng GripBike chạy lại), `phone.app` = "Nhận đơn".
+- Phụ phí ngập: đơn mà chỗ lấy hoặc chỗ giao đang ngập (từ mức xăm xắp) cộng `floodSurcharge` (apps.json, mặc định 5k, thẻ 📲 App & Đơn),
+  thẻ đơn có nhãn "🌊 Đường ngập". Khách quen gọi thẳng không có.
+- Bảng cheat: gộp 2 ô loại khách thành 1 ô "Loại khách" (dùng cho cả Gọi đơn ngay lẫn đơn tự đến, nhớ qua F5).
+
+## ✅ Đã xong gần đây (13/10/2026 sáng — đã đẩy lên GitHub)
 - Sửa bong bóng chat nhảy chữ (gần mép màn hình bị bóp hẹp → xuống dòng lại): rộng theo câu, làm tròn vị trí, giữ trong màn hình.
   Sửa thêm: bản đồ hụt 10px bên phải, biển nổi dài bị cắt chữ (tự co chữ), đang ngồi bị người đi đường đẩy trượt, bấm E việc khác
   khi đang ngồi thì đứng dậy trước, bảng giữ xe không mở khi đang chạy nhanh, mũi tên xe buýt giữ trạm đã chọn (không nhảy),

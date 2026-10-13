@@ -83,8 +83,9 @@ kbd { display: inline-block; min-width: 1.6em; padding: 1px 6px; border-radius: 
 #vignette { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, transparent 55%, rgba(160, 0, 0, 0.55) 100%); transition: opacity 0.6s; }
 
 /* ---- điện thoại ---- */
+/* lớp 7: trên bong bóng thoại (4) và khung chat (6), dưới vùng sáng hướng dẫn (15), hộp thoại (20), màn hình (30) */
 /* cỡ cố định 340×640; cửa sổ thấp thì cả máy thu nhỏ đều theo --ph-s (phone.js → fitPhone), không méo tỉ lệ */
-#phone { position: fixed; right: 240px; bottom: 14px; width: 340px; height: 640px; transform: scale(var(--ph-s, 1)); transform-origin: bottom right; background: #10141b; border: 8px solid #222831; border-radius: 34px; box-shadow: 0 16px 50px rgba(0, 0, 0, 0.55); display: flex; flex-direction: column; overflow: hidden; animation: pin 0.25s ease-out; }
+#phone { position: fixed; z-index: 7; right: 240px; bottom: 14px; width: 340px; height: 640px; transform: scale(var(--ph-s, 1)); transform-origin: bottom right; background: #10141b; border: 8px solid #222831; border-radius: 34px; box-shadow: 0 16px 50px rgba(0, 0, 0, 0.55); display: flex; flex-direction: column; overflow: hidden; animation: pin 0.25s ease-out; }
 @keyframes pin { from { translate: 0 40px; opacity: 0; } }
 .ph-notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 110px; height: 18px; background: #222831; border-radius: 0 0 12px 12px; z-index: 3; }
 .ph-status { display: flex; justify-content: space-between; padding: 5px 20px 4px; font-size: 12px; font-weight: 700; color: #fff; background: #0b0e13; }
@@ -179,7 +180,7 @@ kbd { display: inline-block; min-width: 1.6em; padding: 1px 6px; border-radius: 
 .bag-menu button:hover { background: rgba(0, 177, 79, 0.25); }
 .bag-menu small { color: var(--muted); padding: 2px 6px; font-size: 11px; }
 /* bảng "Đang mặc" bên trái điện thoại (mở app Túi đồ) */
-#outfitPanel { position: fixed; right: calc(240px + 352px * var(--ph-s, 1)); bottom: 14px; width: 364px; height: 640px; overflow-y: auto; transform: scale(var(--ph-s, 1)); transform-origin: bottom right; background: #10141b; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 18px; box-shadow: 0 16px 50px rgba(0, 0, 0, 0.55); padding: 10px; color: #fff; animation: pin 0.25s ease-out; }
+#outfitPanel { position: fixed; z-index: 7; right: calc(240px + 352px * var(--ph-s, 1)); bottom: 14px; width: 364px; height: 640px; overflow-y: auto; transform: scale(var(--ph-s, 1)); transform-origin: bottom right; background: #10141b; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 18px; box-shadow: 0 16px 50px rgba(0, 0, 0, 0.55); padding: 10px; color: #fff; animation: pin 0.25s ease-out; }
 .op-head { font-weight: 800; font-size: 14px; margin-bottom: 8px; }
 .op-grid { display: grid; grid-template-columns: 1fr 150px 1fr; gap: 6px; align-items: center; }
 .op-col { display: flex; flex-direction: column; gap: 6px; }

@@ -15,28 +15,47 @@ function toTexture(c, srgb = true) {
   return t;
 }
 
-// Gạch lát vỉa hè: 8 × 8 viên mỗi lần lặp (viên 0,5 m khi lặp mỗi 4 m), màu lệch từng viên, ron vữa, vài viên nứt / ố
+// Gạch lát vỉa hè kiểu phố Việt Nam: 16 × 16 viên mỗi lần lặp (viên 0,5 m, lặp mỗi 8 m) — gạch xám lệch màu, mảng gạch đỏ,
+// gạch terrazzo lấm chấm, mảng vá xi măng, viên vỡ / mất, ron vữa, vết ố. Lộn xộn như vỉa hè mỗi nhà lát một kiểu.
 export function makeTileTexture() {
-  const S = 256, n = 8, s = S / n;
+  const S = 512, n = 16, s = S / n;
   const [c, g] = canvas(S, S);
   let seed = 7;
   const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  // các mảng (theo ô viên) lát kiểu khác: 0 xám thường · 1 gạch đỏ · 2 terrazzo
+  const zone = (i, j) => {
+    const a = Math.floor(i / 4), b = Math.floor(j / 5);
+    const h = (a * 73 + b * 151 + 11) % 7;
+    return h === 0 || h === 3 ? 1 : h === 5 ? 2 : 0;
+  };
   for (let i = 0; i < n; i++) {
     for (let j = 0; j < n; j++) {
-      const v = 182 + rnd() * 26, warm = (i + j) % 5 === 0 ? 18 : 0; // thỉnh thoảng một viên ngả đỏ gạch
-      g.fillStyle = `rgb(${v + 10 + warm},${v - 2},${v - 16 - warm / 2})`;
+      const z = zone(i, j), v = 176 + rnd() * 30;
+      if (z === 1) g.fillStyle = `rgb(${150 + rnd() * 30},${80 + rnd() * 20},${62 + rnd() * 16})`; // gạch đỏ
+      else if (z === 2) g.fillStyle = `rgb(${v + 6},${v},${v - 8})`;
+      else g.fillStyle = `rgb(${v + 8},${v - 2},${v - 14})`;
       g.fillRect(i * s, j * s, s, s);
+      if (z === 2) {
+        for (let k = 0; k < 14; k++) {
+          g.fillStyle = rnd() < 0.5 ? 'rgba(60,60,60,0.35)' : 'rgba(180,120,90,0.4)'; // hạt đá terrazzo
+          g.fillRect(i * s + rnd() * s, j * s + rnd() * s, 2, 2);
+        }
+      }
       if (rnd() < 0.12) {
-        g.fillStyle = 'rgba(70,55,40,0.15)'; // viên ố
+        g.fillStyle = 'rgba(70,55,40,0.16)'; // viên ố
         g.fillRect(i * s + 3, j * s + 3, s - 6, s - 6);
       }
       if (rnd() < 0.08) {
-        g.strokeStyle = 'rgba(60,50,40,0.35)'; // viên nứt
+        g.strokeStyle = 'rgba(60,50,40,0.4)'; // viên nứt
         g.lineWidth = 1;
         g.beginPath();
         g.moveTo(i * s + rnd() * s, j * s);
         g.lineTo(i * s + rnd() * s, j * s + s);
         g.stroke();
+      }
+      if (rnd() < 0.025) {
+        g.fillStyle = 'rgba(85,70,55,0.75)'; // viên vỡ mất, lộ nền đất
+        g.fillRect(i * s + 2, j * s + 2, s - 4, s - 4);
       }
     }
   }
@@ -45,7 +64,16 @@ export function makeTileTexture() {
     g.fillRect(k * s - 1, 0, 2, S);
     g.fillRect(0, k * s - 1, S, 2);
   }
-  for (let i = 0; i < 900; i++) {
+  // mảng vá xi măng xám (đào lên lấp lại), không theo ron gạch
+  for (let k = 0; k < 4; k++) {
+    const w = 30 + rnd() * 70, h = 20 + rnd() * 50, x = rnd() * (S - w), y = rnd() * (S - h);
+    g.fillStyle = `rgba(${150 + rnd() * 20},${150 + rnd() * 20},${148 + rnd() * 20},0.92)`;
+    g.fillRect(x, y, w, h);
+    g.fillStyle = 'rgba(0,0,0,0.12)';
+    g.fillRect(x, y, w, 2);
+    g.fillRect(x, y, 2, h);
+  }
+  for (let i = 0; i < 3600; i++) {
     g.fillStyle = rnd() < 0.5 ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)';
     g.fillRect(rnd() * S, rnd() * S, 2, 2);
   }

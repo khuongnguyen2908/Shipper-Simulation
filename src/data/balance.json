@@ -29,7 +29,8 @@
     "parkingFee": 5,
     "speedLimit": 11,
     "rentByPeriod": [],
-    "faintFee": 100
+    "faintFee": 100,
+    "resalePct": 0.3
   },
   "energy": {
     "phys": {
@@ -217,7 +218,11 @@
     "scamRefuseMental": 5,
     "luggageSpeedMul": 0.8,
     "foreignCallMin": 4,
-    "helmetTaken": 0.08
+    "helmetTaken": 0.08,
+    "decoyNew": 0.08,
+    "decoyCash": 0.1,
+    "rumorHour": 20.5,
+    "hotspotPct": 0.7
   },
   "driving": {
     "steerRampSec": 0.3,
@@ -225,11 +230,18 @@
     "swerveMul": 1.5,
     "brakeThreshold": 6.5,
     "brakeMul": 1.5,
-    "liquidSwerve": 5,
-    "liquidBrake": 8,
-    "liquidBump": 12,
-    "riderSwerve": 6,
-    "riderBrake": 10
+    "liquidSwerve": 3,
+    "liquidBrake": 4.8,
+    "liquidBump": 7.2,
+    "riderSwerve": 3.6,
+    "riderBrake": 6,
+    "liquidCrash": 9,
+    "fragileCrash": 16.8,
+    "fragileBump": 3,
+    "fragileBrake": 2.4,
+    "riderSpeed": 0.36,
+    "riderBump": 3,
+    "riderCrash": 18
   },
   "flood": {
     "tideChance": 0.2,
@@ -257,5 +269,12 @@
     "itemWet": 1.5,
     "autoLowPct": 0.12,
     "autoTidePct": 0.4
+  },
+  "bgTraffic": {
+    "max": 150,
+    "near": 35,
+    "far": 140,
+    "speedMin": 7,
+    "speedMax": 10.5
   }
 }

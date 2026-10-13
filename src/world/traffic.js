@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { CITY, roadPos, blockBounds, segmentRect, neighbors, traitAtBlock, isJoinedBlock, isWaterBlock } from '../sim/cityLayout.js';
 import { HAZARD } from '../data/balance.js';
 import { makeCar, makeNpcMoto, makePerson, makeDog, makeCone, animatePerson, randomPersonOpts, jamCarGeo, jamMotoGeo } from './models.js';
-import { guessGender } from '../sim/people.js';
+import { personOf } from '../sim/people.js';
 import { pushCircle, circleFree } from './physics.js';
 import { list } from '../content/index.js';
 import { tierBetween, tierRule, tierOf, TIER_GEO } from '../sim/roads.js';
@@ -20,7 +20,7 @@ const CAR_COLORS = [0xecf0f1, 0x2c3e50, 0xc0392b, 0x2980b9, 0x95a5a6, 0xf1c40f, 
 const MOTO_COLORS = [0xc0392b, 0x2c3e50, 0xecf0f1, 0x8e44ad, 0x2980b9, 0xd35400, 0x1abc9c];
 
 // Rẽ ở ngã tư: xe bắt đầu vào cua khi còn TURN_R m tới tim ngã tư, ra cua cách tim TURN_R m trên đường mới
-const TURN_R = 8;
+export const TURN_R = 8;
 const TURN_V = { right: 4.5, left: 5.5, uturn: 3 }; // tốc độ tối đa khi cua (m/s)
 const RADIUS = { car: 1.3, moto: 0.6 }; // bán kính thân xe khi xét 2 đường cua có chạm nhau không
 // Kích thước để nhường nhau: nửa bề ngang, nửa chiều dài
@@ -28,13 +28,13 @@ const SIZE = { car: [0.95, 2.2], moto: [0.4, 1], bus: [1.3, 5.5] };
 let UID = 1;
 
 // Kiểu rẽ ở ngã tư: hướng vào din, hướng ra dout (vector đơn vị theo lưới) — xe chạy bên phải, bên phải của (x, z) là (-z, x)
-function turnKind(din, dout) {
+export function turnKind(din, dout) {
   if (dout[0] === din[0] && dout[1] === din[1]) return 'straight';
   if (dout[0] === -din[0] && dout[1] === -din[1]) return 'uturn';
   return dout[0] === -din[1] && dout[1] === din[0] ? 'right' : 'left';
 }
 // Cung rẽ (đường cong bậc hai E → C → X) qua ngã tư tâm (nx, nz), từ làn lin của hướng din sang làn lout của hướng dout
-function makeTurn(nx, nz, din, dout, lin, lout) {
+export function makeTurn(nx, nz, din, dout, lin, lout) {
   const kind = turnKind(din, dout);
   const pin = [-din[1], din[0]], pout = [-dout[1], dout[0]]; // bên phải
   const E = [nx - din[0] * TURN_R + pin[0] * lin, nz - din[1] * TURN_R + pin[1] * lin];
@@ -52,8 +52,8 @@ function makeTurn(nx, nz, din, dout, lin, lout) {
   }
   return { E, C, X, len, kind };
 }
-const bez = (E, C, X, u) => [(1 - u) * (1 - u) * E[0] + 2 * (1 - u) * u * C[0] + u * u * X[0], (1 - u) * (1 - u) * E[1] + 2 * (1 - u) * u * C[1] + u * u * X[1]];
-const bezDir = (E, C, X, u) => [2 * (1 - u) * (C[0] - E[0]) + 2 * u * (X[0] - C[0]), 2 * (1 - u) * (C[1] - E[1]) + 2 * u * (X[1] - C[1])];
+export const bez = (E, C, X, u) => [(1 - u) * (1 - u) * E[0] + 2 * (1 - u) * u * C[0] + u * u * X[0], (1 - u) * (1 - u) * E[1] + 2 * (1 - u) * u * C[1] + u * u * X[1]];
+export const bezDir = (E, C, X, u) => [2 * (1 - u) * (C[0] - E[0]) + 2 * u * (X[0] - C[0]), 2 * (1 - u) * (C[1] - E[1]) + 2 * u * (X[1] - C[1])];
 
 // Hai đường cua có chạm nhau không: cung T1 từ u1 tới hết, cung T2 từ u2 tới hết (đo theo điểm lấy mẫu ~1,5 m)
 function curveSamples(T, u0) {
@@ -91,7 +91,22 @@ function seesAhead(a, b) {
   return along > 0 && along < look && Math.abs(lat) < a.w + b.w + 0.1 ? along : -1;
 }
 
-const segKeyOf = (a, b) => (a[0] === b[0] ? `x${a[0]}:${Math.min(a[1], b[1])}` : `z${a[1]}:${Math.min(a[0], b[0])}`);
+export const segKeyOf = (a, b) => (a[0] === b[0] ? `x${a[0]}:${Math.min(a[1], b[1])}` : `z${a[1]}:${Math.min(a[0], b[0])}`);
+// Chọn ngã tư kế tiếp khi tới ngã tư node (đi từ prev): dùng chung cho xe NPC và xe nền (bgTraffic.js)
+export function pickNextNode(rng, node, prev, kind = 'car', floodIds = null) {
+  const [i, j] = node;
+  const opts = neighbors(i, j); // chỉ đi theo đoạn đường có thật (tránh sông; đường cụt thì quay đầu)
+  if (!opts.length) return prev || node;
+  let c = opts.filter((n) => !prev || n[0] !== prev[0] || n[1] !== prev[1]);
+  if (!c.length) c = opts;
+  // ưu tiên đi thẳng; ô tô chuộng đại lộ, xe máy chuộng đường nhỏ (balance.json → roads.*.cars / motos)
+  const straight = prev && [i + (i - prev[0]), j + (j - prev[1])];
+  const key = kind === 'car' ? 'cars' : 'motos';
+  // đoạn đang ngập sâu: gần như không ai chạy vào (còn lối khác thì né)
+  const flooded = (n) => floodIds?.has(segKeyOf(node, n));
+  const w = c.map((n) => (straight && n[0] === straight[0] && n[1] === straight[1] ? 2.5 : 1) * (tierRule(tierBetween(node, n), key) + 0.02) * (flooded(n) ? 0.02 : 1));
+  return rng.weighted(c, w);
+}
 export const segKey = (s) => `${s.axis}${s.line}:${s.from}`;
 
 // Vị trí trên vòng vỉa hè quanh khối (bx,bz); t = mét dọc theo vòng
@@ -107,10 +122,21 @@ export function ringPos(bx, bz, t, inset) {
   return { x: b.x0 + inset, z: b.z1 - inset - u };
 }
 
+// Các khối đất (không phải sông, không phải khối đã gộp) — chỗ chó / người đi bộ được ở
+let LAND = null;
+function landBlocks() {
+  if (!LAND) {
+    LAND = [];
+    for (let bz = 0; bz < CITY.N; bz++) for (let bx = 0; bx < CITY.N; bx++) if (!isJoinedBlock(bx, bz) && !isWaterBlock(bx, bz)) LAND.push([bx, bz]);
+  }
+  return LAND;
+}
+const WATER_TAGS = new Set(['water', 'kerb']);
+
 // Người đi bộ: vị trí trên vòng vỉa hè theo t (tính ở làn giữa PED_LANE để t không nhảy khi đổi làn),
 // rồi lệch vào phía nhà / ra phía lề theo `lane` (m tính từ mép lề, vỉa hè rộng 3 m)
-const PED_LANE = 1.7; // giữa vỉa hè: hàng cây trồng sát lề (0,9 m) nằm ngoài lối đi
-const PED_LANES = [1.7, 1.4, 2.0, 1.2, 2.2]; // né nhẹ: lệch tối đa 0,5 m, gần làn giữa trước
+const PED_LANE = 2.05; // lối đi giữa vỉa hè: xe máy đậu xiên sát lề tới ~1,75 m, quán cóc sát nhà từ ~2,45 m (city.js)
+const PED_LANES = [2.05, 1.9, 2.2, 1.8, 2.3]; // né nhẹ: lệch tối đa 0,25 m, gần làn giữa trước
 const IN = [[0, 1], [-1, 0], [0, -1], [1, 0]]; // hướng vào trong khối của 4 cạnh vòng (theo thứ tự ringPos)
 function pedPos(bx, bz, t, lane) {
   const L = CITY.BLOCK - 2 * PED_LANE, per = 4 * L;
@@ -119,11 +145,11 @@ function pedPos(bx, bz, t, lane) {
   return { x: q.x + nx * (lane - PED_LANE), z: q.z + nz * (lane - PED_LANE) };
 }
 
-// Điểm bất kỳ → khối gần nhất và tham số t trên vòng vỉa hè
-function projectToRing(x, z, inset) {
+// Điểm bất kỳ → khối gần nhất (hoặc khối cho trước hx, hz) và tham số t trên vòng vỉa hè
+function projectToRing(x, z, inset, hx = null, hz = null) {
   const off = CITY.ORIGIN + CITY.ROAD / 2;
-  const bx = Math.max(0, Math.min(CITY.N - 1, Math.round((x - off - CITY.BLOCK / 2) / CITY.PITCH)));
-  const bz = Math.max(0, Math.min(CITY.N - 1, Math.round((z - off - CITY.BLOCK / 2) / CITY.PITCH)));
+  const bx = hx ?? Math.max(0, Math.min(CITY.N - 1, Math.round((x - off - CITY.BLOCK / 2) / CITY.PITCH)));
+  const bz = hz ?? Math.max(0, Math.min(CITY.N - 1, Math.round((z - off - CITY.BLOCK / 2) / CITY.PITCH)));
   const b = blockBounds(bx, bz);
   const L = CITY.BLOCK - 2 * inset;
   const cx = Math.max(b.x0 + inset, Math.min(b.x1 - inset, x));
@@ -277,10 +303,11 @@ export class Traffic {
       const along = rx * b.dx + rz * b.dz, lat = Math.abs(rx * b.dz - rz * b.dx);
       return along > 0 && along - l - half < 3 && lat < hw + w * 0.6;
     };
-    if (ahead(px, pz, 0.6, 0.9)) return 'player';
+    // xe khác chắn trước xét TRƯỚC người chơi (xe buýt đứng vì xe NPC thì không đổ lỗi cho người chơi)
     for (const a of this.agents) if (!a.isFar && ahead(a.x, a.z, SIZE[a.kind][0], SIZE[a.kind][1])) return 'npc';
     for (const a of this.loopCars) if (a.mesh.visible && ahead(a.x, a.z, SIZE.car[0], SIZE.car[1])) return 'npc';
     for (const o of this.buses) if (o !== b && o.mesh.visible && ahead(o.x, o.z, hw, half)) return 'npc';
+    if (ahead(px, pz, 0.6, 0.9)) return this.inJam(b.x, b.z) || this.inJam(px, pz) ? 'npc' : 'player'; // kẹt xe: coi như xe chắn
     return null;
   }
 
@@ -336,9 +363,10 @@ export class Traffic {
           return along > 0 && along < len && Math.abs(lat) < 1.8;
         };
         if (Math.abs((ctx.py ?? 0) - a.y) < 1.5 && ahead(ctx.px, ctx.pz, 7)) {
+          const vFree = v;
           v = 0;
-          this.blockedByPlayer = true;
-          if (a.honk <= 0 && a.speed < 1) {
+          if (vFree >= 1 && this.blameable(ctx)) this.blockedByPlayer = true;
+          if (vFree >= 1 && this.blameable(ctx) && a.honk <= 0 && a.speed < 1) {
             a.honk = 4 + this.rng.next() * 4;
             if (this.honkCd <= 0 && Math.hypot(ctx.px - a.x, ctx.pz - a.z) < 14) {
               events.push({ type: 'honk', kind: 'car' });
@@ -546,25 +574,18 @@ export class Traffic {
   }
 
   pickNext(node, prev, kind = 'car') {
-    const [i, j] = node;
-    const opts = neighbors(i, j); // chỉ đi theo đoạn đường có thật (tránh sông; đường cụt thì quay đầu)
-    if (!opts.length) return prev || node;
-    let c = opts.filter((n) => !prev || n[0] !== prev[0] || n[1] !== prev[1]);
-    if (!c.length) c = opts;
-    // ưu tiên đi thẳng; ô tô chuộng đại lộ, xe máy chuộng đường nhỏ (balance.json → roads.*.cars / motos)
-    const straight = prev && [i + (i - prev[0]), j + (j - prev[1])];
-    const key = kind === 'car' ? 'cars' : 'motos';
-    // đoạn đang ngập sâu: gần như không ai chạy vào (còn lối khác thì né)
-    const flooded = (n) => this.floodIds?.has(segKeyOf(node, n));
-    const w = c.map((n) => (straight && n[0] === straight[0] && n[1] === straight[1] ? 2.5 : 1) * (tierRule(tierBetween(node, n), key) + 0.02) * (flooded(n) ? 0.02 : 1));
-    return this.rng.weighted(c, w);
+    return pickNextNode(this.rng, node, prev, kind, this.floodIds);
   }
 
   // ---------------- người đi bộ ----------------
   spawnPed(i) {
     const rng = this.rng;
-    const name = rng.pick(list('ped.names'));
-    const mesh = makePerson(randomPersonOpts(rng, guessGender(name)));
+    // tên có thể kèm thẻ vai "[veso] Cô bán vé số" (vi.json → ped.names): who = giới tính + tuổi + vai, để hình và lời nói khớp
+    const who = personOf(rng.pick(list('ped.names'))), name = who.name;
+    const look = randomPersonOpts(rng, who.gender);
+    if (who.age === 'elder') look.hair = 0x9a9a9a; // người già tóc bạc
+    if (who.age === 'kid') look.scale = 0.85; // học sinh, trẻ con nhỏ hơn
+    const mesh = makePerson(look);
     this.scene.add(mesh);
     // khối có người đi bộ đông / vắng theo khu phố ("traffic")
     if (!this.pedBlocks) {
@@ -574,7 +595,7 @@ export class Traffic {
       this.pedW = this.pedBlocks.map(([bx, bz]) => traitAtBlock(bx, bz, 'traffic') + 1e-3);
     }
     const [pbx, pbz] = rng.weighted(this.pedBlocks, this.pedW);
-    this.peds.push({ id: i, mesh, bx: pbx, bz: pbz, t: rng.range(0, 140), speed: rng.range(0.9, 1.4), dir: rng.chance(0.5) ? 1 : -1, pause: 0, talk: 0, knock: 0, phase: rng.range(0, 6), name, x: 0, z: 0, asked: false, lane: PED_LANE, want: PED_LANE, probe: 0 });
+    this.peds.push({ id: i, mesh, bx: pbx, bz: pbz, t: rng.range(0, 140), speed: rng.range(0.9, 1.4), dir: rng.chance(0.5) ? 1 : -1, pause: 0, talk: 0, knock: 0, phase: rng.range(0, 6), name, who, x: 0, z: 0, asked: false, lane: PED_LANE, want: PED_LANE, probe: 0 });
   }
 
   // Người đi bộ nhìn trước ~1,5 m: bị chắn thì lệch nhẹ sang làn trống (tối đa 0,5 m); không qua được thì đứng đợi, đợi lâu mới quay đầu.
@@ -612,11 +633,17 @@ export class Traffic {
 
   spawnDog() {
     const rng = this.rng;
-    const mesh = makeDog(rng.pick([0xb5651d, 0x3b2a1a, 0xe0c9a6, 0x7b5e3b]));
+    const mesh = makeDog(rng.pick([0xd9a15b, 0xc2873f, 0xe2b878, 0xcf9a52])); // chó ta vàng: vàng đậm / vàng / vàng nhạt
     this.scene.add(mesh);
     let bx = rng.int(0, CITY.N - 1), bz = rng.int(0, CITY.N - 1);
     for (let k = 0; k < 20 && (isJoinedBlock(bx, bz) || isWaterBlock(bx, bz)); k++) [bx, bz] = [rng.int(0, CITY.N - 1), rng.int(0, CITY.N - 1)];
+    if (isJoinedBlock(bx, bz) || isWaterBlock(bx, bz)) [bx, bz] = rng.pick(landBlocks()); // thử mãi không trúng: lấy khối đất chắc chắn
     this.dogs.push({ mesh, bx, bz, t: rng.range(0, 140), speed: 0.8, dir: 1, state: 'wander', vx: 0, vz: 0, timer: 0, armed: true, x: 0, z: 0, phase: 0, pause: 0 });
+  }
+
+  // (x, z) là mặt nước (sông, kênh, bờ kè)? Cần lưới va chạm của thành phố (game.js gán traffic.grid)
+  isWater(x, z) {
+    return !!this.grid?.inside(x, 0.1, z, WATER_TAGS);
   }
 
   // ---------------- kẹt xe ----------------
@@ -640,6 +667,7 @@ export class Traffic {
     const keys = new Set(segments.map(segKey));
     if (keys.size === this.jamKeys.size && [...keys].every((k) => this.jamKeys.has(k))) return;
     this.jamKeys = keys;
+    this.jamRects = segments.map(segmentRect); // để biết người chơi có đang đứng trong đoạn kẹt xe không (không tính cản trở)
     this.jamCircles = [];
     const dummy = new THREE.Object3D();
     const col = new THREE.Color();
@@ -720,6 +748,15 @@ export class Traffic {
       this.scene.add(g);
       this.police.set(p.id, g);
     }
+  }
+
+  // Điểm (x, z) nằm trong đoạn đường đang kẹt xe (nới 2 m)? Kẹt xe thì xe nào cũng đứng → không đổ lỗi cản trở cho người chơi
+  inJam(x, z) {
+    return (this.jamRects || []).some((r) => x > r.x0 - 2 && x < r.x1 + 2 && z > r.z0 - 2 && z < r.z1 + 2);
+  }
+  // Có tính người chơi là "cản trở giao thông" không: không tính khi đang kẹt xe hoặc người chơi đang chạy theo dòng xe
+  blameable(ctx) {
+    return !this.inJam(ctx.px, ctx.pz) && !(ctx.onBike && (ctx.speed ?? 0) > 1.5);
   }
 
   // ---------------- cập nhật mỗi khung hình ----------------
@@ -809,6 +846,9 @@ export class Traffic {
       // xe khác / xe buýt / xe vòng sân bay chắn trước (nhường theo ưu tiên)
       const me = this.bodyOf(a);
       v = Math.min(v, this.yieldTo(me, dt, a));
+      // xe này lẽ ra còn chạy được không (không vướng xe trước, không chờ ở ngã tư, không đoạn kẹt) — đứng sẵn rồi thì
+      // người chơi phía trước không phải lý do xe phải dừng → không tính cản trở, không bóp còi / chửi
+      const vFree = a.stop > 0 ? 0 : v;
       // người chơi hoặc chó chắn trước mặt → dừng, bóp còi
       const blockers = [{ x: ctx.px, z: ctx.pz, player: true }, ...this.dogs.filter((d) => d.state !== 'wander')];
       let byPlayer = false;
@@ -818,6 +858,7 @@ export class Traffic {
         if (p.player && Math.abs((ctx.py ?? 0) - 0) > 1.5) continue; // người chơi đang trên cầu
         if (along > 0 && along < (a.kind === 'car' ? 7 : 5) && Math.abs(lat) < 1.8) {
           v = 0;
+          if (p.player && (vFree < 1 || !this.blameable(ctx))) continue;
           if (p.player) this.blockedByPlayer = byPlayer = true;
           if (p.player && a.honk <= 0 && a.speed < 1) {
             a.honk = 4 + this.rng.next() * 4;
@@ -964,10 +1005,12 @@ export class Traffic {
           const ahead = (ox * ctx.fx + oz * ctx.fz) / dist;
           if (ahead > 0.8) {
             d.armed = false;
-            if (this.rng.chance(HAZARD.dogDartChance)) {
-              const along = ox * ctx.fx + oz * ctx.fz;
-              const tx = ctx.px + ctx.fx * along, tz = ctx.pz + ctx.fz * along;
-              const L = Math.hypot(tx - d.x, tz - d.z) || 1;
+            const along = ox * ctx.fx + oz * ctx.fz;
+            const tx = ctx.px + ctx.fx * along, tz = ctx.pz + ctx.fz * along;
+            const L = Math.hypot(tx - d.x, tz - d.z) || 1;
+            // đường lao (cả 7 m chạy quá) cắt qua sông / kênh → không lao
+            const wet = Array.from({ length: 8 }, (_, k) => (k + 1) / 8).some((u) => this.isWater(d.x + ((tx - d.x) / L) * (L + 7) * u, d.z + ((tz - d.z) / L) * (L + 7) * u));
+            if (!wet && this.rng.chance(HAZARD.dogDartChance)) {
               d.vx = ((tx - d.x) / L) * 6.5;
               d.vz = ((tz - d.z) / L) * 6.5;
               d.timer = (L + 7) / 6.5;
@@ -977,16 +1020,28 @@ export class Traffic {
           }
         }
       } else {
-        d.x += d.vx * dt;
-        d.z += d.vz * dt;
-        d.timer -= dt;
-        d.mesh.rotation.y = Math.atan2(d.vx, d.vz);
-        if (d.timer <= 0) {
-          const r = projectToRing(d.x, d.z, 0.7);
-          Object.assign(d, r, { state: 'wander' });
+        if (d.state === 'return') {
+          // chạy lon ton về lại vòng vỉa hè khối nhà của mình (không nhảy sang khối khác / khối sông)
+          const q = ringPos(d.bx, d.bz, d.t, 0.7), dx = q.x - d.x, dz = q.z - d.z, L = Math.hypot(dx, dz);
+          if (L < 0.3) { d.state = 'wander'; d.x = q.x; d.z = q.z; }
+          else { d.vx = (dx / L) * 3.5; d.vz = (dz / L) * 3.5; }
+        }
+        if (d.state !== 'wander') {
+          const nx = d.x + d.vx * dt, nz = d.z + d.vz * dt;
+          // phía trước là nước: dừng lao, quay về (chó không bơi qua sông)
+          const wet = this.isWater(nx, nz);
+          if (wet && d.state !== 'return') d.timer = 0;
+          else if (wet) Object.assign(d, { ...ringPos(d.bx, d.bz, d.t, 0.7), state: 'wander' }); // đường về vướng nước (hiếm): về thẳng chỗ cũ
+          else { d.x = nx; d.z = nz; }
+          d.timer -= dt;
+          d.mesh.rotation.y = Math.atan2(d.vx, d.vz);
+          if (d.state !== 'return' && d.timer <= 0) {
+            d.t = projectToRing(d.x, d.z, 0.7, d.bx, d.bz).t;
+            d.state = 'return';
+          }
         }
       }
-      d.mesh.position.set(d.x, d.state === 'wander' ? SW_H : 0, d.z);
+      d.mesh.position.set(d.x, d.state === 'wander' ? SW_H : this.elev ? this.elev.topAt(d.x, d.z) : 0, d.z);
       const legs = d.mesh.userData.legs;
       const amp = d.state === 'wander' ? (d.pause > 0 ? 0 : 0.4) : 0.9;
       legs.forEach((l, k) => (l.rotation.x = Math.sin(d.phase + (k % 2) * Math.PI) * amp));

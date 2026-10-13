@@ -11,7 +11,7 @@ import { GameState } from '../src/sim/GameState.js';
 import { HazardManager } from '../src/sim/hazards.js';
 import { makeRng } from '../src/sim/rng.js';
 import { buildLayout, routeDist, routeNodes, CITY } from '../src/sim/cityLayout.js';
-import { routeFloodDelay, floodSpeedCap } from '../src/sim/flood.js';
+import { routeFloodDelay, floodSpeedCap, floodBand, nearestSegId } from '../src/sim/flood.js';
 import { segKeyOf } from '../src/sim/roads.js';
 import { TIME, ENERGY, DIST, ORDER, ECONOMY, NIGHT, AIRPORT, BAGS, dueDayOf } from '../src/data/balance.js';
 import { airportAt } from '../src/sim/airport.js';
@@ -44,7 +44,7 @@ export function playRun(seed, strat, days = 9, brand = null) {
   const rng = makeRng(seed);
   const gs = new GameState({ day: 1 });
   let hz = new HazardManager(makeRng(seed * 7 + 1), 1);
-  const om = new OrderManager({ rng: makeRng(seed * 13 + 5), layout, gs, isRaining: (m) => hz.isRaining(m) });
+  const om = new OrderManager({ rng: makeRng(seed * 13 + 5), layout, gs, isRaining: (m) => hz.isRaining(m), isFlooded: (door, m) => floodBand(hz.floodDepth(nearestSegId(door), m)) >= 1 });
   const st = STRATEGIES[strat];
   const end = dayStartAt(days + 1);
   let now = TIME.dayStart;
@@ -243,7 +243,9 @@ export function playRun(seed, strat, days = 9, brand = null) {
     if (om.state === S.OFFERED) {
       if (routeDist(pos, om.offer.pickup.door) > st.maxD1 || gs.fuel < gs.vehicleSpec.tank * 0.07) { om.decline(now); continue; }
       // bot cẩn thận / kén chọn để ý dấu hiệu lừa đảo trên thẻ đơn (tài khoản mới, đòi tiền mặt) → từ chối
-      if (om.offer.flags?.scam && (strat === 'careful' || strat === 'picky')) { om.decline(now); continue; }
+      // người chơi cẩn thận chỉ thấy dấu hiệu trên thẻ đơn (khách thường đôi khi cũng có) → thấy đủ 2 dấu hiệu thì từ chối
+      const f = om.offer.flags || {};
+      if (f.newAcct && f.cashOnly && (strat === 'careful' || strat === 'picky')) { om.decline(now); continue; }
       om.accept(now, pos);
     }
     const o = om.order;

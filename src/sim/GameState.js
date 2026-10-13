@@ -316,6 +316,36 @@ export class GameState {
     this.earn(k, 'sellVehicle');
     return { ok: true, k, msg: fmt('gs.sold', { name: VEHICLES[id].name, k }) };
   }
+  // ---------- bán đồ cũ (vựa ve chai, địa điểm có "buys") ----------
+  // Đồ bán được: quần áo / trang bị đã MUA (giá > 0, không phải đồ của hãng) → ECONOMY.resalePct giá mua;
+  // đồ phế liệu có scrapPrice (vỏ chai, vỏ lon) → bán hết cả chồng. Trả về [{ id, kind, name, icon, n, k }]
+  usedSellables() {
+    const pct = ECONOMY.resalePct ?? 0.3, out = [];
+    for (const id of this.owned.gear) {
+      const g = GOODS[id];
+      if (!g || !(g.price > 0) || g.brand || (g.type !== 'outfit' && g.type !== 'equipment')) continue;
+      const k = Math.round(g.price * pct);
+      if (k > 0) out.push({ id, kind: g.type, name: g.name, icon: g.icon, n: 1, k });
+    }
+    for (const [id, n] of Object.entries(this.consumables)) {
+      const g = GOODS[id];
+      if (g && g.scrapPrice > 0 && n > 0) out.push({ id, kind: 'scrap', name: g.name, icon: g.icon, n, k: Math.round(g.scrapPrice * n * 10) / 10 });
+    }
+    return out;
+  }
+  sellUsed(id) {
+    const e = this.usedSellables().find((x) => x.id === id);
+    if (!e) return { ok: false, msg: fmt('gs.cantSell') };
+    if (e.kind === 'scrap') delete this.consumables[id];
+    else {
+      this.owned.gear = this.owned.gear.filter((x) => x !== id);
+      // đang mặc → cởi ra (áo, quần, nón, giày tự về đồ có sẵn; phụ kiện để trống)
+      const g = GOODS[id];
+      if (g.type === 'outfit' && this.outfit[g.slot] === id) this.outfit[g.slot] = null;
+    }
+    this.earn(e.k, 'sellUsed');
+    return { ok: true, k: e.k, msg: fmt('gs.sold', { name: e.n > 1 ? `${e.n} ${e.name}` : e.name, k: e.k }) };
+  }
   get bagSpec() {
     return BAGS[this.bag] || BAGS.nylon;
   }
@@ -640,6 +670,7 @@ export class GameState {
     const u = g.use || {};
     this.consumables[id] -= 1;
     if (!this.consumables[id]) delete this.consumables[id];
+    if (u.leaves && GOODS[u.leaves]) this.consumables[u.leaves] = this.countOf(u.leaves) + 1; // uống xong còn vỏ chai / vỏ lon trong túi
     this.addEnergy(u.phys || 0, u.mental || 0);
     if (u.fuel) this.fuel = Math.min(this.vehicleSpec.tank, this.fuel + u.fuel);
     if (u.bikeHp) this.bikeHp = Math.min(100, this.bikeHp + u.bikeHp);

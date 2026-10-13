@@ -122,6 +122,7 @@ export function render(root, ctx) {
         num('extraItemFare', 'Cước mỗi món thêm (k)', { step: 1, min: 0, hint: H.extraItemFare }),
         num('cancelComp', 'Bù khi đơn bị hủy (k)', { step: 1, min: 0, hint: H.cancelComp }),
         num('rainSurcharge', 'Phụ phí mưa (k/đơn)', { step: 1, min: 0, hint: H.rainSurcharge }),
+        num('floodSurcharge', '🌊 Phụ phí ngập (k/đơn)', { step: 1, min: 0, hint: H.floodSurcharge }),
         num('peakSurcharge', 'Phụ phí giờ cao điểm (k/đơn)', { step: 1, min: 0, hint: H.peakSurcharge }),
         num('nightSurcharge', 'Phụ phí đêm (k/đơn)', { step: 1, min: 0, hint: H.nightSurcharge }),
         num('airportFee', '✈️ Phụ phí sân bay (k/đơn)', { step: 1, min: 0, hint: H.airportFee }),
@@ -178,7 +179,7 @@ export function render(root, ctx) {
       const f = Number(x.platformFee) || 0, t = Number(x.taxRate) || 0;
       const gross = 30 + 2.5 * (Number(x.distBonusPerKm) || 0);
       const net = gross * (1 - f - t);
-      box.innerHTML = `Ví dụ đơn cước 30k, 2,5 km, giao 5★: tổng cước <b>${gross.toFixed(1)}k</b> → phí ${(gross * f).toFixed(1)}k, thuế ${(gross * t).toFixed(1)}k → tài xế nhận <b>${(net + (x.tipByStars?.[5] || 0)).toFixed(1)}k</b> (gồm boa ${x.tipByStars?.[5] || 0}k). Mưa thêm ${x.rainSurcharge || 0}k, giờ cao điểm thêm ${x.peakSurcharge || 0}k, đêm thêm ${x.nightSurcharge || 0}k (trước phí).`;
+      box.innerHTML = `Ví dụ đơn cước 30k, 2,5 km, giao 5★: tổng cước <b>${gross.toFixed(1)}k</b> → phí ${(gross * f).toFixed(1)}k, thuế ${(gross * t).toFixed(1)}k → tài xế nhận <b>${(net + (x.tipByStars?.[5] || 0)).toFixed(1)}k</b> (gồm boa ${x.tipByStars?.[5] || 0}k). Mưa thêm ${x.rainSurcharge || 0}k, đường ngập thêm ${x.floodSurcharge || 0}k, giờ cao điểm thêm ${x.peakSurcharge || 0}k, đêm thêm ${x.nightSurcharge || 0}k (trước phí).`;
     };
     draw();
     body.addEventListener('input', draw);

@@ -80,7 +80,7 @@ test('Bánh kem hỏng nặng khi va chạm, đệm túi giảm hư hại', () =
   const a = new DeliveryItem(ITEMS.banhKem), b = new DeliveryItem(ITEMS.banhKem);
   a.event('collision', 2, env());
   b.event('collision', 2, env({ bag: { insulation: 0.8, waterproof: 1, padding: 0.55 } }));
-  assert.ok(a.condition < 50 && b.condition > a.condition);
+  assert.ok(a.condition < 70 && b.condition > a.condition); // va chạm mạnh (2) × 16,8 ≈ −34
 });
 test('Bánh kem bị đè khi xếp túi mất 30%', () => {
   const a = new DeliveryItem(ITEMS.banhKem);
@@ -95,7 +95,7 @@ test('Hộp giấy ướt mưa, túi chống nước bảo vệ', () => {
 test('Khách xe ôm hoảng khi chạy quá nhanh', () => {
   const a = new DeliveryItem(ITEMS.passenger), b = new DeliveryItem(ITEMS.passenger);
   for (let i = 0; i < 10; i++) { a.tick(env({ speed: 15 }), 1); b.tick(env({ speed: 9 }), 1); }
-  assert.ok(a.condition < 80 && b.condition === 100);
+  assert.ok(a.condition < 90 && b.condition === 100); // 4 m/s quá mức × 0,36%/phút × 10 phút ≈ −14
 });
 
 console.log('Chấm sao & tiền');
@@ -995,11 +995,15 @@ console.log('App giao hàng, loại đơn, tài khoản, loại khách (apps.jso
     const path = routeNodes(o.pickup.door, o.dropoff.door);
     // điểm ở nửa quãng trên đường gấp khúc: cửa đón → các ngã tư → cửa trả
     const pts = [o.pickup.door, ...path.map((n) => nodePos(...n)), o.dropoff.door];
-    const seg = pts.slice(1).map((q, i) => Math.abs(q.x - pts[i].x) + Math.abs(q.z - pts[i].z));
-    let half = seg.reduce((a2, b2) => a2 + b2, 0) / 2, mid = pts[0];
-    for (let i = 0; i < seg.length; i++) {
-      if (half <= seg[i]) { const t = half / Math.max(1e-6, seg[i]); mid = { x: pts[i].x + (pts[i + 1].x - pts[i].x) * t, z: pts[i].z + (pts[i + 1].z - pts[i].z) * t }; break; }
-      half -= seg[i];
+    // chọn điểm trên đường gấp khúc mà quãng còn lại (cách game tính, kể cả đoạn đi trong hẻm) ≈ nửa tổng quãng
+    const total = CITYLAYOUT.routeDist(o.pickup.door, o.dropoff.door);
+    let mid = pts[0], best = Infinity;
+    for (let i = 0; i < pts.length - 1; i++) {
+      for (let k = 0; k <= 20; k++) {
+        const q = { x: pts[i].x + (pts[i + 1].x - pts[i].x) * (k / 20), z: pts[i].z + (pts[i + 1].z - pts[i].z) * (k / 20) };
+        const e = Math.abs(CITYLAYOUT.routeDist(q, o.dropoff.door) - total / 2);
+        if (e < best) { best = e; mid = q; }
+      }
     }
     const rec = om.quitRide(605, mid);
     assert.ok(rec.quit && rec.ev.stars === 1 && rec.traveled > 0.2 && rec.traveled < 0.8, `đi được ${rec.traveled} · đón ${JSON.stringify(o.pickup.door)} trả ${JSON.stringify(o.dropoff.door)} d2 ${o.d2} giữa ${JSON.stringify(mid)} còn ${CITYLAYOUT.routeDist(mid, o.dropoff.door)} · ${path.length} nút`);
@@ -2046,7 +2050,7 @@ console.log('Ngoại hình nam/nữ');
 
 console.log('Nhà ống A+ (src/world/houses.js)');
 {
-  const { HouseGeo, buildHouse, housesForLot, houseTop, SPLIT_MIN } = await import('../src/world/houses.js');
+  const { HouseGeo, buildHouse, housesForLot, houseTop, PX } = await import('../src/world/houses.js');
   const build = (lot, o) => {
     const g = new HouseGeo(), list = housesForLot(lot, { colors: [0xffcc88, 0x9fd8cb], seed: 7, ...o });
     for (const h of list) buildHouse(g, h);
@@ -2057,11 +2061,18 @@ console.log('Nhà ống A+ (src/world/houses.js)');
     for (let i = 0; i < g.p.length; i += 3) for (let k = 0; k < 3; k++) { mn[k] = Math.min(mn[k], g.p[i + k]); mx[k] = Math.max(mx[k], g.p[i + k]); }
     return { mn, mx };
   };
-  test('Lô rộng > 7 m chia 2 căn phủ kín mặt tiền; lô hẹp 1 căn', () => {
+  test('Lô rộng > 7 m chia 2–3 căn hẹp (3,4–6,3 m) sát nhau phủ kín mặt tiền; lô hẹp 1 căn', () => {
     assert.equal(housesForLot({ x: 0, z: 0, nx: 0, nz: 1, width: 6, depth: 9 }, { floors: 3, colors: [1], seed: 1 }).length, 1);
-    const two = housesForLot({ x: 0, z: 0, nx: 0, nz: 1, width: 11, depth: 9 }, { floors: 3, colors: [1], seed: 1 });
-    assert.equal(two.length, 2);
-    assert.ok(Math.abs(two[0].W + two[1].W - 11) < 0.1 && two.every((h) => h.W > 4 && h.W < SPLIT_MIN));
+    const counts = new Set();
+    for (let seed = 1; seed <= 60; seed++) {
+      const list = housesForLot({ x: 0, z: 0, nx: 0, nz: 1, width: 10.8, depth: 9 }, { floors: 3, colors: [1], seed });
+      counts.add(list.length);
+      assert.ok(list.length === 2 || list.length === 3, `${list.length} căn`);
+      const sum = list.reduce((a, h) => a + h.W, 0);
+      assert.ok(Math.abs(sum - 10.8) < 0.1, `tổng mặt tiền ${sum}`);
+      assert.ok(list.every((h) => h.W >= 3.3 && h.W <= 6.3), list.map((h) => h.W.toFixed(2)).join(','));
+    }
+    assert.ok(counts.has(2) && counts.has(3), 'có cả lô 2 căn lẫn 3 căn');
   });
   test('Nhà nằm trong lô theo cả 4 hướng mặt tiền (chỉ mái bạt/ban công đua ra trước ≤ 1,3 m), cao đúng số tầng, UV trong tấm texture', () => {
     for (const [nx, nz] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
@@ -2076,6 +2087,39 @@ console.log('Nhà ống A+ (src/world/houses.js)');
       assert.ok(mx[1] >= 0.15 + top && mx[1] <= 0.15 + top + 3, 'chiều cao');
       assert.ok(g.uv.every((v) => v >= 0 && v <= 1), 'UV ngoài tấm texture');
     }
+  });
+  test('Chữ biển nhà dân (city.shopSigns): có chữ, không quá 28 (số ô trên tấm texture nhà); các ô chữ không đè lên nhau', () => {
+    const words = CONTENT.list('city.shopSigns');
+    assert.ok(words.length >= 1 && words.length <= 28, `${words.length} chữ`);
+    const rects = Object.entries(PX);
+    for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) {
+      const [a, A] = rects[i], [b, B] = rects[j];
+      const overlap = A[0] < B[0] + B[2] && B[0] < A[0] + A[2] && A[1] < B[1] + B[3] && B[1] < A[1] + A[3];
+      assert.ok(!overlap, `${a} đè ${b}`);
+      assert.ok(A[0] + A[2] <= 1024 && A[1] + A[3] <= 1024, `${a} ra ngoài tấm`);
+    }
+  });
+  test('Nhà góc: căn ngoài cùng phía hông ra đường có mặt hông (cửa sổ, biển chữ L), không lấn ra ngoài lô quá 0,2 m', () => {
+    for (const [nx, nz, dir] of [[0, 1, [1, 0]], [0, 1, [-1, 0]], [1, 0, [0, -1]], [-1, 0, [0, 1]]]) {
+      const lot = { x: 0, y: 0, z: 0, nx, nz, width: 10.8, depth: 10 };
+      const list = housesForLot(lot, { floors: 4, colors: [0xffcc88], seed: 3, cornerDir: dir });
+      const corners = list.filter((h) => h.corner);
+      assert.equal(corners.length, 1, `hướng ${nx},${nz}`);
+      // căn góc nằm đúng phía hông: tâm căn lệch về phía dir
+      const h = corners[0];
+      assert.ok(h.x * dir[0] + h.z * dir[1] > 0, 'căn góc phải ở phía đường cắt ngang');
+      const plain = { ...h, corner: null };
+      const g1 = new HouseGeo(), g2 = new HouseGeo();
+      buildHouse(g1, h);
+      buildHouse(g2, plain);
+      assert.ok(g1.tris > g2.tris, 'nhà góc có thêm mặt hông');
+      const { mn, mx } = bounds(g1);
+      const side = dir[0] ? (dir[0] > 0 ? mx[0] : -mn[0]) : (dir[1] > 0 ? mx[2] : -mn[2]);
+      assert.ok(side <= 10.8 / 2 + 0.2 + 1e-6, `lấn ra ${side.toFixed(2)} m`);
+    }
+    // không có hướng hông → không căn nào là nhà góc; nhà trong hẻm không làm nhà góc
+    assert.ok(housesForLot({ x: 0, z: 0, nx: 0, nz: 1, width: 10.8, depth: 9 }, { floors: 3, colors: [1], seed: 1 }).every((h) => !h.corner));
+    assert.ok(housesForLot({ x: 0, z: 0, nx: 0, nz: 1, width: 10.8, depth: 9 }, { floors: 3, colors: [1], seed: 1, alley: true, cornerDir: [1, 0] }).every((h) => !h.corner));
   });
   test('Nhà ống: cùng seed ra cùng hình; số tam giác vừa phải (6 tầng ≤ 600/căn, vùng ven ≤ 150/căn)', () => {
     const lot = { x: 0, z: 0, nx: 0, nz: 1, width: 5.5, depth: 9 };
@@ -3821,6 +3865,262 @@ console.log('Cản trở giao thông: đưa vào lề');
     // đang trong khối nhà / vỉa hè: giữ nguyên
     const inBlock = { x: roadPos(2) + CITY.PITCH / 2, z: mid };
     assert.deepEqual(curbSpot(inBlock.x, inBlock.z, false), inBlock);
+  });
+}
+
+console.log('Phụ phí ngập');
+{
+  const { APP, ORDER_TYPES } = await import('../src/data/apps.js');
+  test('Chỗ lấy hoặc chỗ giao đang ngập → đơn qua app cộng phụ phí ngập + nhãn 🌊; không ngập thì không', () => {
+    const make = (isFlooded) => {
+      const om = new OrderManager({ rng: makeRng(21), layout, gs: workerState({ day: DAY_ALL }), isFlooded });
+      for (let i = 0; i < 50; i++) {
+        const o = om.makeFood(ORDER_TYPES.food, 10 * 60, { x: 0, z: 0 });
+        if (o) return o;
+      }
+      return null;
+    };
+    const dry = make(() => false), wet = make(() => true);
+    assert.ok(dry && wet, 'tạo được đơn đồ ăn');
+    assert.equal(wet.surcharge - dry.surcharge, APP.floodSurcharge || 0);
+    assert.ok(wet.flags.flood && !dry.flags.flood);
+    // chỉ chỗ giao ngập cũng tính (hỏi chỗ lấy trước, chỗ giao sau → chỉ trả "ngập" ở lần hỏi thứ 2 của mỗi đơn)
+    let asks = 0;
+    const onlyDrop = new OrderManager({ rng: makeRng(21), layout, gs: workerState({ day: DAY_ALL }), isFlooded: () => asks++ % 2 === 1 });
+    const o2 = onlyDrop.makeFood(ORDER_TYPES.food, 10 * 60, { x: 0, z: 0 });
+    assert.ok(o2 && o2.flags.flood && asks === 2, 'chỉ chỗ giao ngập vẫn có phụ phí');
+  });
+}
+
+console.log('Khách lừa đảo khó nhận ra: dấu hiệu gây nhiễu, điểm nóng');
+{
+  const { scamHotspot } = await import('../src/sim/OrderManager.js');
+  const { RIDER_TYPES, ORDER_TYPES } = await import('../src/data/apps.js');
+  const { RIDE_EVENTS } = await import('../src/data/balance.js');
+  const scam = Object.values(RIDER_TYPES).find((r) => r.scam);
+  const plain = RIDER_TYPES.app;
+  // chạy makeRide với một loại khách cố định, lúc 22:00 (giờ khách lừa đảo có)
+  const rides = (rider, n, seed = 3, day = DAY_ALL) => {
+    const om = new OrderManager({ rng: makeRng(seed), layout, gs: workerState({ day }) });
+    om.pickRider = () => rider;
+    const out = [];
+    for (let i = 0; i < n; i++) { const o = om.makeRide({ x: 0, z: 0 }, false, 22 * 60, ORDER_TYPES.ride); if (o) out.push(o); }
+    return out;
+  };
+  test('Khách lừa đảo luôn có đủ 2 dấu hiệu; khách app thường đôi khi cũng có (gây nhiễu) theo tỉ lệ ở thẻ Cân bằng', () => {
+    if (!scam || !plain) return;
+    for (const o of rides(scam, 30)) assert.ok(o.flags.newAcct && o.flags.cashOnly && o.flags.scam);
+    const list = rides(plain, 800);
+    const rate = (k) => list.filter((o) => o.flags[k]).length / list.length;
+    assert.ok(Math.abs(rate('newAcct') - (RIDE_EVENTS.decoyNew ?? 0.08)) < 0.04, `newAcct ${rate('newAcct')}`);
+    assert.ok(Math.abs(rate('cashOnly') - (RIDE_EVENTS.decoyCash ?? 0.1)) < 0.04, `cashOnly ${rate('cashOnly')}`);
+    assert.ok(list.every((o) => !o.flags.scam));
+  });
+  test('Điểm nóng lừa đảo: cố định theo ngày, thuộc danh sách "Đón ở"; kẻ lừa đảo phần lớn đón ở đó', () => {
+    if (!scam) return;
+    const hot = scamHotspot(DAY_ALL, layout);
+    if (!hot) return; // dữ liệu chưa đặt nơi đón cho khách lừa đảo
+    assert.ok(scam.from.includes(hot.id));
+    assert.equal(scamHotspot(DAY_ALL, layout), hot, 'cùng ngày cùng điểm');
+    const days = new Set(Array.from({ length: 20 }, (_, d) => scamHotspot(d + 1, layout)?.id));
+    if (scam.from.filter((id) => layout.placeById[id]).length > 1) assert.ok(days.size > 1, 'đổi theo ngày');
+    // trong các chuyến đón ở địa điểm (không phải nhà dân), phần lớn đúng điểm nóng (nếu điểm nóng đang mở cửa)
+    const atPlace = rides(scam, 300, 5).filter((o) => o.pickup.placeId);
+    if (!atPlace.length || !isOpen(hot, 22 * 60, DAY_ALL)) return;
+    const share = atPlace.filter((o) => o.pickup.placeId === hot.id).length / atPlace.length;
+    assert.ok(share > (RIDE_EVENTS.hotspotPct ?? 0.7) - 0.1, `chỉ ${(share * 100).toFixed(0)}% đón ở điểm nóng`);
+  });
+}
+
+console.log('Phố Việt Nam: độ đông vỉa hè theo khu');
+{
+  const { streetOf, STREET_IDS } = await import('../src/data/districtTraits.js');
+  test('Độ đông vỉa hè: đặt riêng thì theo số đặt (tối đa 2); chưa đặt thì theo "người đi bộ"; hàng rong khu chưa bật 🛒 chỉ 40%', () => {
+    assert.equal(streetOf({ street: { bikes: 1.5 }, traffic: 0.3 }, 'bikes'), 1.5);
+    assert.equal(streetOf({ street: { bikes: 9 } }, 'bikes'), 2);
+    assert.equal(streetOf({ traffic: 1.6 }, 'stalls'), 1.6);
+    assert.equal(streetOf({ traffic: 3 }, 'bikes'), 2);
+    assert.equal(streetOf({}, 'bikes'), 1);
+    assert.equal(streetOf({ traffic: 1 }, 'vendors'), 0.4);
+    assert.equal(streetOf({ traffic: 1, decor: { vendors: true } }, 'vendors'), 1);
+    assert.equal(streetOf({ street: { vendors: 0 }, decor: { vendors: true } }, 'vendors'), 0);
+    assert.deepEqual(STREET_IDS, ['bikes', 'stalls', 'vendors', 'flow']);
+  });
+  test('Bộ kiểm tra bản đồ: độ đông vỉa hè sai (mục lạ, ngoài 0–2, không phải bảng) → lỗi', () => {
+    const { validateMap } = VALIDATE;
+    const MAPD = readJson('src/data/map.json');
+    const id = Object.keys(MAPD.districts)[0];
+    const withStreet = (street) => ({ ...MAPD, districts: { ...MAPD.districts, [id]: { ...MAPD.districts[id], street } } });
+    const errs = (m) => validateMap(m, DATA.places).filter((i) => i.level === 'error' && i.ref === `district:${id}`).map((i) => i.field);
+    assert.deepEqual(errs(withStreet({ bikes: 1.2, stalls: 0, vendors: 2 })), []);
+    assert.deepEqual(errs(withStreet({ bikes: 3, xe: 1 })).sort(), ['street.bikes', 'street.xe']);
+    assert.deepEqual(errs(withStreet([1])), ['street']);
+  });
+}
+
+console.log('Xe nền (chỉ để nhìn, src/world/bgTraffic.js)');
+{
+  const { BgTraffic } = await import('../src/world/bgTraffic.js');
+  const { CITY, roadPos } = CITYLAYOUT;
+  const cfg = { max: 120, near: 35, far: 140, speedMin: 7, speedMax: 10.5 };
+  // người chơi đứng giữa đường ngang gần tâm bản đồ
+  const P = { x: roadPos(Math.floor(CITY.N / 2)) + 20, z: roadPos(Math.floor(CITY.N / 2)) };
+  const run = (density, sec = 60, move = 0) => {
+    const bg = new BgTraffic({ seed: 5, cfg, density });
+    let bad = null;
+    for (let t = 0; t < sec; t += 1 / 30) {
+      const px = P.x + move * t;
+      bg.update(1 / 30, px, P.z, {});
+      for (const b of bg.bikes) {
+        if (!b.on || b.fade <= 0 || bad) continue;
+        const d = Math.hypot(b.x - px, b.z - P.z);
+        // đang hiện (dù mờ) thì không lấn vào gần quá: tối đa chạy thêm trong lúc mờ dần (~0,7 s × (10,5 + 9) m/s)
+        if (d < cfg.near - 14) bad = `xe ${b.i} cách ${d.toFixed(1)} m`;
+        // luôn nằm trên lòng đường (cách tim một đường dọc hoặc ngang ≤ nửa bề rộng đường)
+        const ox = Math.abs(b.x - roadPos(Math.round((b.x - CITY.ORIGIN) / CITY.PITCH)));
+        const oz = Math.abs(b.z - roadPos(Math.round((b.z - CITY.ORIGIN) / CITY.PITCH)));
+        if (Math.min(ox, oz) > CITY.ROAD / 2 + 0.01) bad = `xe ${b.i} ra khỏi lòng đường (${ox.toFixed(1)}, ${oz.toFixed(1)})`;
+      }
+    }
+    return { bg, bad };
+  };
+  test('Xe nền: không hiện trong vòng gần người chơi, luôn chạy trên lòng đường; người chơi chạy tới thì xe gần mờ đi', () => {
+    for (const move of [0, 9]) {
+      const { bg, bad } = run(() => 2, 40, move);
+      assert.equal(bad, null, bad || '');
+      assert.ok(bg.active > cfg.max * 0.6, `chỉ có ${bg.active} xe`);
+    }
+  });
+  test('Xe nền: khu vắng ít xe, độ đông 0 thì không có xe; số tối đa 0 = tắt', () => {
+    const busy = run(() => 2, 30).bg.active, quiet = run(() => 0.4, 30).bg.active;
+    assert.ok(quiet < busy * 0.6, `khu vắng ${quiet} / khu đông ${busy}`);
+    assert.equal(run(() => 0, 20).bg.active, 0);
+    const off = new BgTraffic({ cfg: { ...cfg, max: 0 } });
+    off.update(1 / 30, P.x, P.z, {});
+    assert.equal(off.bikes.length, 0);
+  });
+  test('Xe nền: chạy qua được ngã tư (đổi đoạn đường) và dừng sau đuôi xe phía trước cùng làn', () => {
+    const bg = new BgTraffic({ seed: 9, cfg, density: () => 2 });
+    const start = new Map();
+    for (let t = 0; t < 30; t += 1 / 30) {
+      bg.update(1 / 30, P.x, P.z, {});
+      for (const b of bg.bikes) if (b.on && !start.has(b.i)) start.set(b.i, b.from + '>' + b.to);
+    }
+    assert.ok(bg.bikes.some((b) => b.on && start.get(b.i) !== b.from + '>' + b.to), 'không xe nào qua ngã tư');
+    // xe NPC thật đang đứng yên phía trước (cùng đoạn, cùng làn) → xe nền dừng sau đuôi
+    const b = bg.bikes.find((x) => x.on && !x.turn && x.t < CITY.PITCH - 28);
+    const car = { t: b.t + 14, lane: b.lane, turn: null };
+    const onSeg = new Map([[b.from + '>' + b.to, [car]]]);
+    for (let t = 0; t < 5; t += 1 / 30) bg.move(b, 1 / 30, new Map(), { onSeg });
+    assert.ok(car.t - b.t > 2.5 && b.speed < 0.5, `xe nền cách xe trước ${(car.t - b.t).toFixed(1)} m, tốc độ ${b.speed.toFixed(1)}`);
+  });
+}
+
+console.log('Vựa ve chai: bán đồ cũ, vỏ chai');
+{
+  const { GOODS } = await import('../src/data/goods.js');
+  test('Uống nước suối xong còn vỏ chai trong túi; bán ve chai được giá theo cái, hết vỏ', () => {
+    const gs = new GameState({ carry: { money: 100 } });
+    gs.buy('goods', 'nuocSuoi');
+    gs.buy('goods', 'lonSoda');
+    gs.useConsumable('nuocSuoi');
+    gs.useConsumable('lonSoda');
+    assert.equal(gs.countOf('voChai'), 2);
+    const e = gs.usedSellables().find((x) => x.id === 'voChai');
+    assert.equal(e.k, 2 * GOODS.voChai.scrapPrice);
+    const m = gs.money;
+    assert.ok(gs.sellUsed('voChai').ok);
+    assert.equal(gs.countOf('voChai'), 0);
+    assert.equal(gs.money, m + e.k);
+  });
+  test('Bán quần áo đã mua được % giá mua (thẻ Cân bằng); đang mặc thì cởi ra; đồ có sẵn / đồ của hãng không bán được', () => {
+    const gs = new GameState({ carry: { money: 5000 } });
+    const shirt = Object.values(GOODS).find((g) => g.type === 'outfit' && g.price > 0 && !g.brand && g.slot === 'shirt');
+    const free = Object.values(GOODS).find((g) => g.type === 'outfit' && g.price === 0);
+    const branded = Object.values(GOODS).find((g) => g.brand);
+    assert.ok(gs.buy('goods', shirt.id).ok);
+    gs.wear(shirt.id);
+    assert.ok(gs.isWorn(shirt.id));
+    const ids = gs.usedSellables().map((x) => x.id);
+    assert.ok(ids.includes(shirt.id) && !ids.includes(free.id));
+    if (branded) {
+      gs.owned.gear.push(branded.id);
+      assert.ok(!gs.usedSellables().some((x) => x.id === branded.id));
+    }
+    const m = gs.money;
+    const r = gs.sellUsed(shirt.id);
+    assert.ok(r.ok && r.k === Math.round(shirt.price * (ECONOMY.resalePct ?? 0.3)));
+    assert.equal(gs.money, m + r.k);
+    assert.ok(!gs.isWorn(shirt.id) && !gs.owned.gear.includes(shirt.id));
+    assert.ok(gs.wornIds().shirt, 'cởi áo đã bán → mặc lại áo có sẵn');
+  });
+  test('Dữ liệu: vựa ve chai có "Thu mua đồ cũ"; đồ uống chai / lon để lại vỏ', () => {
+    assert.ok(DATA.places.places.some((p) => p.buys));
+    for (const id of ['nuocSuoi', 'lonSoda', 'chaiTraXanh', 'energyDrink']) assert.equal(GOODS[id].use.leaves, 'voChai');
+  });
+}
+
+console.log('Xưng hô theo người nói');
+{
+  const { personOf, pronouns } = await import('../src/sim/people.js');
+  const { pickFor } = await import('../src/content/index.js');
+  test('Tên → giới tính + tuổi; tự xưng / gọi người chơi đúng vai vế', () => {
+    const t = (name, pg, opts) => { const p = pronouns(personOf(name, opts), pg); return `${p.toi}/${p.ban}`; };
+    assert.equal(t('Chị Lan', 'm'), 'chị/em');
+    assert.equal(t('Anh Tuấn', 'f'), 'anh/em');
+    assert.equal(t('Chú Bảy', 'm'), 'chú/con');
+    assert.equal(t('Bà Sáu', 'f'), 'bà/con');
+    assert.equal(t('Bé Na', 'f'), 'em/chị');
+    assert.equal(t('Bé Na', 'm'), 'em/anh');
+    assert.equal(t('Nhân viên bán hàng', 'f', { role: 'staff' }), 'em/chị');
+    assert.equal(personOf('Emma').gender, 'f');
+    assert.equal(personOf('Kenji').gender, 'm');
+    assert.equal(personOf('Bác Năm (mẹ anh Minh)', { gender: 'f' }).gender, 'f');
+    // không đoán được → cố định theo tên (lần nào cũng như nhau)
+    assert.equal(personOf('Hai Thông').gender, personOf('Hai Thông').gender);
+  });
+  test('Câu gắn thẻ vai chỉ người đúng vai nói ("[veso] Mua vé số…"); tên người đi đường bỏ thẻ khi hiện', () => {
+    const veso = personOf('[veso] Cô bán vé số'), hs = personOf('Cậu học sinh');
+    assert.equal(veso.name, 'Cô bán vé số');
+    assert.equal(veso.role, 'veso');
+    const say = (who) => Array.from({ length: 60 }, (_, i) => pickFor('bubble.ped', who, i, pronouns(who, 'm')));
+    assert.ok(say(veso).some((s) => /vé số/i.test(s)));
+    assert.ok(!say(hs).some((s) => /vé số|\[/.test(s)));
+  });
+  test('Mọi câu có chỗ trống xưng hô đều điền được (không còn {toi} / {ban} sót lại)', () => {
+    const v = pronouns(personOf('Chú Bảy'), 'f');
+    for (const [k, val] of Object.entries(CONTENT.contentTable())) {
+      for (const s of Array.isArray(val) ? val : [val]) {
+        const out = String(s).replace(/\{(\w+)\}/g, (m, p) => (p in v ? v[p] : m));
+        assert.ok(!/\{(toi|Toi|ban|Ban|khach|Khach|minh|Minh|anhchi|Anhchi)\}/.test(out), k);
+      }
+    }
+  });
+}
+
+console.log('Trạm sạc, cản trở giao thông lúc kẹt xe');
+{
+  const { lotFrame } = await import('../src/sim/airport.js');
+  test('Trạm sạc kiểu cây xăng: chỗ sạc nằm trong sân trạm (sau vỉa hè), không phải cửa ngoài vỉa hè', () => {
+    const ch = layout.places.filter((p) => p.kind === 'charger' && p.chargeSpot);
+    assert.ok(ch.length);
+    for (const p of ch) {
+      const [, v] = lotFrame(p).toLocal(p.chargeSpot.x, p.chargeSpot.z);
+      assert.ok(v < -1, `${p.id}: chỗ sạc cách mặt tiền ${v.toFixed(1)} m (phải nằm trong lô)`);
+    }
+  });
+  const THREE = await import('three');
+  const { Traffic } = await import('../src/world/traffic.js');
+  test('Đứng trong đoạn kẹt xe / đang chạy theo dòng thì không bị tính cản trở giao thông; đứng yên giữa đường thường thì có', () => {
+    const t = Object.create(Traffic.prototype);
+    Object.assign(t, { scene: new THREE.Scene(), rng: makeRng(1), jamKeys: new Set(), jamCircles: [] });
+    t.buildJamMeshes();
+    const seg = { axis: 'x', line: 2, from: 1 };
+    t.setJams([seg]);
+    const r = CITYLAYOUT.segmentRect(seg), cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2;
+    assert.ok(!t.blameable({ px: cx, pz: cz, onBike: false }), 'trong đoạn kẹt');
+    assert.ok(!t.blameable({ px: cx + 300, pz: cz + 300, onBike: true, speed: 3 }), 'đang chạy theo dòng');
+    assert.ok(t.blameable({ px: cx + 300, pz: cz + 300, onBike: false }), 'đứng yên giữa đường thường');
   });
 }
 

@@ -21,6 +21,7 @@
       ],
       "cancelComp": 5,
       "rainSurcharge": 4,
+      "floodSurcharge": 5,
       "peakSurcharge": 3,
       "nightSurcharge": 5,
       "airportFee": 10,
@@ -391,7 +392,9 @@
         "cafeVongBoSong",
         "sanBongMini",
         "canhquan10",
-        "canhquan11"
+        "canhquan11",
+        "sanBongMini_2",
+        "sanBongMini_3"
       ],
       "viaApp": true,
       "comfortKmh": 40,

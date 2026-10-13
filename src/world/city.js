@@ -3,13 +3,13 @@
 // đèn đường, cây xanh, ổ gà. Trả về lưới va chạm + hàm đổi ngày/đêm, mưa.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { CITY, LOT_W, HALF, roadPos, blockBounds, roadGraph, segmentRect, cutSide, districtAt, joinList, joinGap, joinedSide, isWaterBlock } from '../sim/cityLayout.js';
+import { CITY, LOT_W, HALF, roadPos, blockBounds, roadGraph, segmentRect, cutSide, districtAt, districtAtPoint, joinList, joinGap, joinedSide, isWaterBlock } from '../sim/cityLayout.js';
 import { MAP } from '../data/map.js';
-import { pickHouseStyle, blockHouseStyle, treesOf } from '../data/districtTraits.js';
+import { pickHouseStyle, blockHouseStyle, treesOf, streetOf } from '../data/districtTraits.js';
 import { buildStreetDecor } from './streetDecor.js';
 import { ALLEY } from '../data/places.js';
 import { makeRng } from '../sim/rng.js';
-import { SpatialGrid } from './physics.js';
+import { SpatialGrid, circleFree } from './physics.js';
 import { makeTileTexture, makeAsphaltTexture, makeSignTexture, makeGlowTexture, makeWaterTexture } from './textures.js';
 import { HouseGeo, buildHouse, housesForLot, houseMaterial, houseTop } from './houses.js';
 import { buildPlace, buildResidential, mergeKits, makeKit, busStopModel, airportPath, AIRPORT_MIN_W } from './placeBuildings.js';
@@ -25,7 +25,8 @@ import { tierOf, TIER_GEO, allSegments } from '../sim/roads.js';
 import { buildBusSystem } from '../sim/bus.js';
 import { floodMap, segOfId } from '../sim/flood.js';
 
-const WALL_COLORS = [0xe8d5b7, 0xf4c095, 0x9fd8cb, 0xf6e27f, 0xe7a9a9, 0xb8d8e8, 0xd9c3e8, 0xf2f2f2, 0xc9e4a6, 0xf7b267, 0xffe0b5, 0xa9cce3];
+// màu sơn tường nhà phố: vàng, xanh ngọc, hồng phai, trắng ngà, xanh dương nhạt, cam đất… (phố Việt Nam mỗi căn một màu)
+const WALL_COLORS = [0xe8d5b7, 0xf4c095, 0x9fd8cb, 0xf6e27f, 0xe7a9a9, 0xb8d8e8, 0xd9c3e8, 0xf2f2f2, 0xc9e4a6, 0xf7b267, 0xffe0b5, 0xa9cce3, 0xe3b23c, 0x7fb8a4, 0xd98a6c, 0xf0d58c, 0x8fb3d9, 0xe9c2d0];
 const AWNING_COLORS = [0xc0392b, 0x2980b9, 0x27ae60, 0xf39c12, 0x8e44ad, 0x16a085];
 const SW_H = 0.15; // độ cao vỉa hè
 
@@ -73,6 +74,19 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   // xe buýt (src/sim/bus.js): tuyến + trạm; cây, trang trí vỉa hè chừa chỗ cho nhà chờ
   const bus = opts.bus || buildBusSystem(layout, mapData);
   const nearStop = (x, z, d = 2.6) => bus.stops.some((s) => Math.hypot(s.x - x, s.z - z) < d);
+  // CHỖ CẤM ĐẬU XE (xe máy đậu lề đường / vỉa hè): trước cổng bệnh viện, đồn công an, trường học, bến xe, cây xăng, trạm sạc /
+  // đổi pin, nhà thờ, bưu điện, sân bay, bến phà (cả mặt tiền + 3 m mỗi bên, ra tới lòng đường) và góc ngã tư (vạch qua đường)
+  const NO_PARK_LOOKS = new Set(['hospital', 'police', 'school', 'university', 'artSchool', 'busStation', 'gas', 'airport', 'cathedral', 'postOffice', 'ferry']);
+  const NO_PARK_KINDS = new Set(['gas', 'charger', 'swap', 'police']);
+  const noParkPlace = (p) => NO_PARK_LOOKS.has(lookOf(p)) || NO_PARK_KINDS.has(p.kind);
+  const noParkFronts = layout.places.filter((p) => p.door && p.x0 != null && noParkPlace(p)).map((p) => ({ fr: placeFrame(p), W: placeFrame(p).W }));
+  const nearLine = (v) => Math.abs(v - roadPos(Math.round((v - CITY.ORIGIN) / CITY.PITCH)));
+  const noPark = (x, z) =>
+    (nearLine(x) < 10.5 && nearLine(z) < 10.5) || // góc ngã tư
+    noParkFronts.some(({ fr, W }) => {
+      const [u, v] = fr.toLocal(x, z); // v > 0: phía ngoài lô (vỉa hè, đường)
+      return Math.abs(u) < W / 2 + 3 && v > -1 && v < 9;
+    });
   const noRoad = (id) => G.waterSegs.has(id) || G.closedSegs.has(id) || G.rampSegs.has(id); // sông · đoạn đã gộp khối · dốc / nhịp cầu cao
   // cầu kênh vồng (src/world/bridges.js): mặt cầu tự có vạch, đường quanh chân cầu không vẽ vạch / vá / lề
   const humps = bridgeDecks(G).filter((d) => !d.wide);
@@ -250,7 +264,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
 
   // ---------- vỉa hè ----------
   const tile = makeTileTexture();
-  tile.repeat.set(10, 10);
+  tile.repeat.set(5, 5); // mỗi lần lặp 8 m (viên 0,5 m)
   const swMat = new THREE.MeshStandardMaterial({ map: tile, roughness: 0.85 });
   const swGeo = new THREE.BoxGeometry(CITY.BLOCK, SW_H, CITY.BLOCK);
   for (let bz = 0; bz < CITY.N; bz++) {
@@ -289,8 +303,9 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
           const mid = side * (tg.half + CITY.ROAD / 2) / 2;
           // xe máy đậu rải rác trên lề (xe thật, ~15% chỗ có xe), thân xe vuông góc với đường, đầu xe quay ra lòng đường
           for (let a = a0 + 1.5; a < a1 - 1; a += 1.1) {
-            if (vrng.next() < 0.85) continue;
+            if (vrng.next() < 0.925) continue; // ~7,5% chỗ có xe (giảm một nửa)
             const [x, z] = pt(a, mid);
+            if (nearStop(x, z, 4) || noPark(x, z)) continue; // không đậu ở trạm xe buýt / trước cổng chỗ cấm đậu
             const along = s.axis === 'x'; // đường dọc → thân xe nằm theo trục x
             const ry = (along ? -side * Math.PI / 2 : side < 0 ? 0 : Math.PI) + (vrng.next() - 0.5) * 0.25; // lệch chút cho tự nhiên
             parkedBikes.push({ x, y: SW_H, z, ry, c: BIKE_COLS[vrng.int(0, BIKE_COLS.length - 1)] });
@@ -359,14 +374,22 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     if (!houseGroups.has(k)) houseGroups.set(k, new HouseGeo());
     return houseGroups.get(k);
   };
-  // Dựng 1–2 căn trên một lô (mặt tiền rộng thì chia 2); trả về độ cao căn cao nhất (cho va chạm)
+  // mặt tiền từng căn nhà phố (không tính nhà trong hẻm / nhà vùng ven / nhà phía sau) → xếp xe đậu, quán cóc trên vỉa hè
+  const frontages = [];
+  const stallRng = makeRng(seed * 59 + 3); // căn nào có quán cóc (quyết lúc dựng nhà để căn đó luôn có bạt che)
+  // Dựng 1–3 căn trên một lô (mặt tiền rộng thì chia 2–3 căn hẹp); trả về độ cao căn cao nhất (cho va chạm)
   const addLotHouses = (r, face, floors, opts = {}) => {
     const f = frontOf(r, face);
     const depth = f.nx ? r.x1 - r.x0 : r.z1 - r.z0;
     let top = 0;
     for (const h of housesForLot({ x: f.x, y: SW_H, z: f.z, nx: f.nx, nz: f.nz, width: f.width, depth }, { floors, colors: WALL_COLORS, seed: rng.int(1, 1e9), ...opts })) {
+      const street = !opts.alley && !opts.low && !opts.back;
+      // quán cóc: căn có cửa hàng, theo độ đông của khu (độ đông 1 ≈ 50% căn có cửa hàng) → ép có bạt che phía trước
+      h.stall = street && h.ground === 'shop' && stallRng.next() < 0.5 * streetOf(districtAtPoint(h.x, h.z, mapData), 'stalls');
+      if (h.stall) h.awning = true;
       buildHouse(geoAt(h.x - f.nx * depth * 0.5, h.z - f.nz * depth * 0.5), h);
       top = Math.max(top, houseTop(h.floors));
+      if (street) frontages.push({ x: h.x, z: h.z, nx: h.nx, nz: h.nz, W: h.W, ground: h.ground, stall: h.stall });
     }
     return top;
   };
@@ -380,6 +403,19 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     if (!primary.has(key)) primary.set(key, blockHouseStyle(districtAt(bx, bz, mapData), makeRng(seed * 131 + bz * 977 + bx * 31 + 5)));
     return primary.get(key);
   };
+  // Lô ở góc khối (chạm 2 cạnh ngoài của khối) → hướng ra đường cắt ngang, nếu phía đó là đường thật (không phải khối gộp / sông)
+  // → căn ngoài cùng phía đó thành nhà góc 2 mặt tiền (houses.js h.corner)
+  const SIDE_DIR = { N: [0, -1], S: [0, 1], W: [-1, 0], E: [1, 0] };
+  const waterSegsAll = roadGraph(mapData).waterSegs;
+  const cornerDirOf = (l) => {
+    if (l.inAlley || !SIDE_DIR[l.face]) return null;
+    const [bx, bz] = l.block, b = blockBounds(bx, bz), e = 0.4;
+    const touch = { W: Math.abs(l.x0 - (b.x0 + CITY.SW)) < e, E: Math.abs(l.x1 - (b.x1 - CITY.SW)) < e, N: Math.abs(l.z0 - (b.z0 + CITY.SW)) < e, S: Math.abs(l.z1 - (b.z1 - CITY.SW)) < e };
+    const side = (l.face === 'N' || l.face === 'S' ? ['W', 'E'] : ['N', 'S']).find((k) => touch[k]);
+    if (!side || joinedSide(bx, bz, side, mapData)) return null;
+    const seg = side === 'N' ? `z${bz}:${bx}` : side === 'S' ? `z${bz + 1}:${bx}` : side === 'W' ? `x${bx}:${bz}` : `x${bx + 1}:${bz}`;
+    return waterSegsAll.has(seg) ? null : SIDE_DIR[side];
+  };
   for (const l of layout.lots) {
     const floors = l.inAlley ? rng.int(1, 4) : rng.int(2, 6); // nhà trong hẻm thấp hơn nhà mặt phố
     const r = { x0: l.x0 + 0.25, x1: l.x1 - 0.25, z0: l.z0 + 0.25, z1: l.z1 - 0.25 };
@@ -392,7 +428,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
       addBox(r.x0, r.z0, r.x1, r.z1, height + SW_H, 'house');
       continue;
     }
-    const top = addLotHouses(r, l.face, floors, { alley: l.inAlley });
+    const top = addLotHouses(r, l.face, floors, { alley: l.inAlley, cornerDir: cornerDirOf(l) });
     addBox(r.x0, r.z0, r.x1, r.z1, top + SW_H, 'house');
   }
   if (resKits.length) mergeKits(resKits, scene);
@@ -656,7 +692,9 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   const CROWNS = [
     crownOf([[1.25, 0, 0, 0], [0.95, 0.9, 0.15, 0.3], [0.9, -0.85, 0.1, -0.35], [0.85, 0.1, 0.55, -0.85], [0.8, -0.25, 0.7, 0.85]]),
     crownOf([[0.95, 0, -0.35, 0], [0.85, 0.2, 0.55, 0.15], [0.7, -0.1, 1.3, -0.1], [0.75, 0.45, 0.15, -0.45], [0.6, -0.35, 0.9, 0.35]]),
+    crownOf([[0.85, 0, 0, 0], [0.75, 0.35, 0.8, 0.2], [0.7, -0.35, 0.55, -0.25], [0.6, 0.1, 1.5, -0.1], [0.55, -0.2, 2.1, 0.15]]), // tán thưa đặt cao (cây dầu, cây sao)
   ];
+  const TALL = 2.3; // cây thân cao: thân dài gấp 2,3 lần
   const kindOf = trees.map(() => 0);
   for (let i = trees.length - 1; i >= 0; i--) if (nearStop(trees[i][0], trees[i][1])) trees.splice(i, 1); // chừa chỗ nhà chờ xe buýt
   // nhà chờ xe buýt ở các trạm (gộp 1 lần) + khối chắn vách kính, ghế phía sau
@@ -678,10 +716,11 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   const crownMats = [];
   trees.forEach(([x, z], k) => {
     const rot = rng.next() * 6;
-    kindOf[k] = rot > 4.2 ? 1 : 0; // ~30% cây tán cao
+    kindOf[k] = rng.next() < 0.45 ? 2 : rot > 4.2 ? 1 : 0; // ~45% cây thân cao, còn lại 2 dáng cũ
+    const tk = kindOf[k] === 2 ? TALL : 1;
     dummy.rotation.set(0, rot, 0);
-    dummy.scale.set(1, 1, 1);
-    dummy.position.set(x, 1.5 + SW_H, z);
+    dummy.scale.set(1, tk, 1);
+    dummy.position.set(x, 1.5 * tk + SW_H, z);
     dummy.updateMatrix();
     trunks.setMatrixAt(k, dummy.matrix);
     dummy.position.set(x, SW_H + 0.01, z);
@@ -692,13 +731,13 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     pitSoil.setMatrixAt(k, dummy.matrix);
     const s = 0.85 + rng.next() * 0.5;
     dummy.scale.set(s, s * 1.1, s);
-    dummy.position.set(x, 3.6 + SW_H + s * 0.3, z);
+    dummy.position.set(x, (kindOf[k] === 2 ? 3 * TALL + 0.4 : 3.6) + SW_H + s * 0.3, z);
     dummy.updateMatrix();
     crownMats.push(dummy.matrix.clone());
     crownMats[k].color = col.setHSL(0.27 + rng.next() * 0.07, 0.45, 0.27 + rng.next() * 0.1).clone();
     addBox(x - 0.22, z - 0.22, x + 0.22, z + 0.22, 3, 'tree');
   });
-  for (const v of [0, 1]) {
+  for (const v of [0, 1, 2]) {
     const idx = trees.map((_, k) => k).filter((k) => kindOf[k] === v);
     if (!idx.length) continue;
     const cm = new THREE.InstancedMesh(CROWNS[v], crownMat, idx.length);
@@ -834,6 +873,63 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     m.renderOrder = 2;
     scene.add(m);
     floods.set(id, m);
+  }
+
+  // ---------- đời sống vỉa hè: xe máy đậu xiên + quán cóc ghế nhựa (độ đông theo khu: data/districtTraits.js streetOf) ----------
+  // Vỉa hè 3 dải (tính từ mép lề): 0–1,8 m xe đậu xiên · ~1,8–2,4 m lối đi bộ (traffic.js PED_LANE) · 2,4–3,2 m quán cóc sát nhà.
+  // Mỗi căn hoặc có quán cóc (căn có cửa hàng) hoặc có xe đậu — không cả hai, để lối đi bộ luôn trống.
+  // Né cây, cột điện, đèn, trạm xe buýt, xe hàng rong (lưới va chạm), cửa địa điểm và lối xe lên dốc.
+  {
+    const lr = makeRng(seed * 53 + 7), sk = makeKit();
+    const STOOLS = [0xd63a2f, 0x2f6fb2, 0xd63a2f, 0x2e8b57, 0xe6a817];
+    const BIKE_COLS = [0xc0392b, 0x2c3e50, 0xecf0f1, 0x8e44ad, 0x2980b9, 0x7f8c8d, 0xd35400, 0x111111];
+    const toCurb = CITY.SW + 0.25; // mặt nhà → mép lề
+    const free = (x, z, r) => circleFree(grid, x, z, r, SW_H) && !doors.some((d) => Math.hypot(d.x - x, d.z - z) < 2.2) && !nearDrive(x, z) && !nearStop(x, z, 3) && !noPark(x, z);
+    let nStall = 0;
+    // trước địa điểm (tiệm, quán…) cũng có xe khách đậu — chỉ xe, không quán cóc; né cửa (free) · bỏ địa điểm trong hẻm / sân bay
+    const NORMAL_OF = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] };
+    for (const p of layout.places) {
+      if (!p.door || p.inAlley || !NORMAL_OF[p.face] || lookOf(p) === 'airport' || noParkPlace(p)) continue;
+      const fr = placeFrame(p), [fx, fz] = fr.toWorld(0, 0), [nx, nz] = NORMAL_OF[p.face];
+      frontages.push({ x: fx, z: fz, nx, nz, W: fr.W, ground: 'place' });
+    }
+    for (const f of frontages) {
+      const d = districtAtPoint(f.x, f.z, mapData);
+      const Ux = f.nz, Uz = -f.nx; // dọc mặt tiền (sang phải khi nhìn từ đường)
+      const at = (u, out) => [f.x + Ux * u + f.nx * out, f.z + Uz * u + f.nz * out]; // out: mét từ mặt nhà ra đường
+      const face = Math.atan2(f.nx, f.nz); // hướng nhìn ra đường
+      if (f.stall) {
+        // quán cóc: bàn thấp + 3–4 ghế nhựa sát mặt tiền (ngồi được)
+        const [tx, tz] = at(0, 0.5);
+        if (!free(tx, tz, 0.3)) continue; // vòng nhỏ: không chạm tường nhà ngay sau lưng
+        sk.box(0.6, 0.06, 0.45, tx, 0.45, tz, 0xe8e2d0);
+        sk.cyl(0.04, 0.04, 0.42, tx, 0.21, tz, 0x8a8f96, 'metal', 6);
+        const col = STOOLS[lr.int(0, STOOLS.length - 1)];
+        for (const [du, dv, ry] of [[-0.55, 0.45, -Math.PI / 2], [0.55, 0.45, Math.PI / 2], [0, 0.85, Math.PI], [-0.25, 0.08, 0]].slice(0, 3 + lr.int(0, 1))) {
+          const [x, z] = at(du, dv);
+          sk.cyl(0.17, 0.14, 0.32, x, 0.16, z, col, '', 8);
+          sk.seat(x, 0.32, z, face + ry);
+        }
+        const [a0x, a0z] = at(-0.75, 0.05), [a1x, a1z] = at(0.75, 0.95);
+        addBox(Math.min(a0x, a1x), Math.min(a0z, a1z), Math.max(a0x, a1x), Math.max(a0z, a1z), 0.5, 'decor');
+        nStall++;
+        continue;
+      }
+      // xe máy đậu xiên thành hàng ở dải sát lề (tâm xe cách lề 0,9 m), cùng 1 hàng cùng 1 hướng xiên
+      const pb = Math.min(0.45, 0.2 * streetOf(d, 'bikes')), tilt = lr.next() < 0.5 ? 0.38 : -0.38; // độ đông 1 (vừa) ≈ 20% chỗ có xe
+      for (let u = -f.W / 2 + 0.45; u < f.W / 2 - 0.3; u += 0.85) {
+        if (lr.next() > pb) continue;
+        const [x, z] = at(u, toCurb - 0.9);
+        if (!free(x, z, 0.5)) continue;
+        parkedBikes.push({ x, y: SW_H, z, ry: face + tilt + (lr.next() - 0.5) * 0.1, c: BIKE_COLS[lr.int(0, BIKE_COLS.length - 1)] });
+        const hx = Math.abs(f.nx) * 0.8 + Math.abs(Ux) * 0.4, hz = Math.abs(f.nz) * 0.8 + Math.abs(Uz) * 0.4; // thân xe dọc theo hướng ra đường
+        addBox(x - hx, z - hz, x + hx, z + hz, 1.0, 'bike');
+      }
+    }
+    if (nStall) {
+      mergeKits([{ kit: sk, matrix: new THREE.Matrix4().makeTranslation(0, SW_H, 0) }], scene);
+      for (const q of sk.seats) seats.push({ ...q, y: q.y + SW_H, stall: true });
+    }
   }
 
   // xe máy đậu: vẽ bằng mẫu xe thật, chỉ hiện quanh người chơi (game.js gọi parked.update mỗi khung hình)

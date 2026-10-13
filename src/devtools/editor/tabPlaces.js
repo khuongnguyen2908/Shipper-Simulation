@@ -7,7 +7,7 @@ import { rowMenu, addButton, entryButtons, doRemove, doCopyActivity, doPasteActi
 import { personPreview } from './personPreview.js';
 import { housePreview } from './housePreview.js';
 import { LOOKS, guessLook, lookOf, looksFor } from '../../data/looks.js';
-import { guessGender } from '../../sim/people.js';
+import { personOf } from '../../sim/people.js';
 import { el, field, textInput, numInput, colorInput, selectInput, checkInput, button, sideList, areaInput, dragHandle, makeSortable, emojiInput, explain, openDayInput, subTabs, advanced } from './ui.js';
 import { openDayOf } from '../../sim/placeRules.js';
 import { isPlaced } from '../../data/places.js';
@@ -176,7 +176,7 @@ export function render(root, ctx) {
       const opts = options.some(([v]) => v === cur) ? options : [...options, [cur, `Tùy chỉnh (${cur})`]];
       return selectInput(cur, opts, (v) => { if (v === '') delete n[key]; else n[key] = v; changedN(); });
     };
-    const guessLabel = () => `Tự đoán theo tên (${(guessGender(n.name) || 'm') === 'f' ? 'Nữ' : 'Nam'})`;
+    const guessLabel = () => `Tự đoán theo tên (${personOf(n.name).gender === 'f' ? 'Nữ' : 'Nam'})`;
     const genderSel = optSel('gender', [['', guessLabel()], ['m', 'Nam'], ['f', 'Nữ']]);
     T.pane('npc').append(
       el('h3', {}, 'NPC đứng ở cửa'),
@@ -325,6 +325,8 @@ export function render(root, ctx) {
     sellRow('goods', 'Đồ dùng', goods, (x) => x.icon || '🎁'),
     sellRow('bags', 'Túi giao hàng', gear.bags, () => '👜'),
     sellRow('vehicles', 'Xe', gear.vehicles, () => '🛵'),
+    el('h3', {}, 'Thu mua'),
+    field('♻️ Thu mua đồ cũ', checkInput(!!p.buys, (v) => { if (v) p.buys = true; else delete p.buys; changedP(); }, 'Có nút "Bán đồ cũ" (quần áo, trang bị đã mua, vỏ chai / vỏ lon)'), opt('buys', { hint: HINT.place.buys, wide: true })),
   );
 
   // --- điểm đến của đơn ---
@@ -441,6 +443,7 @@ export function render(root, ctx) {
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     for (const q of places) {
+      if (!isPlaced(q)) continue; // địa điểm "chưa đặt" (chưa có khối / lô) không vẽ — trước đây làm lỗi "reading '0'"
       const r = lotInfo(q.block[0], q.block[1], q.lot, q.face, map);
       // vạch mặt tiền (cạnh có cửa)
       const edge = { N: [r.x0, r.z0, r.x1, r.z0], S: [r.x0, r.z1, r.x1, r.z1], W: [r.x0, r.z0, r.x0, r.z1], E: [r.x1, r.z0, r.x1, r.z1] }[r.face];

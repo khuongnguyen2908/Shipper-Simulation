@@ -353,16 +353,26 @@ export async function startEditor(root) {
       return;
     }
     const files = dirty.map((k) => ({ path: FILES[k].path, content: JSON.stringify(ctx.data[k], null, 2) + '\n' }));
+    let j;
     try {
       const r = await fetch('/__editor/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ files }) });
-      const j = await r.json();
+      j = await r.json();
       if (!j.ok) throw new Error(j.error);
       store.set(DRAFT_KEY, null);
       for (const k of dirty) ctx.base[k] = clone(ctx.data[k]);
-      showBanner(`💾 Đã lưu ${j.written.join(', ')}. Game đang mở sẽ tự tải lại.`, 'ok');
+    } catch (e) {
+      console.error('[editor] lưu thất bại', e);
+      showBanner(`Lưu thất bại: ${e.message}`, 'err');
+      return;
+    }
+    showBanner(`💾 Đã lưu ${j.written.join(', ')}. Game đang mở sẽ tự tải lại.`, 'ok');
+    // vẽ lại công cụ sau khi lưu: lỗi ở bước này KHÔNG có nghĩa là lưu hỏng (file đã ghi xong) → báo riêng, kèm chỗ lỗi để sửa
+    try {
       ctx.rerender();
     } catch (e) {
-      showBanner(`Lưu thất bại: ${e.message}`, 'err');
+      console.error('[editor] vẽ lại sau khi lưu bị lỗi', e);
+      const at = String(e.stack || '').split('\n').find((l) => /\.js/.test(l))?.trim().replace(/^at\s+/, '').replace(/https?:\/\/[^/]+\//, '') || '';
+      showBanner(`💾 Đã lưu ${j.written.join(', ')} — nhưng vẽ lại công cụ bị lỗi: ${e.message}${at ? ` <small>(${at})</small>` : ''}. Tải lại trang (F5) là được; chụp màn hình gửi Claude để sửa.`, 'warn');
     }
   }
 

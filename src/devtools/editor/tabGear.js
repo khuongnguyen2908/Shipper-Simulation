@@ -167,6 +167,7 @@ export function render(root, ctx) {
     for (const [k, v] of entries) table[k] = v;
     for (const p of places) if (p.sells?.[cat]) p.sells[cat] = p.sells[cat].map((x) => (x === oldId ? newId : x));
     if (cat === 'goods') for (const p of places) for (const a of p.activities || []) if (a.needs?.id === oldId) a.needs.id = newId;
+    if (cat === 'goods') for (const x of Object.values(table)) if (x.use?.leaves === oldId) x.use.leaves = newId; // "dùng xong còn lại" (vỏ chai)
     ctx.changed('places');
     changed();
     ctx.select('gear', { id: newId });
@@ -212,12 +213,17 @@ function renderGoods(body, s, ctx, opt, changed) {
     body.append(field('Dùng được ở', el('div', { class: using.length ? 'chips' : 'muted' }, using.length
       ? using.map((p) => button(`${p.icon || '📍'} ${p.name}: ${p.activities.filter((a) => a.needs?.id === s.id).map((a) => a.label).join(', ')}`, () => ctx.select('places', { id: p.id }), 'small'))
       : 'Chưa nơi nào. Vào thẻ 🏪 Địa điểm → chọn nơi → ở một hoạt động, đặt ô "Cần đồ" là món này.'), opt('type', { wide: true, hint: HINT.goods.carry })));
+    // phế liệu (vỏ chai, vỏ lon…): bán được ở nơi "Thu mua đồ cũ"
+    body.append(el('div', { class: 'grid' }, field('♻️ Giá bán ve chai (k / cái)', numInput(s.scrapPrice ?? 0, (v) => { if (v > 0) s.scrapPrice = v; else delete s.scrapPrice; changed(); }, { step: 0.5, min: 0, max: 100 }), opt('scrapPrice', { hint: HINT.goods.scrapPrice }))));
     return;
   }
   if (s.type === 'consumable') {
     s.use = s.use || {};
     body.append(el('div', { class: 'grid' }, Object.entries(CONSUMABLE_FIELDS).map(([k, r]) =>
       field(r.label, numInput(s.use[k] ?? 0, (v) => { s.use[k] = v; changed(); }, { step: k === 'fuel' ? 0.1 : 1, min: r.min, max: r.max }), opt(`use.${k}`, { hint: HINT.use[k] })))));
+    // dùng xong còn lại món gì trong túi (vd uống nước xong còn vỏ chai → bán ve chai)
+    const carries = Object.values(ctx.data.goods).filter((x) => x.type === 'carry');
+    body.append(el('div', { class: 'grid' }, field('Dùng xong còn lại', selectInput(s.use.leaves || '', [['', '(không)'], ...carries.map((x) => [x.id, `${x.icon || '🎁'} ${x.name}`])], (v) => { if (v) s.use.leaves = v; else delete s.use.leaves; changed(); }), opt('use.leaves', { hint: HINT.use.leaves }))));
     return;
   }
   if (s.type === 'equipment') body.append(el('div', { class: 'grid' }, brandField(s, ctx, opt, changed)));

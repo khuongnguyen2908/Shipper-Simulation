@@ -43,8 +43,10 @@ export const HINT = {
     price: '0–100 000k. Tham khảo: cà phê 20k (+30 tinh thần) · bánh mì 15k (+22 thể lực) · cơm hộp 35k (+45 thể lực) · nước tăng lực 15k (+25 thể lực).',
     type: 'Dùng 1 lần: mua được nhiều, mỗi lần dùng mất 1. Trang bị: mua 1 lần, tác dụng mãi (kể cả các ngày sau). Dùng tại địa điểm: chỉ mang theo, đem tới nơi có hoạt động cần nó (vd nhang → chùa). Trang phục: áo / quần / mũ bảo hiểm của shipper, mua rồi về tủ đồ phòng trọ để mặc; giá 0 = có sẵn.',
     carry: 'Tác dụng (tinh thần, thời gian…) đặt ở hoạt động của nơi dùng, không đặt ở đây. Món giữ qua các ngày.',
+    scrapPrice: 'Món phế liệu (vỏ chai, vỏ lon…): bán ở địa điểm có "Thu mua đồ cũ" (vựa ve chai), giá này mỗi cái. 0 = không bán được.',
   },
   use: {
+    leaves: 'Dùng xong còn lại 1 món trong túi (vd uống nước xong còn vỏ chai). Chọn món loại "dùng tại địa điểm".',
     minutes: '0–240 phút. Thời gian trôi khi dùng (trong lúc đó không chạy đơn). 1 = dùng liền.',
     phys: '−100 → +100. Thanh thể lực 0–100, về 0 là ngất (về nhà nằm 6 tiếng, mất tiền thuốc). Đồ ăn uống là cách chính để hồi thể lực (ngoài ngủ / chợp mắt). Tham khảo: bánh mì +22 · cơm hộp +45 · nước tăng lực +25.',
     mental: '−100 → +100. Thanh tinh thần 0–100, về 0 là suy sụp (về nhà nằm 6 tiếng). Tham khảo: cà phê +30 · đọc sách +20.',
@@ -54,6 +56,7 @@ export const HINT = {
 
   // ---------- địa điểm ----------
   place: {
+    buys: 'Có nút "Bán đồ cũ": mua lại quần áo / trang bị người chơi đã mua (% ở thẻ Cân bằng → Bán đồ cũ) và đồ phế liệu có giá ve chai.',
     name: 'Hiện trong app, hộp thoại, mục tiêu.',
     short: 'Hiện trên biển hiệu / thực đơn và danh sách gọn — nên ngắn (1–2 chữ).',
     sceneryLook: 'Cảnh quan không có nhà: đi bộ / chạy xe xuyên qua được, chỉ cây, ghế, hàng rào, xe đậu là vật cản. Không NPC, không bấm E — muốn có việc làm ở đây (vd "Ngồi ghế đá nghỉ") thì thêm hoạt động ở thẻ con ⏰ Giờ & hoạt động. Công viên to thì chọn cỡ "Cả khối".',
@@ -103,6 +106,7 @@ export const HINT = {
     cancelComp: '0–200k app bù khi đơn bị hủy không phải lỗi tài xế (quán hết món, khách không nghe máy). Mẫu 5k.',
     rainSurcharge: '0–100k cộng vào mỗi đơn nhận lúc trời mưa (như app thật). Mẫu 4k. Khách quen gọi thẳng không có phụ phí.',
     peakSurcharge: '0–100k cộng vào mỗi đơn nhận trong giờ cao điểm. Mẫu 3k.',
+    floodSurcharge: '0–100k cộng vào đơn mà chỗ lấy hoặc chỗ giao đang ngập (từ mức xăm xắp, xem thẻ ⚖️ Cân bằng → 🌊 Ngập). Cộng dồn với phụ phí mưa. Mẫu 5k. Khách quen gọi thẳng không có phụ phí.',
     airportFee: '0–100k khách trả thêm khi đơn đón / trả ở sân bay. Tài xế nhận đủ (app không trích phí, thuế phần này) để bù phí vào cổng sân bay (thẻ ⚖️ Cân bằng → ✈️ Sân bay). Mẫu 10k.',
     peakHours: 'Giờ cao điểm: đơn tới dày hơn (khoảng chờ ×0,6), quán đông hơn, có phụ phí. Mẫu 11–13h và 17–19,5h.',
     tipByStars: 'Tiền boa theo số sao (k). Mẫu: 4★ 3k · 5★ 8k.',

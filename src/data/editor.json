@@ -47,6 +47,36 @@
       "ref": "canhquan9",
       "field": "short",
       "msg": "Chưa có tên ngắn (hiện trên biển hiệu / thực đơn)."
+    },
+    {
+      "tab": "places",
+      "ref": "canhquan9_4",
+      "field": "short",
+      "msg": "Chưa có tên ngắn (hiện trên biển hiệu / thực đơn)."
+    },
+    {
+      "tab": "places",
+      "ref": "canhquan9_2",
+      "field": "short",
+      "msg": "Chưa có tên ngắn (hiện trên biển hiệu / thực đơn)."
+    },
+    {
+      "tab": "places",
+      "ref": "canhquan9_5",
+      "field": "short",
+      "msg": "Chưa có tên ngắn (hiện trên biển hiệu / thực đơn)."
+    },
+    {
+      "tab": "places",
+      "ref": "canhquan9_3",
+      "field": "short",
+      "msg": "Chưa có tên ngắn (hiện trên biển hiệu / thực đơn)."
+    },
+    {
+      "tab": "places",
+      "ref": "canhquan9_6",
+      "field": "short",
+      "msg": "Chưa có tên ngắn (hiện trên biển hiệu / thực đơn)."
     }
   ]
 }

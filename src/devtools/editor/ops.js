@@ -243,6 +243,7 @@ export function remove(data, base, kind, id) {
       }
       if (kind === 'goods') for (const a of p.activities || []) if (a.needs?.id === id) { delete a.needs; files.add('places'); }
     }
+    if (kind === 'goods') for (const x of Object.values(data.goods)) if (x.use?.leaves === id) delete x.use.leaves; // "dùng xong còn lại" trỏ tới món đã xóa
   }
   if (kind === 'places') {
     // lời thoại riêng mới tạo thêm thì xóa theo; khóa gốc của game giữ lại

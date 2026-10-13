@@ -69,16 +69,16 @@ export class LiquidTrait extends Trait {
     return (this.item.mods.upright ? 1 : 2.5) * (1 - env.bag.padding * 0.4);
   }
   onBump(mag, env) {
-    this.item.damage(mag * DV('liquidBump', 12) * (1 - env.suspension * 0.7) * this.factor(env), 'spillBump');
+    this.item.damage(mag * DV('liquidBump', 7.2) * (1 - env.suspension * 0.7) * this.factor(env), 'spillBump');
   }
   onBrake(mag, env) {
-    this.item.damage(mag * DV('liquidBrake', 8) * this.factor(env), 'spillBrake');
+    this.item.damage(mag * DV('liquidBrake', 4.8) * this.factor(env), 'spillBrake');
   }
   onSwerve(mag, env) {
-    this.item.damage(mag * DV('liquidSwerve', 5) * this.factor(env), 'spillSwerve');
+    this.item.damage(mag * DV('liquidSwerve', 3) * this.factor(env), 'spillSwerve');
   }
   onCollision(mag, env) {
-    this.item.damage(mag * 15 * this.factor(env), 'spillCrash');
+    this.item.damage(mag * DV('liquidCrash', 9) * this.factor(env), 'spillCrash');
   }
 }
 
@@ -88,13 +88,13 @@ export class FragileTrait extends Trait {
     return 1 - env.bag.padding * 0.6;
   }
   onCollision(mag, env) {
-    this.item.damage(mag * 28 * this.pad(env), 'dented');
+    this.item.damage(mag * DV('fragileCrash', 16.8) * this.pad(env), 'dented');
   }
   onBump(mag, env) {
-    this.item.damage(mag * 5 * (1 - env.suspension * 0.7) * this.pad(env), 'shifted');
+    this.item.damage(mag * DV('fragileBump', 3) * (1 - env.suspension * 0.7) * this.pad(env), 'shifted');
   }
   onBrake(mag, env) {
-    this.item.damage(mag * 4 * this.pad(env), 'shifted');
+    this.item.damage(mag * DV('fragileBrake', 2.4) * this.pad(env), 'shifted');
   }
 }
 
@@ -115,21 +115,21 @@ export class PaperTrait extends Trait {
 export class PassengerTrait extends Trait {
   tick(env, dt) {
     const comfort = env.comfortSpeed + (this.item.comfortDelta || 0);
-    if (env.speed > comfort) this.item.damage((env.speed - comfort) * 0.6 * dt, 'scaredSpeed');
+    if (env.speed > comfort) this.item.damage((env.speed - comfort) * DV('riderSpeed', 0.36) * dt, 'scaredSpeed');
     if (env.raining && env.exposed && !env.passengerRaincoat) this.item.damage(0.3 * dt, 'passengerWet');
     if (env.flood >= floodNum('deep')) this.item.damage(0.3 * env.flood * dt, 'passengerWet'); // lội nước sâu: khách ướt chân, khó chịu
   }
   onBrake(mag) {
-    this.item.damage(mag * DV('riderBrake', 10), 'hardBrake');
+    this.item.damage(mag * DV('riderBrake', 6), 'hardBrake');
   }
   onSwerve(mag) {
-    this.item.damage(mag * DV('riderSwerve', 6), 'sharpTurn');
+    this.item.damage(mag * DV('riderSwerve', 3.6), 'sharpTurn');
   }
   onBump(mag, env) {
-    this.item.damage(mag * 5 * (1 - env.suspension * 0.7), 'bumpy');
+    this.item.damage(mag * DV('riderBump', 3) * (1 - env.suspension * 0.7), 'bumpy');
   }
   onCollision(mag) {
-    this.item.damage(mag * 30, 'crash');
+    this.item.damage(mag * DV('riderCrash', 18), 'crash');
   }
 }
 

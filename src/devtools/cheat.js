@@ -147,13 +147,17 @@ export function mountCheat(g) {
   const typeSel = sel(Object.values(ORDER_TYPES).map((t) => [t.id, `${t.name} (${t.kind})`]), 'food');
   const restSel = sel([['', '— quán ngẫu nhiên —'], ...g.layout.places.filter((p) => p.kind === 'restaurant' && (p.menu || []).length).map((p) => [p.id, p.name])]);
   const riderOpts = [['', '— ngẫu nhiên —'], ...Object.entries(RIDER_TYPES).map(([id, r]) => [id, `${r.icon || ''} ${r.name}`])];
-  const riderSel = sel(riderOpts);
+  // 1 ô loại khách dùng chung: đơn "Gọi đơn ngay" (chở khách) + mọi đơn chở khách tự đến; nhớ qua F5
+  const riderSel = sel(riderOpts, T.rider);
   // chọn loại khách → loại đơn tự thành "chở khách"; chọn quán → "đồ ăn" (tránh chọn khách mà vẫn ra đơn giao hàng)
   const typeOfKind = (kind) => Object.values(ORDER_TYPES).find((t) => t.kind === kind)?.id;
-  riderSel.onchange = () => { if (riderSel.value && typeOfKind('ride')) typeSel.value = typeOfKind('ride'); };
+  riderSel.onchange = () => {
+    T.rider = riderSel.value;
+    save();
+    if (riderSel.value && typeOfKind('ride')) typeSel.value = typeOfKind('ride');
+    say(T.rider ? `Khách chở từ giờ luôn là: ${RIDER_TYPES[T.rider].name}` : 'Khách chở ngẫu nhiên như thường');
+  };
   restSel.onchange = () => { if (restSel.value && typeOfKind('food')) typeSel.value = typeOfKind('food'); };
-  const riderLock = sel(riderOpts, T.rider);
-  riderLock.onchange = () => { T.rider = riderLock.value; save(); say(T.rider ? `Từ giờ khách xe ôm luôn là: ${RIDER_TYPES[T.rider].name}` : 'Khách xe ôm ngẫu nhiên như thường'); };
   const spawn = (story = false) => {
     const gs = need();
     if (!gs) return;
@@ -248,10 +252,9 @@ export function mountCheat(g) {
   const gOrder = group('📦 Đơn hàng & khách', true,
     row('Loại đơn', typeSel),
     row('Quán (đồ ăn)', restSel),
-    row('Loại khách (chở khách)', riderSel),
+    row('Loại khách', riderSel),
+    h('div', { class: 'muted' }, 'Áp dụng cho cả đơn "Gọi đơn ngay" lẫn mọi đơn chở khách tự đến, tới khi chọn lại "ngẫu nhiên". Muốn có đơn xe ôm tự đến thì cần nón chở khách.'),
     row(btn('📲 Gọi đơn ngay', () => spawn()), btn('👛 Chuyến anh Minh', () => spawn(true))),
-    row('Khách xe ôm LUÔN là', riderLock),
-    h('div', { class: 'muted' }, 'Đơn chở khách tự đến (theo giờ) cũng thành loại khách đã chọn ở ô trên. Muốn có đơn xe ôm tự đến thì cần nón chở khách.'),
     row(btn('📍 Tới nơi lấy', () => { const o = order(); if (o) teleport(o.pickup.door, o.pickup.name); }),
       btn('🏁 Tới nơi giao', () => { const o = order(); if (o) teleport(o.dropoff.door, o.dropoff.address); }),
       btn('⏩ Lấy hàng ngay', quickPickup)),

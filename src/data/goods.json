@@ -253,7 +253,8 @@
       "phys": 25,
       "mental": 5,
       "fuel": 0,
-      "bikeHp": 0
+      "bikeHp": 0,
+      "leaves": "voChai"
     }
   },
   "nuocSuoi": {
@@ -268,7 +269,8 @@
       "phys": 6,
       "mental": 0,
       "fuel": 0,
-      "bikeHp": 0
+      "bikeHp": 0,
+      "leaves": "voChai"
     }
   },
   "suaHop": {
@@ -298,7 +300,8 @@
       "phys": 8,
       "mental": 4,
       "fuel": 0,
-      "bikeHp": 0
+      "bikeHp": 0,
+      "leaves": "voChai"
     }
   },
   "chaiTraXanh": {
@@ -313,7 +316,8 @@
       "phys": 8,
       "mental": 3,
       "fuel": 0,
-      "bikeHp": 0
+      "bikeHp": 0,
+      "leaves": "voChai"
     }
   },
   "xucXich": {
@@ -686,5 +690,14 @@
       "passengerSeat": true
     },
     "brand": "hongsm"
+  },
+  "voChai": {
+    "id": "voChai",
+    "name": "Vỏ chai / vỏ lon",
+    "icon": "🧴",
+    "price": 0,
+    "desc": "Uống xong còn vỏ. Đem bán ở vựa ve chai.",
+    "type": "carry",
+    "scrapPrice": 1
   }
 }

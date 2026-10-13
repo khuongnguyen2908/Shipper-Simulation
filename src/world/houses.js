@@ -14,7 +14,8 @@ import { list } from '../content/index.js';
 export const HOUSE_G0 = 3.4; // tầng trệt cao hơn
 export const HOUSE_F = 3.2; // mỗi tầng lầu
 export const houseTop = (floors) => HOUSE_G0 + (Math.max(1, floors) - 1) * HOUSE_F;
-export const SPLIT_MIN = 7; // mặt tiền rộng hơn → chia 2 căn
+export const SPLIT_MIN = 7; // mặt tiền rộng hơn → chia 2–3 căn
+export const HOUSE_MIN_W = 3.4; // căn hẹp nhất (nhà ống Việt Nam mặt tiền 3,5–6 m)
 
 // ---------- vùng trên tấm texture chung (pixel trên canvas 1024 × 1024) ----------
 const S = 1024;
@@ -26,9 +27,11 @@ export const PX = {
   corr: [512, 384, 128, 128], stripe: [640, 384, 128, 128], white: [768, 384, 128, 128], tumDoor: [896, 384, 128, 128],
   rail0: [0, 512, 256, 128], rail1: [256, 512, 256, 128],
 };
-// 12 ô chữ biển tiệm (256 × 64)
-for (let i = 0; i < 12; i++) PX[`word${i}`] = i < 8 ? [512 + (i % 2) * 256, 512 + Math.floor(i / 2) * 64, 256, 64] : [((i - 8) % 2) * 256, 640 + Math.floor((i - 8) / 2) * 64, 256, 64];
-const WORDS = 12;
+// tối đa 28 ô chữ biển tiệm (256 × 64): 12 ô cũ + 16 ô ở dải trống cuối tấm texture (y 768–1024)
+const WORD_CELLS = 28;
+for (let i = 0; i < WORD_CELLS; i++) PX[`word${i}`] = i < 8 ? [512 + (i % 2) * 256, 512 + Math.floor(i / 2) * 64, 256, 64] : i < 12 ? [((i - 8) % 2) * 256, 640 + Math.floor((i - 8) / 2) * 64, 256, 64] : [((i - 12) % 4) * 256, 768 + Math.floor((i - 12) / 4) * 64, 256, 64];
+// số chữ biển đang dùng = số chữ trong kho chữ city.shopSigns (tối đa 28)
+const WORDS = Math.max(1, Math.min(WORD_CELLS, list('city.shopSigns').length));
 // pixel → toạ độ UV (canvas lật dọc khi thành texture); chừa lề 3 px để không lem sang ô bên cạnh
 const uvOf = ([x, y, w, h], pad = 3) => [(x + pad) / S, 1 - (y + h - pad) / S, (x + w - pad) / S, 1 - (y + pad) / S];
 const R = Object.fromEntries(Object.entries(PX).map(([k, v]) => [k, uvOf(v)]));
@@ -101,7 +104,7 @@ const CLOTHES = [0xe74c3c, 0x3498db, 0xf1c40f, 0xffffff, 0x9b59b6, 0x2ecc71];
 
 // h: { x, y, z: tâm mép trước (thế giới), nx, nz: hướng mặt tiền ra đường, W: mặt tiền, D: chiều sâu, floors,
 //      color: màu tường, seed, ground: 'shop' | 'shutter' | 'home' | 'place' | 'back', low: ít chi tiết (nhà vùng ven),
-//      place: là địa điểm (tầng 1 không ban công để gắn biển), alley: nhà trong hẻm }
+//      place: là địa điểm (tầng 1 không ban công để gắn biển), alley: nhà trong hẻm, awning: ép có mái bạt }
 export function buildHouse(g, h) {
   const r = makeRng(h.seed >>> 0);
   const { W, D } = h;
@@ -145,13 +148,16 @@ export function buildHouse(g, h) {
 
   // ---------- tầng trệt ----------
   const G0 = HOUSE_G0;
-  box(-W / 2, W / 2, 0, G0, 0, D, WHITE, { f: null, b: R.conc, l: R.conc, r: R.conc, t: n === 1 ? R.roof : null }, { aoK: true });
+  const sideL = h.corner === 'l' ? null : R.conc, sideR = h.corner === 'r' ? null : R.conc; // nhà góc: mặt hông ra đường dựng riêng (cuối hàm)
+  box(-W / 2, W / 2, 0, G0, 0, D, WHITE, { f: null, b: R.conc, l: sideL, r: sideR, t: n === 1 ? R.roof : null }, { aoK: true });
   const pil = 0.3, band = 2.75, ground = h.ground;
   const wallQ = (u0, u1, y0, y1) => face([u0, y0, 0], [u1 - u0, 0, 0], [0, y1 - y0, 0], R.wall, wallC, { sub: wallSub(u0, u1, y0, y1, G0), aoK: true });
+  let homeDoorU = 0; // chỗ cửa đi của nhà ở (để đặt bậc dắt xe)
   if (ground === 'back' || ground === 'home') {
     wallQ(-W / 2, W / 2, 0, G0);
     if (ground === 'home') {
       const du = -W / 2 + 0.5 + r.next() * Math.max(0, W - 2.8);
+      homeDoorU = du;
       face([du, 0, -0.02], [1.1, 0, 0], [0, 2.3, 0], R.door, WHITE);
       if (W > 3.2) face([du + 1.5, 0.9, -0.02], [Math.min(1.6, W / 2 + 1.5 - du - 1.9), 0, 0], [0, 1.4, 0], R[`win${r.int(0, 3)}`], WHITE);
     } else face([-0.8, 1.0, -0.02], [1.6, 0, 0], [0, 1.4, 0], R[`win${r.int(0, 3)}`], WHITE);
@@ -168,18 +174,27 @@ export function buildHouse(g, h) {
       if (k < bays - 1) wallQ(u0 + bw, u0 + bw + col, 0, band);
     }
   }
+  // bậc dắt xe (dốc bê tông thấp) trước cửa: nhà ở trước cửa đi, nhà buôn bán gần hết mặt tiền
+  if (!h.low && !h.place && !h.alley && ground !== 'back') {
+    const rw = ground === 'home' ? 1.4 : W - 0.6, ru = ground === 'home' ? Math.max(-W / 2 + 0.1, Math.min(W / 2 - 0.1 - rw, homeDoorU - 0.15)) : -rw / 2;
+    face([ru, 0.004, -0.45], [rw, 0, 0], [0, 0.11, 0.45], R.conc, lin(0xc8c3b8));
+  }
   // mái bạt + biển tiệm (nhà mặt phố có buôn bán)
+  let signL = null; // biển to → nhà góc kéo biển sang mặt hông (chữ L ôm góc)
   if (!h.low && !h.place && (ground === 'shop' || ground === 'shutter')) {
-    if (r.chance(0.6)) {
+    if (h.awning || r.chance(0.6)) { // h.awning: căn có quán cóc → luôn có bạt che (city.js)
       const ac = lin(r.pick(AWNING_COLORS)), aw = W - 0.5;
       face([-aw / 2, 2.62, 0], [aw, 0, 0], [0, -0.38, -1.25], R.stripe, ac, { both: true });
       face([-aw / 2, 2.04, -1.25], [aw, 0, 0], [0, 0.2, 0], R.stripe, ac, { both: true });
     }
-    if (r.chance(0.75)) {
-      const sc = lin(r.pick(SIGN_COLORS)), sw = W - 0.7;
-      box(-sw / 2, sw / 2, 2.78, 3.32, -0.12, 0, sc, { b: null, d: R.white });
-      const ww = Math.min(sw - 0.2, 2.6);
-      face([-ww / 2, 2.84, -0.125], [ww, 0, 0], [0, 0.42, 0], R[`word${r.int(0, WORDS - 1)}`], WHITE);
+    if (r.chance(0.85)) {
+      // phần lớn là biển to chạy ngang hết mặt tiền (kiểu phố Việt Nam), còn lại biển hộp nhỏ
+      const big = r.chance(0.7), sc = lin(r.pick(SIGN_COLORS)), sw = big ? W - 0.06 : W - 0.7;
+      const y0 = big ? 2.64 : 2.78, y1 = big ? 3.4 : 3.32;
+      box(-sw / 2, sw / 2, y0, y1, -0.14, 0, sc, { b: null, d: R.white });
+      const ww = Math.min(sw - 0.3, big ? 3.6 : 2.6), wh = big ? 0.58 : 0.42, word = R[`word${r.int(0, WORDS - 1)}`];
+      face([-ww / 2, (y0 + y1) / 2 - wh / 2, -0.145], [ww, 0, 0], [0, wh, 0], word, WHITE);
+      if (big) signL = { y0, y1, sc, wh, word };
     }
   }
 
@@ -188,7 +203,7 @@ export function buildHouse(g, h) {
     const y0 = G0 + (i - 1) * HOUSE_F, y1 = y0 + HOUSE_F, last = i === n - 1;
     const flat = !balcony || (h.place && i === 1); // tầng 1 của địa điểm: mặt phẳng để gắn biển
     const set = flat ? 0 : sb;
-    box(-W / 2, W / 2, y0, y1, set, D, WHITE, { f: null, b: R.conc, l: R.conc, r: R.conc, t: last ? R.roof : null, d: set > 0 ? R.white : null });
+    box(-W / 2, W / 2, y0, y1, set, D, WHITE, { f: null, b: R.conc, l: sideL, r: sideR, t: last ? R.roof : null, d: set > 0 ? R.white : null });
     face([-W / 2, y0, set], [W, 0, 0], [0, HOUSE_F, 0], R.wall, wallC, { sub: [0, (i % 2) * 0.5, 1, (i % 2) * 0.5 + 0.5] });
     // cửa sổ / cửa ban công
     const nw = Math.max(1, Math.round(W / 2.9)), cell = W / nw;
@@ -234,11 +249,60 @@ export function buildHouse(g, h) {
     }
   }
 
+  // ---------- nhà góc: mặt hông nhìn ra đường cắt ngang (thay cho tường xi măng trơn) ----------
+  // h.corner = 'l' | 'r': phía hông nào ra đường. Tường sơn cùng màu mặt tiền, cửa sổ mỗi tầng, tầng trệt mở cửa hàng
+  // (nhà buôn bán) phần trước, biển to chạy tiếp sang hông.
+  if (h.corner) {
+    const L = h.corner === 'l', cu = L ? -W / 2 : W / 2, o = L ? -0.02 : 0.02;
+    // mặt phẳng hông: v0..v1 (sâu), y0..y1, đặt tại u (hướng ra ngoài theo phía hông)
+    // cùng chiều mặt hông của hộp nhà (box: 'l' / 'r') để mặt quay ra ngoài; phía 'l' lật texture theo chiều sâu để chữ không bị ngược
+    const side = (u, y0, y1, v0, v1, reg, col, sub = [0, 0, 1, 1]) => (L
+      ? face([u, y0, v0], [0, y1 - y0, 0], [0, 0, v1 - v0], reg, col, { rot: true, sub: [sub[2], sub[1], sub[0], sub[3]] })
+      : face([u, y0, v0], [0, 0, v1 - v0], [0, y1 - y0, 0], reg, col, { sub }));
+    // tầng trệt
+    const shopSide = ground === 'shop' || ground === 'shutter';
+    if (shopSide) {
+      const open = Math.min(D - 1, 4.2); // phần trước mở cửa hàng, phía sau là tường
+      side(cu, band, G0, 0, D, R.wall, wallC, [0, 0.8, 1, 1]);
+      side(cu, 0, band, 0.3, open, ground === 'shutter' ? R.shutter : R.shop, WHITE);
+      side(cu, 0, band, 0, 0.3, R.wall, wallC, [0, 0, 0.1, 0.8]);
+      side(cu, 0, band, open, D, R.wall, wallC, [0, 0, 1, 0.8]);
+    } else {
+      side(cu, 0, G0, 0, D, R.wall, wallC, [0, 0, 1, 1]);
+      side(cu + o, 0.9, 2.3, D * 0.35, D * 0.35 + 1.6, R[`win${r.int(0, 3)}`], WHITE);
+    }
+    // các tầng lầu: tường + cửa sổ cách nhau ~3 m (tầng có ban công lùi vào thì tường hông bắt đầu từ chỗ lùi)
+    for (let i = 1; i < n; i++) {
+      const y0 = G0 + (i - 1) * HOUSE_F, set = !balcony || (h.place && i === 1) ? 0 : sb;
+      side(cu, y0, y0 + HOUSE_F, set, D, R.wall, wallC, [0, (i % 2) * 0.5, 1, (i % 2) * 0.5 + 0.5]);
+      const nw = Math.max(1, Math.round((D - set - 0.8) / 3.2)), cell = (D - set - 0.8) / nw;
+      for (let k = 0; k < nw; k++) {
+        const vc = set + 0.4 + cell * (k + 0.5);
+        side(cu + o, y0 + 0.9, y0 + 2.5, vc - 0.75, vc + 0.75, R[`${r.chance(0.5) ? 'lit' : 'win'}${r.int(0, 3)}`], WHITE);
+      }
+    }
+    // tường chắn sân thượng phía hông
+    const pset2 = n > 1 ? sb : 0;
+    side(cu, top, top + 0.8, pset2, D, R.wall, wallC, [0, 0, 1, 0.3]);
+    // biển chữ L: biển to mặt tiền chạy tiếp sang hông
+    if (signL) {
+      const Ls = Math.min(D - 0.6, 3.6), ou = L ? -0.14 : 0.14;
+      box(Math.min(cu, cu + ou), Math.max(cu, cu + ou), signL.y0, signL.y1, -0.14, Ls, signL.sc, { f: R.white, b: R.white, l: L ? R.white : null, r: L ? null : R.white, d: R.white });
+      side(cu + ou + (L ? -0.006 : 0.006), (signL.y0 + signL.y1) / 2 - signL.wh / 2, (signL.y0 + signL.y1) / 2 + signL.wh / 2, 0.2, Ls - 0.2, signL.word, WHITE);
+    }
+  }
+
   // ---------- sân thượng: tường chắn, tum + mái tôn, bồn nước ----------
   const pset = n > 1 ? sb : 0;
   box(-W / 2, W / 2, top, top + 0.8, pset, pset + 0.14, wallC, { f: R.wall, b: R.conc });
   if (h.low) return;
-  if (D > 5 && r.chance(0.6)) {
+  if (D > 5 && n >= 2 && !h.place && r.chance(0.3)) {
+    // cơi nới tầng thượng bằng tôn: phòng vách tôn gần hết sân thượng, mái tôn dốc ra sau
+    const cw = W - 0.3, cv0 = pset + 0.6, cv1 = D - 0.2, ch = 2.3, cc = lin(r.pick([0x9aa0a6, 0xb5452e, 0x5d7a8c, 0x7f8c8d]));
+    box(-cw / 2, cw / 2, top, top + ch, cv0, cv1, cc, { all: R.corr, t: null });
+    face([-cw / 2 + 0.6, top, cv0 - 0.02], [0.9, 0, 0], [0, 2.0, 0], R.tumDoor, WHITE);
+    face([-cw / 2 - 0.15, top + ch + 0.35, cv0 - 0.3], [cw + 0.3, 0, 0], [0, -0.35, cv1 - cv0 + 0.5], R.corr, cc, { both: true });
+  } else if (D > 5 && r.chance(0.6)) {
     const tw = Math.min(W - 0.4, 3.6), tu = (r.next() - 0.5) * (W - tw - 0.4), tv0 = D - 2.7, tv1 = D - 0.2;
     box(tu - tw / 2, tu + tw / 2, top, top + 2.4, tv0, tv1, WHITE, { f: null, b: R.conc, l: R.conc, r: R.conc, t: null });
     face([tu - tw / 2, top, tv0], [tw, 0, 0], [0, 2.4, 0], R.wall, wallC, { sub: [0, 0, 1, 0.8] });
@@ -261,22 +325,37 @@ export function buildHouse(g, h) {
   }
 }
 
-// Chia một lô thành 1–2 căn. lot: { x, z (tâm mép trước), nx, nz, width, depth }. Trả về danh sách tham số buildHouse.
-export function housesForLot(lot, { floors, colors, seed, alley = false, low = false, back = false }) {
+// Bề rộng các căn khi chia mặt tiền `width`: lô rộng → 2 hoặc 3 căn, mỗi căn ≥ HOUSE_MIN_W, phần dư chia ngẫu nhiên
+export function splitFrontage(width, r) {
+  if (width <= SPLIT_MIN) return [width];
+  const n = width >= 3 * HOUSE_MIN_W && r.chance(0.55) ? 3 : 2;
+  const wts = Array.from({ length: n }, () => 0.3 + r.next() * 0.4), sum = wts.reduce((a, b) => a + b, 0);
+  return wts.map((w) => HOUSE_MIN_W + ((width - n * HOUSE_MIN_W) * w) / sum);
+}
+
+// Chia một lô thành 1–3 căn sát nhau. lot: { x, z (tâm mép trước), nx, nz, width, depth }. Trả về danh sách tham số buildHouse.
+// cornerDir: [dx, dz] hướng ra đường cắt ngang nếu lô ở góc khối (căn ngoài cùng phía đó thành nhà góc 2 mặt tiền)
+export function housesForLot(lot, { floors, colors, seed, alley = false, low = false, back = false, cornerDir = null }) {
   const r = makeRng(seed >>> 0);
   const Ux = lot.nz, Uz = -lot.nx;
-  const parts = lot.width > SPLIT_MIN ? (() => {
-    const s = 0.42 + r.next() * 0.16;
-    return [[-lot.width / 2, -lot.width / 2 + lot.width * s], [-lot.width / 2 + lot.width * s, lot.width / 2]];
-  })() : [[-lot.width / 2, lot.width / 2]];
+  const widths = splitFrontage(lot.width, r);
+  let at = -lot.width / 2;
+  const parts = widths.map((w) => [at, (at += w)]);
   return parts.map(([a, b], k) => {
-    const mid = (a + b) / 2, gap = parts.length > 1 ? 0.05 : 0;
-    const ground = back ? 'back' : low ? 'home' : r.chance(alley ? 0.65 : 0.3) ? 'home' : r.chance(0.65) ? 'shop' : 'shutter';
+    const mid = (a + b) / 2, gap = parts.length > 1 ? 0.02 : 0;
+    const ground = back ? 'back' : low ? 'home' : r.chance(alley ? 0.65 : 0.4) ? 'home' : r.chance(0.65) ? 'shop' : 'shutter'; // mặt phố: 40% nhà ở bình thường (không biển)
     return {
       x: lot.x + Ux * mid, y: lot.y ?? 0, z: lot.z + Uz * mid, nx: lot.nx, nz: lot.nz,
       W: b - a - gap, D: lot.depth, floors: k === 0 ? floors : Math.max(1, Math.min(floors + r.int(-2, 2), alley ? 4 : 6)),
-      color: r.pick(colors), seed: (seed * 31 + k * 7919) >>> 0, ground, alley, low,
+      color: r.pick(colors), seed: (seed * 31 + k * 7919) >>> 0, ground, alley, low, corner: null,
     };
+  }).map((h, k, all) => {
+    if (cornerDir && !alley && !low && !back) {
+      const dot = Ux * cornerDir[0] + Uz * cornerDir[1]; // phía hông ra đường nằm ở đầu u lớn (r) hay u nhỏ (l)
+      if (dot > 0.5 && k === all.length - 1) h.corner = 'r';
+      if (dot < -0.5 && k === 0) h.corner = 'l';
+    }
+    return h;
   });
 }
 

@@ -15,7 +15,8 @@ import { intersectionName, routeDist } from './sim/cityLayout.js';
 import { tierLabel } from './sim/roads.js';
 import { nearestStop, routeDestinations, inService, busRule } from './sim/bus.js';
 import { nextBoat, ferryFare, ferryOpen, ferryRule } from './sim/ferry.js';
-import { fmt, pick, has } from './content/index.js';
+import { fmt, pick, pickFor, has } from './content/index.js';
+import { personOf, pronouns } from './sim/people.js';
 import { fmtClock, minutesUntil } from './sim/clock.js';
 import { buildPacking } from './ui/packing.js';
 import { sound } from './audio.js';
@@ -49,6 +50,12 @@ function placeLine(placeId, kind, params) {
   const k = `npc.${placeId}.${kind}`;
   return has(k) ? fmt(k, params) : fmt(`npc.default.${kind}`, params);
 }
+
+// XƯNG HÔ (sim/people.js): tham số {toi} {ban} {khach} {minh} {anhchi} theo người nói (giới tính + tuổi + vai) và giới tính nhân vật mình
+const voice = (g, name, opts = {}) => pronouns(personOf(name, opts), g.gs.profile?.gender);
+const custVoice = (g, o = g.om.order) => voice(g, o?.customer || ''); // khách của đơn
+const npcVoice = (g, n) => voice(g, n?.name || '', { gender: n?.gender, role: 'staff' }); // người ở quán / tiệm
+const pedVoice = (g, ped) => pronouns(ped.who || personOf(ped.name), g.gs.profile?.gender); // người đi đường
 
 // ======================== DANH SÁCH TƯƠNG TÁC GẦN NGƯỜI CHƠI ========================
 export function gatherInteractions(g) {
@@ -98,7 +105,7 @@ export function gatherInteractions(g) {
   }
   const R = foot ? 3.2 : 4.5;
   for (const pl of g.layout.places) {
-    const d = dist(p, pl.door);
+    const d = dist(p, pl.chargeSpot || pl.door); // trạm sạc: tới chỗ sạc trong sân mới hiện nút
     if (d > R) continue;
     const a = placeAction(g, pl);
     if (!a) continue;
@@ -138,6 +145,7 @@ function nearestSeat(g, p, r) {
   let best = null;
   for (const seat of g.city.seats || []) {
     const d = Math.hypot(seat.x - p.x, seat.z - p.z);
+    if (seat.npc) continue; // ghế quán cóc đang có khách ngồi (world/stallPeople.js)
     if (d < r && Math.abs(seat.y - y) < 1.2 && (!best || d < best.d)) best = { seat, d };
   }
   return best;
@@ -184,6 +192,9 @@ function dismount(g) {
     w.pos.x = w._ex = g.bike.pos.x;
     w.pos.z = w._ez = g.bike.pos.z;
   }
+  // đặt hình người đúng chỗ đứng NGAY khung này (vừa gỡ khỏi xe, vị trí hình còn tính theo xe → camera bám theo bị giật)
+  w.mesh.position.set(w.pos.x, g.bike.mesh.position.y, w.pos.z);
+  w.mesh.rotation.set(0, w.heading, 0);
   g.bike.speed = 0;
   g.bike.vel.set(0, 0);
   g.startParking(); // bãi giữ xe: gửi (trả tiền) · ngoài đường: để lâu có rủi ro
@@ -366,11 +377,11 @@ function callCustomer(g) {
   const r = om.callCustomer(g.clockMin);
   g.advance(r.waitMin || 1, 'idle');
   const who = fmt('dlg.phoneCall', { customer: o.customer });
-  if (r.scam) say(g, who, '📱', fmt('dlg.callScam'));
+  if (r.scam) say(g, who, '📱', fmt('dlg.callScam', custVoice(g, o)));
   else if (wasHidden && r.revealed && r.foreign) say(g, who, '📱', fmt('dlg.callForeign', { address: o.dropoff.address, min: r.waitMin }));
-  else if (wasHidden && r.revealed) say(g, who, '📱', fmt('dlg.callRevealed', { address: o.dropoff.address }));
-  else if (om.state === S.TO_PICKUP || om.state === S.WAITING_FOOD) say(g, who, '📱', fmt('dlg.callPickup'));
-  else say(g, who, '📱', fmt('dlg.callDelivering'));
+  else if (wasHidden && r.revealed) say(g, who, '📱', fmt('dlg.callRevealed', { ...custVoice(g, o), address: o.dropoff.address }));
+  else if (om.state === S.TO_PICKUP || om.state === S.WAITING_FOOD) say(g, who, '📱', fmt('dlg.callPickup', custVoice(g, o)));
+  else say(g, who, '📱', fmt('dlg.callDelivering', custVoice(g, o)));
 }
 
 // Tốc độ khách xe ôm chịu được (km/h) — theo loại khách, cộng trang bị
@@ -408,12 +419,12 @@ export function pickup(g) {
   if (om.state === S.TO_PICKUP) {
     const r = om.arriveAtPickup(now);
     if (r.outOfStock) return outOfStock(g, r.item);
-    return waitFood(g, fmt('dlg.queue', { customer: o.customer, min: Math.ceil(r.queueMin) }));
+    return waitFood(g, fmt('dlg.queue', { ...npcVoice(g, n), customer: o.customer, min: Math.ceil(r.queueMin) }));
   }
   if (om.state === S.OUT_OF_STOCK) return outOfStock(g, ITEMS[o.missingItem]);
   if (om.state === S.WAITING_FOOD) {
-    if (om.isFoodReady(now)) return say(g, n.name, n.portrait, fmt('dlg.ready'), [{ label: fmt('dlg.readyPack'), primary: true, onSelect: () => startPacking(g) }], { dismissible: false });
-    return waitFood(g, fmt('dlg.notReady', { min: Math.ceil(om.minutesUntilReady(now)) }));
+    if (om.isFoodReady(now)) return say(g, n.name, n.portrait, fmt('dlg.ready', npcVoice(g, n)), [{ label: fmt('dlg.readyPack'), primary: true, onSelect: () => startPacking(g) }], { dismissible: false });
+    return waitFood(g, fmt('dlg.notReady', { ...npcVoice(g, n), min: Math.ceil(om.minutesUntilReady(now)) }));
   }
 }
 
@@ -433,18 +444,18 @@ function outOfStock(g, item) {
   const o = om.order;
   const n = npc(g, o.pickup.placeId);
   const who = fmt('dlg.phoneCall', { customer: o.customer });
-  say(g, n.name, n.portrait, fmt('dlg.outOfStock', { item: item.name }), [
+  say(g, n.name, n.portrait, fmt('dlg.outOfStock', { ...npcVoice(g, n), item: item.name }), [
     {
       label: fmt('dlg.oosCall'),
       onSelect: () => {
         sound('phone.call');
         g.advance(2, 'idle');
         const r = om.resolveOutOfStock('call', g.clockMin);
-        if (r.accepted) say(g, who, '📱', fmt('dlg.oosSubOk', { item: r.sub.name }), [{ label: fmt('dlg.oosSubOrder'), onSelect: () => waitFood(g, fmt('dlg.oosSubReady', { item: r.sub.name })) }]);
-        else say(g, who, '📱', fmt('dlg.oosCancelled', { k: APP.cancelComp }));
+        if (r.accepted) say(g, who, '📱', fmt('dlg.oosSubOk', { ...custVoice(g, o), item: r.sub.name }), [{ label: fmt('dlg.oosSubOrder'), onSelect: () => waitFood(g, fmt('dlg.oosSubReady', { ...npcVoice(g, n), item: r.sub.name })) }]);
+        else say(g, who, '📱', fmt('dlg.oosCancelled', { ...custVoice(g, o), k: APP.cancelComp }));
       },
     },
-    { label: fmt('dlg.oosCook'), hint: fmt('dlg.oosCookHint'), onSelect: () => { om.resolveOutOfStock('cook', g.clockMin); waitFood(g, fmt('dlg.oosCookReply')); } },
+    { label: fmt('dlg.oosCook'), hint: fmt('dlg.oosCookHint'), onSelect: () => { om.resolveOutOfStock('cook', g.clockMin); waitFood(g, fmt('dlg.oosCookReply', npcVoice(g, n))); } },
     { label: fmt('dlg.oosCancel'), hint: fmt('dlg.oosCancelHint', { stars: APP.account.cancelStars }), onSelect: () => om.resolveOutOfStock('cancel', g.clockMin) },
   ], { dismissible: false });
 }
@@ -461,12 +472,12 @@ function parcelPickup(g) {
   const n = sender(g, o);
   if (om.state !== S.TO_PICKUP) return;
   if (o.cod && g.gs.money < o.cod) {
-    return say(g, n.name, n.portrait, fmt('dlg.parcelNoMoney', { cod: o.cod }), [
+    return say(g, n.name, n.portrait, fmt('dlg.parcelNoMoney', { ...npcVoice(g, n), cod: o.cod }), [
       { label: fmt('dlg.parcelCancel'), onSelect: () => om.cancel(fmt('cancel.driver'), g.clockMin, { byDriver: true }) },
       { label: fmt('dlg.leave'), primary: true },
     ]);
   }
-  say(g, n.name, n.portrait, o.cod ? fmt('dlg.parcelCod', { cod: o.cod }) : fmt('dlg.parcelReady'), [
+  say(g, n.name, n.portrait, o.cod ? fmt('dlg.parcelCod', { ...npcVoice(g, n), cod: o.cod }) : fmt('dlg.parcelReady', npcVoice(g, n)), [
     {
       label: fmt('dlg.parcelPack'),
       primary: true,
@@ -506,7 +517,7 @@ function boardPassenger(g) {
   om.boardPassenger(g.clockMin);
   sound('order.boarded');
   // khách chào khi leo lên xe: bong bóng trên đầu khách + ghi log
-  const hi = pick('bubble.riderHi', Math.floor(g.clockMin));
+  const hi = pick('bubble.riderHi', Math.floor(g.clockMin), custVoice(g, o));
   g.bubbles?.show('rider', () => headOf(g.passengerMesh, 1.9), hi);
   sound('chat.bubble');
   g.chatCh?.local('npc', o.customer, hi, { time: fmtClock(g.clockMin) });
@@ -554,7 +565,7 @@ function noAnswer(g, fromPhone = false) {
         sound('phone.call');
         const r = om.callCustomer(g.clockMin);
         g.advance(r.waitMin, 'idle');
-        if (r.answered) say(g, fmt('dlg.phoneCall', { customer: o.customer }), '📱', fmt('dlg.answered'), [{ label: fmt('dlg.handOver'), primary: true, onSelect: () => handOver(g) }], { dismissible: false });
+        if (r.answered) say(g, fmt('dlg.phoneCall', { customer: o.customer }), '📱', fmt('dlg.answered', custVoice(g, o)), [{ label: fmt('dlg.handOver'), primary: true, onSelect: () => handOver(g) }], { dismissible: false });
         else {
           gs.addEnergy(0, -ENERGY.mental.noAnswer);
           noAnswer(g);
@@ -575,7 +586,7 @@ function noAnswer(g, fromPhone = false) {
         const r = om.waitForCustomer(g.clockMin);
         g.advance(10, 'idle');
         if (g.state !== 'play') return;
-        if (r.came) say(g, o.customer, '🙋', fmt('dlg.customerCame'), [{ label: fmt('dlg.handOver'), primary: true, onSelect: () => handOver(g) }], { dismissible: false });
+        if (r.came) say(g, o.customer, '🙋', fmt('dlg.customerCame', custVoice(g, o)), [{ label: fmt('dlg.handOver'), primary: true, onSelect: () => handOver(g) }], { dismissible: false });
         else noAnswer(g);
       },
     },
@@ -602,7 +613,7 @@ function bom(g) {
         const r = om.persuadeBom(g.clockMin);
         g.advance(3, 'idle');
         if (g.state !== 'play') return;
-        if (r && r.accepted) say(g, o.customer, '🙋', fmt('dlg.bomPersuadeOk'), [{ label: fmt('dlg.handOver'), primary: true, onSelect: () => handOver(g) }], { dismissible: false });
+        if (r && r.accepted) say(g, o.customer, '🙋', fmt('dlg.bomPersuadeOk', custVoice(g, o)), [{ label: fmt('dlg.handOver'), primary: true, onSelect: () => handOver(g) }], { dismissible: false });
         else say(g, o.customer, '😤', fmt('dlg.bomPersuadeFail'), [{ label: fmt('dlg.ellipsis'), onSelect: () => bom(g) }], { dismissible: false });
       },
     });
@@ -617,7 +628,7 @@ function bom(g) {
     },
   });
   choices.push({ label: fmt('dlg.bomWait') });
-  say(g, o.customer, '🙅', fmt('dlg.bom', { cod: o.cod }), choices);
+  say(g, o.customer, '🙅', fmt('dlg.bom', { ...custVoice(g, o), cod: o.cod }), choices);
 }
 
 function returnParcel(g) {
@@ -627,7 +638,7 @@ function returnParcel(g) {
   const r = om.returnToShop(g.clockMin);
   if (!r) return;
   sound('order.returned');
-  say(g, n.name, n.portrait, fmt('dlg.returned', { refund: r.refund, fee: r.fee }));
+  say(g, n.name, n.portrait, fmt('dlg.returned', { ...npcVoice(g, n), refund: r.refund, fee: r.fee }));
 }
 
 // Khách xe ôm sợ quá đòi xuống giữa đường (game gọi khi mức thoải mái tụt dưới ngưỡng của loại khách)
@@ -693,7 +704,8 @@ function showReceipt(g, receipt) {
   const { ev, pay, order: o } = receipt;
   const ride = o.kind === 'ride'; // chở khách: chấm theo mức thoải mái, lời khách kiểu đi xe
   sound(ev.refused || ev.stars <= 2 ? 'order.badStars' : 'order.done');
-  const comment = ev.refused ? fmt('dlg.refusedComment') : receipt.quit ? fmt('dlg.quitComment') : receipt.noPay ? fmt('dlg.noPayComment') : ev.scared ? fmt('dlg.scaredComment') : pick(`comment.${ride ? 'ride.' : ''}${ev.stars}`, o.id);
+  const cv = custVoice(g, o);
+  const comment = ev.refused ? fmt('dlg.refusedComment', cv) : receipt.quit ? fmt('dlg.quitComment', cv) : receipt.noPay ? fmt('dlg.noPayComment', cv) : ev.scared ? fmt('dlg.scaredComment', cv) : pick(`comment.${ride ? 'ride.' : ''}${ev.stars}`, o.id, cv);
   const reasons = ev.reasons.map(([k, v]) => `<span class="tag">${fmt(`dmg.${k}`)} −${v.toFixed(0)}%</span>`).join('') || `<span class="tag ok">${fmt(ride ? 'receipt.noDamageRide' : 'receipt.noDamage')}</span>`;
   const pens = ev.penalties.map((p) => `<div class="kv"><span>${p.label}</span><b class="minus">−${p.value} ★</b></div>`).join('');
   const row = (l, v, cls = '') => `<div class="kv ${cls}"><span>${l}</span><b>${v}</b></div>`;
@@ -816,8 +828,31 @@ function openPlace(g, pl, extra = [], text = null) {
   if (!isOpen(pl, g.clockMin)) return say(g, n.name, n.portrait, fmt('dlg.closed', { hours: fmtHours(pl.hours) }));
   const choices = [...extra, ...activityChoices(g, pl)];
   if (hasStock(pl)) choices.push({ label: fmt('dlg.browseShop'), onSelect: () => shopDialog(g, pl) });
+  if (pl.buys) choices.push({ label: fmt('dlg.sellUsed'), onSelect: () => sellUsedDialog(g, pl) });
   choices.push({ label: fmt('dlg.leave') });
-  say(g, n.name, n.portrait, text ?? placeLine(pl.id, 'greet'), choices);
+  say(g, n.name, n.portrait, text ?? placeLine(pl.id, 'greet', npcVoice(g, n)), choices);
+}
+
+// Vựa ve chai (địa điểm có "buys"): bán quần áo / trang bị đã mua (ECONOMY.resalePct giá mua) và vỏ chai, vỏ lon
+function sellUsedDialog(g, pl) {
+  const n = npc(g, pl.id), gs = g.gs;
+  const reopen = () => sellUsedDialog(g, pl);
+  const list = gs.usedSellables();
+  const choices = list.map((e) => ({
+    label: fmt(e.kind === 'scrap' ? 'dlg.sellScrap' : 'dlg.sellItem', { icon: e.icon || '', name: e.name, n: e.n, k: e.k }),
+    hint: e.kind === 'scrap' ? '' : gs.isWorn(e.id) ? fmt('dlg.sellWornHint') : '',
+    keepOpen: true,
+    onSelect: () => {
+      const worn = gs.isWorn(e.id);
+      const r = gs.sellUsed(e.id);
+      g.hud.toast(r.msg, r.ok ? 'good' : 'bad');
+      if (r.ok) sound('money.earn');
+      if (r.ok && worn) g.applyLook(); // đang mặc → cởi ra, cập nhật ngoại hình
+      reopen();
+    },
+  }));
+  choices.push({ label: fmt('dlg.back'), onSelect: () => openPlace(g, pl) });
+  say(g, n.name, n.portrait, fmt(list.length ? 'dlg.sellUsedIntro' : 'dlg.sellUsedNone', { pct: Math.round((ECONOMY.resalePct ?? 0.3) * 100) }), choices);
 }
 
 const placeShort = (p) => p.short || p.name;
@@ -920,7 +955,7 @@ function chargeChoices(g, pl) {
     hint: fmt('dlg.chargeHint', { pct: Math.round((gs.fuel / gs.vehicleSpec.tank) * 100) }),
     primary: true,
     onSelect: () => {
-      if (dist(g.bike.pos, pl.door) > 9) return say(g, n.name, n.portrait, fmt('dlg.chargeTooFar'));
+      if (dist(g.bike.pos, pl.chargeSpot || pl.door) > (pl.chargeSpot ? 3.5 : 9)) return say(g, n.name, n.portrait, fmt('dlg.chargeTooFar'));
       const r = gs.charge();
       if (!r.ok) return say(g, n.name, n.portrait, r.msg);
       g.advance(r.minutes, 'idle', { waiting: true });
@@ -1005,7 +1040,7 @@ function contractDialog(g, pl, b) {
   const perks = [
     fmt('dlg.perkOrders'),
     fmt('dlg.perkFee', { fee: Math.round((APP.platformFee || 0) * 100), tax: +((APP.taxRate || 0) * 100).toFixed(1), tip: APP.tipByStars?.[5] ?? 0 }),
-    fmt('dlg.perkSurcharge', { rain: APP.rainSurcharge || 0, peak: APP.peakSurcharge || 0, night: APP.nightSurcharge || 0 }),
+    fmt('dlg.perkSurcharge', { rain: APP.rainSurcharge || 0, flood: APP.floodSurcharge || 0, peak: APP.peakSurcharge || 0, night: APP.nightSurcharge || 0 }),
     ...(b.perks || []),
   ];
   const gifts = (b.gifts || []).map((id) => GOODS[id]).filter((x) => x && x !== u).map((x) => `${x.icon || '🎁'} ${x.name}`);
@@ -1064,7 +1099,7 @@ function gasChoices(g, pl) {
     label: fmt('dlg.refuelChoice'),
     primary: true,
     onSelect: () => {
-      if (dist(g.bike.pos, pl.door) > 9) return say(g, n.name, n.portrait, fmt('dlg.gasTooFar'));
+      if (dist(g.bike.pos, pl.door) > 9) return say(g, n.name, n.portrait, fmt('dlg.gasTooFar', npcVoice(g, n)));
       const r = gs.refuel();
       if (r.ok) {
         g.advance(2, 'idle', { waiting: false });
@@ -1215,10 +1250,10 @@ function shopDialog(g, pl) {
   choices.push(...activityChoices(g, pl).map((c) => ({ ...c, onSelect: () => { c.onSelect(); } })));
   choices.push({ label: fmt('dlg.shopExit') });
   const onlyBikes = (sells.vehicles || []).length && !(sells.goods || []).length && !(sells.bags || []).length;
-  const intro = onlyBikes ? fmt('dlg.showroomIntro', { money: fmtK(gs.money) })
-    : pl.kind === 'shop' ? fmt('dlg.shopIntro', { money: fmtK(gs.money), bag: gs.bagSpec.name })
+  const intro = onlyBikes ? fmt('dlg.showroomIntro', { ...npcVoice(g, n), money: fmtK(gs.money) })
+    : pl.kind === 'shop' ? fmt('dlg.shopIntro', { ...npcVoice(g, n), money: fmtK(gs.money), bag: gs.bagSpec.name })
     : pl.kind === 'garage' ? fmt((sells.vehicles || []).length ? 'dlg.garageIntro' : 'dlg.garageRepairIntro', { money: fmtK(gs.money) })
-    : fmt('dlg.shopTitle', { money: fmtK(gs.money) });
+    : fmt('dlg.shopTitle', { ...npcVoice(g, n), money: fmtK(gs.money) });
   g.modal.show({ speaker: n.name, portrait: n.portrait, text: intro, choices, wide: true });
 }
 
@@ -1231,9 +1266,9 @@ export function rideEventDialog(g, ev) {
   g.bike.speed *= 0.4; // khách vỗ vai, tài xế chạy chậm lại nghe
   if (ev.type === 'changeDest') {
     const km = (Math.round((ev.extra * 10) / 100) / 10).toFixed(1);
-    say(g, o.customer, '🧍', fmt(ev.pays ? 'dlg.changeDestPay' : 'dlg.changeDestFree', { address: ev.alt.address, km }), [
+    say(g, o.customer, '🧍', fmt(ev.pays ? 'dlg.changeDestPay' : 'dlg.changeDestFree', { ...custVoice(g, o), address: ev.alt.address, km }), [
       {
-        label: fmt('dlg.changeDestYes'),
+        label: fmt('dlg.changeDestYes', custVoice(g, o)),
         primary: true,
         onSelect: () => {
           const r = om.resolveChangeDest(true, g.clockMin, g.playerPos);
@@ -1241,7 +1276,7 @@ export function rideEventDialog(g, ev) {
         },
       },
       {
-        label: fmt('dlg.changeDestNo'),
+        label: fmt('dlg.changeDestNo', custVoice(g, o)),
         hint: fmt('dlg.changeDestNoHint'),
         onSelect: () => {
           const receipt = om.resolveChangeDest(false, g.clockMin, g.playerPos);
@@ -1260,7 +1295,7 @@ export function rideEventDialog(g, ev) {
       { label: fmt('dlg.scamRefuse'), hint: fmt('dlg.scamRefuseHint'), primary: true, onSelect: () => scamResult(g, om.resolveScam('refuse', g.clockMin)) },
     ];
     if (ev.station) choices.push({ label: fmt('dlg.scamPolice', { place: ev.station.name }), hint: fmt('dlg.scamPoliceHint'), onSelect: () => { om.resolveScam('police', g.clockMin); g.hud.toast(fmt('toast.scamToPolice', { place: ev.station.name }), 'warn', 6000); } });
-    say(g, o.customer, '🧍', fmt('dlg.scamAsk'), choices, { dismissible: false });
+    say(g, o.customer, '🧍', fmt('dlg.scamAsk', custVoice(g, o)), choices, { dismissible: false });
   }
 }
 function scamResult(g, r) {
@@ -1286,7 +1321,7 @@ export function blockTicket(g) {
   const p = g.playerPos;
   const station = g.layout.places.filter((x) => x.kind === 'police' && x.door).sort((a, b) => routeDist(p, a.door) - routeDist(p, b.door))[0];
   const done = () => g.hud.toast(fmt('toast.blockFined', { fine }), 'bad', 5000);
-  say(g, fmt('npc.trafficCop.name'), '👮', fmt('dlg.blockTicket', { fine, place: station?.name || fmt('dlg.blockTicketAnyStation') }), [{ label: fmt('dlg.blockTicketOk'), onSelect: done }], { dismissible: false });
+  say(g, fmt('npc.trafficCop.name'), '👮', fmt('dlg.blockTicket', { ...voice(g, fmt('npc.trafficCop.name')), fine, place: station?.name || fmt('dlg.blockTicketAnyStation') }), [{ label: fmt('dlg.blockTicketOk'), onSelect: done }], { dismissible: false });
 }
 
 // ======================== XE BUÝT ========================
@@ -1359,6 +1394,16 @@ function landlord(g, pl) {
     },
     ...sleepChoices(g),
     { label: fmt('dlg.wardrobe'), hint: fmt('dlg.wardrobeHint'), onSelect: () => wardrobe(g) },
+    {
+      // tự lưu game ở nhà trọ (ngoài lưu tự động lúc 06:00) — đơn đang chạy không lưu được nên phải xong đơn trước
+      label: fmt('dlg.saveGame'),
+      hint: busy ? fmt('dlg.saveBusy') : fmt('dlg.saveHint', { time: fmtClock(g.clockMin) }),
+      disabled: busy,
+      onSelect: () => {
+        g.saveGame();
+        g.hud.toast(fmt('toast.saved', { time: fmtClock(g.clockMin) }), 'good', 3500);
+      },
+    },
   ];
   const text = paid ? fmt('npc.home.greetPaid', { day: gs.rentDueDay }) : can ? fmt('npc.home.greetCan', { rent: gs.rent, day: gs.rentDueDay }) : fmt('npc.home.greet', { rent: gs.rent, day: gs.rentDueDay, money: fmtK(gs.money) });
   openPlace(g, pl, extra, text);
@@ -1461,14 +1506,14 @@ function wardrobe(g) {
 
 function minhReturn(g) {
   const { gs } = g;
-  say(g, fmt('npc.minh.name'), '🙋‍♂️', fmt('dlg.minhGreet'), [
+  say(g, fmt('npc.minh.name'), '🙋‍♂️', fmt('dlg.minhGreet', voice(g, fmt('npc.minh.name'))), [
     {
       label: fmt('dlg.minhReturn'),
       primary: true,
       onSelect: () => {
         gs.returnWallet();
         sound('quest.walletReturned');
-        g.addChat(fmt('npc.minh.name'), fmt('chat.minhThanks'));
+        g.addChat(fmt('npc.minh.name'), fmt('chat.minhThanks', voice(g, fmt('npc.minh.name'))));
         g.hud.toast(fmt('toast.walletReturned', { k: WALLET_QUEST.reward }), 'good', 5000);
       },
     },
@@ -1503,18 +1548,18 @@ function talkPed(g, ped) {
   const o = om.order;
   if (o && !o.revealed && o.zone && dist(ped, o.zone) < o.zone.r + 22) {
     om.reveal();
-    return say(g, ped.name, '🧑', fmt('dlg.pedReveal', { customer: o.customer, address: o.dropoff.address }), [{ label: fmt('dlg.thanks') }]);
+    return say(g, ped.name, '🧑', fmt('dlg.pedReveal', { ...pedVoice(g, ped), customer: o.customer, address: o.dropoff.address }), [{ label: fmt('dlg.thanks') }]);
   }
   if (gs.flags.wallet === 1) {
     gs.flags.wallet = 2;
-    return say(g, ped.name, '🧑', fmt('dlg.pedTaphoa'), [{ label: fmt('dlg.pedTaphoaOk') }]);
+    return say(g, ped.name, '🧑', fmt('dlg.pedTaphoa', pedVoice(g, ped)), [{ label: fmt('dlg.pedTaphoaOk') }]);
   }
   const police = g.hz.activePolice(g.clockMin).find((p) => !g.knownPolice.has(p.id));
   if (police && Math.random() < 0.6) {
     g.knownPolice.add(police.id);
-    return say(g, ped.name, '🧑', fmt('dlg.pedPolice', { place: intersectionName(...police.node) }), [{ label: fmt('dlg.thanks') }]);
+    return say(g, ped.name, '🧑', fmt('dlg.pedPolice', { ...pedVoice(g, ped), place: intersectionName(...police.node) }), [{ label: fmt('dlg.thanks') }]);
   }
-  say(g, ped.name, '🧑', pick('ped.smallTalk', ped.id + Math.floor(g.clockMin / 30)));
+  say(g, ped.name, '🧑', pickFor('ped.smallTalk', ped.who || personOf(ped.name), ped.id + Math.floor(g.clockMin / 30), pedVoice(g, ped)));
 }
 
 // ======================== CSGT ========================
@@ -1528,7 +1573,7 @@ export function policeStop(g, p, speed) {
   // còn phạt nguội quá hạn → tạm giữ xe về đồn công an gần nhất (đóng hết mới lấy lại)
   const station = gs.hasOverdueFines && !g.om.hasCargo && g.nearestStation();
   if (station) {
-    say(g, fmt('dlg.police'), '👮', fmt('dlg.policeImpound', { fine: gs.finesTotal, place: station.name }), [{
+    say(g, fmt('dlg.police'), '👮', fmt('dlg.policeImpound', { ...voice(g, fmt('dlg.police')), fine: gs.finesTotal, place: station.name }), [{
       label: fmt('dlg.policeImpoundOk'),
       onSelect: () => {
         dismount(g);

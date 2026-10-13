@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeRng } from '../sim/rng.js';
-import { guessGender, hashStr } from '../sim/people.js';
+import { personOf, hashStr } from '../sim/people.js';
 
 const PI = Math.PI;
 const matCache = new Map();
@@ -354,7 +354,7 @@ export function randomPersonOpts(rng, gender = null, { sitting = false } = {}) {
 // Ngoại hình NPC từ dữ liệu (places.json → npc, màu đã đổi sang số). Phần không đặt thì
 // ngẫu nhiên cố định theo mã địa điểm; giới tính không đặt thì đoán theo tên.
 export function npcLook(id, npc) {
-  const gender = npc.gender || guessGender(npc.name) || 'm';
+  const gender = personOf(npc.name, { gender: npc.gender }).gender; // không đoán được theo tên → cố định theo tên (khớp với xưng hô trong lời thoại)
   const o = { ...randomPersonOpts(makeRng(hashStr(id)), gender), hairStyle: gender === 'f' ? 'long' : 'short', skirt: false, hair: 0x1b1b1b };
   for (const k of ['shirt', 'pants', 'hat', 'hatColor', 'scale', 'hairStyle', 'hair', 'skin', 'skirt']) if (npc[k] !== undefined) o[k] = npc[k];
   o.gender = gender;
@@ -775,17 +775,37 @@ export function makeNpcMoto(color, rng) {
   return g;
 }
 
-export function makeDog(color = 0xb5651d) {
+// Chó ta vàng (chó cỏ Việt Nam): mình thon, chân cao, tai dựng nhọn, đuôi cong vểnh lên, mõm + ức màu nhạt, mũi đen.
+// color: màu lông chính (vàng đậm / vàng / vàng nhạt); userData.legs: 4 chân để vẫy khi chạy
+export function makeDog(color = 0xd9a15b) {
   const g = new THREE.Group();
-  g.add(box(0.32, 0.3, 0.75, color, 0, 0.45, 0));
-  g.add(box(0.26, 0.26, 0.3, color, 0, 0.66, 0.42));
-  g.add(box(0.12, 0.1, 0.14, 0x222222, 0, 0.63, 0.6));
-  g.add(box(0.06, 0.06, 0.3, color, 0, 0.62, -0.45));
+  const c = new THREE.Color(color), light = c.clone().lerp(new THREE.Color(0xf6ead2), 0.6).getHex(), dark = c.clone().multiplyScalar(0.72).getHex();
+  g.add(box(0.26, 0.26, 0.72, color, 0, 0.5, 0)); // mình
+  g.add(box(0.2, 0.16, 0.2, light, 0, 0.47, 0.28)); // ức trắng
+  g.add(box(0.15, 0.2, 0.16, color, 0, 0.66, 0.36)); // cổ
+  g.add(box(0.24, 0.22, 0.24, color, 0, 0.8, 0.44)); // đầu
+  g.add(box(0.15, 0.12, 0.16, light, 0, 0.75, 0.62)); // mõm
+  g.add(box(0.07, 0.06, 0.05, 0x1b1b1b, 0, 0.79, 0.71)); // mũi
+  for (const x of [-0.07, 0.07]) {
+    const ear = box(0.07, 0.13, 0.05, dark, x, 0.96, 0.4); // tai dựng
+    ear.rotation.z = x > 0 ? -0.2 : 0.2;
+    g.add(ear);
+    g.add(box(0.035, 0.035, 0.02, 0x1b1b1b, x, 0.83, 0.565)); // mắt
+  }
+  // đuôi cong: 2 khúc vểnh lên rồi quặp về phía lưng
+  const t1 = box(0.06, 0.06, 0.22, color, 0, 0.62, -0.42);
+  t1.rotation.x = -0.9;
+  const t2 = box(0.06, 0.06, 0.16, light, 0, 0.75, -0.38);
+  t2.rotation.x = 0.7;
+  g.add(t1, t2);
   const legs = [];
-  for (const [x, z] of [[-0.1, 0.25], [0.1, 0.25], [-0.1, -0.25], [0.1, -0.25]]) {
-    const l = box(0.08, 0.32, 0.08, color, x, 0.16, z);
-    legs.push(l);
-    g.add(l);
+  for (const [x, z] of [[-0.09, 0.24], [0.09, 0.24], [-0.09, -0.26], [0.09, -0.26]]) {
+    // chân cao, gốc chân ở thân (xoay quanh khớp vai / hông): khối con lệch xuống dưới trong 1 nhóm
+    const pivot = new THREE.Group();
+    pivot.position.set(x, 0.42, z);
+    pivot.add(box(0.07, 0.42, 0.07, z > 0 ? color : dark, 0, -0.21, 0));
+    legs.push(pivot);
+    g.add(pivot);
   }
   g.userData.legs = legs;
   return g;

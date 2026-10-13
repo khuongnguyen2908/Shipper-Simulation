@@ -104,6 +104,7 @@ export function render(root, ctx) {
   body.append(
     el('div', { class: 'text-tools' }, search, onlyEdited, onlyIssues, editedInfo),
     el('p', { class: 'muted' }, 'Bấm vào một câu để sửa — phần xem trước hiện ngay bên dưới. Dùng được HTML đơn giản: <b>đậm</b>, <i>nghiêng</i>, <small>nhỏ</small>, <br> xuống dòng. {tên} là tham số game tự điền — chỉ dùng những tham số có sẵn của câu đó. Hội thoại dài thì chèn [tiếp] vào chỗ muốn ngắt trang: người chơi bấm "Tiếp ▸" để đọc trang sau (vd thoại Cô Hai dlg.landlordIntro).'),
+    el('p', { class: 'muted' }, 'Xưng hô tự đổi theo người nói (giới tính + tuổi đoán từ tên: Bé/Em, Anh/Chị, Cô/Chú, Bà/Ông/Bác) và giới tính nhân vật mình: {toi} người nói tự xưng (chị, chú, bà, em…) · {ban} người nói gọi mình (em, con, anh/chị) · {khach} / {minh} dùng trong câu mình chọn để nói lại · {anhchi} = anh hoặc chị theo giới tính nhân vật mình. Viết hoa chữ đầu ({Toi}, {Ban}…) khi đứng đầu câu. Câu trong danh sách gắn thẻ đầu câu như "[veso] Mua vé số không {ban}?" thì chỉ người có vai đó mới nói (tên người đi đường cũng gắn thẻ: "[veso] Cô bán vé số"); thẻ tuổi: kid, young, adult, elder; giới tính: m, f.'),
     listBox,
   );
 
