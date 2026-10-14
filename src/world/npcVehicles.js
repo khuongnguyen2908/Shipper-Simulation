@@ -1,7 +1,7 @@
 // XE NPC ĐẶC BIỆT (chỉ để nhìn — mỗi máy tự vẽ): nhóm Jetjet (trẻ trâu), shipper hãng đối thủ, xe ba gác chở quá tải, trộm chó đi Exciter.
 // Mỗi hàm trả về 1 Group (đầu xe hướng +z, gốc ở mặt đất) + userData { wheels, riders, kind } để traffic.js cho chạy / quay bánh sau này.
 import * as THREE from 'three';
-import { makeBike, makePerson, randomPersonOpts, gripBar, setSitting, sitY, holdPhone } from './models.js';
+import { makeBike, makeCar, makePerson, randomPersonOpts, gripBar, setSitting, sitY, holdPhone } from './models.js';
 import { PROPS } from './npcStyles.js';
 
 const MATS = new Map();
@@ -240,5 +240,118 @@ export function makeDogThief(rng) {
   sack.add(bag);
   box(sack, 0.12, 0.05, 0.12, 0x8a7a50, 0, -0.04, 0); // miệng bao buộc túm
   root.userData = { kind: 'dogThief', model: 'sport', riders: [d, q], bike };
+  return root;
+}
+
+// ======================== CSGT ========================
+// Màu đồng phục CSGT (áo vàng, quần xanh rêu) — như chiến sĩ ở chốt (traffic.js)
+const CSGT_SHIRT = 0xd8c25a, CSGT_PANTS = 0x2e5d3a;
+// đèn ưu tiên xanh – đỏ: 2 khối phát sáng (game nhấp nháy bằng userData.lights)
+function lightBar(parent, w, x, y, z) {
+  const bar = new THREE.Group();
+  bar.position.set(x, y, z);
+  box(bar, w, 0.08, 0.22, 0x222222, 0, 0, 0);
+  const red = new THREE.Mesh(new THREE.BoxGeometry(w / 2 - 0.02, 0.1, 0.2), new THREE.MeshBasicMaterial({ color: 0xff2a2a }));
+  const blue = new THREE.Mesh(new THREE.BoxGeometry(w / 2 - 0.02, 0.1, 0.2), new THREE.MeshBasicMaterial({ color: 0x2a6bff }));
+  red.position.set(-w / 4, 0.09, 0);
+  blue.position.set(w / 4, 0.09, 0);
+  bar.add(red, blue);
+  parent.add(bar);
+  return [red, blue];
+}
+// Xe tuần tra: mô tô trắng sọc xanh, 2 thùng đồ hai bên, đèn xanh – đỏ trên cột, 2 chiến sĩ mũ bảo hiểm trắng; người sau cầm gậy chỉ huy
+export function makeCsgtPatrol(rng) {
+  const root = new THREE.Group();
+  const bike = makeBike(0xf4f4f4, 'sport');
+  bike.userData.bagMesh.visible = false;
+  root.add(bike);
+  box(bike, 0.42, 0.06, 0.9, 0x1d5fa8, 0, 0.83, -0.25); // sọc xanh thân
+  // 2 thùng đồ hai bên bánh sau (trắng, sọc xanh, nắp xám) + đèn ưu tiên trên cột sau lưng người ngồi sau
+  for (const sd of [-1, 1]) {
+    box(bike, 0.22, 0.42, 0.62, 0xf4f4f4, sd * 0.33, 0.78, -0.62);
+    box(bike, 0.225, 0.08, 0.63, 0x1d5fa8, sd * 0.33, 0.74, -0.62);
+    box(bike, 0.23, 0.05, 0.64, 0x9aa0a6, sd * 0.33, 1.0, -0.62);
+    box(bike, 0.06, 0.06, 0.4, 0x333333, sd * 0.2, 0.92, -0.62); // giá bắt thùng
+  }
+  box(bike, 0.04, 0.55, 0.04, 0x333333, 0, 1.25, -1.0); // cột đèn
+  const lights = lightBar(bike, 0.42, 0, 1.55, -1.0);
+  const look = () => ({ ...randomPersonOpts(rng, 'm', { sitting: true }), shirt: CSGT_SHIRT, pants: CSGT_PANTS, sleeves: 'long', hat: 'helmet', hatColor: 0xffffff, helmetStyle: 'half', shoe: 0x111111 });
+  const d = seatRider(bike, look(), 'sport');
+  const q = seatBack(bike, look());
+  const p = q.userData.parts;
+  // người ngồi sau: tay phải cầm gậy chỉ huy trắng – đen chĩa xuống bên hông
+  p.armR.rotation.set(0.1, 0, 0.3);
+  p.elbowR.rotation.x = -0.6;
+  const baton = new THREE.Group();
+  baton.position.y = -0.3;
+  baton.rotation.x = 0.6;
+  p.elbowR.add(baton);
+  for (let i = 0; i < 4; i++) box(baton, 0.04, 0.12, 0.04, i % 2 ? 0x111111 : 0xffffff, 0, -0.06 - i * 0.12, 0);
+  root.userData = { kind: 'csgt', model: 'sport', riders: [d, q], bike, lights };
+  return root;
+}
+// Xe bán tải CSGT đậu ở chốt: trắng, sọc xanh – vàng 2 bên, chữ "CẢNH SÁT GIAO THÔNG", đèn ưu tiên trên nóc
+export function makeCsgtCar(text = 'CSGT') {
+  const g = makeCar(0xf4f4f4, 'suv');
+  const bb = new THREE.Box3().setFromObject(g), sz = bb.getSize(new THREE.Vector3());
+  const top = bb.max.y, half = sz.x / 2 + 0.005, len = sz.z * 0.86, midY = bb.min.y + sz.y * 0.42;
+  for (const s of [-1, 1]) {
+    box(g, 0.02, 0.16, len, 0x1d5fa8, s * half, midY, 0);
+    box(g, 0.02, 0.06, len, 0xf1c40f, s * half, midY - 0.12, 0);
+    const c = document.createElement('canvas');
+    c.width = 512;
+    c.height = 64;
+    const x = c.getContext('2d');
+    x.fillStyle = '#1d5fa8';
+    x.fillRect(0, 0, 512, 64);
+    x.fillStyle = '#ffffff';
+    x.font = 'bold 40px Arial';
+    x.textAlign = 'center';
+    x.textBaseline = 'middle';
+    x.fillText(text, 256, 34);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const pl = new THREE.Mesh(new THREE.PlaneGeometry(len * 0.6, len * 0.075), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6 }));
+    pl.position.set(s * (half + 0.012), midY + 0.17, 0);
+    pl.rotation.y = s * Math.PI / 2;
+    g.add(pl);
+  }
+  const lights = lightBar(g, 1.2, 0, top + 0.06, 0);
+  g.userData = { ...g.userData, kind: 'csgtCar', lights };
+  return g;
+}
+
+// ======================== CHÚ XE ÔM NẰM TRÊN XE ========================
+// Xe số dựng chân chống; chú nằm ngửa dọc yên: đầu gối lên baga sau, 2 chân gác lên tay lái, tay buông dọc thân, nón lá úp lên mặt
+export function makeXeOmLying(rng) {
+  const root = new THREE.Group();
+  const bike = makeBike(pick(rng, [0x8e2b2b, 0x2f5fa8, 0x2c3e50, 0x7f8c8d]), pick(rng, ['underbone', 'cub']));
+  bike.userData.bagMesh.visible = false;
+  bike.rotation.z = 0.06; // nghiêng nhẹ trên chân chống
+  root.add(bike);
+  const look = { ...randomPersonOpts(rng, 'm'), shirt: pick(rng, [0x8a8170, 0x5f6b76, 0xb0a48a, 0x6b4a2b]), pants: pick(rng, [0x3d3a33, 0x2c3e50]), sleeves: 'short', hat: null, hair: 0x5a5a5a, shoeStyle: 'sandal' };
+  const m = makePerson(look);
+  const p = m.userData.parts;
+  // nằm ngửa (xoay −90° quanh trục ngang): đầu người → đuôi xe (−z), mặt ngửa lên trời; gốc người (bàn chân) ở phía tay lái.
+  // Lưng nằm trên yên (cao ~0,95), đầu tới baga sau; chân duỗi gần thẳng gác lên tay lái, chân phải vắt chéo
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(0, 1.08, 0.72);
+  p.legL.rotation.x = p.legR.rotation.x = -0.2;
+  p.kneeL.rotation.x = 0.25;
+  p.kneeR.rotation.x = 0.1;
+  p.legR.rotation.z = -0.18;
+  p.legR.rotation.y = 0.15;
+  for (const [arm, el, s] of [[p.armL, p.elbowL, -1], [p.armR, p.elbowR, 1]]) {
+    arm.rotation.set(-0.12, 0, s * 0.16); // tay buông xuôi dọc thân, hơi dang (nằm ngửa: "đưa ra trước" là hướng lên trời)
+    el.rotation.set(-0.15, 0, 0);
+  }
+  bike.add(m);
+  // nón lá úp lên mặt
+  const hat = new THREE.Mesh(new THREE.ConeGeometry(0.33, 0.2, 14), new THREE.MeshStandardMaterial({ color: 0xe8d6a0, roughness: 0.8, flatShading: true }));
+  hat.castShadow = true;
+  p.body.add(hat);
+  hat.position.set(0, 1.62, 0.2);
+  hat.rotation.x = Math.PI / 2;
+  root.userData = { kind: 'xeOm', bike, rider: m };
   return root;
 }

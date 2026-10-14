@@ -9,13 +9,16 @@ import * as THREE from 'three';
 import { CITY, roadPos, blockBounds, segmentRect, neighbors, traitAtBlock, isJoinedBlock, isWaterBlock } from '../sim/cityLayout.js';
 import { HAZARD, NPC_FLAVOR } from '../data/balance.js';
 import { BRANDS } from '../data/apps.js';
-import { makeJetjet, makeRivalShipper, makeRivalWaiting, makeBaGac, makeDogThief } from './npcVehicles.js';
+import { makeJetjet, makeRivalShipper, makeRivalWaiting, makeBaGac, makeDogThief, makeCsgtPatrol, makeCsgtCar, makeXeOmLying } from './npcVehicles.js';
+import { patrolTeams, patrolPose } from '../sim/patrol.js';
+import { dayOf } from '../sim/clock.js';
+import { makeRng } from '../sim/rng.js';
 import { activeThief, thiefSpot, PHASE as THIEF } from '../sim/dogThief.js';
 import { pedStyle } from './npcStyles.js';
 import { holdPhone, makeCar, makeNpcMoto, makePerson, makeDog, makeCone, animatePerson, randomPersonOpts, jamCarGeo, jamMotoGeo } from './models.js';
 import { personOf } from '../sim/people.js';
 import { pushCircle, circleFree } from './physics.js';
-import { list } from '../content/index.js';
+import { list, fmt } from '../content/index.js';
 import { tierBetween, tierRule, tierOf, TIER_GEO } from '../sim/roads.js';
 import { busPoses, inService } from '../sim/bus.js';
 import { mustStop } from '../sim/lights.js';
@@ -599,6 +602,7 @@ export class Traffic {
     for (const a of this.agents) if (!a.isFar && !a.off) out.push(this.bodyOf(a));
     for (const a of this.loopCars) if (a.mesh.visible) out.push(this.bodyOf(a));
     for (const b of this.buses) if (b.mesh.visible) out.push({ ...this.bodyOf({ ...b, uid: 0 }, 'bus'), bus: true });
+    for (const p of this.patrolNow || []) out.push({ ...this.bodyOf({ x: p.x, z: p.z, heading: Math.atan2(p.dx, p.dz), speed: p.speed, uid: 0, kind: 'moto' }, 'moto'), bus: true });
     return out;
   }
   // Tốc độ tối đa của xe me khi có xe khác chắn trước. Hai xe cùng chắn nhau (gặp ở ngã tư) → xe uid nhỏ đi trước;
@@ -770,6 +774,68 @@ export class Traffic {
       events.push({ type: 'npcLine', obj: { mesh: T.bike }, id: 'thief', key: 'bubble.thiefRun' });
       events.push({ type: 'thiefScared', id: e.id, x: bx, z: bz });
     }
+  }
+
+  // ---------------- CSGT tuần tra (sim/patrol.js: tuyến + giờ theo ngày + seed thế giới → máy nào cũng giống) ----------------
+  // Mỗi khung hình: đặt xe theo đồng hồ chung (làn xe máy bên phải), quay bánh, nháy đèn xanh – đỏ; ghi this.patrolNow
+  // [{ id, x, z }] để game.js xét chạy quá tốc độ gần xe tuần tra / vượt đèn đỏ trước mặt.
+  patrolTick(dt, ctx, far) {
+    this.patrolNow = [];
+    const now = ctx.now;
+    if (now == null) return;
+    const d = dayOf(now);
+    if (this.patrolDay !== d) {
+      this.patrolDay = d;
+      this.patrolSet = [d - 1, d].filter((x) => x >= 1).flatMap((x) => patrolTeams(x, this.thiefSeed ?? 1));
+    }
+    this.patrolMesh ||= [];
+    let k = 0;
+    for (const team of this.patrolSet) {
+      const pose = patrolPose(team, now);
+      if (!pose) continue;
+      const g = (this.patrolMesh[k] ||= (() => { const m = makeCsgtPatrol(makeRng(k * 31 + 7)); this.scene.add(m); return m; })());
+      k++;
+      const lane = (TIER_GEO[tierBetween(pose.seg[0], pose.seg[1])] || TIER_GEO.normal).motoLane;
+      const x = pose.x - pose.dz * lane, z = pose.z + pose.dx * lane;
+      const v = team.speed; // m mỗi phút game = m/s khi chạy giờ thường
+      this.patrolNow.push({ id: team.id, x, z, dx: pose.dx, dz: pose.dz, speed: v });
+      if (far(x, z)) { g.visible = false; continue; }
+      g.visible = true;
+      const y = this.elev ? this.elev.topAt(x, z) : 0;
+      g.position.set(x, y, z);
+      const hd = Math.atan2(pose.dx, pose.dz);
+      let dh = hd - g.rotation.y;
+      dh = ((dh + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+      g.rotation.y += Math.abs(dh) > 2 ? dh : dh * Math.min(1, dt * 8);
+      const w = g.userData.bike.userData;
+      w.wheelF.rotation.x += (v * dt) / 0.32;
+      w.wheelR.rotation.x += (v * dt) / 0.32;
+      const on = Math.floor(this.clock * 3) % 2 === 0;
+      g.userData.lights[0].visible = on;
+      g.userData.lights[1].visible = !on;
+    }
+    for (let i = k; i < this.patrolMesh.length; i++) this.patrolMesh[i].visible = false;
+    // đèn xe CSGT ở chốt cũng nháy
+    const on2 = Math.floor(this.clock * 2.5) % 2 === 0;
+    for (const g of this.police.values()) if (g.userData.lights) { g.userData.lights[0].visible = on2; g.userData.lights[1].visible = !on2; }
+  }
+
+  // Chú xe ôm nằm chờ trên xe trước địa điểm bật "Có chú xe ôm" (places.json → xeOm; spots: cửa các nơi đó, game.js truyền vào).
+  // Xe dựng sát lề, lệch khỏi cửa; người chơi tới gần thì thỉnh thoảng chú mời "xe ôm không?" (chỉ để nhìn — tính năng bàn sau)
+  placeXeOm(spots) {
+    this.xeOm = [];
+    spots.forEach((s, k) => {
+      const r = projectToRing(s.x, s.z, PED_LANE);
+      if (isJoinedBlock(r.bx, r.bz) || isWaterBlock(r.bx, r.bz)) return;
+      const g = makeXeOmLying(makeRng(k * 17 + 3));
+      const t = r.t - 2.6;
+      const a = pedPos(r.bx, r.bz, t, 0.75), dir = pedPos(r.bx, r.bz, t + 1, 0.75);
+      g.position.set(a.x, SW_H, a.z);
+      g.rotation.y = Math.atan2(dir.x - a.x, dir.z - a.z) - 0.35;
+      this.scene.add(g);
+      this.grid?.add({ x0: a.x - 0.6, z0: a.z - 0.6, x1: a.x + 0.6, z1: a.z + 0.6, h: 1.3, tag: 'bike' });
+      this.xeOm.push({ g, cd: 3 + k, id: k });
+    });
   }
 
   // ---------------- người đi bộ ----------------
@@ -944,6 +1010,8 @@ export class Traffic {
     const ids = new Set(list.map((p) => p.id));
     for (const [id, g] of this.police) {
       if (!ids.has(id)) {
+        const b = g.userData.box;
+        if (b) b.x0 = b.x1 = b.z0 = b.z1 = 1e9; // hết chốt: bỏ chỗ chắn của xe CSGT (lưới va chạm không có hàm xóa)
         this.scene.remove(g);
         this.police.delete(id);
       }
@@ -965,6 +1033,25 @@ export class Traffic {
         const a = (k / 6) * Math.PI * 2;
         c.position.set(Math.cos(a) * 5.2, 0, Math.sin(a) * 5.2);
         g.add(c);
+      }
+      // xe CSGT đậu trên vỉa hè cạnh chốt, dọc một nhánh đường có thật (khối bên cạnh không phải sông / khối gộp)
+      const nb = neighbors(...p.node);
+      done: for (const [ax, az] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+        if (!nb.some(([a, b]) => a === p.node[0] + ax && b === p.node[1] + az)) continue;
+        for (const sd of [1, -1]) {
+          const ox = ax * 9.5 + -az * sd * 7.5, oz = az * 9.5 + ax * sd * 7.5;
+          const q = projectToRing(x + ox, z + oz, 1.5);
+          if (isWaterBlock(q.bx, q.bz) || isJoinedBlock(q.bx, q.bz)) continue;
+          const car = makeCsgtCar(fmt('city.csgtCar'));
+          car.position.set(ox, SW_H, oz);
+          car.rotation.y = Math.atan2(ax, az);
+          g.add(car);
+          g.userData.lights = car.userData.lights;
+          const hw = ax ? 2.3 : 1.05, hd = ax ? 1.05 : 2.3;
+          g.userData.box = { x0: x + ox - hw, z0: z + oz - hd, x1: x + ox + hw, z1: z + oz + hd, h: 1.8, tag: 'car' };
+          this.grid?.add(g.userData.box);
+          break done;
+        }
       }
       this.scene.add(g);
       this.police.set(p.id, g);
@@ -1174,6 +1261,14 @@ export class Traffic {
       if (a.special) this.specialTick(a, dt, ctx, events);
     }
     this.thiefTick(dt, ctx, events);
+    this.patrolTick(dt, ctx, far);
+    for (const o of this.xeOm || []) {
+      o.cd -= dt;
+      if (o.cd <= 0 && Math.hypot(o.g.position.x - ctx.px, o.g.position.z - ctx.pz) < 7) {
+        o.cd = this.rng.range(20, 40);
+        events.push({ type: 'npcLine', obj: { mesh: o.g.userData.bike }, id: 'xeom:' + o.id, key: 'bubble.xeOmLying' });
+      }
+    }
     this.updateLoops(dt, ctx, far, events);
 
     // người đi bộ
@@ -1313,6 +1408,7 @@ export class Traffic {
       for (const o of [-3.75, -1.25, 1.25, 3.75]) test(b.x + b.dx * o, b.z + b.dz * o, 1.3, b.dx * b.speed, b.dz * b.speed, 'car', null);
     }
     for (const c of this.jamCircles) test(c.x, c.z, c.r, 0, 0, 'car', null);
+    for (const p of this.patrolNow || []) test(p.x, p.z, 0.55, p.dx * p.speed, p.dz * p.speed, 'moto', null); // xe CSGT tuần tra
     for (const p of this.peds) {
       if (p.knock > 0) continue;
       test(p.x, p.z, 0.32, 0, 0, 'ped', p);

@@ -48,8 +48,11 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   tin Tích Tắc `tt.hot.dogThief` sáng hôm sau).
   Câu thoại bổ sung: `[dacho]` người dắt chó, `[elder]` ông / bà cụ (ped.smallTalk, bubble.ped); khách chào khi lên xe (bubble.riderHi) theo loại khách
   ([drunk] [vali] [hurry] [hocSinh] [nuocNgoai] [sinhVien] + [elder]) — interactions.js boardPassenger dùng pickFor với role = loại khách. Thùng hàng của NGƯỜI CHƠI nhuộm màu bị lệch (thùng gốc màu xanh) — chưa sửa, chờ chủ game.
-- **Đợt 3**: chốt CSGT đi tuần theo lịch giờ chung (gần chốt chạy quá tốc → phạt policeFine; vượt đèn đỏ trước mặt → 100%) + xe CSGT;
-  chú xe ôm truyền thống CHỈ nằm trên xe (chỗ cố định, sửa trong ?editor; tính năng bàn sau).
+- **Đợt 3 (xong 14/10, CHỜ chủ game xem)**: CSGT tuần tra (`sim/patrol.js`: 2 tổ / ngày 7–21h, tuyến + giờ theo ngày + seed thế giới; xe mô tô
+  2 thùng hai bên + đèn xanh đỏ; chạy quá tốc độ trong 25 m → `patrolStop` phạt như ở chốt; vượt đèn đỏ trước mặt → phạt luôn tiền phạt vượt đèn;
+  mỗi tổ dừng mình tối đa 1 lần / 20 phút game; số liệu thẻ Cân bằng → npcFlavor.patrol*) · xe CSGT đậu trên vỉa hè cạnh mỗi chốt (đèn nháy)
+  · chú xe ôm nằm ngủ trên xe trước địa điểm bật "Có chú xe ôm" (places.json xeOm; bật sẵn bến xe buýt, chợ Hòa Bình, bệnh viện), mời "xe ôm không?".
+  Tính năng riêng của chú xe ôm: bàn sau. Lưu ý chơi nhiều người: nộp phạt đang tua 15 phút (như phạt ở chốt cũ) — tua giờ riêng cần bỏ khi chơi nhiều người.
 - 🌐 Nhiều người chơi: hình NPC chỉ để nhìn, mỗi máy tự vẽ. NPC có ảnh hưởng luật chơi (CSGT, trộm chó, xe ôm) phải chạy theo lịch giờ chung như xe buýt.
 
 ### 🌐 Chuẩn bị chơi nhiều người: lương cứng 2 hãng · biển số tài xế · bỏ tua thời gian (14/10 — đã góp ý, CHỜ chủ game chọn)

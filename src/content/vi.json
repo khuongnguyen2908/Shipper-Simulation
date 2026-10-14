@@ -1771,5 +1771,16 @@
     "[photo:here] @khupho247 | Tối qua tụi trộm chó chạy Exciter đen mò tới {street}, may con chó chạy thoát 😤 Bà con để ý giùm! #trộmchó #khupho | âm thanh gốc | HỤT TRỘM CHÓ",
     "[photo:here] @yeuchomeo | Bé vàng nhà hàng xóm ở {street} thoát nạn tụi trộm chó đêm qua 🐕 Ai thấy 2 thằng đồ đen bịt mặt chạy Exciter thì báo công an nha! #chocuu #trộmchó | nhạc buồn - yeuchomeo | THOÁT NẠN"
   ],
-  "npc.nhaThoDaDo.greet": "\"Chào con, con có muốn xưng tội không?\""
+  "npc.nhaThoDaDo.greet": "\"Chào con, con có muốn xưng tội không?\"",
+  "dlg.patrol": "CSGT tuần tra",
+  "dlg.patrolSpeeding": "\"Tuýt! Xe tuần tra áp sát, ra hiệu dừng xe. Đồng chí chạy <b>{kmh} km/h</b>, vượt tốc độ cho phép ({limit} km/h trên {road}). Lập biên bản, phạt <b>{fine}k</b>!\"",
+  "dlg.patrolRed": "\"Tuýt! Tổ tuần tra thấy rõ đồng chí vượt đèn đỏ ở {place}. Lập biên bản tại chỗ, phạt <b>{fine}k</b>!\"",
+  "city.csgtCar": "CẢNH SÁT GIAO THÔNG",
+  "bubble.xeOmLying": [
+    "\"Xe ôm không con?\"",
+    "\"Đi đâu chú chở, rẻ nè!\"",
+    "\"Zzz…\"",
+    "\"Nắng quá, nghỉ chút đã…\"",
+    "\"Xe ôm truyền thống đây, khỏi cần app!\""
+  ]
 }

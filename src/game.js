@@ -99,7 +99,9 @@ export class Game {
     const eats = this.layout.places.filter((p) => p.door && p.kind === 'restaurant' && !p.inAlley).sort((a, b) => (a.id < b.id ? -1 : 1));
     const nw = Math.min(eats.length, NPC_FLAVOR.rivalWaiting ?? 5);
     this.traffic.placeRivals(Array.from({ length: nw }, (_, k) => eats[Math.floor(((k + 0.5) * eats.length) / nw)].door));
-    this.traffic.thiefSeed = this.worldSeed; // lịch trộm chó theo seed thế giới (sim/dogThief.js)
+    this.traffic.thiefSeed = this.worldSeed; // lịch trộm chó + CSGT tuần tra theo seed thế giới (sim/dogThief.js, sim/patrol.js)
+    // chú xe ôm nằm chờ trước địa điểm bật "Có chú xe ôm" (places.json → xeOm, ?editor)
+    this.traffic.placeXeOm(this.layout.places.filter((p) => p.xeOm && p.door && !p.inAlley).map((p) => p.door));
     this.stallPeople = makeStallPeople(this.scene, this.city.seats); // khách ngồi ghế nhựa quán cóc (chỉ để nhìn)
     this.bgTraffic = new BgTraffic({ scene: this.scene }); // xe máy chạy ở xa cho đường đông (chỉ để nhìn, không va chạm)
     // đèn giao thông (sim/lights.js): đồng hồ đèn tính bằng giây thật; xe NPC / xe nền dừng đèn đỏ, người chơi vượt đèn đỏ có thể bị phạt nguội
@@ -755,6 +757,7 @@ export class Game {
       if (e.type === 'dogBark') sound('city.dog');
       if (e.type === 'thiefScared') this.thiefScared(e);
     }
+    this.patrolCheck(mounted, speed);
 
     // ---- chướng ngại ----
     for (const e of hz.poll(this.clockMin)) this.onHazard(e);
@@ -984,6 +987,22 @@ export class Game {
 
   // Tài xế chửi người chơi (bị chắn đầu xe lâu / bị tông): bong bóng thoại trên đầu tài xế, câu trong vi.json
   // (bubble.driverMild / driverAngry / busMild / busAngry / driverHit). Cách nhau ít nhất 2,5 giây cho đỡ rối.
+  // CSGT tuần tra (traffic.patrolNow, lịch chung sim/patrol.js): đang chạy xe quá tốc độ trong patrolRadius quanh xe tuần tra
+  // → bị dừng xe phạt. Mỗi tổ chỉ dừng 1 lần mỗi lượt gặp (cách nhau ≥ 20 phút game).
+  patrolCheck(mounted, speed) {
+    if (!mounted || this.cheat.noPolice || this.modal.open || speed <= this.speedLimit()) return;
+    const p = this.patrolNear();
+    if (!p) return;
+    this.patrolSeen.set(p.id, this.clockMin);
+    act.patrolStop(this, 'speed', speed);
+  }
+  // Xe tuần tra đang ở gần người chơi (trong patrolRadius) và chưa dừng mình trong 20 phút game qua
+  patrolNear(x = this.playerPos.x, z = this.playerPos.z) {
+    this.patrolSeen ??= new Map();
+    const R = NPC_FLAVOR.patrolRadius ?? 25;
+    return (this.traffic.patrolNow || []).find((q) => Math.hypot(q.x - x, q.z - z) < R && !(this.clockMin - (this.patrolSeen.get(q.id) ?? -1e9) < 20)) || null;
+  }
+
   // Bấm còi đuổi được xe trộm chó: chủ chó cảm ơn (mỗi vụ 1 lần) · chơi nhiều người: máy chủ kiểm tra giờ vụ trộm + khoảng cách rồi mới cộng
   thiefScared(e) {
     this.thiefPaid ??= new Set();
@@ -2031,6 +2050,12 @@ export class Game {
     if (this.redDay !== gs.day) Object.assign(this, { redDay: gs.day, redCount: 0, redTickets: 0 });
     this.redCount++;
     const place = intersectionName(i, j);
+    // vượt đèn đỏ ngay trước mặt xe CSGT tuần tra → bị dừng xe phạt luôn (không nhắc lần đầu, không tung xúc xắc)
+    const pat = !this.cheat.noPolice && this.patrolNear();
+    if (pat) {
+      this.patrolSeen.set(pat.id, this.clockMin);
+      return act.patrolStop(this, 'red', 0, place);
+    }
     if (this.redCount === 1 && (L.warnFirst ?? 1)) return this.hud.toast(fmt('toast.redWarn', { place }), 'warn', 5000);
     if (this.redTickets >= (L.maxPerDay ?? 2)) return;
     const police = this.hz.activePolice(now).some((c) => c.node && c.node[0] === i && c.node[1] === j);

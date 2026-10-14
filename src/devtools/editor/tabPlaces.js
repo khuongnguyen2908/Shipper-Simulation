@@ -142,6 +142,7 @@ export function render(root, ctx) {
         floorsField(),
         field('Biểu tượng bản đồ', emojiInput(p.icon ?? '', (v) => { if (v) p.icon = v; else delete p.icon; changedP(); }, { placeholder: ICON[p.kind] || '📍' }), opt('icon', { hint: 'Emoji; để trống = theo loại' })),
         p.kind !== 'gate' && p.kind !== 'scenery' ? field('Chữ trên biển hiệu', textInput(p.sign, (v) => { p.sign = v; changedP(); }), opt('sign', { hint: HINT.place.sign })) : null,
+        field('Chú xe ôm', checkInput(p.xeOm, (v) => { if (v) p.xeOm = true; else delete p.xeOm; changedP(); }, 'Có chú xe ôm nằm chờ trước cửa'), opt('xeOm', { hint: 'Chú xe ôm truyền thống nằm ngủ trên xe dựng sát lề cạnh cửa (bến xe, chợ, bệnh viện…). Hiện chỉ để nhìn + thỉnh thoảng mời "xe ôm không?". Nhà trong hẻm không hiện.' })),
         p.kind !== 'gate' && p.kind !== 'scenery' ? field('Biển dọc', el('div', { class: 'row' },
           checkInput(p.signV, (v) => { if (v) p.signV = true; else { delete p.signV; delete p.signVText; } changedP(); ctx.rerender(); }, 'Có biển dọc chìa ra góc mặt tiền'),
           p.signV ? textInput(p.signVText || '', (v) => { if (v.trim()) p.signVText = v; else delete p.signVText; changedP(); }, { placeholder: 'Chữ (vd PHỞ, CƠM TẤM) — trống = chữ đầu biển hiệu' }) : null,

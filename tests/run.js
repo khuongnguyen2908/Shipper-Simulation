@@ -4300,5 +4300,38 @@ console.log('Nhà địa điểm kiểu A, ô giữa khối, khuôn viên đại
   });
 }
 
+console.log('CSGT tuần tra theo lịch chung (sim/patrol.js)');
+{
+  const PT = await import('../src/sim/patrol.js');
+  const CL = await import('../src/sim/cityLayout.js');
+  const { atHour } = await import('../src/sim/clock.js');
+  const cfg = { patrolTeams: 2, patrolFrom: 7, patrolTo: 21, patrolSpeed: 8 };
+  test('Cùng ngày + seed → cùng tuyến; tuyến đi theo đường có thật, đủ dài cho cả ca', () => {
+    const a = PT.patrolTeams(4, 55, cfg), b = PT.patrolTeams(4, 55, cfg);
+    assert.deepEqual(a, b);
+    assert.equal(a.length, 2);
+    for (const t of a) {
+      for (let i = 1; i < t.route.length; i++) {
+        const [p, q] = [t.route[i - 1], t.route[i]];
+        assert.ok(CL.neighbors(...p).some(([x, z]) => x === q[0] && z === q[1]), `${t.id}: ${p} → ${q} không phải đoạn đường`);
+      }
+      assert.ok((t.route.length - 1) * CL.CITY.PITCH >= (t.end - t.start) * t.speed - CL.CITY.PITCH, 'tuyến ngắn hơn ca');
+    }
+    assert.deepEqual(PT.patrolTeams(4, 55, { ...cfg, patrolTeams: 0 }), []);
+  });
+  test('Chỉ chạy trong ca (7–21h); vị trí liền mạch theo đồng hồ (không nhảy cóc)', () => {
+    const day = 3, t0 = atHour(day, 7);
+    assert.equal(PT.activePatrols(t0 - 5, 9, cfg).length, 0);
+    assert.equal(PT.activePatrols(atHour(day, 21) + 5, 9, cfg).length, 0);
+    const team = PT.patrolTeams(day, 9, cfg)[0];
+    let last = PT.patrolPose(team, team.start + 1);
+    for (let m = team.start + 1.5; m < team.start + 200; m += 0.5) {
+      const p = PT.patrolPose(team, m);
+      assert.ok(Math.hypot(p.x - last.x, p.z - last.z) <= team.speed * 0.5 + 1e-6, `nhảy ${Math.hypot(p.x - last.x, p.z - last.z)} m lúc ${m}`);
+      last = p;
+    }
+  });
+}
+
 console.log(`\n${pass} đạt, ${fail} lỗi`);
 if (fail) process.exit(1);

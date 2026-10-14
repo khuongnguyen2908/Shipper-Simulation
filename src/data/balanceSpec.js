@@ -277,8 +277,8 @@ export const BALANCE_GROUPS = [
     ],
   },
   {
-    id: 'npcFlavor', title: '🧢 Xe NPC đặc biệt (Jetjet, shipper đối thủ, ba gác, trộm chó)',
-    note: 'Jetjet, shipper hãng đối thủ, ba gác chỉ để nhìn (không phạt, không đổ hàng). Trộm chó: mỗi đêm vài vụ theo lịch chung (giờ + chỗ tính theo ngày, máy nào cũng giống nhau), chó luôn thoát; người chơi ở gần bấm còi (H) thì trộm bỏ chạy sớm và được chủ chó cảm ơn. Sáng hôm sau app Tích Tắc có tin. Đổi số lượng xe cần tải lại game.',
+    id: 'npcFlavor', title: '🧢 Xe NPC đặc biệt (Jetjet, shipper đối thủ, ba gác, trộm chó, CSGT tuần tra)',
+    note: 'Jetjet, shipper hãng đối thủ, ba gác, chú xe ôm nằm chờ chỉ để nhìn (không phạt, không đổ hàng). CSGT tuần tra chạy theo lịch chung và CÓ phạt. Trộm chó: mỗi đêm vài vụ theo lịch chung (giờ + chỗ tính theo ngày, máy nào cũng giống nhau), chó luôn thoát; người chơi ở gần bấm còi (H) thì trộm bỏ chạy sớm và được chủ chó cảm ơn. Sáng hôm sau app Tích Tắc có tin. Đổi số lượng xe cần tải lại game.',
     fields: [
       ['npcFlavor.jetjetGroups', 'Jetjet: số nhóm (mỗi nhóm 2–3 xe)', { min: 0, max: 10, step: 1, hint: 'Mặc định 3.' }],
       ['npcFlavor.jetjetFrom', 'Jetjet: xuất hiện từ (giờ)', { min: 0, max: 24, step: 0.5, hint: 'Mặc định 19 giờ.' }],
@@ -295,6 +295,11 @@ export const BALANCE_GROUPS = [
       ['npcFlavor.thiefFrom', 'Trộm chó: từ (giờ)', { min: 0, max: 24, step: 0.5, hint: 'Mặc định 22 giờ.' }],
       ['npcFlavor.thiefTo', 'Trộm chó: tới (giờ, sáng hôm sau)', { min: 0, max: 12, step: 0.5, hint: 'Mặc định 4 giờ sáng.' }],
       ['npcFlavor.thiefReward', 'Bấm còi đuổi trộm: chủ chó cảm ơn (k)', { min: 0, max: 500, step: 5, hint: 'Mỗi vụ được 1 lần. Mặc định 30k.' }],
+      ['npcFlavor.patrolTeams', 'CSGT tuần tra: số tổ mỗi ngày', { min: 0, max: 8, step: 1, hint: 'Mỗi tổ 1 xe 2 chiến sĩ, chạy vòng phố theo lịch chung. 0 = tắt. Mặc định 2.' }],
+      ['npcFlavor.patrolFrom', 'CSGT tuần tra: từ (giờ)', { min: 0, max: 24, step: 0.5, hint: 'Mặc định 7 giờ.' }],
+      ['npcFlavor.patrolTo', 'CSGT tuần tra: tới (giờ)', { min: 0, max: 24, step: 0.5, hint: 'Mặc định 21 giờ.' }],
+      ['npcFlavor.patrolSpeed', 'CSGT tuần tra: tốc độ (km/h)', { min: 2, max: 15, scale: 3.6, step: 1, hint: 'Mặc định 29 km/h.' }],
+      ['npcFlavor.patrolRadius', 'CSGT tuần tra: phát hiện chạy quá tốc độ trong (m)', { min: 5, max: 80, step: 1, hint: 'Chạy quá tốc độ trong khoảng này quanh xe tuần tra → bị dừng xe phạt như ở chốt (tiền phạt ở mục Kinh tế). Vượt đèn đỏ ngay trước xe tuần tra → luôn bị phạt. Mặc định 25 m.' }],
     ],
   },
   {

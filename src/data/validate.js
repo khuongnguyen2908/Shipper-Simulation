@@ -371,6 +371,7 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null, m
     if (p.kind === 'police' && isPlaced(p) && lotParts(p.lot).length < 2) add('error', p.id, 'lot', 'Đồn công an cần ít nhất 2 lô (nhà công an + bãi giữ xe vi phạm) — đổi kích thước 2 lô / cả dãy, đặt ở khối không hẻm.');
     if (p.signBg && !COLOR_RE.test(p.signBg)) add('error', p.id, 'signBg', 'Màu biển phải dạng #rrggbb.');
     if (p.signV != null && typeof p.signV !== 'boolean') add('error', p.id, 'signV', 'Biển dọc phải là có / không.');
+    if (p.xeOm != null && typeof p.xeOm !== 'boolean') add('error', p.id, 'xeOm', 'Chú xe ôm phải là có / không.');
     if (p.signVText != null && (typeof p.signVText !== 'string' || [...p.signVText.replace(/\s+/g, '')].length > 8)) add('warn', p.id, 'signVText', 'Chữ biển dọc nên ngắn (tối đa 8 chữ cái) — viết dọc từng chữ.');
     if (p.floors != null && (!Number.isInteger(p.floors) || p.floors < 1 || p.floors > 15)) add('error', p.id, 'floors', 'Số tầng 1–15.');
     // kiểu nhà (hình dáng) + số tầng cho phép theo kiểu

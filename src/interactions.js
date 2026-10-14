@@ -3,7 +3,7 @@
 // (lấy hàng, xếp túi, giao hàng, sự cố, cửa hàng, nhiệm vụ chiếc ví, CSGT…)
 // Mọi chữ lấy từ kho chữ qua fmt() — sửa bằng công cụ ?editor.
 // =============================================================
-import { TIME, ECONOMY, ENERGY, ORDER, VEHICLES, BAGS, WALLET_QUEST, PARKING } from './data/balance.js';
+import { TIME, ECONOMY, ENERGY, ORDER, VEHICLES, BAGS, WALLET_QUEST, PARKING, LIGHTS } from './data/balance.js';
 import { circleFree } from './world/physics.js';
 import { APP, ORDER_TYPES, RIDER_TYPES, BRANDS } from './data/apps.js';
 import { GOODS, OUTFIT_SLOTS, isAccessorySlot } from './data/goods.js';
@@ -1600,6 +1600,30 @@ export function policeStop(g, p, speed) {
       },
     },
   ], { dismissible: false });
+}
+
+// CSGT tuần tra áp sát ra hiệu dừng xe (game.js patrolTick): reason 'speed' = chạy quá tốc độ gần xe tuần tra (phạt như ở chốt),
+// 'red' = vượt đèn đỏ ngay trước mặt (luôn bị, tiền phạt như phạt nguội vượt đèn). place: tên ngã tư (vượt đèn).
+// Chơi nhiều người: máy chủ kiểm tra tốc độ / vị trí người chơi với vị trí xe tuần tra (lịch chung) rồi mới trừ tiền.
+export function patrolStop(g, reason, speed, place = '') {
+  const { gs, bike } = g;
+  bike.speed = 0;
+  bike.vel.set(0, 0);
+  sound('law.whistle');
+  const red = reason === 'red', fine = red ? LIGHTS.fine ?? 100 : ECONOMY.policeFine;
+  const text = red
+    ? fmt('dlg.patrolRed', { fine, place })
+    : fmt('dlg.patrolSpeeding', { kmh: Math.round(speed * 3.6), fine, limit: g.speedLimitKmh(), road: tierLabel(g.roadTier || 'normal') });
+  say(g, fmt('dlg.patrol'), '🚓', text, [{
+    label: fmt('dlg.policePay', { fine }),
+    onSelect: () => {
+      gs.spend(fine, 'fine', true);
+      gs.stats.fines += 1;
+      gs.addEnergy(0, -ENERGY.mental.fine);
+      sound('law.fine');
+      g.advance(15, 'idle');
+    },
+  }], { dismissible: false });
 }
 
 // Túi đồ: app 🎒 trên điện thoại (src/ui/phone.js), thao tác ở bagUse / bagWear phía trên.

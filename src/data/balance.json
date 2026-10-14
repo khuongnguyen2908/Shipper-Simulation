@@ -292,7 +292,12 @@
     "thiefPerNight": 2,
     "thiefFrom": 22,
     "thiefTo": 4,
-    "thiefReward": 30
+    "thiefReward": 30,
+    "patrolTeams": 2,
+    "patrolFrom": 7,
+    "patrolTo": 21,
+    "patrolSpeed": 8,
+    "patrolRadius": 25
   },
   "lights": {
     "greenSec": 8,
