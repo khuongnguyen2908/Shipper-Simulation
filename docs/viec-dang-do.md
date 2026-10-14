@@ -26,7 +26,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   quán ăn mặt tiền mở (`houses.js` ground 'open') thấy bàn inox, ghế nhựa, quầy nồi nước lèo, bàn thờ thần tài, quạt trần.
   Biển dọc chỉ quán bật ô "Biển dọc" (places.json signV / signVText, ?editor Địa điểm) — bật sẵn: Phở Bà Tư, Bún Mọc, Cơm Tấm, Hủ Tiếu, Lẩu Dê.
 - **A2 (xong)** `cafeFront`: kiểu modern (trà sữa, tiệm bánh, nhà sách, cửa hàng tiện lợi…) thêm dây đèn bóng tròn, dù che + bàn ghế (lô ≥ 6 m),
-  chậu cây; modern + cafe thêm sân thượng kiểu A. Chưa xử lý: biển dọc tím có sẵn từ trước trên MỌI nhà modern (chưa theo ô "Biển dọc") — chờ chủ game.
+  chậu cây; modern + cafe thêm sân thượng kiểu A. Biển dọc tím có sẵn của mọi nhà modern: chủ game chọn giữ nguyên.
 - Ô giữa khối thường (trước là sân trống) → nhà phía sau 1–3 tầng không cửa (cityLayout centerFills + city.js), ngẫu nhiên theo khối.
 - 2 trường đại học chọn được cỡ "Cả khối" (CAMPUS_LOOKS) → khuôn viên: Mỹ thuật chữ U kiểu Pháp; RMEET tòa kính + thư viện + căng tin + sân bóng rổ + nhà xe.
   Chưa đổi lô của 2 trường trên bản đồ — chủ game tự chọn ở ?editor nếu muốn.
