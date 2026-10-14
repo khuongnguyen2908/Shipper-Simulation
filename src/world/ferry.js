@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ferryPairs, boatPose, ferryRule, PONTOON, BOAT_L, BOAT_W, BOAT_DECK } from '../sim/ferry.js';
-import { makeBike, makePerson, setSitting, sitY } from './models.js';
+import { makeBike, makePerson, gripBar, sitY } from './models.js';
 
 const SW_H = 0.15;
 const MATS = new Map();
@@ -53,9 +53,9 @@ function boatMesh(i) {
     b.userData.bagMesh.visible = false;
     b.position.set(x, D + 0.06, z);
     const p = makePerson({ shirt: [0x1f9e55, 0x2e86de, 0xf39c12, 0x9b59b6][(k + i) % 4], pants: 0x1f2d3d, hat: 'helmet', hatColor: 0xffffff });
-    setSitting(p, true);
     p.position.set(0, sitY(), -0.05);
     b.add(p);
+    gripBar(p, 'underbone');
     g.add(b);
   });
   return g;

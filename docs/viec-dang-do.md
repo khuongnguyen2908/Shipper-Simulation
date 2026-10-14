@@ -18,6 +18,22 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   - Chủ game tự tạo dự án Firebase (Claude hướng dẫn từng bước), dán cấu hình vào code.
 
 ## 💬 Đang bàn
+### 🧍 Hình NPC khớp lời thoại — chia 3 đợt (14/10, đã duyệt; đợt 1 xong, CHỜ chủ game xem)
+- **Đợt 1 (xong)** — `world/npcStyles.js` (pedStyle / riderStyle / suitcaseOnBike) + `models.applyPose` (ngồi bệt, còng lưng, lắc lư, gục, đi nghênh ngang, giơ tay định kỳ):
+  người đi đường theo thẻ vai trên tên (ăn xin ngồi bệt + lon ở cổng chùa / chợ / nhà thờ / bệnh viện / bến xe, tối đa 5 người · vé số nón lá + túi + xấp vé ·
+  anh / chị đại xăm tay, kính đen, dây chuyền · thằng khùng áo choàng đỏ giơ tay "bay" · ngoại quốc ba lô to + máy ảnh · sinh viên ba lô ·
+  `[dacho]` người dắt chó (tên mới trong ped.names) · con nít đồng phục, khăn quàng đỏ · người già còng lưng, chống gậy, nón lá);
+  khách xe ôm theo loại (say: mặt đỏ, cầm chai, ngồi gục · vali: kéo vali, lên xe thì vali luôn kẹp giữa người lái và khách ·
+  ngoại quốc · học sinh · khách vội: áo trắng, cà vạt, cặp, xem đồng hồ). Khách lừa đảo cố ý mặc đồ thường.
+- Sửa sau khi chủ game xem (14/10): anh đại to con + xăm kín 2 tay (hoa văn vẽ canvas), chị đại xăm tay; lắc lư / gục / đi nghênh ngang xoay quanh hông
+  (trước bị đứt ngang người); tay người lái nắm đúng tay lái mọi kiểu xe (`models.gripBar`: tự tính góc vai / khuỷu + chồm lưng tới khi tay không với tới) —
+  người chơi, xe máy NPC, xe trên phà.
+- **Đợt 2**: Jetjet (áo caro sọc, nón lưỡi trai đội ngược / lệch theo ảnh mẫu — cần thêm kiểu nón mới; đi nhóm 2–3 xe, buổi tối, nẹt pô, bốc đầu),
+  shipper hãng đối thủ (GripBike / CamSM), xe ba gác chở quá tải, trộm chó đi Exciter (chó luôn thoát; chạy theo lịch giờ chung).
+- **Đợt 3**: chốt CSGT đi tuần theo lịch giờ chung (gần chốt chạy quá tốc → phạt policeFine; vượt đèn đỏ trước mặt → 100%) + xe CSGT;
+  chú xe ôm truyền thống CHỈ nằm trên xe (chỗ cố định, sửa trong ?editor; tính năng bàn sau).
+- 🌐 Nhiều người chơi: hình NPC chỉ để nhìn, mỗi máy tự vẽ. NPC có ảnh hưởng luật chơi (CSGT, trộm chó, xe ôm) phải chạy theo lịch giờ chung như xe buýt.
+
 ### 🌐 Chuẩn bị chơi nhiều người: lương cứng 2 hãng · biển số tài xế · bỏ tua thời gian (14/10 — đã góp ý, CHỜ chủ game chọn)
 - **Số đo (bot 6 ngày × 30 lượt, tiền kiếm/ngày sau phí sàn, chưa trừ tiền nhà)**: normal ~530k GripBike / ~510k CamSM (~11 đơn) ·
   careful ~480k / ~460k · picky ~400k / ~390k · rush ~740k / ~680k (bị phạt ~190k). Xăng + nhớt ~60k/ngày, sạc + đổi pin ~15k/ngày.

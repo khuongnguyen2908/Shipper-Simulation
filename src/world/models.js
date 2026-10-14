@@ -374,6 +374,57 @@ export function animatePerson(g, phase, amount) {
   p.elbowL.rotation.x = p.elbowR.rotation.x = -0.15 - 0.35 * amount;
   p.body.position.y = Math.abs(s) * 0.04 * amount;
   if (p.hold) holdPose(p, s * amount); // TikToker: tay phải luôn giơ điện thoại (rung nhẹ theo bước chân)
+  if (p.pose) applyPose(p, phase, amount);
+}
+
+// ---------- TƯ THẾ RIÊNG của NPC (world/npcStyles.js gán p.pose) ----------
+// pose: { armR / armL: [vai, khuỷu] (góc giữ cố định — tay cầm gậy, xấp vé số, cặp…) · hunch: lưng còng (rad, gập quanh hông)
+//         sway: lắc lư ngang (khách say) · swagger: đi khệnh khạng (vai lắc, chân bước rộng) · ground: ngồi bệt dưới đất
+//         lift: { arm: 'R' | 'L', to: [vai, khuỷu], every, hold, rest? } giơ tay định kỳ (chụp ảnh, xem đồng hồ, tạo dáng; rest: góc hạ tay về cho người đứng yên)
+//         pet: con chó dắt theo (chân vẫy theo bước người) }
+const HIP_H = HIP_Y; // chiều cao hông (gốc gập lưng)
+const GROUND_DROP = HIP_Y - 0.12; // ngồi bệt: hông hạ xuống sát đất (đùi nằm ngang)
+export function applyPose(p, phase = 0, amount = 0) {
+  const P = p.pose, t = performance.now() / 1000;
+  if (P.ground) {
+    // ngồi bệt: đùi duỗi ra trước sát đất, cẳng chân thẳng, thân hạ xuống ngang hông
+    p.legL.rotation.x = p.legR.rotation.x = -1.45;
+    p.kneeL.rotation.x = p.kneeR.rotation.x = 0.15;
+    p.legL.rotation.z = 0.12;
+    p.legR.rotation.z = -0.12;
+  }
+  // lưng còng: tay không cầm gì vẫn buông thẳng xuống đất (bù góc gập lưng)
+  if (P.hunch) for (const k of ['L', 'R']) if (!P['arm' + k]) p['arm' + k].rotation.x -= P.hunch;
+  if (P.armR) [p.armR.rotation.x, p.elbowR.rotation.x] = P.armR;
+  if (P.armL) [p.armL.rotation.x, p.elbowL.rotation.x] = P.armL;
+  if (P.lift) {
+    const on = (t % P.lift.every) < P.lift.hold;
+    if (on) [p['arm' + P.lift.arm].rotation.x, p['elbow' + P.lift.arm].rotation.x] = P.lift.to;
+    // hạ tay về chỗ cũ (người đứng yên không có animatePerson đặt lại tay mỗi khung hình)
+    else if (P.lift.rest) [p['arm' + P.lift.arm].rotation.x, p['elbow' + P.lift.arm].rotation.x] = P.lift.rest;
+  }
+  // gập lưng quanh hông (không quanh gót chân): xoay thân rồi dời lại cho hông đứng yên
+  const a = (P.hunch || 0) + (P.slump ? 0.22 + Math.sin(t * 0.7) * 0.06 : 0);
+  p.body.rotation.x = a;
+  p.body.rotation.z = (P.sway ? Math.sin(t * 1.6) * P.sway : 0) + (P.swagger ? Math.sin(phase) * 0.07 * Math.max(0.4, amount) : 0);
+  // giữ hông đứng yên khi thân xoay (gập trước a, nghiêng ngang rz): dời thân bù lại, không thì thân trên trượt khỏi chân
+  const rz = p.body.rotation.z;
+  p.body.position.x = HIP_H * Math.sin(rz);
+  p.body.position.z = -Math.cos(rz) * Math.sin(a) * HIP_H;
+  p.body.position.y += HIP_H * (1 - Math.cos(rz) * Math.cos(a)) + (P.ground ? -GROUND_DROP : 0);
+  if (P.ground) {
+    // ngồi bệt: hông (gốc 2 chân) hạ xuống theo thân
+    p.legY0 ??= p.legL.position.y;
+    p.legL.position.y = p.legR.position.y = p.legY0 - GROUND_DROP;
+  }
+  if (P.swagger) {
+    p.legL.rotation.z = 0.1;
+    p.legR.rotation.z = -0.1;
+  }
+  if (P.pet) {
+    const s = Math.sin(phase * 1.6) * 0.6 * Math.min(1, amount * 1.6);
+    P.pet.userData.legs.forEach((l, k) => (l.rotation.x = k % 2 ? s : -s));
+  }
 }
 
 // ---------- TikToker: người đi đường lúc nào cũng giơ điện thoại quay ----------
@@ -429,12 +480,60 @@ export function setSitting(g, sitting, chair = false) {
   p.kneeL.rotation.x = p.kneeR.rotation.x = sitting ? (chair ? 1.45 : 1.25) : 0;
   p.armL.rotation.x = p.armR.rotation.x = sitting ? (chair ? -0.45 : -0.95) : 0;
   p.elbowL.rotation.x = p.elbowR.rotation.x = sitting ? (chair ? -0.55 : -0.35) : -0.15;
-  p.body.position.y = 0;
+  p.armL.rotation.z = -0.08;
+  p.armR.rotation.z = 0.08;
+  p.body.position.set(0, 0, 0);
+  p.body.rotation.x = 0;
+  // ngồi xe đã tính sẵn góc tay nắm tay lái (gripBar) → dùng góc đó
+  if (sitting && !chair && p.grip) {
+    [p.armL, p.armR].forEach((arm, k) => [arm.rotation.x, arm.rotation.z] = p.grip[k]);
+    [p.elbowL, p.elbowR].forEach((el, k) => (el.rotation.x = p.grip[k][2]));
+    // chồm lưng tới trước quanh hông (hông vẫn dính yên)
+    const a = p.lean || 0;
+    p.body.rotation.x = a;
+    p.body.position.set(0, HIP_Y * (1 - Math.cos(a)), -HIP_Y * Math.sin(a));
+  }
   // áo mưa khi ngồi xe: vạt trước phủ lên đùi (kéo dài + đẩy ra trước), không để gối thò ra
   if (p.overlay) {
     p.overlay.scale.set(1, sitting ? 0.92 : 1, sitting ? 1.45 : 1);
     p.overlay.position.set(0, sitting ? 0.1 : 0, sitting ? 0.16 : 0);
   }
+}
+
+// Tay nắm tay lái: tính góc vai (đưa ra trước + dang ngang) và khuỷu để 2 bàn tay chạm đúng 2 tay nắm của kiểu xe đó
+// (tay lái mỗi kiểu xe cao / thấp / rộng khác nhau — BIKE_SPECS.bar). Gọi SAU khi đã đặt người lên xe (đọc g.position = chỗ ngồi
+// trong khung xe, g.scale = vóc người). Lưu vào parts.grip để setSitting / pedalPerson dùng lại mỗi lần.
+const HAND_LEN = 0.3; // khuỷu → giữa bàn tay (foreArmGeo)
+export function gripBar(g, model) {
+  const S = BIKE_SPECS[model] || BIKE_SPECS.underbone;
+  const p = g.userData.parts, k = g.scale.x, [bw, by, bz] = S.bar;
+  const L1 = UPPER_ARM, L2 = HAND_LEN, cl = (v) => Math.max(-1, Math.min(1, v));
+  const sh = p.armR.position; // vai (trong thân), 2 bên đối xứng
+  // tay nắm theo hệ tọa độ của người (chưa nhân vóc), nắm phía trong tay nắm một chút
+  const T = { x: (bw - 0.03) / k, y: (by - g.position.y) / k, z: (bz - g.position.z) / k };
+  // vai khi chồm lưng tới trước góc a (gập quanh hông) → khoảng cách tới tay nắm
+  const toGrip = (a) => {
+    const h = sh.y - HIP_Y, y = HIP_Y + h * Math.cos(a), z = h * Math.sin(a);
+    return [T.x - sh.x, T.y - y, T.z - z];
+  };
+  // tay không với tới thì chồm người tới trước (tối đa ~30°) cho tay còn hơi gập khuỷu
+  let lean = 0;
+  while (lean < 0.52 && Math.hypot(...toGrip(lean)) > L1 + L2 - 0.03) lean += 0.02;
+  const [px, py, pz] = toGrip(lean);
+  // đổi sang hệ tọa độ của thân đang chồm (xoay ngược góc chồm)
+  const by2 = py * Math.cos(lean) + pz * Math.sin(lean), bz2 = -py * Math.sin(lean) + pz * Math.cos(lean);
+  p.grip = [-1, 1].map((sx) => {
+    let dx = sx * px, dy = by2, dz = bz2;
+    const d = Math.hypot(dx, dy, dz), D = Math.min(d, L1 + L2 - 0.01); // vẫn xa quá thì duỗi thẳng tay về phía tay nắm
+    [dx, dy, dz] = [dx, dy, dz].map((v) => (v * D) / d);
+    const ex = -Math.acos(cl((D * D - L1 * L1 - L2 * L2) / (2 * L1 * L2))); // gập khuỷu cho đủ khoảng cách
+    const vy = -(L1 + L2 * Math.cos(ex)), vz = -L2 * Math.sin(ex); // cánh tay khi vai chưa xoay
+    const az = Math.asin(cl(dx / -vy)); // dang ngang ra / khép vào
+    const ax = Math.atan2(dz, dy) - Math.atan2(vz, vy * Math.cos(az)); // đưa ra trước
+    return [ax, az, ex];
+  });
+  p.lean = lean;
+  setSitting(g, true);
 }
 
 // Đạp xe đạp: ngồi như trên xe máy, 2 chân đạp vòng ngược pha nhau (phase: góc giò đạp, amount 0..1 theo tốc độ)
@@ -447,7 +546,7 @@ export function pedalPerson(g, phase, amount) {
     hip.rotation.x = -1.2 - 0.35 * s;
     knee.rotation.x = 1.25 + 0.4 * s;
   }
-  p.body.position.y = Math.abs(Math.sin(phase)) * 0.012 * amount; // nhún nhẹ theo nhịp đạp
+  p.body.position.y += Math.abs(Math.sin(phase)) * 0.012 * amount; // nhún nhẹ theo nhịp đạp
 }
 
 // ======================== XE (phong cách A+) ========================
@@ -814,9 +913,9 @@ export function makeNpcMoto(color, rng) {
   bike.userData.bagMesh.visible = false;
   g.add(bike);
   const rider = makePerson({ ...randomPersonOpts(rng, null, { sitting: true }), hat: 'helmet', hatColor: rng.pick([0xe74c3c, 0xf1c40f, 0xffffff, 0x2980b9]) });
-  rider.position.set(0, sitY(), -0.15);
-  setSitting(rider, true);
+  rider.position.set(0, sitY(), -0.05);
   g.add(rider);
+  gripBar(rider, bike.userData.model);
   g.userData.bike = bike;
   return g;
 }

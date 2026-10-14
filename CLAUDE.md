@@ -49,6 +49,16 @@ Nguyên tắc:
 ## 5. Quy trình làm việc với tôi
 - Đầu mỗi phiên làm việc: đọc `docs/viec-dang-do.md` (việc đang dở / đã hoãn / cần theo dõi); xong hay phát sinh việc dở thì cập nhật file đó.
 - Mỗi yêu cầu: phân tích trước, đưa phương án kèm ưu nhược, CHỜ tôi duyệt rồi mới viết code.
+- **Luôn nhìn theo hướng chơi nhiều người (multiplayer)**: mỗi tính năng mới / sửa đổi, khi phân tích phải nói rõ nó sẽ chạy thế nào khi
+  nhiều người chơi chung một thế giới, và chọn cách làm dễ chuyển sang chơi nhiều người. Xét các điểm:
+  - Cái gì là của chung cả thế giới (giờ, thời tiết, ngập, đèn giao thông, địa điểm, đơn hàng, xe NPC…) và cái gì là của riêng từng người
+    (tiền, túi đồ, xe, sao, hãng) → của chung phải tính được giống hệt nhau trên mọi máy (theo seed + giờ chung) hoặc do máy chủ quyết.
+  - Thời gian: không thêm kiểu tua giờ / dừng giờ cho riêng một người (đồng hồ là của chung); việc tốn thời gian thì đồng hồ vẫn chạy.
+  - Ngẫu nhiên: dùng rng có seed theo ngày / giờ chung, không dùng Math.random cho thứ ảnh hưởng người khác.
+  - Gian lận & đồng bộ: thứ gì cộng tiền / sao / phạt về sau phải do máy chủ kiểm tra được; thứ chỉ để nhìn (xe nền, bong bóng thoại,
+    app Tích Tắc) thì mỗi máy tự vẽ, không cần gửi qua mạng.
+  - Nếu yêu cầu của tôi **vướng kỹ thuật khi chơi nhiều người** (vd dừng giờ, tua thời gian, NPC riêng cho 1 người, thứ không đồng bộ được)
+    thì phải BÁO LẠI tôi kèm cách thay thế, không im lặng làm theo kiểu chỉ chạy được 1 người.
 - Làm từng điểm, tự kiểm tra, báo kết quả từng điểm (Ổn / Đã sửa / Còn vấn đề), nói rõ khi lỗi do chính bạn gây ra.
 - Chỉ build và giao một lần khi xong tất cả các điểm của đợt.
 - Thao tác khó hoàn tác (xóa thư mục, ghi đè dữ liệu người dùng) phải hỏi trước.

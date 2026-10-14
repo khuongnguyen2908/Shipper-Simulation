@@ -37,7 +37,8 @@ import { BgTraffic } from './world/bgTraffic.js';
 import { pushCircle } from './world/physics.js';
 import { nextBoat, BOAT_DECK } from './sim/ferry.js';
 import { Sky } from './world/sky.js';
-import { makePerson, makeBeacon, makeZoneRing, setSitting, pedalPerson, randomPersonOpts, npcLook, sitY, makeBike } from './world/models.js';
+import { makePerson, makeBeacon, makeZoneRing, setSitting, pedalPerson, randomPersonOpts, npcLook, sitY, makeBike, applyPose } from './world/models.js';
+import { riderStyle, suitcaseOnBike } from './world/npcStyles.js';
 import { personOf, pronouns, profileLook } from './sim/people.js';
 import { makeLabelTexture, makeQuestTexture } from './world/textures.js';
 import { Input } from './input.js';
@@ -91,6 +92,8 @@ export class Game {
     this.traffic = new Traffic(this.scene, makeRng(99));
     this.traffic.elev = this.city.elev; // xe bot chạy lên cầu theo độ cao mặt cầu
     this.traffic.grid = this.city.grid; // người đi bộ né cây, cột, trạm xe buýt… trên vỉa hè
+    // người ăn xin ngồi cạnh cổng chùa, chợ, nhà thờ, bệnh viện, bến xe (theo dữ liệu địa điểm → mọi máy giống nhau)
+    this.traffic.placeStill(this.layout.places.filter((p) => p.door && ['pagoda', 'pagodaCourtyard', 'wetMarket', 'cathedral', 'hospital', 'busStation'].includes(lookOf(p))).map((p) => p.door));
     this.stallPeople = makeStallPeople(this.scene, this.city.seats); // khách ngồi ghế nhựa quán cóc (chỉ để nhìn)
     this.bgTraffic = new BgTraffic({ scene: this.scene }); // xe máy chạy ở xa cho đường đông (chỉ để nhìn, không va chạm)
     // đèn giao thông (sim/lights.js): đồng hồ đèn tính bằng giây thật; xe NPC / xe nền dừng đèn đỏ, người chơi vượt đèn đỏ có thể bị phạt nguội
@@ -1587,12 +1590,26 @@ export class Game {
   }
 
   clearTempNpcs() {
-    for (const k of ['customerMesh', 'passengerMesh']) {
+    for (const k of ['customerMesh', 'passengerMesh', 'passengerCargo']) {
       const m = this[k];
       if (m) m.parent && m.parent.remove(m);
       this[k] = null;
     }
     this.customerFor = null;
+    this.passengerStyle = null;
+  }
+  // Khách xe ôm theo loại khách (world/npcStyles.js riderStyle): quần áo + đồ đi kèm + tư thế; ride = đang ngồi sau xe
+  makePassenger(o, ride) {
+    const rng = makeRng(o.id * 31), who = personOf(o.customer);
+    const st = (this.passengerStyle ??= { s: riderStyle(o.rider, who, makeRng(o.id * 17)) }).s;
+    const look = { ...randomPersonOpts(rng, who.gender, { sitting: true }), ...(st?.look || {}), hat: 'helmet', hatColor: 0xffffff };
+    // đặt xe dùm cho cụ già / em bé: tóc bạc, dáng nhỏ
+    if (who.age === 'elder') look.hair = 0xc8c8c8;
+    else if (look.hair === 0x8d8d8d && (who.age === 'kid' || who.age === 'young')) look.hair = 0x1b1b1b; // người trẻ không tóc bạc
+    if (/^Bé\s/.test(o.customer)) look.scale = 0.72;
+    const m = makePerson(look);
+    st?.dress?.(m, ride);
+    return m;
   }
 
   // Khách đứng chờ ở cửa / khách xe ôm ngồi sau xe
@@ -1607,20 +1624,23 @@ export class Game {
     const rng = makeRng(o.id * 31);
     if (o.kind === 'ride') {
       if (!this.passengerMesh) {
-        // đặt xe dùm cho cụ già / em bé: tóc bạc, dáng nhỏ
-        const look = { ...randomPersonOpts(rng, personOf(o.customer).gender, { sitting: true }), hat: 'helmet', hatColor: 0xffffff };
-        if (/^(Bà|Ông|Cụ)\s/.test(o.customer)) look.hair = 0xc8c8c8;
-        if (/^Bé\s/.test(o.customer)) look.scale = 0.72;
-        this.passengerMesh = makePerson(look);
+        this.passengerMesh = this.makePassenger(o, false);
         this.scene.add(this.passengerMesh);
       }
-      const m = this.passengerMesh;
+      let m = this.passengerMesh;
+      const st = this.passengerStyle?.s;
       if (om.state === S.TO_PICKUP) {
         if (m.parent !== this.scene) this.scene.add(m);
         m.position.set(o.pickup.door.x, SW_H, o.pickup.door.z);
         m.rotation.y = Math.atan2(pp.x - m.position.x, pp.z - m.position.z);
-        m.userData.parts.armR.rotation.x = Math.abs(Math.sin(performance.now() / 300)) * -2.5; // vẫy tay
+        if (st?.wave !== false) m.userData.parts.armR.rotation.x = Math.abs(Math.sin(performance.now() / 300)) * -2.5; // vẫy tay
       } else if (m.parent !== this.bike.mesh) {
+        // lên xe: dựng lại khách ở dáng ngồi (bỏ đồ cầm tay: vali, chai bia, cặp…); vali đặt lên xe
+        if (st) {
+          m.parent?.remove(m);
+          m = this.passengerMesh = this.makePassenger(o, true);
+          if (st.suitcase && !this.passengerCargo) this.passengerCargo = suitcaseOnBike(this.bike.mesh, this.gs.vehicleSpec.model, st.suitcase);
+        }
         this.bike.mesh.add(m);
         setSitting(m, true);
         // khách ôm hờ eo người lái: tay đưa ra trước vừa phải, gập khuỷu
@@ -1631,6 +1651,11 @@ export class Game {
         m.position.set(0, sitY(m.scale.x, 1.02), -0.62);
         m.rotation.set(0, 0, 0);
         this.bike.mesh.userData.bagMesh.visible = false;
+      }
+      // tư thế riêng (khách say lắc lư, khách vội xem đồng hồ…): tính lại mỗi khung hình
+      if (m.userData.parts.pose) {
+        m.userData.parts.body.position.y = 0;
+        applyPose(m.userData.parts);
       }
       return;
     }

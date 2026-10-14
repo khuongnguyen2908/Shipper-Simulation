@@ -5,7 +5,7 @@ import { blockAt } from '../sim/cityLayout.js';
 import { DRIVING } from '../data/balance.js';
 const D = (k, def) => (Number.isFinite(DRIVING[k]) ? DRIVING[k] : def);
 import { resolveCircle } from './physics.js';
-import { makeBike, makePerson, animatePerson, setSitting, setBikeColor, sitY } from './models.js';
+import { makeBike, makePerson, animatePerson, setSitting, setBikeColor, sitY, gripBar } from './models.js';
 
 const SW_H = 0.15;
 const lerpAngle = (a, b, t) => {
@@ -49,6 +49,8 @@ export class Bike {
     this.body = makeBike(spec.color, model);
     this.mesh.add(this.body);
     this.mesh.userData = this.body.userData;
+    // đổi xe khi đang ngồi trên xe: người lái nắm lại tay lái kiểu xe mới
+    for (const c of this.mesh.children) if (c.userData.parts?.grip) gripBar(c, model);
     this.showBag(bagVisible);
     if (this.bagSpec) this.setBag(this.bagSpec);
   }
@@ -267,6 +269,7 @@ export class Walker {
       parent.add(m);
     }
     if (this.sitting || this.seat) setSitting(m, true, !!this.seat);
+    if (this.sitting && parent?.userData.model) gripBar(m, parent.userData.model); // đang ngồi xe: tay nắm lại tay lái
     this.mesh = m;
   }
 
@@ -298,6 +301,7 @@ export class Walker {
     bike.mesh.add(this.mesh);
     this.mesh.position.set(0, sitY(), -0.05);
     this.mesh.rotation.set(0, 0, 0);
+    gripBar(this.mesh, bike.mesh.userData.model); // 2 tay nắm đúng tay lái kiểu xe này
   }
 
   standUp(scene, bike) {
