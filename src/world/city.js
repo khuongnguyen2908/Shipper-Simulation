@@ -382,7 +382,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     const f = frontOf(r, face);
     const depth = f.nx ? r.x1 - r.x0 : r.z1 - r.z0;
     let top = 0;
-    for (const h of housesForLot({ x: f.x, y: SW_H, z: f.z, nx: f.nx, nz: f.nz, width: f.width, depth }, { floors, colors: WALL_COLORS, seed: rng.int(1, 1e9), ...opts })) {
+    for (const h of housesForLot({ x: f.x, y: SW_H, z: f.z, nx: f.nx, nz: f.nz, width: f.width, depth }, { floors, colors: WALL_COLORS, ...opts, seed: opts.seed ?? rng.int(1, 1e9) })) {
       const street = !opts.alley && !opts.low && !opts.back;
       // quán cóc: căn có cửa hàng, theo độ đông của khu (độ đông 1 ≈ 50% căn có cửa hàng) → ép có bạt che phía trước
       h.stall = street && h.ground === 'shop' && stallRng.next() < 0.5 * streetOf(districtAtPoint(h.x, h.z, mapData), 'stalls');
@@ -472,6 +472,13 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
       postList.push(p);
       addBox(p.x - 0.1, p.z - 0.1, p.x + 0.1, p.z + 0.1, 1, 'post');
     }
+  }
+  // ---------- ô giữa khối thường: nhà phía sau lưng tựa lưng (1–3 tầng, không cửa) cho kín khối ----------
+  // ngẫu nhiên theo toạ độ khối (không lấy từ rng chung → không làm đổi nhà ở chỗ khác)
+  for (const c of layout.centerFills || []) {
+    const cr = makeRng(seed * 977 + c.block[0] * 131 + c.block[1] * 7919 + 3);
+    const top = addLotHouses(c, cr.pick(['N', 'S', 'E', 'W']), cr.int(1, 3), { back: true, seed: cr.int(1, 1e9) });
+    addBox(c.x0, c.z0, c.x1, c.z1, top + SW_H, 'house');
   }
   if (postList.length) {
     const pm = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.1, 0.1, 0.9, 8), mat(0xe8e8e8, { emissive: 0x333333 }), postList.length);
@@ -574,7 +581,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     const f = frontOf(r, p.face);
     const depth = f.nx ? r.x1 - r.x0 : r.z1 - r.z0;
     const b = buildPlace({
-      look: lookOf(p), W: f.width, D: depth, floors: lookFloors(p), color: p.color, signBg: p.signBg, sign: p.sign, short: p.short, kind: p.kind,
+      look: lookOf(p), W: f.width, D: depth, floors: lookFloors(p), color: p.color, signBg: p.signBg, sign: p.sign, short: p.short, kind: p.kind, signV: p.signV, signVText: p.signVText,
       menu: (p.menu || []).map((id) => itemTable[id]?.name).filter(Boolean), seed: hashStr(p.id), inAlley: p.inAlley,
       cut: cutSide(p.lot, p.face), // cả khối chừa góc: góc chừa bên trái / phải nhìn từ đường
       garage: p.kind === 'home', // phòng trọ Cô Hai: tầng trệt là hầm xe (src/sim/garage.js)

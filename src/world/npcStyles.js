@@ -41,7 +41,7 @@ function inHand(p, side, total) {
 }
 
 // ---------- đồ đi kèm ----------
-const PROPS = {
+export const PROPS = {
   backpack(p, big, color) {
     const b = p.body;
     if (big) {
@@ -74,6 +74,43 @@ const PROPS = {
       n.rotation.y = Math.PI / 2;
       p.body.add(n);
     }
+  },
+  // nón lưỡi trai: dir 'front' | 'back' (đội ngược) | 'side' (đội lệch) — đội trên đầu (thân y 1,6)
+  cap(p, dir = 'back', color = 0x111111, logo = 0xffffff) {
+    const g = new THREE.Group();
+    g.position.set(0, 1.6, 0);
+    g.rotation.y = dir === 'back' ? Math.PI : dir === 'side' ? 1.25 : 0;
+    const crown = new THREE.Mesh(CAP_CROWN, mat(color));
+    crown.position.y = 0.065; // vành nón ngang trán, không che mắt (mắt ở +0,025)
+    crown.castShadow = true;
+    g.add(crown);
+    box(g, 0.15, 0.014, 0.12, color, 0, 0.072, 0.17, -0.12); // lưỡi trai
+    box(g, 0.07, 0.04, 0.01, logo, 0, 0.12, 0.112, -0.45); // logo trước nón
+    p.body.add(g);
+    return g;
+  },
+  // áo sơ mi caro / sọc mặc ngoài, mở cúc (lộ áo thun bên trong), tay ngắn: vỏ ôm thân + 2 tay áo, hoa văn vẽ canvas
+  plaid(p, pattern = 0, female = false) {
+    const m = plaidMat(pattern);
+    const prof = female
+      ? [[0.15, 0], [0.142, 0.1], [0.163, 0.24], [0.178, 0.32], [0.172, 0.4], [0.138, 0.46], [0.08, 0.5]]
+      : [[0.15, 0], [0.16, 0.08], [0.178, 0.22], [0.192, 0.34], [0.19, 0.4], [0.15, 0.46], [0.08, 0.5]];
+    const k = `${female}`;
+    if (!PLAID_GEO.has(k)) {
+      // giống thân người (models torsoGeo) nhưng to hơn 7%, 16 cạnh, chừa khe trước ngực (áo mở)
+      const pts = prof.map(([r, y], i) => new THREE.Vector2(i === prof.length - 1 ? r : r * 1.07, y - 0.02));
+      PLAID_GEO.set(k, new THREE.LatheGeometry(pts, 16, 0.42, Math.PI * 2 - 0.84).scale(1, 1, 0.7));
+    }
+    const shell = new THREE.Mesh(PLAID_GEO.get(k), m);
+    shell.position.y = 0.96;
+    shell.castShadow = true;
+    p.body.add(shell);
+    for (const arm of [p.armL, p.armR]) {
+      const sl = new THREE.Mesh(sleeveGeo(0.074, 0.07, 0.17), m);
+      sl.position.y = -0.055;
+      arm.add(sl);
+    }
+    return shell;
   },
   // to con: vai + ngực rộng hơn, bắp tay / cẳng tay to hơn (chân giữ nguyên)
   buff(p, k = 1) {
@@ -190,6 +227,54 @@ function tattooMat() {
   tex.wrapS = THREE.RepeatWrapping;
   TATTOO = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.35, roughness: 0.8 });
   return TATTOO;
+}
+// Vải caro / sọc (vẽ 1 lần mỗi kiểu): pattern 0 đỏ-đen · 1 xanh-trắng · 2 xanh lá-đen · 3 sọc dọc trắng-đen · 4 vàng-đen
+const PLAID = [
+  ['#c0262d', '#1b1b1b', '#e8e8e8'],
+  ['#2f5fa8', '#f2f2f2', '#173a6e'],
+  ['#2e6b3a', '#141414', '#c9d36a'],
+  null,
+  ['#e2b52a', '#1b1b1b', '#ffffff'],
+];
+const PLAID_MATS = new Map(), PLAID_GEO = new Map();
+const CAP_CROWN = new THREE.SphereGeometry(0.128, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2).scale(0.98, 0.85, 1.05);
+function plaidMat(pattern) {
+  if (PLAID_MATS.has(pattern)) return PLAID_MATS.get(pattern);
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const x = c.getContext('2d');
+  const P = PLAID[pattern];
+  if (!P) {
+    // sọc dọc
+    x.fillStyle = '#f2f2f2';
+    x.fillRect(0, 0, 64, 64);
+    x.fillStyle = '#1b1b1b';
+    for (let i = 0; i < 64; i += 16) x.fillRect(i, 0, 6, 64);
+  } else {
+    const [base, dark, line] = P;
+    x.fillStyle = base;
+    x.fillRect(0, 0, 64, 64);
+    x.globalAlpha = 0.55;
+    x.fillStyle = dark;
+    for (let i = 0; i < 64; i += 32) {
+      x.fillRect(i, 0, 14, 64); // sọc dọc đậm
+      x.fillRect(0, i, 64, 14); // sọc ngang đậm (chỗ giao nhau đậm hơn → ra ô caro)
+    }
+    x.globalAlpha = 1;
+    x.fillStyle = line;
+    for (let i = 22; i < 64; i += 32) {
+      x.fillRect(i, 0, 2, 64);
+      x.fillRect(0, i, 64, 2);
+    }
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(3, 2);
+  tex.magFilter = THREE.NearestFilter;
+  const m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85, side: THREE.DoubleSide });
+  PLAID_MATS.set(pattern, m);
+  return m;
 }
 const SLEEVE = new Map();
 const sleeveGeo = (r0, r1, h) => {

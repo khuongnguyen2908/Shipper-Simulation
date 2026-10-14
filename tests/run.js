@@ -4233,5 +4233,72 @@ console.log('Đèn giao thông & phạt nguội (sim/lights.js)');
   });
 }
 
+console.log('Trộm chó theo lịch chung (sim/dogThief.js)');
+{
+  const T = await import('../src/sim/dogThief.js');
+  const F = await import('../src/sim/feed.js');
+  const { atHour } = await import('../src/sim/clock.js');
+  const { neighbors, roadPos } = await import('../src/sim/cityLayout.js');
+  const cfg = { thiefPerNight: 2, thiefFrom: 22, thiefTo: 4 };
+  test('Cùng ngày + cùng seed → cùng giờ, cùng chỗ (mọi máy thấy giống nhau); khác ngày → khác', () => {
+    const a = T.thiefEvents(3, 777, cfg), b = T.thiefEvents(3, 777, cfg);
+    assert.deepEqual(a, b);
+    assert.equal(a.length, 2);
+    assert.notDeepEqual(T.thiefEvents(4, 777, cfg).map((e) => e.at - 1440), a.map((e) => e.at));
+  });
+  test('Vụ trộm rơi trong khung 22:00 → 04:00, không chồng nhau, ở trên đường có thật', () => {
+    for (let day = 1; day <= 20; day++) {
+      const ev = T.thiefEvents(day, 99, cfg);
+      const from = atHour(day, 22), to = from + 6 * 60;
+      ev.forEach((e, i) => {
+        assert.ok(e.at >= from && e.at + T.PHASE.end <= to, `ngày ${day}: ${e.at} ngoài khung ${from}–${to}`);
+        if (i) assert.ok(e.at >= ev[i - 1].at + T.PHASE.end, 'hai vụ chồng lúc');
+        const sp = T.thiefSpot(e.bx, e.bz, e.side, e.u);
+        assert.ok(sp && Math.abs(sp.x - e.x) < 1e-9 && Math.abs(sp.z - e.z) < 1e-9);
+        // điểm nằm trên tim một đường (x hoặc z trùng tim đường của ngã tư)
+        const onLine = [...Array(30).keys()].some((i) => Math.abs(roadPos(i) - e.x) < 1e-6 || Math.abs(roadPos(i) - e.z) < 1e-6);
+        assert.ok(onLine, `ngày ${day}: không nằm trên đường`);
+      });
+    }
+  });
+  test('activeThief: có vụ từ lúc chó ngồi chờ tới lúc trộm đi khuất; recentThieves: tin sáng hôm sau', () => {
+    const e = T.thiefEvents(2, 5, cfg)[0];
+    assert.equal(T.activeThief(e.at + 3, 5, cfg)?.id, e.id);
+    assert.equal(T.activeThief(e.at + T.PHASE.dogFrom - 1, 5, cfg)?.id ?? null, null);
+    assert.ok(T.recentThieves(e.at + 8 * 60, 5, cfg).some((x) => x.id === e.id));
+    assert.ok(!T.recentThieves(e.at + 1, 5, cfg).some((x) => x.id === e.id), 'chưa xong thì chưa có tin');
+    assert.deepEqual(T.thiefEvents(2, 5, { ...cfg, thiefPerNight: 0 }), []);
+  });
+  test('Mẫu tin Tích Tắc trộm chó hợp lệ, tin nóng có tên đường', () => {
+    const feed = F.buildFeed({ facts: { dogThief: [{ street: 'Đường số 6', at: { x: 0, z: 0, axis: 'x' } }] }, seed: 3 });
+    const p = feed.find((x) => x.key === 'tt.hot.dogThief');
+    assert.ok(p && p.hot && p.caption.includes('Đường số 6'));
+  });
+}
+
+console.log('Nhà địa điểm kiểu A, ô giữa khối, khuôn viên đại học');
+{
+  const CL = await import('../src/sim/cityLayout.js');
+  const { validatePlaces } = VALIDATE;
+  test('Ô giữa khối thường còn trống được lấp nhà phía sau; khối có hẻm / sông / gộp / địa điểm cả khối thì không', () => {
+    const lay = CL.buildLayout();
+    assert.ok(lay.centerFills.length > 0);
+    const big = new Set(lay.places.filter((q) => ['B', 'M', 'BN0', 'BN2', 'BS0', 'BS2', 'JE', 'JS'].includes(q.lot)).map((q) => q.block.join(',')));
+    for (const c of lay.centerFills) {
+      const [bx, bz] = c.block, b = CL.blockBounds(bx, bz);
+      assert.ok(!CL.blockPlan(bx, bz) && !CL.isWaterBlock(bx, bz) && !CL.isJoinedBlock(bx, bz), `${c.block}: khối có hẻm / sông / gộp`);
+      assert.ok(!big.has(c.block.join(',')), `${c.block}: đã có địa điểm cả khối / ô giữa`);
+      assert.ok(c.x0 > b.x0 + CL.CITY.SW && c.x1 < b.x1 - CL.CITY.SW && c.z0 > b.z0 + CL.CITY.SW && c.z1 < b.z1 - CL.CITY.SW, 'nằm trong lòng khối');
+      for (const l of lay.lots.filter((l) => l.block[0] === bx && l.block[1] === bz)) assert.ok(c.x1 <= l.x0 + 0.3 || l.x1 <= c.x0 + 0.3 || c.z1 <= l.z0 + 0.3 || l.z1 <= c.z0 + 0.3, `${c.block}: chồng lô ${l.lot}`);
+    }
+  });
+  test('Trường đại học được chọn "Cả khối"; quán ăn thì không; biển dọc phải là có / không', () => {
+    const P = DATA.places;
+    assert.deepEqual(validatePlaces({ ...P, places: P.places.map((q) => (q.id === 'rmit' ? { ...q, lot: 'B' } : q)) }, DATA.items).filter((i) => i.level === 'error' && i.ref === 'rmit' && i.field === 'lot'), []);
+    assert.ok(validatePlaces({ ...P, places: P.places.map((q) => (q.id === 'pho' ? { ...q, lot: 'B' } : q)) }, DATA.items).some((i) => i.level === 'error' && i.ref === 'pho' && i.field === 'lot'));
+    assert.ok(validatePlaces({ ...P, places: P.places.map((q) => (q.id === 'pho' ? { ...q, signV: 'có' } : q)) }, DATA.items).some((i) => i.level === 'error' && i.ref === 'pho' && i.field === 'signV'));
+  });
+}
+
 console.log(`\n${pass} đạt, ${fail} lỗi`);
 if (fail) process.exit(1);

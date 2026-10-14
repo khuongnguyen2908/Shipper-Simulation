@@ -517,7 +517,8 @@ function boardPassenger(g) {
   om.boardPassenger(g.clockMin);
   sound('order.boarded');
   // khách chào khi leo lên xe: bong bóng trên đầu khách + ghi log
-  const hi = pick('bubble.riderHi', Math.floor(g.clockMin), custVoice(g, o));
+  // câu chào hợp loại khách (thẻ [drunk] [vali] [hurry]… trong vi.json, mã loại khách ở apps.json → riderTypes) hoặc hợp tuổi ([elder])
+  const hi = pickFor('bubble.riderHi', { ...personOf(o.customer), role: o.rider }, Math.floor(g.clockMin), custVoice(g, o));
   g.bubbles?.show('rider', () => headOf(g.passengerMesh, 1.9), hi);
   sound('chat.bubble');
   g.chatCh?.local('npc', o.customer, hi, { time: fmtClock(g.clockMin) });

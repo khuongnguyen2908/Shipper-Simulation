@@ -309,6 +309,8 @@
       "color": "#f4c095",
       "sign": "BÚN MỌC YẾN",
       "signBg": "#b03a2e",
+      "signV": true,
+      "signVText": "BÚN MỌC",
       "menu": [
         "bunMoc",
         "bunMoc_2"
@@ -346,6 +348,8 @@
       "color": "#f6e27f",
       "sign": "PHỞ BÀ TƯ",
       "signBg": "#b03a2e",
+      "signV": true,
+      "signVText": "PHỞ",
       "menu": [
         "pho",
         "bunBo",
@@ -392,6 +396,8 @@
       "color": "#f4c095",
       "sign": "CƠM TẤM THÈM",
       "signBg": "#a04000",
+      "signV": true,
+      "signVText": "CƠM TẤM",
       "menu": [
         "comTam",
         "comTamOpla",
@@ -2562,6 +2568,8 @@
       "color": "#e7a9a9",
       "sign": "HỦ TIẾU MÌ ÔNG TÁM",
       "signBg": "#c0392b",
+      "signV": true,
+      "signVText": "HỦ TIẾU",
       "menu": [
         "huTieu",
         "miVit"
@@ -2920,6 +2928,8 @@
       "color": "#e8d5b7",
       "sign": "LẨU DÊ BẢY HIỀN",
       "signBg": "#6d4c41",
+      "signV": true,
+      "signVText": "LẨU DÊ",
       "menu": [
         "lauDe"
       ],
@@ -4060,9 +4070,9 @@
       ],
       "lot": "N",
       "look": "cathedral",
-      "color": "#b5523b",
+      "color": "#ffb3ee",
       "sign": "NHÀ THỜ ĐÁ ĐỎ",
-      "signBg": "#7a2e22",
+      "signBg": "#ff52e8",
       "hours": "caNgay",
       "npc": {
         "name": "Cha xứ Phêrô",

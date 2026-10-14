@@ -12,7 +12,7 @@ import { validatePhone } from './phoneApps.js';
 import { ORDER_KINDS, FROM_HOMES } from './apps.js';
 import { GENDERS, HAIR_STYLES } from '../sim/people.js';
 import { openDayOf } from '../sim/placeRules.js';
-import { LOOKS, lookOf, looksFor } from './looks.js';
+import { LOOKS, lookOf, looksFor, CAMPUS_LOOKS } from './looks.js';
 import { hoursProblem, totalHours } from '../sim/hours.js';
 import { BALANCE_GROUPS, KNOWN_PATHS, getPath } from './balanceSpec.js';
 import { ITEM_GROUP_IDS } from './itemGroups.js';
@@ -362,14 +362,16 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null, m
     if (!COLOR_RE.test(p.color || '')) add('error', p.id, 'color', 'Màu tường phải dạng #rrggbb.');
     if (p.kind !== 'gas' && p.kind !== 'gate' && p.kind !== 'market' && p.kind !== 'scenery' && p.sign == null) add('warn', p.id, 'sign', 'Chưa có biển hiệu.');
     // cỡ cả khối: cảnh quan hoặc chùa tứ hợp viện · cả khối chừa góc: chỉ chùa tứ hợp viện (cảnh quan phủ kín khối)
-    const courtyard = lookOf(p) === 'pagodaCourtyard';
-    if (p.lot === 'B' && p.kind !== 'scenery' && !courtyard) add('error', p.id, 'lot', 'Cỡ "Cả khối" chỉ dành cho cảnh quan hoặc chùa tứ hợp viện.');
+    const courtyard = lookOf(p) === 'pagodaCourtyard', campus = CAMPUS_LOOKS.includes(lookOf(p));
+    if (p.lot === 'B' && p.kind !== 'scenery' && !courtyard && !campus) add('error', p.id, 'lot', 'Cỡ "Cả khối" chỉ dành cho cảnh quan, chùa tứ hợp viện hoặc trường đại học.');
     if (p.lot === 'M' && p.kind !== 'scenery') add('error', p.id, 'lot', 'Ô giữa khối (M) không chạm đường — chỉ đặt cảnh quan (công viên, đất trống…).');
     if (cutCell(p.lot || '') && !courtyard) add('error', p.id, 'lot', 'Cỡ "Cả khối, chừa 1 góc" chỉ dành cho chùa tứ hợp viện.');
     if (courtyard && isPlaced(p) && p.lot !== 'B' && !cutCell(p.lot)) add('error', p.id, 'lot', 'Chùa tứ hợp viện chiếm cả khối — chọn kích thước "Cả khối" hoặc "Cả khối, chừa 1 góc" (khối không hẻm).');
     if (p.look != null && LOOKS[p.look] && !looksFor(p.kind).includes(p.look)) add('error', p.id, 'look', p.kind === 'scenery' ? 'Cảnh quan chỉ dùng kiểu cảnh quan (công viên, đất trống, sân bóng, bãi giữ xe, công trình).' : LOOKS[p.look].scenery ? `Kiểu "${LOOKS[p.look].label}" chỉ dành cho loại Cảnh quan.` : `Loại này không dùng được kiểu "${LOOKS[p.look].label}".`);
     if (p.kind === 'police' && isPlaced(p) && lotParts(p.lot).length < 2) add('error', p.id, 'lot', 'Đồn công an cần ít nhất 2 lô (nhà công an + bãi giữ xe vi phạm) — đổi kích thước 2 lô / cả dãy, đặt ở khối không hẻm.');
     if (p.signBg && !COLOR_RE.test(p.signBg)) add('error', p.id, 'signBg', 'Màu biển phải dạng #rrggbb.');
+    if (p.signV != null && typeof p.signV !== 'boolean') add('error', p.id, 'signV', 'Biển dọc phải là có / không.');
+    if (p.signVText != null && (typeof p.signVText !== 'string' || [...p.signVText.replace(/\s+/g, '')].length > 8)) add('warn', p.id, 'signVText', 'Chữ biển dọc nên ngắn (tối đa 8 chữ cái) — viết dọc từng chữ.');
     if (p.floors != null && (!Number.isInteger(p.floors) || p.floors < 1 || p.floors > 15)) add('error', p.id, 'floors', 'Số tầng 1–15.');
     // kiểu nhà (hình dáng) + số tầng cho phép theo kiểu
     if (p.look != null && !LOOKS[p.look]) add('error', p.id, 'look', `Kiểu nhà lạ: ${p.look}.`);

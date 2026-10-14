@@ -53,6 +53,7 @@ export function buildFeed({ facts = {}, places = [], seed = 1, fun = 18 } = {}) 
   for (const o of (facts.openings || []).slice(0, 2)) one('tt.hot.opening', { place: o.place }, o.at, true);
   if (facts.scam) one('tt.hot.scam', { place: facts.scam.place }, facts.scam.at, true);
   if (facts.wallet) one('tt.hot.wallet', {}, null, true);
+  for (const t of (facts.dogThief || []).slice(0, 1)) one('tt.hot.dogThief', { street: t.street }, t.at, true); // vụ trộm chó hụt đêm qua (sim/dogThief.js)
   // ---- tin về mình ----
   const me = facts.me;
   if (me) {

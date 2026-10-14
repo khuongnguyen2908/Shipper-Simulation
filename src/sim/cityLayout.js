@@ -298,6 +298,7 @@ export function buildLayout(placesData = PLACES, map = MAP) {
   taken.add(key(ALLEY.block[0], ALLEY.block[1], ALLEY.lot));
   const lots = [];
   const alleyBlocks = []; // khối có hẻm: hẻm, nhà phía sau (không cửa), cột chắn — toạ độ thế giới
+  const centerFills = []; // ô giữa khối thường còn trống → nhà phía sau (không cửa) cho kín khối như phố thật (world/city.js)
   for (let bz = 0; bz < CITY.N; bz++) {
     for (let bx = 0; bx < CITY.N; bx++) {
       const plan = blockPlan(bx, bz, map);
@@ -310,10 +311,15 @@ export function buildLayout(placesData = PLACES, map = MAP) {
         if (taken.has(k)) continue;
         lots.push({ key: k, block: [bx, bz], lot: id, ...lotInfo(bx, bz, id, null, map) });
       }
+      // ô giữa (C): khối không hẻm, không dưới sông, không gộp, chưa có địa điểm cả khối / cảnh quan ô giữa chiếm
+      if (!plan && !isWaterBlock(bx, bz, map) && !isJoinedBlock(bx, bz, map) && !taken.has(key(bx, bz, 'C'))) {
+        const b = blockBounds(bx, bz), ax = b.x0 + CITY.SW + LOT_W, az = b.z0 + CITY.SW + LOT_W;
+        centerFills.push({ block: [bx, bz], x0: ax + 0.25, x1: ax + LOT_W - 0.25, z0: az + 0.25, z1: az + LOT_W - 0.25 });
+      }
     }
   }
   const placeById = Object.fromEntries(places.map((p) => [p.id, p]));
-  return { places, placeById, lots, alleyBlocks };
+  return { places, placeById, lots, alleyBlocks, centerFills };
 }
 
 // Cửa dùng cho xe ôm: nhà trong hẻm đi bộ → đón/trả ở miệng hẻm (xe không vào được); sân bay → điểm đón xe công nghệ

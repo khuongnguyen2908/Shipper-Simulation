@@ -3,9 +3,14 @@
 //  - Người đi bộ đi vòng quanh vỉa hè, dừng lại khi được hỏi chuyện
 //  - Chó lang thang, thỉnh thoảng lao qua đường trước mũi xe
 //  - Chốt CSGT, đoàn xe kẹt giờ cao điểm
+//  - Xe đặc biệt chỉ để nhìn (world/npcVehicles.js): nhóm Jetjet buổi tối, shipper hãng đối thủ, ba gác chở quá tải;
+//    vụ trộm chó theo lịch chung (sim/dogThief.js)
 import * as THREE from 'three';
 import { CITY, roadPos, blockBounds, segmentRect, neighbors, traitAtBlock, isJoinedBlock, isWaterBlock } from '../sim/cityLayout.js';
-import { HAZARD } from '../data/balance.js';
+import { HAZARD, NPC_FLAVOR } from '../data/balance.js';
+import { BRANDS } from '../data/apps.js';
+import { makeJetjet, makeRivalShipper, makeRivalWaiting, makeBaGac, makeDogThief } from './npcVehicles.js';
+import { activeThief, thiefSpot, PHASE as THIEF } from '../sim/dogThief.js';
 import { pedStyle } from './npcStyles.js';
 import { holdPhone, makeCar, makeNpcMoto, makePerson, makeDog, makeCone, animatePerson, randomPersonOpts, jamCarGeo, jamMotoGeo } from './models.js';
 import { personOf } from '../sim/people.js';
@@ -26,7 +31,8 @@ export const TURN_R = 8;
 const TURN_V = { right: 4.5, left: 5.5, uturn: 3 }; // tốc độ tối đa khi cua (m/s)
 const RADIUS = { car: 1.3, moto: 0.6 }; // bán kính thân xe khi xét 2 đường cua có chạm nhau không
 // Kích thước để nhường nhau: nửa bề ngang, nửa chiều dài
-const SIZE = { car: [0.95, 2.2], moto: [0.4, 1], bus: [1.3, 5.5] };
+const SIZE = { car: [0.95, 2.2], moto: [0.4, 1], bus: [1.3, 5.5], bagac: [0.72, 1.6] };
+const sizeOf = (a) => a.size || SIZE[a.kind]; // xe ba gác: chạy như xe máy nhưng thân to
 let UID = 1;
 
 // Kiểu rẽ ở ngã tư: hướng vào din, hướng ra dout (vector đơn vị theo lưới) — xe chạy bên phải, bên phải của (x, z) là (-z, x)
@@ -202,31 +208,79 @@ export class Traffic {
     const k = (CITY.N * CITY.N) / 25;
     const nCars = opts.cars ?? Math.round(22 * k), nMotos = opts.motos ?? Math.round(30 * k), nPeds = opts.peds ?? Math.round(36 * k), nDogs = opts.dogs ?? Math.round(6 * k);
     for (let i = 0; i < nCars + nMotos; i++) this.spawnAgent(i < nCars ? 'car' : 'moto');
+    if (opts.specials !== false) this.spawnSpecials();
     for (let i = 0; i < nPeds; i++) this.spawnPed(i);
     for (let i = 0; i < nDogs; i++) this.spawnDog();
     this.buildJamMeshes();
   }
 
   // ---------------- xe NPC ----------------
-  spawnAgent(kind) {
+  // o (xe đặc biệt): { special: 'jetjet' | 'rival' | 'bagac', mesh, maxSpeed, size, hours: [từ giờ, tới giờ], leader (xe dẫn nhóm),
+  //   from, to, t (xuất phát ngay sau xe dẫn) }
+  spawnAgent(kind, o = {}) {
     const rng = this.rng;
     // xuất phát ở ngã tư có đường đi (không phải mặt sông)
-    let from = [rng.int(0, CITY.N), rng.int(0, CITY.N)];
+    let from = o.from || [rng.int(0, CITY.N), rng.int(0, CITY.N)];
     for (let k = 0; k < 50 && !neighbors(...from).length; k++) from = [rng.int(0, CITY.N), rng.int(0, CITY.N)];
-    const to = this.pickNext(from, null, kind);
-    // ô tô: sedan nhiều nhất, rồi SUV, taxi, xe tải nhỏ
-    const mesh = kind === 'car' ? makeCar(rng.pick(CAR_COLORS), rng.pick(['sedan', 'sedan', 'sedan', 'suv', 'suv', 'taxi', 'taxi', 'truck'])) : makeNpcMoto(rng.pick(MOTO_COLORS), rng);
+    const to = o.to || pickNextNode(rng, from, null, o.special === 'bagac' ? 'car' : kind, this.floodIds);
+    // ô tô: sedan nhiều nhất, rồi SUV, taxi, xe tải nhỏ · xe máy: thỉnh thoảng là shipper hãng đối thủ (thùng + áo màu hãng)
+    let mesh = o.mesh;
+    if (!mesh && kind === 'car') mesh = makeCar(rng.pick(CAR_COLORS), rng.pick(['sedan', 'sedan', 'sedan', 'suv', 'suv', 'taxi', 'taxi', 'truck']));
+    if (!mesh && rng.chance(NPC_FLAVOR.rivalPct ?? 0.15)) {
+      const brands = Object.values(BRANDS);
+      if (brands.length) {
+        const b = rng.pick(brands);
+        mesh = makeRivalShipper(rng, parseInt(String(b.color || '#00b14f').slice(1), 16), rng.pick(['cub', 'underbone', 'scooter']));
+        o = { ...o, special: 'rival' };
+      }
+    }
+    if (!mesh) mesh = makeNpcMoto(rng.pick(MOTO_COLORS), rng);
     this.scene.add(mesh);
-    const maxSpeed = kind === 'car' ? rng.range(7, 10) : rng.range(8, 11.5);
-    const a = { uid: UID++, kind, mesh, from, to, next: null, turn: null, cu: 0, t: rng.range(5, CITY.PITCH - TURN_R - 12), speed: maxSpeed * 0.5, maxSpeed, lane: 0, stop: 0, x: 0, z: 0, dx: 0, dz: 0, heading: 0, honk: 0, blockT: 0 };
+    const maxSpeed = o.maxSpeed ?? (kind === 'car' ? rng.range(7, 10) : rng.range(8, 11.5));
+    const a = { uid: UID++, kind, mesh, from, to, next: null, turn: null, cu: 0, t: o.t ?? rng.range(5, CITY.PITCH - TURN_R - 12), speed: maxSpeed * 0.5, maxSpeed, lane: 0, stop: 0, x: 0, z: 0, dx: 0, dz: 0, heading: 0, honk: 0, blockT: 0 };
+    if (o.special) Object.assign(a, { special: o.special, size: o.size, hours: o.hours, leader: o.leader, phase: rng.range(0, 6), talkCd: rng.range(3, 10) });
     a.lane = this.laneOf(a);
     a.heading = Math.atan2(to[0] - from[0], to[1] - from[1]);
     this.agents.push(a);
+    return a;
   }
   // Làn chạy theo cấp đường của đoạn đang đi (src/sim/roads.js → TIER_GEO): đường nhỏ chạy sát tim, đại lộ có dải phân cách
   laneOf(a) {
     const g = TIER_GEO[tierBetween(a.from, a.to)];
-    return a.kind === 'car' ? g.carLane : g.motoLane;
+    return a.kind === 'car' || a.special === 'bagac' ? g.carLane : g.motoLane; // ba gác to → chạy làn ô tô
+  }
+
+  // ---------------- xe đặc biệt (chỉ để nhìn) ----------------
+  // Nhóm Jetjet (2–3 xe nối đuôi, buổi tối), xe ba gác (ban ngày). Số lượng / giờ / tốc độ: thẻ ⚖️ Cân bằng → npcFlavor
+  spawnSpecials() {
+    const F = NPC_FLAVOR, rng = this.rng;
+    for (let g = 0; g < (F.jetjetGroups ?? 3); g++) {
+      const v = F.jetjetSpeed ?? 13, hours = [F.jetjetFrom ?? 19, F.jetjetTo ?? 24];
+      const lead = this.spawnAgent('moto', { special: 'jetjet', mesh: makeJetjet(rng, { pillion: rng.chance(0.5) }), maxSpeed: v, hours });
+      lead.route = new Map(); // ngã tư → hướng đã chọn (xe sau đi theo)
+      const n = rng.int(1, 2);
+      for (let k = 1; k <= n; k++) {
+        const t = lead.t - k * 4.5;
+        if (t < 2) break; // đầu đoạn đường: không đủ chỗ xếp sau
+        this.spawnAgent('moto', { special: 'jetjet', mesh: makeJetjet(rng, { pillion: rng.chance(0.4) }), maxSpeed: v + 0.6, hours, leader: lead, from: lead.from, to: lead.to, t });
+      }
+    }
+    for (let i = 0; i < (F.bagac ?? 3); i++) {
+      this.spawnAgent('moto', { special: 'bagac', mesh: makeBaGac(rng), maxSpeed: (F.bagacSpeed ?? 5.5) * rng.range(0.9, 1.1), size: SIZE.bagac, hours: [F.bagacFrom ?? 5, F.bagacTo ?? 20] });
+    }
+  }
+  // Ngã tư kế tiếp: xe trong nhóm Jetjet đi theo đường xe dẫn đã chọn; ba gác né đường nhỏ (chọn như ô tô)
+  nextOf(a) {
+    const key = a.to.join(',');
+    const led = a.leader?.route?.get(key);
+    if (led && a.leader.route.get(key + '<') === a.from.join(',')) return led;
+    const n = this.pickNext(a.to, a.from, a.special === 'bagac' ? 'car' : a.kind);
+    if (a.route) {
+      a.route.set(key, n);
+      a.route.set(key + '<', a.from.join(','));
+      if (a.route.size > 40) a.route.delete(a.route.keys().next().value);
+    }
+    return n;
   }
 
   // ---------------- xe buýt ----------------
@@ -307,7 +361,7 @@ export class Traffic {
       return along > 0 && along - l - half < 3 && lat < hw + w * 0.6;
     };
     // xe khác chắn trước xét TRƯỚC người chơi (xe buýt đứng vì xe NPC thì không đổ lỗi cho người chơi)
-    for (const a of this.agents) if (!a.isFar && ahead(a.x, a.z, SIZE[a.kind][0], SIZE[a.kind][1])) return 'npc';
+    for (const a of this.agents) if (!a.isFar && ahead(a.x, a.z, sizeOf(a)[0], sizeOf(a)[1])) return 'npc';
     for (const a of this.loopCars) if (a.mesh.visible && ahead(a.x, a.z, SIZE.car[0], SIZE.car[1])) return 'npc';
     for (const o of this.buses) if (o !== b && o.mesh.visible && ahead(o.x, o.z, hw, half)) return 'npc';
     if (ahead(px, pz, 0.6, 0.9)) return this.inJam(b.x, b.z) || this.inJam(px, pz) ? 'npc' : 'player'; // kẹt xe: coi như xe chắn
@@ -506,7 +560,7 @@ export class Traffic {
     if (a.next && !(a.next[0] === a.to[0] && a.next[1] === a.to[1])) {
       const small = tierBetween(a.to, a.next) === 'small';
       for (const b of this.onSeg.get(a.to + '>' + a.next) || []) {
-        if ((small || b.kind === a.kind) && b.t < TURN_R + SIZE[b.kind][1] * 2 + 2 && b.speed < 1.5) return ((a.waitWhy = 'exit:' + b.uid), false);
+        if ((small || b.kind === a.kind) && b.t < TURN_R + sizeOf(b)[1] * 2 + 2 && b.speed < 1.5) return ((a.waitWhy = 'exit:' + b.uid), false);
       }
     }
     const cx = roadPos(a.to[0]), cz = roadPos(a.to[1]);
@@ -536,13 +590,13 @@ export class Traffic {
 
   // Thân xe để xét nhường: vị trí, hướng đang chạy, cỡ
   bodyOf(a, kind = a.kind) {
-    const [w, l] = SIZE[kind];
+    const [w, l] = kind === a.kind ? sizeOf(a) : SIZE[kind];
     return { ref: a, uid: a.uid, kind, x: a.x, z: a.z, y: a.y || 0, hx: Math.sin(a.heading), hz: Math.cos(a.heading), w, l, speed: a.speed || 0 };
   }
   // Các xe đang hiện: xe NPC, xe vòng sân bay, xe buýt (xe buýt chạy theo lịch, không nhường ai)
   collectVehicles(far) {
     const out = [];
-    for (const a of this.agents) if (!a.isFar) out.push(this.bodyOf(a));
+    for (const a of this.agents) if (!a.isFar && !a.off) out.push(this.bodyOf(a));
     for (const a of this.loopCars) if (a.mesh.visible) out.push(this.bodyOf(a));
     for (const b of this.buses) if (b.mesh.visible) out.push({ ...this.bodyOf({ ...b, uid: 0 }, 'bus'), bus: true });
     return out;
@@ -583,6 +637,139 @@ export class Traffic {
 
   pickNext(node, prev, kind = 'car') {
     return pickNextNode(this.rng, node, prev, kind, this.floodIds);
+  }
+
+  // Mỗi khung hình cho xe đặc biệt đang ở gần: Jetjet bốc đầu + nẹt pô + câu trêu, shipper đối thủ / ba gác thỉnh thoảng nói
+  // (sự kiện trả về cho game.js: 'npcRev' tiếng pô, 'npcLine' bong bóng thoại)
+  specialTick(a, dt, ctx, events) {
+    const d = Math.hypot(a.x - ctx.px, a.z - ctx.pz);
+    a.talkCd -= dt;
+    if (a.special === 'jetjet') {
+      // bốc đầu ~2,4 s trên đoạn thẳng (xoay xe quanh bánh sau chạm đất)
+      const bike = a.mesh.userData.bike;
+      if (a.wh > 0) a.wh -= dt;
+      else if (!a.turn && a.speed > 7 && d < 70 && this.rng.next() < (dt * (NPC_FLAVOR.wheeliePerMin ?? 2)) / 60) a.wh = 2.4;
+      const k = a.wh > 0 ? Math.min(1, (2.4 - a.wh) * 3, a.wh * 3) : 0;
+      if (k > 0 || bike.rotation.x !== 0) {
+        const ang = -0.4 * k, z = -0.62;
+        bike.rotation.x = ang;
+        bike.position.set(0, z * Math.sin(ang), z - z * Math.cos(ang));
+      }
+      // xe dẫn nhóm chạy ngang người chơi: nẹt pô + hú hét
+      if (!a.leader && d < 18 && a.talkCd <= 0) {
+        a.talkCd = this.rng.range(9, 15);
+        events.push({ type: 'npcRev', x: a.x, z: a.z });
+        if (this.rng.chance(0.6)) events.push({ type: 'npcLine', obj: a, id: 'car:' + a.uid, key: 'bubble.jetjet' });
+      }
+    } else if (d < (a.special === 'rival' ? 10 : 8) && a.talkCd <= 0) {
+      a.talkCd = this.rng.range(15, 30);
+      if (this.rng.chance(0.4)) events.push({ type: 'npcLine', obj: a, id: 'car:' + a.uid, key: a.special === 'rival' ? 'bubble.rival' : 'bubble.bagac' });
+    }
+  }
+
+  // Shipper hãng đối thủ đứng chờ lấy hàng trước quán ăn (spots: cửa các quán, game.js chọn theo dữ liệu → máy nào cũng giống):
+  // xe dựng sát lề, người đứng cạnh xem điện thoại; người chơi tới gần thì thỉnh thoảng nói
+  placeRivals(spots) {
+    const brands = Object.values(BRANDS);
+    if (!brands.length) return;
+    this.rivalsWaiting = [];
+    spots.forEach((s, k) => {
+      const r = projectToRing(s.x, s.z, PED_LANE);
+      if (isJoinedBlock(r.bx, r.bz) || isWaterBlock(r.bx, r.bz)) return;
+      const b = brands[k % brands.length];
+      const g = makeRivalWaiting(this.rng, parseInt(String(b.color).slice(1), 16), this.rng.pick(['cub', 'underbone', 'scooter']));
+      const t = r.t + 2.2; // lệch khỏi cửa quán cho khỏi chắn lối vào
+      const a = pedPos(r.bx, r.bz, t, 0.75), dir = pedPos(r.bx, r.bz, t + 1, 0.75);
+      g.position.set(a.x, SW_H, a.z);
+      g.rotation.y = Math.atan2(dir.x - a.x, dir.z - a.z) + 0.35; // dựng hơi xiên như xe đậu lề
+      this.scene.add(g);
+      this.grid?.add({ x0: a.x - 0.5, z0: a.z - 0.5, x1: a.x + 0.5, z1: a.z + 0.5, h: 1.2, tag: 'bike' });
+      this.rivalsWaiting.push({ g, cd: this.rng.range(2, 8), id: k });
+    });
+  }
+
+  // Vụ trộm chó theo lịch chung (sim/dogThief.js): xe trộm chạy tới chỗ con chó → dừng chĩa cây → chó chạy thoát → trộm rồ ga bỏ đi.
+  // Vị trí tính thẳng từ (phút game − giờ bắt đầu) nên máy nào cũng giống. Người chơi bấm còi gần đó thì trộm bỏ chạy sớm
+  // (riêng máy đó; game.js thưởng 1 lần mỗi vụ — chơi nhiều người thì máy chủ kiểm tra khoảng cách + giờ).
+  thiefTick(dt, ctx, events) {
+    for (const r of this.rivalsWaiting || []) {
+      r.cd -= dt;
+      if (r.cd <= 0 && Math.hypot(r.g.position.x - ctx.px, r.g.position.z - ctx.pz) < 7) {
+        r.cd = this.rng.range(20, 40);
+        events.push({ type: 'npcLine', obj: { mesh: r.g.userData.person }, id: 'rivalw:' + r.id, key: 'bubble.rivalWait' });
+      }
+    }
+    const now = ctx.now;
+    if (now == null) return;
+    const mk = Math.floor(now);
+    if (this.thiefMin !== mk) {
+      this.thiefMin = mk;
+      this.thiefEvt = activeThief(now, this.thiefSeed ?? 1);
+    }
+    const e = this.thiefEvt;
+    let T = this.thiefObj;
+    if (!e || Math.abs(e.x - ctx.px) > FAR || Math.abs(e.z - ctx.pz) > FAR) {
+      if (T) T.bike.visible = T.dog.visible = false;
+      return;
+    }
+    if (!T) {
+      T = this.thiefObj = { bike: makeDogThief(this.rng), dog: makeDog(0xd9a15b), said: {} };
+      this.scene.add(T.bike, T.dog);
+    }
+    if (T.id !== e.id) Object.assign(T, { id: e.id, scaredAt: null, said: {} });
+    const el = now - e.at, S = thiefSpot(e.bx, e.bz, e.side, e.u), H = CITY.ROAD / 2;
+    const [ix, iz] = S.inward, [dx, dz] = S.dir;
+    const leaveAt = T.scaredAt ?? THIEF.leave;
+    const fleeAt = Math.min(T.scaredAt ?? Infinity, THIEF.poke - 1.5);
+    // xe trộm: làn bên phải sát lề, chạy chậm dần tới đối diện con chó, đứng chĩa cây, rồi rồ ga bỏ đi
+    const sApproach = (x) => -40 * (1 - Math.min(1, x / THIEF.arrive)) ** 2;
+    let sPos, v;
+    if (el < leaveAt) {
+      sPos = sApproach(Math.max(0, el));
+      v = el < THIEF.arrive ? (80 / THIEF.arrive) * (1 - el / THIEF.arrive) : 0;
+    } else {
+      const s0 = sApproach(Math.min(leaveAt, THIEF.arrive)), u = el - leaveAt;
+      sPos = s0 + 2.5 * u * u;
+      v = 5 * u;
+    }
+    const bx = S.x + ix * (H - 1.3) + dx * sPos, bz = S.z + iz * (H - 1.3) + dz * sPos;
+    T.bike.visible = el >= 0 && sPos < 70;
+    T.bike.position.set(bx, 0, bz);
+    T.bike.rotation.y = Math.atan2(dx, dz);
+    const w = T.bike.userData.bike.userData;
+    w.wheelF.rotation.x += (v * dt) / 0.32;
+    w.wheelR.rotation.x += (v * dt) / 0.32;
+    // chó: nằm chơi trên vỉa hè sát lề → sủa khi xe tới gần → chạy ngược chiều xe (trộm phải quay đầu mới đuổi được) rồi khuất
+    const ox = S.x + ix * (H + 1.0), oz = S.z + iz * (H + 1.0);
+    const run = el - fleeAt;
+    T.dog.visible = el < THIEF.dogGone && run < 6;
+    if (run > 0) {
+      const back = 6.5 * run, side = Math.min(1.4, run * 1.5);
+      T.dog.position.set(ox - dx * back + ix * side, SW_H, oz - dz * back + iz * side);
+      T.dog.rotation.y = Math.atan2(-dx + ix * 0.3, -dz + iz * 0.3);
+      const sw = Math.sin(run * 22) * 0.7;
+      T.dog.userData.legs?.forEach((l, k) => (l.rotation.x = k % 2 ? sw : -sw));
+    } else {
+      T.dog.position.set(ox, SW_H, oz);
+      T.dog.rotation.y = Math.atan2(-ix, -iz) + Math.sin(now * 0.2) * 0.6; // nhìn ra đường, quay qua quay lại
+      T.dog.userData.legs?.forEach((l) => (l.rotation.x = 0));
+    }
+    const near = Math.hypot(bx - ctx.px, bz - ctx.pz) < 45 || Math.hypot(ox - ctx.px, oz - ctx.pz) < 45;
+    const once = (k, ev) => {
+      if (T.said[k]) return;
+      T.said[k] = true;
+      if (near) events.push(ev);
+    };
+    if (el > fleeAt - 1.2) once('bark', { type: 'dogBark', x: ox, z: oz });
+    if (el > THIEF.arrive + 0.3 && T.scaredAt == null) once('line', { type: 'npcLine', obj: { mesh: T.bike }, id: 'thief', key: 'bubble.thief' });
+    if (el > leaveAt) once('rev', { type: 'npcRev', x: bx, z: bz });
+    // người chơi bấm còi gần xe trộm / con chó khi trộm chưa đi → trộm hoảng, bỏ chạy luôn
+    const close = Math.hypot(bx - ctx.px, bz - ctx.pz) < 22 || Math.hypot(ox - ctx.px, oz - ctx.pz) < 22;
+    if (ctx.honk && T.scaredAt == null && el >= 0 && el < THIEF.leave && close) {
+      T.scaredAt = el;
+      events.push({ type: 'npcLine', obj: { mesh: T.bike }, id: 'thief', key: 'bubble.thiefRun' });
+      events.push({ type: 'thiefScared', id: e.id, x: bx, z: bz });
+    }
   }
 
   // ---------------- người đi bộ ----------------
@@ -794,7 +981,7 @@ export class Traffic {
   }
 
   // ---------------- cập nhật mỗi khung hình ----------------
-  // ctx: { px, pz, onBike, speed, fx, fz, night }
+  // ctx: { px, pz, onBike, speed, fx, fz, night, hour (giờ trong ngày, có lẻ — xe đặc biệt chạy theo giờ), now (phút game), honk (vừa bấm còi) }
   update(dt, ctx) {
     const events = [];
     this.honkCd -= dt;
@@ -803,6 +990,13 @@ export class Traffic {
     const far = (x, z) => Math.abs(x - ctx.px) > FAR || Math.abs(z - ctx.pz) > FAR;
     // xe NPC — ẩn / hiện có vùng đệm 2 phía mép tầm nhìn (xe không bật tắt liên tục ở mép)
     this.clock = (this.clock || 0) + dt;
+    // xe đặc biệt ngoài giờ chạy (Jetjet ban ngày, ba gác ban đêm): ẩn, đứng yên, không tính nhường / va chạm
+    for (const a of this.agents) {
+      if (!a.hours || ctx.hour == null) continue;
+      const [h0, h1] = a.hours, h = ctx.hour < h0 && h1 > 24 ? ctx.hour + 24 : ctx.hour;
+      a.off = !(h >= h0 && h < h1);
+      if (a.off) a.mesh.visible = false;
+    }
     for (const a of this.agents) {
       const d = Math.max(Math.abs(a.x - ctx.px), Math.abs(a.z - ctx.pz));
       a.isFar = a.isFar ? d > FAR - 8 : d > FAR + 8;
@@ -810,7 +1004,7 @@ export class Traffic {
     this.vehicles = this.collectVehicles(far); // xe đang hiện (để nhường nhau)
     this.onSeg = new Map(); // "from>to" → xe đang chạy trên đoạn đó (ngoài ngã tư)
     for (const a of this.agents) {
-      if (a.turn || a.isFar) continue;
+      if (a.turn || a.isFar || a.off) continue;
       const k = a.from + '>' + a.to;
       if (!this.onSeg.has(k)) this.onSeg.set(k, []);
       this.onSeg.get(k).push(a);
@@ -818,12 +1012,13 @@ export class Traffic {
     // xe ở xa: gom theo đoạn đường + loại xe để giữ khoảng cách (lúc hiện ra không bị chồng lên nhau)
     const farSeg = new Map();
     for (const a of this.agents) {
-      if (!a.isFar) continue;
+      if (!a.isFar || a.off) continue;
       const k = a.kind + a.from + '>' + a.to;
       if (!farSeg.has(k)) farSeg.set(k, []);
       farSeg.get(k).push(a);
     }
     for (const a of this.agents) {
+      if (a.off) continue;
       let v = a.maxSpeed;
       if (a.isFar) {
         // ở xa: vẫn chạy theo đường (để lúc lại gần có xe), không xét chắn đường, không vẽ
@@ -840,7 +1035,7 @@ export class Traffic {
         }
         a.t += v * dt;
         if (a.t >= CITY.PITCH) {
-          if (!a.next) a.next = this.pickNext(a.to, a.from, a.kind);
+          if (!a.next) a.next = this.nextOf(a);
           const din = [a.to[0] - a.from[0], a.to[1] - a.from[1]], me = { din, kind: turnKind(din, this.dirTo(a.to, a.next, din)), vk: a.kind };
           const key = a.to.join(','), last = (this.farPass ||= new Map()).get(key) || [];
           if (last.some((o) => this.clock - o.at < 1.2 && crosses(me, o))) {
@@ -867,7 +1062,7 @@ export class Traffic {
       const din = [a.to[0] - a.from[0], a.to[1] - a.from[1]];
       if (this.jamKeys.has(segKeyOf(a.from, a.to))) v = 0.9;
       // chọn trước hướng đi ở ngã tư sắp tới; sắp rẽ thì giảm tốc dần
-      if (!a.next && a.t > CITY.PITCH - TURN_R - 14) a.next = this.pickNext(a.to, a.from, a.kind);
+      if (!a.next && a.t > CITY.PITCH - TURN_R - 14) a.next = this.nextOf(a);
       if (a.next) {
         const nk = a.turn ? a.turn.kind : turnKind(din, this.dirTo(a.to, a.next, din));
         if (nk !== 'straight') v = Math.min(v, TURN_V[nk] + Math.max(0, CITY.PITCH - TURN_R - a.t) * 0.5);
@@ -919,7 +1114,7 @@ export class Traffic {
           a.speed = 0;
         }
         if (a.t >= CITY.PITCH - TURN_R) {
-          if (!a.next) a.next = this.pickNext(a.to, a.from, a.kind);
+          if (!a.next) a.next = this.nextOf(a);
           const dout = this.dirTo(a.to, a.next, din);
           const lout = this.laneOf({ kind: a.kind, from: a.to, to: a.next });
           a.turn = makeTurn(roadPos(a.to[0]), roadPos(a.to[1]), din, dout, a.lane, lout);
@@ -951,7 +1146,9 @@ export class Traffic {
         a.dx = d[0] / L;
         a.dz = d[1] / L;
       } else {
-        a.lane += (this.laneOf(a) - a.lane) * Math.min(1, dt * 2.5);
+        // Jetjet lạng lách: làn lắc qua lại quanh làn xe máy
+        const weave = a.special === 'jetjet' ? Math.sin(this.clock * 0.9 + a.phase) * 0.6 : 0;
+        a.lane += (this.laneOf(a) + weave - a.lane) * Math.min(1, dt * 2.5);
         const ndx = a.to[0] - a.from[0], ndz = a.to[1] - a.from[1];
         a.dx = ndx;
         a.dz = ndz;
@@ -970,11 +1167,13 @@ export class Traffic {
       a.mesh.position.set(a.x, a.y, a.z);
       a.mesh.rotation.set(-pitch, a.heading, 0, 'YXZ');
       if (a.kind === 'moto') {
-        const w = a.mesh.userData.bike.userData;
-        w.wheelF.rotation.x += (a.speed * dt) / 0.32;
-        w.wheelR.rotation.x += (a.speed * dt) / 0.32;
+        const ud = a.mesh.userData, w = ud.bike?.userData;
+        const wheels = ud.wheels || [w.wheelF, w.wheelR], r = ud.wheelRadius || 0.32;
+        for (const wh of wheels) wh.rotation.x += (a.speed * dt) / r;
       }
+      if (a.special) this.specialTick(a, dt, ctx, events);
     }
+    this.thiefTick(dt, ctx, events);
     this.updateLoops(dt, ctx, far, events);
 
     // người đi bộ
@@ -1095,11 +1294,12 @@ export class Traffic {
       hits.push({ what, n, into, obj });
     };
     for (const a of this.agents) {
-      if (Math.abs((a.y || 0) - py) > 1.5) continue; // khác tầng (trên cầu / dưới đất)
+      if (a.off || Math.abs((a.y || 0) - py) > 1.5) continue; // ngoài giờ chạy · khác tầng (trên cầu / dưới đất)
       const avx = a.dx * a.speed, avz = a.dz * a.speed;
-      if (a.kind === 'car') {
-        test(a.x + a.dx * 1.1, a.z + a.dz * 1.1, 1.05, avx, avz, 'car', a);
-        test(a.x - a.dx * 1.1, a.z - a.dz * 1.1, 1.05, avx, avz, 'car', a);
+      if (a.kind === 'car' || a.special === 'bagac') {
+        const k = a.kind === 'car' ? 1.1 : 0.8, r = a.kind === 'car' ? 1.05 : 0.8;
+        test(a.x + a.dx * k, a.z + a.dz * k, r, avx, avz, a.kind, a);
+        test(a.x - a.dx * k, a.z - a.dz * k, r, avx, avz, a.kind, a);
       } else test(a.x, a.z, 0.55, avx, avz, 'moto', a);
     }
     for (const a of this.loopCars) {

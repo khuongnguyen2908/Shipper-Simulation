@@ -6,7 +6,7 @@ import { moveInArray } from './order.js';
 import { rowMenu, addButton, entryButtons, doRemove, doCopyActivity, doPasteActivity } from './opsUi.js';
 import { personPreview } from './personPreview.js';
 import { housePreview } from './housePreview.js';
-import { LOOKS, guessLook, lookOf, looksFor } from '../../data/looks.js';
+import { LOOKS, guessLook, lookOf, looksFor, CAMPUS_LOOKS } from '../../data/looks.js';
 import { personOf } from '../../sim/people.js';
 import { el, field, textInput, numInput, colorInput, selectInput, checkInput, button, sideList, areaInput, dragHandle, makeSortable, emojiInput, explain, openDayInput, subTabs, advanced } from './ui.js';
 import { openDayOf } from '../../sim/placeRules.js';
@@ -32,10 +32,10 @@ const SIZE_LABEL = { one: '1 lô', two: '2 lô ngang', vtwo: '2 lô dọc', row:
 // cỡ chọn được theo loại: "Cả khối" chỉ dành cho cảnh quan (công viên lớn…)
 // cỡ chọn được theo loại + kiểu nhà: đồn công an ≥ 2 lô · cả khối: cảnh quan / chùa tứ hợp viện · chừa góc: chỉ chùa tứ hợp viện
 const sizesFor = (p) => {
-  const court = lookOf(p) === 'pagodaCourtyard';
+  const court = lookOf(p) === 'pagodaCourtyard', campus = CAMPUS_LOOKS.includes(lookOf(p));
   return Object.entries(SIZE_LABEL).filter(([k]) => {
     if (k === 'join') return lookOf(p) === 'airport'; // lô gộp 2 khối: chỉ sân bay (cần gộp khối ở thẻ Bản đồ)
-    if (k === 'block') return p.kind === 'scenery' || court;
+    if (k === 'block') return p.kind === 'scenery' || court || campus; // trường đại học: cả khối → khuôn viên
     if (k === 'blockCut') return court;
     if (court) return false;
     return k !== 'one' || p.kind !== 'police';
@@ -142,6 +142,10 @@ export function render(root, ctx) {
         floorsField(),
         field('Biểu tượng bản đồ', emojiInput(p.icon ?? '', (v) => { if (v) p.icon = v; else delete p.icon; changedP(); }, { placeholder: ICON[p.kind] || '📍' }), opt('icon', { hint: 'Emoji; để trống = theo loại' })),
         p.kind !== 'gate' && p.kind !== 'scenery' ? field('Chữ trên biển hiệu', textInput(p.sign, (v) => { p.sign = v; changedP(); }), opt('sign', { hint: HINT.place.sign })) : null,
+        p.kind !== 'gate' && p.kind !== 'scenery' ? field('Biển dọc', el('div', { class: 'row' },
+          checkInput(p.signV, (v) => { if (v) p.signV = true; else { delete p.signV; delete p.signVText; } changedP(); ctx.rerender(); }, 'Có biển dọc chìa ra góc mặt tiền'),
+          p.signV ? textInput(p.signVText || '', (v) => { if (v.trim()) p.signVText = v; else delete p.signVText; changedP(); }, { placeholder: 'Chữ (vd PHỞ, CƠM TẤM) — trống = chữ đầu biển hiệu' }) : null,
+        ), opt('signV', { hint: 'Biển hộp đứng chìa ra đường ở góc tầng lầu (kiểu phố Việt). Chỉ quán nhà ống có tầng lầu (quán ăn, tạp hóa, bánh mì, sửa xe, trái cây, đồ chơi) mới hiện. Chữ ngắn 1–2 từ, viết dọc từng chữ cái.' })) : null,
         placed ? null : unplacedField(),
         placed && field('Khối (cột x, hàng z)', el('span', { class: 'inline' },
           numInput(p.block[0], (v) => { p.block[0] = Math.round(v); changedP(); drawMap(); }, { step: 1, min: 0, max: CITY.N - 1 }),

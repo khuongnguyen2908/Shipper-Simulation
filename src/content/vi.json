@@ -600,7 +600,18 @@
     "[ngoaiquoc] \"Namaste\"",
     "[ngoaiquoc] \"Bonjour\"",
     "[tiktok] \"Đứng yên xíu để {toi} quay cái nha {ban}!\"",
-    "[tiktok] \"Video này mà không lên xu hướng là em bỏ nghề!\""
+    "[tiktok] \"Video này mà không lên xu hướng là em bỏ nghề!\"",
+    "[dacho] \"Con Vàng nhà {toi} đó, hiền lắm, nó chỉ sủa xe lạ thôi.\"",
+    "[dacho] \"Dạo này trộm chó nhiều quá, tối {toi} không dám thả nó ra đường.\"",
+    "[dacho] \"Tối qua có hai thằng chạy Exciter rình chó trong xóm, may mà nó chạy kịp.\"",
+    "[dacho] \"Ngày nào {toi} cũng dắt nó đi một vòng, không đi là nó phá nhà liền.\"",
+    "[dacho] \"{Ban} chạy chậm chút nha, con này hay lao ra đường lắm.\"",
+    "[dacho] \"Nó tên Mực mà lông vàng, đặt từ hồi nhỏ, giờ quen rồi.\"",
+    "[elder] \"Hồi đó đường này toàn ruộng không à {ban} ơi.\"",
+    "[elder] \"Chạy chậm thôi {ban}, đường trơn té là khổ.\"",
+    "[elder] \"Ăn cơm chưa {ban}? Làm gì thì làm, phải ăn uống đàng hoàng.\"",
+    "[elder] \"Cái lưng {toi} nó đau, đi bộ chút cho giãn gân cốt.\"",
+    "[elder] \"Bây giờ cái gì cũng đặt trên điện thoại, {toi} chịu không biết xài.\""
   ],
   "pack.help": "Chọn món → bấm ô trong <b>{bag}</b>. Nóng ❄️ lạnh để xa nhau · món 💧 phải dựng đứng · ⚠️ dễ vỡ không bị đè (hàng trên cùng là \"trên\").",
   "pack.inBag": "Trong túi",
@@ -1065,6 +1076,7 @@
     "BÁNH CUỐN"
   ],
   "city.menuTitle": "THỰC ĐƠN",
+  "city.canteen": "CĂNG TIN",
   "city.cartBanhMi": "BÁNH MÌ",
   "city.repairSign": "VÁ XE",
   "city.garageSign": "HẦM XE",
@@ -1471,7 +1483,17 @@
     "[ngoaiquoc] Namaste",
     "[ngoaiquoc] Bonjour",
     "[tiktok] Đứng yên xíu để {toi} quay cái nha {ban}!",
-    "[tiktok] Video này mà không lên xu hướng là em bỏ nghề!"
+    "[tiktok] Video này mà không lên xu hướng là em bỏ nghề!",
+    "[dacho] Vàng ơi, từ từ thôi!",
+    "[dacho] Đừng có sủa người ta!",
+    "[dacho] Về, về ăn cơm nè!",
+    "[dacho] Đứng lại! Không được lượm đồ dưới đất!",
+    "[dacho] Ngoan nè, đi sát lề nè.",
+    "[elder] Ối giời, xe cộ đông quá…",
+    "[elder] Từ từ, từ từ…",
+    "[elder] Cái chân nó mỏi quá trời.",
+    "[elder] Hồi xưa đâu có kẹt xe vầy.",
+    "[elder] Thằng cháu nó dặn mua hột vịt lộn, quên mất rồi."
   ],
   "bubble.driverMild": [
     "Ê ê, tránh ra coi!",
@@ -1483,7 +1505,7 @@
     "Tránh đường cho người ta đi với!",
     "Lề bên kia rộng mà!",
     "Đậu giữa đường luôn hả?",
-    "Lẹ lẹ giùm cái!"
+    "Lẹ lẹ giùm cái bạn gì ơi!"
   ],
   "bubble.driverAngry": [
     "Đứng giữa đường làm gì vậy cha!",
@@ -1498,14 +1520,15 @@
     "Đứng đó làm tượng hả?"
   ],
   "bubble.busMild": [
-    "Xe buýt tới nè, né ra giùm!",
+    "Xe buýt tới nè!",
     "Tránh ra cho xe buýt chạy!",
-    "Ê, xe lớn đó, né qua!"
+    "Tránh đường, tránh đường!"
   ],
   "bubble.busAngry": [
-    "Cả xe khách đang chờ đó nghe!",
-    "Né ra! Xe buýt trễ giờ rồi!",
-    "Đứng đó hoài tui báo công an à nha!"
+    "Tao tông mày luôn à!",
+    "Né ra! Ơ cái đứa này!",
+    "Đứng đó hoài tao báo công an nha mày!",
+    "Điên hả thằng kia!"
   ],
   "bubble.driverHit": [
     "Trời đất ơi, đụng xe tui rồi!",
@@ -1523,9 +1546,27 @@
   ],
   "bubble.riderHi": [
     "Chạy chậm giùm {toi} nha.",
-    "Đi lẹ giùm {toi}, {toi} trễ rồi!",
+    "[hurry] Đi lẹ giùm {toi}, {toi} trễ rồi!",
     "Cho {toi} xuống đúng chỗ nha.",
-    "Trời nóng ghê ha."
+    "Trời nóng ghê ha.",
+    "[drunk] Ơ… xe {anhchi} đó hả? Chở {toi} về… ợ…",
+    "[drunk] Chạy… chạy êm êm thôi nha, {toi} chóng mặt quá…",
+    "[drunk] Nhà {toi} ở… ờ… cứ chạy đi, tới đâu {toi} chỉ.",
+    "[vali] Giúp {toi} để vali lên xe với, nặng quá!",
+    "[vali] Vali hơi to, {ban} chạy cẩn thận giùm {toi} nha.",
+    "[vali] Vừa xuống máy bay, mệt muốn xỉu luôn.",
+    "[hurry] Lẹ lên {ban} ơi, {toi} trễ họp rồi!",
+    "[hurry] Đi đường tắt được hông {ban}? Gấp lắm!",
+    "[hocSinh] Mẹ con dặn {ban} chở con về nhà.",
+    "[hocSinh] Hôm nay con được điểm 10 đó!",
+    "[hocSinh] {Ban} ơi con đội nón bảo hiểm rồi nè.",
+    "[nuocNgoai] Hello! Xin chào! Đi… đi đây nha.",
+    "[nuocNgoai] Sài Gòn very hot! Nóng quá!",
+    "[nuocNgoai] Cảm ơn! I go… ờ… chỗ này.",
+    "[sinhVien] Chạy lẹ giùm {toi}, sắp trễ giờ vô lớp rồi!",
+    "[sinhVien] Cuối tháng rồi, {ban} chạy khéo giùm {toi} cho đỡ tốn xăng nha.",
+    "[elder] Chạy từ từ thôi {ban}, {toi} già rồi sợ lắm.",
+    "[elder] Đỡ {toi} lên xe với, cái chân nó yếu."
   ],
   "npc.dichvu2.greet": "\"Mua iphone thì ghé vào!\"",
   "npc.dichvu3.greet": "\"Gửi chó mèo vào đây tôi chăm cho nha\"",
@@ -1685,5 +1726,50 @@
     "Delulu quá trời",
     "A di đà Phật 🙏",
     "Mai ghé tiệm trà chị Linh liền"
-  ]
+  ],
+  "toast.thiefScared": "🐕 Bạn bóp còi inh ỏi, <b>tụi trộm chó</b> hoảng hồn rồ ga bỏ chạy! Chủ chó chạy ra cảm ơn, dúi cho <b>{k}k</b>.",
+  "bubble.jetjet": [
+    "\"Né ra coi!\"",
+    "\"Ét ô ét! Ét ô ét!\"",
+    "\"Bốc đầu nè, quay clip đi!\"",
+    "\"Đua không anh zai?\"",
+    "\"Pô độ nghe phê chưa!\"",
+    "\"Tránh ra cho anh em tao đi!\"",
+    "\"Glory glory man united!\"",
+    "\"Á à con chó này!\"",
+    "\"Dân tổ phóng đổ tim em!\"",
+    "\"Chan dei!\""
+  ],
+  "bubble.rival": [
+    "\"Đơn này của tui nha!\"",
+    "\"Hôm nay app bên tui nổ đơn quá trời!\"",
+    "\"Chạy chậm thôi, đơn đâu mà vội!\"",
+    "\"Ê, quán đằng kia làm lâu lắm, đừng nhận!\""
+  ],
+  "bubble.rivalWait": [
+    "\"Quán này làm chậm muốn xỉu…\"",
+    "\"Đợi 20 phút rồi chưa có món…\"",
+    "\"Đơn này của tui nha, xếp hàng đi!\"",
+    "\"Hết pin điện thoại rồi trời ơi.\""
+  ],
+  "bubble.bagac": [
+    "\"Hàng cồng kềnh, tránh ra chút!\"",
+    "\"Chở đồ dọn nhà nè, nhường chút!\"",
+    "\"Từ từ, xe nặng thắng không kịp!\""
+  ],
+  "bubble.thief": [
+    "\"Lẹ lên mày, chích nó đi!\"",
+    "\"Con này mập nè!\"",
+    "\"Nhanh nhanh, coi chừng có người!\""
+  ],
+  "bubble.thiefRun": [
+    "\"Chạy! Có người thấy!\"",
+    "\"Bỏ đi, bỏ đi!\"",
+    "\"Rút lẹ mày ơi!\""
+  ],
+  "tt.hot.dogThief": [
+    "[photo:here] @khupho247 | Tối qua tụi trộm chó chạy Exciter đen mò tới {street}, may con chó chạy thoát 😤 Bà con để ý giùm! #trộmchó #khupho | âm thanh gốc | HỤT TRỘM CHÓ",
+    "[photo:here] @yeuchomeo | Bé vàng nhà hàng xóm ở {street} thoát nạn tụi trộm chó đêm qua 🐕 Ai thấy 2 thằng đồ đen bịt mặt chạy Exciter thì báo công an nha! #chocuu #trộmchó | nhạc buồn - yeuchomeo | THOÁT NẠN"
+  ],
+  "npc.nhaThoDaDo.greet": "\"Chào con, con có muốn xưng tội không?\""
 }

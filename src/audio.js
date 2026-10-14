@@ -250,6 +250,7 @@ export const SYNTH = {
   bump() { noise(0.12, { vol: 0.35, freq: 300 }); },
   splash() { noise(0.45, { vol: 0.45, freq: 1800 }); noise(0.3, { vol: 0.25, freq: 500, at: 0.08 }); },
   stall() { tone(140, 0.18, { type: 'sawtooth', vol: 0.12, slide: -40 }); tone(110, 0.25, { type: 'sawtooth', vol: 0.1, slide: -60, at: 0.2 }); tone(70, 0.35, { type: 'sawtooth', vol: 0.08, slide: -30, at: 0.45 }); },
+  rev() { tone(90, 0.25, { type: 'sawtooth', vol: 0.12, slide: 160 }); tone(140, 0.35, { type: 'sawtooth', vol: 0.1, slide: 220, at: 0.28 }); tone(120, 0.4, { type: 'square', vol: 0.06, slide: -60, at: 0.65 }); },
   bark() { tone(520, 0.08, { type: 'sawtooth', vol: 0.15, slide: -200 }); tone(520, 0.08, { type: 'sawtooth', vol: 0.15, slide: -200, at: 0.18 }); },
   whistle() { tone(2400, 0.5, { type: 'sine', vol: 0.15, slide: 200 }); },
   phone() { for (let i = 0; i < 3; i++) tone(440, 0.3, { type: 'sine', vol: 0.12, at: i * 0.6 }); },

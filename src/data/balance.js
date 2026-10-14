@@ -65,6 +65,7 @@ export const RIDE_EVENTS = balanceData.rideEvents || {}; // sự cố khi chở 
 export const DRIVING = balanceData.driving || {}; // lái xe & sóng sánh: tay lái bẻ dần, ngưỡng ôm cua / phanh gấp, mức đổ / hoảng
 export const LIGHTS = balanceData.lights || {}; // đèn giao thông + phạt nguội vượt đèn đỏ (src/sim/lights.js)
 export const BG_TRAFFIC = balanceData.bgTraffic || {}; // xe nền chỉ để nhìn: số xe tối đa, vùng hiện (src/world/bgTraffic.js)
+export const NPC_FLAVOR = balanceData.npcFlavor || {}; // xe NPC đặc biệt: Jetjet, shipper hãng đối thủ, ba gác, trộm chó (world/traffic.js, sim/dogThief.js)
 export const FLOOD = balanceData.flood || {}; // ngập đường: mưa to + triều cường, lội nước, chết máy (src/sim/flood.js)
 
 // Tiền nhà trả theo KỲ (mỗi rentEveryDays ngày). Kỳ `period` (1, 2, 3…): có số tự đặt trong rentByPeriod thì dùng,

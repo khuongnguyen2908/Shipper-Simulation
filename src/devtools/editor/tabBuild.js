@@ -14,7 +14,7 @@ import { blockUnder, dropTarget, lotProblem } from './buildRules.js';
 import { ALLEY_TEMPLATES } from '../../sim/blockPlan.js';
 import { isPlaced } from '../../data/places.js';
 import { PROTECTED } from '../../data/validate.js';
-import { LOOKS, lookOf, looksFor, lookFloors } from '../../data/looks.js';
+import { LOOKS, lookOf, looksFor, lookFloors, CAMPUS_LOOKS } from '../../data/looks.js';
 import { makeClip, paste } from './ops.js';
 import { COPYABLE_KINDS } from './placeKind.js';
 import { el, button, selectInput, checkInput } from './ui.js';
@@ -25,10 +25,10 @@ const SIZE_LABEL = { one: '1 lô', two: '2 lô ngang', vtwo: '2 lô dọc', row:
 const CUT_LABEL = { BN0: 'Góc tây-bắc', BN2: 'Góc đông-bắc', BS0: 'Góc tây-nam', BS2: 'Góc đông-nam' };
 // cỡ chọn được theo loại + kiểu nhà: đồn công an ≥ 2 lô · cả khối: cảnh quan / chùa tứ hợp viện · chừa góc: chỉ chùa tứ hợp viện
 const sizesFor = (p) => {
-  const court = lookOf(p) === 'pagodaCourtyard';
+  const court = lookOf(p) === 'pagodaCourtyard', campus = CAMPUS_LOOKS.includes(lookOf(p));
   return Object.entries(SIZE_LABEL).filter(([k]) => {
     if (k === 'join') return lookOf(p) === 'airport'; // lô gộp 2 khối: chỉ sân bay (cần gộp khối ở thẻ Bản đồ)
-    if (k === 'block') return p.kind === 'scenery' || court;
+    if (k === 'block') return p.kind === 'scenery' || court || campus; // trường đại học: cả khối → khuôn viên
     if (k === 'blockCut') return court;
     if (court) return false;
     return k !== 'one' || p.kind !== 'police';

@@ -18,6 +18,18 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   - Chủ game tự tạo dự án Firebase (Claude hướng dẫn từng bước), dán cấu hình vào code.
 
 ## 💬 Đang bàn
+### 🏘️ Nhà địa điểm "kiểu A" (14/10 — đợt A1 xong, chủ game ok; đang làm A2)
+- Chủ game chọn hướng A: giữ kiểu khối vuông của game, học chi tiết từ mẫu nhà "đồ chơi" — KHÔNG đặt đồ ăn khổng lồ trên nóc (nhà Việt không có).
+  Mẫu thử phong cách bo tròn (người xấu, nặng máy ~25 nghìn tam giác / người) đã bỏ, file thử đã xóa.
+- **A1 (xong)** `placeBuildings.js` decoA / eateryInside: nhà ống mặt tiền phẳng (quán ăn, bánh mì, tạp hóa, sửa xe, trái cây, đồ chơi; tiệm vàng / xe máy chỉ sân thượng):
+  tầng lầu đầu có cửa sổ lá sách + bồn hoa + lan can; sân thượng chậu cây, hoa giấy rủ, ăng-ten, dây phơi; mái hiên sọc + diềm + lồng đèn (quán ăn);
+  quán ăn mặt tiền mở (`houses.js` ground 'open') thấy bàn inox, ghế nhựa, quầy nồi nước lèo, bàn thờ thần tài, quạt trần.
+  Biển dọc chỉ quán bật ô "Biển dọc" (places.json signV / signVText, ?editor Địa điểm) — bật sẵn: Phở Bà Tư, Bún Mọc, Cơm Tấm, Hủ Tiếu, Lẩu Dê.
+- **A2 (chưa)**: quán cà phê / trà sữa / tiệm bánh / nhà sách (modern 28, cafe 3): chậu cây, đèn dây, bảng menu đứng, dù che.
+- Ô giữa khối thường (trước là sân trống) → nhà phía sau 1–3 tầng không cửa (cityLayout centerFills + city.js), ngẫu nhiên theo khối.
+- 2 trường đại học chọn được cỡ "Cả khối" (CAMPUS_LOOKS) → khuôn viên: Mỹ thuật chữ U kiểu Pháp; RMEET tòa kính + thư viện + căng tin + sân bóng rổ + nhà xe.
+  Chưa đổi lô của 2 trường trên bản đồ — chủ game tự chọn ở ?editor nếu muốn.
+
 ### 🧍 Hình NPC khớp lời thoại — chia 3 đợt (14/10, đã duyệt; đợt 1 xong, CHỜ chủ game xem)
 - **Đợt 1 (xong)** — `world/npcStyles.js` (pedStyle / riderStyle / suitcaseOnBike) + `models.applyPose` (ngồi bệt, còng lưng, lắc lư, gục, đi nghênh ngang, giơ tay định kỳ):
   người đi đường theo thẻ vai trên tên (ăn xin ngồi bệt + lon ở cổng chùa / chợ / nhà thờ / bệnh viện / bến xe, tối đa 5 người · vé số nón lá + túi + xấp vé ·
@@ -28,8 +40,13 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
 - Sửa sau khi chủ game xem (14/10): anh đại to con + xăm kín 2 tay (hoa văn vẽ canvas), chị đại xăm tay; lắc lư / gục / đi nghênh ngang xoay quanh hông
   (trước bị đứt ngang người); tay người lái nắm đúng tay lái mọi kiểu xe (`models.gripBar`: tự tính góc vai / khuỷu + chồm lưng tới khi tay không với tới) —
   người chơi, xe máy NPC, xe trên phà.
-- **Đợt 2**: Jetjet (áo caro sọc, nón lưỡi trai đội ngược / lệch theo ảnh mẫu — cần thêm kiểu nón mới; đi nhóm 2–3 xe, buổi tối, nẹt pô, bốc đầu),
-  shipper hãng đối thủ (GripBike / CamSM), xe ba gác chở quá tải, trộm chó đi Exciter (chó luôn thoát; chạy theo lịch giờ chung).
+- **Đợt 2 (xong 14/10, CHỜ chủ game xem trong game)** — hình ở `world/npcVehicles.js`, chạy ở `world/traffic.js` (spawnSpecials / specialTick / thiefTick),
+  số liệu ở thẻ ⚖️ Cân bằng → 🧢 Xe NPC đặc biệt: Jetjet A (3 nhóm 2–3 xe nối đuôi theo xe dẫn, 19–24h, lạng lách, bốc đầu, nẹt pô `city.rev`, câu trêu),
+  shipper đối thủ (15% xe máy NPC + 5 người đứng chờ trước quán ăn), ba gác (3 xe, 5–20h, chạy làn ô tô, né đường nhỏ),
+  trộm chó B (`sim/dogThief.js`: 2 vụ / đêm 22–04h theo ngày + seed thế giới; chó luôn thoát; bấm còi gần → trộm bỏ chạy, chủ chó cảm ơn 30k / vụ;
+  tin Tích Tắc `tt.hot.dogThief` sáng hôm sau).
+  Câu thoại bổ sung: `[dacho]` người dắt chó, `[elder]` ông / bà cụ (ped.smallTalk, bubble.ped); khách chào khi lên xe (bubble.riderHi) theo loại khách
+  ([drunk] [vali] [hurry] [hocSinh] [nuocNgoai] [sinhVien] + [elder]) — interactions.js boardPassenger dùng pickFor với role = loại khách. Thùng hàng của NGƯỜI CHƠI nhuộm màu bị lệch (thùng gốc màu xanh) — chưa sửa, chờ chủ game.
 - **Đợt 3**: chốt CSGT đi tuần theo lịch giờ chung (gần chốt chạy quá tốc → phạt policeFine; vượt đèn đỏ trước mặt → 100%) + xe CSGT;
   chú xe ôm truyền thống CHỈ nằm trên xe (chỗ cố định, sửa trong ?editor; tính năng bàn sau).
 - 🌐 Nhiều người chơi: hình NPC chỉ để nhìn, mỗi máy tự vẽ. NPC có ảnh hưởng luật chơi (CSGT, trộm chó, xe ôm) phải chạy theo lịch giờ chung như xe buýt.

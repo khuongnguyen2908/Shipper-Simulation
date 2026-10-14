@@ -2,7 +2,8 @@
 // GAME — điều phối: vòng lặp, nối mô phỏng (src/sim) với thế giới 3D (src/world) và giao diện (src/ui)
 // =============================================================
 import * as THREE from 'three';
-import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, NIGHT, PARKING, AIRPORT, RIDE_EVENTS, ORDER, LIGHTS } from './data/balance.js';
+import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, NIGHT, PARKING, AIRPORT, RIDE_EVENTS, ORDER, LIGHTS, NPC_FLAVOR } from './data/balance.js';
+import { recentThieves } from './sim/dogThief.js';
 import { parkingRoll, helmetRoll, parkingLotAt, nearestStation, towTarget, safeSpot } from './sim/parking.js';
 import { garageSpots, inGarage, parkSlots } from './sim/garage.js';
 import { airportAt, airportParkAt, airportNoStopAt, noStopStep } from './sim/airport.js';
@@ -94,6 +95,11 @@ export class Game {
     this.traffic.grid = this.city.grid; // người đi bộ né cây, cột, trạm xe buýt… trên vỉa hè
     // người ăn xin ngồi cạnh cổng chùa, chợ, nhà thờ, bệnh viện, bến xe (theo dữ liệu địa điểm → mọi máy giống nhau)
     this.traffic.placeStill(this.layout.places.filter((p) => p.door && ['pagoda', 'pagodaCourtyard', 'wetMarket', 'cathedral', 'hospital', 'busStation'].includes(lookOf(p))).map((p) => p.door));
+    // shipper hãng đối thủ đứng chờ trước vài quán ăn (chọn rải đều theo mã địa điểm → máy nào cũng giống)
+    const eats = this.layout.places.filter((p) => p.door && p.kind === 'restaurant' && !p.inAlley).sort((a, b) => (a.id < b.id ? -1 : 1));
+    const nw = Math.min(eats.length, NPC_FLAVOR.rivalWaiting ?? 5);
+    this.traffic.placeRivals(Array.from({ length: nw }, (_, k) => eats[Math.floor(((k + 0.5) * eats.length) / nw)].door));
+    this.traffic.thiefSeed = this.worldSeed; // lịch trộm chó theo seed thế giới (sim/dogThief.js)
     this.stallPeople = makeStallPeople(this.scene, this.city.seats); // khách ngồi ghế nhựa quán cóc (chỉ để nhìn)
     this.bgTraffic = new BgTraffic({ scene: this.scene }); // xe máy chạy ở xa cho đường đông (chỉ để nhìn, không va chạm)
     // đèn giao thông (sim/lights.js): đồng hồ đèn tính bằng giây thật; xe NPC / xe nền dừng đèn đỏ, người chơi vượt đèn đỏ có thể bị phạt nguội
@@ -584,7 +590,10 @@ export class Game {
       if (inp.was('KeyI')) this.toggleBag();
       if (inp.was('KeyY')) act.acceptOffer(this);
       if (inp.was('KeyN')) act.declineOffer(this);
-      if (inp.was('KeyH') && this.mode === 'bike') sound('drive.horn');
+      if (inp.was('KeyH') && this.mode === 'bike') {
+        sound('drive.horn');
+        this.honkNow = true; // traffic.js: bấm còi gần vụ trộm chó thì trộm bỏ chạy
+      }
       if (this.debug) this.debugKeys(inp);
       this.simulate(dt);
     } else setEngine(false, 0);
@@ -727,7 +736,8 @@ export class Game {
     this.traffic.lights.t = this.lightT;
     this.trafficLights.update(this.lightT);
     this.redLightTick(mounted, speed);
-    const trafficEvents = this.traffic.update(dt, { px: pp.x, pz: pp.z, py, onBike: mounted, speed, fx: f.x, fz: f.z });
+    const trafficEvents = this.traffic.update(dt, { px: pp.x, pz: pp.z, py, onBike: mounted, speed, fx: f.x, fz: f.z, hour: tod(this.clockMin) / 60, now: this.clockMin, honk: this.honkNow });
+    this.honkNow = false;
     this.bgTraffic.update(dt, pp.x, pp.z, { onSeg: this.traffic.onSeg, floodIds: this.traffic.floodIds, elev: this.city.elev, lights: this.traffic.lights });
     for (const e of trafficEvents) {
       if (e.type === 'honk' && Math.random() < 0.5) {
@@ -739,6 +749,11 @@ export class Game {
         sound('city.dog');
         this.hud.toast(fmt('toast.dogDart'), 'warn', 2500);
       }
+      // xe đặc biệt (traffic.js specialTick / thiefTick): nẹt pô, câu nói, chó sủa, đuổi được trộm chó
+      if (e.type === 'npcRev') sound('city.rev');
+      if (e.type === 'npcLine') this.driverYell({ obj: e.obj, id: e.id }, e.key);
+      if (e.type === 'dogBark') sound('city.dog');
+      if (e.type === 'thiefScared') this.thiefScared(e);
     }
 
     // ---- chướng ngại ----
@@ -969,6 +984,17 @@ export class Game {
 
   // Tài xế chửi người chơi (bị chắn đầu xe lâu / bị tông): bong bóng thoại trên đầu tài xế, câu trong vi.json
   // (bubble.driverMild / driverAngry / busMild / busAngry / driverHit). Cách nhau ít nhất 2,5 giây cho đỡ rối.
+  // Bấm còi đuổi được xe trộm chó: chủ chó cảm ơn (mỗi vụ 1 lần) · chơi nhiều người: máy chủ kiểm tra giờ vụ trộm + khoảng cách rồi mới cộng
+  thiefScared(e) {
+    this.thiefPaid ??= new Set();
+    if (this.thiefPaid.has(e.id)) return;
+    this.thiefPaid.add(e.id);
+    const k = NPC_FLAVOR.thiefReward ?? 30;
+    if (k > 0) this.gs.earn(k, 'thanks');
+    sound('money.earn');
+    this.hud.toast(fmt('toast.thiefScared', { k }), 'good', 5000);
+  }
+
   driverYell(e, key = null) {
     const now = performance.now();
     if (!e.obj?.mesh || this.cooldowns.get('yell') > now) return;
@@ -2050,6 +2076,7 @@ export class Game {
       openings: this.layout.places.filter((p) => openDayOf(p) === gs.day && gs.day > 1).map((p) => ({ place: p.name, at: { placeId: p.id } })),
       scam: scam ? { place: scam.name, at: { placeId: scam.id } } : null,
       wallet: gs.hasItem('wallet'),
+      dogThief: recentThieves(now, this.worldSeed).filter((e) => e.street).map((e) => ({ street: e.street, at: { x: e.x, z: e.z, axis: e.side % 2 ? 'x' : 'z' } })),
       me: { name: gs.profile?.name || fmt('profile.defaultName'), orders: gs.stats.completed, stars: gs.rating, day: gs.day },
     };
     const feed = buildFeed({ facts, places: this.layout.places, seed: gs.day * 97 + Math.floor(tod(now) / 60) });

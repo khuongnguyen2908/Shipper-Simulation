@@ -277,6 +277,23 @@
     "speedMin": 7,
     "speedMax": 10.5
   },
+  "npcFlavor": {
+    "jetjetGroups": 3,
+    "jetjetFrom": 19,
+    "jetjetTo": 24,
+    "jetjetSpeed": 13,
+    "wheeliePerMin": 2,
+    "rivalPct": 0.15,
+    "rivalWaiting": 5,
+    "bagac": 3,
+    "bagacFrom": 5,
+    "bagacTo": 20,
+    "bagacSpeed": 5.5,
+    "thiefPerNight": 2,
+    "thiefFrom": 22,
+    "thiefTo": 4,
+    "thiefReward": 30
+  },
   "lights": {
     "greenSec": 8,
     "yellowSec": 2,

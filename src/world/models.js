@@ -504,8 +504,9 @@ export function setSitting(g, sitting, chair = false) {
 // (tay lái mỗi kiểu xe cao / thấp / rộng khác nhau — BIKE_SPECS.bar). Gọi SAU khi đã đặt người lên xe (đọc g.position = chỗ ngồi
 // trong khung xe, g.scale = vóc người). Lưu vào parts.grip để setSitting / pedalPerson dùng lại mỗi lần.
 const HAND_LEN = 0.3; // khuỷu → giữa bàn tay (foreArmGeo)
+// model: kiểu xe trong BIKE_SPECS, hoặc tự đưa tay lái [nửa bề ngang, cao, xa phía trước] (xe ba gác…)
 export function gripBar(g, model) {
-  const S = BIKE_SPECS[model] || BIKE_SPECS.underbone;
+  const S = Array.isArray(model) ? { bar: model } : BIKE_SPECS[model] || BIKE_SPECS.underbone;
   const p = g.userData.parts, k = g.scale.x, [bw, by, bz] = S.bar;
   const L1 = UPPER_ARM, L2 = HAND_LEN, cl = (v) => Math.max(-1, Math.min(1, v));
   const sh = p.armR.position; // vai (trong thân), 2 bên đối xứng

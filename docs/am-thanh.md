@@ -96,7 +96,8 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [x] | `loop.rain` | Mưa (lặp) | Đang mưa; mưa to thì to hơn | lặp liên tục | 🔉 tổng hợp |
 | [x] | `loop.city` | Tiếng phố mở đầu (lặp) | Màn đen "Đã tới Sài Gòn": kèn xe, xe cộ, người cãi nhau | lặp liên tục | 🔉 tổng hợp |
 | [x] | `city.honk` | Xe khác bóp còi | Xe NPC bóp còi khi mình chắn đường | tiếng ngắn | 🔉 tổng hợp |
-| [x] | `city.dog` | Chó sủa | Chó lao ra đường sủa | tiếng ngắn | 🔉 tổng hợp |
+| [x] | `city.dog` | Chó sủa | Chó lao ra đường sủa · chó sủa xe trộm chó | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `city.rev` | Nẹt pô | Nhóm Jetjet chạy ngang mình · xe trộm chó rồ ga bỏ chạy | tiếng ngắn | 🔉 tổng hợp |
 | [x] | `city.thunder` | Sấm | Trời bắt đầu mưa | tiếng ngắn | 🔇 im |
 | [x] | `city.morning` | Sáng ngày mới | 6:00 sang ngày mới (gà gáy, chim hót…) | tiếng ngắn | 🔇 im |
 | [x] | `city.busArrive` | Xe buýt tới trạm | Đi xe buýt tới trạm, xuống xe | tiếng ngắn | 🔇 im |

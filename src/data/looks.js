@@ -33,8 +33,8 @@ export const LOOKS = {
   // ---- thêm đợt địa điểm mới ----
   tennis: { label: '🎾 Sân tennis (nên 2 lô)', floors: null, scenery: true },
   pickleball: { label: '🏓 Sân pickleball (nên 2–3 lô)', floors: null, scenery: true },
-  artSchool: { label: '🎨 Trường mỹ thuật kiểu Pháp (nên 2–3 lô)', floors: null },
-  university: { label: '🎓 Đại học hiện đại (nên 2–3 lô)', floors: [4, 7] },
+  artSchool: { label: '🎨 Trường mỹ thuật kiểu Pháp (nên 2–3 lô, hoặc cả khối = khuôn viên)', floors: null },
+  university: { label: '🎓 Đại học hiện đại (nên 2–3 lô, hoặc cả khối = khuôn viên)', floors: [4, 7] },
   fruit: { label: '🍉 Cửa hàng trái cây', floors: [1, 4] },
   school: { label: '🏫 Trường tiểu học (nên 2 lô trở lên)', floors: [2, 3] },
   goldShop: { label: '💍 Tiệm vàng, đá quý', floors: [2, 5] },
@@ -139,3 +139,6 @@ export function lookFloors(p) {
   const f = Number.isInteger(p.floors) ? p.floors : r[0];
   return Math.max(r[0], Math.min(r[1], f));
 }
+
+// Kiểu nhà trường đại học: được chọn cỡ "Cả khối" (lô B) → dựng khuôn viên (world/placeBuildings.js artCampus / uniCampus)
+export const CAMPUS_LOOKS = ['university', 'artSchool'];

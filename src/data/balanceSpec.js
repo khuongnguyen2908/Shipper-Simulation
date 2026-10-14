@@ -277,6 +277,27 @@ export const BALANCE_GROUPS = [
     ],
   },
   {
+    id: 'npcFlavor', title: '🧢 Xe NPC đặc biệt (Jetjet, shipper đối thủ, ba gác, trộm chó)',
+    note: 'Jetjet, shipper hãng đối thủ, ba gác chỉ để nhìn (không phạt, không đổ hàng). Trộm chó: mỗi đêm vài vụ theo lịch chung (giờ + chỗ tính theo ngày, máy nào cũng giống nhau), chó luôn thoát; người chơi ở gần bấm còi (H) thì trộm bỏ chạy sớm và được chủ chó cảm ơn. Sáng hôm sau app Tích Tắc có tin. Đổi số lượng xe cần tải lại game.',
+    fields: [
+      ['npcFlavor.jetjetGroups', 'Jetjet: số nhóm (mỗi nhóm 2–3 xe)', { min: 0, max: 10, step: 1, hint: 'Mặc định 3.' }],
+      ['npcFlavor.jetjetFrom', 'Jetjet: xuất hiện từ (giờ)', { min: 0, max: 24, step: 0.5, hint: 'Mặc định 19 giờ.' }],
+      ['npcFlavor.jetjetTo', 'Jetjet: tới (giờ)', { min: 0, max: 30, step: 0.5, hint: 'Qua nửa đêm thì ghi 25 = 1 giờ sáng. Mặc định 24.' }],
+      ['npcFlavor.jetjetSpeed', 'Jetjet: tốc độ (km/h)', { min: 3, max: 25, scale: 3.6, step: 1, hint: 'Xe thường 29–41 km/h. Mặc định 47 km/h.' }],
+      ['npcFlavor.wheeliePerMin', 'Jetjet: bốc đầu (lần / phút thật / xe, khi ở gần)', { min: 0, max: 10, step: 0.5, hint: 'Mặc định 2.' }],
+      ['npcFlavor.rivalPct', 'Shipper hãng đối thủ: % trong số xe máy NPC', { min: 0, max: 1, scale: 100, step: 1, hint: 'Mặc định 15%.' }],
+      ['npcFlavor.rivalWaiting', 'Shipper đối thủ đứng chờ trước quán ăn (người)', { min: 0, max: 30, step: 1, hint: 'Mặc định 5.' }],
+      ['npcFlavor.bagac', 'Ba gác: số xe', { min: 0, max: 15, step: 1, hint: 'Chạy chậm trên đường lớn / đường thường. Mặc định 3.' }],
+      ['npcFlavor.bagacFrom', 'Ba gác: chạy từ (giờ)', { min: 0, max: 24, step: 0.5, hint: 'Mặc định 5 giờ.' }],
+      ['npcFlavor.bagacTo', 'Ba gác: tới (giờ)', { min: 0, max: 30, step: 0.5, hint: 'Mặc định 20 giờ.' }],
+      ['npcFlavor.bagacSpeed', 'Ba gác: tốc độ (km/h)', { min: 1, max: 15, scale: 3.6, step: 1, hint: 'Mặc định 20 km/h.' }],
+      ['npcFlavor.thiefPerNight', 'Trộm chó: số vụ mỗi đêm', { min: 0, max: 10, step: 1, hint: '0 = tắt. Mặc định 2.' }],
+      ['npcFlavor.thiefFrom', 'Trộm chó: từ (giờ)', { min: 0, max: 24, step: 0.5, hint: 'Mặc định 22 giờ.' }],
+      ['npcFlavor.thiefTo', 'Trộm chó: tới (giờ, sáng hôm sau)', { min: 0, max: 12, step: 0.5, hint: 'Mặc định 4 giờ sáng.' }],
+      ['npcFlavor.thiefReward', 'Bấm còi đuổi trộm: chủ chó cảm ơn (k)', { min: 0, max: 500, step: 5, hint: 'Mỗi vụ được 1 lần. Mặc định 30k.' }],
+    ],
+  },
+  {
     id: 'bgTraffic', title: '🏍️ Xe nền (chỉ để nhìn)',
     note: 'Xe máy chạy ở xa cho đường đông vui, không va chạm, không tính luật. Chạy vào gần người chơi thì mờ dần rồi hiện lại ở chỗ khác xa hơn. Khu nào đông / vắng chỉnh ở thẻ 🗺️ Bản đồ → Khu phố → 🏍️ Xe chạy nền. Xe NPC thật (va chạm, bóp còi) không đổi.',
     fields: [

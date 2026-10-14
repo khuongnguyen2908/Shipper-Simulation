@@ -104,7 +104,9 @@ const CLOTHES = [0xe74c3c, 0x3498db, 0xf1c40f, 0xffffff, 0x9b59b6, 0x2ecc71];
 
 // h: { x, y, z: tâm mép trước (thế giới), nx, nz: hướng mặt tiền ra đường, W: mặt tiền, D: chiều sâu, floors,
 //      color: màu tường, seed, ground: 'shop' | 'shutter' | 'home' | 'place' | 'back', low: ít chi tiết (nhà vùng ven),
-//      place: là địa điểm (tầng 1 không ban công để gắn biển), alley: nhà trong hẻm, awning: ép có mái bạt }
+//      place: là địa điểm (tầng 1 không ban công để gắn biển), alley: nhà trong hẻm, awning: ép có mái bạt,
+//      ground 'open': mặt tiền mở toang (quán ăn — trong quán dựng riêng ở placeBuildings), placeDeco: tầng 1 của địa điểm
+//      có cửa sổ trang trí dựng riêng → không đặt máy lạnh đè lên }
 export function buildHouse(g, h) {
   const r = makeRng(h.seed >>> 0);
   const { W, D } = h;
@@ -170,7 +172,7 @@ export function buildHouse(g, h) {
     const inner = W - 2 * pil, bays = Math.max(1, Math.round(inner / 4)), col = 0.25, bw = (inner - (bays - 1) * col) / bays;
     for (let k = 0; k < bays; k++) {
       const u0 = -W / 2 + pil + k * (bw + col);
-      face([u0, 0, 0], [bw, 0, 0], [0, band, 0], bays > 1 && ground !== 'shutter' && k % 3 === 1 ? R.shutter : reg, WHITE);
+      if (ground !== 'open') face([u0, 0, 0], [bw, 0, 0], [0, band, 0], bays > 1 && ground !== 'shutter' && k % 3 === 1 ? R.shutter : reg, WHITE);
       if (k < bays - 1) wallQ(u0 + bw, u0 + bw + col, 0, band);
     }
   }
@@ -228,7 +230,7 @@ export function buildHouse(g, h) {
     // máy lạnh, chậu cây, đồ phơi
     if (r.chance(0.5)) {
       const au = (r.next() - 0.5) * (W - 1.2);
-      box(au - 0.39, au + 0.39, y0 + 2.4, y0 + 2.92, set - 0.3, set, lin(0xeeeeee), { f: R.ac, b: null });
+      if (!(h.placeDeco && h.place && i === 1)) box(au - 0.39, au + 0.39, y0 + 2.4, y0 + 2.92, set - 0.3, set, lin(0xeeeeee), { f: R.ac, b: null });
     }
     if (!flat) {
       for (const s of [-1, 1]) {
