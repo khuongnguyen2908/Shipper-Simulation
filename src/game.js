@@ -38,7 +38,7 @@ import { BgTraffic } from './world/bgTraffic.js';
 import { pushCircle } from './world/physics.js';
 import { nextBoat, BOAT_DECK } from './sim/ferry.js';
 import { Sky } from './world/sky.js';
-import { makePerson, makeBeacon, makeZoneRing, setSitting, pedalPerson, randomPersonOpts, npcLook, sitY, makeBike, applyPose } from './world/models.js';
+import { makePerson, makeBeacon, makeZoneRing, setSitting, pedalPerson, randomPersonOpts, npcLook, sitY, makeBike, applyPose, updatePeopleLod, setPeopleMode } from './world/models.js';
 import { riderStyle, suitcaseOnBike } from './world/npcStyles.js';
 import { personOf, pronouns, profileLook } from './sim/people.js';
 import { makeLabelTexture, makeQuestTexture } from './world/textures.js';
@@ -279,6 +279,7 @@ export class Game {
       this.scene.traverse((o) => { for (const m of [].concat(o.material || [])) m.needsUpdate = true; });
     }
     if (!prev || prev.quality !== st.quality) this.resize();
+    setPeopleMode(st.people); // người đi đường: chi tiết theo khoảng cách / luôn đơn giản
     if (save) saveSettings(st);
   }
   // Phím M / nút tắt tiếng: nhớ vào cài đặt
@@ -528,6 +529,8 @@ export class Game {
       this.input.setLock(false); // màn hình tiêu đề / kết thúc: hiện con trỏ
       this.titleTick(dt);
     }
+    // người xa camera vẽ bản đơn giản (6 khung hình xét 1 lần là đủ — người đi chậm)
+    if ((this.lodTick = (this.lodTick || 0) + 1) % 6 === 0) updatePeopleLod(this.camera.position);
     this.renderer.render(this.scene, this.camera);
     this.input.endFrame();
   }
@@ -617,6 +620,7 @@ export class Game {
     }
     for (const k of Object.keys(st)) st[k] = false;
     if (!render) return null;
+    updatePeopleLod(this.camera.position);
     this.renderer.render(this.scene, this.camera);
     return this.snapshot();
   }

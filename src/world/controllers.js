@@ -202,6 +202,7 @@ export class Walker {
     this.scene = scene;
     this.sitting = false;
     this.mesh = makePerson({ shirt: 0x27ae60, pants: 0x1f2d3d, hat: 'helmet', hatColor: 0x27ae60, bag: false });
+    this.mesh.userData.keepDetail = true;
     scene.add(this.mesh);
     this.pos = new THREE.Vector3();
     this.heading = 0;
@@ -261,6 +262,7 @@ export class Walker {
   setLook(opts) {
     const old = this.mesh;
     const m = makePerson({ ...opts, bag: false });
+    m.userData.keepDetail = true; // nhân vật người chơi luôn vẽ chi tiết (kể cả khi chọn "người đơn giản")
     m.position.copy(old.position);
     m.rotation.copy(old.rotation);
     const parent = old.parent;

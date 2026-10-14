@@ -2,7 +2,7 @@
 // tự xoay, kéo chuột để xoay. Một bộ vẽ WebGL riêng; chỉ vẽ khi đang hiện (ẩn → dừng vòng vẽ).
 // view: 'full' toàn thân · 'face' cận mặt (soi kiểu tóc) — máy quay trượt êm giữa 2 góc.
 import * as THREE from 'three';
-import { makePerson } from '../world/models.js';
+import { makePerson, setPersonDetail } from '../world/models.js';
 
 // Góc máy: vị trí + điểm nhìn
 const VIEWS = { full: { pos: [0, 1.05, 3.6], at: [0, 0.9, 0] }, face: { pos: [0, 1.62, 1.05], at: [0, 1.58, 0] } };
@@ -61,6 +61,8 @@ export function createAvatar({ width: W = 150, height: H = 210 } = {}) {
       lookKey = key;
       if (person) scene.remove(person);
       person = makePerson({ ...look, bag: false });
+      person.userData.keepDetail = true; // ô xem nhân vật: luôn chi tiết
+      setPersonDetail(person, false); // (chọn "người đơn giản" thì người mới dựng ở dạng đơn giản → đổi lại ngay)
       scene.add(person);
     },
     setView(v) { view = VIEWS[v] ? v : 'full'; },

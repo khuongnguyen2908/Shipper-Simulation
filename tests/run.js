@@ -21,6 +21,7 @@ import { ranges } from '../src/sim/hours.js';
 import { dayOf, dayStartAt, atHour, fmtClock, minutesUntil } from '../src/sim/clock.js';
 import { isOpen } from '../src/sim/placeRules.js';
 import * as CONTENT from '../src/content/index.js';
+import * as SETTINGS_MOD from '../src/settings.js';
 
 let pass = 0, fail = 0;
 function test(name, fn) {
@@ -1899,6 +1900,34 @@ console.log('Ngoại hình nam/nữ');
     return false;
   };
   const tris = (o) => o.userData.parts.torso.geometry.attributes.position.count;
+  test('Người ở xa vẽ đơn giản (LOD): ít tam giác hơn nhiều, vẫn đủ khớp + mặt; đổi qua lại không hỏng; người chơi luôn chi tiết', () => {
+    const { setPersonDetail, updatePeopleLod, setPeopleMode } = MODELS;
+    const count = (g) => { let n = 0; g.traverse((o) => { if (o.isMesh) n += o.geometry.attributes.position.count / 3; }); return n; };
+    for (const o of [{}, { gender: 'f', hairStyle: 'braids', shirtStyle: 'hoodie' }, { hat: 'helmet', overlay: 'raincoat' }]) {
+      const p = makePerson(o), hi = count(p);
+      setPersonDetail(p, true);
+      assert.ok(count(p) < hi * 0.65, 'đơn giản: ' + count(p) + ' / ' + hi);
+      setPersonDetail(p, false);
+      assert.equal(count(p), hi, 'trở lại chi tiết');
+    }
+    // theo khoảng cách tới camera; nhân vật người chơi (keepDetail) không đổi
+    const scene = new THREE.Scene(), near = makePerson({}), far = makePerson({}), me = makePerson({});
+    far.position.set(80, 0, 0);
+    me.position.set(80, 0, 5);
+    me.userData.keepDetail = true;
+    scene.add(near, far, me);
+    scene.updateMatrixWorld(true);
+    updatePeopleLod(new THREE.Vector3(0, 2, 5));
+    assert.ok(!near.userData.lo && far.userData.lo && !me.userData.lo);
+    setPeopleMode('simple');
+    updatePeopleLod(new THREE.Vector3(0, 2, 5));
+    assert.ok(near.userData.lo && !me.userData.lo, 'tùy chọn người đơn giản: ai cũng đơn giản trừ người chơi');
+    setPeopleMode('auto');
+    const { normSettings } = SETTINGS_MOD;
+    assert.equal(normSettings({}).people, 'auto');
+    assert.equal(normSettings({ people: 'simple' }).people, 'simple');
+    assert.equal(normSettings({ people: 'xyz' }).people, 'auto');
+  });
   test('Dựng hình 3D: tóc dài, búi, váy có đủ phần', () => {
     const skin = 0xf1c27d, pants = 0x2c3e50;
     const skirt = makePerson({ gender: 'f', hairStyle: 'long', skirt: true, skin, pants });

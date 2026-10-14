@@ -35,6 +35,7 @@ export function personPreview(id) {
   const showLook = (opts) => {
     if (person) scene.remove(person);
     person = makePerson(opts);
+    person.userData.keepDetail = true;
     scene.add(person);
     // camera lùi/tiến theo vóc người để luôn thấy trọn người
     const k = opts.scale || 1;

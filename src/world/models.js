@@ -5,6 +5,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeRng } from '../sim/rng.js';
 import { personOf, hashStr, HAIR_BY_GENDER } from '../sim/people.js';
 import { buildPerson, followTa, JACKET_COLOR } from './person.js';
+export { updatePeopleLod, setPeopleMode, setPersonDetail } from './person.js';
 export { JACKET_COLOR };
 
 const PI = Math.PI;

@@ -10,7 +10,24 @@ import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
 const HIP_Y = 0.88, SHOULDER_Y = 1.405, THIGH = 0.44, UPPER_ARM = 0.29, HEAD_Y = 1.6;
 const PI = Math.PI;
 export const PERSON_MAT = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.78, metalness: 0.02 });
-const SEG = 10, LSEG = 8, ZS = 0.66; // số cạnh thân · số cạnh tay chân, khớp (ít hơn cho nhẹ) · ép dẹt thân trước-sau
+let SEG = 10, LSEG = 8; // số cạnh thân · số cạnh tay chân, khớp (ít hơn cho nhẹ) — bản đơn giản (lite) giảm còn 6 / 5
+const ZS = 0.66; // ép dẹt thân trước-sau
+// ---------- BẢN ĐƠN GIẢN (người ở xa / tùy chọn "người đơn giản") ----------
+// Dựng lại đúng các khối của người nhưng ít cạnh hơn và bỏ chi tiết nhỏ (< 4,5 cm: mắt, lông mày, tai, môi, nút áo, chữ in…).
+// Cùng khung khớp → dáng đi, ngồi xe, tư thế vẫn chạy; chỉ đổi hình (mesh.geometry) theo khoảng cách tới camera.
+let LITE = false, KEEP = false; // KEEP: chi tiết nhỏ vẫn giữ ở bản đơn giản (mắt, lông mày, miệng — người gần vẫn có mặt)
+function lite(fn) {
+  const keep = [SEG, LSEG];
+  LITE = true;
+  [SEG, LSEG] = [6, 5];
+  try {
+    return fn();
+  } finally {
+    LITE = false;
+    [SEG, LSEG] = keep;
+  }
+}
+const segs = (n) => (LITE ? Math.max(4, Math.round(n * 0.55)) : n); // số cạnh của các khối cầu / ống riêng (đầu, chỏm tóc, tóc rủ…)
 const Y0 = 0.78; // gốc thân tiện (đáy quần)
 export const JACKET_COLOR = 0xbfe3f5;
 
@@ -20,6 +37,11 @@ class Parts {
   add(geo, color, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) {
     const g = geo.index ? geo.toNonIndexed() : geo.clone();
     g.applyMatrix4(_m.compose(_p.set(x, y, z), _q.setFromEuler(_e.set(rx, ry, rz)), _s.set(sx, sy, sz)));
+    if (LITE && !KEEP) {
+      g.computeBoundingBox();
+      const b = g.boundingBox;
+      if (Math.max(b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z) < 0.045) return this; // chi tiết nhỏ (tai, môi, nút, chữ…): ở xa không thấy
+    }
     _c.setHex(color);
     const n = g.attributes.position.count, col = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) col.set([_c.r, _c.g, _c.b], i * 3);
@@ -37,8 +59,8 @@ class Parts {
 const shade = (c, k) => _c.setHex(c).multiplyScalar(k).getHex();
 const mix = (a, b, t) => _c.setHex(a).lerp(new THREE.Color(b), t).getHex();
 const limb = (r0, r1, h) => new THREE.CylinderGeometry(r0, r1, h, LSEG, 1, true).rotateY(PI / LSEG); // ống hở 2 đầu (khớp cầu bịt)
-const ball = (r) => new THREE.SphereGeometry(r, LSEG, 5);
-const egg = (rx, ry, rz, seg = LSEG, rows = 5) => new THREE.SphereGeometry(1, seg, rows).scale(rx, ry, rz);
+const ball = (r) => new THREE.SphereGeometry(r, LSEG, LITE ? 3 : 5);
+const egg = (rx, ry, rz, seg = LSEG, rows = 5) => new THREE.SphereGeometry(1, LITE ? Math.min(seg, LSEG) : seg, LITE ? 3 : rows).scale(rx, ry, rz);
 const cone = (r, h, seg = 4) => new THREE.ConeGeometry(r, h, seg);
 const latheOf = (prof, k = 1) => new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r * k, y)), SEG).rotateY(PI / SEG).scale(1, 1, ZS);
 // bán kính thân tiện ở độ cao y (nội suy theo mặt cắt)
@@ -72,8 +94,9 @@ function frontStrip(prof, a0, a1, yFrom, yTo, lift = 0.004) {
 // ---------- đầu: cầu nắn thành sọ + hàm thon + gò má + gờ lông mày (tâm ở gốc) ----------
 const HEAD = {};
 function headGeo(f) {
-  if (HEAD[f]) return HEAD[f];
-  const R = 0.115, g = new THREE.SphereGeometry(R, 12, 10), p = g.attributes.position;
+  const k = `${f}${LITE}`;
+  if (HEAD[k]) return HEAD[k];
+  const R = 0.115, g = new THREE.SphereGeometry(R, segs(12), segs(10)), p = g.attributes.position;
   for (let i = 0; i < p.count; i++) {
     let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
     const ny = y / R;
@@ -91,7 +114,7 @@ function headGeo(f) {
     if (z < 0) z *= 0.93;
     p.setXYZ(i, x, y, z);
   }
-  return (HEAD[f] = g);
+  return (HEAD[k] = g);
 }
 // mũi: sống mũi + đầu mũi + 2 cánh; phần sau lún vào mặt
 let NOSE = null;
@@ -106,7 +129,7 @@ const noseGeo = () => (NOSE ||= new ConvexGeometry([
 // chỏm tóc: cầu ôm sọ, mỗi cột kinh tuyến dừng đúng ở đường chân tóc (mép trơn, không răng cưa). Đường chân tóc
 // (so với tâm chỏm, đặt ở đầu + 1,2 cm): front = trán · side = 2 bên tai · back = gáy (nội suy theo hướng quanh đầu)
 function capGeo(r = 0.123, k = [0.91, 1.2, 1.02], front = 0.022, side = -0.028, back = -0.075) {
-  const g = new THREE.SphereGeometry(1, 14, 7, 0, PI * 2, 0, PI * 0.999), p = g.attributes.position, uv = g.attributes.uv; // < π: hàng đáy đủ tam giác
+  const g = new THREE.SphereGeometry(1, segs(14), segs(7), 0, PI * 2, 0, PI * 0.999), p = g.attributes.position, uv = g.attributes.uv; // < π: hàng đáy đủ tam giác
   for (let i = 0; i < p.count; i++) {
     const v = 1 - uv.getY(i), phi = uv.getX(i) * PI * 2, c = Math.sin(phi); // c = 1: giữa trán · −1: gáy
     const yh = c > 0 ? side + (front - side) * c : side + (back - side) * -c;
@@ -120,7 +143,7 @@ function capGeo(r = 0.123, k = [0.91, 1.2, 1.02], front = 0.022, side = -0.028, 
 function backPanel(T, hair, hy, h, cy, r0 = 0.12, r1 = 0.128, arc = 0.9, wave = 0) {
   const a0 = PI * (1 - arc / 2); // giữa cung = phía sau (θ = π)
   const mk = (d) => {
-    const g = new THREE.CylinderGeometry(r0 - d, r1 - d, h, wave ? 16 : 12, wave ? 6 : 1, true, a0, PI * arc);
+    const g = new THREE.CylinderGeometry(r0 - d, r1 - d, h, segs(wave ? 16 : 12), wave ? segs(6) : 1, true, a0, PI * arc);
     if (wave) {
       const p = g.attributes.position;
       for (let i = 0; i < p.count; i++) {
@@ -330,6 +353,7 @@ function addHat(T, o, hy) {
 // ---------- THÂN + ĐẦU + mọi thứ gắn cố định ----------
 const cache = new Map();
 function cached(key, fn) {
+  if (LITE) key = 'L' + key; // bản đơn giản cất riêng
   let g = cache.get(key);
   if (!g) {
     g = fn();
@@ -400,7 +424,7 @@ function strap(T, prof, X, w, yFrom, color, front = true, back = true) {
 function taLathe(f, front) {
   const shirtP = at(f ? SHIRT_F : SHIRT_M), top = 0.08, r0 = radiusAt(shirtP, Y0 + 0.17 + top) + 0.003;
   const pts = [[0.19, -0.76], [0.165, -0.3], [r0 + 0.012, -0.03], [r0, top]].map(([r, y]) => new THREE.Vector2(r, y));
-  const g = new THREE.LatheGeometry(pts, 10, front ? -PI * 0.3 : PI * 0.7, PI * 0.6), p = g.attributes.position;
+  const g = new THREE.LatheGeometry(pts, segs(10), front ? -PI * 0.3 : PI * 0.7, PI * 0.6), p = g.attributes.position;
   for (let i = 0; i < p.count; i++) {
     const t = Math.min(1, Math.max(0, (top - p.getY(i)) / (top + 0.76))); // 0 ở trên → 1 ở dưới
     p.setZ(i, p.getZ(i) * (ZS + (0.86 - ZS) * t)); // trên dẹt như thân, dưới tròn dần
@@ -412,7 +436,7 @@ function taLathe(f, front) {
 function coatLathe(f, front = false) {
   const pantsP = at(f ? PANTS_F : PANTS_M), r0 = radiusAt(pantsP, Y0 + 0.13) + 0.012;
   const pts = [[0.2, -0.74], [0.18, -0.35], [r0 + 0.01, -0.06], [r0, 0.02]].map(([r, y]) => new THREE.Vector2(r, y));
-  const g = front ? new THREE.LatheGeometry(pts, 3, -PI * 0.13, PI * 0.26) : new THREE.LatheGeometry(pts, 14, PI * 0.12, PI * 1.76), p = g.attributes.position;
+  const g = front ? new THREE.LatheGeometry(pts, 3, -PI * 0.13, PI * 0.26) : new THREE.LatheGeometry(pts, segs(14), PI * 0.12, PI * 1.76), p = g.attributes.position;
   for (let i = 0; i < p.count; i++) {
     const t = Math.min(1, Math.max(0, (0.02 - p.getY(i)) / 0.76));
     p.setZ(i, p.getZ(i) * (ZS + (0.9 - ZS) * t));
@@ -596,6 +620,7 @@ function torsoGeo(o) {
     T.add(limb(0.044, 0.05, 0.1), o.skin, 0, 1.47, -0.004);
     T.add(headGeo(f), o.skin, 0, hy, 0.005);
     T.add(noseGeo(), shade(o.skin, 0.95), 0, hy - 0.004, 0.106);
+    KEEP = true;
     for (const s of [-1, 1]) {
       T.add(egg(0.012, 0.0075, 0.006, 6, 4), 0x141414, s * 0.039, hy + 0.012, 0.104, 0, 0, s * -0.08); // mắt
       T.add(new THREE.BoxGeometry(0.036, 0.006, 0.008), o.style === 'bald' ? 0x3a2a22 : shade(o.hair, 1.1), s * 0.04, hy + 0.036, 0.11, 0.1, s * 0.15, s * -0.1); // lông mày
@@ -603,6 +628,7 @@ function torsoGeo(o) {
     }
     T.add(egg(0.017, 0.004, 0.006, 6, 3), f ? 0xa8484e : 0x8a4a3e, 0, hy - 0.06, 0.095); // miệng
     T.add(egg(0.013, 0.004, 0.006, 6, 3), shade(o.skin, 0.82), 0, hy - 0.067, 0.093); // môi dưới
+    KEEP = false;
     addHair(T, o.style, o.hair, o.skin, hy, o.hat === 'helmet' || o.hat === 'police' || o.hat === 'cap');
     addHat(T, o, hy);
     // ---- thùng giao hàng đeo lưng (NPC) / balo / túi đeo chéo ----
@@ -800,10 +826,12 @@ export function buildPerson(o) {
   const f = o.gender === 'f';
   const g = new THREE.Group(), body = new THREE.Group();
   g.add(body);
-  const mesh = (geo, parent, shadow = false) => {
-    const m = new THREE.Mesh(geo, PERSON_MAT);
+  // fn + tham số: dựng hình chi tiết ngay; bản đơn giản dựng khi cần (lần đầu người này ở xa)
+  const mesh = (fn, arg, parent, shadow = false) => {
+    const m = new THREE.Mesh(fn(arg), PERSON_MAT);
     m.castShadow = shadow;
     m.receiveShadow = true;
+    m.userData.lodMake = () => lite(() => fn(arg));
     parent.add(m);
     return m;
   };
@@ -818,19 +846,19 @@ export function buildPerson(o) {
   const cloth = st === 'gile' || st === 'overalls' ? o.shirt2 ?? 0xffffff : o.shirt; // gile / yếm: tay áo là áo thun bên trong
   const trim = st === 'soccer' ? o.shirt2 ?? 0x222222 : st === 'vnteam' ? 0xffd200 : null;
   const rings = st === 'plaid' || st === 'pajama' ? o.shirt2 ?? 0xffffff : null;
-  const torso = mesh(torsoGeo({
+  const torso = mesh(torsoGeo, {
     female: f, shirt: o.shirt, shirt2: o.shirt2 ?? null, shirtStyle: st, pants, pantsStyle: ps, skin: o.skin, hair: o.hair, style: o.style, bag: o.bag,
     hat: o.hat, hatColor: o.hat ? o.hatColor : null, helmetStyle: o.hat === 'helmet' ? o.helmetStyle : null,
     overlay: o.overlay === 'jacket' || o.overlay === 'raincoat' ? o.overlay : null, uniform: !o.overlay ? o.uniform ?? null : null,
     face: o.face || null, faceColor: o.face ? o.faceColor : null, carry: o.carry || null, carryColor: o.carry ? o.carryColor : null,
-  }), body, true);
+  }, body, true);
   // tà trước áo dài: khối riêng xoay quanh eo
   let ta = null;
   if (st === 'aodai') {
     ta = new THREE.Group();
     ta.position.set(0, Y0 + 0.17, 0);
     body.add(ta);
-    mesh(taGeo({ shirt: o.shirt, f }), ta, true);
+    mesh(taGeo, { shirt: o.shirt, f }, ta, true);
   }
   // áo mưa dài: vạt dưới tới mắt cá (khối riêng — parts.overlay, ngồi xe thì thu ngắn)
   let coat = null;
@@ -839,13 +867,13 @@ export function buildPerson(o) {
     coat.position.set(0, Y0 + 0.13, 0);
     coat.userData.coat = true;
     body.add(coat);
-    mesh(coatGeo({ color: o.shirt, f }), coat, true);
+    mesh(coatGeo, { color: o.shirt, f }, coat, true);
     // vạt trước: đứng thì khép kín, bước chân / ngồi xe thì nhấc theo đùi (followTa)
     ta = new THREE.Group();
     ta.position.set(0, Y0 + 0.13, 0);
     ta.userData.coatFlap = true;
     body.add(ta);
-    mesh(coatGeo({ color: o.shirt, f, front: true }), ta, true);
+    mesh(coatGeo, { color: o.shirt, f, front: true }, ta, true);
   }
   const hipX = f ? 0.07 : 0.074, side = ps === 'cargo' || ps === 'track'; // quần có chi tiết 1 bên (túi hộp, 3 sọc) → hình riêng từng chân
   const foot = o.shoeStyle || 'sneaker';
@@ -853,11 +881,11 @@ export function buildPerson(o) {
     const hip = new THREE.Group();
     hip.position.set(s * hipX, HIP_Y, 0);
     g.add(hip);
-    mesh(thighGeo({ pants, skin: o.skin, ps, f, p2: p2 ?? null, s: side ? s : 0 }), hip);
+    mesh(thighGeo, { pants, skin: o.skin, ps, f, p2: p2 ?? null, s: side ? s : 0 }, hip);
     const knee = new THREE.Group();
     knee.position.y = -THIGH;
     hip.add(knee);
-    mesh(shinGeo({ pants, skin: o.skin, ps, shoe: o.shoe, s2: o.shoe2 ?? null, foot, p2: p2 ?? null, s: side ? s : 0 }), knee);
+    mesh(shinGeo, { pants, skin: o.skin, ps, shoe: o.shoe, s2: o.shoe2 ?? null, foot, p2: p2 ?? null, s: side ? s : 0 }, knee);
     return [hip, knee];
   });
   const shX = f ? 0.165 : 0.178;
@@ -867,17 +895,64 @@ export function buildPerson(o) {
     sh.position.set(s * shX, SHOULDER_Y, 0);
     sh.rotation.z = s * 0.08;
     body.add(sh);
-    mesh(upperArmGeo({ cloth, skin: o.skin, sl, f, s, sleeve: gloveLong && sl !== 'long' ? glove : null, trim, rings }), sh);
+    mesh(upperArmGeo, { cloth, skin: o.skin, sl, f, s, sleeve: gloveLong && sl !== 'long' ? glove : null, trim, rings }, sh);
     const el = new THREE.Group();
     el.position.y = -UPPER_ARM;
     el.rotation.x = -0.15;
     sh.add(el);
-    mesh(foreArmGeo({ cloth, skin: o.skin, sl, f, s, glove, gloveLong, rings, wrist: s < 0 ? o.wrist || null : null, wristColor: s < 0 && o.wrist ? o.wristColor : null }), el);
+    mesh(foreArmGeo, { cloth, skin: o.skin, sl, f, s, glove, gloveLong, rings, wrist: s < 0 ? o.wrist || null : null, wristColor: s < 0 && o.wrist ? o.wristColor : null }, el);
     return [sh, el];
   });
   g.userData.parts = { legL: legParts[0][0], legR: legParts[1][0], kneeL: legParts[0][1], kneeR: legParts[1][1], armL: arms[0][0], armR: arms[1][0], elbowL: arms[0][1], elbowR: arms[1][1], body, torso, overlay: coat, ta, female: f };
+  PEOPLE.add(g);
+  if (PEOPLE_MODE === 'simple') setPersonDetail(g, true);
   return g;
 }
+
+// ---------- ĐỔI CHI TIẾT THEO KHOẢNG CÁCH ----------
+// Mọi người đã dựng (người chơi, người đi đường, khách, NPC…) → game.js gọi updatePeopleLod mỗi vài khung hình.
+// mode 'auto': gần camera (< LOD_FAR m) vẽ chi tiết, xa hơn vẽ bản đơn giản · 'simple': luôn đơn giản (máy yếu, Cài đặt)
+const PEOPLE = new Set();
+let PEOPLE_MODE = 'auto';
+export const LOD_FAR = 30;
+export function setPeopleMode(mode) {
+  PEOPLE_MODE = mode === 'simple' ? 'simple' : 'auto';
+}
+// lo = true: bản đơn giản · false: chi tiết (bản đơn giản dựng lần đầu cần tới, cất lại dùng chung)
+export function setPersonDetail(g, lo) {
+  if (!!g.userData.lo === lo) return;
+  g.userData.lo = lo;
+  g.traverse((m) => {
+    const make = m.userData?.lodMake;
+    if (!make) return;
+    m.userData.hiGeo ??= m.geometry;
+    if (lo) m.geometry = m.userData.loGeo ??= make();
+    else m.geometry = m.userData.hiGeo;
+  });
+}
+const _v = new THREE.Vector3();
+export function updatePeopleLod(cam) {
+  for (const g of PEOPLE) {
+    if (!g.parent) {
+      if (g.userData.orphan > 3) PEOPLE.delete(g); // đã bỏ khỏi cảnh (dựng lại người chơi, khách đi rồi…)
+      else g.userData.orphan = (g.userData.orphan || 0) + 1;
+      continue;
+    }
+    g.userData.orphan = 0;
+    if (g.userData.keepDetail) { // người chơi, ô xem nhân vật: luôn chi tiết
+      setPersonDetail(g, false);
+      continue;
+    }
+    if (PEOPLE_MODE === 'simple') {
+      setPersonDetail(g, true);
+      continue;
+    }
+    g.getWorldPosition(_v);
+    const d = _v.distanceTo(cam), lo = g.userData.lo ? d > LOD_FAR - 4 : d > LOD_FAR; // chừa 4 m để khỏi nhấp nháy ở ranh giới
+    setPersonDetail(g, lo);
+  }
+}
+export const peopleCount = () => PEOPLE.size;
 // Tà áo dài theo chân: chân nào bước lên trước (góc âm) thì tà trước nhấc theo; ngồi xe → tà nằm trên đùi
 export function followTa(p) {
   if (p.ta) p.ta.rotation.x = Math.min(0, p.legL.rotation.x, p.legR.rotation.x) * 0.95;

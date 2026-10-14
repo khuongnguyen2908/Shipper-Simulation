@@ -64,7 +64,11 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   CSGT (chốt + tuần tra, models.csgtLook): nguyên bộ vàng (áo kiểu police: cổ bẻ, cầu vai đỏ, bảng tên, phù hiệu, 2 túi ngực, thắt lưng đen to + khóa + bao súng),
   mũ bảo hiểm 3/4 vàng (helmetStyle open — che tai + gáy, chữ CSGT; cũng chọn được cho món mũ ở ?editor), dây chéo + bao bộ đàm, giày da đen, ~50% khẩu trang.
   ngồi xe banh 2 đùi ra 2 bên theo kiểu xe (BIKE_SPECS spread; người ngồi sau 0,3–0,32 — yên sau rộng); sọc xanh xe tuần tra thành 2 sọc mỏng áp hông xe → chân không lún vào yếm / thân xe. Đã xem: 12 vai người đi đường, 6 loại khách, 6 xe NPC (jetjet, đối thủ, ba gác, trộm chó, CSGT, xe ôm nằm).
-- **P4 (chưa)**: người ở xa dùng hình đơn giản (LOD), đo FPS, tùy chọn "người đơn giản"; xong thì hỏi chủ game rồi mới xóa kiểu cũ.
+- **P4 (xong 14/10)**: người ở xa (> 30 m, chừa 4 m chống nhấp nháy) vẽ bản đơn giản — person.js lite(): ít cạnh, bỏ chi tiết < 4,5 cm (giữ mắt,
+  lông mày, miệng); ~960 tam giác / người (chi tiết ~2.190). Đổi hình theo khoảng cách camera (updatePeopleLod, 6 khung hình / lần). Người chơi + ô xem nhân vật
+  luôn chi tiết (userData.keepDetail). Cài đặt → "Người đi đường: Chi tiết / Đơn giản" (settings.people). Đo trong game (414 người, ~220 trong khung):
+  tam giác người 530k → 280k, thời gian vẽ người ~3,2 → ~1,6 ms / khung (kiểu cũ ~2,6 ms). CHỜ chủ game: có xóa kiểu người cũ (makePersonClassic, ?nguoicu)
+  và file mẫu devtools/personSample.js không.
 - 🌐 Nhiều người chơi: ngoại hình người chơi (tóc, áo quần) là của riêng từng người, gửi kèm hồ sơ để máy khác vẽ; người đi đường chỉ để nhìn.
 
 ### 🏘️ Nhà địa điểm "kiểu A" (14/10 — A1 + A2 xong, chủ game ok)

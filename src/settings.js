@@ -1,7 +1,8 @@
 // Cài đặt của người chơi (màn hình ⚙️ Cài đặt): âm thanh (bật / tắt, âm lượng Nhạc, âm lượng Hiệu ứng),
 // độ nhạy chuột, đảo trục dọc, đồ họa. Lưu trong trình duyệt (localStorage) — không nằm trong bản lưu game, không cần ?editor.
 const KEY = 'shipper-settings-v1';
-export const DEFAULTS = { music: 0.6, sfx: 0.8, muted: false, sens: 1, invertY: false, quality: 'high' };
+// people: 'auto' (người gần chi tiết, người xa vẽ đơn giản) | 'simple' (mọi người vẽ đơn giản — máy yếu)
+export const DEFAULTS = { music: 0.6, sfx: 0.8, muted: false, sens: 1, invertY: false, quality: 'high', people: 'auto' };
 export const SENS_RANGE = [0.3, 2.5];
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -20,6 +21,7 @@ export function normSettings(s) {
     sens: Number.isFinite(+o.sens) ? clamp(+o.sens, ...SENS_RANGE) : DEFAULTS.sens,
     invertY: !!o.invertY,
     quality: o.quality === 'low' ? 'low' : 'high',
+    people: o.people === 'simple' ? 'simple' : 'auto',
   };
 }
 

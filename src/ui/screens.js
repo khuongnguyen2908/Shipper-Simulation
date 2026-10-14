@@ -302,6 +302,9 @@ function settingsHtml(s) {
     <div class="mm-field"><span>${fmt('settings.quality')}</span><div class="mm-genders">
       <button class="mm-gender${s.quality === 'high' ? ' on' : ''}" data-quality="high">${fmt('settings.high')}</button>
       <button class="mm-gender${s.quality === 'low' ? ' on' : ''}" data-quality="low">${fmt('settings.low')}</button></div></div>
+    <div class="mm-field"><span>${fmt('settings.people')}</span><div class="mm-genders">
+      <button class="mm-gender${s.people !== 'simple' ? ' on' : ''}" data-people="auto">${fmt('settings.peopleAuto')}</button>
+      <button class="mm-gender${s.people === 'simple' ? ' on' : ''}" data-people="simple">${fmt('settings.peopleSimple')}</button></div></div>
     <small class="mm-note">${fmt('settings.note')}</small>
     <div class="row"><button class="btn" data-reset="1">${fmt('settings.reset')}</button></div>`;
 }
@@ -323,6 +326,7 @@ function bindSettings(el, s, onChange, redraw) {
     });
   });
   el.querySelectorAll('[data-quality]').forEach((b) => b.addEventListener('click', () => set('quality', b.dataset.quality, true)));
+  el.querySelectorAll('[data-people]').forEach((b) => b.addEventListener('click', () => set('people', b.dataset.people, true)));
   el.querySelectorAll('[data-muted]').forEach((b) => b.addEventListener('click', () => set('muted', b.dataset.muted === '1', true)));
   el.querySelector('[data-reset]')?.addEventListener('click', () => {
     Object.assign(s, DEFAULTS);
