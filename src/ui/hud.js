@@ -22,6 +22,8 @@ export class Hud {
       <div class="hud-goal"><div id="gArrow" class="g-arrow">▲</div><div><div id="gText"></div><div id="gSub"></div></div></div>
       <div class="hud-obj panel"><div class="ttl">${fmt('hud.objectives')}</div><ul id="objList"></ul></div>
       <div class="hud-br"><div id="mmChip"></div><canvas id="minimap" width="210" height="210"></canvas><div id="mmStreet"></div></div>
+      <button id="phoneIcon" class="pi" title="${fmt('phone.iconHint')}"><span class="pi-wave"></span><span class="pi-wave w2"></span><span class="pi-body"><span class="pi-screen" id="piScreen"></span></span><span class="pi-badge hidden" id="piBadge"></span><span class="pi-key">${fmt('phone.iconHint')}</span></button>
+      <div id="phoneNote" class="hidden"></div>
       <div id="cargo" class="panel hidden"></div>
       <div class="hud-bl"><div id="prompt"></div><div id="speedo"></div></div>
       <div class="hud-keys">${fmt('hud.keys')}</div>
@@ -30,6 +32,54 @@ export class Hud {
     root.appendChild(this.el);
     this.mini = new MiniMap($(this.el, '#minimap'));
     this.cache = {};
+    // hình điện thoại cạnh bản đồ: bấm vào = mở máy (như phím Tab); không cho cú bấm xoay camera
+    this.onPhone = null;
+    this.pi = $(this.el, '#phoneIcon');
+    this.pi.addEventListener('pointerdown', (e) => e.stopPropagation());
+    this.pi.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.onPhone?.();
+    });
+  }
+
+  // Hình điện thoại nhỏ. p: { hidden (máy to đang mở), st: 'idle' | 'msg' | 'offer' | 'story', time, unread, from, pay, left (0–1, null = không hết hạn) }
+  phoneIcon(p) {
+    const pi = this.pi;
+    pi.classList.toggle('hidden', !!p.hidden);
+    if (p.hidden) return;
+    for (const s of ['idle', 'msg', 'offer', 'story']) pi.classList.toggle(s, p.st === s);
+    pi.classList.toggle('ringing', p.st === 'offer' || p.st === 'story');
+    const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    const time = `<span class="pi-time">${p.time}</span>`;
+    let html = `${time}<span class="pi-dots">${['#00b14f', '#5dade2', '#f39c12', '#9b59b6', '#e74c3c', '#95a5a6'].map((c) => `<i style="background:${c}"></i>`).join('')}</span>`;
+    if (p.st === 'msg') html = `${time}<span class="pi-big">💬</span><span class="pi-line">${esc(p.from)}</span>`;
+    if (p.st === 'offer' || p.st === 'story') html = `${time}<span class="pi-big">${p.kind === 'ride' ? '🧍' : '🛵'}</span><span class="pi-line">${esc(p.pay)}</span>`
+      + (p.left == null ? '' : `<span class="pi-timer"><b style="width:${Math.round(Math.max(0, Math.min(1, p.left)) * 100)}%"></b></span>`);
+    this.set('piScreen', html);
+    const badge = $(this.el, '#piBadge');
+    const b = p.st === 'offer' || p.st === 'story' ? '🔔' : p.unread ? String(Math.min(99, p.unread)) : '';
+    if (this.cache.piBadge !== b) {
+      this.cache.piBadge = b;
+      badge.textContent = b;
+      badge.classList.toggle('hidden', !b);
+      badge.classList.toggle('bell', b === '🔔');
+    }
+  }
+  // Tin mới: máy rung 3 cái
+  buzzPhone() {
+    const pi = this.pi;
+    pi.classList.remove('buzz');
+    void pi.offsetWidth; // chạy lại hiệu ứng
+    pi.classList.add('buzz');
+  }
+  // Bong bóng xem trước tin nhắn cạnh máy (3 giây)
+  phonePreview(name, text, ms = 3000) {
+    const el = $(this.el, '#phoneNote');
+    const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    el.innerHTML = `<b>${esc(name)}:</b> ${esc(text)}`;
+    el.classList.remove('hidden');
+    clearTimeout(this.noteT);
+    this.noteT = setTimeout(() => el.classList.add('hidden'), ms);
   }
 
   set(id, html) {

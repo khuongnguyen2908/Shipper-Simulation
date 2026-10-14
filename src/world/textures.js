@@ -181,7 +181,8 @@ export function makeSignTexture(text, bg = '#b03a2e', fg = '#ffffff') {
 }
 
 // Dấu chấm than vàng trên đầu NPC có việc cần gặp (Cô Hai lúc mới vào game)
-export function makeQuestTexture() {
+// symbol: '!' (có việc mới) · '?' (quay lại nói chuyện)
+export function makeQuestTexture(symbol = '!') {
   const [c, g] = canvas(128, 128);
   g.fillStyle = '#f4d03f';
   g.strokeStyle = '#7d5c00';
@@ -194,7 +195,7 @@ export function makeQuestTexture() {
   g.font = '900 84px "Segoe UI", Arial, sans-serif';
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  g.fillText('!', 64, 68);
+  g.fillText(symbol, 64, 68);
   return toTexture(c);
 }
 

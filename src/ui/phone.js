@@ -1,5 +1,5 @@
 // Điện thoại kiểu thật: màn hình chính có các app, bấm app mở to cả máy (‹ quay lại), thông báo trượt xuống.
-// App: GoShip (nhận / chạy đơn) · Bản đồ (cityMap.js) · Tin nhắn · Ví · Hồ sơ · Túi đồ (kho đồ chia ô + bảng "Đang mặc" bên trái)
+// App: GoShip (nhận / chạy đơn, nút 👤 mở Hồ sơ tài xế) · Bản đồ (cityMap.js) · Tin nhắn (danh sách + từng cuộc trò chuyện) · Ví · Túi đồ (kho đồ chia ô + bảng "Đang mặc" bên trái)
 //      · Xe (xăng, tình trạng, nhớt, km) · CSGT (phạt nguội, chốt đã biết). Chữ lấy từ kho chữ phone.*
 // Thứ tự / biểu tượng / màu / ẩn app: phone.json (thẻ 📱 Giao diện app trong ?editor).
 // Phím khi mở điện thoại: 1–9 mở app · Esc về màn hình chính (đang ở màn hình chính thì cất máy).
@@ -20,6 +20,7 @@ import { CityMap } from './cityMap.js';
 import { createAvatar } from './avatar.js';
 import { morph } from './morph.js';
 import { profileLook } from '../sim/people.js';
+import { STORY } from '../sim/story.js';
 
 // [mã app, biểu tượng, màu, khóa chữ tên app] — APPS: app đang hiện (theo thứ tự, phím 1–9); app ẩn vẫn mở được qua liên kết
 const PHONE = phoneApps();
@@ -56,6 +57,14 @@ function bagEntries(gs) {
     const g = GOODS[id];
     if (g && n > 0 && (g.type === 'consumable' || g.type === 'carry')) out.push({ key: `g:${id}`, id, kind: g.type === 'carry' ? 'carry' : 'use', g, n });
   }
+  for (const id of gs.story?.items || []) {
+    const it = STORY.items?.[id];
+    if (it) out.push({ key: `s:${id}`, id, kind: 'quest', g: { icon: it.icon, name: fmt(it.name), desc: fmt(it.desc) }, n: 1 });
+  }
+  for (const pid of [].concat(gs.story?.carry || [])) {
+    const P = STORY.parcels?.[pid];
+    if (P) out.push({ key: `p:${pid}`, id: pid, kind: 'quest', g: { icon: P.icon, name: fmt(P.name), desc: fmt(P.desc) }, n: 1 });
+  }
   if (gs.hasItem('wallet')) out.push({ key: 'i:wallet', id: 'wallet', kind: 'quest', g: { icon: '👛', name: fmt('dlg.invWalletItem'), desc: fmt('phone.bagWalletDesc') }, n: 1 });
   return out;
 }
@@ -70,7 +79,7 @@ function bagActions(e) {
     if (isAccessorySlot(e.g.slot)) acts.push(e.worn ? { act: 'bagOff', label: fmt('phone.bagOff') } : { act: 'bagWear', label: fmt('phone.bagWear') });
     else notes.push(fmt(e.worn ? 'phone.bagWornHome' : 'phone.bagHomeOnly'));
   } else if (e.kind === 'equip') notes.push(fmt('phone.bagAlwaysOn'));
-  else if (e.kind === 'quest') acts.push({ act: 'wallet', label: fmt('phone.view') });
+  else if (e.kind === 'quest' && e.id === 'wallet') acts.push({ act: 'wallet', label: fmt('phone.view') });
   return { acts, notes };
 }
 // "Áo · đang mặc" / "Đồ dùng 1 lần · còn 2"…
@@ -139,6 +148,8 @@ export class Phone {
     this.tictac = new TicTac({ snap: (post) => this.handlers.snap?.(post) }); // app Tích Tắc (lướt tin cho vui)
     this.lastHtml = '';
     // Túi đồ: nút lọc đang chọn, món đang chọn (khóa 'g:mã'), menu chuột phải { key, x, y }
+    this.thread = null; // app Tin nhắn: cuộc trò chuyện đang mở (null = danh sách)
+    this.profile = false; // app nhận đơn: đang xem trang Hồ sơ tài xế
     this.bagFilter = 'all';
     this.bagPage = 0;
     this.bagSel = null;
@@ -174,7 +185,16 @@ export class Phone {
     if (this.bagMenu && !inMenu) this.bagMenu = null; // bấm ra ngoài → đóng menu
     const app = e.target.closest('[data-app]');
     if (app) return this.openApp(app.dataset.app);
-    if (e.target.closest('[data-home]')) return this.goHome();
+    if (e.target.closest('[data-home]')) return this.back(true);
+    const th = e.target.closest('[data-thread]');
+    if (th && !th.dataset.act) {
+      this.thread = th.dataset.thread;
+      return this.handlers.action('readThread', { id: this.thread });
+    }
+    if (e.target.closest('[data-prof]')) {
+      this.profile = true;
+      return this.redraw();
+    }
     const f = e.target.closest('[data-bagf]');
     if (f) {
       this.bagFilter = f.dataset.bagf;
@@ -239,7 +259,11 @@ export class Phone {
 
   openApp(id) {
     if (!APP_BY_ID[id]) return;
-    if (id !== this.app) sound('phone.app');
+    if (id !== this.app) {
+      sound('phone.app');
+      this.thread = null;
+      this.profile = false;
+    }
     this.app = id;
     this.bagMenu = null;
     this.unread[id] = 0;
@@ -259,10 +283,26 @@ export class Phone {
     this.handlers.refresh();
   }
 
-  // Esc: trong app → về màn hình chính; đang ở màn hình chính → cất máy
-  back() {
+  // Esc / nút ‹: đang trong 1 cuộc trò chuyện → về danh sách tin nhắn · trang Hồ sơ → về app nhận đơn
+  // · trong app → về màn hình chính · đang ở màn hình chính (Esc) thì cất máy
+  back(button = false) {
+    if (this.app === 'chat' && this.thread) {
+      this.thread = null;
+      return this.redraw();
+    }
+    if (this.app === 'goship' && this.profile) {
+      this.profile = false;
+      return this.redraw();
+    }
     if (this.app) this.goHome();
-    else this.toggle(false);
+    else if (!button) this.toggle(false);
+  }
+
+  // Tin nhắn mới: điện thoại rung (đang mở máy thì máy lắc nhẹ)
+  buzz() {
+    this.el.classList.remove('buzz');
+    void this.el.offsetWidth; // chạy lại hiệu ứng
+    if (this.open) this.el.classList.add('buzz');
   }
 
   // Có tin mới ở app: thêm chấm đỏ; đang mở máy ở chỗ khác thì trượt thông báo xuống (bấm vào để mở app)
@@ -292,7 +332,7 @@ export class Phone {
     if (!this.app) html = this.homeScreen(d);
     else {
       const [id, ic, color, name] = appLook(APP_BY_ID[this.app], d.gs);
-      const body = id === 'goship' ? this.orderTab(d) : id === 'chat' ? this.chatTab(d) : id === 'wallet' ? this.walletTab(d) : id === 'account' ? this.accountTab(d) : id === 'bag' ? this.bagTab(d) : id === 'bike' ? this.bikeTab(d) : id === 'police' ? this.policeTab(d) : '';
+      const body = id === 'goship' ? (this.profile && d.gs.brand ? this.profileTab(d) : this.orderTab(d)) : id === 'chat' ? this.chatTab(d) : id === 'wallet' ? this.walletTab(d) : id === 'account' ? this.accountTab(d) : id === 'bag' ? this.bagTab(d) : id === 'bike' ? this.bikeTab(d) : id === 'police' ? this.policeTab(d) : id === 'camera' ? this.cameraTab(d) : '';
       html = `<div class="ph-appbar" style="background:${color}"><button data-home="1" title="${fmt('phone.home')}">‹</button><b>${ic} ${name}</b><span></span></div>
         <div class="ph-body${id === 'map' ? ' ph-mapbody' : id === 'tictac' ? ' ph-ttbody' : ''}"${id === 'map' || id === 'tictac' ? ' data-keep' : ''}>${body}</div>${id === 'bag' ? this.bagMenuHtml(d) : ''}`;
     }
@@ -305,6 +345,10 @@ export class Phone {
       if (this.app === 'tictac' && (body.childNodes.length !== 1 || body.firstChild !== this.tictac.el)) body.replaceChildren(this.tictac.el);
       if (body && this.shownApp !== this.app) body.scrollTop = 0; // đổi app → cuộn về đầu
       this.shownApp = this.app;
+      // cuộc trò chuyện: mở ra / có tin mới → cuộn xuống tin cuối
+      const tk = this.app === 'chat' && this.thread ? `${this.thread}:${d.gs.inbox.threads[this.thread]?.msgs.length}` : null;
+      if (body && tk && tk !== this.threadKey) body.scrollTop = body.scrollHeight;
+      this.threadKey = tk;
     }
     if (this.app === 'tictac') this.tictac.update(d.feed);
     if (this.app === 'map') this.cityMap.draw({ ...d.mapData, now: d.now, day: d.gs.day, busy: !!d.order || d.state === S.OFFERED, tut: d.tut });
@@ -317,7 +361,10 @@ export class Phone {
     const online = d.state !== S.OFFLINE;
     const income = Object.values(gs.stats.income).reduce((a, b) => a + b, 0);
     const rent = gs.rentPaid ? fmt('phone.homeRentPaid') : fmt('phone.homeRent', { pct: Math.min(100, Math.round((gs.money / gs.rent) * 100)), rent: gs.rent, day: gs.rentDueDay });
-    const badge = (id) => (this.unread[id] ? `<i class="badge">${this.unread[id]}</i>` : '');
+    const badge = (id) => {
+      const n = id === 'chat' ? gs.unreadMessages : this.unread[id];
+      return n ? `<i class="badge">${n}</i>` : '';
+    };
     // ô tóm tắt: đã vào hãng → thu nhập, số đơn, điểm, đang bật app; chưa vào hãng → chỉ tiền + tiền nhà
     const work = gs.brand
       ? `<div class="w-big">${fmtK(income)} · ${fmt('phone.homeOrders', { n: gs.stats.completed })} · ⭐${gs.rating.toFixed(2)}</div>
@@ -344,7 +391,7 @@ export class Phone {
         <div class="card">${brands}</div><div class="card"><b>${fmt('phone.offices')}</b>${offices || `<small>${fmt('phone.nothing')}</small>`}</div>`;
     }
     const online = d.state !== S.OFFLINE;
-    let h = `<div class="ph-head"><div><b>${fmt(online ? 'phone.online' : 'phone.offline')}</b><small>${fmt('phone.summary', { rating: gs.rating.toFixed(2), n: gs.stats.completed })}</small></div></div>`;
+    let h = `<div class="ph-head"><div><b>${fmt(online ? 'phone.online' : 'phone.offline')}</b><small>${fmt('phone.summary', { rating: gs.rating.toFixed(2), n: gs.stats.completed })}</small></div><button class="prof-btn" data-prof="1" title="${fmt('phone.profileBtn')}">👤 ${fmt('phone.profileShort')}</button></div>`;
     // 2 công tắc riêng: Giao hàng (đồ ăn + hàng hóa + hỏa tốc) · Chở khách (cần mũ cho khách)
     const rideLocked = !gs.effect('passengerSeat');
     const sw = (act, on, label, dis) => `<button class="sw${on ? ' on' : ''}" data-act="${act}"${dis ? ' disabled' : ''}><span>${label}</span><i></i></button>`;
@@ -371,6 +418,7 @@ export class Phone {
   }
 
   offerCard(o, left, d) {
+    const forced = !!o.forced; // cuốc cốt truyện: không đếm giờ, không bỏ qua được
     const items = o.itemIds.map((id) => d.itemDefs[id]);
     const traits = [...new Set(items.flatMap((i) => i.traits))].map((t) => {
       const l = traitLabel(t);
@@ -379,14 +427,14 @@ export class Phone {
     const ride = o.kind === 'ride';
     const floor = o.dropoff.apartment ? fmt('phone.floor', { floor: o.dropoff.floor }) : '';
     return `<div class="card offer">
-      <div class="offer-top"><b>${offerTitle(o)}</b><small>${fmt('phone.offerSec', { sec: Math.ceil(left) })}</small></div>
-      <div class="timer"><div style="width:${(left / ORDER.offerTimeoutSec) * 100}%"></div></div>
+      <div class="offer-top"><b>${offerTitle(o)}</b><small>${forced ? fmt('phone.forcedOffer') : fmt('phone.offerSec', { sec: Math.ceil(left) })}</small></div>
+      ${forced ? `<div class="ph-note small">${fmt('phone.forcedNoSkip')}</div>` : `<div class="timer"><div style="width:${(left / ORDER.offerTimeoutSec) * 100}%"></div></div>`}
       <div class="pay-big">~${fmtK(o.estPay)}</div>
       <div class="route"><div>📍 <b>${o.pickup.name}</b><small>${ride ? fmt('phone.pickupRide', { customer: o.customer }) : o.pickup.address}</small></div>
       <div>🏁 <b>${o.revealed ? o.dropoff.address : fmt('phone.vague')}</b><small>${o.customer}${floor}</small></div></div>
       <div class="items">${items.map((i) => `${i.icon} ${i.name}`).join(' · ')}</div>
       <div class="tags">${orderTags(o)}${traits}<span class="tag">📏 ${o.distanceKm.toFixed(1)} km</span>${o.flags.picky ? `<span class="tag warn">${fmt('phone.picky')}</span>` : ''}</div>
-      <div class="row"><button class="btn" data-act="decline">${fmt('phone.decline')}</button><button class="btn primary" data-act="accept">${fmt('phone.accept', { sec: Math.ceil(left) })}</button></div>
+      <div class="row"><button class="btn" data-act="decline"${forced ? ' disabled' : ''}>${forced ? '🔒 ' : ''}${fmt('phone.decline')}</button><button class="btn primary" data-act="accept">${forced ? fmt('phone.acceptNow') : fmt('phone.accept', { sec: Math.ceil(left) })}</button></div>
     </div>`;
   }
 
@@ -414,9 +462,41 @@ export class Phone {
     </div>`;
   }
 
+  // App Tin nhắn (lưu trong save — GameState.inbox): danh sách người nhắn (tin cuối, giờ, chấm đỏ) → bấm vào mở cuộc trò chuyện
+  // (bong bóng trái: họ · phải: mình; tin có 📍 = nút Chỉ đường; tin cuối có câu trả lời nhanh)
   chatTab(d) {
-    return `<div class="chat-title">${fmt('phone.chatTitle', { n: d.chat.length })}</div><div class="chat">` +
-      d.chat.slice(-30).reverse().map((m) => `<div class="msg"><div class="from">${m.from} <small>${m.time}</small></div><div>${m.text}</div></div>`).join('') + '</div>';
+    const gs = d.gs, threads = gs.inbox.threads;
+    const who = (id) => {
+      const c = STORY.contacts[id], t = threads[id] || {};
+      return c ? [c.icon, fmt(c.name)] : [t.icon || '💬', esc(t.name || id)];
+    };
+    const textOf = (m) => (m.key ? fmt(m.key, { name: esc(gs.profile.name) }) : m.text || '');
+    const when = (at) => (dayOf(at) === dayOf(d.now) ? hhmm(((at % 1440) + 1440) % 1440) : fmt('phone.msgDay', { day: dayOf(at) }));
+    const t = this.thread && threads[this.thread];
+    if (t) {
+      const [ic, name] = who(this.thread);
+      const placeName = (id) => PLACES.find((pl) => pl.id === id)?.name || id;
+      const bubbles = t.msgs.map((m) => `<div class="bub ${m.me ? 'me' : 'them'}"><div>${textOf(m)}</div>
+        ${(m.loc || []).map((id) => `<button class="msg-loc${d.waypoint === id ? ' on' : ''}" data-act="waypoint" data-id="${id}">📍 ${esc(placeName(id))}</button>`).join('')}
+        <small>${when(m.at)}</small></div>`).join('');
+      const replies = t.replies?.length ? `<div class="msg-replies">${t.replies.map((k, i) => `<button data-act="reply" data-thread="${this.thread}" data-i="${i}">${fmt(k, { name: esc(gs.profile.name) })}</button>`).join('')}</div>` : '';
+      return `<div class="msg-head"><i class="msg-av">${ic}</i><b>${name}</b></div><div class="msg-thread">${bubbles}</div>${replies}`;
+    }
+    const ids = Object.keys(threads).filter((id) => threads[id].msgs.length).sort((a, b) => (threads[b].last ?? 0) - (threads[a].last ?? 0));
+    if (!ids.length) return `<div class="ph-note">${fmt('phone.msgEmpty')}</div>`;
+    return `<div class="msg-list">${ids.map((id) => {
+      const th = threads[id], m = th.msgs[th.msgs.length - 1], [ic, name] = who(id);
+      const plain = String(textOf(m)).replace(/<[^>]+>/g, '');
+      const prev = (m.me ? fmt('phone.msgYou') : '') + (m.loc?.length && !plain ? fmt('phone.msgLoc') : plain);
+      return `<button class="msg-row${th.unread ? ' unread' : ''}" data-thread="${id}"><i class="msg-av">${ic}</i>
+        <span class="msg-main"><b>${name}</b><small>${esc(prev.length > 48 ? prev.slice(0, 46) + '…' : prev)}</small></span>
+        <span class="msg-meta"><small>${when(th.last ?? m.at)}</small>${th.unread ? `<i class="badge">${th.unread}</i>` : ''}</span></button>`;
+    }).join('')}</div>`;
+  }
+
+  // App nhận đơn → nút 👤: trang Hồ sơ tài xế (nút ‹ về lại nhận đơn)
+  profileTab(d) {
+    return `<div class="ph-head"><b>👤 ${fmt('phone.profileBtn')}</b></div>${this.accountTab(d)}`;
   }
 
   walletTab(d) {
@@ -575,6 +655,19 @@ export class Phone {
       ${gs.brand ? `<div class="card"><b>👜 ${esc(b.name)}</b><small class="blk">${esc(b.desc)}</small>
       ${kv(fmt('phone.bagStats'), `${Math.round(b.insulation * 100)}% · ${Math.round(b.waterproof * 100)}% · ${Math.round(b.padding * 100)}%`)}
       ${kv(fmt('phone.slots'), `${b.cols}×${b.rows}`)}</div>` : ''}${near}`;
+  }
+
+  // App Máy ảnh: 3 ô ảnh = 3 bản lưu game. Chụp = lưu ngay lúc này (ô có ảnh thì chụp đè) · Quay lại = chơi tiếp từ lúc chụp
+  cameraTab(d) {
+    const block = d.camBlock;
+    const slots = (d.photos || []).map((ph, i) => {
+      const img = ph?.img ? `<img class="cam-img" src="${ph.img}" alt="">` : `<div class="cam-img empty">${ph ? '📷' : fmt('phone.camEmpty')}</div>`;
+      const info = ph ? `<b>${i + 1}. ${fmt('phone.camWhen', { day: ph.day, time: ph.time })}</b><small>${esc(ph.where || '')}</small>` : `<b>${i + 1}. ${fmt('phone.camEmpty')}</b>`;
+      return `<div class="card cam-slot">${img}<div class="cam-info">${info}
+        <div class="row"><button class="btn small primary" data-act="camShoot" data-i="${i}"${block ? ' disabled' : ''}>${fmt(ph ? 'phone.camOver' : 'phone.camShoot')}</button>
+        ${ph ? `<button class="btn small" data-act="camLoad" data-i="${i}">${fmt('phone.camLoad')}</button>` : ''}</div></div></div>`;
+    }).join('');
+    return `<div class="card"><b>${fmt('phone.camTitle')}</b><small class="blk">${fmt('phone.camNote')}</small>${block ? `<div class="ph-lock">${block}</div>` : ''}</div>${slots}`;
   }
 
   // App CSGT: phạt nguội (từng biên bản, hạn nộp, nơi nộp) + chốt CSGT đã biết hôm nay

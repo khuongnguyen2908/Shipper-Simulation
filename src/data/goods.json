@@ -109,7 +109,7 @@
   "depToOng": {
     "id": "depToOng",
     "name": "Dép tổ ong",
-    "icon": "🩴",
+    "icon": "👡",
     "price": 15,
     "desc": "Mát chân, rẻ, huyền thoại.",
     "type": "outfit",
@@ -434,6 +434,21 @@
       "minutes": 10,
       "phys": 45,
       "mental": 5,
+      "fuel": 0,
+      "bikeHp": 0
+    }
+  },
+  "phanComChay": {
+    "id": "phanComChay",
+    "name": "Phần cơm chay Chú Hai",
+    "icon": "🍱",
+    "price": 0,
+    "desc": "Chú Hai gói cho, cơm chay nóng hổi.",
+    "type": "consumable",
+    "use": {
+      "minutes": 10,
+      "phys": 30,
+      "mental": 10,
       "fuel": 0,
       "bikeHp": 0
     }
@@ -1398,7 +1413,7 @@
   "depLe_den": {
     "id": "depLe_den",
     "name": "Dép lê đen",
-    "icon": "🩴",
+    "icon": "👡",
     "price": 10,
     "desc": "Dép lê quai ngang, đi chợ đi ngủ đều được.",
     "type": "outfit",
@@ -1409,7 +1424,7 @@
   "depLe_xanh": {
     "id": "depLe_xanh",
     "name": "Dép lê xanh",
-    "icon": "🩴",
+    "icon": "👡",
     "price": 10,
     "desc": "Dép lê xanh dương.",
     "type": "outfit",
@@ -1420,7 +1435,7 @@
   "depQuaiNgang": {
     "id": "depQuaiNgang",
     "name": "Dép quai ngang thể thao",
-    "icon": "🩴",
+    "icon": "👡",
     "price": 25,
     "desc": "Dép quai ngang bản to, đế êm.",
     "type": "outfit",
@@ -1432,7 +1447,7 @@
   "depXoNgon_xanh": {
     "id": "depXoNgon_xanh",
     "name": "Dép xỏ ngón xanh",
-    "icon": "🩴",
+    "icon": "👡",
     "price": 8,
     "desc": "Dép tông lào quai xỏ ngón.",
     "type": "outfit",
@@ -1444,7 +1459,7 @@
   "depXoNgon_do": {
     "id": "depXoNgon_do",
     "name": "Dép xỏ ngón đỏ",
-    "icon": "🩴",
+    "icon": "👡",
     "price": 8,
     "desc": "Dép tông đỏ.",
     "type": "outfit",
@@ -1456,7 +1471,7 @@
   "sandal_nau": {
     "id": "sandal_nau",
     "name": "Sandal quai hậu nâu",
-    "icon": "🩴",
+    "icon": "👡",
     "price": 35,
     "desc": "Sandal 2 quai ngang + quai hậu, chạy xe không tuột.",
     "type": "outfit",
@@ -1467,7 +1482,7 @@
   "sandal_den": {
     "id": "sandal_den",
     "name": "Sandal quai hậu đen",
-    "icon": "🩴",
+    "icon": "👡",
     "price": 35,
     "desc": "Sandal đen quai hậu.",
     "type": "outfit",

@@ -31,7 +31,8 @@
     "speedLimit": 13.888889,
     "rentByPeriod": [],
     "faintFee": 100,
-    "resalePct": 0.3
+    "resalePct": 0.3,
+    "pedalNoFines": 1
   },
   "energy": {
     "phys": {

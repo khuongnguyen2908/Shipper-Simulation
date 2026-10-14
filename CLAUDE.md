@@ -17,6 +17,7 @@ src/
              editor.json (cảnh báo đã "Bỏ qua" trong ?editor) · itemGroups.js (nhóm món — chỉ để xếp trong editor)
              phone.json + phoneApps.js (thứ tự / biểu tượng / màu / ẩn app trên điện thoại = phím 1–9; app có thật ở APP_DEFS)
              sounds.json + soundSpec.js (gắn file âm thanh cho từng mã; thêm chỗ phát tiếng mới = thêm mã vào soundSpec + gọi sound() + ghi vào docs/am-thanh.md)
+             story.json (cốt truyện chơi một mình: chương → bước; bộ chạy sim/story.js, thẻ 📖 Cốt truyện của ?editor, chữ ở vi.json khóa story.*)
              map.json + map.js (cỡ bản đồ, kiểu hẻm từng khối, sông + cầu, đường ngập floodSegs; mặt bằng hẻm ở sim/blockPlan.js, đường đi ở cityLayout.routeDist; ngập + triều cường ở sim/flood.js)
   content/   vi.json — MỌI chữ hiển thị; code gọi fmt(khóa, tham số) / pick / list
   sim/       mô phỏng thuần (không Three.js, không DOM): clock (đồng hồ 24h liên tục), OrderManager (máy trạng thái), ItemPhysics,

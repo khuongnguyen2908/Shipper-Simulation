@@ -284,3 +284,7 @@ body.show-hints .fld-i { display: none; }
 .snd-kho .snd-row { padding: 2px 4px; border-radius: 6px; }
 .snd-kho .snd-row:hover { background: #1f2733; }
 .btn.playing { background: #c0392b; border-color: transparent; }
+
+/* thẻ 📖 Cốt truyện: mỗi "việc" của một bước */
+.story-act { border: 1px solid var(--line, #d0d4da); border-radius: 10px; padding: 8px 10px; margin: 8px 0; }
+.story-act > .row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }

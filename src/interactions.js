@@ -7,6 +7,8 @@ import { TIME, ECONOMY, ENERGY, ORDER, VEHICLES, BAGS, WALLET_QUEST, PARKING, LI
 import { circleFree } from './world/physics.js';
 import { APP, ORDER_TYPES, RIDER_TYPES, BRANDS } from './data/apps.js';
 import { GOODS, OUTFIT_SLOTS, isAccessorySlot } from './data/goods.js';
+import { STORY, stepOf, storyEvent } from './sim/story.js';
+import { DeliveryItem } from './sim/ItemPhysics.js';
 import { isOpen, fmtHours, placesUsing, placesSelling, unlocked, openDayOf } from './sim/placeRules.js';
 import { ITEMS } from './data/items.js';
 import { S } from './sim/OrderManager.js';
@@ -104,7 +106,16 @@ export function gatherInteractions(g) {
     }
   }
   const R = foot ? 3.2 : 4.5;
+  // cốt truyện: bước "nói chuyện ở địa điểm" → nút E riêng ở cửa (đi bộ)
+  const st = stepOf(g.gs.story);
+  if (st?.talk && st.until?.type === 'talk' && g.gs.story.fired) { // chờ việc đầu bước làm xong (vd tin nhắn tới) rồi mới cho nói chuyện
+    const pl = g.layout.placeById[st.talk.place];
+    const d = pl && dist(p, pl.door);
+    if (pl && d <= R) E.push(foot ? { label: fmt(st.talk.label), dist: d - 5, run: () => storyTalk(g, st, pl) } : { label: fmt('act.needFoot', { place: pl.name }), dist: d - 5, disabled: true });
+  }
+  const storyPlace = st?.until?.type === 'talk' ? st.talk?.place : null;
   for (const pl of g.layout.places) {
+    if (pl.id === storyPlace) continue; // cốt truyện: nút E riêng (hoặc chờ tin nhắn tới rồi mới hiện)
     const d = dist(p, pl.chargeSpot || pl.door); // trạm sạc: tới chỗ sạc trong sân mới hiện nút
     if (d > R) continue;
     const a = placeAction(g, pl);
@@ -151,6 +162,52 @@ function nearestSeat(g, p, r) {
   return best;
 }
 
+// ======================== CỐT TRUYỆN: NÓI CHUYỆN Ở ĐỊA ĐIỂM ========================
+// story.json → talk { place, label, text, ok, pack (xếp gói hàng vào túi), drop (giao gói hàng), give (tặng đồ) }
+function storyTalk(g, st, pl) {
+  const t = st.talk, n = npc(g, pl.id), gs = g.gs;
+  say(g, n.name, n.portrait, fmt(t.text, { name: gs.profile.name }), [{
+    label: fmt(t.ok),
+    primary: true,
+    onSelect: () => {
+      const done = () => storyEvent(gs.story, `talk:${pl.id}`);
+      const list = (x) => (Array.isArray(x) ? x : x ? [x] : []);
+      // giao gói hàng đang chở (1 hay nhiều gói)
+      if (t.drop) gs.story.carry = list(gs.story.carry).filter((id) => !list(t.drop).includes(id));
+      if (t.give && GOODS[t.give]) {
+        const n = Math.max(1, t.giveQty || 1);
+        gs.consumables[t.give] = (gs.consumables[t.give] || 0) + n;
+        g.hud.toast(fmt('toast.storyGift', { item: GOODS[t.give].name, qty: n > 1 ? ` ×${n}` : '' }), 'good', 4000);
+      }
+      const pack = list(t.pack).filter((id) => STORY.parcels?.[id]);
+      if (pack.length) return storyPack(g, pack, done);
+      done();
+    },
+  }], { dismissible: false });
+}
+// Xếp các gói hàng cốt truyện vào túi (dùng màn xếp túi của đơn hàng, có hướng dẫn — game.packGuide) → xong thì đang chở các gói đó
+function storyPack(g, ids, done) {
+  const gs = g.gs;
+  const items = ids.map((id) => { const P = STORY.parcels[id]; return new DeliveryItem({ id, name: fmt(P.name), icon: P.icon, traits: P.traits || [] }); });
+  sound('order.pickup');
+  const node = buildPacking({
+    items,
+    bag: gs.bagSpec,
+    onDone: () => {
+      g.modal.hide();
+      g.storyPacking = null;
+      gs.story.carry = [...ids];
+      g.hud.toast(fmt('story.carrying', { item: items.map((it) => it.name).join(' + ') }), 'good', 4000);
+      done();
+    },
+  });
+  g.storyPacking = node;
+  // hướng dẫn "chọn món": nhớ món người chơi đã tự bấm chọn (màn xếp túi tự chọn sẵn món kế tiếp, nhưng vẫn dạy bước chọn món)
+  node.picked = new Set();
+  node.addEventListener('click', (e) => { const b = e.target.closest('[data-item]'); if (b) node.picked.add(Number(b.dataset.item)); }, true);
+  g.modal.show({ title: fmt('dlg.packTitle', { bag: gs.bagSpec.name }), node, dismissible: false, wide: true });
+}
+
 function mount(g) {
   g.walker.leaveSeat(false);
   g.gs.parked = null; // hết lần đậu
@@ -162,7 +219,7 @@ function mount(g) {
   // mở đầu: lần đầu leo lên xe đạp Cô Hai cho → bắt đầu hướng dẫn đi đăng ký hãng
   if (g.gs.flags.story === 1) {
     g.gs.flags.story = 2;
-    g.hud.toast(fmt('toast.firstRide'), 'big', 7000);
+    if (!g.gs.story?.ch) g.hud.toast(fmt('toast.firstRide'), 'big', 7000);
   }
 }
 
@@ -278,9 +335,39 @@ export function acceptOffer(g) {
 }
 
 export function declineOffer(g) {
+  if (g.om.offer?.forced) return g.hud.toast(fmt('phone.forcedNoSkip'), 'info', 2500); // cuốc cốt truyện: không bỏ qua được
   if (!g.om.decline(g.clockMin)) return;
   sound('phone.decline');
   g.hud.toast(fmt('toast.declined'), 'info', 1800);
+}
+
+// App Máy ảnh: chụp = lưu game vào ô i (ô đã có ảnh thì hỏi trước khi chụp đè). Đang có đơn / ngồi trên xe… thì chưa cho.
+function camShoot(g, i) {
+  const block = g.camBlock();
+  if (block) return g.hud.toast(block, 'warn', 3000);
+  const old = g.photos()[i];
+  const shoot = () => {
+    const ph = g.photoSave(i);
+    g.hud.toast(fmt('toast.camSaved', { n: i + 1, when: fmt('phone.camWhen', { day: ph.day, time: ph.time }) }), 'good', 3500);
+    g.renderPhone();
+  };
+  if (!old) return shoot();
+  g.modal.show({
+    title: fmt('dlg.camOverTitle'),
+    text: fmt('dlg.camOverText', { n: i + 1, when: fmt('phone.camWhen', { day: old.day, time: old.time }) }),
+    choices: [{ label: fmt('dlg.camYes'), primary: true, onSelect: shoot }, { label: fmt('dlg.cancel') }],
+  });
+}
+// Quay lại lúc chụp ảnh i (hỏi trước — tiến độ từ lúc đó tới giờ sẽ mất)
+function camLoad(g, i) {
+  const ph = g.photos()[i];
+  if (!ph) return;
+  const when = fmt('phone.camWhen', { day: ph.day, time: ph.time });
+  g.modal.show({
+    title: fmt('dlg.camLoadTitle', { when }),
+    text: fmt('dlg.camLoadText', { n: i + 1 }),
+    choices: [{ label: fmt('dlg.camYes'), primary: true, onSelect: () => { if (g.photoLoad(i)) g.hud.toast(fmt('toast.camLoaded', { when }), 'good', 4000); } }, { label: fmt('dlg.cancel') }],
+  });
 }
 
 export function phoneAction(g, a, ds) {
@@ -311,6 +398,10 @@ export function phoneAction(g, a, ds) {
   else if (a === 'findBike') findBike(g);
   else if (a === 'bagUse') bagUse(g, ds?.id);
   else if (a === 'bagWear' || a === 'bagOff') bagWear(g, ds?.id, a === 'bagWear');
+  else if (a === 'reply' && g.gs.reply(ds?.thread, Number(ds?.i), g.clockMin)) sound('ui.click');
+  else if (a === 'readThread') g.gs.readThread(ds?.id);
+  else if (a === 'camShoot') return camShoot(g, Number(ds?.i));
+  else if (a === 'camLoad') return camLoad(g, Number(ds?.i));
   g.renderPhone();
 }
 
@@ -328,6 +419,7 @@ function findBike(g) {
 function bagUse(g, id) {
   const s = GOODS[id];
   const r = g.gs.useConsumable(id);
+  if (r.ok) storyEvent(g.gs.story, `use:${id}`); // cốt truyện: đã dùng món này
   if (!s || !r.ok) return;
   if (r.minutes) g.advance(r.minutes, 'idle', { waiting: false });
   sound('place.use');
@@ -1082,16 +1174,17 @@ function joinBrand(g, pl, b, sig) {
   const n = npc(g, pl.id);
   const bike = VEHICLES[b.vehicle];
   if (om.state !== S.OFFLINE) om.goOffline();
-  const r = gs.joinBrand(b.id, sig, g.clockMin);
+  const r = gs.joinBrand(b.id, sig, g.clockMin, { wear: !gs.story?.ch });
   if (!r.ok) return say(g, n.name, n.portrait, r.msg);
   gs.flags.online = false;
   g.bike.setSpec(gs.vehicleSpec);
+  g.bike.setBag(gs.bagSpec); // hãng tặng túi cơ bản
+  g.parkBikeAtPlace(pl); // xe hãng dựng trước văn phòng (đi bộ tới ký), giờ đậu tính lại từ đầu
   g.lookKey = null;
   sound('place.joinBrand');
   g.hud.toast(r.msg, 'big', 6000);
   g.addChat(b.name, fmt(r.switched ? 'chat.brandSwitched' : 'chat.brandWelcome', { name: gs.profile.name, brand: b.name, bike: bike?.name || '' }));
-  if (!r.switched) g.joinGroupChat(); // lần đầu vào hãng: được thêm vào nhóm Hội shipper
-  g.phone.notify('chat', { title: b.name, text: fmt('chat.brandWelcomeShort', { brand: b.name }) });
+  if (!r.switched && !gs.story?.ch) g.joinGroupChat(); // lần đầu vào hãng: được thêm vào nhóm Hội shipper (đang theo cốt truyện: chỉ tin chào mừng của hãng)
 }
 
 function gasChoices(g, pl) {
@@ -1379,6 +1472,11 @@ function rideBus(g, d, fare) {
 
 function landlord(g, pl) {
   const { gs } = g;
+  if (gs.flags.story === 0 && gs.story?.ch) { // cốt truyện: chưa tới lúc nói chuyện (sắp tới lượt thì chờ chút)
+    if (stepOf(gs.story)?.talk?.place === pl.id) return;
+    const n = npc(g, pl.id);
+    return say(g, n.name, n.portrait, fmt('story.coHaiEarly'));
+  }
   if (gs.flags.story === 0) return landlordIntro(g, pl); // lần đầu gặp: Cô Hai cho xe đạp
   const busy = !!g.om.order;
   const paid = gs.rentPaid;
@@ -1399,16 +1497,6 @@ function landlord(g, pl) {
     },
     ...sleepChoices(g),
     { label: fmt('dlg.wardrobe'), hint: fmt('dlg.wardrobeHint'), onSelect: () => wardrobe(g) },
-    {
-      // tự lưu game ở nhà trọ (ngoài lưu tự động lúc 06:00) — đơn đang chạy không lưu được nên phải xong đơn trước
-      label: fmt('dlg.saveGame'),
-      hint: busy ? fmt('dlg.saveBusy') : fmt('dlg.saveHint', { time: fmtClock(g.clockMin) }),
-      disabled: busy,
-      onSelect: () => {
-        g.saveGame();
-        g.hud.toast(fmt('toast.saved', { time: fmtClock(g.clockMin) }), 'good', 3500);
-      },
-    },
   ];
   const text = paid ? fmt('npc.home.greetPaid', { day: gs.rentDueDay }) : can ? fmt('npc.home.greetCan', { rent: gs.rent, day: gs.rentDueDay }) : fmt('npc.home.greet', { rent: gs.rent, day: gs.rentDueDay, money: fmtK(gs.money) });
   openPlace(g, pl, extra, text);
@@ -1569,6 +1657,7 @@ function talkPed(g, ped) {
 
 // ======================== CSGT ========================
 export function policeStop(g, p, speed) {
+  if (g.noFines()) return; // xe đạp: CSGT cho qua
   const { gs, bike } = g;
   const speeding = speed > g.speedLimit(); // giới hạn theo cấp đường đang chạy (src/sim/roads.js)
   const noHelmet = gs.noHelmet, helmetFine = noHelmet ? ECONOMY.noHelmetFine ?? 60 : 0; // đầu trần: phạt thêm (cộng dồn)
@@ -1616,6 +1705,7 @@ export function policeStop(g, p, speed) {
 // Đầu trần (xe máy / xe điện) thì lỗi nào cũng phạt cộng thêm ECONOMY.noHelmetFine. place: tên ngã tư (vượt đèn).
 // Chơi nhiều người: máy chủ kiểm tra tốc độ / vị trí người chơi với vị trí xe tuần tra (lịch chung) rồi mới trừ tiền.
 export function patrolStop(g, reason, speed, place = '') {
+  if (g.noFines()) return; // xe đạp: CSGT tuần tra cho qua
   const { gs, bike } = g;
   bike.speed = 0;
   bike.vel.set(0, 0);

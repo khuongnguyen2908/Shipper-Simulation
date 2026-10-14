@@ -89,6 +89,7 @@ export class OrderManager {
     this.offer = null;
     this.offerTimeLeft = 0;
     this.nextPingIn = 2;
+    this.hold = false; // cốt truyện đang chờ hướng dẫn / cuốc cốt truyện: app chưa phát đơn thường (game.js đặt mỗi khung hình)
     this.listeners = [];
     this.uid = 0; // mã món hàng
     this.orderSeq = 0; // số thứ tự đơn trong ngày
@@ -153,6 +154,7 @@ export class OrderManager {
     if (this.state === S.DELIVERING && pos) this.checkMidEvent(now, pos);
     if (this.state === S.IDLE) {
       if (this.wantsNothing()) return void this.go(S.OFFLINE); // tắt hết công tắc nhận đơn (vd tắt lúc đang chạy đơn) → nghỉ
+      if (this.hold) return;
       if (!inHours(APP.hours, now)) return; // ngoài giờ app nhận đơn (apps.json → hours)
       if (demandAt(now) <= 0) return; // giờ này không có ai đặt
       if (this.gs.lockedUntil > now) return; // tài khoản đang bị tạm khóa nhận đơn
@@ -166,7 +168,7 @@ export class OrderManager {
           this.emit('offer', { offer: this.offer });
         } else this.nextPingIn = 3;
       }
-    } else if (this.state === S.OFFERED) {
+    } else if (this.state === S.OFFERED && !this.offer?.forced) { // cuốc cốt truyện (forced) không hết hạn
       this.offerTimeLeft -= dtSec;
       if (this.offerTimeLeft <= 0) {
         const offer = this.offer;
@@ -178,6 +180,35 @@ export class OrderManager {
         this.emit('offerExpired', { offer });
       }
     }
+  }
+
+  // ---------- đơn cốt truyện (story.json → việc "offer") ----------
+  // Cuốc chở khách hướng dẫn: khách app thường đứng gần mình, đi chỗ không xa, không sự cố giữa đường
+  storyRide(pos, now = 0) {
+    const type = ORDER_TYPES.ride || Object.values(ORDER_TYPES).find((t) => t.kind === 'ride') || { id: 'ride', kind: 'ride', fareMult: 1, deadlineMult: 1 };
+    const rider = RIDER_TYPES.app || null;
+    const l = this.pickLotAround(pos, 30, 120);
+    if (!l) return null;
+    const pickup = { name: l.address, address: l.address, door: rideDoor(l), lotKey: l.key };
+    const dropoff = this.pickDropoff(pickup.door, false, now, 'rideWeight', null, true);
+    const o = this.buildOrder({ type, pickup, dropoff, itemIds: ['passenger'], pos, now, rider });
+    o.flags.noAnswer = false;
+    o.flags.picky = false;
+    o.revealed = true;
+    o.story = 'tutorial';
+    o.forced = true;
+    return o;
+  }
+  // Mời ngay một đơn cốt truyện: bật app nếu đang tắt; đang có đơn / đơn mời khác thì chưa được (game thử lại sau)
+  forceOffer(o) {
+    if (!o) return false;
+    if (this.state === S.OFFLINE) this.goOnline();
+    if (this.state !== S.IDLE) return false;
+    this.offer = o;
+    this.go(S.OFFERED);
+    this.offerTimeLeft = Infinity;
+    this.emit('offer', { offer: o });
+    return true;
   }
 
   // ---------- tạo đơn ----------
@@ -485,7 +516,7 @@ export class OrderManager {
     if (offer?.story === 'wallet') this.gs.flags.walletRetryAt = now + (WALLET_QUEST.retryMin ?? 60);
   }
   decline(now = 0) {
-    if (this.state !== S.OFFERED) return false;
+    if (this.state !== S.OFFERED || this.offer?.forced) return false; // cuốc cốt truyện: không bỏ qua được
     const offer = this.offer;
     this.offer = null;
     this.gs.recordOffer(false);

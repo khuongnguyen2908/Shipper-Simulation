@@ -99,7 +99,8 @@
       "gifts": [
         "muGrip",
         "nonKhachGrip"
-      ]
+      ],
+      "bag": "thermal"
     },
     "hongsm": {
       "id": "hongsm",
@@ -117,7 +118,8 @@
       "gifts": [
         "muCam",
         "nonKhachCam"
-      ]
+      ],
+      "bag": "thermal"
     }
   },
   "orderTypes": {

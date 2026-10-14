@@ -44,6 +44,7 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [x] | `phone.message` | Tin nhắn mới | Tin nhắn nhóm tài xế / Cô Hai / phường… | tiếng ngắn | 🎧 có file |
 | [x] | `phone.call` | Gọi điện | Gọi khách, gọi quán, khách gọi xuống | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `phone.swipe` | Lướt tin (Tích Tắc) | Lướt sang tin khác trong app Tích Tắc | tiếng ngắn | 🔇 im |
+| [ ] | `phone.shutter` | Chụp ảnh (lưu game) | Bấm Chụp trong app Máy ảnh — lưu game vào 1 ô album | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `phone.like` | Thả tim (Tích Tắc) | Thả tim một tin trong app Tích Tắc (bấm đúp / nút ❤️) | tiếng ngắn | 🔉 tổng hợp |
 | [x] | `chat.open` | Mở ô chat | Bấm Enter mở ô gõ tin | tiếng ngắn | 🎧 có file |
 | [x] | `chat.send` | Gửi tin chat | Gửi tin, bong bóng hiện trên đầu mình | tiếng ngắn | 🎧 có file |

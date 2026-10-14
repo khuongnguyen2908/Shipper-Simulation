@@ -14,6 +14,7 @@ export const APP_DEFS = {
   bike: { icon: '🏍️', color: '#c0392b', key: 'phone.appBike' },
   police: { icon: '🚓', color: '#34495e', key: 'phone.appPolice' },
   tictac: { icon: '⏱️', color: '#ff7a00', key: 'phone.appTictac' }, // Tích Tắc: lướt tin cho vui (ui/tictac.js)
+  camera: { icon: '📷', color: '#16a085', key: 'phone.appCamera', locked: true }, // Máy ảnh: chụp = lưu game (3 ô) — không ẩn được (chỗ lưu game duy nhất ngoài chương)
 };
 export const MAX_VISIBLE = 9; // bàn phím chỉ có phím 1–9
 

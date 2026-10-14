@@ -109,7 +109,7 @@
   "traSua": {
     "id": "traSua",
     "name": "Trà sữa trân châu",
-    "icon": "🧋",
+    "icon": "🥤",
     "traits": [
       "cold",
       "liquid"
@@ -122,7 +122,7 @@
   "traSua_2": {
     "id": "traSua_2",
     "name": "Trà sữa khoai môn",
-    "icon": "🧋",
+    "icon": "🥤",
     "traits": [
       "cold",
       "liquid"

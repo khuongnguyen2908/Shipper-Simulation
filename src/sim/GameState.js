@@ -12,6 +12,9 @@ import { RatingBook } from './economy.js';
 import { fmt } from '../content/index.js';
 import { hairFor, HAIR_COLORS, PLAYER_SKINS } from './people.js';
 import { PARK_SLOTS } from './garage.js';
+import { freshStory, storyEvent } from './story.js';
+
+const MSG_KEEP = 60; // mỗi cuộc trò chuyện giữ tối đa bấy nhiêu tin (cũ hơn thì bỏ)
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 export const NAME_MAX = 20;
@@ -112,6 +115,10 @@ export class GameState {
     // hợp đồng đã ký với các hãng: mã hãng → { sig (ảnh chữ ký), day, at (phút tuyệt đối) } — hiện ở app Hồ sơ
     this.contracts = { ...(c.contracts || {}) };
     this.gifted = c.gifted ?? null; // đã nhận quà vào hãng của hãng nào (bản lưu cũ chưa có → tặng bù 1 lần)
+    // Tin nhắn (app Tin nhắn): mỗi người gửi 1 cuộc trò chuyện { name?, icon?, msgs: [{ key | text, params, loc, me, at }], unread, replies }
+    this.inbox = c.inbox ? JSON.parse(JSON.stringify(c.inbox)) : { threads: {} };
+    // Cốt truyện (src/sim/story.js): chơi mới → chương 1 chờ bắt đầu; bản lưu cũ (đã qua mở đầu) → coi như xong
+    this.story = c.story ? JSON.parse(JSON.stringify(c.story)) : freshStory(this.flags.story === 0 && !this.brand);
     this.ensureUniform(); // bản lưu cũ đã ở hãng mà chưa có đồng phục → cấp + mặc sẵn
     if (this.brand && this.gifted !== this.brand) this.giveBrandGifts(this.brand);
     this.outcome = null;
@@ -207,7 +214,8 @@ export class GameState {
   // Vào hãng: đặt cọc, nhận xe hãng. Đang ở hãng khác → đổi hãng = cày lại từ đầu
   // (trả xe hãng cũ + hoàn cọc; điểm đánh giá, số đơn, tỉ lệ nhận đơn về như người mới; tiền và đồ đã mua giữ nguyên)
   // sig: ảnh chữ ký (data URL) ký ở popup hợp đồng · now: phút lúc ký
-  joinBrand(id, sig = undefined, now = 0) {
+  // wear: false = đồng phục / mũ hãng chỉ cất vào túi, người chơi tự mặc (cốt truyện chương 1 hướng dẫn mặc)
+  joinBrand(id, sig = undefined, now = 0, { wear = true } = {}) {
     const b = BRANDS[id];
     if (!b) return { ok: false, msg: fmt('gs.noSuchItem') };
     if (this.brand === id) return { ok: false, msg: fmt('gs.brandAlready', { brand: b.name }) };
@@ -235,13 +243,18 @@ export class GameState {
       }
       this.vehicle = vid;
     }
-    // đồng phục hãng: cấp + mặc luôn
+    // đồng phục hãng: cấp + mặc luôn (wear = false: chỉ cất vào túi)
     const u = uniformOf(id);
     if (u) {
       if (!this.owned.gear.includes(u.id)) this.owned.gear.push(u.id);
-      this.outfit.uniform = u.id;
+      this.outfit.uniform = wear ? u.id : null;
     }
-    this.giveBrandGifts(id);
+    this.giveBrandGifts(id, wear);
+    // túi hãng tặng (apps.json → brands.<hãng>.bag): chưa có thì nhận + dùng luôn
+    if (BAGS[b.bag] && !this.owned.bags.includes(b.bag)) {
+      this.owned.bags.push(b.bag);
+      this.bag = b.bag;
+    }
     if (sig !== undefined) this.contracts[id] = { sig, day: this.day, at: now };
     return { ok: true, switched, msg: fmt(switched ? 'gs.brandSwitched' : 'gs.brandJoined', { brand: b.name, k: dep }) };
   }
@@ -259,12 +272,12 @@ export class GameState {
   }
   // Quà khi vào hãng (apps.json → brands.<hãng>.gifts, sửa ở thẻ App & Đơn → Hãng): trang phục thì mặc / đội luôn
   // (phụ kiện thì không, riêng mũ bảo hiểm đội luôn), trang bị thì có tác dụng ngay
-  giveBrandGifts(id) {
+  giveBrandGifts(id, wear = true) {
     for (const gid of BRANDS[id]?.gifts || []) {
       const g = GOODS[gid];
       if (!g || (g.type !== 'outfit' && g.type !== 'equipment')) continue;
       if (!this.owned.gear.includes(gid)) this.owned.gear.push(gid);
-      if (g.type === 'outfit' && g.slot && g.slot !== 'uniform' && (g.slot === 'helmet' || !isAccessorySlot(g.slot))) this.outfit[g.slot] = gid;
+      if (wear && g.type === 'outfit' && g.slot && g.slot !== 'uniform' && (g.slot === 'helmet' || !isAccessorySlot(g.slot))) this.outfit[g.slot] = gid;
     }
     this.gifted = id;
   }
@@ -839,6 +852,41 @@ export class GameState {
   }
 
   // Lưu game (tiền, đồ, điểm, tiền nhà, thể lực/tinh thần, giờ thức dậy, cờ nhiệm vụ)
+  // ---------- tin nhắn ----------
+  // Thêm 1 tin vào cuộc trò chuyện id. m: { key | text, params, loc: [mã địa điểm], me } · info: { name, icon } (người gửi lạ)
+  addMessage(id, m, now = 0, info = null) {
+    const t = (this.inbox.threads[id] = this.inbox.threads[id] || { msgs: [], unread: 0 });
+    if (info?.name) t.name = info.name;
+    if (info?.icon) t.icon = info.icon;
+    t.msgs.push({ ...m, at: now });
+    if (t.msgs.length > MSG_KEEP) t.msgs.splice(0, t.msgs.length - MSG_KEEP);
+    if (!m.me) t.unread = (t.unread || 0) + 1;
+    t.last = now;
+    return t;
+  }
+  readThread(id) {
+    const t = this.inbox.threads[id];
+    if (t) t.unread = 0;
+  }
+  get unreadMessages() {
+    return Object.values(this.inbox.threads).reduce((a, t) => a + (t.unread || 0), 0);
+  }
+  // Gắn câu trả lời nhanh (khóa chữ, tối đa 3) vào cuộc trò chuyện
+  setReplies(id, keys) {
+    const t = this.inbox.threads[id];
+    if (t) t.replies = keys.slice(0, 3);
+  }
+  // Người chơi chọn câu trả lời nhanh thứ i → thành tin của mình, báo cho cốt truyện
+  reply(id, i, now = 0) {
+    const t = this.inbox.threads[id];
+    const key = t?.replies?.[i];
+    if (!key) return false;
+    t.replies = null;
+    this.addMessage(id, { key, me: true }, now);
+    storyEvent(this.story, `reply:${id}`);
+    return true;
+  }
+
   carryOver() {
     return {
       profile: { ...this.profile },
@@ -862,9 +910,11 @@ export class GameState {
       consumables: this.consumables,
       outfit: this.outfit,
       account: this.account,
-      flags: { wallet: this.flags.wallet, walletDay: this.flags.walletDay, walletRetryAt: this.flags.walletRetryAt, story: this.flags.story, tutSkip: this.flags.tutSkip },
+      flags: { wallet: this.flags.wallet, walletDay: this.flags.walletDay, walletRetryAt: this.flags.walletRetryAt, story: this.flags.story, tutSkip: this.flags.tutSkip, groupDay: this.flags.groupDay },
       towed: this.towed,
       fines: this.fines.map((f) => ({ ...f })),
+      inbox: this.inbox,
+      story: this.story,
     };
   }
 }

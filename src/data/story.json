@@ -1,0 +1,633 @@
+{
+  "contacts": {
+    "me": {
+      "icon": "👩",
+      "name": "story.contact.me"
+    },
+    "coHai": {
+      "icon": "👵",
+      "name": "story.contact.coHai",
+      "place": "home"
+    },
+    "chuHai": {
+      "icon": "👨‍🍳",
+      "name": "story.contact.chuHai",
+      "place": "dichvu4"
+    }
+  },
+  "people": {
+    "flyer": {
+      "icon": "🧢",
+      "name": "story.people.flyer"
+    }
+  },
+  "items": {
+    "flyer": {
+      "icon": "📄",
+      "name": "story.item.flyer",
+      "desc": "story.item.flyerDesc"
+    }
+  },
+  "parcels": {
+    "huChao": {
+      "icon": "🍯",
+      "name": "story.parcel.huChao",
+      "desc": "story.parcel.huChaoDesc",
+      "traits": [
+        "fragile"
+      ]
+    },
+    "tauHu": {
+      "icon": "🥣",
+      "name": "story.parcel.tauHu",
+      "desc": "story.parcel.tauHuDesc",
+      "traits": [
+        "liquid"
+      ]
+    }
+  },
+  "chapters": [
+    {
+      "id": "c1",
+      "title": "story.c1.title",
+      "name": "story.c1.name",
+      "steps": [
+        {
+          "id": "title",
+          "on": [
+            {
+              "do": "title"
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 5.3
+          }
+        },
+        {
+          "id": "arrive",
+          "on": [
+            {
+              "do": "say",
+              "who": "flyer",
+              "text": "story.c1.arrive.flyer"
+            },
+            {
+              "do": "item",
+              "id": "flyer"
+            }
+          ],
+          "until": {
+            "type": "none"
+          }
+        },
+        {
+          "id": "momMsg",
+          "delay": 2,
+          "on": [
+            {
+              "do": "msg",
+              "from": "me",
+              "text": "story.c1.momMsg.m1"
+            }
+          ],
+          "until": {
+            "type": "open",
+            "who": "me"
+          },
+          "goal": "story.c1.momMsg.goal",
+          "hint": "story.c1.momMsg.hint",
+          "guide": {
+            "type": "thread",
+            "who": "me"
+          }
+        },
+        {
+          "id": "mom2",
+          "delay": 5,
+          "on": [
+            {
+              "do": "msg",
+              "from": "me",
+              "text": "story.c1.momMsg.m2"
+            }
+          ],
+          "until": {
+            "type": "none"
+          }
+        },
+        {
+          "id": "momLoc",
+          "delay": 5,
+          "on": [
+            {
+              "do": "msg",
+              "from": "me",
+              "text": "story.c1.momMsg.m3",
+              "loc": [
+                "home"
+              ]
+            }
+          ],
+          "until": {
+            "type": "routed",
+            "place": "home"
+          },
+          "goal": "story.c1.toHome.goal",
+          "hint": "story.c1.toHome.hint",
+          "guide": {
+            "type": "route",
+            "who": "me",
+            "place": "home"
+          }
+        },
+        {
+          "id": "minimap",
+          "on": [
+            {
+              "do": "closePhone"
+            }
+          ],
+          "until": {
+            "type": "ack"
+          },
+          "goal": "story.c1.toHome.goal",
+          "target": "home",
+          "guide": {
+            "type": "hud",
+            "part": "minimap",
+            "title": "story.c1.minimap.title",
+            "hint": "story.c1.minimap.hint",
+            "btn": "next"
+          }
+        },
+        {
+          "id": "shift",
+          "until": {
+            "type": "ack"
+          },
+          "goal": "story.c1.toHome.goal",
+          "target": "home",
+          "guide": {
+            "type": "hud",
+            "part": "keys",
+            "title": "story.c1.shift.title",
+            "hint": "story.c1.shift.hint",
+            "btn": "ok"
+          }
+        },
+        {
+          "id": "toHome",
+          "until": {
+            "type": "arrive",
+            "place": "home",
+            "r": 10
+          },
+          "goal": "story.c1.toHome.goal",
+          "hint": "story.c1.toHome.hint2",
+          "target": "home",
+          "mark": {
+            "place": "home",
+            "icon": "!"
+          }
+        },
+        {
+          "id": "talk1",
+          "until": {
+            "type": "talk",
+            "place": "home"
+          },
+          "mark": {
+            "place": "home",
+            "icon": "!"
+          },
+          "talk": {
+            "place": "home",
+            "label": "story.c1.talk1.label",
+            "text": "story.c1.talk1.text",
+            "ok": "story.c1.talk1.ok"
+          },
+          "goal": "story.c1.talk1.goal",
+          "hint": "story.c1.talk1.hint",
+          "target": "home"
+        },
+        {
+          "id": "tellMom",
+          "on": [
+            {
+              "do": "replies",
+              "who": "me",
+              "texts": [
+                "story.c1.tellMom.r1",
+                "story.c1.tellMom.r2",
+                "story.c1.tellMom.r3"
+              ]
+            },
+            {
+              "do": "openPhone",
+              "who": "me"
+            }
+          ],
+          "until": {
+            "type": "reply",
+            "who": "me"
+          },
+          "goal": "story.c1.tellMom.goal",
+          "mark": {
+            "place": "home",
+            "icon": "!"
+          }
+        },
+        {
+          "id": "talk2",
+          "delay": 2,
+          "on": [
+            {
+              "do": "msg",
+              "from": "me",
+              "text": "story.c1.talkCoHai.momOk"
+            }
+          ],
+          "until": {
+            "type": "talk",
+            "place": "home"
+          },
+          "mark": {
+            "place": "home",
+            "icon": "?"
+          },
+          "talk": {
+            "place": "home",
+            "label": "story.c1.talk2.label",
+            "text": "story.c1.talk2.text",
+            "ok": "story.c1.talk2.ok",
+            "pack": [
+              "huChao",
+              "tauHu"
+            ]
+          },
+          "goal": "story.c1.talk2.goal",
+          "hint": "story.c1.talk2.hint",
+          "target": "home"
+        },
+        {
+          "id": "chuHaiLoc",
+          "delay": 2,
+          "on": [
+            {
+              "do": "bike"
+            },
+            {
+              "do": "msg",
+              "from": "coHai",
+              "text": "story.c1.chuHaiLoc.m1",
+              "loc": [
+                "dichvu4"
+              ]
+            }
+          ],
+          "until": {
+            "type": "routed",
+            "place": "dichvu4"
+          },
+          "goal": "story.c1.chuHaiLoc.goal",
+          "hint": "story.c1.chuHaiLoc.hint",
+          "guide": {
+            "type": "route",
+            "who": "coHai",
+            "place": "dichvu4"
+          }
+        },
+        {
+          "id": "mount",
+          "until": {
+            "type": "mount"
+          },
+          "goal": "story.c1.mount.goal",
+          "hint": "story.c1.mount.hint",
+          "target": "bike"
+        },
+        {
+          "id": "toChuHai",
+          "until": {
+            "type": "talk",
+            "place": "dichvu4"
+          },
+          "talk": {
+            "place": "dichvu4",
+            "label": "story.c1.toChuHai.label",
+            "text": "story.c1.toChuHai.text",
+            "ok": "story.c1.toChuHai.ok",
+            "drop": [
+              "huChao",
+              "tauHu"
+            ],
+            "give": "phanComChay",
+            "giveQty": 2
+          },
+          "goal": "story.c1.toChuHai.goal",
+          "hint": "story.c1.toChuHai.hint",
+          "target": "dichvu4"
+        },
+        {
+          "id": "eat",
+          "until": {
+            "type": "use",
+            "goods": "phanComChay"
+          },
+          "goal": "story.c1.eat.goal",
+          "hint": "story.c1.eat.hint",
+          "guide": {
+            "type": "use",
+            "goods": "phanComChay"
+          }
+        },
+        {
+          "id": "statPhys",
+          "until": {
+            "type": "ack"
+          },
+          "guide": {
+            "type": "hud",
+            "part": "phys",
+            "title": "story.c1.statPhys.title",
+            "hint": "story.c1.statPhys.hint",
+            "btn": "next"
+          }
+        },
+        {
+          "id": "statMental",
+          "until": {
+            "type": "ack"
+          },
+          "guide": {
+            "type": "hud",
+            "part": "mental",
+            "title": "story.c1.statMental.title",
+            "hint": "story.c1.statMental.hint",
+            "btn": "next"
+          }
+        },
+        {
+          "id": "statVehicle",
+          "until": {
+            "type": "ack"
+          },
+          "guide": {
+            "type": "hud",
+            "part": "vehicle",
+            "title": "story.c1.statVehicle.title",
+            "hint": "story.c1.statVehicle.hint",
+            "btn": "ok"
+          }
+        },
+        {
+          "id": "coHai1",
+          "delay": 3,
+          "on": [
+            {
+              "do": "msg",
+              "from": "coHai",
+              "text": "story.c1.coHaiMsg.m1"
+            }
+          ],
+          "until": {
+            "type": "none"
+          }
+        },
+        {
+          "id": "coHai2",
+          "delay": 5,
+          "on": [
+            {
+              "do": "msg",
+              "from": "coHai",
+              "text": "story.c1.coHaiMsg.m2"
+            }
+          ],
+          "until": {
+            "type": "none"
+          }
+        },
+        {
+          "id": "coHaiAsk",
+          "delay": 5,
+          "on": [
+            {
+              "do": "msg",
+              "from": "coHai",
+              "text": "story.c1.coHaiMsg.ask"
+            },
+            {
+              "do": "replies",
+              "who": "coHai",
+              "texts": [
+                "story.c1.coHaiMsg.r1",
+                "story.c1.coHaiMsg.r2",
+                "story.c1.coHaiMsg.r3"
+              ]
+            }
+          ],
+          "until": {
+            "type": "reply",
+            "who": "coHai"
+          },
+          "goal": "story.c1.coHaiMsg.goal",
+          "hint": "story.c1.coHaiMsg.hint"
+        },
+        {
+          "id": "brandLocs",
+          "delay": 3,
+          "on": [
+            {
+              "do": "msg",
+              "from": "coHai",
+              "text": "story.c1.coHaiMsg.m3",
+              "loc": [
+                "officeGoship",
+                "officeHongsm"
+              ]
+            }
+          ],
+          "until": {
+            "type": "brand"
+          },
+          "goal": "story.c1.chooseBrand.goal",
+          "hint": "story.c1.chooseBrand.hint",
+          "target": "office",
+          "guide": {
+            "type": "route",
+            "who": "coHai",
+            "place": "office"
+          }
+        },
+        {
+          "id": "wear",
+          "until": {
+            "type": "wear"
+          },
+          "goal": "story.c1.wear.goal",
+          "hint": "story.c1.wear.hint",
+          "guide": {
+            "type": "wear"
+          }
+        },
+        {
+          "id": "fuelInfo",
+          "until": {
+            "type": "ack"
+          },
+          "guide": {
+            "type": "hud",
+            "part": "fuel",
+            "btn": "ok",
+            "title": "story.c1.fuelInfo.title",
+            "hint": "story.c1.fuelInfo.hint"
+          }
+        },
+        {
+          "id": "fuelRoute",
+          "until": {
+            "type": "routed",
+            "place": "fuel"
+          },
+          "goal": "story.c1.fuelRoute.goal",
+          "hint": "story.c1.fuelRoute.hint",
+          "target": "fuel",
+          "guide": {
+            "type": "fuel"
+          }
+        },
+        {
+          "id": "refuel",
+          "until": {
+            "type": "fuel",
+            "pct": 90
+          },
+          "goal": "story.c1.refuel.goal",
+          "hint": "story.c1.refuel.hint",
+          "target": "fuel"
+        },
+        {
+          "id": "swFood",
+          "until": {
+            "type": "switch",
+            "which": "food"
+          },
+          "goal": "story.c1.swFood.goal",
+          "hint": "story.c1.swFood.hint",
+          "guide": {
+            "type": "switch",
+            "which": "food"
+          }
+        },
+        {
+          "id": "firstOrder",
+          "until": {
+            "type": "order",
+            "stage": "deliver"
+          },
+          "goal": "story.c1.firstOrder.goal",
+          "hint": "story.c1.firstOrder.hint",
+          "guide": {
+            "type": "order"
+          }
+        },
+        {
+          "id": "profile",
+          "delay": 2,
+          "hold": true,
+          "until": {
+            "type": "ack"
+          },
+          "goal": "story.c1.profile.goal",
+          "hint": "story.c1.profile.hint",
+          "guide": {
+            "type": "profile",
+            "btn": "ok",
+            "title": "story.c1.profile.title",
+            "hint": "story.c1.profile.rules"
+          }
+        },
+        {
+          "id": "swRide",
+          "hold": true,
+          "until": {
+            "type": "switch",
+            "which": "ride"
+          },
+          "goal": "story.c1.swRide.goal",
+          "hint": "story.c1.swRide.hint",
+          "guide": {
+            "type": "switch",
+            "which": "ride"
+          }
+        },
+        {
+          "id": "rideOffer",
+          "delay": 2,
+          "hold": true,
+          "on": [
+            {
+              "do": "offer"
+            }
+          ],
+          "until": {
+            "type": "order",
+            "stage": "accept"
+          },
+          "goal": "story.c1.rideOffer.goal",
+          "hint": "story.c1.rideOffer.hint",
+          "guide": {
+            "type": "order"
+          }
+        },
+        {
+          "id": "pickup",
+          "hold": true,
+          "until": {
+            "type": "order",
+            "stage": "pickup"
+          }
+        },
+        {
+          "id": "csgt",
+          "hold": true,
+          "on": [
+            {
+              "do": "openPhone",
+              "app": "police"
+            }
+          ],
+          "until": {
+            "type": "ack"
+          },
+          "guide": {
+            "type": "hud",
+            "part": "phone",
+            "btn": "ok",
+            "title": "story.c1.csgt.title",
+            "hint": "story.c1.csgt.hint"
+          }
+        },
+        {
+          "id": "done",
+          "delay": 2,
+          "on": [
+            {
+              "do": "msg",
+              "from": "coHai",
+              "text": "story.c1.done.m1"
+            },
+            {
+              "do": "end"
+            }
+          ],
+          "until": {
+            "type": "none"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -2,7 +2,7 @@ import { fmt } from '../content/index.js';
 
 // Hướng dẫn người mới: làm tối cả màn hình, chỉ chừa một "lỗ sáng" quanh nút đang cần bấm (nút có class .tut)
 // + bong bóng chữ chỉ dẫn bên cạnh. Chỉ bấm được trong lỗ sáng: 4 tấm chắn trong suốt phủ phần tối xung quanh
-// (phím tắt thì game.js chặn). Có nút "Bỏ qua hướng dẫn" cho người đã biết chơi.
+// (phím tắt thì game.js chặn). Hướng dẫn chữ (bản đồ tròn, thanh thể lực…) có nút "Tiếp ▸" / "Đã rõ" trong bong bóng (hoặc Enter / Space).
 // Vẽ nằm ngoài điện thoại nên viền sáng không bị khung điện thoại cắt mất / đè lên nút bên cạnh.
 const TARGETS = {
   map: ['.ph-apps button.tut'], // app Bản đồ (biểu tượng + tên)
@@ -12,32 +12,50 @@ const TARGETS = {
 const PAD = 6; // lỗ sáng rộng hơn nút một chút
 
 export class Spotlight {
-  // onSkip: người chơi bấm "Bỏ qua hướng dẫn"
-  constructor(root, onSkip) {
+  // onAck: người chơi bấm nút "Tiếp ▸" / "Đã rõ" của hướng dẫn chữ → cốt truyện sang bước sau
+  constructor(root, onAck) {
     this.el = document.createElement('div');
     this.el.id = 'spotlight';
     this.el.className = 'hidden';
     this.el.innerHTML = `<div class="sp-hole"></div>${'<div class="sp-block"></div>'.repeat(4)}
-      <div class="sp-tip"><b></b><small></small></div><button class="sp-skip">${fmt('tut.skip')}</button>`;
+      <div class="sp-tip"><b></b><small></small><button class="sp-btn hidden"></button></div>`;
     root.appendChild(this.el);
     this.hole = this.el.querySelector('.sp-hole');
     this.tip = this.el.querySelector('.sp-tip');
     this.blocks = [...this.el.querySelectorAll('.sp-block')];
     // tấm chắn: nuốt mọi cú bấm ngoài lỗ sáng
     for (const b of this.blocks) for (const ev of ['pointerdown', 'click', 'wheel', 'contextmenu']) b.addEventListener(ev, (e) => { e.preventDefault(); e.stopPropagation(); });
-    this.el.querySelector('.sp-skip').addEventListener('click', () => { onSkip?.(); this.hide(); });
+    this.btn = this.tip.querySelector('.sp-btn');
+    this.onAck = onAck;
+    this.btn.addEventListener('pointerdown', (e) => e.stopPropagation());
+    this.btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.press();
+    });
     this.step = null;
   }
 
   // step: bước hướng dẫn hiện tại (game.tutorialStep()); gọi mỗi khung hình
+  // — chữ (hướng dẫn cũ: mã trong TARGETS, chữ goal.tut.*) hoặc (cốt truyện)
+  //   { id, sel: [bộ chọn], title, hint, app, keys: [phím được bấm], btn: chữ trên nút (bấm = sang bước sau), top: nổi trên hộp thoại }
   update(step) {
-    const target = step && TARGETS[step] ? this.find(TARGETS[step]) : null;
+    const obj = step && typeof step === 'object' ? step : null;
+    const id = obj ? obj.id : step;
+    const target = obj ? this.find(obj.sel) : step && TARGETS[step] ? this.find(TARGETS[step]) : null;
     if (!target) return this.hide();
-    if (step !== this.step) {
-      this.step = step;
+    this.hasBtn = !!obj?.btn;
+    this.el.classList.toggle('top', !!obj?.top); // nổi trên hộp thoại (màn xếp túi)
+    this.app = obj?.app || null; // app đang sáng trên màn hình chính → game cho bấm phím số của app đó
+    this.keys = obj?.keys || null; // phím được bấm thêm (vd Tab mở điện thoại)
+    if (id !== this.step || (obj && obj.title !== this.title)) {
+      this.step = id;
+      this.title = obj?.title;
       this.key = null; // chữ đổi → đặt lại vị trí bong bóng
-      this.tip.querySelector('b').textContent = fmt(`goal.tut.${step}`);
-      this.tip.querySelector('small').textContent = fmt(`goal.tut.${step}Hint`);
+      this.tip.querySelector('b').textContent = obj ? obj.title : fmt(`goal.tut.${step}`);
+      this.tip.querySelector('small').textContent = obj ? obj.hint || '' : fmt(`goal.tut.${step}Hint`);
+      this.btn.textContent = obj?.btn || '';
+      this.btn.classList.toggle('hidden', !obj?.btn);
+      this.tip.classList.toggle('has-btn', !!obj?.btn);
       target.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }); // nút đang khuất trong hàng cuộn → kéo ra cho thấy
     }
     this.el.classList.remove('hidden');
@@ -67,6 +85,13 @@ export class Spotlight {
     }
   }
 
+  // Bấm nút Tiếp / Đã rõ (chuột, Enter, Space) → báo game, ẩn tới khi bước sau có hướng dẫn
+  press() {
+    if (!this.hasBtn || this.step === null) return;
+    this.onAck?.(this.step);
+    this.hide();
+  }
+
   // phần tử đầu tiên trong danh sách đang hiện trên màn hình
   find(sels) {
     for (const s of sels) {
@@ -79,7 +104,10 @@ export class Spotlight {
   hide() {
     if (this.step === null && this.el.classList.contains('hidden')) return;
     this.step = null;
+    this.app = null;
+    this.keys = null;
     this.key = null;
+    this.hasBtn = false;
     this.el.classList.add('hidden');
   }
 }

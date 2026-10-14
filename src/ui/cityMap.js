@@ -35,7 +35,7 @@ const CLUSTER_BELOW = 1.25; // px / m: nhỏ hơn thì gộp điểm
 const LABEL_FROM = 1.9; // px / m: từ mức này hiện tên địa điểm
 
 // nút tìm nhanh theo loại: [mã, biểu tượng, khóa chữ, điều kiện]
-const isCafe = (p) => p.kind === 'cafe' || (p.kind === 'restaurant' && (lookOf(p) === 'cafe' || ['☕', '🍵', '🧋'].includes(p.icon)));
+const isCafe = (p) => p.kind === 'cafe' || (p.kind === 'restaurant' && (lookOf(p) === 'cafe' || ['☕', '🍵', '🧋', '🥤'].includes(p.icon)));
 export const TYPES = [
   ['gas', '⛽', 'map.tGas', (p) => p.kind === 'gas' || p.kind === 'charger' || p.kind === 'swap'],
   ['fix', '🔧', 'map.tFix', (p) => p.kind === 'garage' || p.kind === 'shop'],

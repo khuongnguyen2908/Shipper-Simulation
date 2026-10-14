@@ -77,6 +77,18 @@
       "ref": "canhquan9_6",
       "field": "short",
       "msg": "Chưa có tên ngắn (hiện trên biển hiệu / thực đơn)."
+    },
+    {
+      "tab": "gear",
+      "ref": "phanComChay",
+      "field": "price",
+      "msg": "Miễn phí mà có tác dụng → người chơi mua bao nhiêu cũng được."
+    },
+    {
+      "tab": "gear",
+      "ref": "muXanh",
+      "field": "price",
+      "msg": "Phụ kiện giá 0 không ai có sẵn (mũ bảo hiểm lúc đầu không có) → chỉ có nếu là quà vào hãng. Đặt giá + nơi bán, hoặc xóa món này."
     }
   ]
 }

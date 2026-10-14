@@ -42,6 +42,7 @@ const LIST = [
   ['phone.message', 'phone', 'Tin nhắn mới', 'Tin nhắn nhóm tài xế / Cô Hai / phường…', '', 'sfx'],
   ['phone.call', 'phone', 'Gọi điện', 'Gọi khách, gọi quán, khách gọi xuống', 'phone', 'sfx'],
   ['phone.swipe', 'phone', 'Lướt tin (Tích Tắc)', 'Lướt sang tin khác trong app Tích Tắc', '', 'sfx'],
+  ['phone.shutter', 'phone', 'Chụp ảnh (lưu game)', 'Bấm Chụp trong app Máy ảnh — lưu game vào 1 ô album', 'click', 'sfx'],
   ['phone.like', 'phone', 'Thả tim (Tích Tắc)', 'Thả tim một tin trong app Tích Tắc (bấm đúp / nút ❤️)', 'ping', 'sfx'],
   ['chat.open', 'phone', 'Mở ô chat', 'Bấm Enter mở ô gõ tin', '', 'sfx'],
   ['chat.send', 'phone', 'Gửi tin chat', 'Gửi tin, bong bóng hiện trên đầu mình', '', 'sfx'],

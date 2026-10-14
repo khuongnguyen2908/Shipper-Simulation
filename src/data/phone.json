@@ -10,7 +10,7 @@
       "id": "account",
       "icon": "👤",
       "color": "#e67e22",
-      "hidden": false
+      "hidden": true
     },
     {
       "id": "map",
@@ -52,6 +52,12 @@
       "id": "tictac",
       "icon": "⏱️",
       "color": "#d6d6d6",
+      "hidden": false
+    },
+    {
+      "id": "camera",
+      "icon": "📷",
+      "color": "#16a085",
       "hidden": false
     }
   ]

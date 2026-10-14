@@ -1,9 +1,18 @@
 # Việc đang dở — Shipper Simulation
 
 Ghi lại những việc đã bàn mà chưa làm / còn treo, để đổi máy hay đổi tài khoản Claude vẫn làm tiếp được.
-Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây"). Cập nhật lần cuối: 14/10/2026.
+Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây"). Cập nhật lần cuối: 14/10/2026 (tối).
 
 ## ⏸ Hoãn có chủ đích
+
+### 🚲 Đi xe đạp thì KHÔNG bị phạt (14/10 — chủ game yêu cầu, khi nào bật lại chủ game sẽ báo)
+- Công tắc: thẻ ⚖️ Cân bằng → `economy.pedalNoFines` (1 = bật luật, 0 = phạt như mọi xe). Đang dùng xe đạp (gs.power = pedal) thì:
+  không dán phạt đỗ xe, không cẩu xe, không phạt sân bay / cản đường / vượt đèn đỏ, chốt CSGT + CSGT tuần tra cho qua (game.js `noFines()`).
+  Xe máy / xe điện vẫn bị phạt như cũ.
+
+### 💬 Tin nhóm tài xế: TẮT HẲN (15/10 — chủ game: "khi nào tôi nói bật lại thì bật, vì liên quan cốt truyện")
+- game.js `GROUP_CHAT_ON = false` → không có tin nhóm Hội Shipper (dự báo, quảng cáo, mẹo, kẹt xe…). Vào hãng chỉ có tin chào mừng của hãng.
+  Bật lại: đổi thành true (mỗi ngày vào nhóm 1 lần — flags.groupDay, trước đây mở lại game là thêm 3 tin nữa).
 
 ### Đăng nhập tài khoản + lưu save trên mạng (Firebase)
 - **Chỉ làm khi đã xong hết tính năng** (chủ game muốn nối Firebase 1 lần cho gọn).
@@ -18,6 +27,63 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   - Chủ game tự tạo dự án Firebase (Claude hướng dẫn từng bước), dán cấu hình vào code.
 
 ## 💬 Đang bàn
+### 📖 Cốt truyện chơi một mình (14/10 — chương 1 XONG, chờ chủ game chơi thử; chương 2+ chủ game tự viết)
+- Hướng truyện (chủ game chốt): sinh viên nghèo lên thành phố học + chạy shipper → dính đường dây tội phạm → làm đặc tình phối hợp công an.
+  Gợi ý đã đưa (chưa chốt): đường dây trộm xe + lừa đảo qua app; 5 chương; nhiều kết. Mầm chương 2: **tờ rơi "Việc nhẹ lương cao"** (anh Tâm) nằm trong túi đồ.
+- **Bộ chạy cốt truyện bằng dữ liệu**: `src/data/story.json` (thẻ **📖 Cốt truyện** trong ?editor) + `src/sim/story.js` (thuần, có bộ thử)
+  + game.js (runStoryActions, storyGoal, storyGuide). Chữ ở vi.json khóa `story.*` (gõ ngay trong thẻ Cốt truyện).
+  - Bước: delay (phút game) → on (việc: title, say, msg + định vị, replies 3 câu, item, bike, give, toast, end) → until (none, wait, read, reply,
+    arrive, talk, mount, brand, wear, switch) · talk (nút E riêng ở địa điểm: pack = xếp gói hàng vào túi, drop = giao, give = tặng đồ)
+    · goal / hint / target (mũi tên) · guide (làm sáng nút trên điện thoại: thread, route, reply, wear, switch).
+  - Tiến độ lưu trong save (GameState.story). Chơi mới → chương 1 bắt đầu sau màn "tới thành phố"; bản lưu cũ coi như đã xong.
+  - Bước "bấm 📍 Chỉ đường": chưa bấm thì chưa có mũi tên. (Nút "Bỏ qua hướng dẫn" đã bỏ 15/10.)
+- **Chương 1 "Cuộc sống mới, công việc mới"** (23 bước, sửa theo ý chủ game 14/10 tối): tên chương chữ to tự mờ dần (~5 giây, cảnh game tối hẳn rồi sáng lại) → mờ hết mới tới anh phát tờ rơi
+  → Mẹ nhắn tin 1, làm sáng dòng mục tiêu "Điện thoại rung" (chỉ cho bấm Tab) → mở tin của Mẹ rồi mới tính 5 giây ra tin 2, 5 giây ra định vị nhà Cô Hai
+  → bấm 📍: điện thoại tự cất → làm sáng bản đồ tròn (tự tắt sau 2 giây) → bảng nhắc "Giữ Shift chạy nhanh" (bấm ra ngoài / 2 giây)
+  → tới nhà, Cô Hai dấu **!** → chào lần 1, Cô Hai nhắc nhắn mẹ → điện thoại tự bật vào tin của Mẹ (không hướng dẫn), người chơi tự trả lời
+  → dấu đổi **?** → nói chuyện lần 2: xe đạp, xếp **hũ chao**, Cô Hai nhắn định vị quán Chú Hai → bấm 📍 → leo xe → giao cho Chú Hai (`dichvu4`,
+  tặng **phần cơm chay**) → hướng dẫn mở túi, Dùng cơm chay → Cô Hai nhắn từng tin (5 giây) → trả lời → Cô Hai gửi định vị 2 hãng → ký hợp đồng
+  (chỉ nhận tin chào mừng của hãng) → mặc đồng phục + mũ → bật Giao hàng → bật Chở khách → hoàn thành, lưu game.
+  - Sửa sau khi tự chơi thử (14/10 khuya): câu hỏi "có muốn chạy thử" không còn hướng dẫn (tự trả lời); lúc gửi 2 hãng làm sáng đúng tin 2 văn phòng;
+    mục tiêu chỉ hiện khi tin nhắn của bước đã tới; mũi tên còn sau khi tới nơi (đã bấm 📍 1 lần là nhớ); điện thoại đang cất mà tới bước mặc đồ / ăn /
+    bật công tắc → sáng dòng mục tiêu (cho bấm I / Tab); chờ nói chuyện theo truyện thì không hiện nút E thường của nơi đó; tự đi tới nơi trước khi
+    bấm 📍 cũng tính (≤ 15 m, không bị kẹt); vào hãng → xe hãng dựng trước văn phòng, tính giờ đậu lại (trước đây có thể bị cẩu ngay vì xe đạp
+    để ngoài đường lâu).
+  - Chờ chủ game quyết: bấm 📍 quán Chú Hai có tự cất điện thoại như lần đầu không.
+  - Sửa 15/10: hướng dẫn Shift = làm sáng dòng phím dưới cùng (bỏ bảng nhắc giữa màn hình — bị màn đen); xe đạp dựng sẵn trong hầm từ đầu;
+    dấu ! giữ tới khi Mẹ trả lời xong mới thành ?; Cô Hai gửi 2 món (hũ chao dễ vỡ + bịch tàu hũ món nước) — màn xếp túi có hướng dẫn
+    chọn món → bấm ô → xoay → xếp xong (game.packGuide); Chú Hai tặng 2 phần cơm chay; ăn xong giải thích thanh Thể lực → Tinh thần → Xe
+    (bấm để sang / tự sang sau 4 giây); emoji mới (Windows 10 hiện ô vuông) đổi sang emoji cũ + editor cảnh báo (validate.tooNewEmoji);
+    lưu game lúc bắt đầu / kết thúc chương kèm chỗ đứng + chỗ xe (mở lại đứng đúng chỗ).
+  - **Đợt 15/10 (đã làm, chờ chủ game chơi thử)**:
+    - **Hình điện thoại cạnh bản đồ tròn** (phác thảo `sketches/phone-icon.png` đã duyệt): yên · tin mới (rung 3 cái, chấm đỏ đếm tin chưa đọc,
+      bong bóng xem trước 3 giây thay cho thông báo trên đầu màn hình) · đơn mời (đổ chuông liên tục, tiếng lặp mỗi 3 giây, vạch vàng = thời gian
+      còn) · cuốc cốt truyện (không vạch giờ). Bấm vào = Tab. Màn hình ≤ 1100px: hình nằm trên bản đồ. **Có đơn KHÔNG tự bật máy nữa.**
+    - Hướng dẫn "bấm Tab" giờ làm sáng hình điện thoại ("Bấm Tab (hoặc bấm vào điện thoại)"); đang hướng dẫn thì thả con trỏ chuột.
+    - Hướng dẫn chữ (bản đồ tròn, Shift, 3 thanh chỉ số, xăng, hồ sơ, CSGT) có nút **Tiếp ▸ / Đã rõ** (hoặc Enter / Space) — bỏ tự tắt 2 giây,
+      bỏ "bấm ra ngoài". **Bỏ nút "Bỏ qua hướng dẫn".**
+    - Chương 1 nối dài sau khi mặc đồ: giải thích thanh xăng / pin (chữ riêng theo xe xăng / điện) → app Xe 📍 cây xăng / trụ sạc gần nhất
+      → nạp đầy (≥ 90%; xe hãng giao còn 15%) → bật Giao hàng → nhận + giao đơn đầu (hướng dẫn bấm Nhận) → Hồ sơ tài xế + luật thua
+      (dưới 4.0 sao khóa app · trễ tiền phòng 2 kỳ liền mất phòng) → bật Chở khách → **cuốc chở thử** (khách gần mình, không hết hạn, nút Bỏ qua
+      khóa) → đón khách → app CSGT tự mở giải thích phạt nguội → Đã rõ → hết chương. Từ bước Hồ sơ tới hết: app không phát đơn thường (`hold`).
+    - **App 📷 Máy ảnh** (phím 9, không ẩn được): 3 ô ảnh = 3 bản lưu (ảnh nhỏ + ngày giờ + tên đường), chụp đè / quay lại đều hỏi trước;
+      không chụp được khi có đơn, đang ngồi trên xe, đi phà, đang dở hội thoại. Ảnh mới nhất cũng là "Tiếp tục" ở màn hình chính.
+    - **Bỏ tự lưu cũ** (06:00, ngủ dậy, chợp mắt, ngất, nút 💾 ở Cô Hai). Lưu chỉ còn: bắt đầu / kết thúc chương + Máy ảnh.
+      "Thử lại" khi thua = bản lưu gần nhất.
+    - Bộ chạy thêm: điều kiện `fuel` (xăng / pin ≥ …%), `order` (mốc: có đơn mời / đã nhận / đã đón – lấy hàng / đã giao); việc `offer`
+      (cuốc chở thử: OrderManager.storyRide + forceOffer), `fuel` (đặt % xăng), openPhone mở app bất kỳ; hướng dẫn `fuel`, `order`, `profile`;
+      ô bước `hold` (chặn đơn thường); nút hướng dẫn `btn: next | ok`; chữ có bản riêng theo xe: khóa + `.gas` / `.electric`.
+    - Chưa làm: màn hình chính chưa có chỗ xem album (vào game rồi mở app Máy ảnh mới quay lại ảnh cũ được).
+  - Kiểu mới trong bộ chạy: điều kiện open (đang mở tin của …), routed (đã bấm 📍 tới …), ack (bấm tắt hướng dẫn / hết … phút), use (đã dùng món …);
+    việc openPhone / closePhone; hướng dẫn minimap, hint (bảng nhắc không làm tối), use; `mark` = dấu ! / ? trên đầu NPC theo bước.
+- Đi kèm: app **Tin nhắn** kiểu điện thoại thật (danh sách → cuộc trò chuyện, nút 📍 Chỉ đường, trả lời nhanh, lưu trong save — GameState.inbox);
+  **Hồ sơ tài xế** gộp vào app nhận đơn (nút 👤), app Hồ sơ riêng ẩn (phone.json); vào hãng được **tặng túi cơ bản** (apps.json brands.*.bag,
+  thẻ App & Đơn → Hãng); đang theo cốt truyện thì vào hãng KHÔNG tự mặc đồng phục / mũ (bước "mặc đồ" hướng dẫn).
+- Chơi nhiều người: cốt truyện + tin nhắn là của riêng từng người (save của mình), không dừng / tua đồng hồ chung.
+- Giao diện cố định cỡ (14/10 tối): ô trang bị bảng "Đang mặc" 90×56 (chữ dài cắt …), khung chi tiết món trong túi cao 132px,
+  dòng mục tiêu giữa trên màn hình rộng cố định; nút "👤 Hồ sơ" trong app nhận đơn có chữ.
+- Chưa làm: chương 2 trở đi; thử kỹ trên Chrome thật (đã chạy hết chương 1 bằng ?debug trong trình duyệt của Claude).
+
 ### 🧍 Đổi kiểu người sang "low-poly mượt" (14/10 — đã duyệt 4 đợt; P1 xong, CHỜ chủ game xem)
 - Mẫu chủ game chốt: `src/devtools/personSample.js` (trình xem thử, game không dùng). Khung khớp giữ nguyên → mọi dáng / tư thế / tay nắm lái dùng lại.
 - **P1 (xong)** `src/world/person.js` (buildPerson) — `models.makePerson` giữ nguyên tham số, gọi sang file mới; kiểu cũ còn trong `makePersonClassic`,

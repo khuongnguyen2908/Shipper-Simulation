@@ -15,6 +15,8 @@ export function buildPacking({ items, bag, onDone }) {
 
   const root = document.createElement('div');
   root.className = 'packing';
+  // hướng dẫn xếp túi (cốt truyện) đọc trạng thái: món đang chọn, ô của từng món, món đã dựng đứng chưa
+  root.packState = () => ({ items, selected, placed: [...placed], upright: [...upright] });
 
   const analyze = () => {
     const mods = items.map(() => ({ upright: true, heatNeighbor: false, crushed: false }));

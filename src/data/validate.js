@@ -76,6 +76,7 @@ export function validateItems(items, placesData, appsData = null) {
   if (parcelTypes.some((t) => t.shopItems)) for (const p of placesData?.places || []) for (const id of p.orders?.parcelItems || []) parcelUse.add(id);
   for (const id of PROTECTED.items) if (!items[id]) add('error', id, 'id', `Thiếu món bắt buộc "${id}" (code dùng trực tiếp).`);
   for (const [key, it] of Object.entries(items)) {
+    if (tooNewEmoji(it.icon)) add('warn', key, 'icon', NEW_EMOJI_MSG);
     openDayErr(add, key, it.openDay, PROTECTED.items.includes(key));
     if (!ID_RE.test(key)) add('error', key, 'id', 'Mã chỉ gồm chữ không dấu, số, gạch dưới; bắt đầu bằng chữ.');
     if (it.id !== key) add('error', key, 'id', `Mã bên trong (${it.id}) khác khóa (${key}).`);
@@ -231,6 +232,7 @@ export function validateBrands(apps, gear, placesData, goods = null) {
     if (!v) add('error', key, 'vehicle', `Xe cấp khi vào hãng "${b.vehicle}" không có trong danh sách xe.`);
     else if ((v.power || 'gas') !== b.power) add('error', key, 'vehicle', `Xe cấp "${v.name}" không đúng loại xe của hãng.`);
     if (!num(b.deposit) || b.deposit < 0 || b.deposit > 100000) add('error', key, 'deposit', 'Tiền cọc phải từ 0 đến 100000.');
+    if (b.bag != null && b.bag !== '' && !gear?.bags?.[b.bag]) add('error', key, 'bag', `Túi tặng khi vào hãng "${b.bag}" không có trong danh sách túi.`);
     if (placesData && !places.some((p) => p.kind === 'office' && p.brand === key)) add('warn', key, 'office', `Chưa có văn phòng ${b.name || key} trên bản đồ → người chơi không đăng ký hãng này được.`);
     if (b.perks != null && (!Array.isArray(b.perks) || b.perks.some((x) => typeof x !== 'string'))) add('error', key, 'perks', 'Đãi ngộ phải là danh sách câu chữ.');
     // quà khi vào hãng: món có thật, là trang phục / trang bị; món của hãng khác thì nhắc
@@ -315,6 +317,8 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null, m
   const occupied = new Map();
   const alleyKey = `${pd.alley.block[0]},${pd.alley.block[1]},${pd.alley.lot}`;
   for (const p of places) {
+    if (tooNewEmoji(p.icon)) add('warn', p.id, 'icon', NEW_EMOJI_MSG);
+    if (tooNewEmoji(p.npc?.portrait)) add('warn', p.id, 'portrait', NEW_EMOJI_MSG);
     if (!ID_RE.test(p.id)) add('error', p.id, 'id', 'Mã chỉ gồm chữ không dấu, số, gạch dưới.');
     if (ids.has(p.id)) add('error', p.id, 'id', 'Trùng mã với địa điểm khác.');
     ids.add(p.id);
@@ -521,11 +525,12 @@ export function validateContent(content, base) {
 }
 
 // Đồ dùng (goods.json): tiêu hao + trang bị
-export function validateGoods(goods, placesData) {
+export function validateGoods(goods, placesData, gifts = new Set()) {
   const out = [];
   const add = (level, ref, field, msg) => out.push({ level, tab: 'gear', cat: 'goods', ref, field, msg });
   const sold = new Set((placesData?.places || []).flatMap((p) => p.sells?.goods || []));
   for (const [key, s] of Object.entries(goods)) {
+    if (tooNewEmoji(s.icon)) add('warn', key, 'icon', NEW_EMOJI_MSG);
     if (!ID_RE.test(key)) add('error', key, 'id', 'Mã chỉ gồm chữ không dấu, số, gạch dưới.');
     if (s.id !== key) add('error', key, 'id', `Mã bên trong (${s.id}) khác khóa (${key}).`);
     if (!s.name || !String(s.name).trim()) add('error', key, 'name', 'Chưa có tên.');
@@ -538,7 +543,7 @@ export function validateGoods(goods, placesData) {
       drainWarn(add, key, u.phys <= -30 ? 'use.phys' : 'use.mental', u.phys, u.mental, '');
       const gain = Math.max(0, u.phys || 0) + Math.max(0, u.mental || 0);
       if (num(s.price) && gain > 0) {
-        if (s.price === 0) add('warn', key, 'price', 'Miễn phí mà có tác dụng → người chơi mua bao nhiêu cũng được.');
+        if (s.price === 0 && !gifts.has(key)) add('warn', key, 'price', 'Miễn phí mà có tác dụng → người chơi mua bao nhiêu cũng được.'); // quà trong cốt truyện (không bán) thì không sao
         else if (gain / s.price > 3) add('warn', key, 'price', `Rẻ so với tác dụng (+${gain} điểm / ${s.price}k). Tham khảo: cà phê 20k cho +35, phở 35k cho +50.`);
       }
     } else if (s.type === 'equipment' || s.type === 'outfit') {
@@ -568,7 +573,7 @@ export function validateGoods(goods, placesData) {
       if (!scrap && placesData && !(placesData.places || []).some((p) => (p.activities || []).some((a) => a.needs?.id === key))) add('warn', key, 'type', 'Chưa địa điểm nào có hoạt động cần món này → mua về không dùng được. Thêm ô "Cần đồ" ở hoạt động (thẻ Địa điểm).');
     } else add('error', key, 'type', 'Loại phải là "đồ dùng 1 lần", "trang bị", "dùng tại địa điểm" hoặc "trang phục".');
     // trang phục giá 0 là đồ có sẵn, không cần nơi bán
-    const madeInGame = Object.values(goods).some((x) => x.use?.leaves === key); // vỏ chai: có sau khi uống, không cần nơi bán
+    const madeInGame = Object.values(goods).some((x) => x.use?.leaves === key) || gifts.has(key); // vỏ chai (có sau khi uống) · quà trong cốt truyện: không cần nơi bán
     if (placesData && !sold.has(key) && !madeInGame && !(s.type === 'outfit' && s.price === 0)) add('warn', key, 'sells', 'Chưa địa điểm nào bán món này.');
     // phụ kiện (kể cả mũ bảo hiểm) giá 0 không tự có → chỉ có khi là quà vào hãng
     if (s.type === 'outfit' && s.price === 0 && OUTFIT_SLOTS[s.slot]?.accessory && !s.brand) add('warn', key, 'price', 'Phụ kiện giá 0 không ai có sẵn (mũ bảo hiểm lúc đầu không có) → chỉ có nếu là quà vào hãng. Đặt giá + nơi bán, hoặc xóa món này.');
@@ -788,8 +793,9 @@ export function validateBalance(b) {
   return out;
 }
 
-export function validateAll({ items, gear, goods, places, content, baseContent, apps = null, map = undefined, balance = null, phone = null, sounds = null }) {
+export function validateAll({ items, gear, goods, places, content, baseContent, apps = null, map = undefined, balance = null, phone = null, sounds = null, story = null }) {
   return [
+    ...(story ? validateStory(story, { places, goods, content, apps }) : []),
     ...(sounds ? validateSounds(sounds) : []),
     ...(phone ? validatePhone(phone) : []),
     ...(balance ? validateBalance(balance) : []),
@@ -798,7 +804,7 @@ export function validateAll({ items, gear, goods, places, content, baseContent, 
     ...(map ? validateMap(map, places) : []),
     ...validateGear(gear, apps),
     ...(apps ? validateBrands(apps, gear, places, goods) : []),
-    ...(goods ? validateGoods(goods, places) : []),
+    ...(goods ? validateGoods(goods, places, storyGifts(story)) : []),
     ...validatePlaces(places, items, goods, gear, map),
     ...validateContent(content, baseContent || content),
     ...validateFeedLines(content, places),
@@ -819,6 +825,139 @@ export function validateFeedLines(content, placesData = null) {
       else if (!FEED_MEDIA.includes(m[1].trim()) && !(/^photo:/.test(m[1].trim()) && placeIds.has(m[1].trim().slice(6)))) add(`Loại ảnh lạ "${m[1]}". Có: ${FEED_MEDIA.join(', ')} hoặc photo:<mã địa điểm> (vd photo:tra).`);
       if (String(s).split('|').length < 2) add('Thiếu dấu | giữa tác giả và chú thích: "[clip:dog] @ten | chú thích | nhạc | chữ trên ảnh".');
     }
+  }
+  return out;
+}
+
+// ======================== CỐT TRUYỆN (story.json — thẻ 📖 Cốt truyện) ========================
+// Món đồ cốt truyện tặng (talk.give / hành động give) → không cần nơi bán
+export function storyGifts(story) {
+  const out = new Set();
+  for (const ch of story?.chapters || []) for (const st of ch.steps || []) {
+    if (st.talk?.give) out.add(st.talk.give);
+    for (const a of st.on || []) if (a.do === 'give' && a.goods) out.add(a.goods);
+  }
+  return out;
+}
+const STORY_UNTIL = ['none', 'wait', 'read', 'open', 'reply', 'routed', 'ack', 'use', 'arrive', 'talk', 'mount', 'brand', 'wear', 'switch', 'fuel', 'order'];
+const STORY_DO = ['title', 'say', 'msg', 'replies', 'item', 'bike', 'give', 'toast', 'openPhone', 'closePhone', 'offer', 'fuel', 'end'];
+const STORY_GUIDE = ['thread', 'route', 'reply', 'wear', 'switch', 'minimap', 'hud', 'use', 'fuel', 'order', 'profile'];
+const STORY_HUD = ['minimap', 'keys', 'goal', 'stats', 'phys', 'mental', 'vehicle', 'objectives', 'fuel', 'phoneIcon', 'phone']; // = HUD_PARTS (sim/story.js)
+const STORY_STAGES = ['offer', 'accept', 'pickup', 'deliver']; // = ORDER_STAGES (sim/story.js)
+const STORY_APPS = ['goship', 'map', 'chat', 'wallet', 'account', 'bag', 'bike', 'police', 'tictac', 'camera']; // = APP_DEFS (data/phoneApps.js)
+// Emoji mới quá (Unicode 13 trở lên, 2020+) → Windows 10 hiện ô vuông. Dùng cho ô biểu tượng.
+export function tooNewEmoji(s) {
+  const str = String(s || '');
+  if (/🧑‍/u.test(str)) return true; // người không rõ giới tính + nghề (🧑‍🍳…): Windows 10 tách thành 2 hình
+  for (const ch of str) {
+    const cp = ch.codePointAt(0);
+    if (cp >= 0x1FA70 && cp <= 0x1FAFF && !((cp >= 0x1FA70 && cp <= 0x1FA73) || (cp >= 0x1FA78 && cp <= 0x1FA7A) || (cp >= 0x1FA80 && cp <= 0x1FA82) || (cp >= 0x1FA90 && cp <= 0x1FA95))) return true;
+    if ([0x1F90C, 0x1F972, 0x1F977, 0x1F978, 0x1F979, 0x1F9A3, 0x1F9A4, 0x1F9AB, 0x1F9AC, 0x1F9AD, 0x1F9CB, 0x1F9CC, 0x1F6D6, 0x1F6D7, 0x1F6DC, 0x1F6DD, 0x1F6DE, 0x1F6DF, 0x1F6FB, 0x1F6FC, 0x1F7F0, 0x26A7].includes(cp)) return true;
+  }
+  return false;
+}
+const NEW_EMOJI_MSG = 'Biểu tượng này mới quá (emoji 2020 trở lên) → máy Windows 10 hiện ô vuông. Chọn emoji khác (vd 👨‍🍳 thay 🧑‍🍳, 🍯 thay 🫙, 🥤 thay 🧋).';
+export function validateStory(story, { places = null, goods = null, content = null, apps = null } = {}) {
+  const out = [];
+  const add = (level, ref, field, msg) => out.push({ level, tab: 'story', ref, field, msg });
+  const placeIds = new Set((places?.places || []).filter((p) => isPlaced(p)).map((p) => p.id));
+  const contacts = story?.contacts || {}, people = story?.people || {}, items = story?.items || {}, parcels = story?.parcels || {};
+  const text = (ref, field, key, what) => {
+    if (!key) return add('error', ref, field, `Chưa có ${what}.`);
+    if (content && content[key] === undefined) add('error', ref, field, `Thiếu chữ "${key}" (${what}) — gõ nội dung ở ô này.`);
+  };
+  const place = (ref, field, id, extra = []) => {
+    if (!id) return add('error', ref, field, 'Chưa chọn địa điểm.');
+    if (places && !placeIds.has(id) && !extra.includes(id)) add('error', ref, field, `Địa điểm "${id}" không có (hoặc chưa đặt lên bản đồ).`);
+  };
+  for (const [id, c] of Object.entries(contacts)) {
+    if (!ID_RE.test(id)) add('error', `contact:${id}`, 'id', 'Mã người nhắn chỉ gồm chữ không dấu, số, gạch dưới.');
+    text(`contact:${id}`, 'name', c.name, 'tên người nhắn');
+    if (c.place && places && !placeIds.has(c.place)) add('warn', `contact:${id}`, 'place', `Địa điểm "${c.place}" không có.`);
+  }
+  for (const [id, it] of Object.entries(items)) text(`item:${id}`, 'name', it.name, 'tên vật phẩm');
+  for (const [pre, tb] of [['contact', contacts], ['people', people], ['item', items], ['parcel', parcels]]) for (const [id, x] of Object.entries(tb)) if (tooNewEmoji(x.icon)) add('warn', `${pre}:${id}`, 'icon', NEW_EMOJI_MSG);
+  for (const [id, it] of Object.entries(parcels)) text(`parcel:${id}`, 'name', it.name, 'tên gói hàng');
+  const chIds = new Set();
+  for (const ch of story?.chapters || []) {
+    if (chIds.has(ch.id)) add('error', ch.id, 'id', 'Trùng mã chương.');
+    chIds.add(ch.id);
+    text(ch.id, 'title', ch.title, 'tên chương');
+    if (!(ch.steps || []).length) add('warn', ch.id, 'steps', 'Chương chưa có bước nào.');
+    const stIds = new Set();
+    (ch.steps || []).forEach((st, i) => {
+      const ref = `${ch.id}.${st.id || i}`;
+      if (!st.id || stIds.has(st.id)) add('error', ref, 'id', st.id ? 'Trùng mã bước.' : 'Bước chưa có mã.');
+      stIds.add(st.id);
+      if (st.delay != null && (!num(st.delay) || st.delay < 0 || st.delay > 600)) add('error', ref, 'delay', 'Chờ trước khi làm: 0–600 phút game.');
+      const u = st.until || { type: 'none' };
+      if (!STORY_UNTIL.includes(u.type)) add('error', ref, 'until', `Điều kiện xong lạ "${u.type}".`);
+      if (u.type === 'routed') place(ref, 'until', u.place, ['office', 'fuel']);
+      if (u.type === 'order' && !STORY_STAGES.includes(u.stage)) add('error', ref, 'until', `Mốc đơn hàng lạ "${u.stage}" (offer / accept / pickup / deliver).`);
+      if (u.type === 'fuel' && u.pct != null && !(num(u.pct) && u.pct > 0 && u.pct <= 100)) add('error', ref, 'until', 'Xăng / pin: 1–100 %.');
+      if (st.hold != null && typeof st.hold !== 'boolean') add('error', ref, 'hold', 'Ô "chặn đơn thường" phải là có / không.');
+      if (u.type === 'use' && goods && !goods[u.goods]) add('error', ref, 'until', `Món "${u.goods}" không có trong đồ dùng.`);
+      if (u.type === 'ack' && u.max != null && !(num(u.max) && u.max >= 0)) add('error', ref, 'until', 'Tự tắt sau … phút phải ≥ 0.');
+      if (st.mark) {
+        place(ref, 'mark', st.mark.place);
+        if (!['!', '?'].includes(st.mark.icon)) add('error', ref, 'mark', 'Dấu trên đầu NPC chỉ là ! hoặc ?.');
+      }
+      if ((u.type === 'read' || u.type === 'reply' || u.type === 'open') && !contacts[u.who]) add('error', ref, 'until', 'Chưa chọn người nhắn (hoặc người đó không có trong danh bạ).');
+      if (u.type === 'arrive') place(ref, 'until', u.place);
+      if (u.type === 'wait' && !(num(u.min) && u.min >= 0)) add('error', ref, 'until', 'Số phút chờ phải ≥ 0.');
+      if (u.type === 'switch' && u.which !== 'food' && u.which !== 'ride') add('error', ref, 'until', 'Công tắc phải là Giao hàng (food) hoặc Chở khách (ride).');
+      if (u.type === 'talk') {
+        if (!st.talk) add('error', ref, 'talk', 'Điều kiện "nói chuyện" cần phần Nói chuyện (địa điểm, câu nói).');
+        else if (st.talk.place !== u.place) add('error', ref, 'talk', 'Địa điểm nói chuyện phải trùng địa điểm ở điều kiện xong.');
+      }
+      if (st.talk) {
+        place(ref, 'talk', st.talk.place);
+        text(ref, 'talk', st.talk.label, 'chữ trên nút E');
+        text(ref, 'talk', st.talk.text, 'câu nói');
+        text(ref, 'talk', st.talk.ok, 'chữ nút đồng ý');
+        for (const pid of [].concat(st.talk.pack || [], st.talk.drop || [])) if (!parcels[pid]) add('error', ref, 'talk', `Gói hàng "${pid}" không có.`);
+        if (st.talk.giveQty != null && !(num(st.talk.giveQty) && st.talk.giveQty >= 1 && st.talk.giveQty <= 20)) add('error', ref, 'talk', 'Số phần tặng: 1–20.');
+        if (st.talk.give && goods && !goods[st.talk.give]) add('error', ref, 'talk', `Đồ tặng "${st.talk.give}" không có trong đồ dùng.`);
+      }
+      if (st.goal) text(ref, 'goal', st.goal, 'mục tiêu');
+      if (st.hint) text(ref, 'hint', st.hint, 'gợi ý');
+      if (st.target && !['bike', 'office', 'fuel'].includes(st.target)) place(ref, 'target', st.target);
+      if (st.guide) {
+        const gd = st.guide;
+        if (!STORY_GUIDE.includes(gd.type)) add('error', ref, 'guide', `Kiểu hướng dẫn lạ "${gd.type}".`);
+        if (['thread', 'route', 'reply'].includes(gd.type) && !contacts[gd.who]) add('error', ref, 'guide', 'Hướng dẫn: chưa chọn người nhắn.');
+        if (gd.type === 'route') place(ref, 'guide', gd.place, ['office']);
+        if (gd.type === 'minimap' || gd.type === 'hud' || gd.type === 'profile') text(ref, 'guide', gd.title, 'chữ hướng dẫn');
+        if (gd.btn != null && !['next', 'ok'].includes(gd.btn)) add('error', ref, 'guide', 'Nút hướng dẫn chỉ là "next" (Tiếp ▸) hoặc "ok" (Đã rõ).');
+        if (gd.btn && u.type !== 'ack') add('warn', ref, 'guide', 'Có nút Tiếp / Đã rõ thì điều kiện xong nên là "Người chơi bấm tắt hướng dẫn" (ack).');
+        if (u.type === 'ack' && !gd.btn && ['hud', 'profile'].includes(gd.type) && !(u.max > 0)) add('error', ref, 'guide', 'Điều kiện "bấm tắt hướng dẫn" mà hướng dẫn không có nút Tiếp / Đã rõ → người chơi kẹt ở bước này.');
+        if (gd.type === 'hud' && !STORY_HUD.includes(gd.part)) add('error', ref, 'guide', `Phần màn hình lạ "${gd.part}".`);
+        if (gd.type === 'use' && goods && !goods[gd.goods]) add('error', ref, 'guide', `Món "${gd.goods}" không có trong đồ dùng.`);
+      }
+      for (const a of st.on || []) {
+        if (!STORY_DO.includes(a.do)) { add('error', ref, 'on', `Việc lạ "${a.do}".`); continue; }
+        if (a.do === 'msg') {
+          if (!contacts[a.from]) add('error', ref, 'on', `Tin nhắn: người gửi "${a.from}" không có trong danh bạ.`);
+          text(ref, 'on', a.text, 'nội dung tin nhắn');
+          for (const id of a.loc || []) place(ref, 'on', id);
+        }
+        if (a.do === 'replies') {
+          if (!contacts[a.who]) add('error', ref, 'on', 'Trả lời nhanh: chưa chọn người nhắn.');
+          if (!Array.isArray(a.texts) || !a.texts.length || a.texts.length > 3) add('error', ref, 'on', 'Trả lời nhanh: 1–3 câu.');
+          for (const k of a.texts || []) text(ref, 'on', k, 'câu trả lời nhanh');
+        }
+        if (a.do === 'say') {
+          if (!people[a.who] && !contacts[a.who]) add('error', ref, 'on', `Hội thoại: người nói "${a.who}" không có.`);
+          text(ref, 'on', a.text, 'câu nói');
+        }
+        if (a.do === 'toast') text(ref, 'on', a.text, 'thông báo');
+        if (a.do === 'openPhone' && a.who && !contacts[a.who]) add('error', ref, 'on', `Mở điện thoại: người nhắn "${a.who}" không có.`);
+        if (a.do === 'openPhone' && a.app && !STORY_APPS.includes(a.app)) add('error', ref, 'on', `Mở điện thoại: app lạ "${a.app}".`);
+        if (a.do === 'fuel' && a.pct != null && !(num(a.pct) && a.pct >= 0 && a.pct <= 100)) add('error', ref, 'on', 'Đặt xăng / pin: 0–100 %.');
+        if (a.do === 'item' && !items[a.id]) add('error', ref, 'on', `Vật phẩm "${a.id}" không có.`);
+        if (a.do === 'give' && goods && !goods[a.goods]) add('error', ref, 'on', `Đồ tặng "${a.goods}" không có.`);
+      }
+    });
   }
   return out;
 }

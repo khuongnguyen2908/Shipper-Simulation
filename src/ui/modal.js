@@ -34,7 +34,7 @@ export class Modal {
   // opts: { title, speaker, portrait, text, html, choices:[{label, hint, disabled, onSelect, keepOpen, cls}], wide, dismissible, onClose, node, backdrop }
   // cls: kiểu riêng của nút (vd 'group' dòng nhóm xổ xuống, 'sub' dòng con thụt vào — hộp thoại trạm xe buýt)
   // text có "[tiếp]" → chia nhiều trang: các trang đầu chỉ có nút "Tiếp ▸", trang cuối mới hiện các lựa chọn
-  // (sửa chỗ ngắt trang ở thẻ Chữ & hội thoại của ?editor). backdrop: 'black' = nền đen kín phía sau hộp thoại.
+  // (sửa chỗ ngắt trang ở thẻ Chữ & hội thoại của ?editor). backdrop: 'black' = nền đen kín phía sau hộp thoại · 'dim' = cảnh game tối hẳn.
   show(opts, page = 0) {
     if (typeof opts.text === 'string' && PAGE_BREAK.test(opts.text)) {
       const pages = splitPages(opts.text);
@@ -62,7 +62,7 @@ export class Modal {
     const choices = this.choices
       .map((c, i) => `<button class="m-choice${c.disabled ? ' disabled' : ''}${c.primary ? ' primary' : ''}${c.cls ? ` ${c.cls}` : ''}" data-i="${i}" ${c.disabled ? 'disabled' : ''}><span class="m-key">${i + 1}</span><span>${c.label}${c.hint ? `<small>${c.hint}</small>` : ''}</span></button>`)
       .join('');
-    this.el.className = [opts.wide ? 'wide' : '', opts.backdrop === 'black' ? 'black' : ''].join(' ').trim();
+    this.el.className = [opts.wide ? 'wide' : '', opts.backdrop === 'black' ? 'black' : opts.backdrop === 'dim' ? 'dim' : ''].join(' ').trim();
     this.el.innerHTML = `<div class="m-box">${head}<div class="m-body">${body}</div><div class="m-choices">${choices}</div>${this.dismissible ? `<button class="m-close" title="${fmt('modal.close')}">✕</button>` : ''}</div>`;
     if (opts.node) this.el.querySelector('.m-body').appendChild(opts.node);
     this.el.querySelectorAll('.m-choice').forEach((b) => b.addEventListener('click', () => this.pick(Number(b.dataset.i))));

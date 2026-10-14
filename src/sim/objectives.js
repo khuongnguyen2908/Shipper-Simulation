@@ -1,20 +1,25 @@
 // Danh sách mục tiêu trong ngày (tính lại từ GameState mỗi khung hình).
 // optional = nhiệm vụ phụ; target = id địa điểm để chỉ đường. Chữ lấy từ kho chữ obj.*
 import { fmt } from '../content/index.js';
+import { stepOf } from './story.js';
 
 export const ORDERS_GOAL = 10; // số đơn cần giao trong ngày
 
 export function objectives(gs) {
   // "Luôn có": trả tiền nhà cho Cô Hai (hiện từ lúc đã gặp Cô Hai)
   const rent = { id: 'rent', text: fmt(gs.rentPaid ? 'obj.rentPaid' : 'obj.rent', { rent: gs.rent, day: gs.rentDueDay }), done: gs.rentPaid, target: 'home', final: true };
-  // chưa vào hãng: chỉ hiện bước đang làm của mở đầu — tìm nhà trọ, gặp Cô Hai → leo lên xe đạp Cô Hai cho → đăng ký 1 hãng xe
+  // cốt truyện đang chạy (src/sim/story.js): mục tiêu của bước hiện tại đứng đầu, thay cho các mục mở đầu cũ
+  const st = stepOf(gs.story);
+  const story = st?.goal && gs.story.fired ? { id: 'story', text: fmt(st.goal, { name: gs.profile.name }), done: false } : null;
+  if (!gs.brand && gs.story?.ch) return story ? [story, rent] : [rent];
+  // chưa vào hãng (không theo cốt truyện): chỉ hiện bước đang làm của mở đầu — tìm nhà trọ, gặp Cô Hai → leo lên xe đạp Cô Hai cho → đăng ký 1 hãng xe
   if (!gs.brand) {
     const st = gs.flags.story ?? 2;
     if (st <= 0) return [{ id: 'findHome', text: fmt('obj.findHome'), done: false, target: 'home' }];
     if (st === 1) return [{ id: 'mountBike', text: fmt('obj.mountBike'), done: false }, rent];
     return [{ id: 'brand', text: fmt('obj.brand'), done: false }, rent];
   }
-  const list = [];
+  const list = story ? [story] : [];
   const first = { id: 'first', text: fmt('obj.first'), done: gs.stats.completed >= 1 };
   // ngày 1: dòng đầu đi lần lượt — đổ xăng / sạc điện → giao đơn đầu tiên; xong đơn đầu mới hiện dòng "giao 10 đơn"
   // (ngày 2 trở đi: tạm chỉ có "giao 10 đơn" — sẽ thiết kế sau)
