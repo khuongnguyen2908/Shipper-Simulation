@@ -10,7 +10,7 @@
     "rentDueHour": 22,
     "lateFeePct": 0.2,
     "maxLate": 2,
-    "policeFine": 150,
+    "policeFine": 100,
     "blockFine": 50,
     "blockWarnMin": 10,
     "blockFineMin": 15,
@@ -27,7 +27,7 @@
     "batteryIntervalKm": 180,
     "sellPct": 0.5,
     "parkingFee": 5,
-    "speedLimit": 11,
+    "speedLimit": 13.888889,
     "rentByPeriod": [],
     "faintFee": 100,
     "resalePct": 0.3
