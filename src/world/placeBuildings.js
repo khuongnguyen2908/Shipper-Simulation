@@ -576,6 +576,46 @@ function decoA(k, o, opt = {}) {
   }
 }
 
+// Quán cà phê / trà sữa (đợt A2): dây đèn bóng tròn võng qua mặt tiền, dù che + bàn ghế trên vỉa hè (lô đủ rộng), chậu cây 2 bên cửa
+function cafeFront(k, o, opt = {}) {
+  const r = makeRng(((o.seed >>> 0) * 13 + 5) >>> 0 || 1);
+  const W = o.W, acc = hexNum(o.signBg, 0x7b4fc9);
+  if (opt.lights !== false) {
+    const n = Math.max(6, Math.round(W / 0.45)), y0 = opt.lightY ?? 2.98, z = opt.lightZ ?? 0.78;
+    let prev = null;
+    for (let i = 0; i <= n; i++) {
+      const t = i / n, x = -W / 2 + 0.3 + t * (W - 0.6), y = y0 - Math.sin(t * PI * 2 % PI) * 0.18; // 2 nhịp võng
+      k.ball(0.045, x, y - 0.05, z, i % 3 === 1 ? 0xffd27a : 0xfff0c0, 'light');
+      if (prev) k.rod(prev, [x, y, z], 0.006, 0x222222);
+      prev = [x, y, z];
+    }
+  }
+  for (const sd of [-1, 1]) {
+    const x = sd * (W / 2 - 0.4);
+    if (opt.skipPlant === sd) continue;
+    k.box(0.5, 0.45, 0.5, x, 0.23, 0.45, r.pick([0xeeeeee, 0x3d3d3d, 0xb5653a]));
+    for (let j = 0; j < 4; j++) k.ball(0.22, x + Math.cos(j * 1.7) * 0.12, 0.62 + (j % 2) * 0.16, 0.45 + Math.sin(j * 1.7) * 0.12, [0x4f9a3a, 0x3f8f3a, 0x5aa04a][j % 3]);
+  }
+  if (W >= 6 && opt.umbrella !== false) {
+    // dù che 8 cạnh sọc 2 màu + bàn tròn + 2 ghế
+    const x = -W / 2 + 1.7, z = 2.0, c2 = r.chance(0.5) ? 0xffffff : 0xf4e3c1;
+    k.cyl(0.03, 0.03, 2.3, x, 1.15, z, 0x555555, 'metal', 6);
+    for (let i = 0; i < 8; i++) {
+      const g = new THREE.ConeGeometry(1.1, 0.45, 8, 1, true, (i / 8) * PI * 2, PI / 4);
+      k.add(g, i % 2 ? c2 : acc, 'double', x, 2.45, z);
+    }
+    k.cyl(0.38, 0.38, 0.04, x, 0.72, z, 0xf4f4f4, '', 12);
+    k.cyl(0.04, 0.06, 0.7, x, 0.36, z, 0x555555, 'metal', 6);
+    for (const sd of [-1, 1]) {
+      const c = r.pick([0x2e86c1, 0xe74c3c, 0x2b2b2b, 0xffffff]);
+      k.box(0.38, 0.04, 0.38, x + sd * 0.65, 0.42, z, c);
+      k.box(0.04, 0.42, 0.38, x + sd * 0.84, 0.62, z, c);
+      for (const [dx, dz] of [[-0.15, -0.15], [0.15, -0.15], [-0.15, 0.15], [0.15, 0.15]]) k.box(0.03, 0.4, 0.03, x + sd * 0.65 + dx, 0.2, z + dz, c);
+      k.seat(x + sd * 0.65, 0.44, z, sd > 0 ? -PI / 2 : PI / 2);
+    }
+  }
+}
+
 // Bên trong quán ăn (tầng trệt mở toang 'open'): sàn gạch, tường trong, trần + đèn tuýp, quạt trần, bàn inox ghế nhựa,
 // quầy có nồi nước lèo, bàn thờ thần tài trên tường. Sâu 3 m tính từ mặt tiền.
 function eateryInside(k, o) {
@@ -707,6 +747,7 @@ const BUILD = {
     // tầng lầu: lam gỗ trước cửa sổ + cây rủ
     for (let i = 0; i < 10; i++) k.box(W - 0.4, 0.05, 0.1, 0, 4.1 + i * 0.19, 0.12, 0x7a5232);
     for (let i = 0; i < Math.round(W * 2.5); i++) k.ball(0.12 + (i % 3) * 0.04, -W / 2 + 0.2 + i * 0.4, 3.85 - (i % 4) * 0.18, 0.25, 0x3f8f3a);
+    decoA(k, { ...o, floors: fl }, { windows: false }); // đợt A2: sân thượng kiểu A (mặt tiền đã có đèn dây, chậu treo, ghế)
     return { shell: sh, sign: { y: 3.08, w: Math.min(6, W - 1.2), z: 0.21 }, height: houseTop(fl) };
   },
 
@@ -780,6 +821,8 @@ const BUILD = {
     // bảng chữ A + chậu cây trên vỉa hè
     k.box(0.6, 0.9, 0.04, W / 2 - 0.9, 0.45, 1.2, 0x2b2b2b, '', [-0.2, 0, 0]);
     plant(k, -W / 2 + 0.5, 0, 0.5, 1.6, 0xeeeeee);
+    cafeFront(k, o, { skipPlant: -1 }); // đợt A2: dây đèn, dù che, chậu cây bên phải cửa
+    decoA(k, o, { windows: false }); // sân thượng kiểu A (tầng lầu đã có lam gỗ + bồn cây)
     return { shell: sh, sign: { y: 3.15, z: 0.1, glow: 0.6 }, height: houseTop(o.floors) };
   },
 

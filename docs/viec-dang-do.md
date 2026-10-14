@@ -18,14 +18,15 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   - Chủ game tự tạo dự án Firebase (Claude hướng dẫn từng bước), dán cấu hình vào code.
 
 ## 💬 Đang bàn
-### 🏘️ Nhà địa điểm "kiểu A" (14/10 — đợt A1 xong, chủ game ok; đang làm A2)
+### 🏘️ Nhà địa điểm "kiểu A" (14/10 — A1 + A2 xong, chủ game ok)
 - Chủ game chọn hướng A: giữ kiểu khối vuông của game, học chi tiết từ mẫu nhà "đồ chơi" — KHÔNG đặt đồ ăn khổng lồ trên nóc (nhà Việt không có).
   Mẫu thử phong cách bo tròn (người xấu, nặng máy ~25 nghìn tam giác / người) đã bỏ, file thử đã xóa.
 - **A1 (xong)** `placeBuildings.js` decoA / eateryInside: nhà ống mặt tiền phẳng (quán ăn, bánh mì, tạp hóa, sửa xe, trái cây, đồ chơi; tiệm vàng / xe máy chỉ sân thượng):
   tầng lầu đầu có cửa sổ lá sách + bồn hoa + lan can; sân thượng chậu cây, hoa giấy rủ, ăng-ten, dây phơi; mái hiên sọc + diềm + lồng đèn (quán ăn);
   quán ăn mặt tiền mở (`houses.js` ground 'open') thấy bàn inox, ghế nhựa, quầy nồi nước lèo, bàn thờ thần tài, quạt trần.
   Biển dọc chỉ quán bật ô "Biển dọc" (places.json signV / signVText, ?editor Địa điểm) — bật sẵn: Phở Bà Tư, Bún Mọc, Cơm Tấm, Hủ Tiếu, Lẩu Dê.
-- **A2 (chưa)**: quán cà phê / trà sữa / tiệm bánh / nhà sách (modern 28, cafe 3): chậu cây, đèn dây, bảng menu đứng, dù che.
+- **A2 (xong)** `cafeFront`: kiểu modern (trà sữa, tiệm bánh, nhà sách, cửa hàng tiện lợi…) thêm dây đèn bóng tròn, dù che + bàn ghế (lô ≥ 6 m),
+  chậu cây; modern + cafe thêm sân thượng kiểu A. Chưa xử lý: biển dọc tím có sẵn từ trước trên MỌI nhà modern (chưa theo ô "Biển dọc") — chờ chủ game.
 - Ô giữa khối thường (trước là sân trống) → nhà phía sau 1–3 tầng không cửa (cityLayout centerFills + city.js), ngẫu nhiên theo khối.
 - 2 trường đại học chọn được cỡ "Cả khối" (CAMPUS_LOOKS) → khuôn viên: Mỹ thuật chữ U kiểu Pháp; RMEET tòa kính + thư viện + căng tin + sân bóng rổ + nhà xe.
   Chưa đổi lô của 2 trường trên bản đồ — chủ game tự chọn ở ?editor nếu muốn.
