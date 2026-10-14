@@ -8,7 +8,8 @@ import { APP } from '../data/apps.js';
 import { fmt } from '../content/index.js';
 import { ECONOMY } from '../data/balance.js';
 import { NAME_MAX, normProfile } from '../sim/GameState.js';
-import { HAIR_STYLES, HAIR_COLORS, PLAYER_SKINS, profileLook } from '../sim/people.js';
+import { HAIR_BY_GENDER, HAIR_COLORS, PLAYER_SKINS, profileLook } from '../sim/people.js';
+import { GOODS, outfitLook, startOutfit } from '../data/goods.js';
 import { createAvatar } from './avatar.js';
 import { DEFAULTS, SENS_RANGE, normSettings } from '../settings.js';
 
@@ -49,7 +50,7 @@ export class Screens {
   // settings + onSettings(s): cài đặt hiện tại, gọi lại mỗi lần đổi · onNew(profile) · onContinue()
   // view: mở thẳng vào 'new' (vd từ màn hình thua)
   title({ save, webgl2, settings, onNew, onContinue, onSettings, view = 'menu' }) {
-    this.t = { save, webgl2, settings: normSettings(settings), onNew, onContinue, onSettings, profile: { name: '', gender: 'm' }, page: 0, mode: 'intro' };
+    this.t = { save, webgl2, settings: normSettings(settings), onNew, onContinue, onSettings, profile: { name: '', gender: 'm', sleeves: 'short', legs: 'shorts', shoes: 'black' }, page: 0, mode: 'intro' };
     this.open = true;
     this.el.className = 'mm-mode';
     this.showView(view === 'new' ? 'profile' : view);
@@ -74,7 +75,7 @@ export class Screens {
       <div class="credit">${fmt('screen.credit')}</div></nav>
       <button class="mm-sound" data-sound="1" title="${esc(fmt('menu.soundToggle'))}">${t.settings.muted ? '🔇' : '🔊'}</button>`;
     const panel = view === 'confirm' ? this.confirmHtml() : view === 'profile' ? this.profileHtml() : view === 'intro' ? this.introHtml() : view === 'settings' ? settingsHtml(t.settings) : '';
-    this.el.innerHTML = `${menu}<div class="mm-stage">${panel ? `<div class="mm-panel">${panel}</div>` : ''}</div>`;
+    this.el.innerHTML = `${menu}<div class="mm-stage">${panel ? `<div class="mm-panel${view === 'profile' ? ' wide' : ''}">${panel}</div>` : ''}</div>`;
     this.el.classList.toggle('mm-sub', !!panel); // màn hình hẹp: đang mở bảng phụ thì ẩn menu
     this.bindTitle();
   }
@@ -86,40 +87,70 @@ export class Screens {
       <div class="row"><button class="btn big" data-mm="menu">${fmt('menu.cancel')}</button><button class="btn big danger" data-mm="profile">${fmt('menu.confirmOk')}</button></div>`;
   }
 
-  // Tạo nhân vật: tên, nam / nữ, kiểu tóc, màu tóc, màu da + hình 3D xoay xem trước
+  // Tạo nhân vật: hình 3D to bên trái (toàn thân / cận mặt), bên phải tên, nam / nữ, kiểu tóc (lật trang ‹ ›), màu tóc, màu da, áo, quần
   profileHtml() {
     const p = this.t.profile, n = normProfile(p); // n: giá trị đang dùng (chưa chọn → mặc định theo giới tính)
     const g = (v, key) => `<button class="mm-gender${p.gender === v ? ' on' : ''}" data-gender="${v}">${fmt(key)}</button>`;
     const hex = (c) => '#' + c.toString(16).padStart(6, '0');
-    const styles = HAIR_STYLES.map((s) => `<button class="mm-chip${n.hairStyle === s ? ' on' : ''}" data-hairstyle="${s}">${fmt(`hair.${s}`)}</button>`).join('');
+    const chip = (attr, v, key, on) => `<button class="mm-chip${on ? ' on' : ''}" data-${attr}="${v}">${fmt(key)}</button>`;
     const swatch = (attr, list, cur) => list.map((c) => `<button class="mm-swatch${cur === c ? ' on' : ''}" data-${attr}="${c}" style="background:${hex(c)}" title="${hex(c)}"></button>`).join('');
     return `<h2>${fmt('menu.profileTitle')}</h2>
-      <div class="mm-create"><div class="mm-create-form">
+      <div class="mm-create"><div class="mm-avatar-col"><div class="mm-avatar" id="mmAvatar"></div>
+        <div class="mm-views">${['full', 'face'].map((v) => `<button class="mm-chip${(this.avatar?.view ?? 'full') === v ? ' on' : ''}" data-view="${v}">${fmt(`menu.view.${v}`)}</button>`).join('')}</div></div>
+      <div class="mm-create-form">
       <label class="mm-field"><span>${fmt('menu.profileName')}</span><input type="text" id="mmName" maxlength="${NAME_MAX}" value="${esc(p.name)}" placeholder="${esc(fmt('profile.defaultName'))}" autocomplete="off"></label>
       <small class="mm-note">${fmt('menu.profileNote', { name: esc(fmt('profile.defaultName')) })}</small>
       <div class="mm-field"><span>${fmt('menu.profileGender')}</span><div class="mm-genders">${g('m', 'menu.male')}${g('f', 'menu.female')}</div></div>
-      <div class="mm-field"><span>${fmt('menu.profileHair')}</span><div class="mm-chips">${styles}</div></div>
+      <div class="mm-field"><span>${fmt('menu.profileHair')}</span><div class="mm-stepper">
+        <button class="mm-step" data-hairstep="-1" title="${esc(fmt('menu.hairPrev'))}">‹</button>
+        <div class="mm-step-name" id="mmHair">${this.hairLabel(n)}</div>
+        <button class="mm-step" data-hairstep="1" title="${esc(fmt('menu.hairNext'))}">›</button></div></div>
       <div class="mm-field"><span>${fmt('menu.profileHairColor')}</span><div class="mm-swatches">${swatch('hair', HAIR_COLORS, n.hair)}</div></div>
       <div class="mm-field"><span>${fmt('menu.profileSkin')}</span><div class="mm-swatches">${swatch('skin', PLAYER_SKINS, n.skin)}</div></div>
-      </div><div class="mm-avatar" id="mmAvatar"></div></div>
+      <div class="mm-field"><span>${fmt('menu.profileShirt')}</span><div class="mm-chips">${chip('sleeves', 'short', 'menu.sleevesShort', p.sleeves !== 'long')}${chip('sleeves', 'long', 'menu.sleevesLong', p.sleeves === 'long')}</div></div>
+      <div class="mm-field"><span>${fmt('menu.profilePants')}</span><div class="mm-chips">${chip('legs', 'shorts', 'menu.legsShorts', p.legs !== 'long')}${chip('legs', 'long', 'menu.legsLong', p.legs === 'long')}</div></div>
+      <div class="mm-field"><span>${fmt('menu.profileShoes')}</span><div class="mm-chips">${chip('shoes', 'black', 'menu.shoesBlack', p.shoes !== 'white')}${chip('shoes', 'white', 'menu.shoesWhite', p.shoes === 'white')}</div></div>
+      <small class="mm-note">${fmt('menu.profileClothesNote')}</small>
+      </div></div>
       <div class="row"><button class="btn big" data-mm="${this.t.save ? 'confirm' : 'menu'}">${fmt('menu.prev')}</button><button class="btn big primary" data-mm="toIntro">${fmt('menu.next')}</button></div>`;
   }
-  // Đổi ngoại hình tại chỗ: bật ô đang chọn (giới tính đổi thì kiểu tóc mặc định cũng đổi theo) + vẽ lại nhân vật
+  // Kiểu tóc dạng lật trang: tên kiểu + thứ tự trong danh sách của giới tính đang chọn (people.js → HAIR_BY_GENDER)
+  hairLabel(n) {
+    const list = HAIR_BY_GENDER[n.gender];
+    return `<b>${fmt(`hair.${n.hairStyle}`)}</b><small>${fmt('menu.hairCount', { n: list.indexOf(n.hairStyle) + 1, total: list.length })}</small>`;
+  }
+  // Lật sang kiểu tóc trước (-1) / sau (+1), tới cuối thì vòng lại đầu
+  stepHair(d) {
+    const p = this.t.profile, n = normProfile(p), list = HAIR_BY_GENDER[n.gender];
+    p.hairStyle = list[(list.indexOf(n.hairStyle) + d + list.length) % list.length];
+    sound('ui.next');
+    this.refreshLook();
+  }
+  // Ngoại hình xem trước: hồ sơ + bộ đồ ban đầu đã chọn (áo, quần, giày — giày cố định, không tự đổi theo màu áo quần), không đội mũ cho thấy tóc
+  previewLook() {
+    const p = this.t.profile, worn = Object.fromEntries(Object.entries(startOutfit(GOODS, p)).map(([k, id]) => [k, GOODS[id]]));
+    return { ...outfitLook(worn), hat: null, ...profileLook(normProfile(p)) };
+  }
+  // Đổi ngoại hình tại chỗ: bật ô đang chọn (giới tính đổi thì danh sách kiểu tóc đổi theo) + vẽ lại nhân vật
   refreshLook() {
     const p = this.t.profile, n = normProfile(p), el = this.el;
     el.querySelectorAll('[data-gender]').forEach((b) => b.classList.toggle('on', b.dataset.gender === p.gender));
-    el.querySelectorAll('[data-hairstyle]').forEach((b) => b.classList.toggle('on', b.dataset.hairstyle === n.hairStyle));
+    const hairBox = el.querySelector('#mmHair');
+    if (hairBox) hairBox.innerHTML = this.hairLabel(n);
+    el.querySelectorAll('[data-sleeves]').forEach((b) => b.classList.toggle('on', b.dataset.sleeves === (p.sleeves === 'long' ? 'long' : 'short')));
+    el.querySelectorAll('[data-legs]').forEach((b) => b.classList.toggle('on', b.dataset.legs === (p.legs === 'long' ? 'long' : 'shorts')));
+    el.querySelectorAll('[data-shoes]').forEach((b) => b.classList.toggle('on', b.dataset.shoes === (p.shoes === 'white' ? 'white' : 'black')));
     el.querySelectorAll('[data-hair]').forEach((b) => b.classList.toggle('on', Number(b.dataset.hair) === n.hair));
     el.querySelectorAll('[data-skin]').forEach((b) => b.classList.toggle('on', Number(b.dataset.skin) === n.skin));
-    this.avatar?.show({ shirt: 0x5dade2, pants: 0x34495e, ...profileLook(n) });
+    this.avatar?.show(this.previewLook());
   }
   // hình xem trước nhân vật (một bộ vẽ dùng lại; chỉ chạy khi đang ở bước tạo nhân vật)
   showAvatar() {
     const box = this.el.querySelector('#mmAvatar');
     if (!box) return this.avatar?.stop();
-    this.avatar ??= createAvatar();
+    this.avatar ??= createAvatar({ width: 300, height: 450 });
     box.appendChild(this.avatar.el);
-    this.avatar.show({ shirt: 0x5dade2, pants: 0x34495e, ...profileLook(normProfile(this.t.profile)) });
+    this.avatar.show(this.previewLook());
     this.avatar.start();
   }
 
@@ -162,8 +193,17 @@ export class Screens {
       this.showView(t.view);
     });
     // chọn ngoại hình: chỉ đổi ô đang chọn + tô lại hình 3D (không dựng lại cả màn → không giật)
-    el.querySelectorAll('[data-gender]').forEach((b) => b.addEventListener('click', () => { t.profile.gender = b.dataset.gender; this.refreshLook(); }));
-    el.querySelectorAll('[data-hairstyle]').forEach((b) => b.addEventListener('click', () => { t.profile.hairStyle = b.dataset.hairstyle; this.refreshLook(); }));
+    // đổi giới tính → danh sách kiểu tóc đổi theo, về kiểu đầu tiên
+    el.querySelectorAll('[data-gender]').forEach((b) => b.addEventListener('click', () => { if (t.profile.gender !== b.dataset.gender) delete t.profile.hairStyle; t.profile.gender = b.dataset.gender; this.refreshLook(); }));
+    el.querySelectorAll('[data-hairstep]').forEach((b) => b.addEventListener('click', () => this.stepHair(Number(b.dataset.hairstep))));
+    // góc nhìn hình xem trước: toàn thân / cận mặt
+    el.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => {
+      this.avatar?.setView(b.dataset.view);
+      el.querySelectorAll('[data-view]').forEach((x) => x.classList.toggle('on', x === b));
+    }));
+    el.querySelectorAll('[data-sleeves]').forEach((b) => b.addEventListener('click', () => { t.profile.sleeves = b.dataset.sleeves; this.refreshLook(); }));
+    el.querySelectorAll('[data-legs]').forEach((b) => b.addEventListener('click', () => { t.profile.legs = b.dataset.legs; this.refreshLook(); }));
+    el.querySelectorAll('[data-shoes]').forEach((b) => b.addEventListener('click', () => { t.profile.shoes = b.dataset.shoes; this.refreshLook(); }));
     el.querySelectorAll('[data-hair]').forEach((b) => b.addEventListener('click', () => { t.profile.hair = Number(b.dataset.hair); this.refreshLook(); }));
     el.querySelectorAll('[data-skin]').forEach((b) => b.addEventListener('click', () => { t.profile.skin = Number(b.dataset.skin); this.refreshLook(); }));
     this.showAvatar();
@@ -177,6 +217,7 @@ export class Screens {
         if (e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); go(t.page === INTRO.length - 1 ? (t.mode === 'intro' ? 'play' : 'menu') : 'next'); }
         else if (e.key === 'ArrowLeft') { e.preventDefault(); if (t.page > 0) go('prev'); }
       } else if (t.view === 'profile' && e.key === 'Enter') { e.preventDefault(); go('toIntro'); }
+      else if (!typing && t.view === 'profile' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); this.stepHair(e.key === 'ArrowLeft' ? -1 : 1); }
       else if (!typing && t.view === 'menu' && e.key === 'Enter' && t.save) go('continue');
     };
   }

@@ -1,11 +1,14 @@
-// Avatar 3D trong bảng "Đang mặc" (mở app Túi đồ): dựng người bằng đúng hàm của game, tự xoay, kéo chuột để xoay.
-// Một bộ vẽ WebGL riêng, nhỏ; chỉ vẽ khi bảng đang hiện (ẩn bảng → dừng vòng vẽ).
+// Avatar 3D: bảng "Đang mặc" (app Túi đồ, cỡ nhỏ mặc định) và màn tạo nhân vật (cỡ to): dựng người bằng đúng hàm của game,
+// tự xoay, kéo chuột để xoay. Một bộ vẽ WebGL riêng; chỉ vẽ khi đang hiện (ẩn → dừng vòng vẽ).
+// view: 'full' toàn thân · 'face' cận mặt (soi kiểu tóc) — máy quay trượt êm giữa 2 góc.
 import * as THREE from 'three';
 import { makePerson } from '../world/models.js';
 
-const W = 150, H = 210;
+// Góc máy: vị trí + điểm nhìn
+const VIEWS = { full: { pos: [0, 1.05, 3.6], at: [0, 0.9, 0] }, face: { pos: [0, 1.62, 1.05], at: [0, 1.58, 0] } };
 
-export function createAvatar() {
+const _v = new THREE.Vector3();
+export function createAvatar({ width: W = 150, height: H = 210 } = {}) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
   renderer.setSize(W, H);
@@ -18,8 +21,10 @@ export function createAvatar() {
   floor.rotation.x = -Math.PI / 2;
   scene.add(floor);
   const camera = new THREE.PerspectiveCamera(30, W / H, 0.1, 50);
-  camera.position.set(0, 1.12, 3.9);
-  camera.lookAt(0, 0.98, 0);
+  const cam = { pos: new THREE.Vector3(...VIEWS.full.pos), at: new THREE.Vector3(...VIEWS.full.at) };
+  let view = 'full';
+  camera.position.copy(cam.pos);
+  camera.lookAt(cam.at);
 
   const el = renderer.domElement;
   el.className = 'op-canvas';
@@ -38,6 +43,11 @@ export function createAvatar() {
   const loop = () => {
     if (!drag) angle += 0.01;
     if (person) person.rotation.y = angle;
+    const v = VIEWS[view];
+    cam.pos.lerp(_v.set(...v.pos), 0.15);
+    cam.at.lerp(_v.set(...v.at), 0.15);
+    camera.position.copy(cam.pos);
+    camera.lookAt(cam.at);
     renderer.render(scene, camera);
     raf = requestAnimationFrame(loop);
   };
@@ -53,6 +63,8 @@ export function createAvatar() {
       person = makePerson({ ...look, bag: false });
       scene.add(person);
     },
+    setView(v) { view = VIEWS[v] ? v : 'full'; },
+    get view() { return view; },
     start() { if (!raf) raf = requestAnimationFrame(loop); },
     stop() { cancelAnimationFrame(raf); raf = 0; },
   };

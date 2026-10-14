@@ -1883,7 +1883,9 @@ console.log('Ngoại hình nam/nữ');
     const f = many.filter((o) => o.gender === 'f').length;
     assert.ok(f > 150 && f < 250, `nữ ${f}/400`);
     assert.ok(many.some((o) => o.skirt) && many.every((o) => !o.skirt || o.gender === 'f'));
-    assert.ok(many.every((o) => o.gender === 'f' || o.hairStyle === 'short'));
+    assert.ok(many.every((o) => PE.HAIR_BY_GENDER[o.gender].includes(o.hairStyle)), 'tóc đúng danh sách của giới tính');
+    assert.ok(new Set(many.map((o) => o.hairStyle)).size >= 12, 'đủ kiểu tóc khác nhau');
+    assert.ok(many.some((o) => o.sleeves === 'short') && many.some((o) => o.sleeves === 'long') && many.some((o) => o.shorts), 'áo cộc / áo dài tay / quần short');
     assert.ok(Array.from({ length: 200 }, () => randomPersonOpts(rng, 'f', { sitting: true })).every((o) => o.gender === 'f' && !o.skirt));
   });
   // Người gộp khối: tìm màu trong hình (bỏ qua độ tối ở chân mảnh — chỉ so tỉ lệ R:G:B)
@@ -1906,10 +1908,23 @@ console.log('Ngoại hình nam/nữ');
     const thigh = meshOf(skirt.userData.parts.legL).geometry;
     assert.ok(hasColor(thigh, skin) && !hasColor(thigh, pants), 'mặc váy: chân màu da');
     assert.ok(hasColor(meshOf(noSkirt.userData.parts.legL).geometry, pants));
-    assert.ok(tris(makePerson({ gender: 'f', hairStyle: 'bun' })) > tris(makePerson({ gender: 'f', hairStyle: 'short' })), 'búi tóc');
-    assert.ok(tris(noSkirt) > tris(makePerson({ gender: 'f', hairStyle: 'bald' })), 'tóc dài');
+    // 16 kiểu tóc đều dựng được, có thêm phần tóc so với đầu trọc; kiểu khác nhau → hình khác nhau
+    const bald = tris(makePerson({ gender: 'f', hairStyle: 'bald' })), seen = new Set();
+    for (const st of PE.HAIR_STYLES.filter((s) => s !== 'bald')) {
+      for (const hat of [null, 'helmet']) assert.ok(tris(makePerson({ gender: 'f', hairStyle: st, hat })) > (hat ? 0 : bald), `${st} ${hat}`);
+      const g = makePerson({ hairStyle: st }).userData.parts.torso.geometry;
+      const pa = g.attributes.position.array;
+      let sum = 0;
+      for (let i = 0; i < pa.length; i++) sum += pa[i] * ((i % 7) + 1);
+      seen.add(`${pa.length}|${sum.toFixed(3)}`);
+    }
+    assert.equal(seen.size, PE.HAIR_STYLES.length - 1, 'mỗi kiểu tóc một hình');
+    // đội mũ bảo hiểm: búi cao chuyển xuống gáy, tóc không xuyên lên trên mũ
+    const top = (o) => { const g = makePerson(o).userData.parts.torso.geometry; g.computeBoundingBox(); return g.boundingBox.max.y; };
+    assert.ok(top({ hairStyle: 'bun', hat: 'helmet' }) < top({ hairStyle: 'bun' }), 'búi cao khi đội mũ');
+    assert.ok(Math.abs(top({ hairStyle: 'curly', hat: 'helmet' }) - top({ hairStyle: 'bald', hat: 'helmet' })) < 1e-6, 'tóc xoăn không lòi khỏi mũ');
   });
-  test('Dựng hình 3D người: đủ khớp gối/khuỷu, ≤ 10 khối, chung 1 vật liệu, ngồi đúng yên xe', () => {
+  test('Dựng hình 3D người: đủ khớp gối/khuỷu, ≤ 11 khối (áo mưa dài thêm 2 vạt), chung 1 vật liệu, ngồi đúng yên xe', () => {
     const looks = [{}, { hat: 'helmet', helmetStyle: 'full', overlay: 'raincoat' }, { gender: 'f', skirt: true, hat: 'nonla' }, { hat: 'police', bag: true }, { overlay: 'jacket', scale: 0.72 },
       { hat: 'helmet', face: 'mask', faceColor: 0x5dade2, gloves: 'armSleeves', gloveColor: 0xffffff, shoe: 0xffffff, shoeStyle: 'sandal', sleeves: 'short' }, { face: 'glasses', gloves: 'gloves' }];
     const mats = new Set();
@@ -1922,10 +1937,12 @@ console.log('Ngoại hình nam/nữ');
         n++;
         if (m !== parts.overlay) mats.add(m.material);
       });
-      assert.ok(n <= 10, JSON.stringify(o) + ": " + n + " khối");
+      assert.ok(n <= (o.overlay === 'raincoat' ? 11 : 10), JSON.stringify(o) + ": " + n + " khối");
       setSitting(p, true);
       assert.ok(parts.legL.rotation.x < -1 && parts.kneeL.rotation.x > 1, 'ngồi: đùi ra trước, cẳng chân thả xuống');
+      assert.ok(parts.legL.rotation.z < -0.1 && parts.legR.rotation.z > 0.1, 'ngồi xe: 2 đùi banh ra 2 bên, chân khỏi lún vào thân xe');
       setSitting(p, false);
+      assert.ok(parts.legL.rotation.z === 0 && parts.legR.rotation.z === 0, 'đứng dậy: khép chân lại');
       assert.equal(parts.kneeL.rotation.x, 0);
     }
     assert.equal(mats.size, 1, 'mọi người dùng chung 1 vật liệu');
@@ -1996,39 +2013,22 @@ console.log('Ngoại hình nam/nữ');
       assert.ok(jamCarGeo().attributes.color && jamMotoGeo().attributes.color, 'xe kẹt có màu kính/lốp riêng');
     });
   }
-  test('Áo mưa cánh dơi che kín vai và 2 tay khi đứng, đi, chạy (không thò ra ngoài)', () => {
+  test('Áo mưa dài: kín thân + tay, vạt dưới tới gần mắt cá, vạt trước theo chân; ngồi xe thì thu ngắn, phủ lên đùi', () => {
     const { animatePerson } = MODELS;
-    const p = makePerson({ hat: 'helmet', overlay: 'raincoat' });
-    const parts = p.userData.parts, pon = parts.overlay;
-    for (const [phase, amt] of [[0, 0], [1.2, 0.7], [1.57, 1], [4.7, 1]]) {
-      animatePerson(p, phase, amt);
-      p.updateMatrixWorld(true);
-      // khung áo theo từng lát cao 5 cm (thế giới)
-      const bins = new Map(), v = new THREE.Vector3(), pos = pon.geometry.attributes.position;
-      for (let i = 0; i < pos.count; i++) {
-        v.fromBufferAttribute(pos, i).applyMatrix4(pon.matrixWorld);
-        const k = Math.round(v.y / 0.05), b = bins.get(k) || { x: 0, z: 0 };
-        b.x = Math.max(b.x, Math.abs(v.x));
-        b.z = Math.max(b.z, Math.abs(v.z));
-        bins.set(k, b);
-      }
-      for (const key of ['armL', 'armR']) {
-        parts[key].traverse((m) => {
-          if (!m.isMesh) return;
-          const ap = m.geometry.attributes.position;
-          for (let i = 0; i < ap.count; i++) {
-            v.fromBufferAttribute(ap, i).applyMatrix4(m.matrixWorld);
-            const b = bins.get(Math.round(v.y / 0.05));
-            if (!b) continue; // dưới mép áo
-            assert.ok(Math.abs(v.x) <= b.x + 0.02 && Math.abs(v.z) <= b.z + 0.02, `pha ${phase}: ${key} thò ra ở cao ${v.y.toFixed(2)} m`);
-          }
-        });
-      }
-    }
+    const color = 0x3c8dde, p = makePerson({ hat: 'helmet', overlay: 'raincoat', overlayColor: color, shirt: 0xff0000 });
+    const parts = p.userData.parts, coat = parts.overlay;
+    assert.ok(coat && coat.userData.coat && parts.ta?.userData.coatFlap, 'có vạt dưới + vạt trước');
+    assert.ok(hasColor(parts.torso.geometry, color) && !hasColor(parts.torso.geometry, 0xff0000), 'che kín áo trong');
+    assert.ok(hasColor(meshOf(parts.armL).geometry, color), 'tay áo màu áo mưa');
+    p.updateMatrixWorld(true);
+    const low = (o) => { let m = 9; o.traverse((x) => { if (!x.isMesh) return; x.geometry.computeBoundingBox(); m = Math.min(m, x.geometry.boundingBox.clone().applyMatrix4(x.matrixWorld).min.y); }); return m; };
+    assert.ok(low(coat) < 0.25 && low(coat) > 0.05, 'vạt tới gần mắt cá: ' + low(coat).toFixed(2));
+    animatePerson(p, 1.57, 1);
+    assert.ok(parts.ta.rotation.x < -0.2, 'bước chân: vạt trước nhấc theo đùi');
     setSitting(p, true);
-    assert.ok(pon.scale.z > 1, 'ngồi xe: vạt trước phủ lên đùi');
+    assert.ok(coat.scale.y < 0.6 && parts.ta.rotation.x < -1, 'ngồi xe: vạt dưới thu ngắn, vạt trước nằm trên đùi');
     setSitting(p, false);
-    assert.equal(pon.scale.z, 1);
+    assert.equal(coat.scale.y, 1);
   });
   test('Dựng hình 3D trang phục: tay ngắn, quần short, mũ fullface, áo mưa, áo khoác', () => {
     const skin = 0xf1c27d, pants = 0x2c3e50, shirt = 0x3498db;
@@ -3385,7 +3385,9 @@ console.log('Điện thoại: thứ tự app (phone.json, thẻ 📱 Giao diện
 
 console.log('Đồ của hãng: quà khi vào hãng, nón chở khách bị mất');
 {
-  const { GOODS } = await import('../src/data/goods.js');
+  const GOODS_MOD = await import('../src/data/goods.js');
+  const { GOODS, outfitLook } = GOODS_MOD;
+  const { makePerson } = await import('../src/world/models.js');
   const { ORDER_TYPES, RIDER_TYPES } = await import('../src/data/apps.js');
   const { RIDE_EVENTS, PARKING } = await import('../src/data/balance.js');
   const PK = await import('../src/sim/parking.js');
@@ -3404,6 +3406,56 @@ console.log('Đồ của hãng: quà khi vào hãng, nón chở khách bị mấ
     for (const id of BRANDS_T.hongsm.gifts) assert.ok(gs.owned.gear.includes(id), `được tặng ${id}`);
     const camHelmet = BRANDS_T.hongsm.gifts.map((id) => GOODS[id]).find((g) => g.slot === 'helmet');
     if (camHelmet) assert.equal(gs.wornIds().helmet, camHelmet.id);
+  });
+  test('Mũ bảo hiểm: lúc đầu không có (đầu trần, xe đạp không bị bắt); vào hãng được cấp + đội; tháo ra trên xe máy → lỗi đầu trần', () => {
+    const fresh = new GameState({ carry: { profile: { name: 'A' } } });
+    assert.equal(fresh.wornIds().helmet, undefined, 'chơi mới chưa có mũ');
+    assert.ok(!Object.values(GOODS).some((g) => g.type === 'outfit' && g.slot === 'helmet' && fresh.ownsOutfit(g.id)), 'không có mũ nào trong túi');
+    assert.equal(outfitLook(fresh.wornGoods()).hat, null, 'hình nhân vật đầu trần');
+    assert.ok(fresh.power === 'pedal' && !fresh.helmetRequired && !fresh.noHelmet, 'xe đạp thường không bắt buộc');
+    const gs = new GameState({ day: 1, carry: { money: 5000, flags: { story: 2 } } });
+    gs.leaveBrand();
+    gs.joinBrand('goship');
+    assert.ok(gs.helmetRequired, 'xe hãng cấp là xe máy / xe điện');
+    const helmet = BRANDS_T.goship.gifts.map((id) => GOODS[id]).find((g) => g.slot === 'helmet');
+    if (helmet) {
+      assert.ok(!gs.noHelmet && outfitLook(gs.wornGoods()).hat === 'helmet', 'đội mũ hãng');
+      assert.ok(gs.takeOff('helmet') && gs.noHelmet, 'tháo mũ → đầu trần');
+      assert.ok(gs.wear(helmet.id) && !gs.noHelmet, 'đội lại');
+      gs.leaveBrand();
+      assert.equal(gs.wornIds().helmet, undefined, 'nghỉ hãng trả mũ → đầu trần');
+    }
+    assert.ok(ECONOMY.noHelmetFine > 0, 'có mức phạt không đội mũ');
+  });
+  test('Quần áo mua ở shop: mọi kiểu dựng được, đồ nữ chỉ nhân vật nữ mua / mặc, kiểu + màu phụ đi vào ngoại hình', () => {
+    const { OUTFIT_SLOTS, FEMALE_STYLES } = GOODS_MOD;
+    const shopOutfits = Object.values(GOODS).filter((g) => g.type === 'outfit' && g.price > 0 && !g.brand);
+    assert.ok(shopOutfits.length >= 100, 'đủ nhiều món');
+    for (const slot of ['shirt', 'pants', 'shoes', 'cap', 'wrist', 'bag']) for (const st of Object.keys(OUTFIT_SLOTS[slot].styles)) {
+      const g = Object.values(GOODS).find((x) => x.type === 'outfit' && x.slot === slot && x.style === st);
+      assert.ok(g, 'có món kiểu ' + slot + '/' + st);
+      if (FEMALE_STYLES.includes(st)) assert.equal(g.gender, 'f', g.id + ' là đồ nữ');
+      const look = outfitLook({ [slot]: g });
+      const m = makePerson({ ...look, gender: g.gender === 'f' ? 'f' : 'm' });
+      assert.ok(m.userData.parts.torso.geometry.attributes.position.count > 0, g.id);
+    }
+    // kiểu + màu phụ vào ngoại hình; mũ lưỡi trai không đè mũ bảo hiểm
+    const hoodie = Object.values(GOODS).find((g) => g.style === 'hoodie');
+    assert.equal(outfitLook({ shirt: hoodie }).shirtStyle, 'hoodie');
+    const cap = Object.values(GOODS).find((g) => g.slot === 'cap');
+    const helmet = Object.values(GOODS).find((g) => g.slot === 'helmet' && g.price > 0);
+    assert.equal(outfitLook({ cap }).hat, 'cap');
+    assert.equal(outfitLook({ cap, helmet }).hat, 'helmet');
+    // áo dài có tà trước theo chân
+    const aodai = makePerson(outfitLook({ shirt: GOODS.aoDaiTrang }));
+    assert.ok(aodai.userData.parts.ta, 'tà trước');
+    // nam không mua / mặc được đồ nữ; nữ thì được
+    const dress = Object.values(GOODS).find((g) => g.style === 'dress');
+    const man = new GameState({ carry: { money: 5000, profile: { name: 'A', gender: 'm' } } });
+    assert.ok(!man.buy('goods', dress.id).ok && !man.wear(dress.id));
+    const woman = new GameState({ carry: { money: 5000, profile: { name: 'B', gender: 'f' } } });
+    assert.ok(woman.buy('goods', dress.id).ok && woman.wear(dress.id) && woman.wornIds().shirt === dress.id);
+    assert.ok(woman.buy('goods', cap.id).ok && woman.wear(cap.id) && woman.takeOff('cap'), 'mũ lưỡi trai là phụ kiện');
   });
   test('Bản lưu cũ đã ở hãng mà chưa nhận quà → tặng bù 1 lần (lưu rồi mở lại không tặng thêm)', () => {
     const gs = new GameState({ day: 3, carry: { money: 100, brand: 'goship', owned: { vehicles: ['xeDap', 'cub'], bags: ['nylon'], gear: [] } } });
@@ -3601,14 +3653,50 @@ console.log('Màn hình chính: hồ sơ shipper, cài đặt');
 {
   const { normProfile, NAME_MAX } = await import('../src/sim/GameState.js');
   const { normSettings, DEFAULTS, SENS_RANGE } = await import('../src/settings.js');
+  const { GOODS, startOutfit } = await import('../src/data/goods.js');
   test('Hồ sơ: tên gọn khoảng trắng, tối đa ký tự, trống → tên mặc định; giới tính lạ → nam; lưu qua ngày', () => {
     const lan = normProfile({ name: '  Lan   Anh ', gender: 'f' });
     assert.equal(lan.name, 'Lan Anh');
     assert.equal(lan.gender, 'f');
     assert.equal(lan.hairStyle, 'long', 'nữ chưa chọn tóc → tóc dài');
     // tóc / da chọn ở màn hình tạo nhân vật; giá trị lạ → mặc định
-    const pick = normProfile({ gender: 'm', hairStyle: 'bun', hair: PE.HAIR_COLORS[3], skin: PE.PLAYER_SKINS[4] });
-    assert.deepEqual([pick.hairStyle, pick.hair, pick.skin], ['bun', PE.HAIR_COLORS[3], PE.PLAYER_SKINS[4]]);
+    const pick = normProfile({ gender: 'm', hairStyle: 'undercut', hair: PE.HAIR_COLORS[3], skin: PE.PLAYER_SKINS[4] });
+    assert.deepEqual([pick.hairStyle, pick.hair, pick.skin], ['undercut', PE.HAIR_COLORS[3], PE.PLAYER_SKINS[4]]);
+    assert.equal(normProfile({ gender: 'm' }).hairStyle, 'short', 'nam chưa chọn tóc → ngắn vuốt lệch');
+    // kiểu tóc chia theo giới tính; bản lưu cũ (kiểu của giới kia) → kiểu gần nhất của giới mình
+    assert.equal(normProfile({ gender: 'm', hairStyle: 'bun' }).hairStyle, 'tied');
+    assert.equal(normProfile({ gender: 'f', hairStyle: 'short' }).hairStyle, 'bob');
+    assert.equal(normProfile({ gender: 'f', hairStyle: 'bald' }).hairStyle, 'bob');
+    assert.equal(normProfile({ gender: 'f', hairStyle: 'ponytail' }).hairStyle, 'ponytail');
+    for (const g of PE.GENDERS) {
+      assert.equal(PE.HAIR_BY_GENDER[g].length, 8);
+      for (const st of PE.HAIR_STYLES) assert.ok(PE.HAIR_BY_GENDER[g].includes(normProfile({ gender: g, hairStyle: st }).hairStyle));
+    }
+    for (const st of PE.HAIR_STYLES) assert.ok(CONTENT.has('hair.' + st), 'thiếu tên kiểu tóc ' + st);
+    // bộ đồ ban đầu: áo thun tay dài / ngắn + quần dài / short (món có sẵn giá 0 đúng kiểu)
+
+    // giày đen / trắng: giày bata có sẵn tối nhất / sáng nhất; không chọn → giày đen (như trước)
+    const shoeOf = (shoes) => GOODS[startOutfit(GOODS, { shoes }).shoes];
+    assert.ok(shoeOf('white').price === 0 && shoeOf('black').price === 0 && shoeOf('white').id !== shoeOf('black').id);
+    assert.equal(shoeOf(undefined).id, shoeOf('black').id);
+    const lum = (c) => parseInt(c.slice(1, 3), 16) + parseInt(c.slice(3, 5), 16) + parseInt(c.slice(5, 7), 16);
+    assert.ok(lum(shoeOf('white').color) > 600 && lum(shoeOf('black').color) < 200, 'trắng sáng, đen tối');
+    assert.equal(shoeOf('black').id, new GameState({ carry: { profile: { name: 'A' } } }).wornIds().shoes, 'giày đen = giày mặc sẵn như cũ');
+    for (const sleeves of ['short', 'long']) for (const legs of ['shorts', 'long']) {
+      const o = startOutfit(GOODS, { sleeves, legs });
+      assert.deepEqual([GOODS[o.shirt].style, GOODS[o.pants].style, GOODS[o.shirt].price, GOODS[o.pants].price], [sleeves, legs, 0, 0]);
+      const g2 = new GameState({ carry: { profile: { name: 'A' }, outfit: o } });
+      assert.deepEqual([g2.wornGoods().shirt.style, g2.wornGoods().pants.style], [sleeves, legs], 'mặc sẵn đúng bộ đã chọn');
+    }
+    assert.deepEqual(startOutfit(GOODS, {}), startOutfit(GOODS, { sleeves: 'short', legs: 'shorts' }), 'không chọn → áo cộc + quần short như trước');
+    // kho đồ: đồ chọn lúc tạo nhân vật (goods start) chỉ có món đã chọn, không có hết; bản lưu cũ / không chọn → món đầu như trước
+    const ownedIds = (g3) => Object.values(GOODS).filter((x) => x.type === 'outfit' && g3.ownsOutfit(x.id)).map((x) => x.id);
+    const pickLong = new GameState({ carry: { profile: { name: 'A' }, outfit: startOutfit(GOODS, { sleeves: 'long', legs: 'long', shoes: 'white' }) } });
+    for (const slot of ['shirt', 'pants', 'shoes']) assert.equal(ownedIds(pickLong).filter((id) => GOODS[id].slot === slot).length, 1, 'chỉ 1 món ' + slot);
+    assert.deepEqual(ownedIds(new GameState({ day: 2, carry: pickLong.carryOver() })), ownedIds(pickLong), 'qua ngày giữ nguyên');
+    const fresh = new GameState({});
+    assert.deepEqual(['shirt', 'pants', 'shoes'].map((k) => fresh.wornIds()[k]), ['shirt', 'pants', 'shoes'].map((k) => startOutfit(GOODS, {})[k]));
+    assert.ok(Object.values(GOODS).every((x) => !x.start || x.price === 0), 'start chỉ cho món giá 0');
     const odd = normProfile({ hairStyle: 'mohawk', hair: 123, skin: 'xanh' });
     assert.ok(PE.HAIR_STYLES.includes(odd.hairStyle) && PE.HAIR_COLORS.includes(odd.hair) && PE.PLAYER_SKINS.includes(odd.skin));
     assert.equal(normProfile({ name: 'x'.repeat(50) }).name.length, NAME_MAX);

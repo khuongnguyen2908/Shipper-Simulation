@@ -14,7 +14,7 @@ export function makeStallPeople(scene, seats) {
   const list = seats.filter((s) => s.stall);
   const rng = makeRng(77);
   const people = Array.from({ length: POOL }, () => {
-    const m = makePerson(randomPersonOpts(rng, null, { sitting: true }));
+    const m = makePerson(randomPersonOpts(rng, null, { sitting: true, casual: true }));
     setSitting(m, true, true);
     m.visible = false;
     scene.add(m);

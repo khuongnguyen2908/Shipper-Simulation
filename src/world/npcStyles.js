@@ -40,37 +40,53 @@ function inHand(p, side, total) {
   return g;
 }
 
+// Mặt trước / sau ngực của thân người (world/person.js: thân tiện ép dẹt, nam ngực dày hơn nữ) — để đồ gắn thêm áp sát người
+const chestZ = (p) => (p.female ? 0.107 : 0.118);
+// 2 quai đeo vắt qua vai (balo, cặp)
+function straps(p, color) {
+  const z = chestZ(p) + 0.006;
+  for (const s of [-1, 1]) {
+    box(p.body, 0.035, 0.24, 0.012, color, s * 0.085, 1.3, z, 0.12);
+    box(p.body, 0.035, 0.012, 0.14, color, s * 0.09, 1.418, -0.02);
+  }
+}
+
 // ---------- đồ đi kèm ----------
 export const PROPS = {
   backpack(p, big, color) {
-    const b = p.body;
+    const b = p.body, back = -chestZ(p);
     if (big) {
-      box(b, 0.4, 0.6, 0.26, color, 0, 1.12, -0.27);
-      box(b, 0.42, 0.1, 0.12, 0x8a8f96, 0, 1.47, -0.27); // túi ngủ cuộn trên đỉnh
-    } else box(b, 0.32, 0.4, 0.16, color, 0, 1.15, -0.21);
+      box(b, 0.38, 0.58, 0.26, color, 0, 1.12, back - 0.135);
+      box(b, 0.4, 0.1, 0.12, 0x8a8f96, 0, 1.46, back - 0.135); // túi ngủ cuộn trên đỉnh
+    } else box(b, 0.28, 0.36, 0.14, color, 0, 1.17, back - 0.075);
+    straps(p, 0x2b2b2b);
   },
   schoolBag(p, color) {
-    box(p.body, 0.3, 0.32, 0.14, color, 0, 1.12, -0.2);
+    box(p.body, 0.28, 0.3, 0.13, color, 0, 1.14, -chestZ(p) - 0.07);
+    straps(p, 0x2b2b2b);
   },
   redScarf(p) {
-    box(p.body, 0.16, 0.05, 0.03, 0xd62d20, 0, 1.38, 0.12);
-    box(p.body, 0.05, 0.14, 0.02, 0xd62d20, 0.02, 1.3, 0.135, 0, 0, 0.25);
+    const z = chestZ(p);
+    box(p.body, 0.15, 0.04, 0.03, 0xd62d20, 0, 1.415, z - 0.025, -0.25); // vòng cổ trước
+    box(p.body, 0.04, 0.03, 0.02, 0xb52418, 0, 1.39, z + 0.005); // nút thắt
+    box(p.body, 0.035, 0.13, 0.012, 0xd62d20, 0.015, 1.31, z + 0.008, 0, 0, 0.18); // 2 đuôi khăn
+    box(p.body, 0.035, 0.12, 0.012, 0xd62d20, -0.02, 1.315, z + 0.008, 0, 0, -0.22);
   },
   // hình xăm kín tay: lớp vỏ mỏng ôm cánh tay (bắp tay dưới tay áo ngắn + cẳng tay), hoa văn vẽ bằng canvas (nền trong suốt)
   tattoo(p, neck = true) {
     const m = tattooMat();
     for (const [arm, el] of [[p.armL, p.elbowL], [p.armR, p.elbowR]]) {
-      // bắp tay: phần da y −0,1 → −0,29 (bán kính 0,052 → 0,047) · cẳng tay: 0 → −0,25 (0,05 → 0,043)
-      const up = new THREE.Mesh(sleeveGeo(0.052 * 1.1, 0.047 * 1.1, 0.18), m);
-      up.position.y = -0.195;
+      // bắp tay: phần da dưới tay áo cộc y −0,15 → −0,29 (bán kính 0,044 → 0,038) · cẳng tay: 0 → −0,23 (0,038 → 0,031)
+      const up = new THREE.Mesh(sleeveGeo(0.047, 0.041, 0.135), m);
+      up.position.y = -0.222;
       arm.add(up);
-      const lo = new THREE.Mesh(sleeveGeo(0.05 * 1.1, 0.043 * 1.1, 0.22), m);
-      lo.position.y = -0.12;
+      const lo = new THREE.Mesh(sleeveGeo(0.041, 0.034, 0.21), m);
+      lo.position.y = -0.11;
       el.add(lo);
     }
     if (neck) {
-      const n = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.08), m);
-      n.position.set(0.066, 1.48, 0.0);
+      const n = new THREE.Mesh(new THREE.PlaneGeometry(0.06, 0.08), m);
+      n.position.set(0.05, 1.475, 0.0);
       n.rotation.y = Math.PI / 2;
       p.body.add(n);
     }
@@ -89,50 +105,32 @@ export const PROPS = {
     p.body.add(g);
     return g;
   },
-  // áo sơ mi caro / sọc mặc ngoài, mở cúc (lộ áo thun bên trong), tay ngắn: vỏ ôm thân + 2 tay áo, hoa văn vẽ canvas
-  plaid(p, pattern = 0, female = false) {
-    const m = plaidMat(pattern);
-    const prof = female
-      ? [[0.15, 0], [0.142, 0.1], [0.163, 0.24], [0.178, 0.32], [0.172, 0.4], [0.138, 0.46], [0.08, 0.5]]
-      : [[0.15, 0], [0.16, 0.08], [0.178, 0.22], [0.192, 0.34], [0.19, 0.4], [0.15, 0.46], [0.08, 0.5]];
-    const k = `${female}`;
-    if (!PLAID_GEO.has(k)) {
-      // giống thân người (models torsoGeo) nhưng to hơn 7%, 16 cạnh, chừa khe trước ngực (áo mở)
-      const pts = prof.map(([r, y], i) => new THREE.Vector2(i === prof.length - 1 ? r : r * 1.07, y - 0.02));
-      PLAID_GEO.set(k, new THREE.LatheGeometry(pts, 16, 0.42, Math.PI * 2 - 0.84).scale(1, 1, 0.7));
-    }
-    const shell = new THREE.Mesh(PLAID_GEO.get(k), m);
-    shell.position.y = 0.96;
-    shell.castShadow = true;
-    p.body.add(shell);
-    for (const arm of [p.armL, p.armR]) {
-      const sl = new THREE.Mesh(sleeveGeo(0.074, 0.07, 0.17), m);
-      sl.position.y = -0.055;
-      arm.add(sl);
-    }
-    return shell;
-  },
   // to con: vai + ngực rộng hơn, bắp tay / cẳng tay to hơn (chân giữ nguyên)
   buff(p, k = 1) {
     p.body.scale.set(1 + 0.13 * k, 1, 1 + 0.1 * k);
     for (const a of [p.armL, p.armR]) a.scale.set(1 + 0.3 * k, 1, 1 + 0.3 * k);
   },
   chain(p) {
-    const m = new THREE.Mesh(new THREE.TorusGeometry(0.085, 0.013, 5, 14), mat(0xd4af37));
-    m.position.set(0, 1.42, 0.03);
+    const m = new THREE.Mesh(new THREE.TorusGeometry(0.072, 0.011, 5, 14), mat(0xd4af37)); // dây chuyền vàng ôm cổ, rủ xuống ngực
+    m.position.set(0, 1.425, 0.035);
     m.rotation.x = 1.15;
     p.body.add(m);
   },
   cape(p) {
-    box(p.body, 0.44, 0.95, 0.03, 0xd62d20, 0, 0.98, -0.17, 0.12);
-    box(p.body, 0.2, 0.045, 0.02, 0xd62d20, 0, 1.6, 0.115); // dải bịt mắt siêu nhân
+    const m = new THREE.Mesh(capeGeo(), CAPE_MAT);
+    m.position.set(0, 1.44, 0);
+    m.castShadow = true;
+    p.body.add(m);
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.012, 4, 14).rotateX(Math.PI / 2).scale(1, 1, 0.8), mat(0xb52418));
+    collar.position.set(0, 1.44, -0.005);
+    p.body.add(collar); // cổ áo choàng buộc quanh cổ
+    box(p.body, 0.03, 0.03, 0.012, 0xf1c40f, 0, 1.425, 0.07); // khuy vàng trước cổ
+    box(p.body, 0.21, 0.04, 0.02, 0xd62d20, 0, 1.607, 0.112); // dải bịt mắt siêu nhân
   },
   tie(p) {
-    box(p.body, 0.05, 0.3, 0.012, 0x1d5fa8, 0, 1.24, 0.135);
-  },
-  shoulderBag(p) {
-    box(p.body, 0.22, 0.18, 0.08, 0x6b4a2b, -0.22, 0.95, 0.05);
-    box(p.body, 0.025, 0.72, 0.02, 0x4a3320, 0, 1.2, 0.13, 0, 0, 0.62);
+    const z = chestZ(p) + 0.004;
+    box(p.body, 0.03, 0.025, 0.012, 0x163f73, 0, 1.425, z - 0.012); // nút cà vạt dưới cổ áo
+    box(p.body, 0.045, 0.27, 0.01, 0x1d5fa8, 0, 1.27, z, -0.06);
   },
   tickets(p, total) {
     box(inHand(p, 'L', total), 0.1, 0.02, 0.15, 0xf6d2e0, 0, 0, 0.04);
@@ -143,13 +141,25 @@ export const PROPS = {
     box(h, 0.05, 0.05, 0.05, 0x333333, 0, 0, 0.1);
   },
   cane(p, total) {
-    box(inHand(p, 'R', total), 0.026, 0.86, 0.026, 0x6b4a2b, 0, -0.42, 0.02);
+    const h = inHand(p, 'R', total);
+    cyl(h, 0.012, 0.84, 0x6b4a2b, 0, -0.42, 0.02); // thân gậy chống xuống đất
+    const grip = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.012, 4, 8, Math.PI), mat(0x5a3a22));
+    grip.position.set(0, 0.0, 0.055);
+    grip.rotation.y = Math.PI / 2;
+    h.add(grip); // tay cầm cong trong lòng bàn tay
   },
   briefcase(p, total) {
     box(inHand(p, 'R', total), 0.08, 0.26, 0.36, 0x5a3a22, 0, -0.14, 0);
   },
   bottle(p, total) {
-    cyl(inHand(p, 'R', total), 0.032, 0.2, 0x2e7d32, 0, -0.05, 0.03);
+    const h = inHand(p, 'R', total), z = 0.044; // trước lòng bàn tay
+    cyl(h, 0.027, 0.12, 0x6b3d12, 0, -0.01, z); // thân chai (tay nắm giữa thân)
+    box(h, 0.056, 0.04, 0.056, 0xf1e4b0, 0, -0.01, z); // nhãn
+    const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.027, 0.04, 8), mat(0x6b3d12));
+    sh.position.set(0, 0.07, z);
+    h.add(sh); // vai chai
+    cyl(h, 0.011, 0.06, 0x6b3d12, 0, 0.12, z); // cổ chai
+    cyl(h, 0.013, 0.012, 0xd4af37, 0, 0.155, z); // nắp
   },
   // vali đứng cạnh chân, tay trái nắm cần kéo
   suitcase(g, color) {
@@ -172,7 +182,13 @@ export const PROPS = {
     d.scale.setScalar(0.72);
     d.position.set(0.5, 0, 0.55);
     g.add(d);
-    const a = new THREE.Vector3(0.27, 0.86, 0.32), b = new THREE.Vector3(0.5, 0.5, 0.86); // tay → cổ chó
+    // bàn tay phải theo tư thế đang đặt (p.pose.armR) → điểm đầu dây; cổ chó → điểm cuối
+    applyPose(p);
+    g.updateMatrixWorld(true);
+    const a = g.worldToLocal(p.elbowR.localToWorld(new THREE.Vector3(0, -0.3, 0.02))), b = new THREE.Vector3(0.5, 0.5, 0.86);
+    const loop = new THREE.Mesh(new THREE.TorusGeometry(0.025, 0.006, 4, 8), mat(0xd62d20));
+    loop.position.set(0, -0.3, 0.02);
+    p.elbowR.add(loop); // vòng dây quấn trong tay
     const dir = b.clone().sub(a), len = dir.length();
     const leash = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, len, 4), mat(0xd62d20));
     leash.position.copy(a).add(b).multiplyScalar(0.5);
@@ -182,99 +198,67 @@ export const PROPS = {
   },
 };
 
-// Hoa văn xăm (vẽ 1 lần, dùng chung): rồng / lửa uốn lượn mực xanh đen, vài bông hồng đỏ; nền trong suốt
+// Hoa văn xăm (vẽ 1 lần, dùng chung): 1 dải tribal nhọn mực đen quanh bắp tay + 1 bông hồng nhỏ có lá; nền trong suốt, chừa nhiều da
 let TATTOO = null;
 function tattooMat() {
   if (TATTOO) return TATTOO;
   const c = document.createElement('canvas');
   c.width = c.height = 128;
   const x = c.getContext('2d');
-  let seed = 7;
-  const r = () => ((seed = (seed * 16807) % 2147483647) / 2147483647); // ngẫu nhiên cố định → mọi máy giống nhau
   x.lineCap = x.lineJoin = 'round';
-  // các nét lửa / vảy rồng chạy dọc tay
-  // mảng mực lớn (thân rồng / mây) rồi chồng nét lửa lên — xăm kín, chừa ít da
-  for (let k = 0; k < 10; k++) {
-    x.fillStyle = r() < 0.6 ? '#13232e' : '#1f3b4d';
+  // dải tribal: hàng gai cong nhọn nối nhau (nửa trên ảnh — quấn quanh bắp tay)
+  x.fillStyle = '#16212b';
+  for (let i = 0; i < 4; i++) {
+    const x0 = i * 32;
     x.beginPath();
-    x.ellipse(r() * 128, r() * 128, 10 + r() * 16, 6 + r() * 10, r() * 3, 0, Math.PI * 2);
+    x.moveTo(x0, 30);
+    x.quadraticCurveTo(x0 + 10, 4, x0 + 30, 2); // gai cong lên
+    x.quadraticCurveTo(x0 + 16, 14, x0 + 14, 30);
+    x.quadraticCurveTo(x0 + 22, 44, x0 + 32, 58); // gai cong xuống
+    x.quadraticCurveTo(x0 + 10, 50, x0, 30);
     x.fill();
   }
-  for (let k = 0; k < 30; k++) {
-    const x0 = r() * 128, y0 = r() * 140;
-    x.strokeStyle = r() < 0.7 ? '#13232e' : '#1f3b4d';
-    x.lineWidth = 6 + r() * 9;
+  // bông hồng nhỏ + 2 lá (nửa dưới — cẳng tay)
+  const cx = 64, cy = 92;
+  x.fillStyle = '#2f5a2a';
+  for (const s of [-1, 1]) {
     x.beginPath();
-    x.moveTo(x0, y0);
-    x.bezierCurveTo(x0 + (r() - 0.5) * 70, y0 - 20 - r() * 30, x0 + (r() - 0.5) * 70, y0 - 40 - r() * 30, x0 + (r() - 0.5) * 40, y0 - 70);
-    x.stroke();
-  }
-  // hoa hồng đỏ: vòng xoắn
-  for (let k = 0; k < 3; k++) {
-    const cx = 15 + r() * 98, cy = 15 + r() * 98;
-    x.fillStyle = '#8b1e1e';
-    x.beginPath();
-    x.arc(cx, cy, 9, 0, Math.PI * 2);
+    x.ellipse(cx + s * 15, cy + 10, 10, 4, s * 0.6, 0, Math.PI * 2);
     x.fill();
-    x.strokeStyle = '#13232e';
-    x.lineWidth = 2;
-    x.beginPath();
-    for (let t = 0; t < 12; t += 0.3) x.lineTo(cx + Math.cos(t) * t * 0.75, cy + Math.sin(t) * t * 0.75);
-    x.stroke();
   }
+  x.fillStyle = '#a5262b';
+  x.beginPath();
+  x.arc(cx, cy, 11, 0, Math.PI * 2);
+  x.fill();
+  x.strokeStyle = '#16212b';
+  x.lineWidth = 2;
+  x.beginPath();
+  for (let t = 0; t < 11; t += 0.3) x.lineTo(cx + Math.cos(t * 1.4) * t * 0.9, cy + Math.sin(t * 1.4) * t * 0.9);
+  x.stroke();
+  x.beginPath();
+  x.arc(cx, cy, 11, 0, Math.PI * 2);
+  x.stroke();
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = THREE.RepeatWrapping;
   TATTOO = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.35, roughness: 0.8 });
   return TATTOO;
 }
-// Vải caro / sọc (vẽ 1 lần mỗi kiểu): pattern 0 đỏ-đen · 1 xanh-trắng · 2 xanh lá-đen · 3 sọc dọc trắng-đen · 4 vàng-đen
-const PLAID = [
-  ['#c0262d', '#1b1b1b', '#e8e8e8'],
-  ['#2f5fa8', '#f2f2f2', '#173a6e'],
-  ['#2e6b3a', '#141414', '#c9d36a'],
-  null,
-  ['#e2b52a', '#1b1b1b', '#ffffff'],
-];
-const PLAID_MATS = new Map(), PLAID_GEO = new Map();
 const CAP_CROWN = new THREE.SphereGeometry(0.128, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2).scale(0.98, 0.85, 1.05);
-function plaidMat(pattern) {
-  if (PLAID_MATS.has(pattern)) return PLAID_MATS.get(pattern);
-  const c = document.createElement('canvas');
-  c.width = c.height = 64;
-  const x = c.getContext('2d');
-  const P = PLAID[pattern];
-  if (!P) {
-    // sọc dọc
-    x.fillStyle = '#f2f2f2';
-    x.fillRect(0, 0, 64, 64);
-    x.fillStyle = '#1b1b1b';
-    for (let i = 0; i < 64; i += 16) x.fillRect(i, 0, 6, 64);
-  } else {
-    const [base, dark, line] = P;
-    x.fillStyle = base;
-    x.fillRect(0, 0, 64, 64);
-    x.globalAlpha = 0.55;
-    x.fillStyle = dark;
-    for (let i = 0; i < 64; i += 32) {
-      x.fillRect(i, 0, 14, 64); // sọc dọc đậm
-      x.fillRect(0, i, 64, 14); // sọc ngang đậm (chỗ giao nhau đậm hơn → ra ô caro)
-    }
-    x.globalAlpha = 1;
-    x.fillStyle = line;
-    for (let i = 22; i < 64; i += 32) {
-      x.fillRect(i, 0, 2, 64);
-      x.fillRect(0, i, 64, 2);
-    }
+// Áo choàng: cung tiện ôm sau vai (trên khít vai, dưới xòe rộng tới bắp chân), gợn nếp; vải đỏ 2 mặt
+let CAPE = null;
+const CAPE_MAT = new THREE.MeshStandardMaterial({ color: 0xd62d20, roughness: 0.7, flatShading: true, side: THREE.DoubleSide });
+function capeGeo() {
+  if (CAPE) return CAPE;
+  const pts = [[0.3, -0.86], [0.24, -0.45], [0.19, -0.12], [0.16, 0]].map(([r, y]) => new THREE.Vector2(r, y));
+  const g = new THREE.LatheGeometry(pts, 14, Math.PI * 0.58, Math.PI * 0.84), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i), t = -y / 0.86;
+    const fold = 1 + 0.06 * t * Math.sin(Math.atan2(x, z) * 7); // nếp gấp ở phần rủ
+    p.setXYZ(i, x * fold, y, z * fold * (0.72 + 0.2 * t));
   }
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(3, 2);
-  tex.magFilter = THREE.NearestFilter;
-  const m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85, side: THREE.DoubleSide });
-  PLAID_MATS.set(pattern, m);
-  return m;
+  g.computeVertexNormals();
+  return (CAPE = g);
 }
 const SLEEVE = new Map();
 const sleeveGeo = (r0, r1, h) => {
@@ -321,12 +305,11 @@ export function pedStyle(who, rng) {
   }
   if (role === 'veso') {
     return {
-      look: { shirt: pick(rng, [0x6f8fc9, 0x9c5f9a, 0x4f8f6b, 0xd88a4a]), pants: 0x3d3a33, hat: 'nonla' }, // áo màu, không trùng màu da
+      look: { shirt: pick(rng, [0x6f8fc9, 0x9c5f9a, 0x4f8f6b, 0xd88a4a]), pants: 0x3d3a33, hat: 'nonla', carry: 'crossbody', carryColor: 0x6b4a2b }, // áo màu, túi đeo chéo đựng vé
       speedMul: 0.7,
       dress(m) {
         const p = m.userData.parts;
         p.pose = { armL: [-0.7, -0.9] }; // tay trái cầm xấp vé số đưa ra trước
-        PROPS.shoulderBag(p);
         PROPS.tickets(p, -1.6);
       },
     };
@@ -372,7 +355,7 @@ export function pedStyle(who, rng) {
   }
   if (age === 'kid') {
     return {
-      look: { shirt: 0xf6f6f6, pants: 0x1c2e5a, skirt: f && rng.chance(0.5), hat: null },
+      look: { shirt: 0xf6f6f6, pants: 0x1c2e5a, skirt: f && rng.chance(0.5), hat: null, shirtStyle: 'shirt' },
       speedMul: 1.1,
       dress(m) {
         const p = m.userData.parts;
@@ -382,7 +365,7 @@ export function pedStyle(who, rng) {
     };
   }
   if (age === 'elder') {
-    const cane = rng.chance(0.6);
+    const cane = true; // cụ ông, cụ bà đều chống gậy
     return {
       look: f
         ? { shirt: pick(rng, [0xafa9ec, 0x8e6b4f, 0xc9b8a0, 0x5f6b76]), pants: 0x1b1b1b, hair: 0xc8c8c8, hairStyle: 'bun', skirt: false, hat: rng.chance(0.4) ? 'nonla' : null }
@@ -409,7 +392,10 @@ export function riderStyle(rider, who, rng) {
       dress(m, ride) {
         const p = m.userData.parts;
         p.pose = ride ? { slump: true, sway: 0.16 } : { sway: 0.12, armR: [-0.5, -1.2] }; // chờ: lắc lư, cầm chai bia · ngồi: gục, nghiêng ngả
-        if (!ride) PROPS.bottle(p, -1.7);
+        if (!ride) {
+          PROPS.bottle(p, -1.7);
+          applyPose(p); // đặt tư thế ngay (tay giơ chai lên) — không phải đợi khung hình đầu
+        }
       },
       wave: false,
     };
@@ -444,7 +430,7 @@ export function riderStyle(rider, who, rng) {
   }
   if (rider === 'hocSinh') {
     return {
-      look: { shirt: 0xf6f6f6, pants: 0x1c2e5a, skirt: false },
+      look: { shirt: 0xf6f6f6, pants: 0x1c2e5a, skirt: false, shirtStyle: 'shirt' },
       dress(m) {
         const p = m.userData.parts;
         PROPS.schoolBag(p, pick(rng, [0xd62d20, 0x185fa5]));
@@ -455,13 +441,14 @@ export function riderStyle(rider, who, rng) {
   }
   if (rider === 'hurry') {
     return {
-      look: { shirt: 0xf4f4f4, pants: 0x1c2833, sleeves: 'long' },
+      look: { shirt: 0xf4f4f4, pants: 0x1c2833, sleeves: 'long', shirtStyle: 'shirt', pantsStyle: 'slacks', shoeStyle: 'oxford', shoe: 0x1a1a1a },
       dress(m, ride) {
         const p = m.userData.parts;
         if (!f) PROPS.tie(p);
         if (!ride) {
           p.pose = { armR: [-0.1, -0.15], lift: { arm: 'L', to: [-1.2, -1.9], every: 4, hold: 1.2, rest: [0, -0.15] } }; // cầm cặp, nhìn đồng hồ liên tục
           PROPS.briefcase(p, -0.25);
+          applyPose(p);
         }
       },
       wave: false,

@@ -1582,7 +1582,63 @@
           "quanShort",
           "aoThuong",
           "jacket",
-          "jacket_2"
+          "jacket_2",
+          "aoPolo_navy",
+          "aoPolo_trang",
+          "aoSoMiTrang",
+          "aoCaro_do",
+          "aoCaro_xanh",
+          "aoHoodie_xam",
+          "aoHoodie_den",
+          "aoBaLo_trang",
+          "aoBaLo_den",
+          "aoKhoacKhoa_do",
+          "aoKhoacKhoa_reu",
+          "aoKhoacJean",
+          "aoKhoacDa",
+          "aoVest_den",
+          "aoVest_xam",
+          "aoGile_cam",
+          "aoGile_xanh",
+          "aoBaBa_nau",
+          "aoBaBa_kem",
+          "aoDaBanh_do",
+          "aoDaBanh_xanh",
+          "aoDoiTuyen",
+          "aoThunISG",
+          "aoLenCoLo_kem",
+          "aoLenCoLo_den",
+          "aoCroptop_hong",
+          "aoCroptop_trang",
+          "aoHaiDay_den",
+          "aoHaiDay_vang",
+          "dam_do",
+          "dam_xanh",
+          "yemJean",
+          "doNgu_xanh",
+          "doNgu_hong",
+          "quanJean_xanh",
+          "quanJean_den",
+          "quanDui_den",
+          "quanDui_xanh",
+          "quanJogger_xam",
+          "quanJogger_den",
+          "quanTuiHop_reu",
+          "quanTuiHop_be",
+          "quanTay_den",
+          "quanTay_xam",
+          "quanLung_kaki",
+          "quanLung_jean",
+          "quan3Soc_den",
+          "quan3Soc_xanh",
+          "quanOngRong_kem",
+          "quanOngRong_den",
+          "legging_den",
+          "chanVay_den",
+          "chanVay_be",
+          "vayXoe_hong",
+          "vayXoe_xanh",
+          "vayButChi_den"
         ]
       }
     },
@@ -1626,7 +1682,28 @@
         "goods": [
           "depToOng",
           "comfyShoes",
-          "comfyShoes_2"
+          "comfyShoes_2",
+          "depLe_den",
+          "depLe_xanh",
+          "depQuaiNgang",
+          "depXoNgon_xanh",
+          "depXoNgon_do",
+          "sandal_nau",
+          "sandal_den",
+          "bataThuongDinh",
+          "bataVai_navy",
+          "giayTay_den",
+          "giayTay_nau",
+          "giayLuoi_nau",
+          "giayLuoi_den",
+          "botCoCao_den",
+          "botCoCao_nau",
+          "ungCaoSu_vang",
+          "ungCaoSu_den",
+          "giayBupBe_den",
+          "giayBupBe_hong",
+          "giayCaoGot_do",
+          "giayCaoGot_den"
         ]
       }
     },
@@ -1670,7 +1747,18 @@
           "raincoat",
           "khauTrang",
           "gangTay_2",
-          "khauTrang_2"
+          "khauTrang_2",
+          "muLuoiTrai_do",
+          "muLuoiTrai_den",
+          "muLuoiTrai_trang",
+          "dongHo_den",
+          "dongHo_bac",
+          "vongTay_bac",
+          "vongTay_vang",
+          "balo_den",
+          "balo_xanh",
+          "tuiCheo_nau",
+          "tuiCheo_den"
         ]
       }
     },
@@ -2615,10 +2703,10 @@
         "gender": "m"
       },
       "block": [
-        2,
-        5
+        3,
+        4
       ],
-      "lot": "N2",
+      "lot": "S0",
       "orders": {
         "rideWeight": 1
       }
@@ -3668,7 +3756,7 @@
         2,
         5
       ],
-      "lot": "S",
+      "lot": "B",
       "hours": "hanhChinh",
       "npc": {
         "name": "Chú bảo vệ trường",
@@ -3719,7 +3807,7 @@
         5,
         9
       ],
-      "lot": "N",
+      "lot": "B",
       "hours": "caNgay",
       "npc": {
         "name": "Chị lễ tân",

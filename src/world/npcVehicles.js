@@ -1,7 +1,7 @@
 // XE NPC ĐẶC BIỆT (chỉ để nhìn — mỗi máy tự vẽ): nhóm Jetjet (trẻ trâu), shipper hãng đối thủ, xe ba gác chở quá tải, trộm chó đi Exciter.
 // Mỗi hàm trả về 1 Group (đầu xe hướng +z, gốc ở mặt đất) + userData { wheels, riders, kind } để traffic.js cho chạy / quay bánh sau này.
 import * as THREE from 'three';
-import { makeBike, makeCar, makePerson, randomPersonOpts, gripBar, setSitting, sitY, holdPhone } from './models.js';
+import { makeBike, makeCar, makePerson, randomPersonOpts, gripBar, setSitting, sitY, holdPhone, csgtLook } from './models.js';
 import { PROPS } from './npcStyles.js';
 
 const MATS = new Map();
@@ -35,10 +35,11 @@ function seatRider(bike, look, model, z = -0.05) {
   gripBar(m, model);
   return m;
 }
-// người ngồi sau: tay đặt lên đùi / ôm hờ
-function seatBack(bike, look, z = -0.62) {
+// người ngồi sau: tay đặt lên đùi / ôm hờ; spread: banh 2 đùi (yên sau + hông xe rộng hơn chỗ người lái)
+function seatBack(bike, look, z = -0.62, spread = 0.32) {
   const m = makePerson(look);
   bike.add(m);
+  m.userData.parts.spread = spread;
   setSitting(m, true);
   m.position.set(0, sitY(m.scale.x, 1.02), z);
   return m;
@@ -47,7 +48,10 @@ function seatBack(bike, look, z = -0.62) {
 // ======================== JETJET (trẻ trâu) ========================
 // Áo caro / sọc mở cúc, nón lưỡi trai đội ngược / lệch, không đội mũ bảo hiểm, xe sơn màu chói (Exciter / xe số độ).
 // opts: { pillion: có thằng ngồi sau, wheelie: bốc đầu }
+// Sơ mi caro / sọc của jetjet: [màu áo, màu sọc]
+const JETJET_PLAID = [[0xc0262d, 0x1b1b1b], [0x2f5fa8, 0xf2f2f2], [0x2e6b3a, 0x141414], [0xf2f2f2, 0x1b1b1b], [0xe2b52a, 0x1b1b1b]];
 export function jetjetLook(rng) {
+  const [sh, sh2] = pick(rng, JETJET_PLAID);
   const look = {
     ...randomPersonOpts(rng, 'm', { sitting: true }),
     shirt: pick(rng, [0xf4f4f4, 0x111111, 0xf4f4f4]),
@@ -55,12 +59,12 @@ export function jetjetLook(rng) {
     sleeves: 'short', hat: null, face: rng.chance(0.4) ? 'glasses' : null, faceColor: 0x0d0d0d,
     hair: pick(rng, [0x1b1b1b, 0xd9b54a, 0xb5651d, 0x1b1b1b]), // nhuộm vàng / nâu
     shoe: 0xf2f2f2,
+    shirtStyle: 'plaid', shirt: sh, shirt2: sh2, pantsStyle: 'jeans',
   };
   return {
     look,
     dress(m) {
       const p = m.userData.parts;
-      PROPS.plaid(p, pick(rng, [0, 1, 2, 3, 4]));
       PROPS.cap(p, pick(rng, ['back', 'back', 'side']), pick(rng, [0x111111, 0xd62d20, 0xf4f4f4, 0x1d5fa8]));
     },
   };
@@ -244,8 +248,7 @@ export function makeDogThief(rng) {
 }
 
 // ======================== CSGT ========================
-// Màu đồng phục CSGT (áo vàng, quần xanh rêu) — như chiến sĩ ở chốt (traffic.js)
-const CSGT_SHIRT = 0xd8c25a, CSGT_PANTS = 0x2e5d3a;
+// Đồng phục CSGT: models.csgtLook (dùng chung với chiến sĩ ở chốt — traffic.js)
 // đèn ưu tiên xanh – đỏ: 2 khối phát sáng (game nhấp nháy bằng userData.lights)
 function lightBar(parent, w, x, y, z) {
   const bar = new THREE.Group();
@@ -259,13 +262,13 @@ function lightBar(parent, w, x, y, z) {
   parent.add(bar);
   return [red, blue];
 }
-// Xe tuần tra: mô tô trắng sọc xanh, 2 thùng đồ hai bên, đèn xanh – đỏ trên cột, 2 chiến sĩ mũ bảo hiểm trắng; người sau cầm gậy chỉ huy
+// Xe tuần tra: mô tô trắng sọc xanh, 2 thùng đồ hai bên, đèn xanh – đỏ trên cột, 2 chiến sĩ đồng phục vàng, mũ 3/4 vàng; người sau cầm gậy chỉ huy
 export function makeCsgtPatrol(rng) {
   const root = new THREE.Group();
   const bike = makeBike(0xf4f4f4, 'sport');
   bike.userData.bagMesh.visible = false;
   root.add(bike);
-  box(bike, 0.42, 0.06, 0.9, 0x1d5fa8, 0, 0.83, -0.25); // sọc xanh thân
+  for (const sd of [-1, 1]) box(bike, 0.012, 0.06, 0.62, 0x1d5fa8, sd * 0.125, 0.8, -0.2); // sọc xanh 2 bên hông xe (mỏng, áp sát thân — không chắn chân người ngồi)
   // 2 thùng đồ hai bên bánh sau (trắng, sọc xanh, nắp xám) + đèn ưu tiên trên cột sau lưng người ngồi sau
   for (const sd of [-1, 1]) {
     box(bike, 0.22, 0.42, 0.62, 0xf4f4f4, sd * 0.33, 0.78, -0.62);
@@ -275,7 +278,7 @@ export function makeCsgtPatrol(rng) {
   }
   box(bike, 0.04, 0.55, 0.04, 0x333333, 0, 1.25, -1.0); // cột đèn
   const lights = lightBar(bike, 0.42, 0, 1.55, -1.0);
-  const look = () => ({ ...randomPersonOpts(rng, 'm', { sitting: true }), shirt: CSGT_SHIRT, pants: CSGT_PANTS, sleeves: 'long', hat: 'helmet', hatColor: 0xffffff, helmetStyle: 'half', shoe: 0x111111 });
+  const look = () => csgtLook(rng, true);
   const d = seatRider(bike, look(), 'sport');
   const q = seatBack(bike, look());
   const p = q.userData.parts;

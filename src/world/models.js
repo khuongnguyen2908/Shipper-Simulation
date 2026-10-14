@@ -3,7 +3,9 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeRng } from '../sim/rng.js';
-import { personOf, hashStr } from '../sim/people.js';
+import { personOf, hashStr, HAIR_BY_GENDER } from '../sim/people.js';
+import { buildPerson, followTa, JACKET_COLOR } from './person.js';
+export { JACKET_COLOR };
 
 const PI = Math.PI;
 const matCache = new Map();
@@ -32,7 +34,6 @@ export const SKINS = [0xf1c27d, 0xe0ac69, 0xc68642, 0xffdbac];
 
 // Màu áo mưa cánh dơi và áo khoác chống nắng mặc ngoài
 export const RAINCOAT_COLOR = 0x3c8dde;
-export const JACKET_COLOR = 0xbfe3f5;
 
 // ======================== NGƯỜI (phong cách A+) ========================
 // Mỗi người gộp thành 9 khối: thân (đầu, mặt, tóc, mũ, túi, váy… dính liền), 2 bắp tay, 2 cẳng tay + bàn tay,
@@ -258,11 +259,34 @@ function torsoGeo(o) {
 
 // gender: 'm' nam | 'f' nữ (vai, eo hẹp hơn) · hairStyle: short | long | ponytail | bun | bald · skirt: mặc váy (chân màu da)
 // sleeves: 'long' | 'short' · shorts: quần short · helmetStyle: 'half' | 'full' (fullface có kính)
-// overlay: mặc ngoài — 'raincoat' (áo mưa cánh dơi) | 'jacket' (áo khoác chống nắng) | null
+// overlay: mặc ngoài — 'raincoat' (áo mưa dài tới mắt cá; kiểu cũ ?nguoicu: cánh dơi) | 'jacket' (áo khoác chống nắng) | null + overlayColor
 // shoe: màu giày (bỏ trống = tự chọn theo bộ đồ) · shoeStyle: 'sneaker' | 'sandal' (dép)
 // face: phụ kiện đầu 'glasses' | 'mask' + faceColor · gloves: 'gloves' | 'armSleeves' (ống dài) + gloveColor
 // Khớp: legL/R (háng) → kneeL/R (gối), armL/R (vai) → elbowL/R (khuỷu); body = phần thân nhún khi đi
-export function makePerson({ shirt = 0x3498db, pants = 0x2c3e50, skin = SKINS[0], hat = null, hatColor = 0x2ecc71, hair = 0x1b1b1b, scale = 1, bag = false, gender = 'm', hairStyle, skirt = false, sleeves = 'long', shorts = false, helmetStyle = 'half', overlay = null, shoe = null, shoeStyle = 'sneaker', face = null, faceColor = 0x222222, gloves = null, gloveColor = 0x333333, uniform = null } = {}) {
+// Kiểu người cũ (khối vuông) — giữ lại tạm để so / làm bản "người đơn giản" (đợt P4); bật bằng ?nguoicu
+const CLASSIC = typeof location !== 'undefined' && /[?&]nguoicu\b/.test(location.search);
+export function makePerson(opts = {}) {
+  if (CLASSIC) return makePersonClassic(opts);
+  let { shirt = 0x3498db, pants = 0x2c3e50, skin = SKINS[0], hat = null, hatColor = 0x2ecc71, hair = 0x1b1b1b, scale = 1, bag = false, gender = 'm', hairStyle, skirt = false, sleeves = 'long', shorts = false, helmetStyle = 'half', overlay = null, shoe = null, shoeStyle = 'sneaker', face = null, faceColor = 0x222222, gloves = null, gloveColor = 0x333333, uniform = null } = opts;
+  const female = gender === 'f';
+  const overlayColor = opts.overlayColor ?? null; // màu áo khoác chống nắng / áo mưa (theo món đang mặc)
+  if (overlay === 'jacket' || overlay === 'raincoat') {
+    shirt = overlayColor ?? (overlay === 'jacket' ? JACKET_COLOR : RAINCOAT_COLOR); // áo khoác / áo mưa dài che kín áo trong, luôn tay dài
+    sleeves = 'long';
+  } else if (uniform != null) {
+    shirt = uniform; // áo khoác đồng phục che áo trong, tay dài
+    sleeves = 'long';
+  }
+  shoe ??= [0x2b2b2b, 0xe8e8e8, 0x6b4a2b, 0x34495e][((shirt >>> 3) + (pants >>> 5)) % 4]; // giày đổi theo bộ đồ, cố định cho cùng một người
+  // kiểu áo / quần / giày mới + màu phụ, mũ lưỡi trai (hat 'cap'), đồng hồ / vòng tay, balo / túi chéo (data/goods.js OUTFIT_SLOTS)
+  const { shirtStyle = null, shirt2 = null, pantsStyle = null, pants2 = null, shoe2 = null, wrist = null, wristColor = 0x222222, carry = null, carryColor = 0x34495e } = opts;
+  const g = buildPerson({ shirt, pants, skin, hat, hatColor, hair, bag, gender, style: hairStyle || (female ? 'long' : 'short'), skirt, sleeves, shorts, helmetStyle, overlay, shoe, shoeStyle, face, faceColor, gloves, gloveColor, uniform,
+    shirtStyle, shirt2, pantsStyle, pants2, shoe2, wrist, wristColor, carry, carryColor });
+  g.scale.setScalar(scale);
+  return g;
+}
+
+export function makePersonClassic({ shirt = 0x3498db, pants = 0x2c3e50, skin = SKINS[0], hat = null, hatColor = 0x2ecc71, hair = 0x1b1b1b, scale = 1, bag = false, gender = 'm', hairStyle, skirt = false, sleeves = 'long', shorts = false, helmetStyle = 'half', overlay = null, shoe = null, shoeStyle = 'sneaker', face = null, faceColor = 0x222222, gloves = null, gloveColor = 0x333333, uniform = null } = {}) {
   const female = gender === 'f';
   const style = hairStyle || (female ? 'long' : 'short');
   if (overlay === 'jacket') {
@@ -328,8 +352,9 @@ export function makePerson({ shirt = 0x3498db, pants = 0x2c3e50, skin = SKINS[0]
 }
 
 // Ngoại hình ngẫu nhiên (khách, người đi đường). gender: 'm' | 'f' | bỏ trống = ngẫu nhiên.
-// sitting: ngồi sau xe → không mặc váy
-export function randomPersonOpts(rng, gender = null, { sitting = false } = {}) {
+// sitting: ngồi sau xe → không mặc váy · casual: người thường (không có bộ đồ riêng theo vai) → thêm kiểu áo / quần / giày
+// đa dạng (polo, sơ mi, ba lỗ, jean, dép…). NPC có đồ riêng (CSGT, ba gác…) không bật để kiểu áo không đè đồ riêng.
+export function randomPersonOpts(rng, gender = null, { sitting = false, casual = false } = {}) {
   const shirts = [0xe74c3c, 0x3498db, 0xf1c40f, 0x9b59b6, 0x1abc9c, 0xecf0f1, 0xe67e22, 0x34495e, 0xff8fab, 0x2ecc71];
   const pants = [0x2c3e50, 0x34495e, 0x7f8c8d, 0x1c2833, 0x5d4037, 0x283593];
   const o = {
@@ -343,12 +368,40 @@ export function randomPersonOpts(rng, gender = null, { sitting = false } = {}) {
   const r2 = makeRng(Math.floor(rng.next() * 4294967296));
   o.gender = gender || (r2.chance(0.5) ? 'f' : 'm');
   if (o.gender === 'f') {
-    o.hairStyle = r2.pick(['long', 'long', 'ponytail', 'bun']);
+    o.hairStyle = r2.pick(['long', ...HAIR_BY_GENDER.f]); // dài thẳng hay gặp hơn
     o.skirt = !sitting && r2.chance(0.3);
     if (o.skirt) o.pants = r2.pick([0x2c3e50, 0x8e44ad, 0xc0392b, 0x16a085, 0x5d4037]);
-  } else o.hairStyle = 'short';
+  } else o.hairStyle = r2.chance(0.03) ? 'bald' : r2.pick(['short', ...HAIR_BY_GENDER.m.filter((s) => s !== 'bald')]);
   if (o.hair === 0x1b1b1b && r2.chance(0.1)) o.hair = 0x5a3825; // tóc nâu
+  // Sài Gòn nóng: nhiều người mặc áo cộc tay; đàn ông hay mặc quần short (nhánh ngẫu nhiên riêng → các lựa chọn trên không đổi)
+  const r3 = makeRng(Math.floor(r2.next() * 4294967296));
+  o.sleeves = r3.chance(0.55) ? 'short' : 'long';
+  if (!o.skirt && o.gender === 'm' && r3.chance(0.25)) o.shorts = true;
+  if (casual) {
+    const r4 = makeRng(Math.floor(r3.next() * 4294967296)), f = o.gender === 'f';
+    if (r4.chance(0.55)) {
+      o.shirtStyle = r4.pick(['polo', 'shirt', 'plaid', 'hoodie', 'printed', 'soccer', 'vnteam', ...(f ? ['croptop', 'halter', 'baba', 'turtleneck'] : ['tank', 'tank', 'baba', 'gile', 'zip', 'denim'])]);
+      o.shirt2 = r4.pick([0xffffff, 0x222222, 0xf1c40f, 0xc0392b]);
+    }
+    if (!o.skirt && !o.shorts && r4.chance(0.5)) o.pantsStyle = r4.pick(['jeans', 'jeans', 'slacks', 'jogger', 'cargo', 'track', 'capri', ...(f ? ['wide', 'legging'] : ['boxer'])]);
+    if (o.pantsStyle === 'jeans') o.pants = r4.pick([0x2f4f7f, 0x23262b, 0x4a6fa5]);
+    o.shoeStyle = r4.pick(['sneaker', 'sneaker', 'sneaker', 'sandal', 'slide', 'flipflop', 'canvas', ...(f ? ['flats', 'strap'] : ['oxford', 'loafer'])]);
+    if (r4.chance(0.12)) [o.wrist, o.wristColor] = [r4.pick(['watch', 'bracelet']), r4.pick([0x222222, 0xc0c4c8, 0xd4af37])];
+    if (!sitting && r4.chance(0.12)) [o.carry, o.carryColor] = [r4.pick(['backpack', 'crossbody']), r4.pick([0x222222, 0x2e6da4, 0x6b4a2b])];
+  }
   return o;
+}
+
+// CSGT (chốt + xe tuần tra): nguyên bộ vàng (áo cổ bẻ, cầu vai đỏ, thắt lưng đen + bao súng), mũ bảo hiểm 3/4 vàng chữ CSGT,
+// dây đeo chéo ngực + bao bộ đàm, giày da đen; nửa số người đeo khẩu trang xanh
+export const CSGT_YELLOW = 0xd5bd6c, CSGT_HELMET = 0xe8c447;
+export function csgtLook(rng, sitting = false) {
+  return {
+    ...randomPersonOpts(rng, 'm', { sitting }),
+    shirt: CSGT_YELLOW, pants: CSGT_YELLOW, sleeves: 'long', shirtStyle: 'police', pantsStyle: 'slacks',
+    hat: 'helmet', helmetStyle: 'open', hatColor: CSGT_HELMET, shoe: 0x141414, shoeStyle: 'oxford',
+    carry: 'crossbody', carryColor: 0x1b1b1b, face: rng.chance(0.5) ? 'mask' : null, faceColor: 0x5dade2,
+  };
 }
 
 // Ngoại hình NPC từ dữ liệu (places.json → npc, màu đã đổi sang số). Phần không đặt thì
@@ -375,6 +428,7 @@ export function animatePerson(g, phase, amount) {
   p.body.position.y = Math.abs(s) * 0.04 * amount;
   if (p.hold) holdPose(p, s * amount); // TikToker: tay phải luôn giơ điện thoại (rung nhẹ theo bước chân)
   if (p.pose) applyPose(p, phase, amount);
+  followTa(p); // tà áo dài theo chân
 }
 
 // ---------- TƯ THẾ RIÊNG của NPC (world/npcStyles.js gán p.pose) ----------
@@ -482,6 +536,10 @@ export function setSitting(g, sitting, chair = false) {
   p.elbowL.rotation.x = p.elbowR.rotation.x = sitting ? (chair ? -0.55 : -0.35) : -0.15;
   p.armL.rotation.z = -0.08;
   p.armR.rotation.z = 0.08;
+  // ngồi xe: banh 2 đùi ra 2 bên (người lái theo kiểu xe — gripBar; người ngồi sau mặc định 0,3 — yên sau rộng) · ngồi ghế / đứng: khép lại
+  const spread = sitting && !chair ? p.spread ?? 0.3 : 0;
+  p.legL.rotation.z = -spread;
+  p.legR.rotation.z = spread;
   p.body.position.set(0, 0, 0);
   p.body.rotation.x = 0;
   // ngồi xe đã tính sẵn góc tay nắm tay lái (gripBar) → dùng góc đó
@@ -493,11 +551,15 @@ export function setSitting(g, sitting, chair = false) {
     p.body.rotation.x = a;
     p.body.position.set(0, HIP_Y * (1 - Math.cos(a)), -HIP_Y * Math.sin(a));
   }
-  // áo mưa khi ngồi xe: vạt trước phủ lên đùi (kéo dài + đẩy ra trước), không để gối thò ra
-  if (p.overlay) {
+  // áo mưa dài (kiểu người mới): ngồi xe thì vạt dưới thu ngắn lại, không xuyên xuống thân xe
+  if (p.overlay?.userData.coat) p.overlay.scale.y = sitting ? 0.42 : 1;
+  if (p.ta?.userData.coatFlap) p.ta.scale.y = sitting ? 0.62 : 1; // vạt trước áo mưa nằm trên đùi, không thò quá gối
+  // áo mưa cánh dơi (kiểu người cũ): vạt trước phủ lên đùi (kéo dài + đẩy ra trước), không để gối thò ra
+  else if (p.overlay) {
     p.overlay.scale.set(1, sitting ? 0.92 : 1, sitting ? 1.45 : 1);
     p.overlay.position.set(0, sitting ? 0.1 : 0, sitting ? 0.16 : 0);
   }
+  followTa(p); // ngồi: tà trước áo dài nằm trên đùi
 }
 
 // Tay nắm tay lái: tính góc vai (đưa ra trước + dang ngang) và khuỷu để 2 bàn tay chạm đúng 2 tay nắm của kiểu xe đó
@@ -534,6 +596,7 @@ export function gripBar(g, model) {
     return [ax, az, ex];
   });
   p.lean = lean;
+  p.spread = S.spread ?? 0.2;
   setSitting(g, true);
 }
 
@@ -548,6 +611,7 @@ export function pedalPerson(g, phase, amount) {
     knee.rotation.x = 1.25 + 0.4 * s;
   }
   p.body.position.y += Math.abs(Math.sin(phase)) * 0.012 * amount; // nhún nhẹ theo nhịp đạp
+  followTa(p);
 }
 
 // ======================== XE (phong cách A+) ========================
@@ -608,11 +672,12 @@ function wheelGeo(R, t, spokes, disc) {
 }
 
 // Mỗi kiểu xe: P = phần sơn, D = phần thường (màu riêng), K = kim loại, rồi các số đo dùng chung
-// wheel [bán kính, z trước, z sau, kiểu nan], lamp [y, z], tail [y, z], rackY, bar [nửa rộng, y, z]
+// wheel [bán kính, z trước, z sau, kiểu nan], lamp [y, z], tail [y, z], rackY, bar [nửa rộng, y, z],
+// spread: góc banh 2 đùi ra 2 bên khi ngồi (rad) — thân xe / yếm xe càng to càng banh rộng, chân khỏi lún vào xe
 const BIKE_SPECS = {
   // Cub cũ: yếm kem, khung xương sống, yên da nâu dài, nan căm, nhiều đồ crôm
   cub: {
-    wheel: [0.32, 0.6, -0.6, 'wire', 0.06], lamp: [0.99, 0.66], tail: [0.78, -0.86], rackY: 0.98, bar: [0.33, 1.07, 0.5],
+    wheel: [0.32, 0.6, -0.6, 'wire', 0.06], lamp: [0.99, 0.66], tail: [0.78, -0.86], rackY: 0.98, bar: [0.33, 1.07, 0.5], spread: 0.2,
     build(P, D, K) {
       P.add(sideGeo([[-0.8, 0.6], [-0.86, 0.74], [-0.55, 0.8], [-0.1, 0.78], [0.02, 0.62], [-0.1, 0.5], [-0.6, 0.48]], 0.3, 0.012), PAINT_WHITE);
       P.add(sideGeo([[-0.05, 0.6], [0.1, 0.7], [0.42, 0.95], [0.5, 0.9], [0.15, 0.56], [0.0, 0.53]], 0.14, 0.012), PAINT_WHITE);
@@ -630,7 +695,7 @@ const BIKE_SPECS = {
   },
   // Xe số (Wave): dàn áo nhựa, khung dưới để chân, tem sọc, mâm đúc
   underbone: {
-    wheel: [0.3, 0.62, -0.62, 'mag', 0.068], lamp: [1.0, 0.77], tail: [0.73, -0.92], rackY: 0.98, bar: [0.33, 1.1, 0.56],
+    wheel: [0.3, 0.62, -0.62, 'mag', 0.068], lamp: [1.0, 0.77], tail: [0.73, -0.92], rackY: 0.98, bar: [0.33, 1.1, 0.56], spread: 0.24,
     build(P, D, K) {
       P.add(sideGeo([[-0.86, 0.6], [-0.92, 0.78], [-0.6, 0.84], [-0.05, 0.82], [0.1, 0.64], [0.02, 0.48], [-0.35, 0.42], [-0.7, 0.46]], 0.3, 0.012), PAINT_WHITE);
       P.add(sideGeo([[0.3, 0.38], [0.42, 0.36], [0.6, 0.92], [0.5, 0.98], [0.36, 0.62]], 0.36, 0.012), PAINT_WHITE); // yếm
@@ -654,7 +719,7 @@ const BIKE_SPECS = {
   },
   // Tay ga (Vision, SH): bánh nhỏ, sàn để chân phẳng, yếm cao, thân sau bầu, đèn trên tay lái
   scooter: {
-    wheel: [0.26, 0.58, -0.6, 'mag', 0.07], lamp: [1.06, 0.66], tail: [0.74, -0.9], rackY: 0.98, bar: [0.33, 1.1, 0.48],
+    wheel: [0.26, 0.58, -0.6, 'mag', 0.07], lamp: [1.06, 0.66], tail: [0.74, -0.9], rackY: 0.98, bar: [0.33, 1.1, 0.48], spread: 0.26,
     build(P, D, K) {
       P.add(sideGeo([[0.3, 0.36], [0.5, 0.38], [0.66, 0.74], [0.62, 1.0], [0.5, 1.04], [0.42, 0.7], [0.33, 0.5]], 0.44, 0.012), PAINT_WHITE); // yếm cao
       P.add(sideGeo([[-0.84, 0.55], [-0.92, 0.72], [-0.62, 0.86], [-0.05, 0.84], [0.12, 0.62], [0.08, 0.4], [-0.3, 0.33], [-0.72, 0.4]], 0.44, 0.012), PAINT_WHITE); // thân sau
@@ -673,7 +738,7 @@ const BIKE_SPECS = {
   },
   // Tay côn / mô tô (Exciter): bình xăng trước yên, đuôi vuốt cao, phuộc vàng, máy lộ, bánh to
   sport: {
-    wheel: [0.33, 0.66, -0.66, 'mag', 0.075], lamp: [1.0, 0.74], tail: [1.0, -0.94], rackY: 1.1, bar: [0.31, 1.04, 0.44],
+    wheel: [0.33, 0.66, -0.66, 'mag', 0.075], lamp: [1.0, 0.74], tail: [1.0, -0.94], rackY: 1.1, bar: [0.31, 1.04, 0.44], spread: 0.28,
     build(P, D, K) {
       P.add(sideGeo([[-0.05, 0.85], [0.0, 0.98], [0.3, 1.03], [0.42, 0.92], [0.3, 0.8], [0.0, 0.78]], 0.4, 0.012), PAINT_WHITE); // bình xăng
       P.add(sideGeo([[-0.92, 0.98], [-0.96, 1.04], [-0.55, 1.0], [-0.2, 0.9], [-0.1, 0.8], [-0.5, 0.82]], 0.26, 0.012), PAINT_WHITE); // đuôi
@@ -695,7 +760,7 @@ const BIKE_SPECS = {
   },
   // Xe đạp: khung ống sơn, yên nhỏ, giò đạp + bàn đạp, baga sau chở túi; không máy, không gương / biển số (plain)
   bicycle: {
-    wheel: [0.34, 0.52, -0.52, 'wire', 0.022], lamp: [0.86, 0.47], tail: [0.8, -0.8], rackY: 0.9, bar: [0.27, 1.04, 0.36], plain: true, noDisc: true,
+    wheel: [0.34, 0.52, -0.52, 'wire', 0.022], lamp: [0.86, 0.47], tail: [0.8, -0.8], rackY: 0.9, bar: [0.27, 1.04, 0.36], spread: 0.06, plain: true, noDisc: true,
     build(P, D, K) {
       const bb = [0, 0.34, 0], seat = [0, 0.86, -0.13], headT = [0, 0.92, 0.38], headB = [0, 0.7, 0.42];
       P.add(rodGeo(seat, headT, 0.022), PAINT_WHITE); // ống ngang

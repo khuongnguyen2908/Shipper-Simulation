@@ -428,18 +428,33 @@ b.plus { color: #58d68d; }
 .sig-pad small { display: block; color: var(--muted); font-size: 11.5px; margin-top: 4px; }
 .ct-sig { display: block; width: 100%; max-width: 260px; border-radius: 8px; margin: 6px 0 2px; }
 
-/* tạo nhân vật (Chơi mới): form bên trái, hình 3D xoay bên phải */
-.mm-create { display: flex; gap: 14px; align-items: flex-start; }
+/* tạo nhân vật (Chơi mới): hình 3D to bên trái, ô chọn bên phải; màn hẹp → hình lên trên */
+.mm-panel.wide { width: min(780px, 100%); container-type: inline-size; }
+.mm-create { display: flex; gap: 20px; align-items: flex-start; }
 .mm-create-form { flex: 1; min-width: 0; }
-.mm-avatar { flex: 0 0 150px; height: 210px; border-radius: 12px; background: rgba(255, 255, 255, 0.04); }
-.mm-avatar canvas { display: block; cursor: grab; }
+.mm-avatar-col { flex: 0 0 300px; display: flex; flex-direction: column; gap: 8px; align-items: center; position: sticky; top: 0; }
+.mm-avatar { width: 300px; height: 450px; border-radius: 14px; background: radial-gradient(ellipse at 50% 85%, rgba(46, 204, 113, 0.14), rgba(255, 255, 255, 0.03) 70%); overflow: hidden; }
+.mm-avatar canvas { display: block; cursor: grab; width: 100% !important; height: 100% !important; }
+.mm-views { display: flex; gap: 6px; }
+.mm-stepper { display: flex; align-items: center; gap: 8px; }
+.mm-step { width: 38px; height: 38px; border-radius: 50%; border: 1px solid #3a4558; background: rgba(255, 255, 255, 0.05); color: inherit; font: 700 22px/1 var(--font); cursor: pointer; padding: 0 0 3px; }
+.mm-step:hover { border-color: #2ecc71; background: rgba(46, 204, 113, 0.18); }
+.mm-step-name { flex: 1; min-width: 0; text-align: center; padding: 6px 10px; border-radius: 10px; border: 1px solid #2ecc71; background: rgba(46, 204, 113, 0.12); }
+.mm-step-name b { display: block; font-size: 15px; }
+.mm-step-name small { color: var(--muted); font-size: 12px; }
 .mm-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .mm-chip { padding: 5px 10px; border-radius: 999px; border: 1px solid #3a4558; background: transparent; color: inherit; cursor: pointer; font: inherit; font-size: 13px; }
 .mm-chip.on { border-color: #2ecc71; background: rgba(46, 204, 113, 0.18); }
 .mm-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
 .mm-swatch { width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.25); cursor: pointer; padding: 0; }
 .mm-swatch.on { border-color: #fff; box-shadow: 0 0 0 3px #2ecc71; }
-@media (max-width: 560px) { .mm-create { flex-direction: column-reverse; align-items: center; } .mm-create-form { width: 100%; } }
+/* bảng hẹp (cửa sổ nhỏ, điện thoại): hình lên trên, ô chọn xuống dưới */
+@container (max-width: 640px) {
+  .mm-create { flex-direction: column; align-items: center; }
+  .mm-create-form { width: 100%; }
+  .mm-avatar-col { position: static; flex-basis: auto; }
+  .mm-avatar { width: 240px; height: 360px; }
+}
 
 /* chat: log bên trái (mờ dần) + ô gõ · bong bóng thoại trên đầu */
 #chat { position: fixed; left: 14px; bottom: 170px; width: min(340px, calc(100vw - 28px)); z-index: 6; pointer-events: none; display: flex; flex-direction: column; gap: 4px; }
@@ -510,3 +525,7 @@ b.plus { color: #58d68d; }
 .tt.tt-in-down .tt-media { animation: ttdown 0.22s ease-out; }
 @keyframes ttup { from { transform: translateY(40%); opacity: 0.4; } }
 @keyframes ttdown { from { transform: translateY(-40%); opacity: 0.4; } }
+
+/* HUD: nhắc lỗi đang mắc (chưa đội mũ bảo hiểm) */
+.hud-warn { color: #ff6b6b; animation: hudWarn 1.2s ease-in-out infinite alternate; }
+@keyframes hudWarn { from { opacity: 1; } to { opacity: 0.55; } }

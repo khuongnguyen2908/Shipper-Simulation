@@ -24,6 +24,7 @@ export const BALANCE_GROUPS = [
     fields: [
       ['economy.fuelPrice', 'Giá xăng (k/lít)', { min: 1, max: 200, step: 1, hint: 'Mặc định 23k. Cub hao 3,5 lít/100 km ≈ 0,8k mỗi km.' }],
       ['economy.policeFine', 'Phạt CSGT (k)', { min: 0, max: 5000, step: 10, hint: 'Chạy quá tốc độ qua chốt. Mặc định 150k.' }],
+      ['economy.noHelmetFine', 'Phạt không đội mũ bảo hiểm (k)', { min: 0, max: 5000, step: 10, hint: 'Chạy xe máy / xe điện đầu trần qua chốt CSGT hoặc gần xe tuần tra. Xe đạp thường không bị. Mặc định 60k.' }],
       ['economy.blockFine', 'Cản trở giao thông: phạt (k)', { min: 0, max: 5000, step: 10, hint: 'Đứng chắn xe quá lâu → công an tới đưa vào lề, ghi phạt nguội (nộp ở đồn công an). Mặc định 100k.' }],
       ['economy.blockWarnMin', 'Cản trở giao thông: nhắc sau (phút chắn)', { min: 0, max: 120, step: 1, hint: 'Chắn liên tục bấy nhiêu phút game (= giây thật) thì hiện cảnh báo. Mặc định 10.' }],
       ['economy.blockFineMin', 'Cản trở giao thông: công an tới sau (phút chắn)', { min: 1, max: 240, step: 1, hint: 'Có xe (buýt, ô tô, xe máy) phải dừng vì mình liên tục bấy nhiêu phút game → công an tới. Tránh ra vài giây là tính lại từ đầu. Mặc định 15.' }],

@@ -6,11 +6,11 @@
 import { ECONOMY, RATING, ENERGY, VEHICLES, BAGS, WALLET_QUEST, NIGHT, PARKING, rentFor, periodOfDay, dueDayOf } from '../data/balance.js';
 import { dayStartAt, atHour, isDark } from './clock.js';
 import { APP, BRANDS } from '../data/apps.js';
-import { GOODS, EFFECTS, OUTFIT_SLOTS, freeOutfit, isAccessorySlot } from '../data/goods.js';
+import { GOODS, EFFECTS, OUTFIT_SLOTS, freeOutfit, isAccessorySlot, startPicks, canWearOutfit } from '../data/goods.js';
 import { isOpen } from './placeRules.js';
 import { RatingBook } from './economy.js';
 import { fmt } from '../content/index.js';
-import { HAIR_STYLES, HAIR_COLORS, PLAYER_SKINS } from './people.js';
+import { hairFor, HAIR_COLORS, PLAYER_SKINS } from './people.js';
 import { PARK_SLOTS } from './garage.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -23,7 +23,7 @@ export function normProfile(p) {
   return {
     name: name || fmt('profile.defaultName'),
     gender,
-    hairStyle: HAIR_STYLES.includes(p?.hairStyle) ? p.hairStyle : gender === 'f' ? 'long' : 'short',
+    hairStyle: hairFor(gender, p?.hairStyle), // kiểu của giới tính kia (bản lưu cũ) → kiểu gần nhất; chưa chọn → kiểu đầu danh sách
     hair: HAIR_COLORS.includes(p?.hair) ? p.hair : HAIR_COLORS[0],
     skin: PLAYER_SKINS.includes(p?.skin) ? p.skin : PLAYER_SKINS[1],
   };
@@ -70,6 +70,15 @@ export class GameState {
       if (isAccessorySlot(slot) || this.outfit[slot] !== undefined) continue;
       const own = this.owned.gear.find((id) => GOODS[id]?.type === 'outfit' && GOODS[id].slot === slot);
       if (own) this.outfit[slot] = own;
+    }
+    // Đồ chọn lúc tạo nhân vật (goods.json start): chỉ có món đã chọn (ghi vào owned.gear). Chưa có món nào của chỗ mặc đó
+    // (bản lưu cũ, chơi mới không qua màn tạo nhân vật) → có món đầu tiên như trước đây.
+    for (const slot of Object.keys(OUTFIT_SLOTS)) {
+      const picks = startPicks(GOODS, slot), gear = this.owned.gear;
+      if (!picks.length) continue;
+      const chosen = this.outfit[slot];
+      if (picks.some((g) => g.id === chosen) && !gear.includes(chosen)) gear.push(chosen);
+      if (!picks.some((g) => gear.includes(g.id))) gear.push(picks[0].id);
     }
     this.activityUses = {}; // số lần làm hoạt động hôm nay: 'địaĐiểm.hoạtĐộng' → lần
     // đậu xe (src/sim/parking.js): parked = lần đậu hiện tại { since, safe, ticketed, robbed } (null khi đang chạy xe)
@@ -147,6 +156,14 @@ export class GameState {
   // Loại xe đang dùng: 'gas' (xăng) · 'electric' (điện) · 'pedal' (xe đạp)
   get power() {
     return this.vehicleSpec.power || 'gas';
+  }
+  // Xe đang dùng bắt buộc đội mũ bảo hiểm không (xe máy, xe điện: có · xe đạp thường: không)
+  get helmetRequired() {
+    return this.power !== 'pedal';
+  }
+  // Đang chạy xe bắt buộc đội mũ mà đầu trần → CSGT bắt (game.js / interactions.js policeStop, patrolStop)
+  get noHelmet() {
+    return this.helmetRequired && !this.wornIds().helmet;
   }
   // Số liệu riêng của một xe (mặc định xe đang dùng). Xăng / pin, độ bền, km bảo dưỡng không dùng chung giữa các xe.
   vs(id = this.vehicle) {
@@ -241,13 +258,13 @@ export class GameState {
     if (this.outfit.uniform === undefined) this.outfit.uniform = u.id;
   }
   // Quà khi vào hãng (apps.json → brands.<hãng>.gifts, sửa ở thẻ App & Đơn → Hãng): trang phục thì mặc / đội luôn
-  // (trừ phụ kiện), trang bị thì có tác dụng ngay
+  // (phụ kiện thì không, riêng mũ bảo hiểm đội luôn), trang bị thì có tác dụng ngay
   giveBrandGifts(id) {
     for (const gid of BRANDS[id]?.gifts || []) {
       const g = GOODS[gid];
       if (!g || (g.type !== 'outfit' && g.type !== 'equipment')) continue;
       if (!this.owned.gear.includes(gid)) this.owned.gear.push(gid);
-      if (g.type === 'outfit' && g.slot && g.slot !== 'uniform' && !isAccessorySlot(g.slot)) this.outfit[g.slot] = gid;
+      if (g.type === 'outfit' && g.slot && g.slot !== 'uniform' && (g.slot === 'helmet' || !isAccessorySlot(g.slot))) this.outfit[g.slot] = gid;
     }
     this.gifted = id;
   }
@@ -276,9 +293,14 @@ export class GameState {
     for (const [slot, gid] of Object.entries(this.outfit)) {
       if (!gid || !mine(gid)) continue;
       if (slot === 'uniform') this.outfit.uniform = null;
-      else delete this.outfit[slot]; // mũ hãng → đội lại mũ có sẵn
+      else delete this.outfit[slot];
     }
     this.owned.gear = this.owned.gear.filter((g) => !mine(g));
+    // trả mũ hãng → còn mũ tự mua thì đội mũ đó, không thì đầu trần
+    if (this.outfit.helmet === undefined) {
+      const own = this.owned.gear.find((g) => GOODS[g]?.type === 'outfit' && GOODS[g].slot === 'helmet');
+      if (own) this.outfit.helmet = own;
+    }
     this.brand = null;
     this.companyVehicle = null;
     this.depositPaid = 0;
@@ -377,7 +399,8 @@ export class GameState {
   // Có món trang phục này chưa (giá 0 = có sẵn)
   ownsOutfit(id) {
     const g = GOODS[id];
-    return !!g && g.type === 'outfit' && (g.price === 0 || this.owned.gear.includes(id));
+    // giá 0 = có sẵn (trừ đồ chọn lúc tạo nhân vật và phụ kiện — mũ bảo hiểm phải được hãng cấp / mua)
+    return !!g && g.type === 'outfit' && ((g.price === 0 && !g.start && !isAccessorySlot(g.slot)) || this.owned.gear.includes(id));
   }
   // Mã món đang mặc ở từng chỗ (món đã mất/bị xóa → rơi về món có sẵn; không có thì bỏ trống).
   // Phụ kiện không tự đeo món có sẵn: chưa gắn / đã tháo là trống.
@@ -385,8 +408,9 @@ export class GameState {
     const out = {};
     for (const slot of Object.keys(OUTFIT_SLOTS)) {
       const id = this.outfit[slot];
-      const ok = id && this.ownsOutfit(id) && GOODS[id].slot === slot;
-      const pick = ok ? id : isAccessorySlot(slot) ? null : freeOutfit(GOODS, slot)?.id;
+      const ok = id && this.ownsOutfit(id) && GOODS[id].slot === slot && this.canWear(id);
+      // món đang mặc mất / không còn → món có sẵn đang có của chỗ đó
+      const pick = ok ? id : isAccessorySlot(slot) ? null : (Object.values(GOODS).find((g) => g.type === 'outfit' && g.slot === slot && g.price === 0 && this.ownsOutfit(g.id)) || freeOutfit(GOODS, slot))?.id;
       if (pick) out[slot] = pick;
     }
     return out;
@@ -395,8 +419,12 @@ export class GameState {
   wornGoods() {
     return Object.fromEntries(Object.entries(this.wornIds()).map(([slot, id]) => [slot, GOODS[id]]));
   }
+  // Nhân vật mình mặc được món này không (món gender 'f' — áo dài, chân váy, đầm… — chỉ nhân vật nữ)
+  canWear(id) {
+    return canWearOutfit(GOODS[id], this.profile.gender);
+  }
   wear(id) {
-    if (!this.ownsOutfit(id) || !OUTFIT_SLOTS[GOODS[id].slot]) return false;
+    if (!this.ownsOutfit(id) || !OUTFIT_SLOTS[GOODS[id].slot] || !this.canWear(id)) return false;
     this.outfit[GOODS[id].slot] = id;
     return true;
   }
@@ -559,6 +587,7 @@ export class GameState {
     const stack = category === 'goods' && (spec.type === 'consumable' || spec.type === 'carry');
     const ownList = category === 'goods' ? this.owned.gear : this.owned[category];
     if (!stack && (ownList.includes(id) || this.ownsOutfit(id))) return { ok: false, msg: fmt('gs.alreadyOwned') };
+    if (spec.type === 'outfit' && !this.canWear(id)) return { ok: false, msg: fmt('gs.femaleOnly') };
     // xe mới chạy luôn, xe đang dùng được chở về hầm nhà trọ → hầm đầy thì không mua được
     if (category === 'vehicles' && this.garageFull()) return { ok: false, msg: fmt('gs.garageFull', { n: PARK_SLOTS }) };
     if (!this.spend(spec.price, 'purchase')) return { ok: false, msg: fmt('gs.short', { k: Math.ceil(spec.price - this.money) }) };

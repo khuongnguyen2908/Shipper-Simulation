@@ -15,7 +15,7 @@ import { dayOf } from '../sim/clock.js';
 import { makeRng } from '../sim/rng.js';
 import { activeThief, thiefSpot, PHASE as THIEF } from '../sim/dogThief.js';
 import { pedStyle } from './npcStyles.js';
-import { holdPhone, makeCar, makeNpcMoto, makePerson, makeDog, makeCone, animatePerson, randomPersonOpts, jamCarGeo, jamMotoGeo } from './models.js';
+import { holdPhone, makeCar, makeNpcMoto, makePerson, makeDog, makeCone, animatePerson, randomPersonOpts, jamCarGeo, jamMotoGeo, csgtLook } from './models.js';
 import { personOf } from '../sim/people.js';
 import { pushCircle, circleFree } from './physics.js';
 import { list, fmt } from '../content/index.js';
@@ -488,7 +488,7 @@ export class Traffic {
   dropRider(a) {
     let r = this.riders.find((x) => x.t <= 0);
     if (!r && this.riders.length < 6) {
-      const mesh = makePerson(randomPersonOpts(this.rng));
+      const mesh = makePerson(randomPersonOpts(this.rng, null, { casual: true }));
       const bag = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.55, 0.22), new THREE.MeshStandardMaterial({ color: this.rng.pick([0x2c3e50, 0xc0392b, 0x16a085, 0x8e44ad]), roughness: 0.5 }));
       bag.position.set(0.42, 0.3, -0.25);
       mesh.add(bag);
@@ -866,7 +866,7 @@ export class Traffic {
     const name = who.name;
     // hình riêng theo vai / tuổi (world/npcStyles.js): quần áo, đồ đi kèm, tư thế, dáng đi
     const st = pedStyle(who, rng);
-    const look = { ...randomPersonOpts(rng, who.gender), ...(st?.look || {}) };
+    const look = { ...randomPersonOpts(rng, who.gender, { casual: !st?.look }), ...(st?.look || {}) };
     if (who.age === 'elder' && !st?.look?.hair) look.hair = 0x9a9a9a; // người già tóc bạc
     else if (who.age === 'kid' || who.age === 'young') look.hair = look.hair === 0x8d8d8d ? 0x1b1b1b : look.hair; // người trẻ không tóc bạc
     if (who.age === 'kid') look.scale = 0.85; // học sinh, trẻ con nhỏ hơn
@@ -1022,7 +1022,7 @@ export class Traffic {
       const x = roadPos(p.node[0]), z = roadPos(p.node[1]);
       g.position.set(x, 0, z);
       for (const [ox, oz, ry] of [[2.5, 2.5, -2.3], [-2.5, -2.2, 0.8]]) {
-        const o = makePerson({ shirt: 0xd8c25a, pants: 0x2e5d3a, hat: 'police' });
+        const o = makePerson(csgtLook(this.rng)); // đồng phục vàng, mũ 3/4 vàng (giống CSGT tuần tra)
         o.position.set(ox, 0, oz);
         o.rotation.y = ry;
         o.userData.parts.armR.rotation.x = -1.2;

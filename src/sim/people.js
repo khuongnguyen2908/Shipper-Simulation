@@ -5,8 +5,22 @@ const FEMALE = ['chị', 'cô', 'bà', 'dì', 'thím', 'mợ', 'má', 'mẹ', 'n
 const MALE = ['anh', 'chú', 'ông', 'cậu', 'dượng', 'ba', 'bố', 'cha', 'chàng'];
 
 export const GENDERS = ['m', 'f'];
-// short = tóc ngắn · long = tóc dài · ponytail = cột đuôi ngựa · bun = búi tóc · bald = trọc (sư thầy, sư cô)
-export const HAIR_STYLES = ['short', 'long', 'ponytail', 'bun', 'bald'];
+// Kiểu tóc (hình dựng ở world/person.js, tên hiện ở vi.json → hair.<mã>). Chia theo giới tính cho màn tạo nhân vật
+// và người đi đường ngẫu nhiên; NPC đặt sẵn (places.json) chọn kiểu nào cũng được.
+//  nam: short ngắn vuốt lệch · part rẽ ngôi 7/3 · undercut two block · bowl mái ngố · buzz húi cua · curly xoăn ngắn · tied dài buộc sau · bald trọc
+//  nữ : long dài thẳng · shoulder ngang vai · bob bob ngắn · ponytail đuôi ngựa · bun búi cao · braids hai bím · bangs mái bằng + dài · curlyLong xoăn dài
+export const HAIR_BY_GENDER = {
+  m: ['short', 'part', 'undercut', 'bowl', 'buzz', 'curly', 'tied', 'bald'],
+  f: ['long', 'shoulder', 'bob', 'ponytail', 'bun', 'braids', 'bangs', 'curlyLong'],
+};
+export const HAIR_STYLES = [...HAIR_BY_GENDER.m, ...HAIR_BY_GENDER.f];
+// Kiểu tóc hợp lệ cho giới tính đó (hồ sơ người chơi). Bản lưu cũ chọn kiểu của giới kia → đổi sang kiểu gần nhất.
+const HAIR_SWAP = { long: 'tied', shoulder: 'tied', ponytail: 'tied', bun: 'tied', braids: 'tied', bangs: 'bowl', curlyLong: 'curly', bob: 'bowl', short: 'bob', part: 'bob', undercut: 'bob', bowl: 'bangs', buzz: 'bob', curly: 'curlyLong', tied: 'ponytail', bald: 'bob' };
+export function hairFor(gender, style) {
+  const list = HAIR_BY_GENDER[gender === 'f' ? 'f' : 'm'];
+  if (list.includes(style)) return style;
+  return list.includes(HAIR_SWAP[style]) ? HAIR_SWAP[style] : list[0];
+}
 // Tạo nhân vật (màn hình Chơi mới): màu tóc, màu da người chơi chọn được (số màu 0xRRGGBB)
 export const HAIR_COLORS = [0x1b1b1b, 0x4a2c1a, 0x7b3f1d, 0xc9a050, 0xe8dcb5, 0x5d6d7e, 0xe75b8d, 0xb8b8b8];
 export const PLAYER_SKINS = [0xffdbac, 0xf1c27d, 0xe0ac69, 0xc68642, 0x9c6b3c, 0x6b4423];

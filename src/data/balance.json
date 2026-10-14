@@ -11,6 +11,7 @@
     "lateFeePct": 0.2,
     "maxLate": 2,
     "policeFine": 100,
+    "noHelmetFine": 60,
     "blockFine": 50,
     "blockWarnMin": 10,
     "blockFineMin": 15,

@@ -7,7 +7,7 @@
 import { validateSounds } from './soundSpec.js';
 import { CITY, LOT_IDS, MULTI_LOTS, lotParts, lotFaces, blockPlan, blockLotIds, roadGraph, neighbors, cutCell, joinList, joinSeg, joinPartner, isJoinLot, riverInfo, BRIDGE_STYLES } from '../sim/cityLayout.js';
 import { ALLEY_TEMPLATES } from '../sim/blockPlan.js';
-import { EFFECTS, CONSUMABLE_FIELDS, OUTFIT_SLOTS } from './goods.js';
+import { EFFECTS, CONSUMABLE_FIELDS, OUTFIT_SLOTS, FEMALE_STYLES } from './goods.js';
 import { validatePhone } from './phoneApps.js';
 import { ORDER_KINDS, FROM_HOMES } from './apps.js';
 import { GENDERS, HAIR_STYLES } from '../sim/people.js';
@@ -554,6 +554,11 @@ export function validateGoods(goods, placesData) {
         if (!slot) add('error', key, 'slot', `Chỗ mặc phải là: ${Object.keys(OUTFIT_SLOTS).join(', ')}.`);
         else if (!(s.style in slot.styles)) add('error', key, 'style', `Kiểu phải là: ${Object.keys(slot.styles).join(', ')}.`);
         if (!COLOR_RE.test(s.color || '')) add('error', key, 'color', 'Màu phải dạng #rrggbb.');
+        if (s.color2 != null && !COLOR_RE.test(s.color2)) add('error', key, 'color2', 'Màu phụ phải dạng #rrggbb.');
+        if (s.gender != null && s.gender !== 'f') add('error', key, 'gender', 'Ai mặc: bỏ trống (mọi người) hoặc "f" (chỉ nữ).');
+        if (FEMALE_STYLES.includes(s.style) && s.gender !== 'f') add('warn', key, 'gender', 'Kiểu này là đồ nữ — nên chọn "Ai mặc: Chỉ nhân vật nữ".');
+        if (s.start != null && typeof s.start !== 'boolean') add('error', key, 'start', 'Chọn lúc tạo nhân vật phải là có / không.');
+        else if (s.start && s.price !== 0) add('error', key, 'start', 'Chỉ món giá 0 mới chọn lúc tạo nhân vật được.');
       }
     } else if (s.type === 'carry') {
       if (s.scrapPrice != null && (!num(s.scrapPrice) || s.scrapPrice < 0 || s.scrapPrice > 100)) add('error', key, 'scrapPrice', 'Giá bán ve chai phải từ 0 đến 100.');
@@ -565,6 +570,8 @@ export function validateGoods(goods, placesData) {
     // trang phục giá 0 là đồ có sẵn, không cần nơi bán
     const madeInGame = Object.values(goods).some((x) => x.use?.leaves === key); // vỏ chai: có sau khi uống, không cần nơi bán
     if (placesData && !sold.has(key) && !madeInGame && !(s.type === 'outfit' && s.price === 0)) add('warn', key, 'sells', 'Chưa địa điểm nào bán món này.');
+    // phụ kiện (kể cả mũ bảo hiểm) giá 0 không tự có → chỉ có khi là quà vào hãng
+    if (s.type === 'outfit' && s.price === 0 && OUTFIT_SLOTS[s.slot]?.accessory && !s.brand) add('warn', key, 'price', 'Phụ kiện giá 0 không ai có sẵn (mũ bảo hiểm lúc đầu không có) → chỉ có nếu là quà vào hãng. Đặt giá + nơi bán, hoặc xóa món này.');
   }
   for (const [slot, def] of Object.entries(OUTFIT_SLOTS)) {
     if (def.accessory) continue; // phụ kiện được để trống

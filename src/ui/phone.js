@@ -39,8 +39,8 @@ function appLook([id, ic, color, key], gs) {
 
 // Túi đồ: nút lọc (mã → loại món) · biểu tượng ô trống của bảng "Đang mặc" · 2 cột ô quanh avatar
 const BAG_FILTERS = { all: null, wear: ['outfit'], use: ['use', 'carry'], other: ['equip', 'quest'] };
-const SLOT_ICON = { helmet: '⛑️', face: '🕶️', shirt: '👕', hands: '🧤', acc: '🧥', uniform: '🦺', pants: '👖', shoes: '👟' };
-const SLOT_COLS = [['helmet', 'face', 'shirt', 'hands'], ['acc', 'uniform', 'pants', 'shoes']];
+const SLOT_ICON = { helmet: '⛑️', cap: '🧢', face: '🕶️', shirt: '👕', hands: '🧤', wrist: '⌚', acc: '🧥', uniform: '🦺', bag: '🎒', pants: '👖', shoes: '👟' };
+const SLOT_COLS = [['helmet', 'cap', 'face', 'shirt', 'hands', 'wrist'], ['acc', 'uniform', 'bag', 'pants', 'shoes']];
 const BAG_COLS = 4, BAG_ROWS = 5, BAG_PAGE = BAG_COLS * BAG_ROWS; // túi đồ: mỗi trang 4 × 5 ô, nhiều đồ thì lật trang
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 

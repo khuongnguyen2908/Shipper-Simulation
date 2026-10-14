@@ -11,7 +11,7 @@ import { roadSegAt, tierOf, tierLabel, speedLimitOf, curbSpot } from './sim/road
 import { busHint, busPlan, inService } from './sim/bus.js';
 // tên tuyến ngắn: "Tuyến 1 · Trung tâm – Sân bay…" → "Tuyến 1"
 const routeShort = (r) => String(r?.name || '').split(' · ')[0];
-import { outfitLook } from './data/goods.js';
+import { outfitLook, startOutfit, GOODS } from './data/goods.js';
 import { lookOf } from './data/looks.js';
 import { APP, RIDER_TYPES } from './data/apps.js';
 import { ITEMS } from './data/items.js';
@@ -295,8 +295,11 @@ export class Game {
   }
   // profile: { name, gender } đặt ở màn hình Chơi mới
   // profile: { name, gender } đặt ở màn hình Chơi mới · story 0: bắt đầu ở bến xe buýt, đi tìm nhà trọ
+  // profile: hồ sơ từ màn tạo nhân vật + sleeves / legs / shoes (áo thun tay dài / ngắn, quần dài / short, giày đen / trắng → mặc sẵn món có sẵn đúng kiểu)
   newGame(profile = null) {
-    this.startGame({ clock: TIME.dayStart, carry: { ...(profile ? { profile } : {}), flags: { story: 0 } }, seed: Math.floor(Math.random() * 1e6) });
+    const { sleeves, legs, shoes, ...prof } = profile || {};
+    const carry = profile ? { profile: prof, outfit: startOutfit(GOODS, { sleeves, legs, shoes }) } : {};
+    this.startGame({ clock: TIME.dayStart, carry: { ...carry, flags: { story: 0 } }, seed: Math.floor(Math.random() * 1e6) });
   }
   // Lưu: tự động lúc 06:00 mỗi ngày, mỗi lần ngủ dậy; tự lưu ở nhà trọ (nói chuyện Cô Hai → 💾 Lưu game).
   // Mở lại → đứng trước phòng trọ đúng giờ đã lưu (xe trong hầm). Đơn đang chạy không lưu (đang chạy đơn thì không cho lưu tay).
@@ -989,12 +992,15 @@ export class Game {
   // (bubble.driverMild / driverAngry / busMild / busAngry / driverHit). Cách nhau ít nhất 2,5 giây cho đỡ rối.
   // CSGT tuần tra (traffic.patrolNow, lịch chung sim/patrol.js): đang chạy xe quá tốc độ trong patrolRadius quanh xe tuần tra
   // → bị dừng xe phạt. Mỗi tổ chỉ dừng 1 lần mỗi lượt gặp (cách nhau ≥ 20 phút game).
+  // Đầu trần trên xe máy / xe điện (đang chạy) gần xe tuần tra cũng bị dừng (reason 'helmet').
   patrolCheck(mounted, speed) {
-    if (!mounted || this.cheat.noPolice || this.modal.open || speed <= this.speedLimit()) return;
+    if (!mounted || this.cheat.noPolice || this.modal.open) return;
+    const speeding = speed > this.speedLimit(), bare = this.gs.noHelmet && speed > 1;
+    if (!speeding && !bare) return;
     const p = this.patrolNear();
     if (!p) return;
     this.patrolSeen.set(p.id, this.clockMin);
-    act.patrolStop(this, 'speed', speed);
+    act.patrolStop(this, speeding ? 'speed' : 'helmet', speed);
   }
   // Xe tuần tra đang ở gần người chơi (trong patrolRadius) và chưa dừng mình trong 20 phút game qua
   patrolNear(x = this.playerPos.x, z = this.playerPos.z) {
@@ -1647,7 +1653,7 @@ export class Game {
   makePassenger(o, ride) {
     const rng = makeRng(o.id * 31), who = personOf(o.customer);
     const st = (this.passengerStyle ??= { s: riderStyle(o.rider, who, makeRng(o.id * 17)) }).s;
-    const look = { ...randomPersonOpts(rng, who.gender, { sitting: true }), ...(st?.look || {}), hat: 'helmet', hatColor: 0xffffff };
+    const look = { ...randomPersonOpts(rng, who.gender, { sitting: true, casual: !st?.look }), ...(st?.look || {}), hat: 'helmet', hatColor: 0xffffff };
     // đặt xe dùm cho cụ già / em bé: tóc bạc, dáng nhỏ
     if (who.age === 'elder') look.hair = 0xc8c8c8;
     else if (look.hair === 0x8d8d8d && (who.age === 'kid' || who.age === 'young')) look.hair = 0x1b1b1b; // người trẻ không tóc bạc
@@ -1710,7 +1716,7 @@ export class Game {
       const hideCustomer = o.flags.noAnswer && !o.noAnswerResolved; // khách vắng nhà
       if (near && !hideCustomer && this.customerFor !== key && !o.dropoff.apartment) {
         this.clearTempNpcs();
-        const m = makePerson(randomPersonOpts(rng, personOf(o.customer).gender));
+        const m = makePerson(randomPersonOpts(rng, personOf(o.customer).gender, { casual: true }));
         m.position.set(o.dropoff.door.x, SW_H, o.dropoff.door.z);
         this.scene.add(m);
         this.customerMesh = m;
@@ -1971,7 +1977,7 @@ export class Game {
     this.hud.update({
       time: fmtTime(now),
       day: gs.day,
-      district: [dist?.name, fmt('hud.road', { road: tierLabel(this.roadTier || 'normal'), limit: this.speedLimitKmh() })].filter(Boolean).join(' · '),
+      district: [dist?.name, fmt('hud.road', { road: tierLabel(this.roadTier || 'normal'), limit: this.speedLimitKmh() }), mounted && gs.noHelmet ? fmt('hud.noHelmet') : ''].filter(Boolean).join(' · '),
       weather: `${weather} ${amb}°C`,
       money: gs.money,
       rating: gs.brand ? gs.rating : null, // chưa vào hãng: chưa có điểm đánh giá

@@ -158,6 +158,7 @@ function mount(g) {
   g.walker.sitOn(g.bike);
   g.gs.flags.mounted = true;
   sound('drive.mount');
+  if (g.gs.noHelmet) g.hud.toast(fmt('toast.noHelmet'), 'warn', 5000); // xe máy / xe điện mà đầu trần
   // mở đầu: lần đầu leo lên xe đạp Cô Hai cho → bắt đầu hướng dẫn đi đăng ký hãng
   if (g.gs.flags.story === 1) {
     g.gs.flags.story = 2;
@@ -333,8 +334,8 @@ function bagUse(g, id) {
   g.hud.toast(fmt('toast.used', { name: s.name, gains: gainText(s.use || {}) }), 'good');
 }
 
-// Túi đồ: gắn / tháo phụ kiện (áo mưa, áo khoác, kính, khẩu trang, găng tay) — phải dừng xe.
-// Áo, quần, nón, giày chỉ thay ở tủ đồ phòng trọ.
+// Túi đồ: gắn / tháo phụ kiện (mũ bảo hiểm, áo mưa, áo khoác, kính, khẩu trang, găng tay) — phải dừng xe.
+// Áo, quần, giày chỉ thay ở tủ đồ phòng trọ.
 function bagWear(g, id, on) {
   const s = GOODS[id];
   if (!s || s.type !== 'outfit') return;
@@ -343,6 +344,7 @@ function bagWear(g, id, on) {
   if (!(on ? g.gs.wear(id) : g.gs.takeOff(s.slot))) return;
   sound('place.wear');
   g.hud.toast(fmt(on ? 'toast.woreAcc' : 'toast.tookOffAcc', { name: s.name }), 'good', 1800);
+  if (!on && g.mode === 'bike' && g.gs.noHelmet) g.hud.toast(fmt('toast.noHelmet'), 'warn', 5000);
   // cởi đồng phục hãng: app không nhận đơn mới nữa
   if (!on && s.slot === 'uniform' && s.brand === g.gs.brand) g.hud.toast(fmt('toast.uniformOff', { brand: g.gs.brandSpec?.name || '' }), 'warn', 4500);
 }
@@ -1123,14 +1125,16 @@ function shopDialog(g, pl) {
     if (!s) continue;
     const consumable = s.type === 'consumable', carry = s.type === 'carry', outfit = s.type === 'outfit';
     const owned = (s.type === 'equipment' && gs.has(id)) || (outfit && gs.ownsOutfit(id));
+    const notMine = outfit && !owned && !gs.canWear(id); // đồ chỉ cho nữ, nhân vật nam
     choices.push({
       label: `${owned ? '✔ ' : ''}${s.icon || ''} ${s.name} – ${s.price}k`,
-      hint: owned ? fmt(outfit ? 'dlg.outfitOwned' : 'dlg.shopOwned')
+      hint: notMine ? fmt('dlg.femaleOnly')
+        : owned ? fmt(outfit ? 'dlg.outfitOwned' : 'dlg.shopOwned')
         : consumable ? fmt('dlg.goodsCount', { n: gs.countOf(id), desc: s.desc || '', gains: gainText(s.use || {}) })
         : carry ? fmt('dlg.carryShop', { n: gs.countOf(id), desc: s.desc || '', where: whereUsed(g, id) })
         : outfit ? fmt('dlg.outfitShop', { slot: fmt(`outfit.slot.${s.slot}`), desc: s.desc || '' })
         : s.desc,
-      disabled: owned || gs.money < s.price,
+      disabled: notMine || owned || gs.money < s.price,
       keepOpen: true,
       onSelect: () => {
         const r = gs.buy('goods', id);
@@ -1485,7 +1489,7 @@ function wardrobe(g) {
   for (const slot of Object.keys(OUTFIT_SLOTS)) {
     const acc = isAccessorySlot(slot);
     for (const s of Object.values(GOODS)) {
-      if (s.type !== 'outfit' || s.slot !== slot || !gs.ownsOutfit(s.id)) continue;
+      if (s.type !== 'outfit' || s.slot !== slot || !gs.ownsOutfit(s.id) || !gs.canWear(s.id)) continue;
       const on = worn[slot] === s.id;
       choices.push({
         label: `${on ? '✔ ' : ''}${s.icon || ''} ${s.name}`,
@@ -1567,6 +1571,7 @@ function talkPed(g, ped) {
 export function policeStop(g, p, speed) {
   const { gs, bike } = g;
   const speeding = speed > g.speedLimit(); // giới hạn theo cấp đường đang chạy (src/sim/roads.js)
+  const noHelmet = gs.noHelmet, helmetFine = noHelmet ? ECONOMY.noHelmetFine ?? 60 : 0; // đầu trần: phạt thêm (cộng dồn)
   bike.speed = 0;
   bike.vel.set(0, 0);
   sound('law.whistle');
@@ -1586,34 +1591,42 @@ export function policeStop(g, p, speed) {
     }], { dismissible: false });
     return;
   }
-  say(g, fmt('dlg.police'), '👮', speeding ? fmt('dlg.policeSpeeding', { kmh, fine: ECONOMY.policeFine, limit: g.speedLimitKmh(), road: tierLabel(g.roadTier || 'normal') }) : fmt('dlg.policeCheck'), [
+  const fine = (speeding ? ECONOMY.policeFine : 0) + helmetFine, fined = fine > 0;
+  const text = speeding
+    ? fmt('dlg.policeSpeeding', { kmh, fine: ECONOMY.policeFine, limit: g.speedLimitKmh(), road: tierLabel(g.roadTier || 'normal') }) + (noHelmet ? fmt('dlg.noHelmetToo', { fine: helmetFine, total: fine }) : '')
+    : noHelmet ? fmt('dlg.policeNoHelmet', { fine }) : fmt('dlg.policeCheck');
+  say(g, fmt('dlg.police'), '👮', text, [
     {
-      label: speeding ? fmt('dlg.policePay', { fine: ECONOMY.policeFine }) : fmt('dlg.policeShow'),
+      label: fined ? fmt('dlg.policePay', { fine }) : fmt('dlg.policeShow'),
       onSelect: () => {
-        if (speeding) {
-          gs.spend(ECONOMY.policeFine, 'fine', true);
+        if (fined) {
+          gs.spend(fine, 'fine', true);
           gs.stats.fines += 1;
           gs.addEnergy(0, -ENERGY.mental.fine);
           sound('law.fine');
         } else gs.addEnergy(0, -ENERGY.mental.police / 2);
-        g.advance(speeding ? 15 : 6, 'idle');
+        g.advance(fined ? 15 : 6, 'idle');
       },
     },
   ], { dismissible: false });
 }
 
 // CSGT tuần tra áp sát ra hiệu dừng xe (game.js patrolTick): reason 'speed' = chạy quá tốc độ gần xe tuần tra (phạt như ở chốt),
-// 'red' = vượt đèn đỏ ngay trước mặt (luôn bị, tiền phạt như phạt nguội vượt đèn). place: tên ngã tư (vượt đèn).
+// 'red' = vượt đèn đỏ ngay trước mặt (luôn bị, tiền phạt như phạt nguội vượt đèn), 'helmet' = chỉ lỗi không đội mũ bảo hiểm.
+// Đầu trần (xe máy / xe điện) thì lỗi nào cũng phạt cộng thêm ECONOMY.noHelmetFine. place: tên ngã tư (vượt đèn).
 // Chơi nhiều người: máy chủ kiểm tra tốc độ / vị trí người chơi với vị trí xe tuần tra (lịch chung) rồi mới trừ tiền.
 export function patrolStop(g, reason, speed, place = '') {
   const { gs, bike } = g;
   bike.speed = 0;
   bike.vel.set(0, 0);
   sound('law.whistle');
-  const red = reason === 'red', fine = red ? LIGHTS.fine ?? 100 : ECONOMY.policeFine;
-  const text = red
-    ? fmt('dlg.patrolRed', { fine, place })
-    : fmt('dlg.patrolSpeeding', { kmh: Math.round(speed * 3.6), fine, limit: g.speedLimitKmh(), road: tierLabel(g.roadTier || 'normal') });
+  const red = reason === 'red', helmetFine = gs.noHelmet ? ECONOMY.noHelmetFine ?? 60 : 0;
+  const base = reason === 'helmet' ? 0 : red ? LIGHTS.fine ?? 100 : ECONOMY.policeFine, fine = base + helmetFine;
+  const text = reason === 'helmet'
+    ? fmt('dlg.patrolNoHelmet', { fine })
+    : (red
+      ? fmt('dlg.patrolRed', { fine: base, place })
+      : fmt('dlg.patrolSpeeding', { kmh: Math.round(speed * 3.6), fine: base, limit: g.speedLimitKmh(), road: tierLabel(g.roadTier || 'normal') })) + (helmetFine ? fmt('dlg.noHelmetToo', { fine: helmetFine, total: fine }) : '');
   say(g, fmt('dlg.patrol'), '🚓', text, [{
     label: fmt('dlg.policePay', { fine }),
     onSelect: () => {

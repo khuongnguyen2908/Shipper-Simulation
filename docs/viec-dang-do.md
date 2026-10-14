@@ -18,6 +18,55 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   - Chủ game tự tạo dự án Firebase (Claude hướng dẫn từng bước), dán cấu hình vào code.
 
 ## 💬 Đang bàn
+### 🧍 Đổi kiểu người sang "low-poly mượt" (14/10 — đã duyệt 4 đợt; P1 xong, CHỜ chủ game xem)
+- Mẫu chủ game chốt: `src/devtools/personSample.js` (trình xem thử, game không dùng). Khung khớp giữ nguyên → mọi dáng / tư thế / tay nắm lái dùng lại.
+- **P1 (xong)** `src/world/person.js` (buildPerson) — `models.makePerson` giữ nguyên tham số, gọi sang file mới; kiểu cũ còn trong `makePersonClassic`,
+  xem lại bằng `?nguoicu` (để so / làm bản "người đơn giản" ở P4). Thân 10 cạnh, tay chân 8 cạnh; ~2.200 tam giác / người (cũ ~1.000),
+  đo trong game: vẽ người ~2,7 ms / khung (cũ ~2,6 ms).
+  - 16 kiểu tóc (`sim/people.js` HAIR_BY_GENDER): nam ngắn vuốt lệch · rẽ ngôi 7/3 · two block · mái ngố · húi cua · xoăn ngắn · dài buộc sau · trọc;
+    nữ dài thẳng · ngang vai · bob · đuôi ngựa · búi cao · hai bím · mái bằng · xoăn dài. Đội mũ bảo hiểm: bỏ phần đỉnh, búi cao → búi thấp.
+    Màn tạo nhân vật chỉ hiện kiểu của giới tính đang chọn; bản lưu cũ chọn kiểu giới kia → kiểu gần nhất (`hairFor`). NPC đặt sẵn chọn kiểu nào cũng được (?editor).
+  - Tạo nhân vật thêm chọn **áo thun tay ngắn / tay dài + quần short / quần dài + giày đen / trắng** (món có sẵn giá 0: thêm `aoThunDai`, `quanDaiCu`, `giayTrangCu` vào goods.json;
+    `goods.startOutfit`). Người đi đường ngẫu nhiên: 55% áo cộc tay, 25% đàn ông quần short.
+  - Màn tạo nhân vật (phương án A): bảng rộng 780 px, hình 3D to 300×450 bên trái (nút Toàn thân / Cận mặt), ô chọn bên phải;
+    kiểu tóc chọn kiểu lật trang ‹ Kiểu 2/8 › (phím ← →, đổi giới tính → về kiểu 1). Bảng hẹp (< 640 px) tự xếp hình lên trên.
+  - Mũ bảo hiểm nửa đầu / fullface, nón lá, mũ công an, kính, khẩu trang, găng, thùng hàng, đồng phục hãng, áo khoác chống nắng, áo mưa: đã dựng lại
+    theo đầu / thân mới ở mức dùng được — P2 làm kỹ.
+  - Kho đồ: 6 món chọn lúc tạo nhân vật có ô `start` (goods.json, ?editor) → chỉ có món đã chọn; bản lưu cũ có món đầu như trước.
+- **Mũ bảo hiểm (14/10, b1)**: thành phụ kiện (tháo / đội trong 🎒 Túi đồ, dừng xe). Lúc đầu KHÔNG có mũ (đi xe đạp đầu trần) —
+  hãng cấp mũ khi đăng ký (quà vào hãng, đội luôn); nghỉ hãng trả mũ → còn mũ tự mua thì đội, không thì đầu trần. Mũ ở cửa hàng vẫn mua được.
+  Xe máy / xe điện đầu trần: nhắc khi lên xe + dòng đỏ "⛑️ Chưa đội mũ" trên HUD; qua chốt CSGT hoặc gần xe tuần tra → dừng xe phạt
+  `ECONOMY.noHelmetFine` (60k, thẻ ⚖️ Cân bằng), cộng dồn với lỗi quá tốc độ / vượt đèn đỏ. Xe đạp thường không bị.
+  "Mũ bảo hiểm bể" (muXanh, giá 0) giờ không ai có → ?editor báo cảnh báo; chủ game chọn: đặt giá + nơi bán, hoặc xóa.
+  🌐 Đội mũ là của riêng người chơi; máy chủ kiểm tra được (vị trí người chơi so với chốt / tuần tra theo lịch chung). Nộp phạt vẫn tua 15 phút (cần bỏ khi chơi nhiều người).
+- **P2 (xong 14/10)**: mũ fullface có phần che cằm + gờ kính + khe gió; khẩu trang nhỏ lại, che kín mũi, có nếp gấp + quai tai; găng ngắn có cổ găng,
+  găng ống dài kéo lên tới tay áo cộc (hết lởm chởm ở khuỷu); áo khoác chống nắng / đồng phục dài phủ hông (che thắt lưng) + viền gấu; mũ trùm sau gáy có lòng mũ;
+  thùng hàng đeo lưng đổi màu theo đồng phục hãng + ô logo. Áo mưa, mũ nửa đầu, nón lá, mũ công an, kính giữ như P1.
+- **P2b (xong 14/10, chủ game: "làm hết cho tôi xem thử")**: 88 món mới (chỉ để mặc đẹp, không tác dụng → npm run sim y hệt trước), bán ở
+  Shop Quần Áo (64 món — dài, chủ game có thể chia bớt sang shop khác ở ?editor), Shop Giầy Dép, Shop Phụ Kiện.
+  - Áo: polo, sơ mi, sơ mi caro, hoodie, ba lỗ, khoác kéo khóa, khoác jean, khoác da, vest + cà vạt, gile phản quang, bà ba, đá banh số 10,
+    đội tuyển sao vàng, thun I ❤ SG, len cổ lọ · nữ: croptop, hai dây, áo dài (có tà trước theo chân / nằm trên đùi khi ngồi xe), đầm.
+    Liền bộ: đầm (chân trần), yếm jean, đồ ngủ sọc (quần cùng màu).
+  - Quần: jean, quần tây, jogger, túi hộp, 3 sọc, lửng, quần đùi · nữ: ống rộng, legging, chân váy, váy xòe, váy bút chì.
+  - Giày: dép lê / quai ngang, xỏ ngón, sandal quai hậu, bata vải cổ cao, giày tây, giày lười, bốt, ủng · nữ: búp bê, cao gót.
+  - 3 chỗ đeo mới (phụ kiện, tháo / đeo trong túi đồ): mũ lưỡi trai (đội mũ bảo hiểm thì không thấy), đồng hồ / vòng tay (tay trái), balo / túi đeo chéo.
+  - goods.json thêm ô color2 (màu phụ) + gender 'f' (chỉ nữ: cửa hàng ghi "Chỉ dành cho nhân vật nữ", nam không mua / mặc được). ?editor có 2 ô này.
+  - Sửa (chủ game xem trang tất cả quần áo): dây áo ba lỗ / hai dây / yếm vắt ngay trên vai (person.js strap); tà áo dài liền thân (taLathe);
+    áo mưa thành áo mưa dài tay kiểu áo khoác chống nắng, dài tới mắt cá, có mũ trùm + vạt trước theo chân, ngồi xe thì thu ngắn và phủ lên đùi
+    (bỏ áo mưa cánh dơi ở kiểu người mới). Áo khoác chống nắng / áo mưa giờ lấy đúng màu món đang mặc (trước luôn xanh nhạt / xanh dương).
+  - Người đi đường / khách / người ngồi quán (cờ casual) mặc ngẫu nhiên các kiểu mới; NPC có đồ riêng (CSGT, ba gác…) giữ nguyên.
+- **P3 (xong 14/10)**: đồ gắn thêm của NPC đặc biệt (npcStyles.PROPS) khớp thân mới — balo / cặp có quai vắt vai, khăn quàng đỏ có nút thắt,
+  hình xăm ôm đúng phần da tay áo cộc, dây chuyền, áo choàng + bịt mắt, cà vạt áp ngực (ngực nam 0,118 / nữ 0,107 m — parts.female).
+  Thay đồ rời bằng đồ có sẵn: jetjet mặc sơ mi caro thật (shirtStyle plaid + jean; bỏ PROPS.plaid + vải caro canvas), khách vội sơ mi + quần tây + giày tây,
+  học sinh sơ mi, vé số túi đeo chéo (carry).
+  Sửa thêm (chủ game xem): hình xăm thành nét tribal gọn + hoa hồng nhỏ (trước: mảng mực kín tay); áo choàng cong ôm vai, có cổ buộc + khuy;
+  cụ ông / cụ bà luôn chống gậy (gậy tròn có tay cầm cong); dây dắt chó nối đúng bàn tay (có vòng dây trong tay); chai bia nâu có nhãn + nắp, cầm dựng đứng;
+  CSGT (chốt + tuần tra, models.csgtLook): nguyên bộ vàng (áo kiểu police: cổ bẻ, cầu vai đỏ, bảng tên, phù hiệu, 2 túi ngực, thắt lưng đen to + khóa + bao súng),
+  mũ bảo hiểm 3/4 vàng (helmetStyle open — che tai + gáy, chữ CSGT; cũng chọn được cho món mũ ở ?editor), dây chéo + bao bộ đàm, giày da đen, ~50% khẩu trang.
+  ngồi xe banh 2 đùi ra 2 bên theo kiểu xe (BIKE_SPECS spread; người ngồi sau 0,3–0,32 — yên sau rộng); sọc xanh xe tuần tra thành 2 sọc mỏng áp hông xe → chân không lún vào yếm / thân xe. Đã xem: 12 vai người đi đường, 6 loại khách, 6 xe NPC (jetjet, đối thủ, ba gác, trộm chó, CSGT, xe ôm nằm).
+- **P4 (chưa)**: người ở xa dùng hình đơn giản (LOD), đo FPS, tùy chọn "người đơn giản"; xong thì hỏi chủ game rồi mới xóa kiểu cũ.
+- 🌐 Nhiều người chơi: ngoại hình người chơi (tóc, áo quần) là của riêng từng người, gửi kèm hồ sơ để máy khác vẽ; người đi đường chỉ để nhìn.
+
 ### 🏘️ Nhà địa điểm "kiểu A" (14/10 — A1 + A2 xong, chủ game ok)
 - Chủ game chọn hướng A: giữ kiểu khối vuông của game, học chi tiết từ mẫu nhà "đồ chơi" — KHÔNG đặt đồ ăn khổng lồ trên nóc (nhà Việt không có).
   Mẫu thử phong cách bo tròn (người xấu, nặng máy ~25 nghìn tam giác / người) đã bỏ, file thử đã xóa.
