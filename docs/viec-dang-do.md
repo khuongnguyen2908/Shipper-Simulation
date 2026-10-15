@@ -27,6 +27,28 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   - Chủ game tự tạo dự án Firebase (Claude hướng dẫn từng bước), dán cấu hình vào code.
 
 ## 💬 Đang bàn
+### 🕸️ Công cụ sơ đồ quan hệ nhân vật `/?relationship` (16/10 — đã làm, chờ chủ game vẽ / sửa)
+- Phác thảo đã duyệt: `sketches/relationship.png` + `relationship-check.png`. Dữ liệu `src/data/relations.json`, hàm game `src/data/relations.js`,
+  công cụ `src/devtools/relationship/`, bộ luật kiểm tra `validateRelations` (validate.js, có bộ thử).
+- Thẻ nhân vật (hồ sơ: tuổi, vai, tính cách, ghi chú; gắn với người trong cốt truyện / NPC địa điểm; ngoại hình riêng nhiều bộ đồ chọn từ goods.json,
+  xem 3D) · dây quan hệ (loại, nhãn 2 chiều, **xưng hô 2 chiều**, tình cảm −3…+3, từ / tới chương, 🔒 bí mật, ghi chú) · loại dây sửa được ·
+  lọc "Tới chương" · tìm · ＋ Lấy từ game · hoàn tác · ✅ Kiểm tra (lỗi / cảnh báo / gợi ý, Nhảy tới, Bỏ qua) · "📝 Ghi chú của Claude" (mảng notes).
+- Game dùng: xưng hô {toi} {ban} {khach} {minh} trong thoại cốt truyện, tin nhắn, lời NPC địa điểm có dây với người chơi (thay cho đoán theo tên);
+  người lạ cốt truyện dáng "Theo sơ đồ quan hệ" (look: "char", chọn bộ đồ). Trang phục mới có ô **"Chỉ cho NPC"** (không bán, người chơi không có).
+- Đã vẽ sẵn 11 nhân vật chương 1–2 + 14 dây theo thoại hiện có. ✅ Kiểm tra đang báo (để chủ game quyết):
+  thiếu xưng hô Mẹ ↔ Cô Hai, Cô Hai ↔ Chú Hai; Chú Hai chương 1 gọi người chơi "cháu" nhưng chương 2 gọi "con"; bảo vệ trường xưng "mày" (khi hỏi hỗn);
+  câu "Dạ để con đi tìm chị" (chữ "chị" = chị Linh — báo nhầm, bấm Bỏ qua).
+- 16/10 (sau): chủ game đổi Cô Hai → **Dì Hai** (chị gái của mẹ), Chú Hai → **Dượng Hai** (chồng Dì Hai) → Claude đã sửa 55 câu chữ + tên
+  2 địa điểm (giữ "chú Hai" ở câu chị Linh nói). Mã nội bộ vẫn là coHai / chuHai (không hiện ra ngoài).
+- **Đồng bộ editor ↔ sơ đồ (phương án A, đã làm)**: nhân vật gắn với game thì tên / biểu tượng / giới tính là 1 nguồn — sửa trong /?relationship
+  ghi thẳng vào places.json (NPC) + story.json / vi.json (danh bạ), chỉ gộp đúng ô đã sửa; ?editor lưu → tool tự tải lại; tool lưu → ?editor tự
+  cập nhật file đó (nếu không đang sửa dở). Tên NPC ≠ tên danh bạ → tool lấy theo NPC + nhắc Lưu. Mở thẳng: /?relationship#place=home | #story=linh | #char=man.
+- **Đã làm theo phác thảo** `sketches/sync-ui.png`: hộp ✏️ Đổi tên khắp nơi (tool: nút cạnh ô Tên — tìm câu chữ + tên / biển hiệu địa điểm,
+  hoa / thường / VIẾT HOA, tick từng chỗ, giữ sẵn câu người nói cố ý gọi tên cũ, đổi cả chữ tự xưng trong lời người đó) · ô 🕸️ Quan hệ trong ?editor
+  (trang NPC địa điểm + danh bạ / người nói cốt truyện; chưa có → "Thêm vào sơ đồ" = /?relationship#add=place:<mã>) · luật "tên cũ còn sót"
+  (nhân vật có oldNames — tự nhớ khi đổi tên). Lưu mà relations.json vừa bị lưu chỗ khác → hỏi trước khi ghi đè (từng bị 1 tab cũ ghi đè 16/10).
+- Khi chủ game vẽ xong / nhắn "soát quan hệ": Claude đọc relations.json, sửa thoại cho khớp, ghi ý kiến vào notes (hiện ở ✅ Kiểm tra).
+
 ### 🧪 Chơi thử chương 1 như người chơi (16/10) — đã sửa theo ý chủ game
 - **Từ nay mọi lời thoại cốt truyện là bong bóng** (chủ game chốt): nói chuyện ở địa điểm (talk), việc "say", câu "nhắn mẹ chưa?" →
   bong bóng trên đầu NPC (game.storyConverse: bấm E "Nghe tiếp" qua câu, câu "ok" = người chơi đáp; đứng yên + camera xích lại; dấu !/? ẩn khi đang nói).

@@ -2,8 +2,10 @@
 // điều kiện xong bước, nói chuyện ở địa điểm, mục tiêu trên màn hình, hướng dẫn trên điện thoại.
 // Câu chữ gõ ngay tại đây — lưu vào kho chữ vi.json (khóa story.*), sửa ở đây hay ở thẻ 💬 Chữ & hội thoại đều được.
 // Bộ chạy: src/sim/story.js · hiển thị: game.js (runStoryActions, storyGoal, storyGuide).
+import { relBox } from './relBox.js';
 import { UNTIL, ACTIONS, GUIDES, HUD_PARTS, ORDER_STAGES, GUIDE_BTNS, ACTOR_LOOKS, ACTOR_SPOTS, ACTOR_VEHICLES, TRAITS as PERSONAS } from '../../sim/story.js';
 import { APP_DEFS } from '../../data/phoneApps.js';
+import relationsJson from '../../data/relations.json' with { type: 'json' }; // sơ đồ quan hệ (/?relationship) — chỉ đọc: bộ đồ nhân vật
 import { isPlaced } from '../../data/places.js';
 import { ID_RE } from '../../data/validate.js';
 import { el, field, textInput, numInput, button, sideList, selectInput, emojiInput, areaInput, checkInput, explain } from './ui.js';
@@ -338,7 +340,14 @@ export function render(root, ctx) {
       const xeOmPlaces = ctx.data.places.places.filter((p) => isPlaced(p) && p.xeOm).map((p) => [p.id, `${p.name} (${p.id})`]);
       const spot = a.spot || 'near';
       box.append(
-        field('Dáng', selectInput(a.look || 'jetjet', Object.entries(ACTOR_LOOKS), (v) => { a.look = v; ctx.changed('story'); }), o),
+        field('Dáng', selectInput(a.look || 'jetjet', Object.entries(ACTOR_LOOKS), (v) => { a.look = v; if (v !== 'char') delete a.outfit; rerender(); }), { ...o, hint: '"Theo sơ đồ quan hệ": hình của nhân vật gắn với người này trong công cụ /?relationship (mở ở nút 🕸️ trên thanh trên cùng).' }),
+        a.look === 'char' ? (() => {
+          const c = Object.values(relationsJson.characters || {}).find((x) => x.story === a.who);
+          if (!c) return el('p', { class: 'muted' }, `Chưa có nhân vật nào trong sơ đồ quan hệ gắn với "${a.who}". Mở /?relationship → chọn / tạo nhân vật → Gắn với game.`);
+          if (c.place) return el('p', { class: 'muted' }, `${c.name}: dùng hình NPC của địa điểm "${c.place}".`);
+          const outs = (c.outfits || []).map((x) => [x.id, x.name]);
+          return field(`Bộ đồ của ${c.name}`, selectInput(a.outfit || '', [['', '— Bộ đầu tiên —'], ...outs], (v) => { if (v) a.outfit = v; else delete a.outfit; ctx.changed('story'); }), o);
+        })() : null,
         field('Chỗ đứng', selectInput(spot, Object.entries(ACTOR_SPOTS), (v) => {
           a.spot = v;
           if (v === 'xeOm') { a.place = a.place || xeOmPlaces[0]?.[0] || ''; delete a.dist; delete a.lat; }
@@ -437,6 +446,7 @@ export function render(root, ctx) {
           textBox('Tên', x.name, 1, { ref, fieldKey: 'name' }),
           ...(extra ? extra(x, ref) : []),
           button('🗑', () => { if (confirm(`Xóa ${id}? Bước nào đang dùng sẽ báo lỗi.`)) { delete table[id]; rerender(); } }, 'small danger')));
+        if (prefix === 'contact' || prefix === 'people') card.append(relBox({ story: id })); // 🕸️ sơ đồ quan hệ
       }
       const idIn = textInput('', () => {}, { placeholder: 'mã mới (vd ba, chuBa)' });
       card.append(el('div', { class: 'row' }, idIn, button('＋ Thêm', () => {

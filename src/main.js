@@ -8,6 +8,8 @@ const ui = document.getElementById('ui');
 
 if (new URLSearchParams(location.search).has('editor')) {
   import('./devtools/editor/index.js').then((m) => m.startEditor(ui));
+} else if (new URLSearchParams(location.search).has('relationship')) {
+  import('./devtools/relationship/index.js').then((m) => m.startRelationship(ui)); // sơ đồ quan hệ nhân vật
 } else {
   // dữ liệu JSON vừa được lưu (từ ?editor hoặc sửa tay) → tải lại game để dùng dữ liệu mới
   if (import.meta.hot) import.meta.hot.on('shipper:data-changed', () => location.reload());

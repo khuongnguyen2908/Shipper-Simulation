@@ -22,7 +22,7 @@
 // không mở hộp thoại; chỉ máy của người chơi đó vẽ (cốt truyện riêng — chơi nhiều người người khác không thấy, không cần đồng bộ).
 // Người chơi đứng gần bấm E: bước đang chờ "talkActor" → sang bước sau (câu tiếp theo); không thì người lạ nói câu "idle".
 // Có dấu ! trên đầu thì người lạ cứ vài giây gọi câu "call". Dáng: ACTOR_LOOKS · chỗ đứng: ACTOR_SPOTS.
-export const ACTOR_LOOKS = { jetjet: 'Trẻ trâu (sơ mi caro, nón lưỡi trai đội ngược)', normal: 'Người đi đường bình thường', girl: 'Cô gái trẻ (sinh viên)', gentleman: 'Đàn ông lịch lãm (sơ mi trắng, quần tây, giày da)' };
+export const ACTOR_LOOKS = { jetjet: 'Trẻ trâu (sơ mi caro, nón lưỡi trai đội ngược)', normal: 'Người đi đường bình thường', girl: 'Cô gái trẻ (sinh viên)', gentleman: 'Đàn ông lịch lãm (sơ mi trắng, quần tây, giày da)', char: 'Theo sơ đồ quan hệ (ngoại hình nhân vật gắn với người này — /?relationship)' };
 // 3 tính cách (tên hiển thị ở vi.json: story.trait.<mã>) — mô tả cho công cụ ?editor
 export const TRAITS = {
   good: 'Công dân gương mẫu — kết vui: nhân hậu, hiền hòa với mọi người',

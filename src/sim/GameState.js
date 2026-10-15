@@ -414,7 +414,7 @@ export class GameState {
   ownsOutfit(id) {
     const g = GOODS[id];
     // giá 0 = có sẵn (trừ đồ chọn lúc tạo nhân vật và phụ kiện — mũ bảo hiểm phải được hãng cấp / mua)
-    return !!g && g.type === 'outfit' && ((g.price === 0 && !g.start && !isAccessorySlot(g.slot)) || this.owned.gear.includes(id));
+    return !!g && g.type === 'outfit' && ((g.price === 0 && !g.start && !g.npcOnly && !isAccessorySlot(g.slot)) || this.owned.gear.includes(id)); // npcOnly: đồ chỉ NPC mặc
   }
   // Mã món đang mặc ở từng chỗ (món đã mất/bị xóa → rơi về món có sẵn; không có thì bỏ trống).
   // Phụ kiện không tự đeo món có sẵn: chưa gắn / đã tháo là trống.

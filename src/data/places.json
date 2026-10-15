@@ -141,7 +141,7 @@
   "places": [
     {
       "id": "home",
-      "name": "Phòng trọ Cô Hai",
+      "name": "Nhà trọ Dì Hai",
       "short": "Nhà",
       "kind": "home",
       "block": [
@@ -151,32 +151,34 @@
       "lot": "f6",
       "floors": 3,
       "color": "#f2d7a7",
-      "sign": "PHÒNG TRỌ CÔ HAI",
+      "sign": "NHÀ TRỌ DÌ HAI",
       "signBg": "#7a4b2a",
       "npc": {
-        "name": "Cô Hai",
+        "name": "Dì Hai",
         "shirt": "#b0478a",
         "pants": "#333344",
         "hat": null,
-        "portrait": "👵"
+        "portrait": "👵",
+        "gender": "f",
+        "hairStyle": "bangs"
       }
     },
     {
       "id": "dichvu4",
-      "name": "Quán cơm chay Chú Hai",
+      "name": "Quán cơm chay Dượng Hai",
       "short": "Cơm chay",
       "kind": "service",
       "icon": "🥬",
       "floors": 2,
       "color": "#f6e7c1",
-      "sign": "CƠM CHAY CHÚ HAI",
+      "sign": "CƠM CHAY DƯỢNG HAI",
       "signBg": "#2e7d32",
       "npc": {
-        "name": "Chú Hai",
+        "name": "Dượng Hai",
         "shirt": "#f5f5f5",
         "pants": "#4e342e",
         "hat": null,
-        "portrait": "👨‍🍳"
+        "portrait": "🧓"
       },
       "hours": [
         6,
@@ -358,7 +360,7 @@
         "shirt": "#8a00bd",
         "pants": "#333344",
         "hat": null,
-        "portrait": "👨‍🍳",
+        "portrait": "👩",
         "scale": 0.85
       },
       "hours": [

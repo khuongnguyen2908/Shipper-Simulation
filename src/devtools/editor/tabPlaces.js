@@ -1,5 +1,6 @@
 // Thẻ ĐỊA ĐIỂM & NPC: tên, biển hiệu, màu, vị trí trên bản đồ (bấm ô để dời), NPC,
 // thực đơn quán, lời thoại riêng; mục "Tên đường & khách" cho tên phố, tên khách, người đi đường.
+import { relBox } from './relBox.js';
 import { CITY, HALF, blockBounds, lotInfo, LOT_SIZES, lotParts, lotSize, lotFaces, blockPlan, blockRect, isWaterBlock } from '../../sim/cityLayout.js';
 import { PROTECTED, ID_RE, LOTS, lotCells } from '../../data/validate.js';
 import { moveInArray } from './order.js';
@@ -204,6 +205,7 @@ export function render(root, ctx) {
         ),
         prev.el,
       ),
+      relBox({ place: p.id }), // 🕸️ sơ đồ quan hệ (/?relationship)
     );
     prev.update(n);
   }

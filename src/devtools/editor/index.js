@@ -18,6 +18,7 @@ import editorJson from '../../data/editor.json' with { type: 'json' };
 import phoneJson from '../../data/phone.json' with { type: 'json' };
 import soundsJson from '../../data/sounds.json' with { type: 'json' };
 import storyJson from '../../data/story.json' with { type: 'json' };
+import relationsJson from '../../data/relations.json' with { type: 'json' }; // sơ đồ quan hệ (sửa ở /?relationship) — chỉ đọc để kiểm tra
 import { validateAll } from '../../data/validate.js';
 import { setContentTable } from '../../content/index.js';
 import { el, button, clone, markSubTabs, revealField } from './ui.js';
@@ -180,7 +181,7 @@ export async function startEditor(root) {
   ctx.issuesFor = (tab, ref, extra = {}) => ctx.issues.filter((i) => i.tab === tab && i.ref === ref && (!extra.cat || i.cat === extra.cat));
 
   function validate() {
-    const all = validateAll({ items: ctx.data.items, gear: ctx.data.gear, goods: ctx.data.goods, places: ctx.data.places, content: ctx.data.content, baseContent: ctx.base.content, apps: ctx.data.apps, map: ctx.data.map, balance: ctx.data.balance, phone: ctx.data.phone, sounds: ctx.data.sounds, story: ctx.data.story });
+    const all = validateAll({ items: ctx.data.items, gear: ctx.data.gear, goods: ctx.data.goods, places: ctx.data.places, content: ctx.data.content, baseContent: ctx.base.content, apps: ctx.data.apps, map: ctx.data.map, balance: ctx.data.balance, phone: ctx.data.phone, sounds: ctx.data.sounds, story: ctx.data.story, relations: relationsJson });
     const { shown, ignored } = splitIgnored(all, ctx.data.editor?.ignoredWarnings);
     ctx.issues = shown; // cảnh báo đã bỏ qua không tính, không hiện ở ô
     ctx.ignored = ignored;
@@ -258,6 +259,7 @@ export async function startEditor(root) {
           store.set(HINTS_KEY, on ? '1' : null);
           renderHeader();
         }), { title: 'Hiện hết ghi chú dưới mọi ô, hoặc thu vào nút ⓘ (rê chuột / bấm ⓘ để xem từng ô)' }),
+        el('a', { class: 'btn', href: './?relationship', target: '_blank', title: 'Sơ đồ quan hệ nhân vật: hồ sơ, xưng hô, ngoại hình' }, '🕸️ Quan hệ'),
         el('a', { class: 'btn', href: './?debug', target: '_blank', title: 'Game chỉ thấy thay đổi đã lưu' }, '▶ Thử trong game'),
       ),
     );
@@ -487,8 +489,32 @@ export async function startEditor(root) {
   // File dữ liệu đổi trên đĩa: do chính editor lưu → không làm gì (editor đã có dữ liệu mới);
   // bị sửa từ bên ngoài (sửa tay, git pull…) → báo để tải lại, tránh lưu đè lên bản mới
   if (import.meta.hot) {
-    import.meta.hot.on('shipper:data-changed', ({ file, fromEditor }) => {
-      if (fromEditor) return;
+    import.meta.hot.on('shipper:data-changed', async ({ file, fromEditor, source }) => {
+      if (fromEditor && source !== 'relationship') return; // chính editor vừa lưu
+      if (source === 'relationship') {
+        const k = Object.keys(FILES).find((x) => FILES[x].path === file);
+        try {
+          const j = await (await fetch(`/__editor/read?path=${encodeURIComponent(file)}`)).json();
+          if (!j.ok) throw new Error(j.error);
+          const fresh = JSON.parse(j.content);
+          if (file === 'src/data/relations.json') { // sơ đồ quan hệ: chỉ đọc trong editor → thay luôn
+            for (const key of Object.keys(relationsJson)) delete relationsJson[key];
+            Object.assign(relationsJson, fresh);
+          } else if (k && !dirtyFiles().includes(k)) { // file này editor không sửa dở → lấy bản mới
+            ctx.base[k] = fresh;
+            ctx.data[k] = clone(fresh);
+            syncMirror(hist, ctx.data, [k]);
+          } else if (k) {
+            return showBanner(`🕸️ /?relationship vừa lưu <b>${escapeHtml(file)}</b> mà bạn đang sửa dở file này. Lưu bản của bạn sẽ đè phần đó — muốn lấy bản mới thì Tải lại.`, 'warn', [button('Tải lại', () => location.reload(), 'primary small')]);
+          }
+          validate();
+          ctx.rerender();
+          showBanner(`🕸️ Đã cập nhật <b>${escapeHtml(file)}</b> theo sơ đồ quan hệ (/?relationship).`, 'ok');
+        } catch (e) {
+          showBanner(`📂 ${escapeHtml(file)} vừa đổi (${escapeHtml(e.message)}). Tải lại để thấy bản mới.`, 'warn', [button('Tải lại', () => location.reload(), 'primary small')]);
+        }
+        return;
+      }
       showBanner(`📂 File <b>${escapeHtml(file)}</b> vừa bị sửa bên ngoài công cụ. Tải lại để thấy bản mới${dirtyFiles().length ? ' (thay đổi chưa lưu sẽ còn trong bản nháp)' : ''}.`, 'warn', [
         button('Tải lại', () => location.reload(), 'primary small'),
       ]);

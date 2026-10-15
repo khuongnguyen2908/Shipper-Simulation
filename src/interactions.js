@@ -8,6 +8,7 @@ import { circleFree } from './world/physics.js';
 import { APP, ORDER_TYPES, RIDER_TYPES, BRANDS } from './data/apps.js';
 import { GOODS, OUTFIT_SLOTS, isAccessorySlot } from './data/goods.js';
 import { STORY, stepOf, storyEvent, chapterOf } from './sim/story.js';
+import { voiceOf, chapterNum } from './data/relations.js';
 import { DeliveryItem } from './sim/ItemPhysics.js';
 import { isOpen, fmtHours, placesUsing, placesSelling, unlocked } from './sim/placeRules.js';
 import { ITEMS } from './data/items.js';
@@ -56,7 +57,11 @@ function placeLine(placeId, kind, params) {
 // XƯNG HÔ (sim/people.js): tham số {toi} {ban} {khach} {minh} {anhchi} theo người nói (giới tính + tuổi + vai) và giới tính nhân vật mình
 const voice = (g, name, opts = {}) => pronouns(personOf(name, opts), g.gs.profile?.gender);
 const custVoice = (g, o = g.om.order) => voice(g, o?.customer || ''); // khách của đơn
-const npcVoice = (g, n) => voice(g, n?.name || '', { gender: n?.gender, role: 'staff' }); // người ở quán / tiệm
+// người ở quán / tiệm: NPC có dây quan hệ với người chơi (sơ đồ /?relationship) thì xưng hô theo dây, không thì đoán theo tên
+const npcVoice = (g, n) => {
+  const pl = n && g.layout.places.find((p) => p.npc === n);
+  return (pl && voiceOf(`place:${pl.id}`, g.gs.profile?.gender, chapterNum(g.gs.story, STORY))) || voice(g, n?.name || '', { gender: n?.gender, role: 'staff' });
+};
 const pedVoice = (g, ped) => pronouns(ped.who || personOf(ped.name), g.gs.profile?.gender); // người đi đường
 
 // ======================== DANH SÁCH TƯƠNG TÁC GẦN NGƯỜI CHƠI ========================
@@ -185,7 +190,7 @@ function storyTalk(g, st, pl) {
   g.storyConverse({
     mesh: g.npcs[pl.id] || null,
     name: n.name,
-    pages: splitPages(fmt(t.text, { name: gs.profile.name })),
+    pages: splitPages(fmt(t.text, g.storyVoice(`place:${pl.id}`))),
     onDone: () => {
       const done = () => storyEvent(gs.story, `talk:${pl.id}`);
       const list = (x) => (Array.isArray(x) ? x : x ? [x] : []);

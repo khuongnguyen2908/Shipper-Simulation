@@ -72,7 +72,7 @@ const hex = (c, fallback) => parseInt(String(/^#[0-9a-fA-F]{6}$/.test(c || '') ?
 
 // Món có sẵn (giá 0) đầu tiên của một chỗ mặc (style: chỉ lấy món đúng kiểu đó, không có thì lấy món có sẵn bất kỳ)
 export function freeOutfit(goods, slot, style = null) {
-  const free = Object.values(goods).filter((g) => g.type === 'outfit' && g.slot === slot && g.price === 0);
+  const free = Object.values(goods).filter((g) => g.type === 'outfit' && g.slot === slot && g.price === 0 && !g.npcOnly); // npcOnly: đồ chỉ NPC mặc (công cụ /?relationship)
   return (style && free.find((g) => g.style === style)) || free[0] || null;
 }
 // Bộ đồ lúc bắt đầu (màn tạo nhân vật): áo thun tay dài / tay ngắn + quần dài / quần short + giày đen / trắng — lấy món có sẵn (giá 0).

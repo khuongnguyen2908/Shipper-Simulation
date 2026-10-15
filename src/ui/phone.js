@@ -21,6 +21,7 @@ import { createAvatar } from './avatar.js';
 import { morph } from './morph.js';
 import { profileLook } from '../sim/people.js';
 import { STORY } from '../sim/story.js';
+import { voiceOf, chapterNum } from '../data/relations.js';
 
 // [mã app, biểu tượng, màu, khóa chữ tên app] — APPS: app đang hiện (theo thứ tự, phím 1–9); app ẩn vẫn mở được qua liên kết
 const PHONE = phoneApps();
@@ -470,7 +471,9 @@ export class Phone {
       const c = STORY.contacts[id], t = threads[id] || {};
       return c ? [c.icon, fmt(c.name)] : [t.icon || '💬', esc(t.name || id)];
     };
-    const textOf = (m) => (m.key ? fmt(m.key, { name: esc(gs.profile.name) }) : m.text || '');
+    // tin cốt truyện: tên người chơi + xưng hô theo sơ đồ quan hệ (người nhắn ↔ người chơi)
+    const vo = (id) => ({ name: esc(gs.profile.name), ...(voiceOf(id, gs.profile?.gender, chapterNum(gs.story, STORY)) || {}) });
+    const textOf = (m, id = this.thread) => (m.key ? fmt(m.key, vo(id)) : m.text || '');
     const when = (at) => (dayOf(at) === dayOf(d.now) ? hhmm(((at % 1440) + 1440) % 1440) : fmt('phone.msgDay', { day: dayOf(at) }));
     const t = this.thread && threads[this.thread];
     if (t) {
@@ -479,14 +482,14 @@ export class Phone {
       const bubbles = t.msgs.map((m) => `<div class="bub ${m.me ? 'me' : 'them'}"><div>${textOf(m)}</div>
         ${(m.loc || []).map((id) => `<button class="msg-loc${d.waypoint === id ? ' on' : ''}" data-act="waypoint" data-id="${id}">📍 ${esc(placeName(id))}</button>`).join('')}
         <small>${when(m.at)}</small></div>`).join('');
-      const replies = t.replies?.length ? `<div class="msg-replies">${t.replies.map((k, i) => `<button data-act="reply" data-thread="${this.thread}" data-i="${i}">${fmt(k, { name: esc(gs.profile.name) })}</button>`).join('')}</div>` : '';
+      const replies = t.replies?.length ? `<div class="msg-replies">${t.replies.map((k, i) => `<button data-act="reply" data-thread="${this.thread}" data-i="${i}">${fmt(k, vo(this.thread))}</button>`).join('')}</div>` : '';
       return `<div class="msg-head"><i class="msg-av">${ic}</i><b>${name}</b></div><div class="msg-thread">${bubbles}</div>${replies}`;
     }
     const ids = Object.keys(threads).filter((id) => threads[id].msgs.length).sort((a, b) => (threads[b].last ?? 0) - (threads[a].last ?? 0));
     if (!ids.length) return `<div class="ph-note">${fmt('phone.msgEmpty')}</div>`;
     return `<div class="msg-list">${ids.map((id) => {
       const th = threads[id], m = th.msgs[th.msgs.length - 1], [ic, name] = who(id);
-      const plain = String(textOf(m)).replace(/<[^>]+>/g, '');
+      const plain = String(textOf(m, id)).replace(/<[^>]+>/g, '');
       const prev = (m.me ? fmt('phone.msgYou') : '') + (m.loc?.length && !plain ? fmt('phone.msgLoc') : plain);
       return `<button class="msg-row${th.unread ? ' unread' : ''}" data-thread="${id}"><i class="msg-av">${ic}</i>
         <span class="msg-main"><b>${name}</b><small>${esc(prev.length > 48 ? prev.slice(0, 46) + '…' : prev)}</small></span>

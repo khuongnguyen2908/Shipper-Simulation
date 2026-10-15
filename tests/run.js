@@ -2390,7 +2390,7 @@ console.log('Dữ liệu & kho chữ (sửa bằng công cụ ?editor)');
   const fs = await import('node:fs');
   const path = await import('node:path');
   const read = (p) => JSON.parse(fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8'));
-  const data = { items: read('src/data/items.json'), gear: read('src/data/gear.json'), goods: read('src/data/goods.json'), places: read('src/data/places.json'), content: read('src/content/vi.json'), apps: read('src/data/apps.json'), map: read('src/data/map.json'), story: read('src/data/story.json') };
+  const data = { items: read('src/data/items.json'), gear: read('src/data/gear.json'), goods: read('src/data/goods.json'), places: read('src/data/places.json'), content: read('src/content/vi.json'), apps: read('src/data/apps.json'), map: read('src/data/map.json'), story: read('src/data/story.json'), relations: read('src/data/relations.json') };
   const { validateAll, validateItems, validatePlaces, validateContent, validateGoods, validateGear } = await import('../src/data/validate.js');
   test('Dữ liệu hiện tại không có lỗi', () => {
     const errs = validateAll({ ...data, baseContent: data.content }).filter((i) => i.level === 'error');
@@ -4373,6 +4373,139 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     assert.ok(/khongCo/.test(errs), errs);
     assert.ok(/k\.thieu/.test(errs), errs);
     assert.equal(validateStory(STORY, {}).filter((i) => i.level === 'error').length, 0, 'cốt truyện hiện tại không lỗi');
+  });
+}
+
+console.log('Sơ đồ quan hệ nhân vật (relations.json — /?relationship)');
+{
+  const R = await import('../src/data/relations.js');
+  const { GOODS } = await import('../src/data/goods.js');
+  const { validateRelations, validateStory, validateGoods } = await import('../src/data/validate.js');
+  const read = (p) => JSON.parse(fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8'));
+  const story = read('src/data/story.json'), places = read('src/data/places.json'), goods = read('src/data/goods.json'), content = read('src/content/vi.json');
+  test('relations.json hiện tại không lỗi; có người chơi', () => {
+    const errs = validateRelations(R.REL, { story, places, goods, content }).filter((i) => i.level === 'error');
+    assert.equal(errs.length, 0, errs.map((i) => i.msg).join(' | '));
+    assert.ok(R.REL.characters.player);
+  });
+  test('Xưng hô theo dây: người trong cốt truyện / NPC địa điểm; chưa có dây hoặc chưa tới chương thì không đổi', () => {
+    const rel = {
+      characters: { player: { name: 'Người chơi' }, a: { name: 'Cô Ba', gender: 'f', story: 'coBa' }, b: { name: 'Anh Tư', place: 'quanTu' }, c: { name: 'Chị Năm', story: 'chiNam' } },
+      links: [
+        { id: 'l1', a: 'a', b: 'player', type: 'host', ab: { self: 'cô', call: 'cháu' }, ba: { self: 'cháu', call: 'cô Ba' }, from: 1 },
+        { id: 'l2', a: 'player', b: 'b', type: 'friend', ab: { self: 'tui', call: 'ông' }, ba: { self: 'tao', call: 'mày' }, from: 1 },
+        { id: 'l3', a: 'c', b: 'player', type: 'friend', ab: { self: 'chị', call: 'em' }, ba: {}, from: 3 },
+      ],
+    };
+    const v = R.voiceOf('coBa', 'm', 1, rel);
+    assert.deepEqual([v.toi, v.ban, v.minh, v.khach, v.Ban], ['cô', 'cháu', 'cháu', 'cô Ba', 'Cháu']);
+    const w = R.voiceOf('place:quanTu', 'm', 1, rel);
+    assert.deepEqual([w.toi, w.ban, w.minh, w.khach], ['tao', 'mày', 'tui', 'ông'], 'dây ghi chiều người chơi → B trước vẫn đọc đúng');
+    assert.equal(R.voiceOf('chiNam', 'm', 2, rel), null, 'dây từ chương 3: chương 2 chưa dùng');
+    assert.equal(R.voiceOf('chiNam', 'm', 3, rel).toi, 'chị');
+    assert.equal(R.voiceOf('khongCo', 'm', 1, rel), null);
+    assert.equal(R.chapterNum({ ch: 'c2' }, story), 2);
+    assert.equal(R.chapterNum({ ch: null, done: ['c1', 'c2'] }, story), 3, 'xong hết → sau chương cuối');
+  });
+  test('Ngoại hình nhân vật: bộ đồ chọn từ goods.json; món không còn thì bỏ qua; chưa có ngoại hình → null', () => {
+    const c = { look: { gender: 'm', hairStyle: 'part', hair: '#1b1b1b', skin: '#e0ac69', scale: 1.05 }, outfits: [{ id: 'a', name: 'A', worn: { shirt: 'aoSoMiTrang', face: 'kinhRam', pants: 'khongCo' } }] };
+    const L = R.lookOfChar(c, 'a', goods);
+    assert.equal(L.shirt, 0xf4f4f4);
+    assert.equal(L.face, 'glasses');
+    assert.equal(L.scale, 1.05);
+    assert.equal(R.lookOfChar({ name: 'x' }), null);
+  });
+  test('Bộ kiểm tra quan hệ: dây hỏng, thiếu xưng hô với người chơi, trùng dây, chương sai, xưng ngược tuổi, 2 chiều không khớp, thoại lệch sơ đồ', () => {
+    const rel = {
+      types: { friend: { name: 'Bạn', color: '#2ecc71' } },
+      characters: {
+        player: { name: 'Người chơi', age: 19 },
+        coHai: { name: 'Cô Hai', age: 55, story: 'coHai', from: 1 },
+        late: { name: 'Người tới sau', from: 3 },
+        bad: { name: 'Sai', story: 'khongCoNguoiNay', look: { gender: 'm' }, outfits: [{ id: 'o', name: 'O', worn: { shirt: 'khongCoAo' } }] },
+      },
+      links: [
+        { id: 'x1', a: 'coHai', b: 'player', type: 'friend', ab: { self: 'em', call: 'con' }, ba: { self: 'cháu', call: 'cô' }, from: 1 },
+        { id: 'x2', a: 'coHai', b: 'player', type: 'friend', ab: {}, ba: {}, from: 1 },
+        { id: 'x3', a: 'late', b: 'coHai', type: 'friend', ab: { self: 'a', call: 'b' }, ba: { self: 'b', call: 'a' }, from: 1 },
+        { id: 'x4', a: 'ma', b: 'coHai', type: 'friend' },
+        { id: 'x5', a: 'coHai', b: 'late', type: 'kiLa', ab: {}, ba: {} },
+      ],
+    };
+    const all = validateRelations(rel, { story, places, goods, content });
+    const msg = (lv) => all.filter((i) => i.level === lv).map((i) => i.msg).join(' | ');
+    const errs = msg('error'), warns = msg('warn');
+    assert.ok(/không còn \(ma\)/.test(errs), errs);
+    assert.ok(/thiếu xưng hô chiều Cô Hai → Người chơi/.test(errs), errs);
+    assert.ok(/trùng dây/.test(errs), errs);
+    assert.ok(/chỉ xuất hiện từ chương 3/.test(errs), errs);
+    assert.ok(/khongCoNguoiNay/.test(errs) && /khongCoAo/.test(errs), errs);
+    assert.ok(/loại dây lạ "kiLa"/.test(errs), errs);
+    assert.ok(/tự xưng "em".*xưng ngược tuổi/.test(warns), warns);
+    assert.ok(/gọi Người chơi là "con" nhưng Người chơi tự xưng "cháu"/.test(warns), warns);
+    // thoại lệch: chú Hai chương 1 nói "cháu" nhưng dây ghi gọi "con"
+    const r2 = { types: rel.types, characters: { player: { name: 'P' }, chuHai: { name: 'Chú Hai', story: 'chuHai', place: 'dichvu4' } }, links: [{ id: 'k', a: 'chuHai', b: 'player', type: 'friend', ab: { self: 'chú', call: 'con' }, ba: { self: 'con', call: 'chú Hai' } }] };
+    const fake = { ...content, 'story.c1.toChuHai.text': 'A, cháu hả? Chú gói cơm cho cháu nè.' }; // câu ghi "cháu" nhưng dây ghi gọi "con"
+    assert.ok(validateRelations(r2, { story, places, goods, content: fake }).some((i) => /Thoại lệch sơ đồ — story\.c1\.toChuHai\.text/.test(i.msg)));
+    assert.ok(!validateRelations(r2, { story, places, goods, content: { ...content, 'story.c1.toChuHai.text': 'A, con hả? Dượng gói cơm cho con nè.' } }).some((i) => /toChuHai/.test(i.msg)), 'câu gọi đúng như dây thì không báo');
+  });
+  test('Người lạ dáng "Theo sơ đồ quan hệ": phải có nhân vật gắn với người đó (có ngoại hình / là NPC); đồ "Chỉ cho NPC" không bán, người chơi không tự có', () => {
+    const st = { contacts: {}, people: { flyer: { icon: '🧢', name: 'story.people.flyer' } }, chapters: [{ id: 'c1', title: 'story.c1.title', steps: [{ id: 's', on: [{ do: 'actor', who: 'flyer', look: 'char' }], until: { type: 'none' } }] }] };
+    const e1 = validateStory(st, { relations: { characters: {} } }).filter((i) => i.level === 'error').map((i) => i.msg).join(' | ');
+    assert.ok(/chưa có nhân vật nào gắn với "flyer"/.test(e1), e1);
+    const e2 = validateStory(st, { relations: { characters: { f: { name: 'F', story: 'flyer' } } } }).filter((i) => i.level === 'error').map((i) => i.msg).join(' | ');
+    assert.ok(/chưa có ngoại hình/.test(e2), e2);
+    assert.equal(validateStory(st, { relations: { characters: { f: { name: 'F', story: 'flyer', look: { gender: 'm' } } } } }).filter((i) => i.level === 'error' && /sơ đồ/.test(i.msg)).length, 0);
+    const g2 = { ...goods, npcAo: { id: 'npcAo', type: 'outfit', slot: 'shirt', style: 'shirt', color: '#123456', name: 'Áo NPC', icon: '👕', price: 0, npcOnly: true } };
+    assert.ok(!validateGoods(g2, places).some((i) => i.ref === 'npcAo' && i.level !== 'info'), 'không cảnh báo "chưa nơi bán"');
+    GOODS.npcAo = g2.npcAo;
+    try {
+      assert.ok(!new GameState({ day: 1, carry: { money: 100 } }).ownsOutfit('npcAo'), 'người chơi không tự có đồ chỉ cho NPC');
+    } finally { delete GOODS.npcAo; }
+  });
+}
+
+console.log('Đổi tên khắp nơi + tên cũ còn sót (sơ đồ quan hệ)');
+{
+  const { findOldName, staleNames } = await import('../src/data/validate.js');
+  const story = {
+    contacts: { coBa: { icon: '👵', name: 'k.coBa', place: 'nha' } },
+    people: { linh: { icon: '👩', name: 'k.linh' } },
+    chapters: [{ id: 'c1', title: 'k.t', steps: [
+      { id: 'a', on: [{ do: 'say', who: 'coBa', text: 'k.say' }, { do: 'bubble', who: 'linh', text: 'k.linh' }], until: { type: 'none' } },
+    ] }],
+  };
+  const rel = {
+    characters: { player: { name: 'P' }, diBa: { name: 'Dì Ba', story: 'coBa', place: 'nha', oldNames: ['Cô Ba'] }, linh: { name: 'Linh', story: 'linh' } },
+    links: [{ id: 'l1', a: 'linh', b: 'diBa', type: 'friend', ab: { self: 'con', call: 'cô Ba' }, ba: { self: 'cô', call: 'con' } }],
+  };
+  const content = { 'k.coBa': 'Cô Ba', 'k.say': 'Phòng cô dọn sẵn rồi nghe con.', 'k.goal': '🏠 Tới nhà Cô Ba', 'k.mom': 'Nhớ chào cô Ba nghe', 'k.linh': 'Dạ con chào cô Ba', 'k.list': ['Cô Bảy bán bánh', 'Gặp Cô Ba'], 'npc.nha.greet': 'Trễ là cô phạt đó!' };
+  const places = { places: [{ id: 'nha', name: 'Nhà trọ Cô Ba', short: 'Nhà', sign: 'PHÒNG TRỌ CÔ BA' }] };
+  test('Tìm tên cũ: hoa / thường chữ đầu, nguyên chữ (không đụng "Cô Bảy"), cả danh sách câu + tên địa điểm; người nói cố ý gọi tên cũ → giữ', () => {
+    const it = findOldName('Cô Ba', 'Dì Ba', { rel, story, content, places, charId: 'diBa' });
+    const by = Object.fromEntries(it.map((x) => [x.key || `${x.placeId}.${x.field}`, x]));
+    assert.equal(by['k.goal'].after, '🏠 Tới nhà Dì Ba');
+    assert.equal(by['k.mom'].after, 'Nhớ chào dì Ba nghe', 'chữ thường giữ chữ thường');
+    assert.equal(by['k.list'].after, 'Gặp Dì Ba');
+    assert.equal(by['k.list'].idx, 1, '"Cô Bảy" không bị đổi');
+    assert.equal(by['nha.name'].after, 'Nhà trọ Dì Ba');
+    assert.equal(by['nha.sign'].after, 'PHÒNG TRỌ DÌ BA', 'biển hiệu VIẾT HOA');
+    assert.ok(by['k.linh'].keep, 'Linh gọi "cô Ba" theo dây → mặc định giữ');
+    assert.ok(!by['k.say'], 'chưa bật đổi chữ tự xưng');
+    const it2 = findOldName('Cô Ba', 'Dì Ba', { rel, story, content, places, charId: 'diBa', selfOld: 'cô', selfNew: 'dì', inclPlaces: false });
+    assert.equal(it2.find((x) => x.key === 'k.say')?.after, 'Phòng dì dọn sẵn rồi nghe con.', 'đổi chữ tự xưng trong lời của chính người đó');
+    assert.equal(it2.find((x) => x.key === 'npc.nha.greet')?.after, 'Trễ là dì phạt đó!', 'cả lời NPC riêng của địa điểm');
+    assert.ok(!it2.some((x) => x.kind === 'place'));
+  });
+  test('Tên mới chứa tên cũ ("Người đàn ông" → "Người đàn ông chạy xe moto"): chỗ đã là tên mới không bị tính / không bị thay lần nữa', () => {
+    const it = findOldName('Người đàn ông', 'Người đàn ông chạy xe moto', { rel: { characters: {} }, content: { a: 'Người đàn ông chạy xe moto', b: 'Người đàn ông đứng đó. Người đàn ông chạy xe moto đi rồi.' } });
+    assert.deepEqual(it.map((x) => x.key), ['b']);
+    assert.equal(it[0].after, 'Người đàn ông chạy xe moto đứng đó. Người đàn ông chạy xe moto đi rồi.');
+  });
+  test('Luật "tên cũ còn sót": có tên cũ trong câu chữ → cảnh báo; chỉ còn câu cố ý giữ → thôi', () => {
+    assert.ok(/Tên cũ "Cô Ba" của Dì Ba còn ở/.test(staleNames(rel, { story, content, places })[0]?.msg || ''));
+    const clean = { ...content, 'k.coBa': 'Dì Ba', 'k.goal': 'Tới nhà Dì Ba', 'k.mom': 'Nhớ chào dì Ba', 'k.list': ['Cô Bảy bán bánh', 'Gặp Dì Ba'] };
+    assert.equal(staleNames(rel, { story, content: clean, places: { places: [{ id: 'nha', name: 'Nhà trọ Dì Ba' }] } }).length, 0);
   });
 }
 

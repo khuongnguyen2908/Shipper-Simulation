@@ -576,9 +576,13 @@ export function validateGoods(goods, placesData, gifts = new Set()) {
     } else add('error', key, 'type', 'Loại phải là "đồ dùng 1 lần", "trang bị", "dùng tại địa điểm" hoặc "trang phục".');
     // trang phục giá 0 là đồ có sẵn, không cần nơi bán
     const madeInGame = Object.values(goods).some((x) => x.use?.leaves === key) || gifts.has(key); // vỏ chai (có sau khi uống) · quà trong cốt truyện: không cần nơi bán
-    if (placesData && !sold.has(key) && !madeInGame && !(s.type === 'outfit' && s.price === 0)) add('warn', key, 'sells', 'Chưa địa điểm nào bán món này.');
+    if (s.npcOnly != null && typeof s.npcOnly !== 'boolean') add('error', key, 'npcOnly', '"Chỉ cho NPC" phải là có / không.');
+    if (s.npcOnly && s.type !== 'outfit') add('error', key, 'npcOnly', '"Chỉ cho NPC" chỉ dùng cho trang phục.');
+    if (s.npcOnly && sold.has(key)) add('error', key, 'npcOnly', 'Món "Chỉ cho NPC" mà có địa điểm bán → bỏ khỏi hàng bán hoặc bỏ tick.');
+    if (s.npcOnly && s.start) add('error', key, 'npcOnly', 'Món "Chỉ cho NPC" không chọn được lúc tạo nhân vật.');
+    if (placesData && !sold.has(key) && !madeInGame && !s.npcOnly && !(s.type === 'outfit' && s.price === 0)) add('warn', key, 'sells', 'Chưa địa điểm nào bán món này.');
     // phụ kiện (kể cả mũ bảo hiểm) giá 0 không tự có → chỉ có khi là quà vào hãng
-    if (s.type === 'outfit' && s.price === 0 && OUTFIT_SLOTS[s.slot]?.accessory && !s.brand) add('warn', key, 'price', 'Phụ kiện giá 0 không ai có sẵn (mũ bảo hiểm lúc đầu không có) → chỉ có nếu là quà vào hãng. Đặt giá + nơi bán, hoặc xóa món này.');
+    if (s.type === 'outfit' && s.price === 0 && OUTFIT_SLOTS[s.slot]?.accessory && !s.brand && !s.npcOnly) add('warn', key, 'price', 'Phụ kiện giá 0 không ai có sẵn (mũ bảo hiểm lúc đầu không có) → chỉ có nếu là quà vào hãng. Đặt giá + nơi bán, hoặc xóa món này.');
   }
   for (const [slot, def] of Object.entries(OUTFIT_SLOTS)) {
     if (def.accessory) continue; // phụ kiện được để trống
@@ -795,9 +799,10 @@ export function validateBalance(b) {
   return out;
 }
 
-export function validateAll({ items, gear, goods, places, content, baseContent, apps = null, map = undefined, balance = null, phone = null, sounds = null, story = null }) {
+export function validateAll({ items, gear, goods, places, content, baseContent, apps = null, map = undefined, balance = null, phone = null, sounds = null, story = null, relations = null }) {
   return [
-    ...(story ? validateStory(story, { places, goods, content, apps }) : []),
+    ...(story ? validateStory(story, { places, goods, content, apps, relations }) : []),
+    ...(relations ? validateRelations(relations, { story, places, goods, content }).filter((i) => i.level === 'error') : []), // chỉ lỗi; cảnh báo xem ở /?relationship
     ...(sounds ? validateSounds(sounds) : []),
     ...(phone ? validatePhone(phone) : []),
     ...(balance ? validateBalance(balance) : []),
@@ -843,7 +848,7 @@ export function storyGifts(story) {
 }
 const STORY_UNTIL = ['none', 'wait', 'read', 'open', 'reply', 'routed', 'ack', 'use', 'arrive', 'talk', 'mount', 'brand', 'wear', 'switch', 'fuel', 'order', 'near', 'talkActor', 'chosen', 'ordersSince', 'newDay', 'clock', 'bring'];
 const STORY_DO = ['title', 'say', 'actor', 'bubble', 'approach', 'leave', 'remove', 'choose', 'board', 'alight', 'drop', 'msg', 'replies', 'item', 'bike', 'give', 'toast', 'openPhone', 'closePhone', 'offer', 'fuel', 'end'];
-const STORY_ACTOR_LOOKS = ['jetjet', 'normal', 'girl', 'gentleman']; // = ACTOR_LOOKS (sim/story.js)
+const STORY_ACTOR_LOOKS = ['jetjet', 'normal', 'girl', 'gentleman', 'char']; // = ACTOR_LOOKS (sim/story.js)
 const STORY_ACTOR_SPOTS = ['xeOm', 'place', 'near']; // = ACTOR_SPOTS (sim/story.js)
 const STORY_ACTOR_VEHICLES = ['moto']; // = ACTOR_VEHICLES (sim/story.js)
 const STORY_TRAITS = ['good', 'neutral', 'bad']; // = TRAITS (sim/story.js)
@@ -863,7 +868,7 @@ export function tooNewEmoji(s) {
   return false;
 }
 const NEW_EMOJI_MSG = 'Biểu tượng này mới quá (emoji 2020 trở lên) → máy Windows 10 hiện ô vuông. Chọn emoji khác (vd 👨‍🍳 thay 🧑‍🍳, 🍯 thay 🫙, 🥤 thay 🧋).';
-export function validateStory(story, { places = null, goods = null, content = null, apps = null } = {}) {
+export function validateStory(story, { places = null, goods = null, content = null, apps = null, relations = null } = {}) {
   const out = [];
   const add = (level, ref, field, msg) => out.push({ level, tab: 'story', ref, field, msg });
   const placeIds = new Set((places?.places || []).filter((p) => isPlaced(p)).map((p) => p.id));
@@ -1011,6 +1016,12 @@ export function validateStory(story, { places = null, goods = null, content = nu
         if (a.do === 'toast') text(ref, 'on', a.text, 'thông báo');
         if (['actor', 'approach', 'leave', 'remove', 'board', 'alight'].includes(a.do) && !people[a.who]) add('error', ref, 'on', `Người lạ "${a.who}" không có (danh sách Người nói).`);
         if (a.do === 'actor' && a.look && !STORY_ACTOR_LOOKS.includes(a.look)) add('error', ref, 'on', `Dáng người lạ lạ "${a.look}".`);
+        // dáng "theo sơ đồ quan hệ": phải có nhân vật gắn với người này, có ngoại hình riêng hoặc là NPC địa điểm
+        if (a.do === 'actor' && a.look === 'char' && relations) {
+          const c = Object.values(relations.characters || {}).find((x) => x.story === a.who);
+          if (!c) add('error', ref, 'on', `Dáng "Theo sơ đồ quan hệ": chưa có nhân vật nào gắn với "${a.who}" (công cụ /?relationship → Gắn với game).`);
+          else if (!c.look && !c.place) add('error', ref, 'on', `Dáng "Theo sơ đồ quan hệ": ${c.name} chưa có ngoại hình (thẻ Ngoại hình trong /?relationship).`);
+        }
         if (a.do === 'actor') {
           if (a.spot && !STORY_ACTOR_SPOTS.includes(a.spot)) add('error', ref, 'on', `Chỗ đứng người lạ lạ "${a.spot}".`);
           if (a.spot === 'place') {
@@ -1059,6 +1070,251 @@ export function validateStory(story, { places = null, goods = null, content = nu
         if (a.do === 'give' && goods && !goods[a.goods]) add('error', ref, 'on', `Đồ tặng "${a.goods}" không có.`);
       }
     });
+  }
+  return out;
+}
+
+// ======================== SƠ ĐỒ QUAN HỆ (relations.json — công cụ /?relationship) ========================
+// Mức: error (phải sửa) · warn (nên xem) · info (gợi ý). ref: 'char:<mã>' · 'link:<mã>' · 'type:<mã>'
+const REL_SLOTS = ['shirt', 'pants', 'shoes', 'helmet', 'cap', 'face', 'acc', 'bag', 'hands', 'wrist', 'uniform']; // = LOOK_SLOTS (data/relations.js)
+// chữ tự xưng của người lớn hơn / nhỏ hơn người kia (xét ngược tuổi)
+const SELF_OLDER = ['ông', 'bà', 'bác', 'cô', 'chú', 'dì', 'mẹ', 'má', 'ba', 'bố', 'cha', 'cậu', 'mợ', 'thím', 'dượng', 'sư', 'thầy', 'anh', 'chị'];
+const SELF_YOUNGER = ['em', 'con', 'cháu'];
+// chữ gọi người đối diện hay gặp trong thoại (so với sơ đồ)
+const ADDRESS = ['em', 'con', 'cháu', 'bạn', 'mày', 'nhóc', 'anh', 'chị', 'cô', 'chú', 'bác', 'cậu', 'ông', 'bà'];
+const firstWord = (s) => String(s || '').trim().split(/\s+/)[0]?.toLowerCase() || '';
+
+// Thoại cốt truyện theo người nói → [{ key, who (người nói), to (người nghe) }]. Người nói 'player' = câu người chơi chọn.
+// who / to là mã người trong story.json hoặc 'place:<mã địa điểm>'
+export function storyLines(story) {
+  const out = [];
+  for (const ch of story?.chapters || []) for (const st of ch.steps || []) {
+    for (const a of st.on || []) {
+      if (a.do === 'say' && a.text) out.push({ key: a.text, who: a.who, to: 'player' });
+      if (a.do === 'msg' && a.text) out.push({ key: a.text, who: a.from, to: 'player' });
+      if (a.do === 'replies') for (const k of a.texts || []) out.push({ key: k, who: 'player', to: a.who });
+      if (a.do === 'choose') {
+        for (const k of a.options || []) out.push({ key: k, who: 'player', to: a.who });
+        for (const k of [].concat(a.answers || [], a.answer || [])) out.push({ key: k, who: a.who, to: 'player' });
+      }
+    }
+    if (st.talk?.text) out.push({ key: st.talk.text, who: `place:${st.talk.place}`, to: 'player' });
+  }
+  return out;
+}
+
+export function validateRelations(rel, { story = null, places = null, goods = null, content = null } = {}) {
+  const out = [];
+  const add = (level, ref, field, msg) => out.push({ level, tab: 'relations', ref, field, msg });
+  if (!rel || typeof rel !== 'object') return [{ level: 'error', tab: 'relations', ref: '', field: '', msg: 'File relations.json hỏng.' }];
+  const chars = rel.characters || {}, links = rel.links || [], types = rel.types || {};
+  const storyIds = new Set([...Object.keys(story?.contacts || {}), ...Object.keys(story?.people || {})]);
+  const placeList = places?.places || [];
+  const placeIds = new Set(placeList.filter((p) => isPlaced(p)).map((p) => p.id));
+  const nameOf = (id) => chars[id]?.name || id;
+  // ---- loại dây ----
+  for (const [id, t] of Object.entries(types)) {
+    if (!ID_RE.test(id)) add('error', `type:${id}`, 'id', 'Mã loại dây chỉ gồm chữ không dấu, số, gạch dưới.');
+    if (!String(t?.name || '').trim()) add('error', `type:${id}`, 'name', 'Loại dây chưa có tên.');
+    if (!COLOR_RE.test(t?.color || '')) add('error', `type:${id}`, 'color', 'Màu dây phải dạng #rrggbb.');
+  }
+  // ---- nhân vật ----
+  if (!chars.player) add('error', '', 'characters', 'Thiếu nhân vật "player" (người chơi).');
+  const byStory = {}, byPlace = {};
+  for (const [id, c] of Object.entries(chars)) {
+    const ref = `char:${id}`;
+    if (!ID_RE.test(id)) add('error', ref, 'id', 'Mã nhân vật chỉ gồm chữ không dấu, số, gạch dưới (vd coHai).');
+    if (!String(c.name || '').trim()) add('error', ref, 'name', 'Nhân vật chưa có tên.');
+    if (tooNewEmoji(c.icon)) add('warn', ref, 'icon', NEW_EMOJI_MSG);
+    if (c.gender && c.gender !== 'm' && c.gender !== 'f') add('error', ref, 'gender', 'Giới tính: bỏ trống, "m" (nam) hoặc "f" (nữ).');
+    if (c.age != null && !(num(c.age) && c.age >= 0 && c.age <= 120)) add('error', ref, 'age', 'Tuổi phải từ 0 đến 120.');
+    if (c.from != null && !(Number.isInteger(c.from) && c.from >= 1)) add('error', ref, 'from', 'Xuất hiện từ chương phải là số nguyên ≥ 1.');
+    if (c.story) {
+      if (story && !storyIds.has(c.story)) add('error', ref, 'story', `Người "${c.story}" không còn trong cốt truyện (story.json) → chọn lại ở "Gắn với game".`);
+      if (byStory[c.story]) add('error', ref, 'story', `Trùng: ${nameOf(byStory[c.story])} cũng gắn với người "${c.story}" trong cốt truyện.`);
+      byStory[c.story] = id;
+    }
+    if (c.place) {
+      if (places && !placeIds.has(c.place)) add('error', ref, 'place', `Địa điểm "${c.place}" không có (hoặc chưa đặt lên bản đồ) → chọn lại ở "Gắn với game".`);
+      else if (places && !placeList.find((p) => p.id === c.place)?.npc) add('error', ref, 'place', `Địa điểm "${c.place}" không có NPC.`);
+      if (byPlace[c.place]) add('error', ref, 'place', `Trùng: ${nameOf(byPlace[c.place])} cũng gắn với NPC của địa điểm "${c.place}".`);
+      byPlace[c.place] = id;
+    }
+    if (c.place && c.look) add('warn', ref, 'look', 'Nhân vật là NPC địa điểm → game lấy ngoại hình trong places.json (sửa ở ?editor); ngoại hình riêng ở đây bị bỏ qua.');
+    if (c.look) {
+      const L = c.look;
+      if (L.gender && !GENDERS.includes(L.gender)) add('error', ref, 'look', 'Ngoại hình: giới tính phải là nam / nữ.');
+      if (L.hairStyle && !HAIR_STYLES.includes(L.hairStyle)) add('error', ref, 'look', `Kiểu tóc lạ "${L.hairStyle}".`);
+      for (const k of ['hair', 'skin']) if (L[k] != null && !COLOR_RE.test(L[k])) add('error', ref, 'look', `Màu ${k === 'hair' ? 'tóc' : 'da'} phải dạng #rrggbb.`);
+      if (L.scale != null && !(num(L.scale) && L.scale >= 0.6 && L.scale <= 1.4)) add('error', ref, 'look', 'Vóc người: 0,6 – 1,4.');
+      const oids = new Set();
+      for (const o of c.outfits || []) {
+        if (!o.id || oids.has(o.id)) add('error', ref, 'outfits', `Bộ đồ "${o.name || o.id}": mã trống hoặc trùng.`);
+        oids.add(o.id);
+        if (!String(o.name || '').trim()) add('error', ref, 'outfits', 'Có bộ đồ chưa đặt tên.');
+        for (const [slot, gid] of Object.entries(o.worn || {})) {
+          if (!REL_SLOTS.includes(slot)) { add('error', ref, 'outfits', `Bộ "${o.name}": chỗ mặc lạ "${slot}".`); continue; }
+          const g = goods?.[gid];
+          if (goods && (!g || g.type !== 'outfit' || g.slot !== slot)) add('error', ref, 'outfits', `Bộ "${o.name}": món "${gid}" không còn (hoặc không phải ${OUTFIT_SLOTS[slot]?.label.toLowerCase() || slot}) → chọn lại.`);
+          else if (g?.gender === 'f' && (L.gender || c.gender) === 'm') add('warn', ref, 'outfits', `Bộ "${o.name}": "${g.name}" là đồ nữ mà nhân vật là nam.`);
+        }
+      }
+    }
+    if (id !== 'player' && c.story && !String(c.personality || '').trim()) add('info', ref, 'personality', 'Chưa ghi tính cách — Claude cần để viết thoại đúng giọng.');
+  }
+  // ---- dây ----
+  const lids = new Set(), pairs = {};
+  for (const l of links) {
+    const ref = `link:${l.id}`;
+    if (!l.id || lids.has(l.id)) add('error', ref, 'id', 'Dây có mã trống hoặc trùng.');
+    lids.add(l.id);
+    const A = chars[l.a], B = chars[l.b];
+    if (!A || !B) { add('error', ref, 'a', `Dây nối tới nhân vật không còn (${!A ? l.a : l.b}) → xóa dây hoặc nối lại.`); continue; }
+    const title = `${nameOf(l.a)} ↔ ${nameOf(l.b)}`;
+    if (l.a === l.b) add('error', ref, 'b', `${title}: dây nối nhân vật với chính mình.`);
+    if (!types[l.type]) add('error', ref, 'type', `${title}: loại dây lạ "${l.type}".`);
+    const pk = [l.a, l.b].sort().join('|') + '|' + l.type;
+    if (pairs[pk]) add('error', ref, 'type', `${title}: trùng dây cùng loại "${types[l.type]?.name || l.type}" giữa 2 người.`);
+    pairs[pk] = true;
+    const from = l.from ?? 1;
+    if (!(Number.isInteger(from) && from >= 1)) add('error', ref, 'from', `${title}: "Từ chương" phải là số nguyên ≥ 1.`);
+    if (l.to != null && !(Number.isInteger(l.to) && l.to >= from)) add('error', ref, 'to', `${title}: "Tới chương" phải ≥ "Từ chương".`);
+    for (const [cid, c] of [[l.a, A], [l.b, B]]) if ((c.from ?? 1) > from) add('error', ref, 'from', `${title}: dây có từ chương ${from} nhưng ${c.name} chỉ xuất hiện từ chương ${c.from}.`);
+    const sides = [[l.a, l.b, l.ab || {}], [l.b, l.a, l.ba || {}]];
+    const withPlayer = l.a === 'player' || l.b === 'player';
+    const missing = sides.filter(([, , s]) => !String(s.self || '').trim() || !String(s.call || '').trim());
+    for (const [x, y] of missing) add(withPlayer ? 'error' : 'warn', ref, x === l.a ? 'ab' : 'ba', `${title}: thiếu xưng hô chiều ${nameOf(x)} → ${nameOf(y)} (tự xưng / gọi là).`);
+    for (const [x, y, s] of sides) {
+      if (s.feel != null && !(Number.isInteger(s.feel) && s.feel >= -3 && s.feel <= 3)) add('error', ref, x === l.a ? 'ab' : 'ba', `${title}: tình cảm phải từ −3 tới +3.`);
+      const X = chars[x], Y = chars[y], self = firstWord(s.self);
+      if (num(X.age) && num(Y.age) && self) {
+        if (SELF_OLDER.includes(self) && X.age + 1 < Y.age) add('warn', ref, x === l.a ? 'ab' : 'ba', `${title}: ${X.name} (${X.age} tuổi) tự xưng "${s.self}" với ${Y.name} (${Y.age} tuổi) — xưng ngược tuổi, có cố ý không?`);
+        if (SELF_YOUNGER.includes(self) && X.age > Y.age + 1) add('warn', ref, x === l.a ? 'ab' : 'ba', `${title}: ${X.name} (${X.age} tuổi) tự xưng "${s.self}" với ${Y.name} (${Y.age} tuổi) — xưng ngược tuổi, có cố ý không?`);
+      }
+    }
+    // A gọi B là "c" thì B nên tự xưng "c" với A
+    const [s1, s2] = [l.ab || {}, l.ba || {}];
+    for (const [x, y, call, self] of [[l.a, l.b, s1.call, s2.self], [l.b, l.a, s2.call, s1.self]]) {
+      if (firstWord(call) && firstWord(self) && firstWord(call) !== firstWord(self)) add('warn', ref, 'ab', `${title}: ${nameOf(x)} gọi ${nameOf(y)} là "${call}" nhưng ${nameOf(y)} tự xưng "${self}" — hai chiều chưa khớp.`);
+    }
+  }
+  // ---- nhân vật: dây ----
+  for (const [id, c] of Object.entries(chars)) {
+    if (id === 'player') continue;
+    const mine = links.filter((l) => l.a === id || l.b === id);
+    if (!mine.length) add('info', `char:${id}`, 'links', `${c.name} chưa có dây quan hệ nào.`);
+    else if (mine.every((l) => l.secret)) add('warn', `char:${id}`, 'links', `Mọi dây của ${c.name} đều bí mật → người chơi chưa biết gì về người này.`);
+  }
+  // ---- tên cũ còn sót (nhân vật đã đổi tên) ----
+  if (content) out.push(...staleNames(rel, { story, content, places }));
+  // ---- thoại cốt truyện lệch sơ đồ (chữ gọi người đối diện viết cứng trong câu) ----
+  if (story && content) {
+    const charOf = (who) => {
+      if (who === 'player') return 'player';
+      const s = String(who || '');
+      const e = Object.entries(chars).find(([, c]) => (s.startsWith('place:') ? c.place === s.slice(6) : c.story === s));
+      return e ? e[0] : null;
+    };
+    const seen = new Set();
+    for (const ln of storyLines(story)) {
+      const x = charOf(ln.who), y = charOf(ln.to);
+      if (!x || !y || seen.has(ln.key)) continue;
+      const l = links.find((k) => (k.a === x && k.b === y) || (k.a === y && k.b === x));
+      const side = l && (l.a === x ? l.ab : l.ba);
+      const call = firstWord(side?.call), self = firstWord(side?.self);
+      if (!call) continue;
+      let text = String(content[ln.key] ?? '').replace(/<[^>]+>/g, ' ').replace(/\{[^}]*\}/g, ' ').replace(/\[tiếp\]/g, ' ');
+      if (` ${text.toLowerCase()} `.includes(` ${String(side.call).trim().toLowerCase()}`)) continue; // câu có gọi đúng như sơ đồ
+      // bỏ cụm xưng hô nhiều chữ đúng sơ đồ (vd "sư cô", "chú Hai") để không bắt nhầm chữ bên trong cụm
+      const other = l.a === x ? l.ba : l.ab;
+      for (const ph of [side.self, side.call, other?.self, other?.call].map((v) => String(v || '').trim()).filter((v) => v.includes(' '))) text = text.split(new RegExp(ph.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')).join(' ');
+      const words = text.split(/[^\p{L}]+/u).filter(Boolean);
+      const lower = words.map((w) => w.toLowerCase());
+      if (lower.includes(call)) continue;
+      // chữ gọi người khác (không phải cách sơ đồ ghi), bỏ qua khi theo sau là tên riêng (vd "chú Hai", "chị Linh")
+      const bad = words.find((w, i) => ADDRESS.includes(w.toLowerCase()) && w.toLowerCase() !== self && !/^\p{Lu}/u.test(words[i + 1] || ''));
+      if (!bad) continue;
+      seen.add(ln.key);
+      add('warn', `link:${l.id}`, 'dialog', `Thoại lệch sơ đồ — ${ln.key}: ${nameOf(x)} nói với ${nameOf(y)} có chữ "${bad}" nhưng sơ đồ ghi ${nameOf(x)} gọi ${nameOf(y)} là "${side.call}". Sửa câu (hoặc dùng {ban} / {khach}) hay sửa dây.`);
+    }
+  }
+  return out;
+}
+
+// ======================== ĐỔI TÊN KHẮP NƠI (công cụ /?relationship) ========================
+// Chữ của địa điểm có thể chứa tên người: tên, tên ngắn, biển hiệu, biển dọc
+export const PLACE_TEXT = ['name', 'short', 'sign', 'signVText'];
+// Biến thể hoa / thường chữ đầu: "Cô Hai" → ["Cô Hai", "cô Hai"]
+const caseForms = (s) => [...new Set([s, s[0].toUpperCase() + s.slice(1), s[0].toLowerCase() + s.slice(1), s.toUpperCase()])]; // + VIẾT HOA (biển hiệu)
+const wordRe = (s) => new RegExp(`(?<![\\p{L}\\p{N}])${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\p{L}\\p{N}])`, 'gu');
+// Thay oldName → newName (giữ hoa / thường chữ đầu) trong chuỗi s. wrap(cũ, mới): chữ thay vào (vd đánh dấu để xem trước)
+export function swapName(s, oldName, newName, wrap = null) {
+  let out = String(s);
+  for (const o of caseForms(oldName)) {
+    const n = o === o.toUpperCase() && o !== o.toLowerCase() && o.length > 1 && o !== oldName ? newName.toUpperCase() : o[0] === o[0].toUpperCase() ? newName[0].toUpperCase() + newName.slice(1) : newName[0].toLowerCase() + newName.slice(1);
+    out = out.replace(wordRe(o), wrap ? wrap(o, n) : n);
+  }
+  return out;
+}
+// Mọi chỗ còn tên cũ của nhân vật charId: [{ id, kind: 'text' | 'place', key | placeId, field, idx, before, after, keep: lý do giữ (người nói gọi đúng như vậy) }]
+// opts.places: cả tên địa điểm · opts.selfOld / selfNew: thay cả chữ tự xưng trong lời của chính nhân vật này
+export function findOldName(oldName, newName, { rel, story = null, content = {}, places = null, charId = null, inclPlaces = true, selfOld = '', selfNew = '' } = {}) {
+  const out = [];
+  oldName = String(oldName || '').trim();
+  newName = String(newName || '').trim();
+  if (!oldName || !newName || oldName === newName) return out;
+  const chars = rel?.characters || {}, links = rel?.links || [];
+  const who = {}; // khóa chữ → mã nhân vật nói câu đó
+  const charOf = (w) => {
+    const s = String(w || '');
+    return s === 'player' ? 'player' : Object.keys(chars).find((k) => (s.startsWith('place:') ? chars[k].place === s.slice(6) : chars[k].story === s)) || null;
+  };
+  for (const ln of storyLines(story)) who[ln.key] = charOf(ln.who);
+  // bong bóng thoại (người lạ nói với nhau / với người chơi): biết người nói
+  for (const ch of story?.chapters || []) for (const st of ch.steps || []) for (const a of st.on || []) if (a.do === 'bubble' && a.text) who[a.text] = charOf(a.who);
+  const me = charId && chars[charId];
+  if (me?.place) for (const k of Object.keys(content)) if (k.startsWith(`npc.${me.place}.`)) who[k] = charId;
+  const keepWhy = (speaker) => {
+    if (!speaker || !charId || speaker === charId) return '';
+    const l = links.find((x) => (x.a === speaker && x.b === charId) || (x.b === speaker && x.a === charId));
+    const call = String((l && (l.a === speaker ? l.ab : l.ba))?.call || '').trim();
+    return call && call.toLowerCase() === oldName.toLowerCase() ? `${chars[speaker]?.name || speaker} gọi ${me?.name || ''} là "${call}"` : '';
+  };
+  // tên mới chứa tên cũ (vd "Người đàn ông" → "Người đàn ông chạy xe moto"): chỗ đã là tên mới thì không tính
+  const mask = (s) => (newName.toLowerCase().includes(oldName.toLowerCase()) ? caseForms(newName).reduce((t, n) => t.replace(wordRe(n), '\u0000'), String(s)) : String(s));
+  const test = (s) => caseForms(oldName).some((o) => wordRe(o).test(mask(s)));
+  // thay tên cũ nhưng giữ nguyên chỗ đã là tên mới (không thành "… chạy xe moto chạy xe moto")
+  const swapKeepNew = (s) => {
+    if (!newName.toLowerCase().includes(oldName.toLowerCase())) return swapName(s, oldName, newName);
+    const kept = [];
+    const masked = caseForms(newName).reduce((t, n) => t.replace(wordRe(n), (m) => `\u0001${kept.push(m) - 1}\u0002`), String(s));
+    return swapName(masked, oldName, newName).replace(/\u0001(\d+)\u0002/g, (_, i) => kept[+i]);
+  };
+  for (const [key, v] of Object.entries(content || {})) {
+    const list = Array.isArray(v) ? v : [v];
+    list.forEach((s, idx) => {
+      if (typeof s !== 'string') return;
+      const own = selfOld && who[key] === charId;
+      let after = test(s) ? swapKeepNew(s) : s;
+      if (own && selfNew) after = swapName(after, selfOld, selfNew);
+      if (after === s) return;
+      out.push({ id: `t:${key}:${Array.isArray(v) ? idx : -1}`, kind: 'text', key, idx: Array.isArray(v) ? idx : -1, before: s, after, speaker: who[key] || null, keep: keepWhy(who[key]) });
+    });
+  }
+  if (inclPlaces) for (const p of places?.places || []) for (const f of PLACE_TEXT) {
+    if (typeof p[f] !== 'string' || !test(p[f])) continue;
+    out.push({ id: `p:${p.id}:${f}`, kind: 'place', placeId: p.id, field: f, label: { name: 'tên địa điểm', short: 'tên ngắn', sign: 'biển hiệu', signVText: 'biển dọc' }[f], before: p[f], after: swapName(p[f], oldName, newName), keep: '' });
+  }
+  return out;
+}
+// Luật kiểm tra: nhân vật đã đổi tên (oldNames) mà tên cũ còn sót trong câu chữ / tên địa điểm (trừ câu người nói cố ý gọi như vậy)
+export function staleNames(rel, { story = null, content = {}, places = null } = {}) {
+  const out = [];
+  for (const [id, c] of Object.entries(rel?.characters || {})) {
+    for (const old of c.oldNames || []) {
+      const left = findOldName(old, c.name, { rel, story, content, places, charId: id }).filter((x) => !x.keep);
+      if (left.length) out.push({ level: 'warn', tab: 'relations', ref: `char:${id}`, field: 'rename', old, msg: `Tên cũ "${old}" của ${c.name} còn ở ${left.length} chỗ (vd ${left.slice(0, 3).map((x) => x.key || x.placeId).join(', ')}) → ✏️ Đổi tên khắp nơi.` });
+    }
   }
   return out;
 }

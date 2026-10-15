@@ -1,0 +1,635 @@
+{
+  "version": 1,
+  "types": {
+    "family": {
+      "name": "Gia đình",
+      "color": "#e74c3c"
+    },
+    "relative": {
+      "name": "Họ hàng",
+      "color": "#c0392b"
+    },
+    "friend": {
+      "name": "Bạn bè",
+      "color": "#2ecc71"
+    },
+    "neighbor": {
+      "name": "Hàng xóm",
+      "color": "#1abc9c"
+    },
+    "host": {
+      "name": "Chủ – khách",
+      "color": "#5dade2"
+    },
+    "acquaint": {
+      "name": "Quen biết",
+      "color": "#7f8c8d"
+    },
+    "work": {
+      "name": "Đồng nghiệp",
+      "color": "#f1c40f"
+    },
+    "love": {
+      "name": "Tình cảm",
+      "color": "#ff7eb6"
+    },
+    "enemy": {
+      "name": "Thù ghét",
+      "color": "#e67e22"
+    },
+    "boss": {
+      "name": "Cấp trên – cấp dưới",
+      "color": "#95a5a6"
+    },
+    "gang": {
+      "name": "Băng nhóm",
+      "color": "#9b59b6"
+    },
+    "police": {
+      "name": "Công an – đặc tình",
+      "color": "#34495e"
+    }
+  },
+  "characters": {
+    "player": {
+      "icon": "🧑",
+      "name": "Người chơi",
+      "gender": "",
+      "age": 19,
+      "role": "Sinh viên năm 1 từ quê lên thành phố, vừa học vừa chạy shipper",
+      "personality": "Theo lựa chọn của người chơi (3 tính cách: gương mẫu / trung lập / xấu tính)",
+      "notes": "Tên, giới tính do người chơi đặt ở màn tạo nhân vật.",
+      "story": "",
+      "place": "",
+      "from": 1,
+      "x": 644,
+      "y": 383,
+      "look": null,
+      "outfits": []
+    },
+    "me": {
+      "icon": "👩",
+      "name": "Mẹ",
+      "gender": "f",
+      "age": 45,
+      "role": "Mẹ người chơi, ở quê",
+      "personality": "Hay lo, nhắn tin hỏi han liên tục",
+      "notes": "",
+      "story": "me",
+      "place": "",
+      "from": 1,
+      "x": 300,
+      "y": 120,
+      "look": null,
+      "outfits": []
+    },
+    "diHai": {
+      "icon": "👵",
+      "name": "Dì Hai",
+      "gender": "f",
+      "age": 55,
+      "role": "Chủ nhà trọ, chị gái của mẹ",
+      "personality": "Tốt bụng, lo cho người chơi như con, nhưng nhắc tiền phòng rất đúng hạn",
+      "notes": "",
+      "story": "coHai",
+      "place": "home",
+      "from": 1,
+      "x": 280,
+      "y": 400,
+      "look": null,
+      "outfits": [],
+      "oldNames": [
+        "Cô Hai"
+      ]
+    },
+    "duongHai": {
+      "icon": "🧓",
+      "name": "Dượng Hai",
+      "gender": "m",
+      "age": 58,
+      "role": "Chủ quán cơm chay, đứng ở xóm mấy chục năm",
+      "personality": "Xởi lởi, chuyện gì trong khu cũng biết",
+      "notes": "",
+      "story": "chuHai",
+      "place": "dichvu4",
+      "from": 1,
+      "x": 360,
+      "y": 640,
+      "look": null,
+      "outfits": [],
+      "oldNames": [
+        "Chú Hai"
+      ]
+    },
+    "coYen": {
+      "icon": "👩",
+      "name": "Cô Yến",
+      "gender": "f",
+      "age": 48,
+      "role": "Chủ quán Bún Mọc — đơn giao đầu tiên của người chơi",
+      "personality": "",
+      "notes": "",
+      "story": "",
+      "place": "bunmoc",
+      "from": 1,
+      "x": 840,
+      "y": 14,
+      "look": null,
+      "outfits": []
+    },
+    "coHang": {
+      "icon": "👩",
+      "name": "Cô Hằng",
+      "gender": "f",
+      "age": 50,
+      "role": "Khách cuốc chở thử chương 1",
+      "personality": "",
+      "notes": "Khách đặt qua app, chưa có hình riêng (dùng khách ngẫu nhiên).",
+      "story": "",
+      "place": "",
+      "from": 1,
+      "x": 1000,
+      "y": 140,
+      "look": null,
+      "outfits": []
+    },
+    "flyer": {
+      "icon": "🧢",
+      "name": "Anh phát tờ rơi",
+      "gender": "m",
+      "age": 25,
+      "role": "Phát tờ rơi \"Việc nhẹ lương cao\" ở bến xe buýt",
+      "personality": "Lém lỉnh, dụ dỗ",
+      "notes": "Mầm cho chương sau (đường dây tội phạm). Tờ rơi nằm trong túi đồ người chơi.",
+      "story": "flyer",
+      "place": "",
+      "from": 1,
+      "x": 551,
+      "y": 34,
+      "look": null,
+      "outfits": []
+    },
+    "linh": {
+      "icon": "👩",
+      "name": "Chị Linh",
+      "gender": "f",
+      "age": 27,
+      "role": "Sinh viên Đại học Mỹ thuật, có tiệm trà sát chùa Rất Linh",
+      "personality": "Bí ẩn, nhưng thân thiện",
+      "notes": "",
+      "story": "linh",
+      "place": "tra",
+      "from": 2,
+      "x": 697,
+      "y": 639,
+      "look": null,
+      "outfits": []
+    },
+    "suco": {
+      "icon": "🙏",
+      "name": "Sư cô Diệu Tâm",
+      "gender": "f",
+      "age": 60,
+      "role": "Sư cô chùa Rất Linh",
+      "personality": "Hiền, lo cho Linh",
+      "notes": "",
+      "story": "",
+      "place": "chua",
+      "from": 2,
+      "x": 1195,
+      "y": 635,
+      "look": null,
+      "outfits": []
+    },
+    "guard": {
+      "icon": "💂",
+      "name": "Chú bảo vệ trường",
+      "gender": "m",
+      "age": 50,
+      "role": "Bảo vệ Đại học Mỹ thuật",
+      "personality": "Cộc tính: người chơi hỗn thì chú xưng \"tao\", gọi \"mày\"",
+      "notes": "",
+      "story": "",
+      "place": "dhMyThuat",
+      "from": 2,
+      "x": 1203,
+      "y": 267,
+      "look": null,
+      "outfits": []
+    },
+    "man": {
+      "icon": "😎",
+      "name": "Người đàn ông chạy xe moto",
+      "gender": "m",
+      "age": 32,
+      "role": "Đi mô tô xịn, hẹn gặp chị Linh ở trường — chưa rõ danh tính",
+      "personality": "Bí ẩn nhưng có vẻ cũng thân thiện",
+      "notes": "Hỏi chị Linh \"Em của em hả?\" khi thấy người chơi.",
+      "story": "man",
+      "place": "",
+      "from": 2,
+      "x": 1224,
+      "y": 416,
+      "look": {
+        "gender": "m",
+        "hairStyle": "part",
+        "hair": "#1b1b1b",
+        "skin": "#e0ac69",
+        "scale": 1.05
+      },
+      "outfits": [
+        {
+          "id": "thuongNgay",
+          "name": "Thường ngày",
+          "worn": {
+            "shirt": "aoHoodie_den",
+            "pants": "quanTay_den",
+            "shoes": "giayTay_den",
+            "wrist": "dongHo_bac",
+            "cap": "muLuoiTrai_den",
+            "bag": "tuiCheo_den"
+          }
+        },
+        {
+          "id": "diXe",
+          "name": "Đi mô tô",
+          "worn": {
+            "shirt": "aoHoodie_den",
+            "pants": "quanTay_den",
+            "shoes": "giayTay_den",
+            "wrist": "dongHo_bac",
+            "helmet": "muFullface",
+            "bag": "tuiCheo_den"
+          }
+        }
+      ]
+    }
+  },
+  "links": [
+    {
+      "id": "l1",
+      "a": "me",
+      "b": "player",
+      "type": "family",
+      "ab": {
+        "label": "mẹ",
+        "self": "mẹ",
+        "call": "con",
+        "feel": 3
+      },
+      "ba": {
+        "label": "con",
+        "self": "con",
+        "call": "mẹ",
+        "feel": 3
+      },
+      "from": 1,
+      "to": null,
+      "secret": false,
+      "notes": ""
+    },
+    {
+      "id": "l2",
+      "a": "me",
+      "b": "diHai",
+      "type": "family",
+      "ab": {
+        "label": "em gái",
+        "self": "em",
+        "call": "chị",
+        "feel": 3
+      },
+      "ba": {
+        "label": "Chị gái",
+        "self": "chị",
+        "call": "con út",
+        "feel": 3
+      },
+      "from": 1,
+      "to": null,
+      "secret": false,
+      "notes": "Chưa rõ hai người xưng hô với nhau thế nào — điền khi có thoại."
+    },
+    {
+      "id": "l3",
+      "a": "diHai",
+      "b": "player",
+      "type": "relative",
+      "ab": {
+        "label": "dì",
+        "self": "dì",
+        "call": "con",
+        "feel": 3
+      },
+      "ba": {
+        "label": "Cháu",
+        "self": "con",
+        "call": "dì Hai",
+        "feel": 3
+      },
+      "from": 1,
+      "to": null,
+      "secret": false,
+      "notes": "Tiền phòng 3 ngày đóng một lần."
+    },
+    {
+      "id": "l4",
+      "a": "diHai",
+      "b": "duongHai",
+      "type": "family",
+      "ab": {
+        "label": "vợ",
+        "self": "tôi",
+        "call": "ông",
+        "feel": 3
+      },
+      "ba": {
+        "label": "Chồng",
+        "self": "anh",
+        "call": "em",
+        "feel": 3
+      },
+      "from": 1,
+      "to": null,
+      "secret": false,
+      "notes": "Dì Hai nhờ người chơi chở hũ chao + tàu hũ sang cho Dượng Hai (chương 1)."
+    },
+    {
+      "id": "l5",
+      "a": "duongHai",
+      "b": "player",
+      "type": "relative",
+      "ab": {
+        "label": "dượng",
+        "self": "dượng",
+        "call": "con",
+        "feel": 1
+      },
+      "ba": {
+        "label": "cháu quen",
+        "self": "con",
+        "call": "dượng Hai",
+        "feel": 1
+      },
+      "from": 1,
+      "to": null,
+      "secret": false,
+      "notes": ""
+    },
+    {
+      "id": "l6",
+      "a": "coYen",
+      "b": "player",
+      "type": "host",
+      "ab": {
+        "label": "chủ quán có đơn",
+        "self": "cô",
+        "call": "con",
+        "feel": 0
+      },
+      "ba": {
+        "label": "shipper lấy hàng",
+        "self": "con",
+        "call": "cô Yến",
+        "feel": 0
+      },
+      "from": 1,
+      "to": null,
+      "secret": false,
+      "notes": ""
+    },
+    {
+      "id": "l7",
+      "a": "coHang",
+      "b": "player",
+      "type": "host",
+      "ab": {
+        "label": "khách",
+        "self": "cô",
+        "call": "con",
+        "feel": 0
+      },
+      "ba": {
+        "label": "tài xế chở khách",
+        "self": "con",
+        "call": "cô",
+        "feel": 0
+      },
+      "from": 1,
+      "to": null,
+      "secret": false,
+      "notes": ""
+    },
+    {
+      "id": "l8",
+      "a": "flyer",
+      "b": "player",
+      "type": "acquaint",
+      "ab": {
+        "label": "dụ đi làm \"việc nhẹ lương cao\"",
+        "self": "anh",
+        "call": "em",
+        "feel": 0
+      },
+      "ba": {
+        "label": "người lạ ở bến xe",
+        "self": "em",
+        "call": "anh",
+        "feel": 0
+      },
+      "from": 1,
+      "to": null,
+      "secret": false,
+      "notes": "Lúc trêu thì gọi người chơi là \"nhóc\"."
+    },
+    {
+      "id": "l9",
+      "a": "duongHai",
+      "b": "linh",
+      "type": "acquaint",
+      "ab": {
+        "label": "khách quen, gửi cơm chay",
+        "self": "chú",
+        "call": "bé Linh",
+        "feel": 2
+      },
+      "ba": {
+        "label": "khách quen của quán",
+        "self": "con",
+        "call": "chú Hai",
+        "feel": 2
+      },
+      "from": 2,
+      "to": null,
+      "secret": false,
+      "notes": ""
+    },
+    {
+      "id": "l10",
+      "a": "suco",
+      "b": "linh",
+      "type": "acquaint",
+      "ab": {
+        "label": "lo cho Linh như con",
+        "self": "sư cô",
+        "call": "con",
+        "feel": 2
+      },
+      "ba": {
+        "label": "học trò",
+        "self": "con",
+        "call": "sư cô",
+        "feel": 2
+      },
+      "from": 2,
+      "to": null,
+      "secret": false,
+      "notes": ""
+    },
+    {
+      "id": "l11",
+      "a": "suco",
+      "b": "player",
+      "type": "acquaint",
+      "ab": {
+        "label": "nhờ đi tìm Linh",
+        "self": "sư cô",
+        "call": "con",
+        "feel": 1
+      },
+      "ba": {
+        "label": "người giao cơm",
+        "self": "con",
+        "call": "sư cô",
+        "feel": 1
+      },
+      "from": 2,
+      "to": null,
+      "secret": false,
+      "notes": ""
+    },
+    {
+      "id": "l12",
+      "a": "guard",
+      "b": "player",
+      "type": "acquaint",
+      "ab": {
+        "label": "bảo vệ trường",
+        "self": "chú",
+        "call": "con",
+        "feel": 0
+      },
+      "ba": {
+        "label": "người lạ hỏi đường",
+        "self": "con",
+        "call": "chú",
+        "feel": 0
+      },
+      "from": 2,
+      "to": null,
+      "secret": false,
+      "notes": "Người chơi hỏi hỗn → chú xưng \"tao\", gọi \"mày\"."
+    },
+    {
+      "id": "l13",
+      "a": "linh",
+      "b": "player",
+      "type": "friend",
+      "ab": {
+        "label": "bạn mới, người quen của chú Hai",
+        "self": "chị",
+        "call": "em",
+        "feel": 1
+      },
+      "ba": {
+        "label": "bạn mới",
+        "self": "em",
+        "call": "chị",
+        "feel": 1
+      },
+      "from": 2,
+      "to": null,
+      "secret": false,
+      "notes": "Lúc đâu xa lạ nhưng lúc sau sẽ thân thiết nhau hơn"
+    },
+    {
+      "id": "l14",
+      "a": "linh",
+      "b": "man",
+      "type": "love",
+      "ab": {
+        "label": "hẹn hò?",
+        "self": "em",
+        "call": "anh",
+        "feel": 2
+      },
+      "ba": {
+        "label": "hẹn hò?",
+        "self": "anh",
+        "call": "em",
+        "feel": 1
+      },
+      "from": 2,
+      "to": null,
+      "secret": true,
+      "notes": "Chưa rõ thật sự là gì của nhau. Người chơi chỉ thấy hai người nói chuyện ở trường."
+    },
+    {
+      "id": "l15",
+      "a": "player",
+      "b": "man",
+      "type": "acquaint",
+      "ab": {
+        "label": "bạn của chị Linh?",
+        "self": "em",
+        "call": "anh",
+        "feel": 0
+      },
+      "ba": {
+        "label": "em của Linh?",
+        "self": "anh",
+        "call": "em",
+        "feel": 0
+      },
+      "from": 2,
+      "to": null,
+      "secret": true,
+      "notes": "Thấy nói chuyện với chị Linh, không biết là ai"
+    }
+  ],
+  "notes": [],
+  "ignore": [
+    {
+      "ref": "link:l2",
+      "msg": "Mẹ ↔ Dì Hai: Dì Hai gọi Mẹ là \"con út\" nhưng Mẹ tự xưng \"em\" — hai chiều chưa khớp."
+    },
+    {
+      "ref": "link:l4",
+      "msg": "Dì Hai ↔ Dượng Hai: Dì Hai gọi Dượng Hai là \"ông\" nhưng Dượng Hai tự xưng \"anh\" — hai chiều chưa khớp."
+    },
+    {
+      "ref": "link:l4",
+      "msg": "Dì Hai ↔ Dượng Hai: Dượng Hai gọi Dì Hai là \"em\" nhưng Dì Hai tự xưng \"tôi\" — hai chiều chưa khớp."
+    },
+    {
+      "ref": "link:l9",
+      "msg": "Dượng Hai ↔ Chị Linh: Dượng Hai gọi Chị Linh là \"bé Linh\" nhưng Chị Linh tự xưng \"con\" — hai chiều chưa khớp."
+    },
+    {
+      "ref": "char:man",
+      "msg": "Mọi dây của Người đàn ông chạy xe moto đều bí mật → người chơi chưa biết gì về người này."
+    },
+    {
+      "ref": "link:l11",
+      "msg": "Thoại lệch sơ đồ — story.c2.suco.o1: Người chơi nói với Sư cô Diệu Tâm có chữ \"chị\" nhưng sơ đồ ghi Người chơi gọi Sư cô Diệu Tâm là \"sư cô\". Sửa câu (hoặc dùng {ban} / {khach}) hay sửa dây."
+    },
+    {
+      "ref": "link:l12",
+      "msg": "Thoại lệch sơ đồ — story.c2.guard.a: Chú bảo vệ trường nói với Người chơi có chữ \"Mày\" nhưng sơ đồ ghi Chú bảo vệ trường gọi Người chơi là \"con\". Sửa câu (hoặc dùng {ban} / {khach}) hay sửa dây."
+    },
+    {
+      "ref": "link:l12",
+      "msg": "Thoại lệch sơ đồ — story.c2.guardWho.a3: Chú bảo vệ trường nói với Người chơi có chữ \"mày\" nhưng sơ đồ ghi Chú bảo vệ trường gọi Người chơi là \"con\". Sửa câu (hoặc dùng {ban} / {khach}) hay sửa dây."
+    }
+  ]
+}

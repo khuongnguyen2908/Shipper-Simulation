@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 // Chỉ những file dữ liệu này được công cụ ?editor ghi đè
-const EDITABLE = ['src/data/items.json', 'src/data/gear.json', 'src/data/goods.json', 'src/data/places.json', 'src/content/vi.json', 'src/data/apps.json', 'src/data/map.json', 'src/data/balance.json', 'src/data/editor.json', 'src/data/phone.json', 'src/data/sounds.json', 'src/data/story.json'];
+const EDITABLE = ['src/data/items.json', 'src/data/gear.json', 'src/data/goods.json', 'src/data/places.json', 'src/content/vi.json', 'src/data/apps.json', 'src/data/map.json', 'src/data/balance.json', 'src/data/editor.json', 'src/data/phone.json', 'src/data/sounds.json', 'src/data/story.json', 'src/data/relations.json'];
 // File âm thanh: editor tải lên vào thư mục này (thẻ 🔊 Âm thanh)
 const SOUND_DIR = 'src/sounds';
 const SOUND_NAME = /^[a-z0-9_\-.]+\.(ogg|mp3|wav|m4a)$/i;
@@ -27,8 +27,10 @@ function editorSavePlugin() {
       const f = norm(file);
       const rel = EDITABLE.find((p) => norm(path.resolve(server.config.root, p)) === f);
       if (!rel) return;
-      const fromEditor = Date.now() - (editorWrites.get(f) || 0) < 3000;
-      server.ws.send({ type: 'custom', event: 'shipper:data-changed', data: { file: rel, fromEditor } });
+      const w = editorWrites.get(f);
+      const fromEditor = !!w && Date.now() - w.at < 3000;
+      // source: công cụ vừa ghi ('editor' | 'relationship') → công cụ còn lại tự cập nhật file đó
+      server.ws.send({ type: 'custom', event: 'shipper:data-changed', data: { file: rel, fromEditor, source: fromEditor ? w.source : null } });
       return [];
     },
     configureServer(server) {
@@ -109,6 +111,16 @@ function editorSavePlugin() {
           }
         });
       });
+      // đọc bản mới nhất của 1 file dữ liệu trên đĩa (công cụ /?relationship gộp thay đổi vào bản mới nhất trước khi ghi, không đè chỗ ?editor vừa lưu)
+      server.middlewares.use('/__editor/read', (req, res) => {
+        const rel = new URL(req.url, 'http://x').searchParams.get('path') || '';
+        res.setHeader('Content-Type', 'application/json');
+        if (!EDITABLE.includes(rel)) {
+          res.statusCode = 400;
+          return res.end(JSON.stringify({ ok: false, error: `Không được đọc file: ${rel}` }));
+        }
+        res.end(JSON.stringify({ ok: true, content: fs.readFileSync(path.resolve(server.config.root, rel), 'utf8') }));
+      });
       server.middlewares.use('/__editor/save', (req, res) => {
         if (req.method !== 'POST') {
           res.statusCode = 405;
@@ -120,13 +132,13 @@ function editorSavePlugin() {
         req.on('end', () => {
           res.setHeader('Content-Type', 'application/json');
           try {
-            const { files } = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+            const { files, source = 'editor' } = JSON.parse(Buffer.concat(chunks).toString('utf8'));
             const written = [];
             for (const f of files) {
               if (!EDITABLE.includes(f.path)) throw new Error(`Không được ghi file: ${f.path}`);
               JSON.parse(f.content); // phải là JSON hợp lệ
               const abs = path.resolve(server.config.root, f.path);
-              editorWrites.set(norm(abs), Date.now());
+              editorWrites.set(norm(abs), { at: Date.now(), source });
               fs.writeFileSync(abs, f.content.endsWith('\n') ? f.content : f.content + '\n', 'utf8');
               written.push(f.path);
             }

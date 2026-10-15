@@ -293,3 +293,11 @@ body.show-hints .fld-i { display: none; }
 .story-ans-r { display: contents; }
 .story-ans .fld { min-width: 0; }
 @media (max-width: 760px) { .story-ans { grid-template-columns: minmax(0, 1fr) 1fr; } .story-ans-l { grid-column: 1 / -1; } }
+
+/* ô 🕸️ Quan hệ (relBox.js) */
+.rel-box { border: 1.5px solid #5dade2; background: #17273a; border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 5px; margin-top: 8px; font-size: 12.5px; }
+.rel-box.empty { border-style: dashed; border-color: #3a4558; background: transparent; flex-direction: row; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rel-box > b { font-size: 13.5px; }
+.rel-box .tag { font-size: 10.5px; background: #1f4e3d; color: #a8f0c8; border-radius: 6px; padding: 0 6px; font-weight: 400; margin-left: 6px; }
+.rel-l { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.rel-l i { width: 5px; height: 16px; border-radius: 3px; flex: none; }

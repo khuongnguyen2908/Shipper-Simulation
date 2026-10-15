@@ -2,7 +2,8 @@
 // GAME — điều phối: vòng lặp, nối mô phỏng (src/sim) với thế giới 3D (src/world) và giao diện (src/ui)
 // =============================================================
 import * as THREE from 'three';
-import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, NIGHT, PARKING, AIRPORT, RIDE_EVENTS, ORDER, LIGHTS, NPC_FLAVOR } from './data/balance.js';
+import { voiceOf, charOfStory, lookOfChar, chapterNum } from './data/relations.js';
+import { TIME, ECONOMY, ENERGY, HAZARD, DIST, VEHICLES, NIGHT, PARKING, AIRPORT, RIDE_EVENTS, ORDER, LIGHTS, NPC_FLAVOR, colorsToNumbers } from './data/balance.js';
 import { recentThieves } from './sim/dogThief.js';
 import { parkingRoll, helmetRoll, parkingLotAt, nearestStation, towTarget, safeSpot } from './sim/parking.js';
 import { garageSpots, inGarage, parkSlots } from './sim/garage.js';
@@ -1294,7 +1295,7 @@ export class Game {
   storyMessage(id, m) {
     this.gs.addMessage(id, m, this.clockMin);
     const c = STORY.contacts[id];
-    this.onNewMessage(id, c ? fmt(c.name) : id, fmt(m.key, { name: this.gs.profile.name }));
+    this.onNewMessage(id, c ? fmt(c.name) : id, fmt(m.key, this.storyVoice(id)));
   }
   // Có tin mới: đang mở đúng cuộc trò chuyện thì coi như đã đọc; rung + tiếng; báo trên điện thoại / màn hình
   onNewMessage(id, name, text) {
@@ -1777,7 +1778,7 @@ export class Game {
         // hội thoại bằng bong bóng trên đầu người nói: người lạ đang có mặt / NPC ở địa điểm của người trong danh bạ (không có thì trên đầu người chơi)
         const who = STORY.people?.[a.who] || STORY.contacts[a.who] || {};
         const mesh = this.storyActors?.[a.who]?.mesh || (who.place && this.npcs[who.place]) || null;
-        this.storyConverse({ mesh, name: fmt(who.name || ''), pages: splitPages(fmt(a.text, { name })) });
+        this.storyConverse({ mesh, name: fmt(who.name || ''), pages: splitPages(fmt(a.text, this.storyVoice(a.who))) });
       } else if (a.do === 'msg') this.storyMessage(a.from, { key: a.text, loc: a.loc });
       else if (a.do === 'replies') gs.setReplies(a.who, a.texts || [], a.gains);
       else if (a.do === 'item') { if (!gs.story.items.includes(a.id)) gs.story.items.push(a.id); }
@@ -1800,7 +1801,13 @@ export class Game {
   // ---------- NGƯỜI LẠ TRONG CẢNH (story.json → people; việc actor / approach / leave / remove / board / alight / bubble) ----------
   // Chỉ để nhìn, chỉ máy của người chơi này vẽ (cốt truyện riêng). Chỗ đứng cố định (xeOm / place) thì mở lại game dựng lại được.
   // Dáng người lạ (ACTOR_LOOKS): look + dress (đồ đi kèm)
-  storyActorLook(kind, rng) {
+  storyActorLook(kind, rng, a = {}) {
+    if (kind === 'char') { // theo sơ đồ quan hệ: ngoại hình riêng (bộ đồ a.outfit) · NPC địa điểm thì lấy hình NPC đó
+      const c = charOfStory(a.who), pl = c?.place && this.layout.placeById[c.place];
+      const look = c?.look ? lookOfChar(c, a.outfit) : pl?.npc ? npcLook(pl.id, colorsToNumbers(pl.npc)) : null;
+      if (look) return { look: { ...look, hat: look.hat === 'helmet' ? 'helmet' : look.hat ?? null } };
+      kind = 'normal';
+    }
     if (kind === 'jetjet') return jetjetLook(rng);
     if (kind === 'girl') return { look: { ...randomPersonOpts(rng, 'f', { casual: true }), gender: 'f', hat: null } };
     if (kind === 'gentleman') return { look: { ...randomPersonOpts(rng, 'm', { casual: false }), gender: 'm', hat: null, shirt: 0xf4f4f4, pants: 0x1c2833, shoe: 0x2b1d14, shoeStyle: 'oxford', sleeves: 'long', shorts: false, hair: 0x1b1b1b } };
@@ -1812,7 +1819,7 @@ export class Game {
     if (had && (a.spot === 'xeOm' || a.spot === 'place') && had.def?.spot === a.spot && had.def.place === a.place && !had.leaving) { had.def = a; return; } // đã đứng sẵn đúng chỗ (dựng lúc mở game) → giữ nguyên
     this.storyActorRemove(a.who);
     const rng = makeRng([...a.who].reduce((h, c) => h * 31 + c.charCodeAt(0), 7) + this.gs.day); // cố định theo người lạ + ngày
-    const { look, dress = null } = this.storyActorLook(a.look, rng);
+    const { look, dress = null } = this.storyActorLook(a.look, rng, a);
     const mesh = makePerson({ ...look, face: null });
     dress?.(mesh);
     const ac = { mesh, look, dress, mode: 'idle', phase: 0, t: 0, def: a, callT: 0 };
@@ -1909,14 +1916,14 @@ export class Game {
     const sp = this.speakerOf(who);
     if (!sp || !text) return;
     if (who !== 'player') this.lastSpeaker = who; // camera nhìn theo người đang nói
-    this.bubbles.show(`story:${who}`, () => headOf(sp.mesh, sp.up), fmt(text, { name: this.gs.profile.name }), 'story', hold ? Infinity : undefined, { name: sp.name, type: true, wait: hold });
+    this.bubbles.show(`story:${who}`, () => headOf(sp.mesh, sp.up), fmt(text, this.storyVoice(who)), 'story', hold ? Infinity : undefined, { name: sp.name, type: true, wait: hold });
   }
   // Hiện 2–3 câu trả lời trên đầu người chơi (story.json → choose) · chọn bằng phím 1/2/3 hoặc bấm vào
   // a.ask: người chơi mở lời — chờ bấm E cạnh người nói (a.who) mới hiện các câu
   storyChooseShow(a, now = false) {
     if (a.ask && !now) { this.storyAsk = a; return; }
     this.storyAsk = null;
-    const opts = (a.options || []).map((k) => fmt(k, { name: this.gs.profile.name }));
+    const opts = (a.options || []).map((k) => fmt(k, this.storyVoice(a.who))); // câu người chơi nói với a.who: {khach} {minh} theo sơ đồ quan hệ
     if (!opts.length) return;
     this.storyChoice = { ...a, options: opts };
     if (this.speakerOf(a.who)) this.storyTalkWith = a.who; // đang nói chuyện với người này: đứng yên, camera nhìn 2 người
@@ -2239,6 +2246,12 @@ export class Game {
     if (!key) return '';
     const p = this.gs.power, k = has(`${key}.${p}`) ? `${key}.${p}` : key;
     return fmt(k, { name: this.gs.profile.name, lockBelow: Number(APP.account.lockBelow).toFixed(1), maxLate: ECONOMY.maxLate ?? 2 });
+  }
+  // Tham số thoại cốt truyện của người nói who (mã người trong story.json / 'place:<mã>'): tên người chơi
+  // + xưng hô theo sơ đồ quan hệ (data/relations.json, công cụ /?relationship). Chưa vẽ dây thì chỉ có tên.
+  storyVoice(who) {
+    const gs = this.gs;
+    return { name: gs.profile.name, ...(voiceOf(who, gs.profile?.gender, chapterNum(gs.story, STORY)) || {}) };
   }
   // Chỗ nạp năng lượng cho xe đang dùng: cây xăng (xe xăng) · trụ sạc (xe điện)
   fuelStop() {

@@ -18,13 +18,15 @@ src/
              phone.json + phoneApps.js (thứ tự / biểu tượng / màu / ẩn app trên điện thoại = phím 1–9; app có thật ở APP_DEFS)
              sounds.json + soundSpec.js (gắn file âm thanh cho từng mã; thêm chỗ phát tiếng mới = thêm mã vào soundSpec + gọi sound() + ghi vào docs/am-thanh.md)
              story.json (cốt truyện chơi một mình: chương → bước; bộ chạy sim/story.js, thẻ 📖 Cốt truyện của ?editor, chữ ở vi.json khóa story.*)
+             relations.json + relations.js (sơ đồ quan hệ nhân vật — công cụ /?relationship: hồ sơ, tính cách, xưng hô 2 chiều, chương, bí mật, ngoại hình riêng;
+             game dùng cho {toi}/{ban}/{khach}/{minh} và người lạ dáng "char"; ĐỌC file này trước khi viết truyện / lời thoại; ghi chú cho người dùng → mảng notes)
              map.json + map.js (cỡ bản đồ, kiểu hẻm từng khối, sông + cầu, đường ngập floodSegs; mặt bằng hẻm ở sim/blockPlan.js, đường đi ở cityLayout.routeDist; ngập + triều cường ở sim/flood.js)
   content/   vi.json — MỌI chữ hiển thị; code gọi fmt(khóa, tham số) / pick / list
   sim/       mô phỏng thuần (không Three.js, không DOM): clock (đồng hồ 24h liên tục), OrderManager (máy trạng thái), ItemPhysics,
              OrderCondition, economy, hazards, GameState, objectives, cityLayout, rng
   world/     Three.js: city, controllers (xe, đi bộ, camera), traffic, sky, models, textures, physics
   ui/        hud, phone (app GoShip, Túi đồ chia ô + bảng "Đang mặc", Xe), avatar (avatar 3D), modal, packing (xếp túi), minimap, screens
-  devtools/  autopilot (?debug), editor/ (công cụ nội dung ?editor)
+  devtools/  autopilot (?debug), editor/ (công cụ nội dung ?editor), relationship/ (sơ đồ quan hệ ?relationship)
   game.js    vòng lặp, nối sim ↔ world ↔ ui · interactions.js mọi thao tác/hội thoại
 tests/       run.js (bộ thử luật + dữ liệu) · economy-sim.js (bot chơi headless)
 ```
@@ -39,6 +41,7 @@ Nguyên tắc:
 ## 3. Công cụ qua tham số địa chỉ
 - `?debug`: `window.game` (step, press, snapshot), `window.autopilot`; phím T tua 30 phút, K +100k, L đầy xăng.
 - `?cheat` (chỉ khi `npm run dev`, bản build không có): bảng cheat để test (`src/devtools/cheat.js`), bấm phím ` để mở — tiền/chỉ số, tua giờ, thời tiết/ngập, gọi đơn theo loại / quán / loại khách, lấy hàng ngay, ép sự cố, xe/túi/đồ, vào hãng, dịch chuyển, bất tử, cốt truyện, bảng soi.
+- `?relationship`: sơ đồ quan hệ nhân vật (thẻ nhân vật + dây quan hệ, ✅ Kiểm tra = validateRelations trong validate.js). Lưu ghi src/data/relations.json ("Đưa vào cốt truyện" ghi thêm story.json + vi.json, gộp vào bản mới nhất).
 - `?editor`: công cụ nội dung (Vật phẩm · Xe/Túi/Đồ nghề · Địa điểm & NPC · Bản đồ · 🏗️ Xây dựng (bản đồ 3D: kéo địa điểm từ danh sách thả vào lô, dời, xoay, đổi kiểu hẻm) · App & Đơn · 📱 Giao diện app · Cân bằng · Chữ & hội thoại). Địa điểm mới tạo nằm "chưa đặt" (không có block/lot) → game bỏ qua tới khi kéo vào bản đồ (`isPlaced` trong data/places.js); khi chạy `npm run dev`, Lưu ghi thẳng vào file JSON. Người dùng hay tự sửa dữ liệu bằng công cụ này — tôn trọng các thay đổi đó, không ghi đè.
 
 ## 4. Kiểm thử (bắt buộc trước mỗi lần giao)
