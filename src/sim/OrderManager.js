@@ -27,6 +27,7 @@ import { isDark } from './clock.js';
 import { fmt } from '../content/index.js';
 import { isOpen, orderWeight, unlocked } from './placeRules.js';
 import { inHours } from './hours.js';
+import { personOf } from './people.js';
 
 export const S = Object.freeze({
   OFFLINE: 'OFFLINE',
@@ -184,7 +185,8 @@ export class OrderManager {
 
   // ---------- đơn cốt truyện (story.json → việc "offer") ----------
   // Cuốc chở khách hướng dẫn: khách app thường đứng gần mình, đi chỗ không xa, không sự cố giữa đường
-  storyRide(pos, now = 0) {
+  // customer: tên khách cố định (story.json → offer.customer, vd "Cô Hằng"); bỏ trống = tên người lớn bình thường
+  storyRide(pos, now = 0, customer = null) {
     const type = ORDER_TYPES.ride || Object.values(ORDER_TYPES).find((t) => t.kind === 'ride') || { id: 'ride', kind: 'ride', fareMult: 1, deadlineMult: 1 };
     const rider = RIDER_TYPES.app || null;
     const l = this.pickLotAround(pos, 30, 120);
@@ -197,7 +199,33 @@ export class OrderManager {
     o.revealed = true;
     o.story = 'tutorial';
     o.forced = true;
+    o.customer = customer || this.plainName(o.id); // khách người lớn bình thường (không phải bé / cụ già / khách nước ngoài)
     return o;
+  }
+  // Đơn giao đồ ăn hướng dẫn (story.json → việc "offer" kind food): lấy ở quán placeId (vd Bún Mọc Cô Yến), món đầu thực đơn,
+  // giao tới nhà dân (không chung cư), không sự cố: không hết món, khách nghe máy, không khó tính, địa chỉ rõ. Quán nấu riêng cho đơn này
+  // nên không xét giờ mở cửa. Chơi nhiều người: đơn cốt truyện chỉ mời riêng người đang ở bước đó (không lấy đơn chung của thế giới).
+  storyFood(placeId, pos, now = 0) {
+    const r = this.layout.placeById?.[placeId] || this.layout.places.find((p) => p.id === placeId);
+    const menu = (r?.menu || []).filter((id) => ITEMS[id] && this.canCarry(ITEMS[id]));
+    if (!r || !menu.length) return null;
+    const type = ORDER_TYPES.food || Object.values(ORDER_TYPES).find((t) => t.kind === 'food') || { id: 'food', kind: 'food', fareMult: 1, deadlineMult: 1 };
+    const pickup = { placeId: r.id, name: r.name, address: r.address, door: r.door };
+    const dropoff = this.pickDropoff(r.door, false, now, null, r.id);
+    const o = this.buildOrder({ type, pickup, dropoff, itemIds: [menu[0]], pos, now });
+    Object.assign(o.flags, { noAnswer: false, picky: false, outOfStock: false, liftBroken: false, vague: false });
+    o.revealed = true;
+    o.zone = null;
+    o.story = 'tutorial';
+    o.forced = true;
+    o.customer = this.plainName(o.id);
+    return o;
+  }
+  // Tên khách "người bình thường": người lớn / người trẻ, tên Việt (không bé, không cụ già, không tên Tây) — chọn cố định theo mã đơn
+  plainName(seed = 0) {
+    const ok = CUSTOMER_NAMES.filter((n) => { const w = personOf(n); return (w.age === 'young' || w.age === 'adult') && !/^[a-z][a-z -]*$/i.test(w.name.trim()); });
+    const list = ok.length ? ok : CUSTOMER_NAMES;
+    return list[Math.abs(Math.floor(seed)) % list.length];
   }
   // Mời ngay một đơn cốt truyện: bật app nếu đang tắt; đang có đơn / đơn mời khác thì chưa được (game thử lại sau)
   forceOffer(o) {
@@ -260,7 +288,7 @@ export class OrderManager {
   makeFood(type, now, pos) {
     // chỉ quán đang mở cửa mới có đơn
     const options = this.layout.places
-      .filter((p) => p.kind === 'restaurant' && isOpen(p, now, this.gs.day) && (p.menu || []).length)
+      .filter((p) => p.kind === 'restaurant' && isOpen(p, now, this.gs.progress) && (p.menu || []).length)
       .map((r) => ({ r, menu: r.menu.filter((id) => this.itemOk(id)) }))
       .filter((o) => o.menu.length);
     if (!options.length) return null;
@@ -283,7 +311,7 @@ export class OrderManager {
     // lấy ở shop "gửi hàng từ đây" gần tài xế (trong ORDER.parcelShopMax m, ưu tiên gần); không có thì nhà người gửi gần đó
     let pickup = null;
     const shops = this.layout.places
-      .map((p) => ({ p, w: orderWeight(p, 'parcelWeight', now, this.gs.day), d: routeDist(pos, p.door) }))
+      .map((p) => ({ p, w: orderWeight(p, 'parcelWeight', now, this.gs.progress), d: routeDist(pos, p.door) }))
       .filter((c) => c.w > 0 && c.d <= ORDER.parcelShopMax);
     if (shops.length) {
       const { p } = this.rng.weighted(shops, shops.map((c) => c.w / near(c.d)));
@@ -310,7 +338,7 @@ export class OrderManager {
   // force: luôn chọn nếu có nơi đủ điều kiện. Trả về null nếu lần này không chọn địa điểm nào.
   // forRide: đơn xe ôm → địa điểm trong hẻm đi bộ thì đón/trả ở miệng hẻm
   placeDestination(key, now, excludeId = null, scale = 1, force = false, forRide = false) {
-    const cands = this.layout.places.filter((p) => p.id !== excludeId).map((p) => ({ p, w: orderWeight(p, key, now, this.gs.day) })).filter((c) => c.w > 0);
+    const cands = this.layout.places.filter((p) => p.id !== excludeId).map((p) => ({ p, w: orderWeight(p, key, now, this.gs.progress) })).filter((c) => c.w > 0);
     const W = cands.reduce((s, c) => s + c.w, 0);
     if (!W || (!force && !this.rng.chance((W / (W + ORDER.placeDestBase)) * scale))) return null;
     const { p } = this.rng.weighted(cands, cands.map((c) => c.w));
@@ -326,7 +354,7 @@ export class OrderManager {
     return this.rng.weighted(cands, cands.map((r) => r.weight));
   }
   riderPlaces(r, now) {
-    return (r.from || []).filter((id) => id !== FROM_HOMES).map((id) => this.layout.placeById[id]).filter((p) => p && isOpen(p, now, this.gs.day));
+    return (r.from || []).filter((id) => id !== FROM_HOMES).map((id) => this.layout.placeById[id]).filter((p) => p && isOpen(p, now, this.gs.progress));
   }
 
   makeRide(pos, story, now = 0, type = ORDER_TYPES.ride) {

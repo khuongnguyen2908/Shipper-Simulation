@@ -751,7 +751,8 @@
         ]
       },
       "look": "teahouse",
-      "face": "E"
+      "face": "E",
+      "openChapter": 3
     },
     {
       "id": "gas",
@@ -1573,7 +1574,8 @@
         "foodWeight": 0
       },
       "look": "pagodaCourtyard",
-      "face": "E"
+      "face": "E",
+      "openChapter": 2
     },
     {
       "id": "clothestore",
@@ -2258,6 +2260,24 @@
         5
       ],
       "lot": "S12",
+      "hours": "caNgay",
+      "orders": {
+        "rideWeight": 1
+      }
+    },
+    {
+      "id": "canhquan2_5",
+      "name": "Bãi Giữ Xe Khách",
+      "short": "Bãi xe",
+      "kind": "scenery",
+      "icon": "🅿️",
+      "look": "parkingLot",
+      "color": "#91e36d",
+      "block": [
+        3,
+        5
+      ],
+      "lot": "N0",
       "hours": "caNgay",
       "orders": {
         "rideWeight": 1

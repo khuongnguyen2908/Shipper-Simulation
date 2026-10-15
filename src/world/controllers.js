@@ -8,7 +8,7 @@ import { resolveCircle } from './physics.js';
 import { makeBike, makePerson, animatePerson, setSitting, setBikeColor, sitY, gripBar } from './models.js';
 
 const SW_H = 0.15;
-const lerpAngle = (a, b, t) => {
+export const lerpAngle = (a, b, t) => {
   let d = ((b - a + Math.PI) % (Math.PI * 2)) - Math.PI;
   if (d < -Math.PI) d += Math.PI * 2;
   return a + d * t;
@@ -324,6 +324,7 @@ export class Walker {
 // ======================== CAMERA ========================
 // Vật cản camera phải né: nhà dân + nhà địa điểm (cây, cột, xe đậu… thì cho xuyên qua)
 const CAM_BLOCK = new Set(['house', 'place']);
+const CAM_BLOCK_STILL = new Set(['house', 'place', 'pole', 'lamp', 'tree', 'busStop', 'post', 'decor']); // đứng yên: né cả vật nhỏ che tầm nhìn
 export class CameraRig {
   constructor(camera) {
     this.camera = camera;
@@ -344,7 +345,8 @@ export class CameraRig {
   }
   // followHeading: hướng xe (camera tự quay ra sau xe), null khi đi bộ
   // limit { dist, pitch }: giới hạn tạm (vd trong hầm xe: gần + thấp để không xuyên trần); không đổi số người chơi đã chỉnh
-  update(dt, focus, followHeading, grid, limit = null) {
+  // still: người chơi đang đứng yên → camera né cả vật nhỏ (cột điện, biển, thân cây…) cho khỏi che nhân vật
+  update(dt, focus, followHeading, grid, limit = null, still = false) {
     if (followHeading != null && this.manualTimer <= 0) this.yaw = lerpAngle(this.yaw, followHeading + Math.PI, 1 - Math.exp(-2.2 * dt));
     this.manualTimer -= dt;
     const fy = focus.y + 1.5;
@@ -369,7 +371,7 @@ export class CameraRig {
     let d = dist;
     for (let s = 1; s <= dist; s += 0.25) {
       const p = this.target.clone().addScaledVector(dir, s);
-      if (grid.inside(p.x, p.y, p.z, CAM_BLOCK)) {
+      if (grid.inside(p.x, p.y, p.z, still ? CAM_BLOCK_STILL : CAM_BLOCK)) {
         d = Math.max(2, s - 0.8);
         break;
       }

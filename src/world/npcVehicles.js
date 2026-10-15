@@ -28,7 +28,7 @@ function wheel(parent, r, w, x, y, z) {
 const pick = (rng, arr) => arr[Math.floor(rng.next() * arr.length)];
 
 // người lái ngồi trên xe máy (kiểu BIKE_SPECS) — tay nắm tay lái
-function seatRider(bike, look, model, z = -0.05) {
+export function seatRider(bike, look, model, z = -0.05) {
   const m = makePerson(look);
   m.position.set(0, sitY(m.scale.x), z);
   bike.add(m);

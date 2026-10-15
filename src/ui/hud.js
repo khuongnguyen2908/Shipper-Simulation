@@ -119,6 +119,7 @@ export class Hud {
     }
     if (!pedal) this.bar('bFuel', d.tank > 0 ? (d.fuel / d.tank) * 100 : 0);
     this.bar('bHp', d.hp);
+    $(this.el, '.hud-obj').style.display = d.objectives.length ? '' : 'none'; // không còn mục nào → ẩn cả bảng
     this.set('objList', d.objectives.map((o) => `<li class="${o.done ? 'done' : ''}${o.optional ? ' opt' : ''}${o.current ? ' cur' : ''}">${o.done ? '✔' : o.optional ? '◇' : '○'} ${o.optional ? fmt('obj.optionalPrefix') : ''}${o.text}</li>`).join(''));
     this.set('gText', d.goal ? d.goal.text : '');
     this.set('gSub', d.goal ? d.goal.sub || '' : '');
@@ -144,15 +145,27 @@ export class Hud {
     }
   }
 
+  // Thông báo nhỏ: mỗi lúc hiện tối đa 2 cái, cái mới hơn xếp hàng chờ (khỏi dồn 3–4 thông báo một lượt).
+  // Trùng chữ với cái đang hiện / đang chờ thì bỏ qua.
   toast(text, kind = 'info', ms = 4200) {
-    const t = document.createElement('div');
-    t.className = `toast ${kind}`;
-    t.innerHTML = text;
+    this.toastQ ||= [];
     const box = $(this.el, '#toasts');
-    box.appendChild(t);
-    while (box.children.length > 5) box.firstChild.remove();
-    setTimeout(() => t.classList.add('out'), ms);
-    setTimeout(() => t.remove(), ms + 500);
+    if ([...box.children].some((c) => c.dataset.text === text) || this.toastQ.some((q) => q.text === text)) return;
+    this.toastQ.push({ text, kind, ms });
+    this.toastPump();
+  }
+  toastPump() {
+    const box = $(this.el, '#toasts');
+    while (this.toastQ.length && [...box.children].filter((c) => !c.classList.contains('out')).length < 2) {
+      const { text, kind, ms } = this.toastQ.shift();
+      const t = document.createElement('div');
+      t.className = `toast ${kind}`;
+      t.innerHTML = text;
+      t.dataset.text = text;
+      box.appendChild(t);
+      setTimeout(() => { t.classList.add('out'); this.toastPump(); }, ms);
+      setTimeout(() => t.remove(), ms + 500);
+    }
   }
 
   show(v) {

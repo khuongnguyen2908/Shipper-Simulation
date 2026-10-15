@@ -26,6 +26,8 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [x] | `ui.click` | Bấm nút | Bấm nút trong menu, hộp thoại, điện thoại | tiếng ngắn | 🎧 có file |
 | [x] | `ui.hover` | Rê chuột qua nút | Chuột đi qua nút menu / lựa chọn hộp thoại | tiếng ngắn | 🎧 có file |
 | [x] | `ui.modal` | Mở hộp thoại | Hộp thoại / lời NPC hiện lên | tiếng ngắn | 🎧 có file |
+| [ ] | `ui.warn` | Cảnh báo | Bấm nút mà còn chỗ sai (vd Xếp xong lúc món nước còn nằm nghiêng) — hỏi lại 1 lần | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `ui.talk` | Chữ thoại hiện dần | Bong bóng thoại cốt truyện hiện từng chữ (cứ 2 chữ một tiếng ngắn, kiểu "lách cách") | tiếng ngắn | 🔉 tổng hợp |
 | [x] | `ui.next` | Sang trang | Bấm "Tiếp ▸" trong lời thoại nhiều trang, chuyển trang giới thiệu | tiếng ngắn | 🎧 có file |
 | [x] | `ui.sign` | Ký tên | Bắt đầu một nét ký trong popup hợp đồng | tiếng ngắn | 🎧 có file |
 | [x] | `ui.tutorial` | Bước hướng dẫn | Hướng dẫn sang bước mới (chỗ sáng đổi vị trí) | tiếng ngắn | 🎧 có file |

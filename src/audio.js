@@ -245,6 +245,7 @@ export const SYNTH = {
   cash() { [660, 880, 1100, 1320].forEach((f, i) => tone(f, 0.1, { type: 'triangle', vol: 0.18, at: i * 0.07 })); },
   bad() { tone(300, 0.25, { type: 'sawtooth', vol: 0.12, slide: -120 }); },
   click() { tone(1200, 0.04, { type: 'square', vol: 0.06 }); },
+  talk() { tone(170 + Math.random() * 70, 0.035, { type: 'square', vol: 0.035 }); }, // chữ thoại hiện dần (chỉ để nghe, không ảnh hưởng ai)
   horn() { tone(392, 0.25, { type: 'square', vol: 0.1 }); tone(494, 0.25, { type: 'square', vol: 0.08 }); },
   crash() { noise(0.35, { vol: 0.5, freq: 1200 }); tone(90, 0.3, { type: 'sine', vol: 0.3 }); },
   bump() { noise(0.12, { vol: 0.35, freq: 300 }); },

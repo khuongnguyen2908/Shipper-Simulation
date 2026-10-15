@@ -27,6 +27,46 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   - Chủ game tự tạo dự án Firebase (Claude hướng dẫn từng bước), dán cấu hình vào code.
 
 ## 💬 Đang bàn
+### 🧪 Chơi thử chương 1 như người chơi (16/10) — đã sửa theo ý chủ game
+- **Từ nay mọi lời thoại cốt truyện là bong bóng** (chủ game chốt): nói chuyện ở địa điểm (talk), việc "say", câu "nhắn mẹ chưa?" →
+  bong bóng trên đầu NPC (game.storyConverse: bấm E "Nghe tiếp" qua câu, câu "ok" = người chơi đáp; đứng yên + camera xích lại; dấu !/? ẩn khi đang nói).
+  CÒN dạng bảng (là menu chọn, không phải lời thoại): mua bán, trả tiền nhà, CSGT phạt, hãng… — hỏi chủ game nếu muốn đổi.
+- Đã sửa: ô phím trang giới thiệu đọc được + mục 🎮 Điều khiển (menu chính + Esc) · khoảng cách mục tiêu theo đường đi thật, dưới 1 km ghi mét
+  · bảng "Mục tiêu hôm nay" không lặp mục tiêu cốt truyện · biển trạm xe buýt / bảng tên NPC mờ khi camera sát hoặc chắn trước người chơi
+  · thông báo tối đa 2 cái một lúc (còn lại xếp hàng), màn ≤ 1100px lên giữa phía trên · màn tạo nhân vật: hàng nút Quay lại / Tiếp bám đáy
+  · bảng nhắc Shift chỉ tới Esc → 🎮 Điều khiển · xếp túi cốt truyện phải đúng luật mới đi; đơn hàng thường xếp sai phải bấm 2 lần ("Vẫn đi…")
+  · đứng yên > 0,6 giây: camera né cả cột điện / cây / biển (CAM_BLOCK_STILL).
+- Chủ game: đi bộ xa đầu game "không sao" (giữ nguyên).
+- (16/10) Đơn hướng dẫn cố định: đơn đầu = giao bún mọc ở **Bún Mọc Cô Yến** (bước firstOrder: offer kind food place bunmoc, không sự cố,
+  không xét giờ mở cửa; swFood + firstOrder chặn đơn ngẫu nhiên) · cuốc chở thử: khách người lớn bình thường (OrderManager.plainName).
+  Nút E trên bong bóng cốt truyện cố định ở góc phải dưới.
+- (16/10 khuya) Không còn bong bóng người chơi tự đáp cuối cuộc nói chuyện (talk.ok không dùng nữa; câu cuối nút E = "Xong").
+  · Xếp túi: lúc hướng dẫn bấm Xoay, ô món đang xoay trong túi cũng sáng (spotlight `also`, không khung).
+  · Còn tin chưa đọc mà máy cất → hình điện thoại nhỏ rung lại mỗi ~4 giây (chỉ rung hình).
+  · Khách xe ôm dễ chịu hơn 20% (driving.rider*: 2,88 / 4,8 / 2,4 / 0,29 / 14,4). Sim 20×6 ngày: sao +0,02–0,09, normal qua ngày 6: 60% → 80%.
+  · Cuốc chở thử là **Cô Hằng**; thêm bước rideDone (chở tới nơi) → CSGT → hết chương 1. Bảng mục tiêu: hết chương 1 mới có "Giao 10 đơn".
+- (16/10 tối) Nói chuyện: khóa camera (không xoay / phóng) · Cô Hai đã gặp rồi mà chưa tới lượt nói → câu `story.coHaiLater` (không hỏi lại "Ủa con tới rồi hả?")
+  · đã nói xong / đang xếp túi thì không hiện lại nút nói chuyện của cốt truyện · bảng "Mục tiêu hôm nay" bỏ mục trả tiền nhà (bảng trống thì ẩn).
+- Chưa chơi tới: chạy tới quán Chú Hai → 2 hãng → xăng → đơn đầu → CSGT (đường xa, cần chơi tay).
+
+### 📖 Chương 2 "Bạn mới ở thành phố" (16/10 — XONG bản đầu, lời thoại nháp, chủ game tự sửa sau)
+- Luồng: hết chương 1 → giao thêm 10 đơn (đếm dồn, qua ngày không mất; bảng mục tiêu "Giao 10 đơn (n/10)") → 🛏️ nghỉ ngơi qua ngày mới
+  (điều kiện newDay; ngày mới bắt đầu 6:00) → ngày đó từ 17h30 →
+  chú Hai nhắn → đọc tin mới hiện tên chương → lấy hộp cơm chay (xếp túi) → Tiệm Trà A Di Đà ĐÓNG (tới hết chương 2) →
+  sư cô (!) nói + 3 câu → "Chị Linh đâu rồi?" → bảo vệ: bấm E mở lời (3 câu) → 3 câu → vòng tím quanh trường → chị Linh + người đàn ông
+  (sau trường, đối diện Đồ Chơi Bé Yêu, mô tô xịn) → hỏi (3 câu, dấu ? giật mình 2 người) → 3 câu → thoại qua lại → anh ta đội full-face lên mô tô đi
+  → "Chở chị Linh về" (chị tự đội mũ, không qua app) → về tiệm đưa cơm → chị Linh nhắn số → hết chương 2 (tiệm trà mở lại).
+- Máy mới: địa điểm **"Mở từ chương"** (places.json → openChapter; thay "mở từ ngày" của địa điểm — món ăn vẫn "có đơn từ ngày"):
+  tiệm trà = 3 (đóng tới hết chương 2), chùa = 2 (chương 1 không có đơn ở chùa). Chưa mở: "🔒 Đóng cửa", không đơn, NPC ẩn, mờ trên bản đồ.
+- Cốt truyện có thêm: điều kiện ordersSince / clock / bring · việc board / alight / drop · người nói 'place:<mã>' (NPC địa điểm) ·
+  choose.ask (bấm E mới hiện câu) + choose.react (dấu ? giật mình) · actor spot 'place' (dist / lat / faceTo / vehicle moto) ·
+  zone (vòng tím) · talkLabel (chữ nút E) · mark nhiều dấu (mảng). Camera nói chuyện canh cả nhóm (2 người) — TALK_CAM_GROUP.
+- Thoại tuần tự (16/10): mỗi lúc chỉ 1 bong bóng chờ E — câu người chơi chọn giữ tới khi bấm E rồi người kia mới đáp; câu thoại / bảng chọn câu mới
+  xếp hàng (storyQueue) tới khi bấm E. Bán kính trong thẻ Cốt truyện tính theo đơn vị bản đồ (1 ≈ 10 m trên màn hình, cột sáng vàng ≈ 1).
+- Cheat (?cheat → 📖 Cốt truyện): ✅ Xong mục tiêu này (×5) — làm luôn phần đi kèm (nhận gói hàng, chọn câu đầu, đọc tin…) · ⏩ Nhảy tới bước bất kỳ · bảng soi ghi chương / bước / điểm tính cách.
+- Bản lưu đã xong chương 1 từ hồi chưa có chương 2 (story.ch = null) → mở game tự vào chương 2 (resumeNewChapters).
+- CHƯA làm: mở lại game giữa lúc đang chở chị Linh → chị đứng lại ở sau trường (phải quay lại đón).
+
 ### 📖 Cốt truyện chơi một mình (14/10 — chương 1 XONG, chờ chủ game chơi thử; chương 2+ chủ game tự viết)
 - Hướng truyện (chủ game chốt): sinh viên nghèo lên thành phố học + chạy shipper → dính đường dây tội phạm → làm đặc tình phối hợp công an.
   Gợi ý đã đưa (chưa chốt): đường dây trộm xe + lừa đảo qua app; 5 chương; nhiều kết. Mầm chương 2: **tờ rơi "Việc nhẹ lương cao"** (anh Tâm) nằm trong túi đồ.
@@ -37,7 +77,25 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
     · goal / hint / target (mũi tên) · guide (làm sáng nút trên điện thoại: thread, route, reply, wear, switch).
   - Tiến độ lưu trong save (GameState.story). Chơi mới → chương 1 bắt đầu sau màn "tới thành phố"; bản lưu cũ coi như đã xong.
   - Bước "bấm 📍 Chỉ đường": chưa bấm thì chưa có mũi tên. (Nút "Bỏ qua hướng dẫn" đã bỏ 15/10.)
+  - **Người lạ trong cảnh (15/10)**: việc `actor` (hiện người lạ — dáng jetjet / bình thường; chỗ đứng `xeOm` = gốc cây kế chú xe ôm ở địa điểm …,
+    cố định, mở lại game vẫn dựng lại · hoặc `near` = chếch trước người chơi, không dựng lại), câu `call` (có dấu ! thì ~6 giây gọi 1 lần),
+    câu `idle` (bấm E lúc hết chuyện) · `remove` (biến mất) · `approach` / `leave` (đi tới / chạy mất — hiện chưa dùng) · `bubble` (+ `hold` giữ tới câu sau).
+    Điều kiện `talkActor` = người chơi đứng gần bấm E (mỗi E một câu). Bước có `leash` {place, r, text}: chưa xong thì bị giữ trong vùng + nhắc.
+    Mũi tên mục tiêu tới người lạ: target `actor:<mã>`. Người lạ chỉ máy mình thấy.
+    Bong bóng cốt truyện (16/10): viền vàng + tên người nói + chữ hiện dần kèm tiếng `ui.talk` (E lúc chữ đang chạy = hiện hết) + dấu [E] nhấp nháy;
+    đang nói chuyện thì người chơi quay mặt + camera xích lại nhìn qua vai (không khóa điều khiển, không dừng giờ). Việc `choose` (2–3 câu trả lời trên đầu,
+    phím 1/2/3, người lạ đáp theo câu chọn) + điều kiện `chosen`; lựa chọn lưu ở `story.picks` (chương sau rẽ nhánh — CHƯA có điều kiện đọc picks).
+    Người lạ ở bước đầu chương đứng sẵn từ lúc vào game (actorsPresent).
+  - **Tính cách → kết cục (16/10)**: 3 tính cách good (Công dân gương mẫu → kết vui) · neutral (trung lập → kết bình thường) · bad (xấu tính → kết xấu, tha hóa).
+    Mỗi câu trả lời — chọn câu ngoài thế giới (choose.gains) lẫn trả lời nhanh trong tin nhắn (replies.gains) — cộng điểm vào `story.traits` (lưu trong save, mỗi lựa chọn tính 1 lần); người chơi không thấy số, chỉ thông báo "😇 Gương mẫu ↑".
+    `leaning(story)`: nhiều điểm nhất thắng, bằng nhau → trung lập. Bước có `onlyTrait` chỉ chạy khi đang nghiêng về tính cách đó (nội dung riêng).
+    **CHƯA làm**: màn kết cục cuối game (xét leaning) + nội dung độc quyền cụ thể — chủ game viết khi tới.
+    Câu anh phát tờ rơi: o1 → xấu tính +1, o2 → trung lập +1, o3 → gương mẫu +1 (gợi ý, chủ game đổi được).
+    Bong bóng cốt truyện được ưu tiên: bong bóng người đi đường chồng lên thì tạm ẩn.
 - **Chương 1 "Cuộc sống mới, công việc mới"** (23 bước, sửa theo ý chủ game 14/10 tối): tên chương chữ to tự mờ dần (~5 giây, cảnh game tối hẳn rồi sáng lại) → mờ hết mới tới anh phát tờ rơi
+  (16/10 bản 3: anh jetjet đứng sẵn ở gốc cây kế chú xe ôm từ lúc vào game; tên chương mờ hết + 1 giây mới có dấu ! + gọi "Ê nhóc!"; người chơi lại bấm E từng câu
+  (2 câu, nhận tờ rơi) → E → chọn 1 trong 3 câu trả lời (anh ta đáp theo câu chọn, lưu picks.flyerAsk) → E → "???" trên đầu người chơi → Mẹ nhắn. Chưa nói xong mà đi quá 30 m khỏi bến xe → bị giữ lại + "Có người kêu kìa…".
+  Anh ta vẫn đứng đó (E → "Nhớ gọi anh!") tới khi người chơi tới nhà Cô Hai thì biến mất. Chờ chủ game chơi thử đoạn này)
   → Mẹ nhắn tin 1, làm sáng dòng mục tiêu "Điện thoại rung" (chỉ cho bấm Tab) → mở tin của Mẹ rồi mới tính 5 giây ra tin 2, 5 giây ra định vị nhà Cô Hai
   → bấm 📍: điện thoại tự cất → làm sáng bản đồ tròn (tự tắt sau 2 giây) → bảng nhắc "Giữ Shift chạy nhanh" (bấm ra ngoài / 2 giây)
   → tới nhà, Cô Hai dấu **!** → chào lần 1, Cô Hai nhắc nhắn mẹ → điện thoại tự bật vào tin của Mẹ (không hướng dẫn), người chơi tự trả lời

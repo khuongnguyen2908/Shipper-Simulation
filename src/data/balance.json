@@ -14,7 +14,7 @@
     "noHelmetFine": 60,
     "blockFine": 50,
     "blockWarnMin": 10,
-    "blockFineMin": 15,
+    "blockFineMin": 30,
     "repairCost": 40,
     "oilCost": 60,
     "oilIntervalKm": 180,
@@ -147,7 +147,7 @@
     "potholeMul": 1.5
   },
   "parking": {
-    "graceMin": 20,
+    "graceMin": 60,
     "fee": 5,
     "ticketPerHour": 0.3,
     "ticketFine": 50,
@@ -235,15 +235,15 @@
     "liquidSwerve": 3,
     "liquidBrake": 4.8,
     "liquidBump": 7.2,
-    "riderSwerve": 3.6,
-    "riderBrake": 6,
+    "riderSwerve": 2.88,
+    "riderBrake": 4.8,
     "liquidCrash": 9,
     "fragileCrash": 16.8,
     "fragileBump": 3,
     "fragileBrake": 2.4,
-    "riderSpeed": 0.36,
-    "riderBump": 3,
-    "riderCrash": 18
+    "riderSpeed": 0.29,
+    "riderBump": 2.4,
+    "riderCrash": 14.4
   },
   "flood": {
     "tideChance": 0.2,
@@ -312,7 +312,7 @@
     "delayMax": 60,
     "maxPerDay": 2,
     "warnFirst": 1,
-    "minSpeed": 2.5,
+    "minSpeed": 2.777778,
     "autoCameraPct": 0.34
   }
 }

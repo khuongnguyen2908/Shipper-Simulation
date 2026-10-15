@@ -351,7 +351,7 @@ export class Phone {
       this.threadKey = tk;
     }
     if (this.app === 'tictac') this.tictac.update(d.feed);
-    if (this.app === 'map') this.cityMap.draw({ ...d.mapData, now: d.now, day: d.gs.day, busy: !!d.order || d.state === S.OFFERED, tut: d.tut });
+    if (this.app === 'map') this.cityMap.draw({ ...d.mapData, now: d.now, day: d.gs.day, prog: d.gs.progress, busy: !!d.order || d.state === S.OFFERED, tut: d.tut });
   }
 
   // Màn hình chính: ô tóm tắt hôm nay + các app (chấm đỏ = có tin mới)

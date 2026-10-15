@@ -28,6 +28,8 @@ const LIST = [
   ['ui.click', 'ui', 'Bấm nút', 'Bấm nút trong menu, hộp thoại, điện thoại', '', 'sfx'],
   ['ui.hover', 'ui', 'Rê chuột qua nút', 'Chuột đi qua nút menu / lựa chọn hộp thoại', '', 'sfx'],
   ['ui.modal', 'ui', 'Mở hộp thoại', 'Hộp thoại / lời NPC hiện lên', '', 'sfx'],
+  ['ui.warn', 'ui', 'Cảnh báo', 'Bấm nút mà còn chỗ sai (vd Xếp xong lúc món nước còn nằm nghiêng) — hỏi lại 1 lần', 'bad', 'sfx'],
+  ['ui.talk', 'ui', 'Chữ thoại hiện dần', 'Bong bóng thoại cốt truyện hiện từng chữ (cứ 2 chữ một tiếng ngắn, kiểu "lách cách")', 'talk', 'sfx'],
   ['ui.next', 'ui', 'Sang trang', 'Bấm "Tiếp ▸" trong lời thoại nhiều trang, chuyển trang giới thiệu', '', 'sfx'],
   ['ui.sign', 'ui', 'Ký tên', 'Bắt đầu một nét ký trong popup hợp đồng', '', 'sfx'],
   ['ui.tutorial', 'ui', 'Bước hướng dẫn', 'Hướng dẫn sang bước mới (chỗ sáng đổi vị trí)', '', 'sfx'],

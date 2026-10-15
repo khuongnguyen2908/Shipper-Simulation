@@ -238,7 +238,7 @@ export class CityMap {
     const dist = fmtDist(routeDist(d.player, p.door)); // theo đường đi thật
     const plan = d.planFor?.(p); // xe đang ở đồn: đi xe buýt tuyến nào
     const grp = placeGroup(p), f = FILTERS.find(([id]) => id === grp), tp = typeOf(p);
-    const open = isOpen(p, d.now, d.day);
+    const open = !p.soon && isOpen(p, d.now, d.prog);
     const hours = fmtHours(p.hours) || fmt('map.allDay');
     const status = p.soon ? fmt('map.soon') : open ? fmt('map.open', { hours }) : fmt('map.closed', { hours });
     const routed = d.waypoint && d.waypoint.id === p.id;
@@ -288,7 +288,7 @@ export class CityMap {
     this.results = found.map((r) => r.p);
     if (!this.listOpen) { this.list.classList.add('hidden'); return; }
     const rows = found.slice(0, 30).map(({ p, dist }) => {
-      const tp = typeOf(p), open = !p.soon && isOpen(p, d.now, d.day);
+      const tp = typeOf(p), open = !p.soon && isOpen(p, d.now, d.prog);
       return `<button data-pick="${p.id}"><b>${iconOf(p)} ${p.name}</b><small>${tp ? fmt(tp[2]) : ''} · ${fmtDist(dist)} · <span class="${open ? 'ok' : 'warn'}">${fmt(open ? 'map.openShort' : 'map.closedShort')}</span></small></button>`;
     }).join('');
     const html = `<div class="cm-rh">${fmt('map.found', { n: found.length })}</div>${rows || `<div class="cm-none">${fmt('map.noResult')}</div>`}`;

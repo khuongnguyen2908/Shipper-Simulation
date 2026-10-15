@@ -115,21 +115,21 @@ export class PaperTrait extends Trait {
 export class PassengerTrait extends Trait {
   tick(env, dt) {
     const comfort = env.comfortSpeed + (this.item.comfortDelta || 0);
-    if (env.speed > comfort) this.item.damage((env.speed - comfort) * DV('riderSpeed', 0.36) * dt, 'scaredSpeed');
+    if (env.speed > comfort) this.item.damage((env.speed - comfort) * DV('riderSpeed', 0.29) * dt, 'scaredSpeed');
     if (env.raining && env.exposed && !env.passengerRaincoat) this.item.damage(0.3 * dt, 'passengerWet');
     if (env.flood >= floodNum('deep')) this.item.damage(0.3 * env.flood * dt, 'passengerWet'); // lội nước sâu: khách ướt chân, khó chịu
   }
   onBrake(mag) {
-    this.item.damage(mag * DV('riderBrake', 6), 'hardBrake');
+    this.item.damage(mag * DV('riderBrake', 4.8), 'hardBrake');
   }
   onSwerve(mag) {
-    this.item.damage(mag * DV('riderSwerve', 3.6), 'sharpTurn');
+    this.item.damage(mag * DV('riderSwerve', 2.88), 'sharpTurn');
   }
   onBump(mag, env) {
-    this.item.damage(mag * DV('riderBump', 3) * (1 - env.suspension * 0.7), 'bumpy');
+    this.item.damage(mag * DV('riderBump', 2.4) * (1 - env.suspension * 0.7), 'bumpy');
   }
   onCollision(mag) {
-    this.item.damage(mag * DV('riderCrash', 18), 'crash');
+    this.item.damage(mag * DV('riderCrash', 14.4), 'crash');
   }
 }
 

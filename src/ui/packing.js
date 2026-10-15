@@ -6,7 +6,10 @@ import { sound } from '../audio.js';
 import { traitLabel } from '../data/items.js';
 import { fmt } from '../content/index.js';
 
-export function buildPacking({ items, bag, onDone }) {
+// strict: còn món xếp sai luật thì không cho bấm Xếp xong (bước xếp túi có hướng dẫn của cốt truyện)
+// không strict (đơn hàng): xếp sai vẫn đi được nhưng phải bấm 2 lần ("Vẫn đi dù có món sai") — người chơi tự chịu hậu quả
+export function buildPacking({ items, bag, onDone, strict = false }) {
+  let sure = false; // đã bấm "Xếp xong" 1 lần lúc còn món sai
   const cols = bag.cols, rows = bag.rows;
   const slots = new Array(cols * rows).fill(-1); // chỉ số món ở mỗi ô
   const placed = items.map(() => -1); // ô của từng món
@@ -49,6 +52,9 @@ export function buildPacking({ items, bag, onDone }) {
   const render = () => {
     const { warns } = analyze();
     const allPlaced = placed.every((c) => c >= 0);
+    if (!warns.length) sure = false;
+    const doneOk = allPlaced && !(strict && warns.length);
+    const doneLabel = fmt(warns.length && allPlaced && !strict && sure ? 'pack.doneAnyway' : 'pack.done');
     const tray = items
       .map((it, i) => {
         const traits = it.def.traits.map((t) => `<span title="${traitLabel(t).text}">${traitLabel(t).icon}</span>`).join('');
@@ -72,7 +78,7 @@ export function buildPacking({ items, bag, onDone }) {
         <div class="pk-tray">${tray}</div>
         <div><div class="pk-grid" style="grid-template-columns:repeat(${cols},64px)">${gridHtml}</div>
         <div class="pk-actions"><button class="btn" data-act="rotate" ${selected < 0 || !items[selected]?.has('liquid') ? 'disabled' : ''}>${fmt('pack.rotate')}</button>
-        <button class="btn primary" data-act="done" ${allPlaced ? '' : 'disabled'}>${fmt('pack.done')}</button></div></div>
+        <button class="btn ${warns.length && allPlaced ? 'warn' : 'primary'}" data-act="done" ${doneOk ? '' : 'disabled'}>${doneLabel}</button></div></div>
       </div>
       <div class="pk-warns">${warns.length ? warns.map((w) => `<div>${w}</div>`).join('') : allPlaced ? `<div class="ok">${fmt('pack.ok')}</div>` : ''}</div>`;
     root.querySelectorAll('[data-item]').forEach((b) => b.addEventListener('click', () => { selected = Number(b.dataset.item); render(); }));
@@ -113,6 +119,9 @@ export function buildPacking({ items, bag, onDone }) {
 
   const done = () => {
     if (!placed.every((c) => c >= 0)) return;
+    const { warns } = analyze();
+    if (warns.length && strict) return; // hướng dẫn: phải xếp đúng mới đi
+    if (warns.length && !sure) { sure = true; sound('ui.warn'); return render(); } // đơn hàng: hỏi lại 1 lần
     window.removeEventListener('keydown', onKey, true);
     onDone(analyze().mods);
   };

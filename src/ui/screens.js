@@ -5,7 +5,7 @@
 import { sound } from '../audio.js';
 import { fmtK } from '../sim/economy.js';
 import { APP } from '../data/apps.js';
-import { fmt } from '../content/index.js';
+import { fmt, list } from '../content/index.js';
 import { ECONOMY } from '../data/balance.js';
 import { NAME_MAX, normProfile } from '../sim/GameState.js';
 import { HAIR_BY_GENDER, HAIR_COLORS, PLAYER_SKINS, profileLook } from '../sim/people.js';
@@ -70,11 +70,12 @@ export class Screens {
     const menu = `<nav class="mm">
       <div class="logo">${fmt('screen.logo')}</div><div class="sub">${fmt('screen.sub')}</div>
       ${cont}
-      ${btn('new', fmt('menu.new'), s ? '' : ' primary')}${btn('help', fmt('menu.help'))}${btn('settings', fmt('menu.settings'))}
+      ${btn('new', fmt('menu.new'), s ? '' : ' primary')}${btn('help', fmt('menu.help'))}${btn('controls', fmt('menu.controls'))}${btn('settings', fmt('menu.settings'))}
       ${t.webgl2 ? '' : `<div class="warn">${fmt('screen.noWebgl')}</div>`}
       <div class="credit">${fmt('screen.credit')}</div></nav>
       <button class="mm-sound" data-sound="1" title="${esc(fmt('menu.soundToggle'))}">${t.settings.muted ? '🔇' : '🔊'}</button>`;
-    const panel = view === 'confirm' ? this.confirmHtml() : view === 'profile' ? this.profileHtml() : view === 'intro' ? this.introHtml() : view === 'settings' ? settingsHtml(t.settings) : '';
+    const panel = view === 'confirm' ? this.confirmHtml() : view === 'profile' ? this.profileHtml() : view === 'intro' ? this.introHtml() : view === 'settings' ? settingsHtml(t.settings)
+      : view === 'controls' ? `${controlsHtml()}<div class="row"><button class="btn big" data-mm="menu">${fmt('menu.prev')}</button></div>` : '';
     this.el.innerHTML = `${menu}<div class="mm-stage">${panel ? `<div class="mm-panel${view === 'profile' ? ' wide' : ''}">${panel}</div>` : ''}</div>`;
     this.el.classList.toggle('mm-sub', !!panel); // màn hình hẹp: đang mở bảng phụ thì ẩn menu
     this.bindTitle();
@@ -112,7 +113,7 @@ export class Screens {
       <div class="mm-field"><span>${fmt('menu.profileShoes')}</span><div class="mm-chips">${chip('shoes', 'black', 'menu.shoesBlack', p.shoes !== 'white')}${chip('shoes', 'white', 'menu.shoesWhite', p.shoes === 'white')}</div></div>
       <small class="mm-note">${fmt('menu.profileClothesNote')}</small>
       </div></div>
-      <div class="row"><button class="btn big" data-mm="${this.t.save ? 'confirm' : 'menu'}">${fmt('menu.prev')}</button><button class="btn big primary" data-mm="toIntro">${fmt('menu.next')}</button></div>`;
+      <div class="row mm-foot"><button class="btn big" data-mm="${this.t.save ? 'confirm' : 'menu'}">${fmt('menu.prev')}</button><button class="btn big primary" data-mm="toIntro">${fmt('menu.next')}</button></div>`;
   }
   // Kiểu tóc dạng lật trang: tên kiểu + thứ tự trong danh sách của giới tính đang chọn (people.js → HAIR_BY_GENDER)
   hairLabel(n) {
@@ -228,6 +229,7 @@ export class Screens {
       <div class="row col"><button class="btn big primary" data-a="resume">${fmt('screen.resume')}</button>
       <button class="btn big" data-a="mute">${fmt(muted ? 'screen.soundOn' : 'screen.soundOff')}</button>
       <button class="btn big" data-a="settings">${fmt('screen.settings')}</button>
+      <button class="btn big" data-a="controls">${fmt('menu.controls')}</button>
       <button class="btn big" data-a="restart">${fmt('screen.restartDay')}</button>
       <button class="btn big" data-a="title">${fmt('screen.toTitle')}</button></div>`,
       (el) => {
@@ -235,7 +237,10 @@ export class Screens {
         el.querySelector('[data-a="restart"]').addEventListener('click', onRestart);
         el.querySelector('[data-a="title"]').addEventListener('click', onTitle);
         el.querySelector('[data-a="mute"]').addEventListener('click', onMute);
-        el.querySelector('[data-a="settings"]').addEventListener('click', () => this.pauseSettings({ settings, onSettings, back: () => this.pause({ onResume, onRestart, onTitle, onMute, muted: normSettings(settings).muted, settings, onSettings }) }));
+        const back = () => this.pause({ onResume, onRestart, onTitle, onMute, muted: normSettings(settings).muted, settings, onSettings });
+        el.querySelector('[data-a="settings"]').addEventListener('click', () => this.pauseSettings({ settings, onSettings, back }));
+        // bảng phím điều khiển (‹ Quay lại về màn hình tạm dừng)
+        el.querySelector('[data-a="controls"]').addEventListener('click', () => this.render(`${controlsHtml()}<div class="row"><button class="btn big" data-a="back">${fmt('menu.prev')}</button></div>`, (c) => c.querySelector('[data-a="back"]').addEventListener('click', back)));
       },
     );
   }
@@ -333,4 +338,14 @@ function bindSettings(el, s, onChange, redraw) {
     onChange(normSettings(DEFAULTS));
     redraw();
   });
+}
+
+// Bảng phím điều khiển (menu chính + màn hình tạm dừng) — danh sách ở vi.json: menu.controls.list, mỗi dòng "Phím|Việc làm"
+function controlsHtml() {
+  const rows = list('menu.controls.list').map((line) => {
+    const [keys, what] = String(line).split('|');
+    const kbd = keys.split('+').map((k) => `<kbd>${esc(k.trim())}</kbd>`).join(' + ');
+    return `<div class="ctl-row"><span class="ctl-keys">${kbd}</span><span>${what || ''}</span></div>`;
+  }).join('');
+  return `<h2>${fmt('menu.controls')}</h2><div class="ctl-list">${rows}</div>`;
 }

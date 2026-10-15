@@ -2,7 +2,7 @@
 // điều kiện xong bước, nói chuyện ở địa điểm, mục tiêu trên màn hình, hướng dẫn trên điện thoại.
 // Câu chữ gõ ngay tại đây — lưu vào kho chữ vi.json (khóa story.*), sửa ở đây hay ở thẻ 💬 Chữ & hội thoại đều được.
 // Bộ chạy: src/sim/story.js · hiển thị: game.js (runStoryActions, storyGoal, storyGuide).
-import { UNTIL, ACTIONS, GUIDES, HUD_PARTS, ORDER_STAGES, GUIDE_BTNS } from '../../sim/story.js';
+import { UNTIL, ACTIONS, GUIDES, HUD_PARTS, ORDER_STAGES, GUIDE_BTNS, ACTOR_LOOKS, ACTOR_SPOTS, ACTOR_VEHICLES, TRAITS as PERSONAS } from '../../sim/story.js';
 import { APP_DEFS } from '../../data/phoneApps.js';
 import { isPlaced } from '../../data/places.js';
 import { ID_RE } from '../../data/validate.js';
@@ -44,6 +44,9 @@ export function render(root, ctx) {
   // ---------- danh sách chọn ----------
   const placeOpts = ctx.data.places.places.filter((p) => isPlaced(p)).sort((a, b) => a.name.localeCompare(b.name)).map((p) => [p.id, `${p.name} (${p.id})`]);
   const contactOpts = Object.entries(data.contacts).map(([id, c]) => [id, `${c.icon || ''} ${C[c.name] || id}`]);
+  const actorOpts = () => Object.entries(data.people).map(([id, c]) => [id, `${c.icon || ''} ${C[c.name] || id}`]); // người lạ (story.json → people)
+  // người nói được: người lạ + NPC đứng ở địa điểm ('place:<mã>', vd sư cô ở chùa, bảo vệ trường)
+  const speakerOpts2 = () => [...actorOpts(), ...ctx.data.places.places.filter((p) => isPlaced(p) && p.npc).sort((a, b) => a.name.localeCompare(b.name)).map((p) => [`place:${p.id}`, `🏠 ${p.npc.name} — ${p.name}`])];
   const speakerOpts = [...Object.entries(data.people).map(([id, c]) => [id, `${c.icon || ''} ${C[c.name] || id}`]), ...contactOpts];
   const goodsOpts = Object.values(ctx.data.goods).filter((g) => g.type === 'consumable' || g.type === 'carry').map((g) => [g.id, `${g.icon || ''} ${g.name}`]);
   const parcelOpts = [['', '— Không —'], ...Object.entries(data.parcels).map(([id, p]) => [id, `${p.icon || ''} ${C[p.name] || id}`])];
@@ -88,6 +91,10 @@ export function render(root, ctx) {
   const ch = data.chapters.find((c) => c.id === chId);
   return renderStep(ch, ch?.steps.find((s) => s.id === stId));
 
+  // Mã các việc "Chọn câu trả lời" trong chương đang mở (cho điều kiện "Đã chọn câu trả lời")
+  function chooseIds() {
+    return [...new Set((ch?.steps || []).flatMap((x) => (x.on || []).filter((a) => a.do === 'choose').map((a) => a.id)))];
+  }
   // Chọn nhiều gói hàng (talk.pack / talk.drop): mảng mã gói
   function parcelChips(t, key) {
     const cur = new Set([].concat(t[key] || []));
@@ -145,6 +152,7 @@ export function render(root, ctx) {
       el('div', { class: 'grid' },
         field('Mã bước', textInput(st.id, (v) => { if (ID_RE.test(v) && !ch.steps.some((s) => s !== st && s.id === v)) { st.id = v; sel.id = `${ch.id}/${v}`; changed(); } }), opt('id', { hint: 'Chữ không dấu, số, gạch dưới. Không trùng trong chương.' })),
         field('Chờ trước khi làm (phút game)', numInput(st.delay ?? 0, (v) => { if (v > 0) st.delay = v; else delete st.delay; changed(); }, { step: 1, min: 0 }), opt('delay', { hint: '1 phút game = 1 giây thật. Vd tin nhắn tới sau 2–3 giây cho giống thật.' })),
+        field('Chỉ chạy khi tính cách', selectInput(st.onlyTrait || '', [['', '— Mọi tính cách —'], ...Object.keys(PERSONAS).map((t) => [t, `đang nghiêng về ${C[`story.trait.${t}`] || t}`])], (v) => { if (v) st.onlyTrait = v; else delete st.onlyTrait; changed(); }), opt('onlyTrait', { hint: 'Nội dung riêng của 1 tính cách: người chơi đang nghiêng về tính cách khác thì bỏ qua bước này (đi thẳng sang bước sau). Nghiêng = tính cách nhiều điểm nhất, bằng nhau → trung lập.' })),
         field('', checkInput(st.hold, (v) => { if (v) st.hold = true; else delete st.hold; changed(); }, 'Chặn đơn thường trong bước này'), opt('hold', { hint: 'App chưa phát đơn mới trong lúc chờ bước này (để hướng dẫn / cuốc cốt truyện không bị đơn khác chen vào).' })),
       ),
     );
@@ -157,6 +165,11 @@ export function render(root, ctx) {
       if (!v) return;
       const a = { do: v };
       if (v === 'say') Object.assign(a, { who: speakerOpts[0]?.[0] || '', text: newKey(`${base}.say`) });
+      if (['actor', 'approach', 'leave', 'remove', 'board', 'alight'].includes(v)) a.who = Object.keys(data.people)[0] || '';
+      if (v === 'drop') a.id = Object.keys(data.parcels)[0] || '';
+      if (v === 'actor') Object.assign(a, { look: 'jetjet', spot: 'near', dist: 8 });
+      if (v === 'bubble') Object.assign(a, { who: Object.keys(data.people)[0] || 'player', text: newKey(`${base}.bubble`) });
+      if (v === 'choose') Object.assign(a, { id: `${st.id}Ask`, who: Object.keys(data.people)[0] || '', options: [newKey(`${base}.o1`), newKey(`${base}.o2`)], answers: [newKey(`${base}.a1`), newKey(`${base}.a2`)] });
       if (v === 'msg') Object.assign(a, { from: contactOpts[0]?.[0] || '', text: newKey(`${base}.m`) });
       if (v === 'replies') Object.assign(a, { who: contactOpts[0]?.[0] || '', texts: [newKey(`${base}.r1`), newKey(`${base}.r2`), newKey(`${base}.r3`)] });
       if (v === 'item') a.id = Object.keys(data.items)[0] || '';
@@ -183,10 +196,16 @@ export function render(root, ctx) {
         if (v === 'switch') st.until.which = 'food';
         if (v === 'fuel') st.until.pct = 90;
         if (v === 'order') st.until.stage = 'deliver';
+        if (v === 'near') Object.assign(st.until, { who: Object.keys(data.people)[0] || '', r: 1.6 });
+        if (v === 'talkActor') st.until.who = Object.keys(data.people)[0] || '';
+        if (v === 'ordersSince') st.until.n = 10;
+        if (v === 'clock') Object.assign(st.until, { from: 17.5, to: 19 });
+        if (v === 'bring') Object.assign(st.until, { who: Object.keys(data.people)[0] || '', place: placeOpts[0]?.[0] || '', r: 10 });
+        if (v === 'chosen') st.until.id = chooseIds()[0] || '';
         if (v === 'talk') {
           const place = st.talk?.place || placeOpts[0]?.[0] || '';
           st.until.place = place;
-          st.talk = st.talk || { place, label: newKey(`${base}.label`), text: newKey(`${base}.text`), ok: newKey(`${base}.ok`) };
+          st.talk = st.talk || { place, label: newKey(`${base}.label`), text: newKey(`${base}.text`) };
         } else delete st.talk;
         rerender();
       }), opt('until')),
@@ -197,7 +216,16 @@ export function render(root, ctx) {
       u.type === 'ack' ? field('Tự sang sau (phút game, 0 = chờ bấm nút)', numInput(u.max ?? 0, (v) => { if (v > 0) u.max = v; else delete u.max; changed(); }, { step: 1, min: 0 }), opt('until', { hint: '1 phút game = 1 giây thật.' })) : null,
       u.type === 'use' ? field('Món', selectInput(u.goods, goodsOpts, (v) => { u.goods = v; changed(); }), opt('until')) : null,
       u.type === 'arrive' ? field('Địa điểm', selectInput(u.place, placeOpts, (v) => { u.place = v; changed(); }), opt('until')) : null,
-      u.type === 'arrive' ? field('Bán kính (m)', numInput(u.r ?? 8, (v) => { u.r = v; changed(); }, { step: 1, min: 2 }), opt('until')) : null,
+      u.type === 'chosen' ? field('Lựa chọn', selectInput(u.id, chooseIds().map((id) => [id, id]), (v) => { u.id = v; changed(); }), opt('until', { hint: 'Mã của việc "Chọn câu trả lời" ở bước này hoặc bước trước.' })) : null,
+      u.type === 'near' || u.type === 'bring' ? field('Người lạ', selectInput(u.who, actorOpts(), (v) => { u.who = v; changed(); }), opt('until')) : null,
+      u.type === 'talkActor' ? field('Người nói', selectInput(u.who, speakerOpts2(), (v) => { u.who = v; changed(); }), opt('until', { hint: 'Người chơi đứng gần bấm E → sang bước sau (câu tiếp theo). Người lạ phải xuất hiện ở bước này hoặc bước trước; NPC địa điểm thì luôn có.' })) : null,
+      u.type === 'bring' ? field('Chở tới', selectInput(u.place, placeOpts, (v) => { u.place = v; changed(); }), opt('until', { hint: 'Người lạ phải đang ngồi sau xe (việc "lên xe" ở bước này / bước trước).' })) : null,
+      u.type === 'bring' ? field('Bán kính (đơn vị bản đồ)', numInput(u.r ?? 10, (v) => { u.r = v; changed(); }, { step: 0.5, min: 1 }), opt('until', { hint: 'Tới gần nơi đến bao nhiêu thì xong (người lạ xuống xe). đơn vị bản đồ: 1 ≈ 10 m trên màn hình. Cột sáng vàng rộng ≈ 1 → muốn tới đúng cột thì đặt 2–3.' })) : null,
+      u.type === 'ordersSince' ? field('Số đơn phải giao thêm', numInput(u.n ?? 10, (v) => { u.n = Math.max(1, Math.round(v) || 1); changed(); }, { step: 1, min: 1, max: 200 }), opt('until', { hint: 'Đếm từ lúc vào bước, cộng dồn qua các ngày. Bảng "Mục tiêu hôm nay" hiện "Giao N đơn (n/N)".' })) : null,
+      u.type === 'clock' ? field('Từ giờ', numInput(u.from ?? 17.5, (v) => { u.from = v; changed(); }, { step: 0.5, min: 0, max: 24 }), opt('until', { hint: 'Giờ chung của thế giới, vd 17,5 = 17:30. Quá giờ thì chờ tới hôm sau.' })) : null,
+      u.type === 'clock' ? field('Tới giờ', numInput(u.to ?? 19, (v) => { u.to = v; changed(); }, { step: 0.5, min: 0, max: 24 }), opt('until')) : null,
+      u.type === 'near' ? field('Cách người chơi (đơn vị bản đồ · 1 ≈ 10 m)', numInput(u.r ?? 1.6, (v) => { u.r = v; changed(); }, { step: 0.2, min: 0.8 }), opt('until')) : null,
+      u.type === 'arrive' ? field('Bán kính (đơn vị bản đồ)', numInput(u.r ?? 8, (v) => { u.r = v; changed(); }, { step: 0.5, min: 1 }), opt('until', { hint: 'đơn vị bản đồ: 1 ≈ 10 m trên màn hình. Cột sáng vàng rộng ≈ 1; 8 = còn cách ~80 m đã tính là tới.' })) : null,
       u.type === 'wait' ? field('Số phút game', numInput(u.min ?? 0, (v) => { u.min = v; changed(); }, { step: 1, min: 0 }), opt('until')) : null,
       u.type === 'switch' ? field('Công tắc', selectInput(u.which, [['food', '📦 Giao hàng'], ['ride', '🛵 Chở khách']], (v) => { u.which = v; changed(); }), opt('until')) : null,
       u.type === 'talk' ? field('Địa điểm nói chuyện', selectInput(u.place, placeOpts, (v) => { u.place = v; st.talk.place = v; changed(); }), opt('talk')) : null));
@@ -206,10 +234,9 @@ export function render(root, ctx) {
     // ---------- nói chuyện ở địa điểm ----------
     if (u.type === 'talk' && st.talk) {
       const t = st.talk;
-      body.append(el('div', { class: 'card' }, el('h3', {}, '💬 Nói chuyện (nút E riêng ở cửa địa điểm)'),
+      body.append(el('div', { class: 'card' }, el('h3', {}, '💬 Nói chuyện (nút E riêng ở cửa địa điểm · bong bóng trên đầu NPC)'),
         textBox('Chữ trên nút E', t.label, 1, { ref, fieldKey: 'talk' }),
-        textBox('Câu nói (hộp thoại)', t.text, 5, { hint: '[tiếp] = sang trang · {name} = tên người chơi · <b>…</b> = chữ đậm', ref, fieldKey: 'talk' }),
-        textBox('Chữ nút đồng ý', t.ok, 1, { ref, fieldKey: 'talk' }),
+        textBox('Câu nói (bong bóng)', t.text, 5, { hint: '[tiếp] = câu sau (người chơi bấm E) · {name} = tên người chơi · bong bóng chỉ có chữ thường (không chữ đậm)', ref, fieldKey: 'talk' }),
         el('div', { class: 'grid' },
           field('Xếp gói hàng vào túi', parcelChips(t, 'pack'), { hint: 'Bấm đồng ý → mở màn xếp túi với các gói này (có hướng dẫn chọn món → bấm ô → xoay → xếp xong), xếp xong mới xong bước.' }),
           field('Giao gói hàng', parcelChips(t, 'drop'), { hint: 'Người chơi đang chở các gói này thì giao luôn.' }),
@@ -225,7 +252,31 @@ export function render(root, ctx) {
           else st.mark = { place: st.mark?.place || st.talk?.place || placeOpts[0]?.[0] || '', icon: v };
           rerender();
         }), opt('mark')),
-        st.mark ? field('Ở địa điểm (NPC của địa điểm)', selectInput(st.mark.place, placeOpts, (v) => { st.mark.place = v; changed(); }), opt('mark')) : null)));
+        st.mark ? field('Trên đầu', selectInput(st.mark.actor ? `actor:${st.mark.actor}` : st.mark.place, [...placeOpts, ...actorOpts().map(([id, l]) => [`actor:${id}`, `👤 ${l}`])], (v) => {
+          if (v.startsWith('actor:')) { st.mark.actor = v.slice(6); delete st.mark.place; } else { st.mark.place = v; delete st.mark.actor; }
+          changed();
+        }), opt('mark', { hint: 'NPC của địa điểm, hoặc người lạ đang ở cảnh (việc "Người lạ xuất hiện").' })) : null)));
+
+    // ---------- vòng tìm kiếm + chữ nút E ----------
+    body.append(el('div', { class: 'card' }, el('h3', {}, '🟣 Vòng tìm kiếm · chữ trên nút E'),
+      el('div', { class: 'grid' },
+        field('Vòng tròn tím', checkInput(!!st.zone, (v) => { if (v) st.zone = { place: placeOpts[0]?.[0] || '' }; else delete st.zone; rerender(); }, 'Hiện vòng quanh địa điểm'), opt('zone', { hint: 'Vùng cần tìm (không có mũi tên chỉ đường). Vd tìm chị Linh quanh trường.' })),
+        st.zone ? field('Quanh địa điểm', selectInput(st.zone.place, placeOpts, (v) => { st.zone.place = v; changed(); }), opt('zone')) : null,
+        st.zone ? field('Bán kính (đơn vị bản đồ · 1 ≈ 10 m, 0 = tự tính theo lô)', numInput(st.zone.r ?? 0, (v) => { if (v > 0) st.zone.r = v; else delete st.zone.r; changed(); }, { step: 5, min: 0, max: 150 }), opt('zone')) : null,
+        field('Chữ riêng trên nút E', checkInput(!!st.talkLabel, (v) => { if (v) st.talkLabel = newKey(`${base}.label`); else delete st.talkLabel; rerender(); }, 'Đổi chữ nút E ở bước này'), opt('talkLabel', { hint: 'Ở bước chờ bấm E nói chuyện / mở lời. Vd "Chở chị Linh về", "Hỏi chú bảo vệ".' }))),
+      st.talkLabel ? textBox('Chữ trên nút E', st.talkLabel, 1, { ref, fieldKey: 'talkLabel' }) : null));
+
+    // ---------- giữ người chơi trong một vùng ----------
+    body.append(el('div', { class: 'card' }, el('h3', {}, '🚧 Giữ người chơi trong vùng (trong lúc chờ bước này)'),
+      el('div', { class: 'grid' },
+        field('Giữ lại', checkInput(!!st.leash, (v) => {
+          if (v) st.leash = { place: placeOpts[0]?.[0] || '', r: 30, text: newKey(`${base}.leash`) };
+          else delete st.leash;
+          rerender();
+        }, 'Đi xa quá thì bị giữ lại + nhắc'), opt('leash', { hint: 'Vd chưa nói chuyện với anh phát tờ rơi thì không cho rời bến xe.' })),
+        st.leash ? field('Quanh địa điểm', selectInput(st.leash.place, placeOpts, (v) => { st.leash.place = v; changed(); }), opt('leash')) : null,
+        st.leash ? field('Bán kính (đơn vị bản đồ · 1 ≈ 10 m)', numInput(st.leash.r ?? 30, (v) => { st.leash.r = v; changed(); }, { step: 5, min: 10, max: 200 }), opt('leash')) : null),
+      st.leash ? textBox('Câu nhắc khi đi ra khỏi vùng', st.leash.text, 1, { ref, fieldKey: 'leash' }) : null));
 
     // ---------- mục tiêu + hướng dẫn ----------
     const g = (st.guide = st.guide || null);
@@ -235,7 +286,7 @@ export function render(root, ctx) {
     {
       // hướng dẫn hiện cả khi bước không có mục tiêu (vd giải thích thanh xăng, app CSGT)
       goal.append(el('div', { class: 'grid' },
-        st.goal ? field('Mũi tên chỉ tới', selectInput(st.target || '', [['', '— Không —'], ['bike', '🚲 Xe của mình'], ['office', '🏢 Văn phòng hãng (đã chỉ đường / gần nhất)'], ['fuel', '⛽ Cây xăng / trụ sạc (đã chỉ đường / gần nhất)'], ...placeOpts], (v) => { if (v) st.target = v; else delete st.target; changed(); }), opt('target')) : null,
+        st.goal ? field('Mũi tên chỉ tới', selectInput(st.target || '', [['', '— Không —'], ['bike', '🚲 Xe của mình'], ['office', '🏢 Văn phòng hãng (đã chỉ đường / gần nhất)'], ['fuel', '⛽ Cây xăng / trụ sạc (đã chỉ đường / gần nhất)'], ...actorOpts().map(([id, l]) => [`actor:${id}`, `👤 ${l}`]), ...placeOpts], (v) => { if (v) st.target = v; else delete st.target; changed(); }), opt('target')) : null,
         field('Hướng dẫn trên điện thoại', selectInput(g?.type || '', [['', '— Không —'], ...Object.entries(GUIDES)], (v) => {
           if (!v) delete st.guide;
           else st.guide = { type: v, ...(['thread', 'route', 'reply'].includes(v) ? { who: contactOpts[0]?.[0] || '' } : {}), ...(v === 'route' ? { place: st.target || 'office' } : {}), ...(v === 'switch' ? { which: 'food' } : {}),
@@ -255,6 +306,24 @@ export function render(root, ctx) {
     body.append(goal);
   }
 
+  // Một câu trả lời người chơi chọn được: chữ bên trái · bên phải chọn tính cách được cộng điểm + bao nhiêu điểm
+  // a[listKey] = danh sách khóa chữ (choose → options, replies → texts) · a.gains[j] = { trait, pts } | null (cùng thứ tự)
+  function answerRow(a, listKey, j, label, rerender, o) {
+    const gn = a.gains?.[j];
+    const setGain = (v) => {
+      a.gains = a.gains || [];
+      while (a.gains.length < a[listKey].length) a.gains.push(null);
+      a.gains[j] = v;
+      if (a.gains.every((x) => !x)) delete a.gains;
+    };
+    const traitOpts = [['', '— Không —'], ...Object.keys(PERSONAS).map((t) => [t, C[`story.trait.${t}`] || t])];
+    return el('div', { class: 'story-ans' },
+      el('div', { class: 'story-ans-l' }, textBox(label, a[listKey][j], 1, o)),
+      el('div', { class: 'story-ans-r' },
+        field('Tăng điểm', selectInput(gn?.trait || '', traitOpts, (v) => { setGain(v ? { trait: v, pts: gn?.pts || 1 } : null); rerender(); }), { ...o, hint: 'Chọn câu này → cộng điểm tính cách. Cuối game tính cách nhiều điểm nhất thắng (bằng nhau → trung lập). Người chơi không thấy số, chỉ thấy thông báo nhỏ "… ↑".' }),
+        gn ? field('+ bao nhiêu', numInput(gn.pts ?? 1, (v) => { setGain({ trait: gn.trait, pts: Math.max(1, Math.min(10, Math.round(v) || 1)) }); ctx.changed('story'); }, { step: 1, min: 1, max: 10 }), o) : null));
+  }
+
   // Một dòng việc: loại + ô riêng theo loại + ↑ ↓ ✕
   function actionRow(st, a, k, base, rerender, opt) {
     const tools = el('div', { class: 'row' },
@@ -264,7 +333,64 @@ export function render(root, ctx) {
       button('✕', () => { st.on.splice(k, 1); rerender(); }, 'small danger'));
     const box = el('div', { class: 'story-act' }, tools);
     const o = opt('on');
-    if (a.do === 'say') box.append(field('Người nói', selectInput(a.who, speakerOpts, (v) => { a.who = v; ctx.changed('story'); }), o), textBox('Câu nói', a.text, 4, { hint: '[tiếp] = sang trang · {name} = tên người chơi', ...o }));
+    if (['actor', 'approach', 'leave', 'remove', 'board', 'alight'].includes(a.do)) box.append(field('Người lạ', selectInput(a.who, actorOpts(), (v) => { a.who = v; ctx.changed('story'); }), { ...o, hint: 'Thêm người ở 👥 Danh bạ → Người nói.' }));
+    if (a.do === 'actor') {
+      const xeOmPlaces = ctx.data.places.places.filter((p) => isPlaced(p) && p.xeOm).map((p) => [p.id, `${p.name} (${p.id})`]);
+      const spot = a.spot || 'near';
+      box.append(
+        field('Dáng', selectInput(a.look || 'jetjet', Object.entries(ACTOR_LOOKS), (v) => { a.look = v; ctx.changed('story'); }), o),
+        field('Chỗ đứng', selectInput(spot, Object.entries(ACTOR_SPOTS), (v) => {
+          a.spot = v;
+          if (v === 'xeOm') { a.place = a.place || xeOmPlaces[0]?.[0] || ''; delete a.dist; delete a.lat; }
+          else if (v === 'place') { a.place = a.place || placeOpts[0]?.[0] || ''; a.dist = a.dist ?? 1.5; }
+          else { a.dist = a.dist ?? 8; delete a.place; delete a.lat; }
+          rerender();
+        }), { ...o, hint: 'Cạnh chú xe ôm: chỗ cố định (mở lại game vẫn đứng đó). Gần người chơi: hiện chếch phía trước, mở lại game giữa cảnh thì không còn.' }),
+        spot === 'xeOm'
+          ? field('Địa điểm có chú xe ôm', selectInput(a.place, xeOmPlaces, (v) => { a.place = v; ctx.changed('story'); }), { ...o, hint: 'Chỉ các nơi bật "Có chú xe ôm" (thẻ Địa điểm).' })
+          : spot === 'place'
+            ? el('div', { class: 'grid' },
+              field('Trước cửa địa điểm', selectInput(a.place, placeOpts, (v) => { a.place = v; ctx.changed('story'); }), o),
+              field('Cách cửa ra phía đường (m)', numInput(a.dist ?? 1.5, (v) => { a.dist = v; ctx.changed('story'); }, { step: 0.5, min: 0, max: 40 }), { ...o, hint: '≈ 1,5 = ngay trước cửa · ≈ 16,5 = vỉa hè bên kia đường.' }),
+              field('Lệch dọc đường (m)', numInput(a.lat ?? 0, (v) => { if (v) a.lat = v; else delete a.lat; ctx.changed('story'); }, { step: 0.5, min: -20, max: 20 }), o),
+              field('Nhìn về phía', selectInput(a.faceTo || '', [['', '— Cửa địa điểm —'], ...actorOpts().filter(([id]) => id !== a.who)], (v) => { if (v) a.faceTo = v; else delete a.faceTo; ctx.changed('story'); }), { ...o, hint: 'Hai người đứng nói chuyện với nhau. Người chơi tới gần (12 m) thì quay sang người chơi.' }),
+              field('Xe đi kèm', selectInput(a.vehicle || '', [['', '— Không —'], ...Object.entries(ACTOR_VEHICLES)], (v) => { if (v) a.vehicle = v; else delete a.vehicle; ctx.changed('story'); }), { ...o, hint: 'Dựng sát lề. Việc "bỏ đi" → đội nón full-face, lên xe chạy mất.' }))
+            : field('Đứng cách người chơi (m)', numInput(a.dist ?? 8, (v) => { a.dist = v; ctx.changed('story'); }, { step: 1, min: 3, max: 20 }), o));
+      // câu gọi (khi có dấu ! trên đầu) + câu nói khi hết chuyện (bấm E)
+      for (const [k, label, hint] of [['call', 'Câu gọi người chơi', 'Khi có dấu ! trên đầu người này, cứ ~6 giây gọi một lần (người chơi ở trong 25 m).'], ['idle', 'Câu nói khi hết chuyện', 'Người chơi bấm E lúc không có bước nào chờ nói chuyện với người này.']]) {
+        if (a[k]) box.append(textBox(label, a[k], 1, { hint, ...o }), button(`✕ Bỏ ${label.toLowerCase()}`, () => { delete a[k]; rerender(); }, 'small'));
+        else box.append(button(`＋ ${label}`, () => { a[k] = newKey(`${base}.${k}`); rerender(); }, 'small'));
+      }
+    }
+    if (a.do === 'choose') {
+      box.append(
+        field('Mã lựa chọn', textInput(a.id, (v) => { if (ID_RE.test(v)) { a.id = v; ctx.changed('story'); } }), { ...o, hint: 'Lưu vào bản lưu của người chơi (câu nào đã chọn) — chương sau dùng mã này để rẽ nhánh.' }),
+        field('Người đáp lại', selectInput(a.who, speakerOpts2(), (v) => { a.who = v; ctx.changed('story'); }), o),
+        field('Người chơi mở lời', checkInput(!!a.ask, (v) => { if (v) a.ask = true; else delete a.ask; ctx.changed('story'); }, 'Bấm E cạnh người này mới hiện các câu'), { ...o, hint: 'Câu người chơi tự chọn để bắt chuyện (vd hỏi chú bảo vệ). Không tick: hiện các câu ngay.' }),
+        field('Dấu ? giật mình', el('div', { class: 'chips' }, actorOpts().map(([id, label]) => checkInput((a.react || []).includes(id), (on) => {
+          const r = new Set(a.react || []);
+          if (on) r.add(id); else r.delete(id);
+          if (r.size) a.react = [...r]; else delete a.react;
+          ctx.changed('story');
+        }, label))), { ...o, hint: 'Người chơi nói xong → dấu ? nhảy trên đầu những người này (rồi mới đáp).' }));
+      (a.options || []).forEach((key, j) => box.append(
+        answerRow(a, 'options', j, `Câu trả lời ${j + 1} (phím ${j + 1})`, rerender, o),
+        textBox(`→ Người lạ đáp lại câu ${j + 1}`, a.answers?.[j], 2, { hint: 'Hiện ~1 giây sau khi người chơi chọn, giữ tới khi bấm E.', ...o })));
+      const n = (a.options || []).length;
+      box.append(el('div', { class: 'row' },
+        n < 3 ? button('＋ Thêm câu', () => { a.options.push(newKey(`${base}.o${n + 1}`)); (a.answers ||= []).push(newKey(`${base}.a${n + 1}`)); rerender(); }, 'small') : null,
+        n > 2 ? button('− Bớt câu cuối', () => { a.options.pop(); a.answers?.pop(); if (a.gains) { a.gains.length = Math.min(a.gains.length, a.options.length); if (a.gains.every((x) => !x)) delete a.gains; } rerender(); }, 'small') : null));
+    }
+    if (a.do === 'board') box.append(el('p', { class: 'muted' }, 'Người lạ đi theo người chơi; người chơi lên xe và chạy tới sát thì leo lên ngồi sau (tự đội mũ của mình, không qua app, không tính tiền). Dùng với điều kiện "Đã chở người lạ … tới …".'));
+    if (a.do === 'alight') box.append(el('p', { class: 'muted' }, 'Người lạ xuống xe, đứng cạnh xe.'));
+    if (a.do === 'drop') box.append(field('Gói hàng', selectInput(a.id, parcelOpts.filter(([id]) => id), (v) => { a.id = v; ctx.changed('story'); }), o));
+    if (a.do === 'remove') box.append(el('p', { class: 'muted' }, 'Người này biến mất ngay (vd người chơi đã đi khỏi chỗ đó).'));
+    if (a.do === 'leave') box.append(el('p', { class: 'muted' }, 'Chạy ngược ra xa người chơi, ~5 giây sau biến mất (bong bóng thoại của người này cũng tắt).'));
+    if (a.do === 'bubble') box.append(
+      field('Ai nói', selectInput(a.who, [['player', '🙂 Người chơi'], ...speakerOpts2()], (v) => { a.who = v; ctx.changed('story'); }), o),
+      textBox('Câu (bong bóng)', a.text, 2, { hint: 'Câu ngắn, hiện trên đầu ~3–9 giây (hoặc giữ tới câu sau). Không có chữ đậm / [tiếp]. {name} = tên người chơi', ...o }),
+      field('Giữ tới câu sau', checkInput(!!a.hold, (v) => { if (v) a.hold = true; else delete a.hold; ctx.changed('story'); }, 'Không tự tắt'), { ...o, hint: 'Hợp với bước chờ người chơi bấm E (câu chỉ đổi khi bấm E / đi xa).' }));
+    if (a.do === 'say') box.append(field('Người nói', selectInput(a.who, speakerOpts, (v) => { a.who = v; ctx.changed('story'); }), { ...o, hint: 'Bong bóng trên đầu người lạ đang có mặt, hoặc NPC ở địa điểm của người trong danh bạ (không có thì trên đầu người chơi).' }), textBox('Câu nói', a.text, 4, { hint: '[tiếp] = câu sau (bấm E) · {name} = tên người chơi', ...o }));
     if (a.do === 'msg') {
       box.append(field('Người gửi', selectInput(a.from, contactOpts, (v) => { a.from = v; ctx.changed('story'); }), o), textBox('Nội dung tin nhắn', a.text, 2, { hint: '{name} = tên người chơi', ...o }));
       a.loc = a.loc || [];
@@ -274,7 +400,7 @@ export function render(root, ctx) {
     }
     if (a.do === 'replies') {
       box.append(field('Tin nhắn của', selectInput(a.who, contactOpts, (v) => { a.who = v; ctx.changed('story'); }), { ...o, hint: 'Gắn vào cuộc trò chuyện này; người chơi chọn 1 câu → xong điều kiện "Đã trả lời".' }));
-      (a.texts || []).forEach((key, j) => box.append(textBox(`Câu trả lời ${j + 1}`, key, 1, o)));
+      (a.texts || []).forEach((key, j) => box.append(answerRow(a, 'texts', j, `Câu trả lời ${j + 1}`, rerender, o)));
     }
     if (a.do === 'item') box.append(field('Vật phẩm', selectInput(a.id, Object.entries(data.items).map(([id, it]) => [id, `${it.icon || ''} ${C[it.name] || id}`]), (v) => { a.id = v; ctx.changed('story'); }), o));
     if (a.do === 'give') box.append(field('Đồ tặng', selectInput(a.goods, goodsOpts, (v) => { a.goods = v; ctx.changed('story'); }), o));
@@ -284,7 +410,17 @@ export function render(root, ctx) {
       if (!a.app || a.app === 'chat') box.append(field('Mở tin nhắn của', selectInput(a.who || '', [['', '— Chỉ mở app Tin nhắn —'], ...contactOpts], (v) => { if (v) a.who = v; else delete a.who; ctx.changed('story'); }), o));
     }
     if (a.do === 'fuel') box.append(field('Xăng / pin còn (%)', numInput(a.pct ?? 15, (v) => { a.pct = v; ctx.changed('story'); }, { step: 5, min: 0, max: 100 }), o));
-    if (a.do === 'offer') box.append(el('p', { class: 'muted' }, 'Khách app đứng gần người chơi (30–120 m), không hết hạn, nút Bỏ qua bị khóa. Nên tick "Chặn đơn thường" và đặt điều kiện xong "Đơn hàng: Đã nhận đơn".'));
+    if (a.do === 'offer') {
+      const foodPlaces = ctx.data.places.places.filter((p) => isPlaced(p) && p.kind === 'restaurant' && (p.menu || []).length).map((p) => [p.id, `${p.name} (${p.id})`]);
+      box.append(
+        field('Loại đơn', selectInput(a.kind || 'ride', [['ride', '🛵 Chở khách (khách người lớn bình thường, đứng gần mình)'], ['food', '🍜 Giao đồ ăn ở quán …']], (v) => {
+          if (v === 'food') { a.kind = 'food'; a.place = a.place || foodPlaces[0]?.[0] || ''; } else { delete a.kind; delete a.place; }
+          rerender();
+        }), o),
+        a.kind === 'food' ? field('Quán', selectInput(a.place, foodPlaces, (v) => { a.place = v; ctx.changed('story'); }), { ...o, hint: 'Món đầu tiên trong thực đơn quán; giao tới nhà dân, không hết món, khách nghe máy. Quán nấu riêng nên không xét giờ mở cửa.' })
+          : field('Tên khách', textInput(a.customer || '', (v) => { if (v.trim()) a.customer = v.trim(); else delete a.customer; ctx.changed('story'); }, { placeholder: 'Bỏ trống = tên người lớn bình thường' }), { ...o, hint: 'Vd "Cô Hằng". Chữ đầu (Cô / Chú / Anh / Chị…) quyết định giới tính, tuổi, cách xưng hô.' }),
+        el('p', { class: 'muted' }, 'Không hết hạn, nút Bỏ qua bị khóa. Nên tick "Chặn đơn thường" ở bước này (và bước bật công tắc ngay trước) để đơn ngẫu nhiên không chen vào.'));
+    }
     return box;
   }
 

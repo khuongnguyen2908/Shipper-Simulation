@@ -12,7 +12,7 @@ import { RatingBook } from './economy.js';
 import { fmt } from '../content/index.js';
 import { hairFor, HAIR_COLORS, PLAYER_SKINS } from './people.js';
 import { PARK_SLOTS } from './garage.js';
-import { freshStory, storyEvent } from './story.js';
+import { freshStory, storyEvent, storyPick, chapterNo, resumeNewChapters } from './story.js';
 
 const MSG_KEEP = 60; // mỗi cuộc trò chuyện giữ tối đa bấy nhiêu tin (cũ hơn thì bỏ)
 
@@ -119,6 +119,7 @@ export class GameState {
     this.inbox = c.inbox ? JSON.parse(JSON.stringify(c.inbox)) : { threads: {} };
     // Cốt truyện (src/sim/story.js): chơi mới → chương 1 chờ bắt đầu; bản lưu cũ (đã qua mở đầu) → coi như xong
     this.story = c.story ? JSON.parse(JSON.stringify(c.story)) : freshStory(this.flags.story === 0 && !this.brand);
+    resumeNewChapters(this.story); // xong chương 1 từ hồi chưa có chương 2 → vào chương 2
     this.ensureUniform(); // bản lưu cũ đã ở hãng mà chưa có đồng phục → cấp + mặc sẵn
     if (this.brand && this.gifted !== this.brand) this.giveBrandGifts(this.brand);
     this.outcome = null;
@@ -721,7 +722,7 @@ export class GameState {
 
   // Hoạt động tại địa điểm (đọc sách, hát karaoke…). Trả về lý do nếu không làm được.
   activityStatus(place, act, now) {
-    if (!isOpen(place, now, this.day)) return 'closed';
+    if (!isOpen(place, now, this.progress)) return 'closed';
     if (act.perDay > 0 && (this.activityUses[`${place.id}.${act.id}`] || 0) >= act.perDay) return 'usedUp';
     if (act.needs && this.countOf(act.needs.id) < (act.needs.qty || 1)) return 'needItem';
     if (this.money < (act.cost || 0)) return 'money';
@@ -871,20 +872,32 @@ export class GameState {
   get unreadMessages() {
     return Object.values(this.inbox.threads).reduce((a, t) => a + (t.unread || 0), 0);
   }
-  // Gắn câu trả lời nhanh (khóa chữ, tối đa 3) vào cuộc trò chuyện
-  setReplies(id, keys) {
+  // Gắn câu trả lời nhanh (khóa chữ, tối đa 3) vào cuộc trò chuyện · gains: điểm tính cách của từng câu ({ trait, pts } | null)
+  setReplies(id, keys, gains = null) {
     const t = this.inbox.threads[id];
-    if (t) t.replies = keys.slice(0, 3);
+    if (!t) return;
+    t.replies = keys.slice(0, 3);
+    if (gains?.some(Boolean)) t.replyGains = gains.slice(0, 3);
+    else delete t.replyGains;
   }
-  // Người chơi chọn câu trả lời nhanh thứ i → thành tin của mình, báo cho cốt truyện
+  // Người chơi chọn câu trả lời nhanh thứ i → thành tin của mình, báo cho cốt truyện, cộng điểm tính cách (nếu câu đó có)
+  // Trả về false (không trả lời được) hoặc { gain } (gain = điểm vừa cộng, null nếu câu không có điểm)
   reply(id, i, now = 0) {
     const t = this.inbox.threads[id];
     const key = t?.replies?.[i];
     if (!key) return false;
+    const gain = t.replyGains?.[i] || null;
+    storyPick(this.story, `msg.${t.replies[0]}`, i, gain); // mã lựa chọn = khóa câu trả lời đầu (mỗi bộ câu trả lời tính 1 lần)
     t.replies = null;
+    delete t.replyGains;
     this.addMessage(id, { key, me: true }, now);
     storyEvent(this.story, `reply:${id}`);
-    return true;
+    return { gain };
+  }
+
+  // Tiến độ để xét địa điểm đã mở chưa (sim/placeRules.js → unlocked): ngày + chương cốt truyện đang chơi
+  get progress() {
+    return { day: this.day, chap: chapterNo(this.story) };
   }
 
   carryOver() {

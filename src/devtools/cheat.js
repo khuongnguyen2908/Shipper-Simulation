@@ -12,6 +12,7 @@ import { ITEMS } from '../data/items.js';
 import { minutesUntil, fmtClock } from '../sim/clock.js';
 import { depthAtPoint, floodBand } from '../sim/flood.js';
 import { roadSegAt } from '../sim/roads.js';
+import { STORY, stepOf, chapterOf, storyPick, finishChapter } from '../sim/story.js';
 
 const STORE = 'shipper-cheat'; // công tắc đang bật (localStorage, chỉ máy này)
 const DEFAULT = { lockStats: false, noPolice: false, noCrash: false, noStall: false, noLose: false, fast: false, timeScale: 1, rider: '', flood: null };
@@ -361,7 +362,76 @@ export function mountCheat(g) {
   // ======================== 📖 CỐT TRUYỆN ========================
   const storySel = sel([['0', '0 · vừa xuống bến xe buýt'], ['1', '1 · Cô Hai đã cho xe đạp'], ['2', '2 · đã leo lên xe (xong mở đầu)']]);
   const walletSel = sel([['0', '0 · chưa có ví'], ['1', '1 · nhặt được ví'], ['2', '2 · biết tạp hóa'], ['3', '3 · biết cổng xanh'], ['4', '4 · biết Minh ở quán cà phê'], ['5', '5 · đã trả ví'], ['-1', '-1 · giữ tiền']]);
+  // --- cốt truyện theo chương (story.json): xong mục tiêu đang làm / nhảy tới bước bất kỳ ---
+  const list = (x) => (Array.isArray(x) ? x : x ? [x] : []);
+  // dọn cảnh đang dở: bảng chọn câu, bong bóng, hội thoại, màn xếp túi, đơn cốt truyện đang mời / đang chạy
+  const storyClean = () => {
+    g.storyChoiceClose?.();
+    g.storyAsk = null;
+    g.pendingReply = null;
+    g.storyQueue = [];
+    g.storyTalkWith = null;
+    if (g.talk) g.talkEnd();
+    for (const k of [...g.bubbles.map.keys()]) if (k.startsWith('story:')) g.bubbles.remove(k);
+    if (g.storyPacking) { g.modal.hide(); g.storyPacking = null; }
+    if (g.om.state === S.OFFERED && g.om.offer?.forced) { g.om.offer = null; g.om.go(S.IDLE); }
+  };
+  const storyDone = () => {
+    const gs = need();
+    if (!gs) return;
+    const s = gs.story, st = stepOf(s);
+    if (!st) return say('Không có bước cốt truyện nào đang chạy.', true);
+    const ch = s.ch;
+    // bước chưa chạy việc đầu bước (tin nhắn, người lạ, cho đồ…) → chạy luôn
+    if (!s.fired) {
+      s.fired = true;
+      s.waited = 0;
+      if (st.until?.type === 'ordersSince') s.base = gs.account.completed || 0;
+      if (st.until?.type === 'newDay') s.baseDay = gs.day;
+      g.runStoryActions(st.on || []);
+      if (s.ch !== ch) { storyClean(); refresh(); return say(`Xong bước ${st.id} → hết chương`); } // bước có "kết thúc chương"
+    }
+    // phần việc của điều kiện xong bước
+    const u = st.until || {};
+    if (st.talk) {
+      const t = st.talk;
+      if (t.drop) s.carry = list(s.carry).filter((id) => !list(t.drop).includes(id));
+      if (t.give && GOODS[t.give]) gs.consumables[t.give] = (gs.consumables[t.give] || 0) + Math.max(1, t.giveQty || 1);
+      if (t.pack) s.carry = [...list(t.pack)];
+    }
+    if (u.type === 'chosen' && s.picks?.[u.id] == null) {
+      const a = chapterOf(s).steps.flatMap((x) => x.on || []).find((x) => x.do === 'choose' && x.id === u.id);
+      storyPick(s, u.id, 0, a?.gains?.[0]); // chọn câu đầu
+    }
+    if (u.type === 'read' || u.type === 'open') gs.readThread(u.who);
+    if (u.type === 'reply' && gs.inbox.threads[u.who]?.replies?.length) gs.reply(u.who, 0, g.clockMin);
+    storyClean();
+    s.step += 1;
+    s.fired = false;
+    s.waited = 0;
+    s.ev = {};
+    if (s.step >= chapterOf(s).steps.length) finishChapter(s);
+    g.storyActorsRestore?.();
+    refresh();
+    say(`✅ Xong "${st.id}" → ${stepOf(s)?.id || 'hết cốt truyện'}`);
+  };
+  const stepSel = sel(STORY.chapters.flatMap((c) => c.steps.map((x, i) => [`${c.id}:${i}`, `${c.id} · ${i + 1}. ${x.id}`])));
+  const storyJump = () => {
+    const gs = need();
+    if (!gs) return;
+    const [chId, i] = stepSel.value.split(':');
+    const s = gs.story;
+    storyClean();
+    const idx = STORY.chapters.findIndex((c) => c.id === chId);
+    Object.assign(s, { ch: chId, step: +i, fired: false, waited: 0, ev: {}, done: STORY.chapters.slice(0, idx).map((c) => c.id) });
+    if (idx > 0 || +i > 0) gs.flags.story = Math.max(gs.flags.story ?? 0, 2); // qua mở đầu → có xe đạp
+    g.storyActorsRestore?.();
+    refresh();
+    say(`⏩ Tới ${chId} · ${stepOf(s)?.id}`);
+  };
   const gStory = group('📖 Cốt truyện & hướng dẫn', false,
+    row(btn('✅ Xong mục tiêu này', storyDone), btn('×5', () => { for (let k = 0; k < 5; k++) storyDone(); })),
+    row('Nhảy tới bước', stepSel, btn('⏩ Tới', storyJump)),
     row(btn('⏭ Bỏ hướng dẫn', () => { const gs = need(); if (gs) { gs.flags.tutSkip = true; Object.assign(gs.flags, { mounted: true, refueled: true, online: true }); say('Đã bỏ hướng dẫn người mới'); } })),
     row('Mở đầu', storySel, btn('Đặt', () => { const gs = need(); if (gs) { gs.flags.story = +storySel.value; refresh(); say(`Cốt truyện = ${storySel.value}`); } })),
     row('Nhiệm vụ ví', walletSel, btn('Đặt', () => {
@@ -457,6 +527,7 @@ function inspect(g) {
     `Xe ${gs.vehicleSpec.name} · ${gs.power} · xăng/pin ${gs.fuel.toFixed(2)}/${gs.vehicleSpec.tank} · xe ${gs.bikeHp.toFixed(0)}%${g.stalled ? ' · CHẾT MÁY' : ''}`,
     `Hãng: ${gs.brand || '—'} · túi ${gs.bagSpec.name} · ${g.mode === 'bike' ? 'đang ngồi xe' : 'đi bộ'}`,
     `Đơn: ${om.state}${o ? ` · #${o.id} ${o.kind}${o.rider ? ` · khách ${RIDER_TYPES[o.rider]?.name || o.rider}` : ''}` : ''}`,
+    `Cốt truyện: ${gs.story?.ch ? `${gs.story.ch} · bước ${gs.story.step + 1}/${chapterOf(gs.story)?.steps.length} ${stepOf(gs.story)?.id || ''}${gs.story.fired ? '' : ' (chưa chạy)'}` : '— (không theo / hết cốt truyện)'} · tính cách ${JSON.stringify(gs.story?.traits || {})}`,
     o ? `  Lấy: ${o.pickup.name}\n  Giao: ${o.dropoff.address}` : '',
     `Vị trí x ${p.x.toFixed(1)} z ${p.z.toFixed(1)} · đoạn ${seg?.id || '— (ngã tư / vỉa hè)'}`,
     `Nước tại chỗ: ${Math.round(water * 100)}% (mức ${['khô', 'xăm xắp', 'sâu'][floodBand(water)]}) · mưa ${Math.round(w.rain * 100)}% · triều ${Math.round(w.tide * 100)}%`,

@@ -951,6 +951,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     barriers, // barie chân dốc sân bay (giữa cần chắn: x, z)
     bus, // xe buýt: tuyến + trạm (src/sim/bus.js)
     seats, // chỗ ngồi được (ghế quán, ghế đá công viên, ghế trạm xe buýt…)
+    trees, // gốc cây trên vỉa hè / dải phân cách: [[x, z], …] (cốt truyện: người lạ đứng cạnh gốc cây)
     parked, // xe máy đậu (lề đường, bãi giữ xe…): parked.update(x, z) hiện các ô gần
     // mỗi khung hình: nâng / hạ cần barie theo xe bot gần đó
     update(dt, cars = []) {

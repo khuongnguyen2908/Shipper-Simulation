@@ -20,6 +20,7 @@ import { objectives, ORDERS_GOAL } from '../src/sim/objectives.js';
 import { ranges } from '../src/sim/hours.js';
 import { dayOf, dayStartAt, atHour, fmtClock, minutesUntil } from '../src/sim/clock.js';
 import { isOpen } from '../src/sim/placeRules.js';
+import * as PLACE_RULES from '../src/sim/placeRules.js';
 import * as CONTENT from '../src/content/index.js';
 import * as SETTINGS_MOD from '../src/settings.js';
 
@@ -1701,14 +1702,15 @@ console.log('Mở tiệm / món theo ngày');
       assert.equal(seen(4), true);
     } finally { if (saved === undefined) delete it.openDay; else it.openDay = saved; }
   });
-  test('Bộ kiểm tra: địa điểm cốt truyện phải mở ngày 1; ngày 1 không có quán thì cảnh báo', () => {
+  test('Bộ kiểm tra: địa điểm gắn với code phải luôn mở (chương 1); ngày 1 không có món nào có đơn thì cảnh báo', () => {
     const fs2 = require_json('src/data/places.json'), items2 = require_json('src/data/items.json');
     const home = fs2.places.find((p) => p.id === 'home');
-    home.openDay = 2;
-    for (const p of fs2.places) if (p.kind === 'restaurant') p.openDay = 2;
+    home.openChapter = 2;
+    for (const it of Object.values(items2)) if (it && typeof it === 'object') it.openDay = 2;
     const iss = validatePlaces(fs2, items2);
-    assert.ok(iss.some((i) => i.ref === 'home' && i.field === 'openDay' && i.level === 'error'));
+    assert.ok(iss.some((i) => i.ref === 'home' && i.field === 'openChapter' && i.level === 'error'));
     assert.ok(iss.some((i) => i.field === 'openDay' && i.level === 'warn' && /Ngày 1/.test(i.msg)));
+    items2.passenger.openDay = 1;
     items2.passenger.openDay = 3;
     assert.ok(validateItems(items2, null).some((i) => i.ref === 'passenger' && i.field === 'openDay' && i.level === 'error'));
   });
@@ -3963,7 +3965,9 @@ console.log('Trạm xe buýt: chia theo tuyến');
 
 console.log('Cốt truyện (story.json) + tin nhắn');
 {
-  const { STORY, stepOf, storyTick, beginChapter, storyEvent, wearsBrandKit } = await import('../src/sim/story.js');
+  const { STORY, stepOf, storyTick, beginChapter, storyEvent, wearsBrandKit, actorsPresent, storyPick, leaning } = await import('../src/sim/story.js');
+  const { personOf: personOfS } = await import('../src/sim/people.js');
+  const { finishChapter: finishChapterS } = await import('../src/sim/story.js');
   const { validateStory } = await import('../src/data/validate.js');
   // chạy bộ chạy cốt truyện tới khi đứng ở bước có mã id (tối đa n lần), ctx giả lập việc người chơi làm
   const runTo = (gs, id, ctx, acts = [], n = 200) => {
@@ -3989,12 +3993,48 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     const gs = new GameState({ carry: { flags: { story: 0 } } });
     let open = null, routed = null;
     const ctx = { near: () => false, mounted: false, switchOn: () => false, threadOpen: (w) => open === w, routed: (p) => routed === p };
+    assert.ok(actorsPresent(gs.story).flyer, 'chưa bắt đầu chương: anh phát tờ rơi đã đứng sẵn ở gốc cây');
     beginChapter(gs.story);
     const acts = [];
     const sid = () => stepOf(gs.story)?.id;
-    assert.equal(runTo(gs, 'momMsg', ctx, acts), 'momMsg');
+    assert.equal(runTo(gs, 'flyerCall', ctx, acts), 'flyerCall');
     assert.equal(acts[0]?.do, 'title', 'tên chương trước tiên');
-    assert.ok(acts.some((a) => a.do === 'say' && a.who === 'flyer'), 'rồi mới tới anh phát tờ rơi');
+    const actor = acts.find((a) => a.do === 'actor' && a.who === 'flyer');
+    assert.ok(actor, 'anh phát tờ rơi có mặt từ bước tên chương (không tự nhiên xuất hiện)');
+    assert.ok(stepOf(gs.story).delay > 0, 'tên chương mờ hết rồi chờ thêm chút mới hiện dấu !');
+    for (let i = 0; i < 3; i++) acts.push(...storyTick(gs, 1, ctx));
+    assert.equal(actor.spot, 'xeOm', 'đứng cạnh chú xe ôm ở bến xe');
+    assert.ok(actor.call && actor.idle, 'có câu gọi "Ê nhóc!" + câu "Nhớ gọi anh"');
+    assert.equal(stepOf(gs.story).mark?.actor, 'flyer', 'có dấu ! trên đầu anh ta');
+    assert.ok(stepOf(gs.story).leash, 'chưa nói chuyện thì không cho đi khỏi bến xe');
+    const E = () => { storyEvent(gs.story, 'actor:flyer'); for (let i = 0; i < 3; i++) acts.push(...storyTick(gs, 1, ctx)); };
+    for (let i = 0; i < 30; i++) storyTick(gs, 1, ctx);
+    assert.equal(sid(), 'flyerCall', 'không tự đi tới / tự nói: chờ người chơi bấm E');
+    for (const [id, line] of [['flyerTalk1', 'story.c1.flyer.t1'], ['flyerTalk2', 'story.c1.flyer.t2']]) {
+      E();
+      assert.equal(sid(), id);
+      assert.ok(acts.some((a) => a.do === 'bubble' && a.text === line && a.hold), `câu ${line} giữ nguyên`);
+      for (let i = 0; i < 30; i++) storyTick(gs, 1, ctx);
+      assert.equal(sid(), id, 'không tự đổi câu');
+    }
+    assert.ok(acts.some((a) => a.do === 'item' && a.id === 'flyer'), 'nhận tờ rơi');
+    E();
+    assert.equal(sid(), 'flyerAsk');
+    const ask = acts.find((a) => a.do === 'choose');
+    assert.ok(ask && ask.options.length === 3 && ask.answers.length === 3, 'sau câu "500 cành": 3 câu trả lời, mỗi câu 1 câu đáp');
+    for (let i = 0; i < 30; i++) storyTick(gs, 1, ctx);
+    assert.equal(sid(), 'flyerAsk', 'chưa chọn thì chờ');
+    storyPick(gs.story, 'flyerAsk', 2);
+    acts.push(...storyTick(gs, 1, ctx));
+    assert.equal(sid(), 'flyerAfter', 'chọn xong → anh ta đáp lại, chờ bấm E');
+    assert.equal(gs.story.picks.flyerAsk, 2, 'lựa chọn được lưu (chương sau dùng)');
+    assert.equal(new GameState({ carry: JSON.parse(JSON.stringify(gs.carryOver())) }).story.picks.flyerAsk, 2, 'lưu vào bản lưu');
+    E();
+    assert.equal(sid(), 'huh');
+    assert.ok(acts.some((a) => a.do === 'bubble' && a.who === 'player' && a.text === 'story.c1.flyer.huh'), '"???" trên đầu người chơi');
+    assert.ok(actorsPresent(gs.story).flyer, 'nói xong anh ta vẫn đứng đó');
+    assert.equal(runTo(gs, 'momMsg', ctx, acts), 'momMsg', 'rồi Mẹ nhắn');
+    assert.ok(!acts.some((a) => a.do === 'say' || a.do === 'leave'), 'không mở hộp thoại, không chạy mất');
     doMsgs(gs, acts);
     const seen = [];
     for (let i = 0; i < 4; i++) seen.push(...storyTick(gs, 1, ctx));
@@ -4005,10 +4045,11 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     assert.equal(sid(), 'momMsg', 'chưa mở tin nhắn thì Mẹ chưa gửi tin 2');
     open = 'me';
     const t2 = [];
-    for (let i = 0; i < 4; i++) t2.push(...storyTick(gs, 1, ctx));
-    assert.equal(t2.filter((a) => a.do === 'msg').length, 0, 'mở tin rồi mới tính 5 giây');
+    const wait2 = STORY.chapters[0].steps.find((x) => x.id === 'mom2').delay || 0; // chủ game chỉnh được trong ?editor
+    for (let i = 0; i < Math.max(0, Math.ceil(wait2) - 1); i++) t2.push(...storyTick(gs, 1, ctx));
+    assert.equal(t2.filter((a) => a.do === 'msg').length, 0, `mở tin rồi mới tính ${wait2} giây`);
     for (let i = 0; i < 3; i++) t2.push(...storyTick(gs, 1, ctx));
-    assert.equal(t2.filter((a) => a.do === 'msg').length, 1, 'tin 2 sau ~5 giây');
+    assert.equal(t2.filter((a) => a.do === 'msg').length, 1, `tin 2 sau ~${wait2} giây`);
     for (let i = 0; i < 8; i++) t2.push(...storyTick(gs, 1, ctx));
     assert.ok(t2.some((a) => a.do === 'msg' && a.loc?.includes('home')), 'rồi tới định vị nhà Cô Hai');
     assert.equal(sid(), 'momLoc');
@@ -4030,10 +4071,11 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     storyEvent(gs.story, 'talk:home');
     const t4 = [];
     assert.equal(runTo(gs, 'tellMom', ctx, t4), 'tellMom');
+    assert.ok(t4.some((a) => a.do === 'remove' && a.who === 'flyer') && !actorsPresent(gs.story).flyer, 'tới nhà Cô Hai → anh phát tờ rơi biến mất');
     for (let i = 0; i < 2; i++) t4.push(...storyTick(gs, 1, ctx));
     assert.ok(t4.some((a) => a.do === 'openPhone' && a.who === 'me'), 'chào xong → điện thoại tự bật');
     doMsgs(gs, t4);
-    assert.equal(stepOf(gs.story).guide, undefined, 'không hướng dẫn, tự nhắn');
+    assert.ok(!stepOf(gs.story).guide, 'không hướng dẫn, tự nhắn');
     assert.equal(stepOf(gs.story).mark?.icon, '!', 'đang chờ nhắn Mẹ: vẫn dấu !');
     assert.ok(gs.reply('me', 0));
     assert.equal(runTo(gs, 'talk2', ctx), 'talk2');
@@ -4085,7 +4127,8 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     assert.ok(gs.refuel().ok);
     assert.equal(runTo(gs, 'swFood', ctx), 'swFood');
     assert.equal(runTo(gs, 'firstOrder', { ...ctx, switchOn: (w) => w === 'food' }), 'firstOrder');
-    assert.ok(!stepOf(gs.story).hold, 'đang chờ đơn đầu: app phát đơn bình thường');
+    assert.ok(stepOf(gs.story).hold, 'đang chờ đơn đầu: chặn đơn ngẫu nhiên');
+    assert.deepEqual((stepOf(gs.story).on || []).find((a) => a.do === 'offer'), { do: 'offer', kind: 'food', place: 'bunmoc' }, 'đơn đầu cố định: giao bún mọc Cô Yến');
     for (const stage of ['offer', 'accept', 'pickup']) {
       for (let i = 0; i < 5; i++) storyTick(gs, 1, { ...ctx, orderStage: stage });
       assert.equal(sid(), 'firstOrder', 'chưa giao xong (' + stage + ')');
@@ -4098,16 +4141,140 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     const r = [];
     assert.equal(runTo(gs, 'rideOffer', { ...ctx, switchOn: () => true }, r), 'rideOffer');
     for (let i = 0; i < 4; i++) r.push(...storyTick(gs, 1, ctx));
-    assert.ok(r.some((a) => a.do === 'offer'), 'mời cuốc chở thử');
+    assert.ok(r.some((a) => a.do === 'offer' && a.customer === 'Cô Hằng'), 'mời cuốc chở thử: khách cô Hằng');
     assert.equal(runTo(gs, 'pickup', { ...ctx, orderStage: 'accept' }), 'pickup');
+    assert.equal(runTo(gs, 'rideDone', { ...ctx, orderStage: 'pickup' }), 'rideDone', 'khách lên xe → chở tới nơi');
+    for (let i = 0; i < 20; i++) storyTick(gs, 1, { ...ctx, orderStage: 'pickup' });
+    assert.equal(sid(), 'rideDone', 'chưa chở tới nơi thì chưa hết chương');
+    assert.deepEqual(objectives(gs).map((x) => x.id), ['story', 'rent'], 'đang chương 1: chưa có mục "giao 10 đơn"');
+    storyEvent(gs.story, 'delivered');
     const c = [];
-    assert.equal(runTo(gs, 'csgt', { ...ctx, orderStage: 'pickup' }, c), 'csgt', 'khách vừa lên xe → app CSGT');
+    assert.equal(runTo(gs, 'csgt', ctx, c), 'csgt', 'chở cô Hằng tới nơi → app CSGT');
     for (let i = 0; i < 2; i++) c.push(...storyTick(gs, 1, ctx));
     assert.ok(c.some((a) => a.do === 'openPhone' && a.app === 'police'), 'tự mở app CSGT');
     storyEvent(gs.story, 'ack');
     const end = [];
     runTo(gs, 'zzz', ctx, end, 20);
     assert.ok(end.some((a) => a.do === 'end'), 'bấm Đã rõ → chương 1 kết thúc');
+    finishChapterS(gs.story);
+    storyTick(gs, 1, ctx);
+    assert.ok(objectives(gs).some((x) => x.id === 'orders'), 'hết chương 1 → mục tiêu giao 10 đơn');
+  });
+  test('Chương 2 "Bạn mới ở thành phố": giao thêm 10 đơn → 17h30–19h chú Hai nhắn → đọc tin mới vào chương → chú Hai (cơm chay) → tiệm trà đóng → sư cô (3 câu) → bảo vệ (mở lời 3 câu + 3 câu) → tìm trong vòng tím → chị Linh + người đàn ông → chở chị Linh về → Linh nhắn số → hết chương', () => {
+    const gs = new GameState({ carry: { flags: { story: 0 } } });
+    Object.assign(gs.story, { ch: 'c2', step: 0, fired: false, waited: 0, ev: {}, done: ['c1'] });
+    let near = null, boarded = false, now = 9 * 60, open = null, closeTo = false;
+    const ctx = () => ({ near: (p) => p === near, now, actorNear: () => closeTo, actorBoarded: () => boarded, threadOpen: (w) => open === w });
+    const acts = [];
+    const tick = (n = 1) => { for (let i = 0; i < n; i++) acts.push(...storyTick(gs, 1, ctx())); };
+    const sid = () => stepOf(gs.story)?.id;
+    tick(2);
+    assert.equal(sid(), 'orders10');
+    assert.deepEqual(objectives(gs).map((x) => x.id), ['orders', 'rent'], 'chưa vào chương: bảng mục tiêu "Giao 10 đơn"');
+    gs.account.completed = (gs.account.completed || 0) + 9; tick(3);
+    assert.equal(sid(), 'orders10', '9 đơn: chưa đủ');
+    assert.ok(/9\/10/.test(objectives(gs)[0].text), 'hiện 9/10');
+    gs.day += 1; tick(2); // qua ngày vẫn đếm dồn
+    assert.equal(sid(), 'orders10', 'qua ngày: vẫn 9/10');
+    assert.ok(/9\/10/.test(objectives(gs)[0].text), 'qua ngày không bị đặt lại');
+    gs.account.completed += 1; tick(2);
+    assert.equal(sid(), 'sleep', 'đủ 10 đơn → nghỉ ngơi qua ngày mới');
+    now = 18 * 60; tick(10);
+    assert.equal(sid(), 'sleep', 'cùng ngày, 18h cũng chưa có tin chú Hai');
+    gs.day += 1; now = 9 * 60; tick(2);
+    assert.equal(sid(), 'evening', 'qua ngày mới → chờ 17h30');
+    tick(5);
+    assert.equal(sid(), 'evening', '9h sáng: chưa tới giờ');
+    now = 18 * 60; tick(4);
+    assert.equal(sid(), 'chuHaiMsg');
+    assert.ok(acts.some((a) => a.do === 'msg' && a.from === 'chuHai' && a.loc.includes('dichvu4')), 'chú Hai nhắn kèm định vị quán');
+    assert.ok(!acts.some((a) => a.do === 'title'), 'chưa đọc tin: chưa hiện tên chương');
+    open = 'chuHai'; tick(3);
+    assert.ok(acts.some((a) => a.do === 'title'), 'đọc tin xong → tên chương 2');
+    tick(8);
+    assert.equal(sid(), 'toChuHai');
+    assert.deepEqual(stepOf(gs.story).talk.pack, ['comChay'], 'chú Hai đưa hộp cơm chay');
+    storyEvent(gs.story, 'talk:dichvu4'); tick(2);
+    assert.equal(sid(), 'toTea');
+    near = 'tra'; tick(3);
+    assert.equal(sid(), 'suco', 'tới tiệm trà (đóng cửa) → hỏi sư cô');
+    assert.equal(stepOf(gs.story).mark.place, 'chua');
+    storyEvent(gs.story, 'talk:chua'); tick(2);
+    const sucoAsk = acts.find((a) => a.do === 'choose' && a.id === 'c2Suco');
+    assert.ok(sucoAsk && sucoAsk.who === 'place:chua' && sucoAsk.options.length === 3 && !sucoAsk.ask, 'sư cô: 3 câu trả lời');
+    storyPick(gs.story, 'c2Suco', 0, sucoAsk.gains[0]); tick(4);
+    assert.equal(sid(), 'sucoInfo');
+    storyEvent(gs.story, 'actor:place:chua'); tick(2);
+    assert.equal(sid(), 'toSchool');
+    near = 'dhMyThuat'; tick(3);
+    const g1 = acts.find((a) => a.do === 'choose' && a.id === 'c2GuardAsk');
+    assert.ok(g1 && g1.ask && g1.who === 'place:dhMyThuat', 'bảo vệ: người chơi bấm E mở lời (3 câu)');
+    storyPick(gs.story, 'c2GuardAsk', 1, g1.gains[1]); tick(4);
+    storyPick(gs.story, 'c2GuardWho', 2, { trait: 'bad', pts: 1 }); tick(3);
+    storyEvent(gs.story, 'actor:place:dhMyThuat'); tick(3);
+    assert.equal(sid(), 'search');
+    assert.ok(stepOf(gs.story).zone?.place === 'dhMyThuat' && !stepOf(gs.story).target, 'vòng tím quanh trường, không mũi tên');
+    const pres = actorsPresent(gs.story);
+    assert.ok(pres.linh?.place === 'doChoi' && pres.man?.vehicle === 'moto', 'chị Linh + người đàn ông đi mô tô đứng trước tiệm Bé Yêu');
+    tick(5);
+    assert.equal(sid(), 'search', 'chưa tìm thấy chị Linh');
+    closeTo = true; tick(2);
+    const la = acts.find((a) => a.do === 'choose' && a.id === 'c2LinhAsk');
+    assert.ok(la.ask && la.react.includes('linh') && la.react.includes('man'), 'hỏi chị Linh: dấu ? giật mình trên 2 người');
+    storyPick(gs.story, 'c2LinhAsk', 0, la.gains[0]); tick(4);
+    storyPick(gs.story, 'c2LinhWhy', 1, { trait: 'neutral', pts: 1 }); tick(3);
+    for (const who of ['linh', 'man', 'linh', 'man', 'linh', 'man']) { assert.equal(stepOf(gs.story).until.who, who); storyEvent(gs.story, `actor:${who}`); tick(3); }
+    assert.equal(sid(), 'manGo');
+    tick(6);
+    assert.ok(acts.some((a) => a.do === 'leave' && a.who === 'man'), 'người đàn ông lên xe đi mất');
+    storyEvent(gs.story, 'actor:linh'); tick(3);
+    assert.equal(sid(), 'rideHome');
+    near = 'tra'; tick(5);
+    assert.equal(sid(), 'rideHome', 'chị Linh chưa lên xe thì chưa xong');
+    boarded = true; tick(3);
+    assert.equal(sid(), 'give');
+    storyEvent(gs.story, 'actor:linh'); tick(12);
+    assert.ok(acts.some((a) => a.do === 'drop' && a.id === 'comChay'), 'đưa hộp cơm chay');
+    assert.ok(acts.some((a) => a.do === 'msg' && a.from === 'linh'), 'chị Linh nhắn số');
+    assert.ok(acts.some((a) => a.do === 'end'), 'hết chương 2');
+    assert.deepEqual(gs.story.traits, { good: 2, neutral: 2, bad: 1 }, 'điểm tính cách cộng đúng theo câu chọn');
+  });
+  test('Bản lưu đã xong chương 1 từ hồi chưa có chương 2 → tự vào chương 2; bản lưu không theo cốt truyện thì không', () => {
+    const old = new GameState({ carry: { money: 300, story: { ch: null, step: -1, fired: false, waited: 0, ev: {}, done: ['c1'], items: [], carry: null } } });
+    assert.equal(old.story.ch, 'c2');
+    assert.equal(old.story.step, 0);
+    assert.equal(new GameState({ carry: { money: 300 } }).story.ch, null, 'không theo cốt truyện: để nguyên');
+  });
+  test('Mở tiệm theo chương: Tiệm Trà A Di Đà đóng tới hết chương 2, chùa đóng ở chương 1; bản lưu cũ mọi nơi đều mở', () => {
+    const { isOpen: isOpenR, unlocked: unl } = PLACE_RULES;
+    const L = CITYLAYOUT.buildLayout(), tra = L.placeById.tra, chua = L.placeById.chua;
+    const gs = new GameState({ carry: { flags: { story: 0 } } });
+    assert.equal(gs.progress.chap, 1);
+    assert.ok(!unl(tra, gs.progress) && !unl(chua, gs.progress), 'chương 1: tiệm trà + chùa đóng');
+    assert.ok(!isOpenR(tra, 7 * 60, gs.progress), 'đang giờ mở cửa vẫn đóng');
+    gs.story.ch = 'c2';
+    assert.ok(!unl(tra, gs.progress) && unl(chua, gs.progress), 'chương 2: chùa mở, tiệm trà vẫn đóng');
+    gs.story.ch = null;
+    assert.ok(unl(tra, gs.progress), 'xong chương 2 → tiệm trà mở');
+    assert.ok(unl(tra, new GameState({ carry: { money: 100 } }).progress), 'bản lưu cũ: mở');
+    const om = new OrderManager({ rng: makeRng(3), layout: L, gs: new GameState({ carry: { flags: { story: 0 } } }) });
+    for (let i = 0; i < 300; i++) { const o = om.makeOffer(7 * 60 + (i % 120), { x: tra.door.x, z: tra.door.z }); assert.ok(!o || (o.pickup.placeId !== 'tra' && o.dropoff.placeId !== 'tra' && o.dropoff.placeId !== 'chua'), 'chương 1: không có đơn ở tiệm trà / chùa'); }
+  });
+  test('Đơn cốt truyện: đơn đầu = bún mọc Cô Yến (không sự cố, kể cả quán đã nghỉ); khách chở thử luôn là người lớn bình thường', () => {
+    const personOf = personOfS;
+    const gs = new GameState({ day: 1, carry: { money: 500, brand: 'goship', vehicle: 'cub', owned: { vehicles: ['xeDap', 'cub'], bags: ['nylon', 'thermal'], gear: [] }, flags: { story: 2 } } });
+    const om = new OrderManager({ rng: makeRng(9), layout: CITYLAYOUT.buildLayout(), gs });
+    const pos = { x: CITYLAYOUT.roadPos(3), z: CITYLAYOUT.roadPos(3) + 30 };
+    for (const now of [600, 20 * 60]) { // 10:00 quán mở · 20:00 quán đã nghỉ
+      const o = om.storyFood('bunmoc', pos, now);
+      assert.ok(o && o.kind === 'food' && o.pickup.placeId === 'bunmoc' && o.forced && o.story === 'tutorial');
+      assert.ok(o.itemIds.every((id) => /^bunMoc/.test(id)), 'món bún mọc');
+      assert.ok(!o.flags.outOfStock && !o.flags.noAnswer && !o.flags.picky && !o.flags.vague && !o.dropoff.apartment, 'không sự cố');
+    }
+    for (let k = 0; k < 40; k++) {
+      const w = personOf(om.storyRide(pos, 600 + k).customer);
+      assert.ok(w.age === 'young' || w.age === 'adult', 'khách chở thử là người lớn / người trẻ: ' + w.name);
+    }
   });
   test('Cuốc chở thử (cốt truyện): khách gần mình, không hết hạn, không bỏ qua được; bước "hold" chặn đơn thường', () => {
     const gs = new GameState({ day: 1, carry: { money: 500, brand: 'goship', vehicle: 'cub', owned: { vehicles: ['xeDap', 'cub'], bags: ['nylon', 'thermal'], gear: [] }, flags: { story: 2 } } });
@@ -4146,6 +4313,49 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     const back = new GameState({ carry: JSON.parse(JSON.stringify(gs.carryOver())) });
     assert.equal(back.inbox.threads['x:Nhóm'].msgs.at(-1).text, 'tin 69', 'tải lại vẫn còn tin nhắn');
     assert.ok(!gs.reply('x:Nhóm', 0), 'không có câu trả lời nhanh thì không trả lời được');
+  });
+  test('Tính cách: chọn câu cộng điểm (1 lần), nhiều điểm nhất thắng, bằng nhau → trung lập; bước onlyTrait của tính cách khác bị bỏ qua', () => {
+    const gs = new GameState({ carry: { flags: { story: 0 } } });
+    beginChapter(gs.story);
+    assert.equal(leaning(gs.story), 'neutral', 'chưa có điểm → trung lập');
+    storyPick(gs.story, 'a', 0, { trait: 'good', pts: 2 });
+    storyPick(gs.story, 'a', 1, { trait: 'bad', pts: 5 });
+    assert.deepEqual(gs.story.traits, { good: 2, neutral: 0, bad: 0 }, 'mỗi lựa chọn chỉ tính lần đầu');
+    assert.equal(leaning(gs.story), 'good');
+    storyPick(gs.story, 'b', 0, { trait: 'bad', pts: 2 });
+    assert.equal(leaning(gs.story), 'neutral', 'gương mẫu = xấu tính → trung lập');
+    storyPick(gs.story, 'c', 0, { trait: 'bad', pts: 1 });
+    assert.equal(leaning(gs.story), 'bad');
+    assert.equal(new GameState({ carry: JSON.parse(JSON.stringify(gs.carryOver())) }).story.traits.bad, 3, 'điểm nằm trong bản lưu');
+    const data = { chapters: [{ id: 'x', steps: [
+      { id: 's0', until: { type: 'none' } },
+      { id: 'onlyGood', onlyTrait: 'good', on: [{ do: 'toast', text: 'g' }], until: { type: 'none' } },
+      { id: 'onlyBad', onlyTrait: 'bad', on: [{ do: 'toast', text: 'b' }], until: { type: 'wait', min: 99 } },
+    ] }] };
+    const s2 = new GameState({ carry: { flags: { story: 0 } } });
+    Object.assign(s2.story, { ch: 'x', traits: { good: 0, neutral: 0, bad: 4 } });
+    beginChapter(s2.story);
+    const acts = [];
+    for (let i = 0; i < 6; i++) acts.push(...storyTick(s2, 1, {}, data));
+    assert.equal(stepOf(s2.story, data)?.id, 'onlyBad', 'người xấu tính bỏ qua bước của gương mẫu');
+    assert.deepEqual(acts.map((a) => a.text), ['b'], 'chỉ chạy nội dung của tính cách mình');
+    // câu trả lời nhanh trong tin nhắn cũng cộng điểm
+    const s3 = new GameState({ carry: { flags: { story: 0 } } });
+    beginChapter(s3.story);
+    s3.addMessage('me', { key: 'm' });
+    s3.setReplies('me', ['r1', 'r2', 'r3'], [null, { trait: 'bad', pts: 2 }, null]);
+    assert.deepEqual(s3.reply('me', 1), { gain: { trait: 'bad', pts: 2 } }, 'trả lời tin nhắn → báo điểm vừa cộng');
+    assert.equal(s3.story.traits.bad, 2);
+    s3.setReplies('me', ['q1', 'q2'], null);
+    assert.deepEqual(s3.reply('me', 0), { gain: null }, 'câu không gắn điểm → không cộng');
+    assert.equal(s3.story.traits.bad, 2);
+    const ask = STORY.chapters[0].steps.flatMap((x) => x.on || []).find((a) => a.do === 'choose');
+    assert.equal(ask.gains.length, 3, 'câu trả lời anh phát tờ rơi có gắn điểm');
+    const badData = { contacts: {}, people: { p: {} }, items: {}, parcels: {}, chapters: [{ id: 'c', title: 't', steps: [
+      { id: 'a', onlyTrait: 'evil', on: [{ do: 'choose', id: 'q', who: 'p', options: ['o1', 'o2'], answers: ['a1', 'a2'], gains: [{ trait: 'good', pts: 0 }, { trait: 'xx', pts: 1 }] }], until: { type: 'chosen', id: 'q' } },
+    ] }] };
+    const errs = validateStory(badData, {}).filter((i) => i.level === 'error').map((i) => i.msg).join(' | ');
+    for (const w of ['tính cách lạ "evil"', 'tính cách lạ "xx"', '+ 1–10 điểm']) assert.ok(errs.includes(w), `thiếu lỗi: ${w}`);
   });
   test('Bộ kiểm tra cốt truyện: người nhắn lạ, địa điểm lạ, thiếu chữ, quá 3 câu trả lời, điều kiện lạ → lỗi', () => {
     const bad = {

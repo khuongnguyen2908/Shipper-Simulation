@@ -1,7 +1,7 @@
 // Danh sách mục tiêu trong ngày (tính lại từ GameState mỗi khung hình).
 // optional = nhiệm vụ phụ; target = id địa điểm để chỉ đường. Chữ lấy từ kho chữ obj.*
 import { fmt } from '../content/index.js';
-import { stepOf } from './story.js';
+import { stepOf, ordersProgress } from './story.js';
 
 export const ORDERS_GOAL = 10; // số đơn cần giao trong ngày
 
@@ -11,7 +11,11 @@ export function objectives(gs) {
   // cốt truyện đang chạy (src/sim/story.js): mục tiêu của bước hiện tại đứng đầu, thay cho các mục mở đầu cũ
   const st = stepOf(gs.story);
   const story = st?.goal && gs.story.fired ? { id: 'story', text: fmt(st.goal, { name: gs.profile.name }), done: false } : null;
-  if (!gs.brand && gs.story?.ch) return story ? [story, rent] : [rent];
+  // cốt truyện đang chờ "giao thêm N đơn" (vd trước khi chú Hai nhắn mở chương 2): "Giao 10 đơn (n/10)", đếm dồn, qua ngày không mất
+  const op = ordersProgress(gs);
+  if (op) return [{ id: 'orders', text: fmt('obj.ordersStory', { goal: op.goal, n: Math.min(op.n, op.goal) }), done: op.n >= op.goal }, rent];
+  // đang trong một chương: chỉ có mục tiêu cốt truyện (chương 1 không có "giao 10 đơn")
+  if (gs.story?.ch) return story ? [story, rent] : [rent];
   // chưa vào hãng (không theo cốt truyện): chỉ hiện bước đang làm của mở đầu — tìm nhà trọ, gặp Cô Hai → leo lên xe đạp Cô Hai cho → đăng ký 1 hãng xe
   if (!gs.brand) {
     const st = gs.flags.story ?? 2;
@@ -23,12 +27,12 @@ export function objectives(gs) {
   const first = { id: 'first', text: fmt('obj.first'), done: gs.stats.completed >= 1 };
   // ngày 1: dòng đầu đi lần lượt — đổ xăng / sạc điện → giao đơn đầu tiên; xong đơn đầu mới hiện dòng "giao 10 đơn"
   // (ngày 2 trở đi: tạm chỉ có "giao 10 đơn" — sẽ thiết kế sau)
-  if (gs.day === 1) {
+  if (gs.day === 1 && !(gs.story?.done || []).length) { // đã qua chương 1 (cốt truyện) thì không còn mục đổ xăng / đơn đầu
     const ev = gs.brandSpec?.power === 'electric';
     if (!gs.flags.refueled) list.push({ id: 'fuel', text: fmt(ev ? 'obj.charge' : 'obj.fuel'), done: false, target: ev ? 'charger' : 'gas' });
     else list.push(first);
   }
-  if (gs.day > 1 || first.done) list.push({ id: 'orders', text: fmt('obj.orders', { goal: ORDERS_GOAL, n: Math.min(gs.stats.completed, ORDERS_GOAL) }), done: gs.stats.completed >= ORDERS_GOAL });
+  if (gs.day > 1 || first.done || (gs.story?.done || []).length) list.push({ id: 'orders', text: fmt('obj.orders', { goal: ORDERS_GOAL, n: Math.min(gs.stats.completed, ORDERS_GOAL) }), done: gs.stats.completed >= ORDERS_GOAL });
   list.push(rent);
   return list;
 }

@@ -70,7 +70,7 @@ export function render(root, ctx) {
           { id: '__streets', icon: '🛣️', title: 'Tên đường & khách', sub: 'phố, khách hàng, người đi đường', fixed: true },
           { id: '__schedule', icon: '📅', title: 'Lịch mở theo ngày', sub: 'quán, món mở từ ngày nào', fixed: true },
           { id: '__hours', icon: '⏰', title: 'Khung giờ mẫu', sub: `${Object.keys(pd.hourPresets || {}).length} mẫu · tick ở giờ mở cửa / có đơn`, fixed: true },
-          ...places.map((p) => ({ id: p.id, icon: p.icon || ICON[p.kind] || '•', title: p.name, sub: `${p.id} · ${isPlaced(p) ? `khối ${p.block.join(',')} lô ${p.lot}` : '📦 chưa đặt trên bản đồ'}${p.openDay > 1 ? ` · mở ngày ${p.openDay}` : ''}` })),
+          ...places.map((p) => ({ id: p.id, icon: p.icon || ICON[p.kind] || '•', title: p.name, sub: `${p.id} · ${isPlaced(p) ? `khối ${p.block.join(',')} lô ${p.lot}` : '📦 chưa đặt trên bản đồ'}${p.openChapter > 1 ? ` · mở từ chương ${p.openChapter}` : ''}` })),
         ],
         sel.id,
         (id) => ctx.select('places', { id }),
@@ -238,7 +238,10 @@ export function render(root, ctx) {
   }), opt(fieldKey, { hint, wide: true }));
   T.pane('hours').append(el('h3', {}, 'Giờ mở cửa'), el('div', { class: 'grid' },
     hoursRow(() => p.hours, () => p, 'hours', 'Giờ mở cửa (giờ)', 'Ngoài giờ: không vào được, không có đơn từ quán, không làm hoạt động. Đồng hồ chạy 24h; app nhận đơn 06:00–24:00 (thẻ 📱 App & Đơn).'),
-    field('Mở từ ngày (khai trương)', openDayInput(p, changedP, { disabled: locked }), opt('openDay', { hint: locked ? 'Địa điểm gắn với cốt truyện → luôn mở từ ngày 1.' : HINT.place.openDay }))));
+    field('Mở từ chương (cốt truyện)', ((sel) => { sel.disabled = locked; return sel; })(selectInput(String(p.openChapter > 1 ? p.openChapter : 1),
+      [['1', 'Luôn mở (từ chương 1)'], ...(ctx.data.story?.chapters || []).slice(1).map((c, i) => [String(i + 2), `Chương ${i + 2} (đóng tới khi xong chương ${i + 1})`]), [String((ctx.data.story?.chapters || []).length + 1), 'Sau khi xong mọi chương']],
+      (v) => { const n = Number(v); if (n > 1) p.openChapter = n; else delete p.openChapter; delete p.openDay; changedP(); }),
+      opt('openChapter', { hint: locked ? 'Địa điểm gắn với code → luôn mở.' : 'Chưa tới chương này: tiệm đóng cửa (tới gần thấy "🔒 Đóng cửa"), không có đơn đi / đến tiệm, NPC không đứng ở cửa, mờ trên bản đồ. Bản lưu cũ không theo cốt truyện: mọi nơi đều mở.' })))));
 
   // --- hoạt động ---
   const acts = () => p.activities || [];

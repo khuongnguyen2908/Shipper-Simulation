@@ -7,9 +7,9 @@ import { TIME, ECONOMY, ENERGY, ORDER, VEHICLES, BAGS, WALLET_QUEST, PARKING, LI
 import { circleFree } from './world/physics.js';
 import { APP, ORDER_TYPES, RIDER_TYPES, BRANDS } from './data/apps.js';
 import { GOODS, OUTFIT_SLOTS, isAccessorySlot } from './data/goods.js';
-import { STORY, stepOf, storyEvent } from './sim/story.js';
+import { STORY, stepOf, storyEvent, chapterOf } from './sim/story.js';
 import { DeliveryItem } from './sim/ItemPhysics.js';
-import { isOpen, fmtHours, placesUsing, placesSelling, unlocked, openDayOf } from './sim/placeRules.js';
+import { isOpen, fmtHours, placesUsing, placesSelling, unlocked } from './sim/placeRules.js';
 import { ITEMS } from './data/items.js';
 import { S } from './sim/OrderManager.js';
 import { fmtK } from './sim/economy.js';
@@ -106,12 +106,25 @@ export function gatherInteractions(g) {
     }
   }
   const R = foot ? 3.2 : 4.5;
+  // đang nói chuyện bằng bong bóng (cốt truyện): E = nghe câu tiếp theo (ưu tiên hơn mọi nút khác)
+  if (g.talk) E.push({ label: fmt(g.talk.i >= g.talk.pages.length - 1 && !g.bubbles.typing('story:talk') ? 'act.talkDone' : 'act.talkNext'), dist: -50, run: () => g.talkNext() }); // câu cuối: "Xong"
+  // thoại tuần tự: đang chờ bấm E để hiện câu kế (câu đáp sau câu người chơi vừa chọn, câu xếp hàng)
+  else if (g.storyWaitE()) E.push({ label: fmt('act.talkNext'), dist: -50, run: () => g.storyContinue() });
   // cốt truyện: bước "nói chuyện ở địa điểm" → nút E riêng ở cửa (đi bộ)
   const st = stepOf(g.gs.story);
-  if (st?.talk && st.until?.type === 'talk' && g.gs.story.fired) { // chờ việc đầu bước làm xong (vd tin nhắn tới) rồi mới cho nói chuyện
+  // chờ việc đầu bước làm xong (vd tin nhắn tới) rồi mới cho nói chuyện · đã nói xong (đang xếp túi / chờ sang bước sau) thì thôi
+  if (st?.talk && st.until?.type === 'talk' && g.gs.story.fired && !g.gs.story.ev[`talk:${st.talk.place}`] && !g.storyPacking && !g.talk) {
     const pl = g.layout.placeById[st.talk.place];
     const d = pl && dist(p, pl.door);
     if (pl && d <= R) E.push(foot ? { label: fmt(st.talk.label), dist: d - 5, run: () => storyTalk(g, st, pl) } : { label: fmt('act.needFoot', { place: pl.name }), dist: d - 5, disabled: true });
+  }
+  // cốt truyện: người lạ (anh phát tờ rơi, chị Linh…) / NPC địa điểm đang chờ nói chuyện (sư cô, bảo vệ…) → đứng gần bấm E (đi bộ)
+  for (const who of g.storyTalkTargets()) {
+    const sp = g.speakerOf(who);
+    if (!sp?.mesh?.parent || !g.storyActorTalkable(who)) continue;
+    const d = dist(p, sp.mesh.position);
+    if (d > (who.startsWith('place:') ? 3.4 : 3)) continue;
+    E.push(foot ? { label: g.storyTalkLabel(who), dist: d - 6, run: () => g.storyActorTalk(who) } : { label: fmt('act.talkNeedFoot', { name: sp.name }), dist: d - 6, disabled: true });
   }
   const storyPlace = st?.until?.type === 'talk' ? st.talk?.place : null;
   for (const pl of g.layout.places) {
@@ -146,7 +159,9 @@ export function gatherInteractions(g) {
   }
   // việc của đơn hàng luôn ưu tiên (dist đã trừ 10), kể cả khi đang mờ để người chơi thấy hướng dẫn
   E.sort((a, b) => a.dist - b.dist);
-  if (E.length) out.unshift({ key: 'E', ...E[0] });
+  // đang chọn câu trả lời (phím 1/2/3) / người lạ sắp đáp lại: tạm không có nút E (khỏi bấm nhầm vào cửa bên cạnh)
+  const storyBusy = !!g.storyChoice;
+  if (E.length && !storyBusy) out.unshift({ key: 'E', ...E[0] });
   return out;
 }
 
@@ -166,10 +181,12 @@ function nearestSeat(g, p, r) {
 // story.json → talk { place, label, text, ok, pack (xếp gói hàng vào túi), drop (giao gói hàng), give (tặng đồ) }
 function storyTalk(g, st, pl) {
   const t = st.talk, n = npc(g, pl.id), gs = g.gs;
-  say(g, n.name, n.portrait, fmt(t.text, { name: gs.profile.name }), [{
-    label: fmt(t.ok),
-    primary: true,
-    onSelect: () => {
+  // nói bằng bong bóng trên đầu NPC (bấm E sang câu sau); người chơi không tự nói gì
+  g.storyConverse({
+    mesh: g.npcs[pl.id] || null,
+    name: n.name,
+    pages: splitPages(fmt(t.text, { name: gs.profile.name })),
+    onDone: () => {
       const done = () => storyEvent(gs.story, `talk:${pl.id}`);
       const list = (x) => (Array.isArray(x) ? x : x ? [x] : []);
       // giao gói hàng đang chở (1 hay nhiều gói)
@@ -183,7 +200,7 @@ function storyTalk(g, st, pl) {
       if (pack.length) return storyPack(g, pack, done);
       done();
     },
-  }], { dismissible: false });
+  });
 }
 // Xếp các gói hàng cốt truyện vào túi (dùng màn xếp túi của đơn hàng, có hướng dẫn — game.packGuide) → xong thì đang chở các gói đó
 function storyPack(g, ids, done) {
@@ -193,11 +210,12 @@ function storyPack(g, ids, done) {
   const node = buildPacking({
     items,
     bag: gs.bagSpec,
+    strict: true, // xếp túi có hướng dẫn (cốt truyện): phải xếp đúng luật mới đi
     onDone: () => {
       g.modal.hide();
       g.storyPacking = null;
       gs.story.carry = [...ids];
-      g.hud.toast(fmt('story.carrying', { item: items.map((it) => it.name).join(' + ') }), 'good', 4000);
+      g.hud.toast(fmt('story.carrying', { icon: items[0]?.icon || '📦', item: items.map((it) => it.name).join(' + ') }), 'good', 4000); // hình của gói đầu (hũ chao 🍯, hộp cơm 🍱…)
       done();
     },
   });
@@ -398,7 +416,10 @@ export function phoneAction(g, a, ds) {
   else if (a === 'findBike') findBike(g);
   else if (a === 'bagUse') bagUse(g, ds?.id);
   else if (a === 'bagWear' || a === 'bagOff') bagWear(g, ds?.id, a === 'bagWear');
-  else if (a === 'reply' && g.gs.reply(ds?.thread, Number(ds?.i), g.clockMin)) sound('ui.click');
+  else if (a === 'reply') {
+    const r = g.gs.reply(ds?.thread, Number(ds?.i), g.clockMin);
+    if (r) { sound('ui.click'); g.storyGainToast(r.gain); }
+  }
   else if (a === 'readThread') g.gs.readThread(ds?.id);
   else if (a === 'camShoot') return camShoot(g, Number(ds?.i));
   else if (a === 'camLoad') return camLoad(g, Number(ds?.i));
@@ -876,9 +897,10 @@ export function viewWallet(g) {
 export function placeAction(g, pl) {
   const { gs } = g;
   const p = { place: pl.name, npc: pl.npc ? pl.npc.name : '' };
-  const open = isOpen(pl, g.clockMin, gs.day);
-  // chưa tới ngày khai trương → ghi "sắp khai trương", khác với ngoài giờ mở cửa
-  const closed = open ? '' : !unlocked(pl, gs.day) ? fmt('act.soon', { day: openDayOf(pl) }) : fmt('act.closed', { hours: fmtHours(pl.hours) });
+  const open = isOpen(pl, g.clockMin, gs.progress);
+  // chưa tới chương mở cửa (cốt truyện) → "🔒 Đóng cửa" (không vào được); ngoài giờ → ghi giờ mở cửa
+  if (!unlocked(pl, gs.progress)) return { label: fmt('act.locked', p), needFoot: false, disabled: true, run: () => {} };
+  const closed = open ? '' : fmt('act.closed', { hours: fmtHours(pl.hours) });
   const generic = (key, extra = {}) => ({ label: fmt(key, p) + closed, needFoot: true, run: () => openPlace(g, pl), ...extra });
   switch (pl.kind) {
     case 'home': return { label: fmt('act.home', p), run: () => landlord(g, pl) };
@@ -919,7 +941,7 @@ const hasStock = (pl) => !!pl.sells && ['goods', 'bags', 'vehicles'].some((k) =>
 // Hộp thoại chung của một địa điểm. extra = lựa chọn riêng đặt lên đầu.
 function openPlace(g, pl, extra = [], text = null) {
   const n = npc(g, pl.id);
-  if (!unlocked(pl, g.gs.day)) return say(g, n.name, n.portrait, fmt('dlg.soon', { day: openDayOf(pl), name: pl.name }));
+  if (!unlocked(pl, g.gs.progress)) return g.hud.toast(fmt('act.locked', { place: pl.name }), 'warn', 2500);
   if (!isOpen(pl, g.clockMin)) return say(g, n.name, n.portrait, fmt('dlg.closed', { hours: fmtHours(pl.hours) }));
   const choices = [...extra, ...activityChoices(g, pl)];
   if (hasStock(pl)) choices.push({ label: fmt('dlg.browseShop'), onSelect: () => shopDialog(g, pl) });
@@ -1475,7 +1497,9 @@ function landlord(g, pl) {
   if (gs.flags.story === 0 && gs.story?.ch) { // cốt truyện: chưa tới lúc nói chuyện (sắp tới lượt thì chờ chút)
     if (stepOf(gs.story)?.talk?.place === pl.id) return;
     const n = npc(g, pl.id);
-    return say(g, n.name, n.portrait, fmt('story.coHaiEarly'));
+    // đã nói chuyện với cô ở bước trước trong chương (vd vừa xếp hũ chao xong) → câu nhắc đi làm việc, không hỏi lại "Ủa con tới rồi hả?"
+    const ch = chapterOf(gs.story), met = ch && ch.steps.slice(0, Math.max(0, gs.story.step)).some((x) => x.talk?.place === pl.id);
+    return g.storyConverse({ mesh: g.npcs[pl.id] || null, name: n.name, pages: splitPages(fmt(met ? 'story.coHaiLater' : 'story.coHaiEarly')) });
   }
   if (gs.flags.story === 0) return landlordIntro(g, pl); // lần đầu gặp: Cô Hai cho xe đạp
   const busy = !!g.om.order;

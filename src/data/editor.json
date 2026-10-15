@@ -89,6 +89,18 @@
       "ref": "muXanh",
       "field": "price",
       "msg": "Phụ kiện giá 0 không ai có sẵn (mũ bảo hiểm lúc đầu không có) → chỉ có nếu là quà vào hãng. Đặt giá + nơi bán, hoặc xóa món này."
+    },
+    {
+      "tab": "gear",
+      "ref": "phanComChay",
+      "field": "price",
+      "msg": "Rẻ so với tác dụng (+40 điểm / 0k). Tham khảo: cà phê 20k cho +35, phở 35k cho +50."
+    },
+    {
+      "tab": "text",
+      "ref": "story.c1.arrive.say",
+      "field": "text",
+      "msg": "Đang để trống."
     }
   ]
 }

@@ -10,15 +10,28 @@
       "place": "home"
     },
     "chuHai": {
-      "icon": "👨‍🍳",
+      "icon": "🧓",
       "name": "story.contact.chuHai",
       "place": "dichvu4"
+    },
+    "linh": {
+      "icon": "👩",
+      "name": "story.contact.linh",
+      "place": "tra"
     }
   },
   "people": {
     "flyer": {
       "icon": "🧢",
       "name": "story.people.flyer"
+    },
+    "linh": {
+      "icon": "👩",
+      "name": "story.people.linh"
+    },
+    "man": {
+      "icon": "🕶️",
+      "name": "story.people.man"
     }
   },
   "items": {
@@ -44,6 +57,14 @@
       "traits": [
         "liquid"
       ]
+    },
+    "comChay": {
+      "icon": "🍱",
+      "name": "story.parcel.comChay",
+      "desc": "story.parcel.comChayDesc",
+      "traits": [
+        "hot"
+      ]
     }
   },
   "chapters": [
@@ -57,20 +78,74 @@
           "on": [
             {
               "do": "title"
+            },
+            {
+              "do": "actor",
+              "who": "flyer",
+              "look": "jetjet",
+              "spot": "xeOm",
+              "place": "benXeBuyt",
+              "call": "story.c1.flyer.call",
+              "idle": "story.c1.flyer.remind"
             }
           ],
           "until": {
             "type": "wait",
             "min": 5.3
-          }
+          },
+          "guide": null
         },
         {
-          "id": "arrive",
+          "id": "flyerCall",
+          "on": [],
+          "until": {
+            "type": "talkActor",
+            "who": "flyer"
+          },
+          "mark": {
+            "actor": "flyer",
+            "icon": "!"
+          },
+          "goal": "story.c1.flyer.goal",
+          "target": "actor:flyer",
+          "leash": {
+            "place": "benXeBuyt",
+            "r": 30,
+            "text": "story.c1.flyer.leash"
+          },
+          "guide": null,
+          "delay": 1
+        },
+        {
+          "id": "flyerTalk1",
           "on": [
             {
-              "do": "say",
+              "do": "bubble",
               "who": "flyer",
-              "text": "story.c1.arrive.flyer"
+              "text": "story.c1.flyer.t1",
+              "hold": true
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "flyer"
+          },
+          "goal": "story.c1.flyer.next",
+          "leash": {
+            "place": "benXeBuyt",
+            "r": 30,
+            "text": "story.c1.flyer.leash"
+          },
+          "guide": null
+        },
+        {
+          "id": "flyerTalk2",
+          "on": [
+            {
+              "do": "bubble",
+              "who": "flyer",
+              "text": "story.c1.flyer.t2",
+              "hold": true
             },
             {
               "do": "item",
@@ -78,8 +153,99 @@
             }
           ],
           "until": {
+            "type": "talkActor",
+            "who": "flyer"
+          },
+          "goal": "story.c1.flyer.next",
+          "leash": {
+            "place": "benXeBuyt",
+            "r": 30,
+            "text": "story.c1.flyer.leash"
+          },
+          "guide": null
+        },
+        {
+          "id": "flyerAsk",
+          "on": [
+            {
+              "do": "choose",
+              "id": "flyerAsk",
+              "who": "flyer",
+              "options": [
+                "story.c1.flyer.o1",
+                "story.c1.flyer.o2",
+                "story.c1.flyer.o3"
+              ],
+              "answers": [
+                "story.c1.flyer.a1",
+                "story.c1.flyer.a2",
+                "story.c1.flyer.a3"
+              ],
+              "gains": [
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ]
+            }
+          ],
+          "until": {
+            "type": "chosen",
+            "id": "flyerAsk"
+          },
+          "goal": "story.c1.flyer.askGoal",
+          "leash": {
+            "place": "benXeBuyt",
+            "r": 30,
+            "text": "story.c1.flyer.leash"
+          },
+          "guide": null
+        },
+        {
+          "id": "flyerAfter",
+          "on": [],
+          "until": {
+            "type": "talkActor",
+            "who": "flyer"
+          },
+          "goal": "story.c1.flyer.next",
+          "leash": {
+            "place": "benXeBuyt",
+            "r": 30,
+            "text": "story.c1.flyer.leash"
+          },
+          "guide": null
+        },
+        {
+          "id": "huh",
+          "on": [
+            {
+              "do": "bubble",
+              "who": "player",
+              "text": "story.c1.flyer.huh"
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 2.5
+          },
+          "guide": null
+        },
+        {
+          "id": "b35",
+          "until": {
             "type": "none"
-          }
+          },
+          "on": [],
+          "guide": null
         },
         {
           "id": "momMsg",
@@ -88,7 +254,8 @@
             {
               "do": "msg",
               "from": "me",
-              "text": "story.c1.momMsg.m1"
+              "text": "story.c1.momMsg.m1",
+              "loc": []
             }
           ],
           "until": {
@@ -104,21 +271,23 @@
         },
         {
           "id": "mom2",
-          "delay": 5,
+          "delay": 2,
           "on": [
             {
               "do": "msg",
               "from": "me",
-              "text": "story.c1.momMsg.m2"
+              "text": "story.c1.momMsg.m2",
+              "loc": []
             }
           ],
           "until": {
             "type": "none"
-          }
+          },
+          "guide": null
         },
         {
           "id": "momLoc",
-          "delay": 5,
+          "delay": 2,
           "on": [
             {
               "do": "msg",
@@ -174,7 +343,8 @@
             "title": "story.c1.shift.title",
             "hint": "story.c1.shift.hint",
             "btn": "ok"
-          }
+          },
+          "on": []
         },
         {
           "id": "toHome",
@@ -189,7 +359,9 @@
           "mark": {
             "place": "home",
             "icon": "!"
-          }
+          },
+          "on": [],
+          "guide": null
         },
         {
           "id": "talk1",
@@ -209,7 +381,14 @@
           },
           "goal": "story.c1.talk1.goal",
           "hint": "story.c1.talk1.hint",
-          "target": "home"
+          "target": "home",
+          "on": [
+            {
+              "do": "remove",
+              "who": "flyer"
+            }
+          ],
+          "guide": null
         },
         {
           "id": "tellMom",
@@ -221,6 +400,20 @@
                 "story.c1.tellMom.r1",
                 "story.c1.tellMom.r2",
                 "story.c1.tellMom.r3"
+              ],
+              "gains": [
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
               ]
             },
             {
@@ -236,7 +429,8 @@
           "mark": {
             "place": "home",
             "icon": "!"
-          }
+          },
+          "guide": null
         },
         {
           "id": "talk2",
@@ -245,7 +439,8 @@
             {
               "do": "msg",
               "from": "me",
-              "text": "story.c1.talkCoHai.momOk"
+              "text": "story.c1.talkCoHai.momOk",
+              "loc": []
             }
           ],
           "until": {
@@ -268,7 +463,8 @@
           },
           "goal": "story.c1.talk2.goal",
           "hint": "story.c1.talk2.hint",
-          "target": "home"
+          "target": "home",
+          "guide": null
         },
         {
           "id": "chuHaiLoc",
@@ -305,7 +501,9 @@
           },
           "goal": "story.c1.mount.goal",
           "hint": "story.c1.mount.hint",
-          "target": "bike"
+          "target": "bike",
+          "on": [],
+          "guide": null
         },
         {
           "id": "toChuHai",
@@ -327,7 +525,9 @@
           },
           "goal": "story.c1.toChuHai.goal",
           "hint": "story.c1.toChuHai.hint",
-          "target": "dichvu4"
+          "target": "dichvu4",
+          "on": [],
+          "guide": null
         },
         {
           "id": "eat",
@@ -340,7 +540,8 @@
           "guide": {
             "type": "use",
             "goods": "phanComChay"
-          }
+          },
+          "on": []
         },
         {
           "id": "statPhys",
@@ -353,7 +554,8 @@
             "title": "story.c1.statPhys.title",
             "hint": "story.c1.statPhys.hint",
             "btn": "next"
-          }
+          },
+          "on": []
         },
         {
           "id": "statMental",
@@ -366,7 +568,8 @@
             "title": "story.c1.statMental.title",
             "hint": "story.c1.statMental.hint",
             "btn": "next"
-          }
+          },
+          "on": []
         },
         {
           "id": "statVehicle",
@@ -379,7 +582,8 @@
             "title": "story.c1.statVehicle.title",
             "hint": "story.c1.statVehicle.hint",
             "btn": "ok"
-          }
+          },
+          "on": []
         },
         {
           "id": "coHai1",
@@ -388,12 +592,14 @@
             {
               "do": "msg",
               "from": "coHai",
-              "text": "story.c1.coHaiMsg.m1"
+              "text": "story.c1.coHaiMsg.m1",
+              "loc": []
             }
           ],
           "until": {
             "type": "none"
-          }
+          },
+          "guide": null
         },
         {
           "id": "coHai2",
@@ -402,12 +608,14 @@
             {
               "do": "msg",
               "from": "coHai",
-              "text": "story.c1.coHaiMsg.m2"
+              "text": "story.c1.coHaiMsg.m2",
+              "loc": []
             }
           ],
           "until": {
             "type": "none"
-          }
+          },
+          "guide": null
         },
         {
           "id": "coHaiAsk",
@@ -416,7 +624,8 @@
             {
               "do": "msg",
               "from": "coHai",
-              "text": "story.c1.coHaiMsg.ask"
+              "text": "story.c1.coHaiMsg.ask",
+              "loc": []
             },
             {
               "do": "replies",
@@ -425,6 +634,20 @@
                 "story.c1.coHaiMsg.r1",
                 "story.c1.coHaiMsg.r2",
                 "story.c1.coHaiMsg.r3"
+              ],
+              "gains": [
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
               ]
             }
           ],
@@ -433,7 +656,8 @@
             "who": "coHai"
           },
           "goal": "story.c1.coHaiMsg.goal",
-          "hint": "story.c1.coHaiMsg.hint"
+          "hint": "story.c1.coHaiMsg.hint",
+          "guide": null
         },
         {
           "id": "brandLocs",
@@ -470,7 +694,8 @@
           "hint": "story.c1.wear.hint",
           "guide": {
             "type": "wear"
-          }
+          },
+          "on": []
         },
         {
           "id": "fuelInfo",
@@ -483,7 +708,8 @@
             "btn": "ok",
             "title": "story.c1.fuelInfo.title",
             "hint": "story.c1.fuelInfo.hint"
-          }
+          },
+          "on": []
         },
         {
           "id": "fuelRoute",
@@ -496,7 +722,8 @@
           "target": "fuel",
           "guide": {
             "type": "fuel"
-          }
+          },
+          "on": []
         },
         {
           "id": "refuel",
@@ -506,7 +733,9 @@
           },
           "goal": "story.c1.refuel.goal",
           "hint": "story.c1.refuel.hint",
-          "target": "fuel"
+          "target": "fuel",
+          "on": [],
+          "guide": null
         },
         {
           "id": "swFood",
@@ -519,7 +748,9 @@
           "guide": {
             "type": "switch",
             "which": "food"
-          }
+          },
+          "on": [],
+          "hold": true
         },
         {
           "id": "firstOrder",
@@ -531,7 +762,15 @@
           "hint": "story.c1.firstOrder.hint",
           "guide": {
             "type": "order"
-          }
+          },
+          "on": [
+            {
+              "do": "offer",
+              "kind": "food",
+              "place": "bunmoc"
+            }
+          ],
+          "hold": true
         },
         {
           "id": "profile",
@@ -547,7 +786,8 @@
             "btn": "ok",
             "title": "story.c1.profile.title",
             "hint": "story.c1.profile.rules"
-          }
+          },
+          "on": []
         },
         {
           "id": "swRide",
@@ -561,7 +801,8 @@
           "guide": {
             "type": "switch",
             "which": "ride"
-          }
+          },
+          "on": []
         },
         {
           "id": "rideOffer",
@@ -569,7 +810,8 @@
           "hold": true,
           "on": [
             {
-              "do": "offer"
+              "do": "offer",
+              "customer": "Cô Hằng"
             }
           ],
           "until": {
@@ -588,7 +830,21 @@
           "until": {
             "type": "order",
             "stage": "pickup"
-          }
+          },
+          "on": [],
+          "guide": null
+        },
+        {
+          "id": "rideDone",
+          "hold": true,
+          "until": {
+            "type": "order",
+            "stage": "deliver"
+          },
+          "goal": "story.c1.rideDone.goal",
+          "hint": "story.c1.rideDone.hint",
+          "on": [],
+          "guide": null
         },
         {
           "id": "csgt",
@@ -617,7 +873,8 @@
             {
               "do": "msg",
               "from": "coHai",
-              "text": "story.c1.done.m1"
+              "text": "story.c1.done.m1",
+              "loc": []
             },
             {
               "do": "end"
@@ -625,7 +882,670 @@
           ],
           "until": {
             "type": "none"
+          },
+          "guide": null
+        }
+      ]
+    },
+    {
+      "id": "c2",
+      "title": "story.c2.title",
+      "name": "story.c2.name",
+      "steps": [
+        {
+          "id": "orders10",
+          "until": {
+            "type": "ordersSince",
+            "n": 10
+          },
+          "on": [],
+          "guide": null
+        },
+        {
+          "id": "sleep",
+          "until": {
+            "type": "newDay"
+          },
+          "goal": "story.c2.sleep.goal",
+          "hint": "story.c2.sleep.hint",
+          "target": "home",
+          "on": [],
+          "guide": null
+        },
+        {
+          "id": "evening",
+          "until": {
+            "type": "clock",
+            "from": 17.5,
+            "to": 24
+          },
+          "on": [],
+          "guide": null
+        },
+        {
+          "id": "chuHaiMsg",
+          "delay": 1,
+          "on": [
+            {
+              "do": "msg",
+              "from": "chuHai",
+              "text": "story.c2.chuHai.m1",
+              "loc": [
+                "dichvu4"
+              ]
+            }
+          ],
+          "until": {
+            "type": "open",
+            "who": "chuHai"
+          },
+          "goal": "story.c2.msg.goal",
+          "hint": "story.c2.msg.hint",
+          "guide": {
+            "type": "thread",
+            "who": "chuHai"
           }
+        },
+        {
+          "id": "title",
+          "hold": true,
+          "on": [
+            {
+              "do": "title"
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 5.3
+          },
+          "guide": null
+        },
+        {
+          "id": "toChuHai",
+          "hold": true,
+          "until": {
+            "type": "talk",
+            "place": "dichvu4"
+          },
+          "talk": {
+            "place": "dichvu4",
+            "label": "story.c2.chuHai.label",
+            "text": "story.c2.chuHai.text",
+            "pack": [
+              "comChay"
+            ]
+          },
+          "goal": "story.c2.toChuHai.goal",
+          "target": "dichvu4",
+          "mark": {
+            "place": "dichvu4",
+            "icon": "!"
+          },
+          "on": [],
+          "guide": null
+        },
+        {
+          "id": "toTea",
+          "hold": true,
+          "until": {
+            "type": "arrive",
+            "place": "tra",
+            "r": 10
+          },
+          "goal": "story.c2.toTea.goal",
+          "hint": "story.c2.toTea.hint",
+          "target": "tra",
+          "on": [],
+          "guide": null
+        },
+        {
+          "id": "suco",
+          "hold": true,
+          "on": [
+            {
+              "do": "toast",
+              "text": "story.c2.tea.closed"
+            }
+          ],
+          "until": {
+            "type": "talk",
+            "place": "chua"
+          },
+          "talk": {
+            "place": "chua",
+            "label": "story.c2.suco.label",
+            "text": "story.c2.suco.text"
+          },
+          "goal": "story.c2.suco.goal",
+          "target": "chua",
+          "mark": {
+            "place": "chua",
+            "icon": "!"
+          },
+          "guide": null
+        },
+        {
+          "id": "sucoAsk",
+          "hold": true,
+          "on": [
+            {
+              "do": "choose",
+              "id": "c2Suco",
+              "who": "place:chua",
+              "options": [
+                "story.c2.suco.o1",
+                "story.c2.suco.o2",
+                "story.c2.suco.o3"
+              ],
+              "answers": [
+                "story.c2.suco.a1",
+                "story.c2.suco.a2",
+                "story.c2.suco.a3"
+              ],
+              "gains": [
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ]
+            }
+          ],
+          "until": {
+            "type": "chosen",
+            "id": "c2Suco"
+          },
+          "guide": null
+        },
+        {
+          "id": "sucoInfo",
+          "hold": true,
+          "delay": 1.5,
+          "on": [
+            {
+              "do": "bubble",
+              "who": "place:chua",
+              "text": "story.c2.suco.info",
+              "hold": true
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "place:chua"
+          },
+          "guide": null
+        },
+        {
+          "id": "toSchool",
+          "hold": true,
+          "until": {
+            "type": "arrive",
+            "place": "dhMyThuat",
+            "r": 10
+          },
+          "goal": "story.c2.find.goal",
+          "hint": "story.c2.find.hint",
+          "target": "dhMyThuat",
+          "on": [],
+          "guide": null
+        },
+        {
+          "id": "guardAsk",
+          "hold": true,
+          "on": [
+            {
+              "do": "choose",
+              "id": "c2GuardAsk",
+              "who": "place:dhMyThuat",
+              "options": [
+                "story.c2.guard.o1",
+                "story.c2.guard.o2",
+                "story.c2.guard.o3"
+              ],
+              "answers": [
+                "story.c2.guard.a",
+                "story.c2.guard.a",
+                "story.c2.guard.a"
+              ],
+              "gains": [
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ],
+              "ask": true
+            }
+          ],
+          "until": {
+            "type": "chosen",
+            "id": "c2GuardAsk"
+          },
+          "talkLabel": "story.c2.guard.label",
+          "goal": "story.c2.find.goal",
+          "hint": "story.c2.guard.hint",
+          "mark": {
+            "place": "dhMyThuat",
+            "icon": "!"
+          },
+          "guide": null,
+          "leash": {
+            "place": "dhMyThuat",
+            "r": 30,
+            "text": "story.c2.guardAsk.leash"
+          }
+        },
+        {
+          "id": "guardWho",
+          "hold": true,
+          "delay": 1.5,
+          "on": [
+            {
+              "do": "choose",
+              "id": "c2GuardWho",
+              "who": "place:dhMyThuat",
+              "options": [
+                "story.c2.guardWho.o1",
+                "story.c2.guardWho.o2",
+                "story.c2.guardWho.o3"
+              ],
+              "answers": [
+                "story.c2.guardWho.a1",
+                "story.c2.guardWho.a2",
+                "story.c2.guardWho.a3"
+              ],
+              "gains": [
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ]
+            }
+          ],
+          "until": {
+            "type": "chosen",
+            "id": "c2GuardWho"
+          },
+          "guide": null,
+          "zone": {
+            "place": "dhMyThuat"
+          },
+          "leash": {
+            "place": "dhMyThuat",
+            "r": 30,
+            "text": "story.c2.guardWho.leash"
+          }
+        },
+        {
+          "id": "guardOk",
+          "hold": true,
+          "until": {
+            "type": "talkActor",
+            "who": "place:dhMyThuat"
+          },
+          "on": [],
+          "guide": null
+        },
+        {
+          "id": "search",
+          "hold": true,
+          "on": [
+            {
+              "do": "actor",
+              "who": "linh",
+              "look": "girl",
+              "spot": "place",
+              "place": "doChoi",
+              "dist": 16.5,
+              "lat": -0.7,
+              "faceTo": "man"
+            },
+            {
+              "do": "actor",
+              "who": "man",
+              "look": "gentleman",
+              "spot": "place",
+              "place": "doChoi",
+              "dist": 16.5,
+              "lat": 0.7,
+              "faceTo": "linh",
+              "vehicle": "moto"
+            }
+          ],
+          "until": {
+            "type": "near",
+            "who": "linh",
+            "r": 2
+          },
+          "zone": {
+            "place": "dhMyThuat",
+            "r": 30
+          },
+          "goal": "story.c2.find.goal",
+          "hint": "story.c2.search.hint",
+          "guide": null
+        },
+        {
+          "id": "linhAsk",
+          "hold": true,
+          "on": [
+            {
+              "do": "choose",
+              "id": "c2LinhAsk",
+              "who": "linh",
+              "options": [
+                "story.c2.linh.o1",
+                "story.c2.linh.o2",
+                "story.c2.linh.o3"
+              ],
+              "answers": [
+                "story.c2.linh.a",
+                "story.c2.linh.a",
+                "story.c2.linh.a"
+              ],
+              "gains": [
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ],
+              "ask": true,
+              "react": [
+                "linh",
+                "man"
+              ]
+            }
+          ],
+          "until": {
+            "type": "chosen",
+            "id": "c2LinhAsk"
+          },
+          "talkLabel": "story.c2.linh.label",
+          "goal": "story.c2.find.goal",
+          "guide": null
+        },
+        {
+          "id": "linhWhy",
+          "hold": true,
+          "delay": 1.5,
+          "on": [
+            {
+              "do": "choose",
+              "id": "c2LinhWhy",
+              "who": "linh",
+              "options": [
+                "story.c2.linhWhy.o1",
+                "story.c2.linhWhy.o2",
+                "story.c2.linhWhy.o3"
+              ],
+              "answers": [
+                "story.c2.linhWhy.a1",
+                "story.c2.linhWhy.a2",
+                "story.c2.linhWhy.a3"
+              ],
+              "gains": [
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ]
+            }
+          ],
+          "until": {
+            "type": "chosen",
+            "id": "c2LinhWhy"
+          },
+          "guide": null
+        },
+        {
+          "id": "linhPhone",
+          "hold": true,
+          "until": {
+            "type": "talkActor",
+            "who": "linh"
+          },
+          "on": [],
+          "guide": null
+        },
+        {
+          "id": "man1",
+          "hold": true,
+          "on": [
+            {
+              "do": "bubble",
+              "who": "man",
+              "text": "story.c2.man.l1",
+              "hold": true
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "man"
+          },
+          "guide": null
+        },
+        {
+          "id": "linh2",
+          "hold": true,
+          "on": [
+            {
+              "do": "bubble",
+              "who": "linh",
+              "text": "story.c2.linh.l2",
+              "hold": true
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "linh"
+          },
+          "guide": null
+        },
+        {
+          "id": "man2",
+          "hold": true,
+          "on": [
+            {
+              "do": "bubble",
+              "who": "man",
+              "text": "story.c2.man.l2",
+              "hold": true
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "man"
+          },
+          "guide": null
+        },
+        {
+          "id": "linh3",
+          "hold": true,
+          "on": [
+            {
+              "do": "bubble",
+              "who": "linh",
+              "text": "story.c2.linh.l3",
+              "hold": true
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "linh"
+          },
+          "guide": null
+        },
+        {
+          "id": "man3",
+          "hold": true,
+          "on": [
+            {
+              "do": "bubble",
+              "who": "man",
+              "text": "story.c2.man.l3",
+              "hold": true
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "man"
+          },
+          "guide": null
+        },
+        {
+          "id": "manGo",
+          "hold": true,
+          "on": [
+            {
+              "do": "leave",
+              "who": "man"
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 3
+          },
+          "guide": null
+        },
+        {
+          "id": "linhHome",
+          "hold": true,
+          "on": [
+            {
+              "do": "bubble",
+              "who": "linh",
+              "text": "story.c2.linh.l4",
+              "hold": true
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "linh"
+          },
+          "talkLabel": "story.c2.ride.label",
+          "guide": null
+        },
+        {
+          "id": "rideHome",
+          "hold": true,
+          "on": [
+            {
+              "do": "board",
+              "who": "linh"
+            }
+          ],
+          "until": {
+            "type": "bring",
+            "who": "linh",
+            "place": "tra",
+            "r": 2
+          },
+          "goal": "story.c2.ride.goal",
+          "hint": "story.c2.ride.hint",
+          "target": "tra",
+          "guide": null
+        },
+        {
+          "id": "give",
+          "hold": true,
+          "on": [
+            {
+              "do": "alight",
+              "who": "linh"
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "linh"
+          },
+          "talkLabel": "story.c2.give.label",
+          "goal": "story.c2.give.goal",
+          "guide": null,
+          "mark": {
+            "icon": "!",
+            "actor": "linh"
+          }
+        },
+        {
+          "id": "thanks",
+          "hold": true,
+          "on": [
+            {
+              "do": "drop",
+              "id": "comChay"
+            },
+            {
+              "do": "bubble",
+              "who": "linh",
+              "text": "story.c2.linh.thanks"
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 4
+          },
+          "guide": null
+        },
+        {
+          "id": "done",
+          "delay": 2,
+          "on": [
+            {
+              "do": "remove",
+              "who": "linh"
+            },
+            {
+              "do": "msg",
+              "from": "linh",
+              "text": "story.c2.linh.m1",
+              "loc": []
+            },
+            {
+              "do": "end"
+            }
+          ],
+          "until": {
+            "type": "none"
+          },
+          "guide": null
         }
       ]
     }

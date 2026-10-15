@@ -50,6 +50,7 @@ kbd { display: inline-block; min-width: 1.6em; padding: 1px 6px; border-radius: 
 .g-arrow { width: 36px; height: 36px; display: grid; place-items: center; font-size: 26px; flex: none; transition: transform 0.1s; text-shadow: 0 0 8px rgba(0, 0, 0, 0.6); }
 #gText { font-weight: 700; }
 #gSub { font-size: 12px; color: var(--muted); }
+#fps { position: fixed; top: 1px; right: 16px; z-index: 30; font: 600 10.5px/12px var(--font); color: rgba(255, 255, 255, 0.75); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); pointer-events: none; font-variant-numeric: tabular-nums; }
 .hud-obj { position: absolute; top: 14px; right: 14px; width: 300px; padding: 10px 12px; font-size: 12.5px; }
 .hud-obj .ttl, #cargo .ttl { font-weight: 700; margin-bottom: 6px; font-size: 13px; }
 .hud-obj ul { list-style: none; margin: 0; padding: 0; }
@@ -191,6 +192,12 @@ kbd { display: inline-block; min-width: 1.6em; padding: 1px 6px; border-radius: 
 #spotlight.top { z-index: 25; } /* hướng dẫn trong hộp thoại (màn xếp túi) */
 .sp-hole { position: fixed; box-shadow: 0 0 0 200vmax rgba(0, 0, 0, 0.72); border: 2px solid #f4d03f; transition: left 0.15s, top 0.15s, width 0.15s, height 0.15s; }
 .sp-hole::after { content: ''; position: absolute; inset: -2px; border-radius: inherit; animation: tutPulse 1.1s ease-out infinite; }
+/* lỗ sáng nới ra ôm thêm phần chỉ cần sáng (also): không viền; khung vàng nhấp nháy riêng quanh nút cần bấm */
+.sp-hole.plain { border-color: transparent; border-radius: 12px; }
+.sp-hole.plain::after { display: none; }
+.sp-ring { position: fixed; border: 2px solid #f4d03f; border-radius: 10px; pointer-events: none; transition: left 0.15s, top 0.15s; }
+.sp-ring::after { content: ''; position: absolute; inset: -2px; border-radius: inherit; animation: tutPulse 1.1s ease-out infinite; }
+.sp-ring.hidden { display: none; }
 .sp-tip { position: fixed; background: #fffbe6; color: #2b2b2b; border-radius: 12px; padding: 10px 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
 .sp-tip small { color: #555; font-size: 12.5px; line-height: 1.35; }
 .sp-tip.has-btn { pointer-events: auto; }
@@ -358,6 +365,7 @@ b.plus { color: #58d68d; }
 .btn.primary { background: var(--accent); border-color: transparent; }
 .btn.primary:hover:not(:disabled) { background: #00c75a; }
 .btn.danger { background: #7b241c; }
+.btn.warn { background: #b9770e; border-color: transparent; } /* còn chỗ sai, bấm lần nữa mới đi */
 .btn.small { padding: 5px 10px; font-size: 12px; }
 .btn.big { padding: 12px 20px; font-size: 16px; }
 
@@ -447,7 +455,11 @@ b.plus { color: #58d68d; }
 .mm-panel h2 { margin: 0 0 10px; font-size: 22px; }
 .mm-panel .row { margin-top: 16px; }
 .mm-panel .story { text-align: left; }
-.mm-panel kbd { background: #2c3544; border-radius: 5px; padding: 1px 6px; font: 700 12px var(--font); border: 1px solid rgba(255, 255, 255, 0.15); }
+.mm-panel kbd { background: #2c3544; color: #f2f4f8; border-radius: 5px; padding: 1px 6px; font: 700 12px var(--font); border: 1px solid rgba(255, 255, 255, 0.25); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5); } /* chữ sáng trên nền tối (trước đây chữ tối → không đọc được) */
+/* bảng phím điều khiển (menu → 🎮 Điều khiển) */
+.ctl-list { display: grid; gap: 6px; margin: 8px 0 14px; text-align: left; font-size: 13.5px; }
+.ctl-row { display: grid; grid-template-columns: 150px 1fr; gap: 10px; align-items: center; }
+.ctl-keys { text-align: right; white-space: nowrap; }
 .mm-steps { display: flex; gap: 5px; margin-bottom: 14px; }
 .mm-steps i { flex: 1; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.12); }
 .mm-steps i.on { background: var(--accent); }
@@ -471,7 +483,7 @@ b.plus { color: #58d68d; }
 @media (max-width: 1100px) {
   .hud-obj { width: 230px; font-size: 11.5px; }
   .hud-goal { top: 182px; left: 14px; transform: none; max-width: min(320px, 46vw); border-radius: 14px; font-size: 13.5px; }
-  #toasts { top: auto; bottom: 120px; }
+  #toasts { top: 14px; width: max(260px, min(560px, calc(100vw - 520px))); } /* giữa phía trên (giữa bảng giờ / tiền và bảng mục tiêu), không đè dòng nút E dưới cùng */
   #phone { right: 14px; bottom: 300px; }
   #phoneIcon { right: 22px; bottom: 318px; } /* hình điện thoại nhỏ lên trên bản đồ (máy to cũng bật lên ở đây) */
   #phoneNote { right: 84px; bottom: 360px; }
@@ -509,6 +521,10 @@ b.plus { color: #58d68d; }
 
 /* tạo nhân vật (Chơi mới): hình 3D to bên trái, ô chọn bên phải; màn hẹp → hình lên trên */
 .mm-panel.wide { width: min(780px, 100%); container-type: inline-size; }
+/* hàng nút Quay lại / Tiếp luôn bám đáy khung (màn hình thấp không phải cuộn mới thấy) */
+.mm-panel .mm-foot { position: sticky; bottom: -22px; z-index: 2; margin: 12px -26px -22px; padding: 12px 26px 16px; background: rgba(18, 23, 33, 0.97); border-top: 1px solid rgba(255, 255, 255, 0.08); }
+@media (max-height: 760px) { .mm-avatar { height: 340px; } .mm-avatar-col { flex-basis: 240px; } .mm-avatar { width: 240px; } }
+@media (max-width: 760px) { .mm-panel .mm-foot { bottom: 0; margin: 12px -16px -16px; padding: 10px 16px 12px; } }
 .mm-create { display: flex; gap: 20px; align-items: flex-start; }
 .mm-create-form { flex: 1; min-width: 0; }
 .mm-avatar-col { flex: 0 0 300px; display: flex; flex-direction: column; gap: 8px; align-items: center; position: sticky; top: 0; }
@@ -557,6 +573,20 @@ b.plus { color: #58d68d; }
 .bubble::after { content: ''; position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%); border: 6px solid transparent; border-bottom: 0; border-top-color: #fff; }
 .bubble.k-chat { background: #e8fff1; }
 .bubble.k-chat::after { border-top-color: #e8fff1; }
+/* bong bóng cốt truyện: viền vàng, chữ to hơn, tên người nói + dấu E nhấp nháy (đang chờ bấm E) */
+.bubble.k-story { max-width: 260px; text-align: left; font-size: 14px; padding: 6px 14px 9px 12px; border: 2px solid #f4d03f; }
+.bubble.k-story::after { border-top-color: #f4d03f; bottom: -8px; }
+.bub-name { display: block; font-size: 11px; color: #9a7400; margin-bottom: 1px; }
+.bub-off { visibility: hidden; }
+.bub-key { position: absolute; right: -7px; bottom: -9px; padding: 0 6px; border-radius: 5px; background: #222; color: #fff; border: 1.5px solid #f4d03f; font-size: 11px; line-height: 16px; animation: bubKey 1s steps(2) infinite; } /* nút E cố định ở góc phải dưới bong bóng */
+@keyframes bubKey { 50% { opacity: 0.25; } }
+.bub-key[hidden] { display: none; } /* chữ còn đang hiện dần → chưa có dấu E */
+/* bảng câu trả lời trên đầu người chơi (phím 1/2/3 hoặc bấm vào) */
+.bubble.k-choices { background: none; box-shadow: none; padding: 0; max-width: 300px; display: flex; flex-direction: column; align-items: center; gap: 5px; pointer-events: auto; }
+.bubble.k-choices::after { display: none; }
+.bub-opt { display: block; background: rgba(20, 28, 36, 0.92); color: #fff; border: 1.5px solid #4a6070; border-radius: 10px; padding: 5px 11px; font-size: 13.5px; cursor: pointer; white-space: nowrap; }
+.bub-opt:hover { border-color: #f4d03f; }
+.bub-num { color: #f4d03f; margin-right: 7px; }
 
 /* cài đặt: tiêu đề nhóm (Âm thanh / Khác), thanh âm lượng mờ khi đang tắt tiếng · nút loa góc màn hình chính */
 .mm-sec { margin: 12px 0 6px; font-weight: 700; font-size: 13px; color: #ffe08a; }

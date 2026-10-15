@@ -17,10 +17,11 @@ export class Spotlight {
     this.el = document.createElement('div');
     this.el.id = 'spotlight';
     this.el.className = 'hidden';
-    this.el.innerHTML = `<div class="sp-hole"></div>${'<div class="sp-block"></div>'.repeat(4)}
+    this.el.innerHTML = `<div class="sp-hole"></div><div class="sp-ring hidden"></div>${'<div class="sp-block"></div>'.repeat(4)}
       <div class="sp-tip"><b></b><small></small><button class="sp-btn hidden"></button></div>`;
     root.appendChild(this.el);
     this.hole = this.el.querySelector('.sp-hole');
+    this.ring = this.el.querySelector('.sp-ring'); // khung vàng riêng quanh nút cần bấm khi lỗ sáng được nới ra (also)
     this.tip = this.el.querySelector('.sp-tip');
     this.blocks = [...this.el.querySelectorAll('.sp-block')];
     // tấm chắn: nuốt mọi cú bấm ngoài lỗ sáng
@@ -41,7 +42,11 @@ export class Spotlight {
   update(step) {
     const obj = step && typeof step === 'object' ? step : null;
     const id = obj ? obj.id : step;
-    const target = obj ? this.find(obj.sel) : step && TARGETS[step] ? this.find(TARGETS[step]) : null;
+    let target = obj ? this.find(obj.sel) : step && TARGETS[step] ? this.find(TARGETS[step]) : null;
+    // phần cần làm sáng đang bị ẩn (vd dòng phím dưới cùng ẩn ở màn hình ≤ 1100px) mà hướng dẫn có nút bấm:
+    // vẫn hiện bong bóng + nút ở giữa phía dưới màn hình (không có lỗ sáng) — không thì người chơi kẹt ở bước "bấm nút"
+    const loose = !target && !!obj?.btn;
+    if (loose) target = { getBoundingClientRect: () => ({ left: innerWidth / 2, top: innerHeight - 150, width: 0, height: 0 }), loose: true };
     if (!target) return this.hide();
     this.hasBtn = !!obj?.btn;
     this.el.classList.toggle('top', !!obj?.top); // nổi trên hộp thoại (màn xếp túi)
@@ -59,12 +64,21 @@ export class Spotlight {
       target.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }); // nút đang khuất trong hàng cuộn → kéo ra cho thấy
     }
     this.el.classList.remove('hidden');
+    this.hole.style.visibility = target.loose ? 'hidden' : '';
     const r = target.getBoundingClientRect();
-    const x = r.left - PAD, y = r.top - PAD, w = r.width + PAD * 2, h = r.height + PAD * 2;
-    const key = `${Math.round(x)},${Math.round(y)},${Math.round(w)},${Math.round(h)},${innerWidth},${innerHeight}`;
+    // also: phần cần làm SÁNG thêm (không khung vàng), vd ô bịch tàu hũ trong túi lúc hướng dẫn bấm Xoay → lỗ sáng ôm cả hai
+    const extra = (obj?.also || []).map((sel) => document.querySelector(sel)).filter((e) => e && e.getClientRects().length).map((e) => e.getBoundingClientRect());
+    let L = r.left, T = r.top, R = r.left + r.width, B = r.top + r.height;
+    for (const e of extra) { L = Math.min(L, e.left); T = Math.min(T, e.top); R = Math.max(R, e.right); B = Math.max(B, e.bottom); }
+    const x = L - PAD, y = T - PAD, w = R - L + PAD * 2, h = B - T + PAD * 2;
+    const key = `${Math.round(x)},${Math.round(y)},${Math.round(w)},${Math.round(h)},${Math.round(r.left)},${Math.round(r.top)},${innerWidth},${innerHeight}`;
     if (key === this.key) return;
     this.key = key;
-    Object.assign(this.hole.style, { left: `${x}px`, top: `${y}px`, width: `${w}px`, height: `${h}px`, borderRadius: getComputedStyle(target).borderRadius === '0px' ? '10px' : `calc(${getComputedStyle(target).borderRadius} + ${PAD}px)` });
+    this.hole.classList.toggle('plain', extra.length > 0);
+    this.ring.classList.toggle('hidden', !extra.length);
+    if (extra.length) Object.assign(this.ring.style, { left: `${r.left - PAD}px`, top: `${r.top - PAD}px`, width: `${r.width + PAD * 2}px`, height: `${r.height + PAD * 2}px` });
+    const rad = target.loose ? '0px' : getComputedStyle(target).borderRadius;
+    Object.assign(this.hole.style, { left: `${x}px`, top: `${y}px`, width: `${w}px`, height: `${h}px`, borderRadius: rad === '0px' ? '10px' : `calc(${rad} + ${PAD}px)` });
     // 4 tấm chắn: trên · dưới · trái · phải lỗ sáng
     const W = innerWidth, H = innerHeight, box = (b, l, t, bw, bh) => Object.assign(b.style, { left: `${l}px`, top: `${t}px`, width: `${Math.max(0, bw)}px`, height: `${Math.max(0, bh)}px` });
     box(this.blocks[0], 0, 0, W, y);
@@ -108,6 +122,8 @@ export class Spotlight {
     this.keys = null;
     this.key = null;
     this.hasBtn = false;
+    this.ring.classList.add('hidden');
+    this.hole.classList.remove('plain');
     this.el.classList.add('hidden');
   }
 }

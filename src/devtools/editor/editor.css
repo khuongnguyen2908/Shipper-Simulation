@@ -288,3 +288,8 @@ body.show-hints .fld-i { display: none; }
 /* thẻ 📖 Cốt truyện: mỗi "việc" của một bước */
 .story-act { border: 1px solid var(--line, #d0d4da); border-radius: 10px; padding: 8px 10px; margin: 8px 0; }
 .story-act > .row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+/* câu trả lời người chơi chọn: chữ bên trái, tính cách được cộng điểm + số điểm bên phải */
+.story-ans { display: grid; grid-template-columns: minmax(0, 1fr) 190px 80px; gap: 8px; align-items: start; margin: 6px 0; }
+.story-ans-r { display: contents; }
+.story-ans .fld { min-width: 0; }
+@media (max-width: 760px) { .story-ans { grid-template-columns: minmax(0, 1fr) 1fr; } .story-ans-l { grid-column: 1 / -1; } }
