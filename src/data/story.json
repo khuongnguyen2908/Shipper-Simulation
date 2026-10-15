@@ -1515,13 +1515,131 @@
             {
               "do": "bubble",
               "who": "linh",
-              "text": "story.c2.linh.thanks"
+              "text": "story.c2.linh.thanks",
+              "hold": true
             }
           ],
           "until": {
-            "type": "wait",
-            "min": 4
+            "type": "talkActor",
+            "who": "linh"
           },
+          "guide": null
+        },
+        {
+          "id": "hoiaivay",
+          "until": {
+            "type": "chosen",
+            "id": "hoiaivayAsk"
+          },
+          "on": [
+            {
+              "do": "bubble",
+              "who": "linh",
+              "text": "story.c2.b30.bubble",
+              "hold": true
+            },
+            {
+              "do": "choose",
+              "id": "hoiaivayAsk",
+              "who": "linh",
+              "options": [
+                "story.c2.hoiaivay.o1",
+                "story.c2.hoiaivay.o2",
+                "story.c2.hoiaivay.o3"
+              ],
+              "answers": [
+                "story.c2.hoiaivay.a1",
+                "story.c2.hoiaivay.a2",
+                "story.c2.hoiaivay.a3"
+              ],
+              "gains": [
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ]
+            }
+          ],
+          "guide": null
+        },
+        {
+          "id": "hoichayxe",
+          "until": {
+            "type": "chosen",
+            "id": "hoichayxeAsk"
+          },
+          "on": [
+            {
+              "do": "bubble",
+              "who": "linh",
+              "text": "story.c2.rumaidiansang.bubble",
+              "hold": true
+            },
+            {
+              "do": "choose",
+              "id": "hoichayxeAsk",
+              "who": "linh",
+              "options": [
+                "story.c2.b31.o1",
+                "story.c2.b31.o2",
+                "story.c2.rumaidiansang.o3"
+              ],
+              "answers": [
+                "story.c2.b31.a1",
+                "story.c2.b31.a2",
+                "story.c2.rumaidiansang.a3"
+              ],
+              "gains": [
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                null
+              ]
+            }
+          ],
+          "guide": null
+        },
+        {
+          "id": "rumaidi",
+          "until": {
+            "type": "chosen",
+            "id": "rumaidiAsk"
+          },
+          "on": [
+            {
+              "do": "choose",
+              "id": "rumaidiAsk",
+              "who": "linh",
+              "options": [
+                "story.c2.b32.o1",
+                "story.c2.b32.o2",
+                "story.c2.rumaidi.o3"
+              ],
+              "answers": [
+                "story.c2.b32.a1",
+                "story.c2.b32.a2",
+                "story.c2.rumaidi.a3"
+              ]
+            }
+          ],
+          "guide": null
+        },
+        {
+          "id": "delayEnd",
+          "until": {
+            "type": "wait",
+            "min": 3
+          },
+          "on": [],
           "guide": null
         },
         {

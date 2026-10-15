@@ -4233,8 +4233,16 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     assert.equal(sid(), 'rideHome', 'chị Linh chưa lên xe thì chưa xong');
     boarded = true; tick(3);
     assert.equal(sid(), 'give');
-    storyEvent(gs.story, 'actor:linh'); tick(12);
+    storyEvent(gs.story, 'actor:linh'); tick(4);
     assert.ok(acts.some((a) => a.do === 'drop' && a.id === 'comChay'), 'đưa hộp cơm chay');
+    storyEvent(gs.story, 'actor:linh'); tick(4); // chị Linh cảm ơn
+    // chị Linh hỏi: cháu chú Hai? · chạy xe hả? · mai chở chị đi học? (3 lần chọn câu)
+    for (const id of ['hoiaivayAsk', 'hoichayxeAsk', 'rumaidiAsk']) {
+      assert.equal(stepOf(gs.story).until.id, id, `chờ chọn câu ${id}`);
+      assert.ok(!acts.some((a) => a.do === 'end'), 'chưa chọn xong thì chưa hết chương');
+      storyPick(gs.story, id, 0, null); tick(3);
+    }
+    tick(8);
     assert.ok(acts.some((a) => a.do === 'msg' && a.from === 'linh'), 'chị Linh nhắn số');
     assert.ok(acts.some((a) => a.do === 'end'), 'hết chương 2');
     assert.deepEqual(gs.story.traits, { good: 2, neutral: 2, bad: 1 }, 'điểm tính cách cộng đúng theo câu chọn');
