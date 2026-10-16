@@ -35,7 +35,12 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   (ACTION_GROUPS / UNTIL_GROUPS trong tabStory.js) · ẩn mục chưa ai dùng (say, give, fuel, read, talk kiểu cũ, hướng dẫn reply — bước đang dùng vẫn
   hiện ở nhóm "Kiểu cũ") · 3 việc remove / leave / goto = 1 mục "🚶 Rời cảnh" + ô Cách rời (bộ chạy giữ nguyên 3 mã) · "Chặn đơn thường" chỉ hiện ở bước
   trước tên chương · danh sách bước có biểu tượng (🎬🧍💬🎯❗⏰🏍️🎥🏁). story.json không đổi; đã mở thử đủ 100 bước 3 chương.
-- Đợt 2: chia story.json + chữ cốt truyện theo chương. Đợt 3: tách game.js / interactions.js / tests/run.js thành file nhỏ.
+- Đợt 2 (HOÃN — chủ game "1. ok"): chia story.json + chữ cốt truyện theo chương; file còn nhỏ, chia ra dễ hỏng → để khi nào nặng hẳn.
+- **Đợt 3 (xong 16/10)**: game.js 3570 → ~1070 dòng (khởi tạo, vòng đời ngày, vòng lặp); phần còn lại dời nguyên văn sang `src/game/`
+  (events · roadRules · navigation · story · visuals · phoneData — lớp "phần" gắn vào Game.prototype bằng `mixParts`, trùng tên hàm thì báo lỗi ngay;
+  hằng số chung ở `game/shared.js`). interactions.js 1771 dòng → `src/interactions/` (common · nearby · phone · delivery · places · road),
+  interactions.js chỉ xuất lại 15 hàm cũ. Đã so từng dòng: chỉ dời chỗ, không đổi code. `scripts/kiem-ten.js` (dò tên quên import) chạy kèm `npm test`.
+  tests/run.js chưa tách (chỉ chạy bằng node, không vào bản đăng). **Máy kia: kéo bản mới về trước khi sửa game.js / interactions.js.**
 
 ### 🎬 Trong chương thì không có đơn (16/10 — đã làm, chủ game chốt: "sau bước hiện tên chương là không nhận được đơn nào, xong chương mới có đơn lại")
 - `sim/story.js inChapter()`: đã hiện tên chương (bước có việc "title") mà chưa hết chương → app không phát đơn thường (om.hold), trong app nhận

@@ -27,8 +27,10 @@ src/
   world/     Three.js: city, controllers (xe, đi bộ, camera), traffic, sky, models, textures, physics
   ui/        hud, phone (app GoShip, Túi đồ chia ô + bảng "Đang mặc", Xe), avatar (avatar 3D), modal, packing (xếp túi), minimap, screens
   devtools/  autopilot (?debug), editor/ (công cụ nội dung ?editor), relationship/ (sơ đồ quan hệ ?relationship)
-  game.js    vòng lặp, nối sim ↔ world ↔ ui · interactions.js mọi thao tác/hội thoại
-tests/       run.js (bộ thử luật + dữ liệu) · economy-sim.js (bot chơi headless)
+  game.js    lớp Game: khởi tạo, vòng đời ngày, vòng lặp; các nhóm hàm khác ở game/ (events · roadRules · navigation · story · visuals · phoneData,
+             mỗi file là lớp "phần" gắn vào Game.prototype bằng mixParts ở game/shared.js — trong đó vẫn dùng this như game.js; hằng số chung ở shared.js)
+  interactions.js  mọi thao tác/hội thoại — chỉ gom lại; code ở interactions/ (common · nearby · phone · delivery · places · road)
+tests/       run.js (bộ thử luật + dữ liệu) · economy-sim.js (bot chơi headless) · scripts/kiem-ten.js (dò tên chưa import, chạy kèm npm test)
 ```
 Nguyên tắc:
 - Tách mô phỏng khỏi hiển thị: mọi thứ trong `src/sim` chạy được trong Node; ngẫu nhiên có seed.
@@ -36,7 +38,7 @@ Nguyên tắc:
 - Dữ liệu vật phẩm, xe/túi/đồ nghề, địa điểm & NPC nằm trong JSON và sửa được bằng `?editor`; code chỉ gọi trực tiếp các mã bị khóa (xem `PROTECTED` trong `src/data/validate.js`).
 - Thêm khóa chữ / trường dữ liệu mới thì cập nhật luôn công cụ `?editor` và `validate.js` nếu cần.
 - Luật bằng dữ liệu: hoạt động/hàng bán/giờ mở cửa/điểm đến đơn đọc từ places.json (`src/sim/placeRules.js`); tác dụng trang bị đọc qua `GameState.effect(mã)`. Thêm kiểu tác dụng mới = thêm vào `EFFECTS` + chỗ dùng + công cụ.
-- Mọi thao tác người chơi đi qua `interactions.js`; chuyển trạng thái đơn chỉ qua `OrderManager` (bảng `TRANSITIONS`).
+- Mọi thao tác người chơi đi qua `interactions.js` (code ở `src/interactions/`; hàm mới gọi từ game.js thì thêm vào danh sách xuất lại trong interactions.js); chuyển trạng thái đơn chỉ qua `OrderManager` (bảng `TRANSITIONS`).
 
 ## 3. Công cụ qua tham số địa chỉ
 - `?debug`: `window.game` (step, press, snapshot), `window.autopilot`; phím T tua 30 phút, K +100k, L đầy xăng.
