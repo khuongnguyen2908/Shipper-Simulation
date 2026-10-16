@@ -2206,6 +2206,53 @@ export class Game {
     this.bike.vel?.set(0, 0);
     this.rig.yaw = h + Math.PI; // camera sau lưng xe
     this.rig.manualTimer = 0;
+    // người đang chạy trốn: đặt ở trước người chơi ~1,3 × khoảng cách giữ (khuất sau góc phố) + lưu chỗ bắt đầu dí (thua thì về đây)
+    if (ac?.chase) {
+      const c = ac.chase;
+      c.s = Math.min(c.total, this.chaseNearS(c, b) + (ac.def.gap ?? 30) * 1.3);
+      c.v = 0;
+      this.gs.story.chaseStart = { who, x: b.x, z: b.z, h, s: c.s };
+      this.chasePlace(ac, 0);
+    }
+  }
+  // Quãng đường trên lộ trình ở điểm gần chỗ p nhất
+  chaseNearS(c, p) {
+    let best = Infinity, s = 0;
+    for (let i = 0; i + 1 < c.path.length; i++) {
+      const A = c.path[i], B = c.path[i + 1], vx = B.x - A.x, vz = B.z - A.z, l2 = vx * vx + vz * vz || 1;
+      const t = Math.max(0, Math.min(1, ((p.x - A.x) * vx + (p.z - A.z) * vz) / l2));
+      const d = Math.hypot(A.x + vx * t - p.x, A.z + vz * t - p.z);
+      if (d < best) [best, s] = [d, c.len[i] + t * Math.sqrt(l2)];
+    }
+    return s;
+  }
+  // Mất dấu tên cướp: màn tối, báo thua, đưa người chơi (ngồi xe, quay đúng hướng) + tên cướp về chỗ bắt đầu dí (không chiếu lại cảnh phim).
+  // Chơi nhiều người: chỉ dời chỗ của chính người chơi này (như hồi sinh), đồng hồ chung vẫn chạy.
+  storyChaseLose(who, ac) {
+    const c = ac.chase, st0 = this.gs.story.chaseStart;
+    const st = st0?.who === who ? st0 : (() => { const p = this.chaseAt(c, Math.max(0, c.s - 70)); return { x: p.x, z: p.z, h: p.h, s: Math.min(c.total, c.s - 70 + (ac.def.gap ?? 30) * 1.3) }; })();
+    sound('ui.warn');
+    this.fadeFromBlack();
+    this.hud.toast(fmt('story.chase.lost'), 'bad', 6000);
+    const b = this.bike;
+    if (this.mode !== 'bike') { this.walker.pos.set(st.x, this.walker.pos.y, st.z); this.walker.mesh.position.copy(this.walker.pos); }
+    b.pos.set(st.x, b.pos.y, st.z);
+    b.mesh.position.set(st.x, b.mesh.position.y, st.z);
+    if (this.mode !== 'bike') act.mountBike(this);
+    b.heading = st.h;
+    b.speed = 0;
+    b.vel?.set(0, 0);
+    this.rig.yaw = st.h + Math.PI;
+    this.rig.manualTimer = 0;
+    Object.assign(c, { s: st.s, v: 0, done: false, warnAt: performance.now(), heading: null });
+    this.chasePlace(ac, 0);
+  }
+  // Điểm trên lộ trình ở quãng s: { x, z, h (hướng đi) }
+  chaseAt(c, s) {
+    let i = 0;
+    while (i < c.path.length - 2 && c.len[i + 1] < s) i++;
+    const A = c.path[i], B = c.path[i + 1], t = Math.max(0, Math.min(1, (s - c.len[i]) / ((c.len[i + 1] - c.len[i]) || 1)));
+    return { x: A.x + (B.x - A.x) * t, z: A.z + (B.z - A.z) * t, h: Math.atan2(B.x - A.x, B.z - A.z) };
   }
   // Người lạ đi / chạy vào địa điểm rồi biến mất (vd chạy vào trường). Đang ngồi sau xe thì xuống trước
   storyActorGoto(a) {
@@ -2338,7 +2385,7 @@ export class Game {
         c.s = Math.min(c.total, len[best] + (a.gap ?? 30));
       }
       Object.assign(c, { wait: 0, wheelie: 0 });
-    } else if (a.wheelie) sound('city.rev');
+    } else if ((a.revAt ?? (a.wheelie ? 'start' : 'none')) === 'start') sound('city.rev'); // nẹt pô lúc xuất phát (mặc định mới: lúc chạy ngang người chơi)
     this.storyActors[a.who] = { mesh: bike, vehicle: bike, rider, look, def: a, mode: 'chase', phase: 0, t: 0, callT: 0, chase: c };
     this.chasePlace(this.storyActors[a.who], 0);
   }
@@ -2371,10 +2418,19 @@ export class Game {
       const mounted = this.mode === 'bike', P = mounted ? this.bike.mesh.position : this.walker.mesh.position, pos = ac.vehicle.position;
       const d = Math.hypot(P.x - pos.x, P.z - pos.z), pv = mounted ? Math.abs(this.bike.speed) : 0;
       const gap = a.gap ?? 30, top = a.speed ?? 14;
+      // chạy đều bằng pct% tốc độ tối đa của xe người chơi (xe đạp / xe máy đều theo kịp nếu chạy hết ga) — không dừng chờ
+      const cruise = Math.max(3, (this.gs.vehicleSpec?.maxSpeed || 12) * (a.pct ?? 85) / 100);
       let want;
       if (this.cine) want = top; // đang chiếu cảnh phim: chạy thẳng, bỏ xa
-      else if (d > gap * 2.4) want = 0; // bỏ xa quá → dừng chờ (khuất tầm nhìn)
-      else want = Math.max(0, Math.min(top * 1.6, pv + (gap - d) * 0.5 + (d < gap * 0.5 ? 6 : 0))); // tới gần → rồ ga bỏ xa
+      else want = Math.min(Math.max(top, cruise) * 1.6, Math.max(cruise, pv + (gap - d) * 0.5 + (d < gap * 0.5 ? 6 : 0))); // tới gần → rồ ga bỏ xa
+      // tiếng nẹt pô lúc lướt ngang người chơi (revAt 'pass')
+      if ((a.revAt ?? (a.wheelie ? 'start' : 'none')) === 'pass' && !c.revved && d < 12) { c.revved = true; sound('city.rev'); }
+      // bị bỏ xa quá (lose m trên màn hình) → mất dấu, làm lại từ đầu đoạn dí · gần mốc thì cảnh báo
+      const lose = (a.lose ?? 700) / DIST.displayPerUnit;
+      if (!this.cine && !c.done && c.s < c.total) {
+        if (d > lose) return this.storyChaseLose(who, ac);
+        if (d > lose * 0.7 && performance.now() - (c.warnAt || 0) > 5000) { c.warnAt = performance.now(); this.hud.toast(fmt('story.chase.warn'), 'warn', 3000); }
+      }
       c.v += Math.max(-10 * dt, Math.min((c.wheelie > 0 ? 16 : 8) * dt, want - c.v)); // bốc đầu: vọt mạnh
       if (c.wheelie > 0) c.wheelie = Math.max(0, c.wheelie - dt); // chỉ tính lúc đã chạy (không tính lúc đứng chờ)
       c.s = Math.min(c.total, c.s + c.v * dt);

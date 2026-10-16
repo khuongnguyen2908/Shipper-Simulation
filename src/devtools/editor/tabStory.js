@@ -185,7 +185,7 @@ export function render(root, ctx) {
       if (v === 'approach') a.stop = true;
       if (v === 'react') Object.assign(a, { who: [Object.keys(data.people)[0] || 'player'], icon: '!' });
       if (v === 'cine') a.shots = [{ at: 'player', t: 3, dist: 8, height: 3, angle: 180 }];
-      if (v === 'chase') Object.assign(a, { look: 'jetjet', route: [{ place: placeOpts[0]?.[0] || '' }, { place: placeOpts[1]?.[0] || '' }], gap: 30, speed: 14, delay: 1, wheelie: true });
+      if (v === 'chase') Object.assign(a, { look: 'jetjet', route: [{ place: placeOpts[0]?.[0] || '' }, { place: placeOpts[1]?.[0] || '' }], gap: 30, pct: 85, lose: 700, speed: 14, delay: 1, wheelie: true, revAt: 'pass' });
       if (v === 'sound') a.code = Object.keys(SOUNDS)[0];
       if (v === 'actor') Object.assign(a, { look: 'jetjet', spot: 'near', dist: 8 });
       if (v === 'bubble') Object.assign(a, { who: Object.keys(data.people)[0] || 'player', text: newKey(`${base}.bubble`) });
@@ -524,10 +524,13 @@ export function render(root, ctx) {
       el('p', { class: 'muted' }, 'Người lạ chạy xe theo đường thật qua lần lượt các điểm (địa điểm giữa đường thì chạy ngang qua, không vào cửa), luôn ở trước người chơi khoảng "cách người chơi": người chơi tới gần → rồ ga bỏ xa · bỏ xa quá → chậm lại / dừng chờ. Không đụng xe khác, không dừng đèn đỏ. Đang chiếu cảnh phim thì chạy thẳng.'),
       el('div', { class: 'grid' },
         field('Dáng', selectInput(a.look || 'jetjet', Object.entries(ACTOR_LOOKS), (v) => set('look', v)), o),
-        field('Cách người chơi (m)', numInput(a.gap ?? 30, (v) => set('gap', v), { step: 5, min: 10, max: 80 }), o),
-        field('Tốc độ (khi chạy thẳng)', numInput(a.speed ?? 14, (v) => set('speed', v), { step: 1, min: 5, max: 30 }), { ...o, hint: 'Đơn vị bản đồ / giây. Xe máy người chơi tối đa ~12–20.' }),
+        field('Giữ cách người chơi (đơn vị bản đồ)', numInput(a.gap ?? 30, (v) => set('gap', v), { step: 5, min: 10, max: 80 }), { ...o, hint: '1 đơn vị ≈ 10 m trên màn hình: 30 → màn hình ghi ~300 m. Người chơi tới gần hơn → rồ ga bỏ ra.' }),
+        field('Tốc độ chạy đều (% xe người chơi)', numInput(a.pct ?? 85, (v) => set('pct', v), { step: 5, min: 40, max: 100 }), { ...o, hint: 'So với tốc độ tối đa của xe người chơi đang đi (xe đạp / xe máy đều theo kịp nếu chạy hết ga). Không dừng chờ.' }),
+        field('Mất dấu khi cách (m trên màn hình)', numInput(a.lose ?? 700, (v) => set('lose', v), { step: 50, min: 300, max: 5000 }), { ...o, hint: 'Bị bỏ xa hơn → thua, màn tối, về chỗ bắt đầu dí (lúc hết cảnh phim có "lên xe đuổi theo"). Cách 70% mốc này thì báo "Sắp mất dấu".' }),
+        field('Tốc độ lúc chiếu cảnh phim', numInput(a.speed ?? 14, (v) => set('speed', v), { step: 1, min: 5, max: 30 }), { ...o, hint: 'Đơn vị bản đồ / giây — chỉ lúc cảnh phim đang chiếu (chạy thẳng, bỏ xa).' }),
+        field('Tiếng nẹt pô (city.rev)', selectInput(a.revAt ?? (a.wheelie ? 'start' : 'none'), [['pass', 'Lúc lướt ngang người chơi'], ['start', 'Lúc xuất phát'], ['none', 'Không có']], (v) => set('revAt', v)), o),
         field('Chờ trước khi chạy (giây)', numInput(a.delay ?? 1, (v) => set('delay', v), { step: 0.5, min: 0, max: 10 }), o),
-        field('', checkInput(!!a.wheelie, (v) => { if (v) a.wheelie = true; else delete a.wheelie; ctx.changed('story'); }, 'Bốc đầu xe lúc xuất phát (+ tiếng nẹt pô)'), o)));
+        field('', checkInput(!!a.wheelie, (v) => { if (v) a.wheelie = true; else delete a.wheelie; ctx.changed('story'); }, 'Bốc đầu xe lúc xuất phát'), o)));
     a.route.forEach((r, k) => {
       const kind = r.node ? 'node' : 'place';
       wrap.append(el('div', { class: 'row' },

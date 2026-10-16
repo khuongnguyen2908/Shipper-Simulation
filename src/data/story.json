@@ -2239,7 +2239,10 @@
               "gap": 10,
               "speed": 12,
               "delay": 2,
-              "wheelie": true
+              "wheelie": true,
+              "pct": 85,
+              "lose": 700,
+              "revAt": "pass"
             }
           ],
           "guide": null,

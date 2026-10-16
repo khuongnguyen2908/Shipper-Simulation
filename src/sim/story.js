@@ -17,6 +17,8 @@
 //   hideNpc  — [mã địa điểm]: NPC của các địa điểm này vắng mặt trong bước (vd chị Linh chưa ra tiệm trà trước 8h). Chương cũng có hideNpc
 //              (cả chương). Người lạ đang có mặt mà là nhân vật của NPC địa điểm (sơ đồ quan hệ) thì NPC đó cũng tự vắng (không bị 2 người giống nhau).
 //   noFines  — true: đang ở bước này thì không bị phạt / CSGT cho qua (vd đang đuổi theo tên cướp)
+//   chase (việc 🏍️ Chạy trốn): gap (m giữ cách) · pct (% tốc độ tối đa xe người chơi khi chạy đều) · lose (m trên màn hình: bị bỏ xa hơn → mất dấu,
+//              làm lại từ chỗ bắt đầu dí = lúc hết cảnh phim có endRide) · revAt ('start' | 'pass' | 'none': tiếng nẹt pô lúc xuất phát / lúc lướt ngang người chơi)
 //   music    — mã nhạc (music.*) thay nhạc ngày / đêm trong lúc chờ bước này (vd music.chase lúc dí cướp); chưa gắn file → giữ nhạc thường
 //   noBeacon — true: mũi tên chỉ tới mục tiêu nhưng không có cột sáng (vd mục tiêu là tên cướp đang chạy — đã có chấm đỏ trên đầu)
 //   mark.icon — '!' / '?' (dấu nhiệm vụ, khung tròn vàng) · 'dot' (chấm đỏ nhấp nháy: mục tiêu đang truy đuổi)

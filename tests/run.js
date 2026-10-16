@@ -4230,6 +4230,7 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     tick(2);
     const chase = acts.find((a) => a.do === 'chase');
     assert.ok(acts.some((a) => a.do === 'cine') && chase && chase.route.length >= 4, 'cảnh phim + tên cướp chạy theo lộ trình');
+    assert.ok(chase.lose >= chase.gap * 15 && chase.pct <= 100 && chase.revAt === 'pass', 'mất dấu xa hơn hẳn khoảng giữ cách · tốc độ theo xe người chơi · nẹt pô lúc lướt ngang');
     assert.equal(sid(), 'robbery', 'chưa chiếu xong cảnh phim');
     storyEvent(gs.story, 'cineDone'); tick(2);
     assert.equal(sid(), 'chaseMount');

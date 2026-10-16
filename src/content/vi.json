@@ -2186,5 +2186,7 @@
   "story.c3.wip.goal": "Chương 3 còn tiếp… (đang viết)",
   "story.people.nhi": "Chị Nhi",
   "story.people.hoang": "Anh Hoàng",
-  "story.people.thief": "Tên cướp"
+  "story.people.thief": "Tên cướp",
+  "story.chase.warn": "⚠️ Sắp mất dấu rồi — chạy nhanh lên!",
+  "story.chase.lost": "❌ Mất dấu rồi! Thử lại từ đầu đoạn đuổi."
 }

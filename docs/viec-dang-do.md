@@ -77,6 +77,10 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   xe + camera quay theo hướng lộ trình dí (game.js storyRideAfterCine, interactions.js mountBike).
 - Nhạc dí cướp (16/10): mã mới `music.chase`; bước có ô "Nhạc riêng" (story.json → music) thay nhạc ngày / đêm — đặt cho robbery → chaseMount → chase → bridgeCut,
   phát liền mạch, qua cầu (wip) về nhạc thường. CHỜ chủ game tìm bài (gợi ý: Pixabay Music "chase music loop", 140–160 bpm, 1–2 phút, 96–128 kbps) rồi gắn ở thẻ 🔊 Âm thanh.
+- Dí cướp sửa (16/10): tên cướp KHÔNG dừng chờ nữa — chạy đều pct% (85) tốc độ tối đa xe người chơi, tới gần thì rồ ga bỏ ra; cách 70% mốc → "Sắp mất dấu";
+  cách quá lose (700 m màn hình = 70 đơn vị) → thua: màn tối, về chỗ bắt đầu dí (gs.story.chaseStart, lưu lúc hết cảnh cướp) — không chiếu lại cảnh phim.
+  Thử: xe đạp hết ga bám được tới cầu (xa nhất ~22 đơn vị, kể cả khựng 2 giây); đứng yên ~11 giây thì thua. Nẹt pô (city.rev) giờ phát lúc tên cướp lướt ngang người chơi (revAt 'pass').
+  Chủ game đã chỉnh gap = 10 trong editor.
 - Còn để ý: tên cướp đi xuyên qua xe NPC (không né); mở lại game giữa cảnh phim → bỏ qua cảnh đó; giữa lúc dí → tên cướp hiện trước người chơi ~30 m trên lộ trình.
 
 ### 🗣️ Xưng hô "anh/chị" theo giới tính người chơi (16/10 — XONG)

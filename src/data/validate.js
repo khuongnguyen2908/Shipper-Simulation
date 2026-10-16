@@ -1125,6 +1125,10 @@ export function validateStory(story, { places = null, goods = null, content = nu
           if (a.gap != null && !(num(a.gap) && a.gap >= 10 && a.gap <= 80)) add('error', ref, 'on', 'Chạy trốn: cách người chơi 10–80 m.');
           if (a.speed != null && !(num(a.speed) && a.speed >= 5 && a.speed <= 30)) add('error', ref, 'on', 'Chạy trốn: tốc độ 5–30.');
           if (a.delay != null && !(num(a.delay) && a.delay >= 0 && a.delay <= 10)) add('error', ref, 'on', 'Chạy trốn: chờ trước khi chạy 0–10 giây.');
+          if (a.pct != null && !(num(a.pct) && a.pct >= 40 && a.pct <= 100)) add('error', ref, 'on', 'Chạy trốn: tốc độ 40–100 % xe người chơi.');
+          if (a.lose != null && !(num(a.lose) && a.lose >= 300 && a.lose <= 5000)) add('error', ref, 'on', 'Chạy trốn: mất dấu khi cách 300–5000 m.');
+          if (a.lose != null && num(a.gap) && a.lose / 10 <= a.gap * 1.5) add('warn', ref, 'on', `Chạy trốn: mốc mất dấu ${a.lose} m sát quá khoảng giữ cách (${a.gap} đơn vị ≈ ${a.gap * 10} m trên màn hình) → dễ thua ngay.`);
+          if (a.revAt != null && !['start', 'pass', 'none'].includes(a.revAt)) add('error', ref, 'on', 'Chạy trốn: tiếng nẹt pô lúc start / pass / none.');
         }
         if (a.do === 'offer' && a.kind != null && a.kind !== 'ride' && a.kind !== 'food') add('error', ref, 'on', `Mời đơn: loại lạ "${a.kind}" (ride / food).`);
         if (a.do === 'offer' && a.customer != null && (typeof a.customer !== 'string' || !a.customer.trim())) add('error', ref, 'on', 'Mời đơn: tên khách phải là chữ (hoặc bỏ trống).');
