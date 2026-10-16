@@ -105,7 +105,11 @@
             "type": "wait",
             "min": 5.3
           },
-          "guide": null
+          "guide": null,
+          "mark": {
+            "icon": "!",
+            "actor": "flyer"
+          }
         },
         {
           "id": "flyerCall",

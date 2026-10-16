@@ -7,7 +7,7 @@ import { TIME, ECONOMY, ENERGY, ORDER, VEHICLES, BAGS, WALLET_QUEST, PARKING, LI
 import { circleFree } from './world/physics.js';
 import { APP, ORDER_TYPES, RIDER_TYPES, BRANDS } from './data/apps.js';
 import { GOODS, OUTFIT_SLOTS, isAccessorySlot } from './data/goods.js';
-import { STORY, stepOf, storyEvent, chapterOf } from './sim/story.js';
+import { STORY, stepOf, storyEvent, chapterOf, inChapter } from './sim/story.js';
 import { voiceOf, chapterNum } from './data/relations.js';
 import { DeliveryItem } from './sim/ItemPhysics.js';
 import { isOpen, fmtHours, placesUsing, placesSelling, unlocked } from './sim/placeRules.js';
@@ -402,6 +402,11 @@ export function phoneAction(g, a, ds) {
   const { om, gs } = g;
   // bật app nhận đơn: phải vào hãng + đang đi đúng loại xe hãng yêu cầu
   const turningOn = om.state === S.OFFLINE && (a === 'online' || a === 'wantFood' || a === 'wantRide');
+  // đang trong chương (đã hiện tên chương): chưa nhận đơn được — trừ bước cốt truyện bắt bật công tắc (hướng dẫn chương 1)
+  if (turningOn && gs.story?.ch && inChapter(gs.story) && stepOf(gs.story)?.until?.type !== 'switch') {
+    g.hud.toast(fmt('toast.storyNoOrders', { title: fmt(chapterOf(gs.story).title) }), 'warn', 4500);
+    return g.renderPhone();
+  }
   const block = turningOn && gs.workBlock();
   if (block) {
     const bp = gs.brandSpec && { brand: gs.brandSpec.name, kind: fmt(`power.${gs.brandSpec.power}`) };

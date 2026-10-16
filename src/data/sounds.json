@@ -295,6 +295,10 @@
         "freesound_community-chase-8-bit-73312.mp3"
       ],
       "volume": 2
+    },
+    "loop.engine": {
+      "files": [],
+      "volume": 2
     }
   }
 }

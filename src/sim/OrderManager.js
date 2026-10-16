@@ -543,6 +543,16 @@ export class OrderManager {
   storyLater(offer, now) {
     if (offer?.story === 'wallet') this.gs.flags.walletRetryAt = now + (WALLET_QUEST.retryMin ?? 60);
   }
+  // Bỏ đơn mời vì cốt truyện bắt đầu (không phải người chơi từ chối): không trừ tỉ lệ nhận đơn
+  dismissOffer(now = 0) {
+    if (this.state !== S.OFFERED || this.offer?.forced) return false;
+    const offer = this.offer;
+    this.offer = null;
+    this.go(S.IDLE);
+    this.schedulePing(now);
+    this.emit('dismissed', { offer });
+    return true;
+  }
   decline(now = 0) {
     if (this.state !== S.OFFERED || this.offer?.forced) return false; // cuốc cốt truyện: không bỏ qua được
     const offer = this.offer;

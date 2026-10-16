@@ -3978,7 +3978,7 @@ console.log('Trạm xe buýt: chia theo tuyến');
 
 console.log('Cốt truyện (story.json) + tin nhắn');
 {
-  const { STORY, stepOf, storyTick, beginChapter, storyEvent, wearsBrandKit, actorsPresent, storyPick, leaning } = await import('../src/sim/story.js');
+  const { STORY, stepOf, storyTick, beginChapter, storyEvent, wearsBrandKit, actorsPresent, storyPick, leaning, inChapter, titleNext } = await import('../src/sim/story.js');
   const { personOf: personOfS } = await import('../src/sim/people.js');
   const { finishChapter: finishChapterS, dueAt } = await import('../src/sim/story.js');
   const { validateStory } = await import('../src/data/validate.js');
@@ -4375,6 +4375,45 @@ console.log('Cốt truyện (story.json) + tin nhắn');
       const w = personOf(om.storyRide(pos, 600 + k).customer);
       assert.ok(w.age === 'young' || w.age === 'adult', 'khách chở thử là người lớn / người trẻ: ' + w.name);
     }
+  });
+  test('Từ lúc hiện tên chương tới hết chương: không có đơn thường; đang chạy đơn thì chờ giao xong mới hiện tên chương; đơn mời bỏ không bị tính', () => {
+    const data = { chapters: [{ id: 'k1', title: 't', steps: [
+      { id: 'tuDo', until: { type: 'none' } },
+      { id: 'ten', on: [{ do: 'title' }], until: { type: 'none' } },
+      { id: 'canh', until: { type: 'wait', min: 5 } },
+    ] }, { id: 'k2', title: 't2', steps: [{ id: 'x', until: { type: 'wait', min: 99 } }] }] };
+    const gs = new GameState({ carry: { money: 100 } });
+    gs.story = { ch: 'k1', step: 0, fired: false, waited: 0, ev: {}, done: [], items: [] };
+    assert.equal(inChapter(gs.story, data), false, 'bước trước tên chương: tự do chạy đơn');
+    let busy = true;
+    const ctx = { busy: () => busy };
+    storyTick(gs, 1, ctx, data); storyTick(gs, 1, ctx, data);
+    assert.ok(titleNext(gs.story, data), 'tới bước hiện tên chương');
+    for (let i = 0; i < 5; i++) assert.deepEqual(storyTick(gs, 1, ctx, data), [], 'đang chạy đơn: chưa hiện tên chương');
+    assert.equal(inChapter(gs.story, data), false);
+    busy = false;
+    assert.equal(storyTick(gs, 1, ctx, data)[0]?.do, 'title', 'giao xong đơn → hiện tên chương');
+    assert.equal(inChapter(gs.story, data), true, 'đã hiện tên chương: không có đơn thường');
+    for (let i = 0; i < 4; i++) storyTick(gs, 1, ctx, data);
+    assert.equal(stepOf(gs.story, data).id, 'canh');
+    assert.equal(inChapter(gs.story, data), true);
+    for (let i = 0; i < 8; i++) storyTick(gs, 1, ctx, data);
+    assert.equal(gs.story.ch, 'k2');
+    assert.equal(inChapter(gs.story, data), false, 'hết chương (chương sau chưa có tên chương) → có đơn lại');
+    // bỏ đơn mời vì vào chương: không trừ tỉ lệ nhận đơn (khác bấm Bỏ qua)
+    const g2 = new GameState({ day: 1, carry: { money: 500, brand: 'goship', vehicle: 'cub', owned: { vehicles: ['xeDap', 'cub'], bags: ['nylon', 'thermal'], gear: [] }, flags: { story: 2 } } });
+    const om = new OrderManager({ rng: makeRng(9), layout: CITYLAYOUT.buildLayout(), gs: g2 });
+    const pos = { x: CITYLAYOUT.roadPos(3), z: CITYLAYOUT.roadPos(3) + 30 };
+    om.goOnline();
+    for (let i = 0; i < 200 && om.state !== S.OFFERED; i++) om.update(1, 1, 600, pos);
+    assert.equal(om.state, S.OFFERED);
+    const before = g2.account.offers;
+    assert.ok(om.dismissOffer(600));
+    assert.equal(om.state, S.IDLE);
+    assert.equal(g2.account.offers, before, 'không ghi là bỏ đơn');
+    om.hold = true;
+    for (let i = 0; i < 300; i++) om.update(1, 1, 600, pos);
+    assert.equal(om.state, S.IDLE, 'trong chương: không có đơn mời mới');
   });
   test('Cuốc chở thử (cốt truyện): khách gần mình, không hết hạn, không bỏ qua được; bước "hold" chặn đơn thường', () => {
     const gs = new GameState({ day: 1, carry: { money: 500, brand: 'goship', vehicle: 'cub', owned: { vehicles: ['xeDap', 'cub'], bags: ['nylon', 'thermal'], gear: [] }, flags: { story: 2 } } });

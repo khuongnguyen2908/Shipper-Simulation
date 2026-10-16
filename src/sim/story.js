@@ -240,6 +240,17 @@ const ORDER_RANK = { offer: 0, accept: 1, pickup: 2 };
 
 // Mỗi lần game chạy (không tính lúc đang mở hộp thoại): dt = số phút game vừa trôi.
 // Trả về danh sách việc cần làm ngay (on của bước vừa tới hạn); bước xong thì tự sang bước sau.
+// Đang trong chương = đã hiện tên chương (bước có việc "title") mà chưa hết chương → không có đơn thường,
+// chỉ có đơn do cốt truyện mời (việc "offer"). Hết chương mới có đơn lại.
+export function inChapter(s, data = STORY) {
+  const ch = chapterOf(s, data);
+  if (!ch || s.step < 0) return false;
+  const t = ch.steps.findIndex((x) => (x.on || []).some((a) => a.do === 'title'));
+  return t >= 0 && (s.step > t || (s.step === t && s.fired));
+}
+// Bước sắp hiện tên chương (chưa chạy)
+export const titleNext = (s, data = STORY) => { const st = stepOf(s, data); return !!st && !s.fired && (st.on || []).some((a) => a.do === 'title'); };
+
 export function storyTick(gs, dt, ctx, data = STORY) {
   const s = gs.story;
   let st = stepOf(s, data);
@@ -265,6 +276,7 @@ export function storyTick(gs, dt, ctx, data = STORY) {
   } else if (s.due != null) delete s.due; // ra khỏi chuỗi bước có hạn
   if (!s.fired) {
     if (s.waited < (st.delay || 0)) return [];
+    if (ctx.busy?.() && (st.on || []).some((a) => a.do === 'title')) return []; // đang chạy đơn: giao xong mới vào chương
     s.fired = true;
     s.waited = 0;
     if (st.until?.type === 'ordersSince') s.base = gs.account?.completed || 0; // đếm đơn từ lúc này

@@ -27,6 +27,14 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   - Chủ game tự tạo dự án Firebase (Claude hướng dẫn từng bước), dán cấu hình vào code.
 
 ## 💬 Đang bàn
+### 🎬 Trong chương thì không có đơn (16/10 — đã làm, chủ game chốt: "sau bước hiện tên chương là không nhận được đơn nào, xong chương mới có đơn lại")
+- `sim/story.js inChapter()`: đã hiện tên chương (bước có việc "title") mà chưa hết chương → app không phát đơn thường (om.hold), trong app nhận
+  đơn có dòng "🎬 Đang trong Chương N…"; bật công tắc → không cho + thông báo (trừ bước cốt truyện bắt bật công tắc — hướng dẫn chương 1).
+- Đơn do cốt truyện mời (bún mọc Cô Yến, cuốc chở thử chương 1) vẫn có như cũ.
+- Tới bước hiện tên chương mà: đang chạy đơn → chờ giao xong / hủy mới hiện tên chương (nhắc mỗi 30 giây) · có đơn mời chưa nhận → bỏ đơn mời,
+  không tính bỏ đơn (OrderManager.dismissOffer). Xong chương → thông báo "giờ nhận đơn lại được rồi" (trễ hạn quay lùi trong chương thì không báo).
+- Chưa làm (chờ chủ game nếu cần): các bước TRƯỚC tên chương (vd chương 3: chờ chị Linh lúc 8h) vẫn cho nhận / chạy đơn như thường.
+
 ### 🕸️ Công cụ sơ đồ quan hệ nhân vật `/?relationship` (16/10 — đã làm, chờ chủ game vẽ / sửa)
 - Phác thảo đã duyệt: `sketches/relationship.png` + `relationship-check.png`. Dữ liệu `src/data/relations.json`, hàm game `src/data/relations.js`,
   công cụ `src/devtools/relationship/`, bộ luật kiểm tra `validateRelations` (validate.js, có bộ thử).

@@ -2188,5 +2188,10 @@
   "story.people.hoang": "Anh Hoàng",
   "story.people.thief": "Tên cướp",
   "story.chase.warn": "⚠️ Sắp mất dấu rồi — chạy nhanh lên!",
-  "story.chase.lost": "❌ Mất dấu rồi! Thử lại từ đầu đoạn đuổi."
+  "story.chase.lost": "❌ Mất dấu rồi! Thử lại từ đầu đoạn đuổi.",
+  "toast.storyBusy": "📦 Giao xong (hoặc hủy) đơn đang chạy rồi mới bắt đầu <b>{title}</b> được.",
+  "toast.storyOfferDropped": "🎬 Bắt đầu {title} — đơn mời được bỏ, không bị tính bỏ đơn.",
+  "toast.storyNoOrders": "🎬 Đang trong {title} — chưa nhận đơn được. Xong chương rồi bật lại nhé.",
+  "toast.storyOrdersBack": "📦 Xong chương — giờ nhận đơn lại được rồi.",
+  "phone.lockStory": "🎬 Đang trong {title}: không có đơn thường (chỉ đơn của cốt truyện). Xong chương mới có đơn lại."
 }

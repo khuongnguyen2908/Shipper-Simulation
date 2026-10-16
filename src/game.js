@@ -30,7 +30,7 @@ import { OrderManager, S, scamHotspot } from './sim/OrderManager.js';
 import { HazardManager } from './sim/hazards.js';
 import { depthAtPoint, floodBand, floodSpeedCap, floodNum, floodCancelOk, nearestSegId } from './sim/flood.js';
 import { objectives } from './sim/objectives.js';
-import { STORY, HUD_PARTS, stepOf, chapterOf, storyTick, beginChapter, finishChapter, brandHelmet, storyEvent, actorsPresent, storyPick, REACT_ICONS } from './sim/story.js';
+import { STORY, HUD_PARTS, stepOf, chapterOf, storyTick, beginChapter, finishChapter, brandHelmet, storyEvent, actorsPresent, storyPick, REACT_ICONS, inChapter, titleNext } from './sim/story.js';
 import { buildCity } from './world/city.js';
 import { Bike, Walker, CameraRig, lerpAngle } from './world/controllers.js';
 import { Traffic } from './world/traffic.js';
@@ -423,6 +423,7 @@ export class Game {
     this.stalled = false; // xe chết máy vì lội nước sâu (dắt ra chỗ cạn mới đề lại được)
     this.floodBandNow = 0;
     this.storyOfferAt = 0;
+    this.inChapterOf = null; // chương đang diễn (để báo "xong chương — có đơn lại")
     this.storyActorsRestore(); // người lạ của cốt truyện: xóa người của ván trước, dựng lại người đang có mặt ở bước đang chạy
     this.ringAt = 0;
     this.lastSave = { v: 2, clock, carry: JSON.parse(JSON.stringify(this.gs.carryOver())), seed, ...(pos ? { pos } : {}) }; // "Thử lại" khi thua (không ghi đè bản lưu)
@@ -1724,7 +1725,19 @@ export class Game {
   storyUpdate(dMin) {
     const s = this.gs.story;
     const st = s?.ch ? stepOf(s) : null;
-    this.om.hold = !!st?.hold; // bước đang chờ hướng dẫn / cuốc cốt truyện: app chưa phát đơn thường
+    // bước đang chờ hướng dẫn / cuốc cốt truyện, hoặc đang trong chương (đã hiện tên chương): app không phát đơn thường
+    const inCh = !!s?.ch && inChapter(s);
+    this.om.hold = !!st?.hold || inCh;
+    // xong chương (đã sang chương khác / hết truyện) → có đơn lại. Trễ hạn quay lùi trong cùng chương thì không báo
+    if (this.inChapterOf && !inCh && this.inChapterOf !== (s?.ch || null) && this.gs.brand) this.hud.toast(fmt('toast.storyOrdersBack'), 'good', 5000);
+    this.inChapterOf = inCh ? s.ch : null;
+    // sắp hiện tên chương: đang chạy đơn → chờ giao xong (nhắc) · có đơn mời chưa nhận → bỏ đơn mời, không tính bỏ đơn
+    if (st && titleNext(s) && s.waited + dMin >= (st.delay || 0)) {
+      const title = fmt(chapterOf(s).title);
+      if (this.om.order && !this.om.order.story) {
+        if (performance.now() - (this.storyBusyAt || 0) > 30000) { this.storyBusyAt = performance.now(); this.hud.toast(fmt('toast.storyBusy', { title }), 'warn', 6000); }
+      } else if (this.om.state === S.OFFERED && this.om.dismissOffer(this.clockMin)) this.hud.toast(fmt('toast.storyOfferDropped', { title }), 'info', 5000);
+    }
     // bước có cuốc cốt truyện mà cuốc chưa có (vừa mở lại game / lúc mời đang bận) → mời lại
     const offerAct = st && s.fired && (st.on || []).find((a) => a.do === 'offer');
     if (offerAct && !this.om.order && this.om.state !== S.OFFERED && !s.ev.delivered && performance.now() - (this.storyOfferAt || 0) > 1500) this.storyOffer(offerAct);
@@ -1734,6 +1747,7 @@ export class Game {
     const orderStage = om.state === S.OFFERED ? 'offer' : !om.order ? null : om.state === S.TO_PICKUP || om.state === S.WAITING_FOOD || om.state === S.OUT_OF_STOCK || om.state === S.PACKING ? 'accept' : 'pickup';
     const acts = storyTick(this.gs, dMin, {
       orderStage,
+      busy: () => !!om.order && !om.order.story, // đang chạy đơn thường (không phải đơn cốt truyện)
       near: (id, r) => { const pl = this.layout.placeById[id]; return !!pl && dist2(this.playerPos, pl.door) < r; },
       mounted: this.mode === 'bike',
       threadOpen: (who) => this.phone.open && this.phone.app === 'chat' && this.phone.thread === who,
@@ -3501,6 +3515,7 @@ export class Game {
     if (!this.gs) return;
     const gs = this.gs;
     const locked = [];
+    if (gs.story?.ch && inChapter(gs.story)) locked.push(fmt('phone.lockStory', { title: fmt(chapterOf(gs.story).title) })); // đang trong chương: không có đơn thường
     if (gs.workBlock() === 'noUniform') locked.push(fmt('phone.lockUniform', { brand: gs.brandSpec.name }));
     if (gs.workBlock() === 'wrongVehicle') locked.push(fmt('phone.lockVehicle', { brand: gs.brandSpec.name, kind: fmt(`power.${gs.brandSpec.power}`) }));
     if (gs.bagSpec.insulation < 0.5) locked.push(fmt('phone.lockCold'));
