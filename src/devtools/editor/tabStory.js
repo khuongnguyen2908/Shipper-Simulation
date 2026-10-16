@@ -9,9 +9,50 @@ import { APP_DEFS } from '../../data/phoneApps.js';
 import relationsJson from '../../data/relations.json' with { type: 'json' }; // sơ đồ quan hệ (/?relationship) — chỉ đọc: bộ đồ nhân vật
 import { isPlaced } from '../../data/places.js';
 import { ID_RE } from '../../data/validate.js';
-import { el, field, textInput, numInput, button, sideList, selectInput, emojiInput, areaInput, checkInput, explain } from './ui.js';
+import { el, field, textInput, numInput, button, sideList, selectInput, emojiInput, areaInput, checkInput, explain, subTabs } from './ui.js';
 
 const TRAITS = [['fragile', '⚠️ Dễ vỡ'], ['hot', '🔥 Nóng'], ['cold', '❄️ Lạnh'], ['liquid', '💧 Nước']];
+
+// Danh sách "＋ Thêm việc" / "Xong bước khi" chia nhóm. Mục không có ở đây (say, give, fuel · read, talk) là kiểu cũ / chưa ai dùng:
+// không cho thêm mới, nhưng bước đang dùng thì vẫn hiện + sửa được (nhóm "Kiểu cũ"). Bộ chạy (sim/story.js) vẫn hiểu hết.
+const ACTION_GROUPS = [
+  ['💬 Thoại & tin nhắn', ['bubble', 'choose', 'msg', 'replies']],
+  ['🧍 Người lạ', ['actor', 'approach', 'leave', 'board', 'alight', 'react']],
+  ['🎬 Cảnh & hành động', ['title', 'cine', 'chase', 'sound']],
+  ['📦 Đồ & đơn', ['item', 'drop', 'offer', 'bike']],
+  ['📱 Điện thoại & khác', ['openPhone', 'closePhone', 'toast', 'end']],
+];
+// 3 việc người lạ rời cảnh (bộ chạy giữ nguyên 3 mã) → trong công cụ là 1 mục, chọn cách rời
+const LEAVE_KINDS = [['remove', 'Biến mất ngay'], ['leave', 'Bỏ chạy ra xa rồi biến mất'], ['goto', 'Đi / chạy vào địa điểm … rồi biến mất']];
+const LEAVE_LABEL = '🚶 Người lạ rời cảnh (biến mất / bỏ chạy / đi vào địa điểm)';
+const UNTIL_GROUPS = [
+  ['🧍 Người lạ & nói chuyện', ['talkActor', 'chosen', 'near', 'bring', 'chased']],
+  ['💬 Tin nhắn', ['open', 'reply', 'routed']],
+  ['🗺️ Di chuyển', ['arrive', 'mount']],
+  ['📦 Đơn & xe', ['ordersSince', 'order', 'switch', 'fuel', 'brand', 'wear', 'use']],
+  ['⏱️ Thời gian & cảnh', ['wait', 'clock', 'newDay', 'cine', 'ack']],
+  ['Khác', ['none', 'never']],
+];
+const HIDDEN_GUIDES = ['reply']; // chưa chương nào dùng
+
+// Biểu tượng nhỏ cho danh sách bước: bước này có gì (người lạ, thoại, mục tiêu, dấu, hạn giờ, dí, cảnh phim)
+function stepBadges(st) {
+  const on = (st.on || []).map((a) => a.do);
+  const b = [
+    on.includes('title') && '🎬', on.includes('actor') && '🧍', on.some((d) => ['bubble', 'choose', 'msg', 'replies', 'say'].includes(d)) && '💬',
+    st.goal && '🎯', st.mark && '❗', st.deadline && '⏰', on.includes('chase') && '🏍️', on.includes('cine') && '🎥', on.includes('end') && '🏁',
+  ].filter(Boolean);
+  return b.length ? `  ${b.join('')}` : '';
+}
+// Ô chọn có nhóm (optgroup). groups = [[tên nhóm, [[mã, chữ]…]]…] · mục đang chọn mà không nằm trong nhóm nào → thêm nhóm "Kiểu cũ"
+function groupSelect(value, first, groups, onChange, allLabels = null) {
+  const s = el('select', { onchange: (e) => onChange(e.target.value) });
+  if (first) s.append(el('option', { value: '' }, first));
+  const listed = new Set(groups.flatMap(([, list]) => list.map(([v]) => v)));
+  for (const [g, list] of groups) s.append(el('optgroup', { label: g }, list.map(([v, label]) => el('option', { value: v, selected: String(v) === String(value) }, label))));
+  if (value && !listed.has(value)) s.append(el('optgroup', { label: 'Kiểu cũ (đang dùng)' }, el('option', { value, selected: true }, allLabels?.[value] || value)));
+  return s;
+}
 
 // Mã lỗi (validate.js → ref) → mục cần mở bên trái
 export function selOf(ref) {
@@ -67,7 +108,7 @@ export function render(root, ctx) {
   const rows = [{ id: 'people', icon: '👥', title: 'Danh bạ · người nói · vật phẩm', sub: `${Object.keys(data.contacts).length} người nhắn`, fixed: true }];
   for (const ch of data.chapters) {
     rows.push({ id: `ch:${ch.id}`, icon: '📖', title: `${C[ch.title] || ch.id}: ${C[ch.name] || ''}`, sub: `${(ch.steps || []).length} bước`, fixed: true });
-    (ch.steps || []).forEach((st, i) => rows.push({ id: `${ch.id}/${st.id}`, icon: `${i + 1}.`, title: C[st.goal] || st.id, sub: `${st.id} · ${UNTIL[st.until?.type || 'none']?.split(' (')[0] || ''}`, fixed: true }));
+    (ch.steps || []).forEach((st, i) => rows.push({ id: `${ch.id}/${st.id}`, icon: `${i + 1}.`, title: C[st.goal] || st.id, sub: `${st.id} · ${UNTIL[st.until?.type || 'none']?.split(' (')[0] || ''}${stepBadges(st)}`, fixed: true }));
   }
   if (!rows.some((r) => r.id === sel.id)) sel.id = rows[1]?.id || 'people';
   const side = el('aside', { class: 'ed-side' });
@@ -123,8 +164,9 @@ export function render(root, ctx) {
     body.append(
       el('div', { class: 'body-head' }, el('h2', {}, `📖 ${C[ch.title] || ch.id}`)),
       explain(['Cốt truyện chạy thế nào', `<p>Mỗi chương là một chuỗi <b>bước</b>, chạy lần lượt từ trên xuống. Vào một bước: game làm các <b>việc</b> của bước đó (gửi tin nhắn, hiện hội thoại, cho đồ…), rồi chờ tới khi <b>điều kiện xong</b> đúng thì sang bước sau.</p>
-        <p>Trong lúc chờ, màn hình hiện <b>mục tiêu</b> của bước (mũi tên chỉ tới địa điểm nếu có), điện thoại làm sáng nút cần bấm (<b>hướng dẫn</b>). Người chơi bấm "Bỏ qua hướng dẫn" thì chỉ tắt phần làm sáng nút.</p>
+        <p>Trong lúc chờ, màn hình hiện <b>mục tiêu</b> của bước (mũi tên chỉ tới địa điểm nếu có), điện thoại làm sáng nút cần bấm (<b>hướng dẫn</b>). Hướng dẫn chữ có nút Tiếp / Đã rõ.</p>
         <p>Chương 1 bắt đầu sau màn "tới thành phố" khi chơi mới. Hết bước có việc "Kết thúc chương" → hiện chữ hoàn thành, lưu game, sang chương sau.</p>
+        <p>Từ bước hiện tên chương tới hết chương: <b>không có đơn thường</b> (chỉ đơn do cốt truyện mời). Mỗi bước chia 3 thẻ con: 🎬 Diễn biến · 👀 Người chơi thấy gì · ⚙️ Luật trong bước.</p>
         <p>Chơi nhiều người: cốt truyện là của riêng từng người, đồng hồ vẫn chạy chung.</p>`]),
       el('div', { class: 'grid' },
         textBox('Tên chương (vd "Chương 1")', ch.title, 1),
@@ -165,17 +207,37 @@ export function render(root, ctx) {
       el('div', { class: 'grid' },
         field('Mã bước', textInput(st.id, (v) => { if (ID_RE.test(v) && !ch.steps.some((s) => s !== st && s.id === v)) { st.id = v; sel.id = `${ch.id}/${v}`; changed(); } }), opt('id', { hint: 'Chữ không dấu, số, gạch dưới. Không trùng trong chương.' })),
         field('Chờ trước khi làm (phút game)', numInput(st.delay ?? 0, (v) => { if (v > 0) st.delay = v; else delete st.delay; changed(); }, { step: 1, min: 0 }), opt('delay', { hint: '1 phút game = 1 giây thật. Vd tin nhắn tới sau 2–3 giây cho giống thật.' })),
-        field('Chỉ chạy khi tính cách', selectInput(st.onlyTrait || '', [['', '— Mọi tính cách —'], ...Object.keys(PERSONAS).map((t) => [t, `đang nghiêng về ${C[`story.trait.${t}`] || t}`])], (v) => { if (v) st.onlyTrait = v; else delete st.onlyTrait; changed(); }), opt('onlyTrait', { hint: 'Nội dung riêng của 1 tính cách: người chơi đang nghiêng về tính cách khác thì bỏ qua bước này (đi thẳng sang bước sau). Nghiêng = tính cách nhiều điểm nhất, bằng nhau → trung lập.' })),
-        field('Nhạc riêng trong bước này', selectInput(st.music || '', [['', '— Nhạc ngày / đêm như thường —'], ...Object.values(SOUNDS).filter((x) => x.kind === 'music' && x.id !== 'music.menu').map((x) => [x.id, `${x.label} (${x.id})`])], (v) => { if (v) st.music = v; else delete st.music; changed(); }), opt('music', { hint: 'Thay nhạc ngày / đêm trong lúc chờ bước này. Các bước liền nhau cùng nhạc thì phát liền mạch. Gắn file ở thẻ 🔊 Âm thanh — mã chưa có file thì vẫn nhạc ngày / đêm. Mã nhạc mới: nhờ Claude thêm vào soundSpec.js.' })),
-        field('', checkInput(st.hold, (v) => { if (v) st.hold = true; else delete st.hold; changed(); }, 'Chặn đơn thường trong bước này'), opt('hold', { hint: 'App chưa phát đơn mới trong lúc chờ bước này (để hướng dẫn / cuốc cốt truyện không bị đơn khác chen vào).' })),
       ),
+    );
+    // bước đã sau tên chương → đơn tự khóa (sim/story.js inChapter); ô "Chặn đơn thường" chỉ cần ở bước trước tên chương
+    const titleAt = ch.steps.findIndex((x) => (x.on || []).some((a) => a.do === 'title'));
+    const afterTitle = titleAt >= 0 && i >= titleAt;
+    // 3 thẻ con: 🎬 Diễn biến · 👀 Người chơi thấy gì · ⚙️ Luật trong bước (số = đã đặt bao nhiêu thứ)
+    const nFlow = (st.on || []).length + (st.until?.type && st.until.type !== 'none' ? 1 : 0);
+    const nShow = [st.goal, st.guide, st.mark, st.zone, st.talkLabel].filter(Boolean).length;
+    const nRules = [st.hold && !afterTitle, st.noFines, st.leash, st.deadline, st.music, st.onlyTrait, st.hideNpc?.length].filter(Boolean).length;
+    const T = subTabs('storyStep', [['flow', `🎬 Diễn biến (${nFlow})`], ['show', `👀 Người chơi thấy gì (${nShow})`], ['rules', `⚙️ Luật trong bước (${nRules})`]]);
+    body.append(T.el);
+    // khung hiếm dùng: chưa đặt gì thì thu gọn (bấm để mở)
+    const fold = (title, used, ...kids) => {
+      const d = el('details', { class: 'card story-fold', open: !!used }, el('summary', {}, el('h3', {}, title), used ? null : el('small', { class: 'muted' }, ' · chưa dùng — bấm để mở')), ...kids);
+      return d;
+    };
+    T.pane('rules').append(
+      afterTitle
+        ? el('div', { class: 'story-auto' }, '📦 Đơn hàng: ', el('b', {}, 'tự động khóa'), ' — bước này ở sau tên chương (đang trong chương: chỉ có đơn của cốt truyện).')
+        : field('', checkInput(st.hold, (v) => { if (v) st.hold = true; else delete st.hold; changed(); }, 'Chặn đơn thường trong bước này'), opt('hold', { hint: 'Bước trước tên chương: app chưa phát đơn mới trong lúc chờ bước này (để hướng dẫn / cuốc cốt truyện không bị đơn khác chen vào). Sau tên chương thì tự khóa.' })),
+      el('div', { class: 'grid' },
+        field('Nhạc riêng trong bước này', selectInput(st.music || '', [['', '— Nhạc ngày / đêm như thường —'], ...Object.values(SOUNDS).filter((x) => x.kind === 'music' && x.id !== 'music.menu').map((x) => [x.id, `${x.label} (${x.id})`])], (v) => { if (v) st.music = v; else delete st.music; changed(); }), opt('music', { hint: 'Thay nhạc ngày / đêm trong lúc chờ bước này. Các bước liền nhau cùng nhạc thì phát liền mạch. Gắn file ở thẻ 🔊 Âm thanh — mã chưa có file thì vẫn nhạc ngày / đêm. Mã nhạc mới: nhờ Claude thêm vào soundSpec.js.' })),
+        field('Chỉ chạy khi tính cách', selectInput(st.onlyTrait || '', [['', '— Mọi tính cách —'], ...Object.keys(PERSONAS).map((t) => [t, `đang nghiêng về ${C[`story.trait.${t}`] || t}`])], (v) => { if (v) st.onlyTrait = v; else delete st.onlyTrait; changed(); }), opt('onlyTrait', { hint: 'Nội dung riêng của 1 tính cách: người chơi đang nghiêng về tính cách khác thì bỏ qua bước này (đi thẳng sang bước sau). Nghiêng = tính cách nhiều điểm nhất, bằng nhau → trung lập.' })),
+        field('', checkInput(!!st.noFines, (v) => { if (v) st.noFines = true; else delete st.noFines; changed(); }, '🚫 Không bị phạt trong bước này'), opt('noFines', { hint: 'CSGT cho qua, không dán phạt / cẩu xe, vượt đèn không bị ghi (vd đang đuổi theo tên cướp).' }))),
     );
 
     // ---------- việc làm khi vào bước ----------
     st.on = st.on || [];
     const acts = el('div', { class: 'card' }, el('h3', {}, '▶️ Khi vào bước, làm lần lượt'));
     st.on.forEach((a, k) => acts.append(actionRow(st, a, k, base, rerender, opt)));
-    acts.append(el('div', { class: 'row' }, selectInput('', [['', '＋ Thêm việc…'], ...Object.entries(ACTIONS)], (v) => {
+    acts.append(el('div', { class: 'row' }, groupSelect('', '＋ Thêm việc…', ACTION_GROUPS.map(([g, ids]) => [g, ids.map((id) => [id, id === 'leave' ? LEAVE_LABEL : ACTIONS[id]])]), (v) => {
       if (!v) return;
       const a = { do: v };
       if (v === 'say') Object.assign(a, { who: speakerOpts[0]?.[0] || '', text: newKey(`${base}.say`) });
@@ -200,12 +262,12 @@ export function render(root, ctx) {
       st.on.push(a);
       rerender();
     })));
-    body.append(acts);
+    T.pane('flow').append(acts);
 
     // ---------- điều kiện xong bước ----------
     const u = (st.until = st.until || { type: 'none' });
     const until = el('div', { class: 'card' }, el('h3', {}, '✅ Xong bước khi'),
-      el('div', { class: 'grid' }, field('Điều kiện', selectInput(u.type, Object.entries(UNTIL), (v) => {
+      el('div', { class: 'grid' }, field('Điều kiện', groupSelect(u.type, null, UNTIL_GROUPS.map(([g, ids]) => [g, ids.map((id) => [id, UNTIL[id]])]), (v) => {
         st.until = { type: v };
         if (v === 'read' || v === 'reply' || v === 'open') st.until.who = contactOpts[0]?.[0] || '';
         if (v === 'routed') st.until.place = st.target || placeOpts[0]?.[0] || '';
@@ -229,7 +291,7 @@ export function render(root, ctx) {
           st.talk = st.talk || { place, label: newKey(`${base}.label`), text: newKey(`${base}.text`) };
         } else delete st.talk;
         rerender();
-      }), opt('until')),
+      }, UNTIL), opt('until')),
       (u.type === 'read' || u.type === 'reply' || u.type === 'open') ? field('Người nhắn', selectInput(u.who, contactOpts, (v) => { u.who = v; changed(); }), opt('until')) : null,
       u.type === 'routed' ? field('Chỉ đường tới', selectInput(u.place, [['office', '🏢 Văn phòng hãng (bất kỳ)'], ['fuel', '⛽ Cây xăng / trụ sạc (bất kỳ)'], ...placeOpts], (v) => { u.place = v; changed(); }), opt('until')) : null,
       u.type === 'fuel' ? field('Xăng / pin ít nhất (%)', numInput(u.pct ?? 90, (v) => { u.pct = v; changed(); }, { step: 5, min: 1, max: 100 }), opt('until', { hint: 'Xe đạp: coi như xong ngay.' })) : null,
@@ -252,12 +314,12 @@ export function render(root, ctx) {
       u.type === 'wait' ? field('Số phút game', numInput(u.min ?? 0, (v) => { u.min = v; changed(); }, { step: 1, min: 0 }), opt('until')) : null,
       u.type === 'switch' ? field('Công tắc', selectInput(u.which, [['food', '📦 Giao hàng'], ['ride', '🛵 Chở khách']], (v) => { u.which = v; changed(); }), opt('until')) : null,
       u.type === 'talk' ? field('Địa điểm nói chuyện', selectInput(u.place, placeOpts, (v) => { u.place = v; st.talk.place = v; changed(); }), opt('talk')) : null));
-    body.append(until);
+    T.pane('flow').append(until);
 
     // ---------- nói chuyện ở địa điểm ----------
     if (u.type === 'talk' && st.talk) {
       const t = st.talk;
-      body.append(el('div', { class: 'card' }, el('h3', {}, '💬 Nói chuyện (nút E riêng ở cửa địa điểm · bong bóng trên đầu NPC)'),
+      T.pane('flow').append(el('div', { class: 'card' }, el('h3', {}, '💬 Nói chuyện (nút E riêng ở cửa địa điểm · bong bóng trên đầu NPC)'),
         textBox('Chữ trên nút E', t.label, 1, { ref, fieldKey: 'talk' }),
         textBox('Câu nói (bong bóng)', t.text, 5, { hint: '[tiếp] = câu sau (người chơi bấm E) · {name} = tên người chơi · bong bóng chỉ có chữ thường (không chữ đậm)', ref, fieldKey: 'talk' }),
         el('div', { class: 'grid' },
@@ -270,7 +332,7 @@ export function render(root, ctx) {
     // ---------- hạn giờ · NPC vắng mặt · không bị phạt ----------
     const D = st.deadline;
     const earlier = ch.steps.slice(0, i + 1).map((x, j) => [x.id, `${j + 1}. ${x.id}`]);
-    body.append(el('div', { class: 'card' }, el('h3', {}, '⏰ Hạn giờ · NPC vắng mặt · không bị phạt'),
+    T.pane('rules').append(fold('⏰ Hạn giờ · NPC vắng mặt', D || st.hideNpc?.length,
       el('div', { class: 'grid' },
         field('Hạn giờ', checkInput(!!D, (v) => {
           if (v) st.deadline = { hour: 9, back: ch.steps[Math.max(0, i - 1)]?.id || st.id, text: newKey(`${base}.late`) };
@@ -282,14 +344,13 @@ export function render(root, ctx) {
         D ? field('Tin nhắn khi thất bại từ', selectInput(D.from || '', [['', '— Không nhắn —'], ...contactOpts], (v) => {
           if (v) { D.from = v; D.msg = D.msg || newKey(`${base}.lateMsg`); } else { delete D.from; delete D.msg; }
           rerender();
-        }), opt('deadline')) : null,
-        field('', checkInput(!!st.noFines, (v) => { if (v) st.noFines = true; else delete st.noFines; changed(); }, 'Không bị phạt trong bước này'), opt('noFines', { hint: 'CSGT cho qua, không dán phạt / cẩu xe, vượt đèn không bị ghi (vd đang đuổi theo tên cướp).' }))),
+        }), opt('deadline')) : null),
       D ? textBox('Thông báo thất bại', D.text, 1, { ref, fieldKey: 'deadline' }) : null,
       D?.from ? textBox('Tin nhắn khi thất bại', D.msg, 2, { ref, fieldKey: 'deadline' }) : null,
       field('NPC vắng mặt trong bước này', npcChips(st, changed), { ...opt('hideNpc'), wide: true, hint: 'Cộng thêm với "NPC vắng mặt cả chương" (thẻ chương).' })));
 
     // ---------- dấu trên đầu NPC ----------
-    body.append(el('div', { class: 'card' }, el('h3', {}, '❗ Dấu trên đầu NPC (trong lúc chờ bước này)'),
+    T.pane('show').append(el('div', { class: 'card' }, el('h3', {}, '❗ Dấu trên đầu NPC (trong lúc chờ bước này)'),
       el('div', { class: 'grid' },
         field('Dấu', selectInput(st.mark?.icon || '', [['', '— Không —'], ['!', '! (có việc mới)'], ['?', '? (quay lại nói chuyện)'], ['dot', '🔴 Chấm đỏ nhấp nháy (mục tiêu đang đuổi)']], (v) => {
           if (!v) delete st.mark;
@@ -302,7 +363,7 @@ export function render(root, ctx) {
         }), opt('mark', { hint: 'NPC của địa điểm, hoặc người lạ đang ở cảnh (việc "Người lạ xuất hiện").' })) : null)));
 
     // ---------- vòng tìm kiếm + chữ nút E ----------
-    body.append(el('div', { class: 'card' }, el('h3', {}, '🟣 Vòng tìm kiếm · chữ trên nút E'),
+    T.pane('show').append(fold('🟣 Vòng tìm kiếm · chữ trên nút E', st.zone || st.talkLabel,
       el('div', { class: 'grid' },
         field('Vòng tròn tím', checkInput(!!st.zone, (v) => { if (v) st.zone = { place: placeOpts[0]?.[0] || '' }; else delete st.zone; rerender(); }, 'Hiện vòng quanh địa điểm'), opt('zone', { hint: 'Vùng cần tìm (không có mũi tên chỉ đường). Vd tìm chị Linh quanh trường.' })),
         st.zone ? field('Quanh địa điểm', selectInput(st.zone.place, placeOpts, (v) => { st.zone.place = v; changed(); }), opt('zone')) : null,
@@ -311,7 +372,7 @@ export function render(root, ctx) {
       st.talkLabel ? textBox('Chữ trên nút E', st.talkLabel, 1, { ref, fieldKey: 'talkLabel' }) : null));
 
     // ---------- giữ người chơi trong một vùng ----------
-    body.append(el('div', { class: 'card' }, el('h3', {}, '🚧 Giữ người chơi trong vùng (trong lúc chờ bước này)'),
+    T.pane('rules').append(fold('🚧 Giữ người chơi trong vùng (trong lúc chờ bước này)', st.leash,
       el('div', { class: 'grid' },
         field('Giữ lại', checkInput(!!st.leash, (v) => {
           if (v) st.leash = { place: placeOpts[0]?.[0] || '', r: 30, text: newKey(`${base}.leash`) };
@@ -332,7 +393,7 @@ export function render(root, ctx) {
       goal.append(el('div', { class: 'grid' },
         st.goal && st.target ? field('', checkInput(!!st.noBeacon, (v) => { if (v) st.noBeacon = true; else delete st.noBeacon; changed(); }, 'Không có cột sáng (chỉ mũi tên)'), opt('noBeacon', { hint: 'Vd mục tiêu là tên cướp đang chạy — đã có chấm đỏ trên đầu, khỏi cột sáng đi theo.' })) : null,
         st.goal ? field('Mũi tên chỉ tới', selectInput(st.target || '', [['', '— Không —'], ['bike', '🚲 Xe của mình'], ['office', '🏢 Văn phòng hãng (đã chỉ đường / gần nhất)'], ['fuel', '⛽ Cây xăng / trụ sạc (đã chỉ đường / gần nhất)'], ...actorOpts().map(([id, l]) => [`actor:${id}`, `👤 ${l}`]), ...placeOpts], (v) => { if (v) st.target = v; else delete st.target; changed(); }), opt('target')) : null,
-        field('Hướng dẫn trên điện thoại', selectInput(g?.type || '', [['', '— Không —'], ...Object.entries(GUIDES)], (v) => {
+        field('Hướng dẫn trên điện thoại', selectInput(g?.type || '', [['', '— Không —'], ...Object.entries(GUIDES).filter(([k]) => !HIDDEN_GUIDES.includes(k) || k === g?.type)], (v) => {
           if (!v) delete st.guide;
           else st.guide = { type: v, ...(['thread', 'route', 'reply'].includes(v) ? { who: contactOpts[0]?.[0] || '' } : {}), ...(v === 'route' ? { place: st.target || 'office' } : {}), ...(v === 'switch' ? { which: 'food' } : {}),
             ...(v === 'hud' || v === 'profile' ? { ...(v === 'hud' ? { part: 'minimap' } : {}), btn: 'ok', title: newKey(`${base}.guideTitle`), hint: newKey(`${base}.guideHint`) } : {}), ...(v === 'use' ? { goods: goodsOpts[0]?.[0] || '' } : {}) };
@@ -348,7 +409,8 @@ export function render(root, ctx) {
         field('Nút trên bong bóng', selectInput(g.btn || '', [['', '— Không (tự tắt khi bước xong) —'], ...Object.entries(GUIDE_BTNS)], (v) => { if (v) g.btn = v; else delete g.btn; changed(); }), opt('guide', { hint: 'Có nút: điều kiện xong nên là "Người chơi bấm tắt hướng dẫn". Chữ có bản riêng theo loại xe: thêm khóa + ".gas" / ".electric" ở thẻ Chữ.' }))));
       if (g && (g.type === 'minimap' || g.type === 'hud' || g.type === 'profile')) goal.append(textBox('Chữ hướng dẫn (dòng đậm)', g.title, 1, { ref, fieldKey: 'guide' }), textBox('Chữ hướng dẫn (dòng nhỏ)', g.hint, 2, { ref, fieldKey: 'guide' }));
     }
-    body.append(goal);
+    T.pane('show').prepend(goal); // mục tiêu lên đầu thẻ 👀
+    T.done();
   }
 
   // Một câu trả lời người chơi chọn được: chữ bên trái · bên phải chọn tính cách được cộng điểm + bao nhiêu điểm
@@ -372,13 +434,20 @@ export function render(root, ctx) {
   // Một dòng việc: loại + ô riêng theo loại + ↑ ↓ ✕
   function actionRow(st, a, k, base, rerender, opt) {
     const tools = el('div', { class: 'row' },
-      el('b', {}, `${k + 1}. ${ACTIONS[a.do] || a.do}`),
+      el('b', {}, `${k + 1}. ${LEAVE_KINDS.some(([d]) => d === a.do) ? '🚶 Người lạ rời cảnh' : ACTIONS[a.do] || a.do}`),
       button('↑', () => { if (k > 0) { st.on.splice(k - 1, 0, st.on.splice(k, 1)[0]); rerender(); } }, 'small'),
       button('↓', () => { if (k < st.on.length - 1) { st.on.splice(k + 1, 0, st.on.splice(k, 1)[0]); rerender(); } }, 'small'),
       button('✕', () => { st.on.splice(k, 1); rerender(); }, 'small danger'));
     const box = el('div', { class: 'story-act' }, tools);
     const o = opt('on');
     if (['actor', 'approach', 'leave', 'remove', 'board', 'alight', 'goto', 'chase'].includes(a.do)) box.append(field('Người lạ', selectInput(a.who, actorOpts(), (v) => { a.who = v; ctx.changed('story'); }), { ...o, hint: 'Thêm người ở 👥 Danh bạ → Người nói.' }));
+    // rời cảnh: đổi cách rời = đổi mã việc (remove / leave / goto) — bộ chạy giữ nguyên 3 mã
+    if (LEAVE_KINDS.some(([d]) => d === a.do)) box.append(field('Cách rời', selectInput(a.do, LEAVE_KINDS, (v) => {
+      a.do = v;
+      if (v === 'goto') Object.assign(a, { place: a.place || placeOpts[0]?.[0] || '', run: a.run ?? true });
+      else { delete a.place; delete a.run; }
+      rerender();
+    }), o));
     if (a.do === 'actor') {
       const xeOmPlaces = ctx.data.places.places.filter((p) => isPlaced(p) && p.xeOm).map((p) => [p.id, `${p.name} (${p.id})`]);
       const spot = a.spot || 'near';
@@ -403,16 +472,21 @@ export function render(root, ctx) {
           : spot === 'place'
             ? el('div', { class: 'grid' },
               field('Trước cửa địa điểm', selectInput(a.place, placeOpts, (v) => { a.place = v; ctx.changed('story'); }), o),
-              field('Cách cửa ra phía đường (m)', numInput(a.dist ?? 1.5, (v) => { a.dist = v; ctx.changed('story'); }, { step: 0.5, min: 0, max: 40 }), { ...o, hint: '≈ 1,5 = ngay trước cửa · ≈ 16,5 = vỉa hè bên kia đường.' }),
-              field('Lệch dọc đường (m)', numInput(a.lat ?? 0, (v) => { if (v) a.lat = v; else delete a.lat; ctx.changed('story'); }, { step: 0.5, min: -20, max: 20 }), o),
-              field('Nhìn về phía', selectInput(a.faceTo || '', [['', '— Cửa địa điểm —'], ...actorOpts().filter(([id]) => id !== a.who)], (v) => { if (v) a.faceTo = v; else delete a.faceTo; ctx.changed('story'); }), { ...o, hint: 'Hai người đứng nói chuyện với nhau. Người chơi tới gần (12 m) thì quay sang người chơi.' }),
-              field('Xe đi kèm', selectInput(a.vehicle || '', [['', '— Không —'], ...Object.entries(ACTOR_VEHICLES)], (v) => { if (v) a.vehicle = v; else delete a.vehicle; ctx.changed('story'); }), { ...o, hint: 'Dựng sát lề. Việc "bỏ đi" → đội nón full-face, lên xe chạy mất.' }))
+              field('Cách cửa ra phía đường (m)', numInput(a.dist ?? 1.5, (v) => { a.dist = v; ctx.changed('story'); }, { step: 0.5, min: 0, max: 40 }), { ...o, hint: '≈ 1,5 = ngay trước cửa · ≈ 16,5 = vỉa hè bên kia đường.' }))
             : field('Đứng cách người chơi (m)', numInput(a.dist ?? 8, (v) => { a.dist = v; ctx.changed('story'); }, { step: 1, min: 3, max: 20 }), o));
+      // ô hiếm dùng → gấp vào "▸ Thêm" (đã đặt thì mở sẵn)
+      const more = el('details', { class: 'adv', open: !!(a.lat || a.faceTo || a.vehicle || a.call || a.idle) },
+        el('summary', {}, `▸ Thêm${spot === 'place' ? ': lệch dọc đường, nhìn về phía, xe đi kèm,' : ':'} câu gọi người chơi, câu nói khi hết chuyện`));
+      if (spot === 'place') more.append(el('div', { class: 'grid' },
+        field('Lệch dọc đường (m)', numInput(a.lat ?? 0, (v) => { if (v) a.lat = v; else delete a.lat; ctx.changed('story'); }, { step: 0.5, min: -20, max: 20 }), o),
+        field('Nhìn về phía', selectInput(a.faceTo || '', [['', '— Cửa địa điểm —'], ...actorOpts().filter(([id]) => id !== a.who)], (v) => { if (v) a.faceTo = v; else delete a.faceTo; ctx.changed('story'); }), { ...o, hint: 'Hai người đứng nói chuyện với nhau. Người chơi tới gần (12 m) thì quay sang người chơi.' }),
+        field('Xe đi kèm', selectInput(a.vehicle || '', [['', '— Không —'], ...Object.entries(ACTOR_VEHICLES)], (v) => { if (v) a.vehicle = v; else delete a.vehicle; ctx.changed('story'); }), { ...o, hint: 'Dựng sát lề. Việc "rời cảnh: bỏ chạy" → đội nón full-face, lên xe chạy mất.' })));
       // câu gọi (khi có dấu ! trên đầu) + câu nói khi hết chuyện (bấm E)
       for (const [k, label, hint] of [['call', 'Câu gọi người chơi', 'Khi có dấu ! trên đầu người này, cứ ~6 giây gọi một lần (người chơi ở trong 25 m).'], ['idle', 'Câu nói khi hết chuyện', 'Người chơi bấm E lúc không có bước nào chờ nói chuyện với người này.']]) {
-        if (a[k]) box.append(textBox(label, a[k], 1, { hint, ...o }), button(`✕ Bỏ ${label.toLowerCase()}`, () => { delete a[k]; rerender(); }, 'small'));
-        else box.append(button(`＋ ${label}`, () => { a[k] = newKey(`${base}.${k}`); rerender(); }, 'small'));
+        if (a[k]) more.append(textBox(label, a[k], 1, { hint, ...o }), button(`✕ Bỏ ${label.toLowerCase()}`, () => { delete a[k]; rerender(); }, 'small'));
+        else more.append(button(`＋ ${label}`, () => { a[k] = newKey(`${base}.${k}`); rerender(); }, 'small'));
       }
+      box.append(more);
     }
     if (a.do === 'choose') {
       box.append(
@@ -434,6 +508,8 @@ export function render(root, ctx) {
         n > 2 ? button('− Bớt câu cuối', () => { a.options.pop(); a.answers?.pop(); if (a.gains) { a.gains.length = Math.min(a.gains.length, a.options.length); if (a.gains.every((x) => !x)) delete a.gains; } rerender(); }, 'small') : null));
     }
     if (a.do === 'approach' || a.do === 'goto') box.append(field('', checkInput(a.run ?? a.do === 'goto', (v) => { a.run = v; ctx.changed('story'); }, 'Chạy (không đi bộ)'), o));
+    if (a.do === 'remove') box.append(el('p', { class: 'muted' }, 'Người này biến mất ngay (vd người chơi đã đi khỏi chỗ đó).'));
+    if (a.do === 'leave') box.append(el('p', { class: 'muted' }, 'Chạy ngược ra xa người chơi, ~5 giây sau biến mất (bong bóng thoại của người này cũng tắt). Có xe đi kèm thì đội nón, lên xe chạy mất.'));
     if (a.do === 'approach') box.append(field('', checkInput(!!a.stop, (v) => { if (v) a.stop = true; else delete a.stop; ctx.changed('story'); }, 'Tới nơi thì đứng lại (không đi theo người chơi)'), { ...o, hint: 'Tick: tới chỗ trống quanh người chơi (đứng thành vòng nhóm nói chuyện, không chồng lên người khác) rồi đứng yên, quay về phía người đang nói. Không tick: cứ bám theo người chơi.' }));
     if (a.do === 'goto') box.append(field('Vào địa điểm', selectInput(a.place, placeOpts, (v) => { a.place = v; ctx.changed('story'); }), { ...o, hint: 'Đi / chạy tới cửa địa điểm rồi biến mất (vào trong). Đang ngồi sau xe người chơi thì xuống xe trước.' }));
     if (a.do === 'react') {
@@ -452,8 +528,6 @@ export function render(root, ctx) {
     if (a.do === 'board') box.append(el('p', { class: 'muted' }, 'Người lạ đi theo người chơi; người chơi lên xe và chạy tới sát thì leo lên ngồi sau (tự đội mũ của mình, không qua app, không tính tiền). Dùng với điều kiện "Đã chở người lạ … tới …".'));
     if (a.do === 'alight') box.append(el('p', { class: 'muted' }, 'Người lạ xuống xe, đứng cạnh xe.'));
     if (a.do === 'drop') box.append(field('Gói hàng', selectInput(a.id, parcelOpts.filter(([id]) => id), (v) => { a.id = v; ctx.changed('story'); }), o));
-    if (a.do === 'remove') box.append(el('p', { class: 'muted' }, 'Người này biến mất ngay (vd người chơi đã đi khỏi chỗ đó).'));
-    if (a.do === 'leave') box.append(el('p', { class: 'muted' }, 'Chạy ngược ra xa người chơi, ~5 giây sau biến mất (bong bóng thoại của người này cũng tắt).'));
     if (a.do === 'bubble') box.append(
       field('Ai nói', selectInput(a.who, [['player', '🙂 Người chơi'], ...speakerOpts2()], (v) => { a.who = v; ctx.changed('story'); }), o),
       textBox('Câu (bong bóng)', a.text, 2, { hint: 'Câu ngắn, hiện trên đầu ~3–9 giây (hoặc giữ tới câu sau). Không có chữ đậm / [tiếp]. {name} = tên người chơi', ...o }),

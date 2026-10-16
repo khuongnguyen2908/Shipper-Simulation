@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "node tests/run.js",
     "sim": "node tests/economy-sim.js",
-    "dang": "node scripts/dang.js"
+    "dang": "node scripts/dang.js",
+    "nen-am-thanh": "node scripts/nen-am-thanh.js"
   },
   "dependencies": {
     "three": "^0.186.1"

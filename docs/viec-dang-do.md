@@ -27,6 +27,16 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   - Chủ game tự tạo dự án Firebase (Claude hướng dẫn từng bước), dán cấu hình vào code.
 
 ## 💬 Đang bàn
+### 🏗️ Chuẩn bị dự án nặng hơn + làm gọn tool cốt truyện (16/10 — chủ game duyệt thứ tự: Đợt 1 → tool cốt truyện → Đợt 2 → Đợt 3)
+- **Đợt 1 (xong)**: nén âm thanh (cài ffmpeg; 8,9 MB → 3,9 MB, bản đăng 14,8 MB → 7,9 MB) + lệnh `npm run nen-am-thanh` cho file mới.
+  Giữ editor trong bản đăng (README ghi chủ game có dùng "editor online"; bỏ thì nhẹ thêm ~0,9 MB — chờ chủ game quyết).
+- **Tool cốt truyện (xong, theo phác thảo `sketches/story-tool.png`)**: 1 bước chia 3 thẻ con (🎬 Diễn biến · 👀 Người chơi thấy gì · ⚙️ Luật trong bước,
+  số = đã đặt bao nhiêu thứ) · khung chưa dùng thu gọn · ô hiếm dùng của "Người lạ xuất hiện" gấp vào "▸ Thêm" · "Thêm việc" / "Xong bước khi" chia nhóm
+  (ACTION_GROUPS / UNTIL_GROUPS trong tabStory.js) · ẩn mục chưa ai dùng (say, give, fuel, read, talk kiểu cũ, hướng dẫn reply — bước đang dùng vẫn
+  hiện ở nhóm "Kiểu cũ") · 3 việc remove / leave / goto = 1 mục "🚶 Rời cảnh" + ô Cách rời (bộ chạy giữ nguyên 3 mã) · "Chặn đơn thường" chỉ hiện ở bước
+  trước tên chương · danh sách bước có biểu tượng (🎬🧍💬🎯❗⏰🏍️🎥🏁). story.json không đổi; đã mở thử đủ 100 bước 3 chương.
+- Đợt 2: chia story.json + chữ cốt truyện theo chương. Đợt 3: tách game.js / interactions.js / tests/run.js thành file nhỏ.
+
 ### 🎬 Trong chương thì không có đơn (16/10 — đã làm, chủ game chốt: "sau bước hiện tên chương là không nhận được đơn nào, xong chương mới có đơn lại")
 - `sim/story.js inChapter()`: đã hiện tên chương (bước có việc "title") mà chưa hết chương → app không phát đơn thường (om.hold), trong app nhận
   đơn có dòng "🎬 Đang trong Chương N…"; bật công tắc → không cho + thông báo (trừ bước cốt truyện bắt bật công tắc — hướng dẫn chương 1).
