@@ -97,7 +97,7 @@ export function lookOfChar(c, outfitId = null, goods = GOODS) {
   return {
     ...outfitLook(wornOf(o, goods)),
     gender,
-    hairStyle: L.hairStyle || (gender === 'f' ? 'long' : 'short'),
+    hairStyle: o?.hairStyle || L.hairStyle || (gender === 'f' ? 'long' : 'short'), // bộ đồ có kiểu tóc riêng (vd đi đua: undercut vuốt ngược) → dùng kiểu đó
     hair: hexNum(L.hair, 0x1b1b1b),
     skin: hexNum(L.skin, 0xf1c27d),
     scale: Number.isFinite(L.scale) && L.scale > 0 ? L.scale : 1,

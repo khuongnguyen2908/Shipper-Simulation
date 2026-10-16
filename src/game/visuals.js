@@ -398,7 +398,7 @@ export class VisualsPart {
       if (l) l.material.opacity = talking ? 0 : this.labelFade(n.position, 3, 3); // đang nói chuyện với NPC này → ẩn bảng tên
     }
     const storyRider = Object.values(this.storyActors || {}).some((ac) => ac.seated); // người lạ ngồi sau (cốt truyện): túi giao hàng tạm ẩn
-    if (!storyRider && !(this.om.order && this.om.order.kind === 'ride' && this.passengerMesh && this.passengerMesh.parent === this.bike.mesh)) this.bike.showBag(true);
+    if (!storyRider && !this.cine?.bagHidden && !(this.om.order && this.om.order.kind === 'ride' && this.passengerMesh && this.passengerMesh.parent === this.bike.mesh)) this.bike.showBag(true); // cảnh phim góc nhìn thứ nhất: thùng tạm ẩn
     // xe đạp: chân đạp vòng theo tốc độ (đứng yên thì ngồi bình thường)
     if (this.mode === 'bike' && this.gs.power === 'pedal' && this.walker.mesh.userData.parts) {
       const v = Math.abs(this.bike.speed);

@@ -13,7 +13,9 @@ export const HAIR_BY_GENDER = {
   m: ['short', 'part', 'undercut', 'bowl', 'buzz', 'curly', 'tied', 'bald'],
   f: ['long', 'shoulder', 'bob', 'ponytail', 'bun', 'braids', 'bangs', 'curlyLong'],
 };
-export const HAIR_STYLES = [...HAIR_BY_GENDER.m, ...HAIR_BY_GENDER.f];
+// kiểu tóc chỉ cho NPC / nhân vật cốt truyện (không có ở màn tạo nhân vật, người đi đường không random ra): crop ngắn tỉa mái rủ trán
+export const HAIR_EXTRA = { m: ['crop'], f: [] };
+export const HAIR_STYLES = [...HAIR_BY_GENDER.m, ...HAIR_BY_GENDER.f, ...HAIR_EXTRA.m, ...HAIR_EXTRA.f];
 // Tuổi (dáng đứng) và vóc dáng cho NPC đặt sẵn (places.json → npc) và nhân vật có ngoại hình riêng (relations.json → look).
 // Bỏ trống = bình thường. Hình dựng ở world/models.js (makePerson) + world/person.js (buildPerson). Tên chỉ hiện trong công cụ.
 // Xưng hô đổi theo giới tính người chơi: ô "Tự xưng" / "Gọi là" trong sơ đồ quan hệ gõ "anh/chị" (hoặc "chị/anh")
@@ -23,7 +25,7 @@ export const anhChiOf = (v, playerGender = 'm') => (isAnhChi(v) ? (playerGender 
 export const LOOK_AGES = { old: 'Lớn tuổi (~60, lưng hơi khom)', elder: 'Cao tuổi (còng lưng)' };
 export const LOOK_BUILDS = { thin: 'Gầy', chubby: 'Đầy đặn', fat: 'Mập' };
 // Kiểu tóc hợp lệ cho giới tính đó (hồ sơ người chơi). Bản lưu cũ chọn kiểu của giới kia → đổi sang kiểu gần nhất.
-const HAIR_SWAP = { long: 'tied', shoulder: 'tied', ponytail: 'tied', bun: 'tied', braids: 'tied', bangs: 'bowl', curlyLong: 'curly', bob: 'bowl', short: 'bob', part: 'bob', undercut: 'bob', bowl: 'bangs', buzz: 'bob', curly: 'curlyLong', tied: 'ponytail', bald: 'bob' };
+const HAIR_SWAP = { long: 'tied', shoulder: 'tied', ponytail: 'tied', bun: 'tied', braids: 'tied', bangs: 'bowl', curlyLong: 'curly', bob: 'bowl', short: 'bob', part: 'bob', undercut: 'bob', crop: 'bob', bowl: 'bangs', buzz: 'bob', curly: 'curlyLong', tied: 'ponytail', bald: 'bob' };
 export function hairFor(gender, style) {
   const list = HAIR_BY_GENDER[gender === 'f' ? 'f' : 'm'];
   if (list.includes(style)) return style;

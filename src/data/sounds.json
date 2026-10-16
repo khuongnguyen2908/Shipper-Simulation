@@ -294,11 +294,48 @@
       "files": [
         "freesound_community-chase-8-bit-73312.mp3"
       ],
-      "volume": 2
+      "volume": 1.6
     },
     "loop.engine": {
-      "files": [],
+      "files": [
+        "chakong-basic-motor-engine-car-2d-arcade-game-animation-foley-chakongaudio-173416.mp3"
+      ],
       "volume": 2
+    },
+    "drive.skid": {
+      "files": [
+        "brake.mp3"
+      ],
+      "volume": 1.5
+    },
+    "city.motoPass": {
+      "files": [
+        "universfield-fast-motorcycle-pass-by-559409.mp3"
+      ],
+      "volume": 1.6
+    },
+    "city.truckHorn": {
+      "files": [
+        "soundreality-truck-horn-152541-2.mp3"
+      ],
+      "volume": 1.6
+    },
+    "city.thiefCrash": {
+      "files": [
+        "am_thanh_te_xe-www_tiengdong_com.mp3"
+      ],
+      "volume": 1.5
+    },
+    "city.thiefDog": {
+      "files": [
+        "yodguard-friendly-small-dog-bark-1-535470.mp3"
+      ]
+    },
+    "loop.motoChase": {
+      "files": [
+        "spinopel-off-road-motorcycle-409407.mp3"
+      ],
+      "volume": 1.5
     }
   }
 }

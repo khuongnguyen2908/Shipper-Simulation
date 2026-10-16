@@ -5,7 +5,7 @@ import { blockAt } from '../sim/cityLayout.js';
 import { DRIVING } from '../data/balance.js';
 const D = (k, def) => (Number.isFinite(DRIVING[k]) ? DRIVING[k] : def);
 import { resolveCircle } from './physics.js';
-import { makeBike, makePerson, animatePerson, setSitting, setBikeColor, sitY, gripBar } from './models.js';
+import { makeBike, makePerson, animatePerson, setSitting, setBikeColor, sitY, gripBar, bikeSeatZ } from './models.js';
 
 const SW_H = 0.15;
 export const lerpAngle = (a, b, t) => {
@@ -301,7 +301,7 @@ export class Walker {
     this.sitting = true;
     setSitting(this.mesh, true);
     bike.mesh.add(this.mesh);
-    this.mesh.position.set(0, sitY(), -0.05);
+    this.mesh.position.set(0, sitY(), bikeSeatZ(bike.mesh.userData.model)); // sport bike: yên lùi về sau
     this.mesh.rotation.set(0, 0, 0);
     gripBar(this.mesh, bike.mesh.userData.model); // 2 tay nắm đúng tay lái kiểu xe này
   }

@@ -84,18 +84,39 @@ function playBuffer(buf, gain, rate = 1) {
   s.start();
 }
 
-// Phát tiếng theo mã. opt: { vol (nhân thêm), rate (tốc độ / cao độ) }
+// Khoảnh khắc "mạnh nhất" trong file (giây): lần đầu tiếng to tới 90% đỉnh — vd tiếng "rầm" trong file té xe dài có tiếng trượt phía trước
+const onsets = new Map();
+function onsetOf(buf) {
+  if (onsets.has(buf)) return onsets.get(buf);
+  const ch = buf.getChannelData(0), win = Math.max(1, Math.floor(buf.sampleRate * 0.01)), env = [];
+  for (let i = 0; i < ch.length; i += win) { let m = 0; for (let k = i; k < Math.min(ch.length, i + win); k++) m = Math.max(m, Math.abs(ch[k])); env.push(m); }
+  const top = Math.max(...env), at = env.findIndex((m) => m >= top * 0.9) * 0.01;
+  onsets.set(buf, at);
+  return at;
+}
+// Chọn trước file sẽ phát cho mã này + thời điểm "mạnh nhất" trong file (null nếu file chưa tải xong / chưa gắn file)
+// → chỗ gọi phát sớm đúng chừng đó để khoảnh khắc mạnh nhất trùng sự việc (vd xe đổ). Phát bằng sound(id, { file })
+export function soundPick(id) {
+  const files = filesOf(id);
+  if (!files.length) return { file: null, onset: 0 };
+  const file = files[Math.floor(Math.random() * files.length)];
+  if (ctx) load(file);
+  const b = buffers.get(file);
+  return { file, onset: b && !(b instanceof Promise) ? onsetOf(b) : null };
+}
+
+// Phát tiếng theo mã. opt: { vol (nhân thêm), rate (tốc độ / cao độ), file (đã chọn trước bằng soundPick) }
 export function sound(id, opt = {}) {
   const spec = SOUNDS[id];
   if (!spec || muted || !ensure()) return;
   const files = filesOf(id);
   if (files.length) {
-    const name = files[Math.floor(Math.random() * files.length)];
+    const name = files.includes(opt.file) ? opt.file : files[Math.floor(Math.random() * files.length)];
     const gain = levelOf(id) * (opt.vol ?? 1) * 2; // ×2: file thường nhỏ hơn tiếng tổng hợp
     const b = buffers.get(name);
     if (b && !(b instanceof Promise)) return playBuffer(b, gain, opt.rate ?? 1);
     const t0 = performance.now();
-    load(name).then((buf) => buf && performance.now() - t0 < 600 && playBuffer(buf, gain, opt.rate ?? 1)); // tải lâu quá thì thôi
+    Promise.resolve(load(name)).then((buf) => buf && performance.now() - t0 < 600 && playBuffer(buf, gain, opt.rate ?? 1)); // tải lâu quá thì thôi (file hỏng: load trả null)
     return;
   }
   SYNTH[spec.synth]?.();
@@ -113,7 +134,8 @@ function loopFile(id, level, rate = 1) {
     L.g.gain.value = 0;
     L.g.connect(fxBus);
     loops.set(id, L);
-    load(files[0]).then((buf) => {
+    // load() trả về buffer luôn nếu đã tải sẵn (preload) → bọc Promise.resolve (trước đây gọi .then trên buffer → lỗi, tiếng lặp không bao giờ phát)
+    Promise.resolve(load(files[0])).then((buf) => {
       if (!buf || loops.get(id) !== L) return;
       L.src = ctx.createBufferSource();
       L.src.buffer = buf;
@@ -126,6 +148,12 @@ function loopFile(id, level, rate = 1) {
   L.g.gain.setTargetAtTime(muted ? 0 : level * levelOf(id) * 2, t, 0.15);
   if (L.src) L.src.playbackRate.setTargetAtTime(rate, t, 0.1);
   return true;
+}
+
+// Tiếng lặp gắn với vật trong cảnh (vd máy xe anh mô tô trong cảnh phim): level 0..1 (0 = tắt dần), rate = cao độ theo tốc độ
+export function loopSound(id, level, rate = 1) {
+  if (!ensure()) return;
+  loopFile(id, Math.max(0, Math.min(1, level)), rate);
 }
 
 // ---------- nhạc ----------

@@ -22,7 +22,7 @@ export const OUTFIT_SLOTS = {
     label: 'Áo',
     styles: {
       short: 'Thun tay ngắn', long: 'Thun tay dài', polo: 'Polo', shirt: 'Sơ mi', plaid: 'Sơ mi caro', hoodie: 'Hoodie', tank: 'Ba lỗ',
-      zip: 'Khoác mở khóa', denim: 'Khoác jean', biker: 'Khoác da', blazer: 'Vest (sơ mi + cà vạt)', gile: 'Gile phản quang',
+      zip: 'Khoác mở khóa', denim: 'Khoác jean', biker: 'Khoác da', racing: 'Áo da đua (sọc + chữ trắng)', blazer: 'Vest (sơ mi + cà vạt)', gile: 'Gile phản quang',
       baba: 'Bà ba', soccer: 'Áo đá banh (số sau lưng)', vnteam: 'Áo đội tuyển (sao vàng)', printed: 'Thun in chữ I ❤ SG', turtleneck: 'Len cổ lọ',
       croptop: 'Croptop (nữ)', halter: 'Hai dây (nữ)', aodai: 'Áo dài (nữ)', dress: 'Đầm liền (nữ)', overalls: 'Yếm jean (liền quần)', pajama: 'Đồ ngủ (liền bộ)',
     },
@@ -36,7 +36,7 @@ export const OUTFIT_SLOTS = {
   },
   // mũ bảo hiểm: tháo / đội trong túi đồ (dừng xe). Lúc đầu không có — hãng cấp khi đăng ký (quà vào hãng) hoặc mua ở cửa hàng.
   // Chạy xe máy / xe điện không đội → CSGT ở chốt / xe tuần tra phạt (ECONOMY.noHelmetFine); xe đạp thường không bắt buộc.
-  helmet: { label: 'Mũ bảo hiểm', styles: { half: 'Nửa đầu', open: 'Mũ 3/4 (che tai + gáy)', full: 'Fullface (có kính)' }, accessory: true },
+  helmet: { label: 'Mũ bảo hiểm', styles: { half: 'Nửa đầu', open: 'Mũ 3/4 (che tai + gáy)', full: 'Fullface (có kính)', race: 'Fullface đua (kính khói, sọc, cánh gió)' }, accessory: true },
   shoes: {
     label: 'Giày',
     styles: {
@@ -45,7 +45,7 @@ export const OUTFIT_SLOTS = {
     },
   },
   acc: { label: 'Phụ kiện', styles: { raincoat: 'Áo mưa', jacket: 'Áo khoác chống nắng' }, accessory: true },
-  face: { label: 'Phụ kiện đầu', styles: { glasses: 'Kính', mask: 'Khẩu trang' }, accessory: true },
+  face: { label: 'Phụ kiện đầu', styles: { glasses: 'Kính', mask: 'Khẩu trang', roundBig: 'Kính tròn to gọng mảnh', roundThick: 'Kính tròn gọng dày', squareBig: 'Kính vuông to', aviator: 'Kính phi công', browline: 'Kính gọng mày (trên dày, dưới mảnh)' }, accessory: true },
   hands: { label: 'Phụ kiện tay', styles: { gloves: 'Găng tay', armSleeves: 'Găng tay ống dài' }, accessory: true },
   // đồng phục hãng (món có ô brand = mã hãng): cấp khi vào hãng / mua ở văn phòng hãng; phải mặc mới bật app nhận đơn
   uniform: { label: 'Đồng phục', styles: { jacket: 'Áo khoác đồng phục' }, accessory: true },
@@ -114,7 +114,7 @@ export function outfitLook(worn = {}) {
   if (sh.color2) look.shirt2 = hex(sh.color2, '#ffffff');
   if (pa.style && pa.style !== 'shorts' && pa.style !== 'long') look.pantsStyle = pa.style;
   if (pa.color2) look.pants2 = hex(pa.color2, '#ffffff');
-  if (he) Object.assign(look, { hatColor: hex(he.color, '#27ae60'), helmetStyle: he.style === 'full' || he.style === 'open' ? he.style : 'half' });
+  if (he) Object.assign(look, { hatColor: hex(he.color, '#27ae60'), helmetStyle: ['full', 'open', 'race'].includes(he.style) ? he.style : 'half' });
   const { shoes, acc, face, hands, uniform, cap, wrist, bag } = worn;
   if (cap && !he) Object.assign(look, { hat: 'cap', hatColor: hex(cap.color, '#c0392b') });
   if (wrist && (wrist.style === 'watch' || wrist.style === 'bracelet')) Object.assign(look, { wrist: wrist.style, wristColor: hex(wrist.color, '#222222') });
@@ -123,7 +123,7 @@ export function outfitLook(worn = {}) {
   if (shoes) Object.assign(look, { shoe: hex(shoes.color, '#2b2b2b'), shoeStyle: OUTFIT_SLOTS.shoes.styles[shoes.style] ? shoes.style : 'sneaker' });
   if (shoes?.color2) look.shoe2 = hex(shoes.color2, '#ffffff');
   if (acc && (acc.style === 'raincoat' || acc.style === 'jacket')) Object.assign(look, { overlay: acc.style, overlayColor: hex(acc.color, acc.style === 'raincoat' ? '#3c8dde' : '#bfe3f5') });
-  if (face && (face.style === 'glasses' || face.style === 'mask')) Object.assign(look, { face: face.style, faceColor: hex(face.color, '#222222') });
+  if (face && ['glasses', 'mask', 'roundBig', 'roundThick', 'squareBig', 'aviator', 'browline'].includes(face.style)) Object.assign(look, { face: face.style, faceColor: hex(face.color, '#222222') });
   if (hands && (hands.style === 'gloves' || hands.style === 'armSleeves')) Object.assign(look, { gloves: hands.style, gloveColor: hex(hands.color, '#333333') });
   return look;
 }

@@ -245,6 +245,37 @@ function addHair(T, style, hair, skin, hy, covered) {
       }
       break;
     }
+    case 'crop': { // ngắn tỉa lởm chởm (chủ game chọn theo ảnh mẫu): mái lòa xòa rủ trán, lọn trên đỉnh nằm xuôi chải về trước, 2 bên + gáy ngắn sát còn tóc
+      const rnd = (a) => { const v = Math.sin(a * 12.9898) * 43758.5453; return v - Math.floor(v); };
+      T.add(capGeo(0.119, [0.86, 1.14, 1.0], 0.03, -0.03, -0.08), mix(hair, skin, 0.18), 0, hy + 0.008, -0.008); // 2 bên + gáy ngắn sát
+      if (covered) break;
+      T.add(capGeo(0.121, [0.88, 1.15, 1.02, 0.98], 0.045, 0.02, -0.03), hair, 0, hy + 0.012, -0.012); // nền nhỏ (các lọn nhọn lộ ra ngoài)
+      const cy = hy + 0.012, cz = -0.012, A = 0.108, B = 0.14, C = 0.124;
+      // lọn nhọn cắm trên mặt đầu, hướng ra ngoài + ngả về trước (theo ảnh: tóc tỉa chỉa ra trước); đặt 1 lọn: hướng d → quay trục +y theo v
+      const spike = (dx, dy, dz, len, r, fw, col, dir = null) => {
+        let [vx, vy, vz] = dir || [dx, dy, dz + fw];
+        const l = Math.hypot(vx, vy, vz); vx /= l; vy /= l; vz /= l;
+        const px = dx * A, py = dy * B, pz = dz * C;
+        T.add(cone(r, len).scale(1, 1, 0.5), col, px + vx * len * 0.35, cy + py + vy * len * 0.35, cz + pz + vz * len * 0.35, Math.atan2(vz, vy), 0, -Math.asin(Math.max(-1, Math.min(1, vx))));
+      };
+      for (let i = 0; i < 52; i++) {
+        const th = Math.acos(1 - rnd(i * 2.1) * 0.78), ph = rnd(i * 5.7) * Math.PI * 2; // chỏm trên (từ đỉnh xuống ~70°)
+        const dx = Math.sin(th) * Math.sin(ph), dy = Math.cos(th), dz = Math.sin(th) * Math.cos(ph);
+        if (dz < -0.7 && dy < 0.55) continue; // sau gáy thấp: ngắn sát
+        // hướng lọn: nằm xuôi theo đầu, chải về phía trước (tiếp tuyến hướng trước) + hơi bật ra ngoài cho lởm chởm
+        const f = dz, j = rnd(i * 9.1) - 0.5;
+        let tx = -dx * f, ty = -dy * f, tz = 1 - dz * f;
+        const tl = Math.hypot(tx, ty, tz) || 1;
+        spike(dx * 0.97, dy * 0.97, dz * 0.97, 0.05 + rnd(i * 3.3) * 0.025, 0.032, 0, i % 3 ? hair : hi, [tx / tl + dx * 0.22 + j * 0.15, ty / tl + dy * 0.22, tz / tl + dz * 0.22]); // gọn: lọn ngắn, nằm sát đầu
+      }
+      // mái: lọn dài rủ xuống trán, lệch so le
+      for (let i = 0; i < 10; i++) {
+        const t = i / 9 - 0.5, j = rnd(i * 7.7) - 0.5, ang = t * 1.6;
+        spike(Math.sin(ang) * 0.95, 0.5, Math.cos(ang) * 0.92, 0.07 + Math.abs(j) * 0.03 + (1 - Math.abs(t) * 1.5) * 0.015, 0.026, 0, i % 2 ? hair : hi,
+          [Math.sin(ang) * 0.3 + j * 0.15, -1, 0.45]); // mọc ở mép tóc trước, rủ xuống trán
+      }
+      break;
+    }
     case 'bowl': // mái ngố: mái bằng tới lông mày, ôm tròn ra sau như cái bát
       cap(0.125, [0.95, 1.18, 1.04], 0.03, -0.045, -0.085);
       bangs(hy + 0.044);
@@ -320,9 +351,14 @@ function addHair(T, style, hair, skin, hy, covered) {
 // ---------- mũ / phụ kiện đầu ----------
 function addHat(T, o, hy) {
   const { hat, hatColor, helmetStyle } = o;
-  if (hat === 'helmet' && helmetStyle === 'full') {
+  if (hat === 'helmet' && (helmetStyle === 'full' || helmetStyle === 'race')) {
+    const race = helmetStyle === 'race'; // nón đua: kính khói đen hơn, sọc trắng giữa đỉnh, cánh gió sau gáy
     T.add(new THREE.SphereGeometry(0.148, 12, 7, 0, PI * 2, 0, PI * 0.74).scale(0.94, 1.08, 1.08), hatColor, 0, hy + 0.012, -0.005);
-    T.add(new THREE.SphereGeometry(0.15, 10, 3, PI * 0.2, PI * 0.6, PI * 0.42, PI * 0.2).scale(0.95, 1.08, 1.1), 0x24313d, 0, hy + 0.012, -0.004); // kính tối
+    T.add(new THREE.SphereGeometry(0.15, 10, 3, PI * 0.2, PI * 0.6, PI * 0.42, PI * 0.2).scale(0.95, 1.08, 1.1), race ? 0x10151b : 0x24313d, 0, hy + 0.012, -0.004); // kính tối
+    if (race) {
+      for (const p0 of [PI / 2, -PI / 2]) T.add(new THREE.SphereGeometry(0.1505, 3, 6, p0 - 0.07, 0.14, 0, PI * (p0 > 0 ? 0.36 : 0.6)).scale(0.94, 1.08, 1.08), 0xf2f2f2, 0, hy + 0.012, -0.005); // sọc trắng dọc đỉnh (trước trán → sau gáy)
+      T.add(new THREE.BoxGeometry(0.12, 0.016, 0.05), shade(hatColor, 1.4), 0, hy + 0.12, -0.15, 0.5, 0, 0); // cánh gió
+    }
     T.add(new THREE.SphereGeometry(0.153, 10, 1, PI * 0.18, PI * 0.64, PI * 0.4, PI * 0.025).scale(0.95, 1.08, 1.1), shade(hatColor, 0.7), 0, hy + 0.012, -0.004); // gờ trên kính
     // phần che cằm: cung tròn ôm trước cằm, nhô ra trước (dáng fullface)
     const arc = PI * 0.62;
@@ -365,12 +401,46 @@ function addHat(T, o, hy) {
       T.add(new THREE.BoxGeometry(0.005, 0.005, 0.1), o.faceColor, s * 0.088, hy + 0.02, 0.07, 0, -s * 0.12, 0);
     }
     T.add(new THREE.BoxGeometry(0.03, 0.005, 0.006), o.faceColor, 0, hy + 0.022, 0.122);
-  } else if (o.face === 'mask') {
+  } else if (GLASSES[o.face]) addGlasses(T, o.face, o.faceColor, hy);
+  else if (o.face === 'mask') {
     const mk = (r0, r1, h, y, c) => T.add(new THREE.CylinderGeometry(r0, r1, h, 12, 1, true, -PI * 0.4, PI * 0.8).scale(0.98, 1, 1.46), c, 0, y, 0.0); // nhô ra trước che kín mũi
     mk(0.095, 0.082, 0.07, hy - 0.045, o.faceColor); // che mũi → cằm
     for (const dy of [-0.012, 0.012]) mk(0.094 - dy * 0.2 + 0.002, 0.094 - dy * 0.2 + 0.001, 0.004, hy - 0.045 + dy, shade(o.faceColor, 0.82)); // nếp gấp
     for (const s of [-1, 1]) T.add(new THREE.BoxGeometry(0.004, 0.004, 0.075), shade(o.faceColor, 0.9), s * 0.09, hy - 0.025, 0.005, 0.35, 0, 0); // quai móc tai
   }
+}
+
+// ---------- KÍNH CÓ GỌNG (mắt kính trong, chỉ dựng gọng — thấy mắt) ----------
+// roundBig: gọng tròn to mảnh · roundThick: tròn gọng dày · squareBig: vuông to · aviator: phi công (2 cầu mũi) · browline: gọng mày (trên dày, dưới mảnh)
+const GLASSES = { roundBig: 1, roundThick: 1, squareBig: 1, aviator: 1, browline: 1 };
+function addGlasses(T, style, c, hy) {
+  const y = hy + 0.012, z = 0.121, ex = 0.041; // tâm 2 mắt
+  let outer = 0.072;
+  for (const s of [-1, 1]) {
+    const x = s * ex;
+    if (style === 'roundBig' || style === 'roundThick') {
+      T.add(new THREE.TorusGeometry(0.03, style === 'roundThick' ? 0.0065 : 0.0034, 4, 18), c, x, y, z);
+      outer = 0.074;
+    } else if (style === 'aviator') {
+      T.add(new THREE.TorusGeometry(0.031, 0.003, 4, 18).scale(1.05, 0.88, 1), c, x, y - 0.004, z, 0, 0, s * 0.18);
+      outer = 0.076;
+    } else if (style === 'squareBig') {
+      const w = 0.064, h = 0.047, t = 0.006;
+      T.add(new THREE.BoxGeometry(w, t, t), c, x, y + h / 2, z);
+      T.add(new THREE.BoxGeometry(w, t, t), c, x, y - h / 2, z);
+      for (const k of [-1, 1]) T.add(new THREE.BoxGeometry(t, h + t, t), c, x + (k * w) / 2, y, z);
+      outer = ex + w / 2;
+    } else if (style === 'browline') {
+      T.add(new THREE.BoxGeometry(0.062, 0.011, 0.008), c, x, y + 0.02, z + 0.001); // gọng trên dày
+      T.add(new THREE.TorusGeometry(0.029, 0.0025, 4, 16, PI).rotateZ(PI), 0xc9c9c9, x, y + 0.004, z); // vành dưới mảnh
+      outer = 0.072;
+    }
+    // càng kính: từ mép ngoài gọng chạy ra sau tai
+    T.add(new THREE.BoxGeometry(0.004, 0.004, 0.11), c, s * (outer + 0.012), y + 0.006, z - 0.055, 0, -s * 0.16, 0);
+  }
+  // cầu mũi
+  if (style === 'aviator') for (const dy of [0.004, 0.026]) T.add(new THREE.BoxGeometry(0.024, 0.003, 0.004), c, 0, y + dy, z + 0.002);
+  else T.add(new THREE.TorusGeometry(0.011, style === 'roundThick' || style === 'squareBig' ? 0.004 : 0.0028, 4, 8, PI), c, 0, y + 0.004, z + 0.002);
 }
 
 // ---------- THÂN + ĐẦU + mọi thứ gắn cố định ----------
@@ -397,14 +467,14 @@ function sub(prof, y0, y1) {
 // ---------- KIỂU ÁO / QUẦN / GIÀY (danh sách + tên ở data/goods.js OUTFIT_SLOTS) ----------
 const SLEEVE = { short: 'short', polo: 'short', soccer: 'short', vnteam: 'short', printed: 'short', croptop: 'short', gile: 'short', dress: 'short', overalls: 'short', tank: 'none', halter: 'none' }; // còn lại: tay dài
 const OPEN = { zip: 1, denim: 1, biker: 1, blazer: 1 }; // áo khoác mở: lộ áo trong (màu phụ)
-const LONG_HEM = { zip: 1, denim: 1, biker: 1, blazer: 1, baba: 1, hoodie: 1 }; // áo dài qua hông, che thắt lưng
+const LONG_HEM = { zip: 1, denim: 1, biker: 1, blazer: 1, baba: 1, hoodie: 1, racing: 1 }; // áo dài qua hông, che thắt lưng
 const SKIRTS = { skirt: [0.15, 0.25, 0.46], flare: [0.15, 0.3, 0.36], pencil: [0.145, 0.152, 0.44], dress: [0.15, 0.27, 0.44] }; // bán kính trên, dưới, dài
 const LEGS = (ps) => (SKIRTS[ps] ? 'bare' : ps === 'shorts' || ps === 'boxer' || ps === 'capri' ? ps : 'long');
 const BARE_FOOT = { sandal: 1, slide: 1, strap: 1, flipflop: 1 };
 const LIGHT = 0xe6ecef;
 
 // Chữ khối 7 nét (số áo đá banh, chữ in trên áo): đặt trên mặt phẳng đứng ở (x, y, z), cao h; back = mặt sau (lật trái phải)
-const SEGS = { 0: 'abcdef', 1: 'i', S: 'afgcd', G: 'afedc', I: 'i', C: 'afed', T: 'ai' }; // 1, I: 1 nét đứng giữa · T: gạch trên + nét giữa
+const SEGS = { 0: 'abcdef', 1: 'i', S: 'afgcd', G: 'afedc', I: 'i', C: 'afed', T: 'ai', A: 'abcefg', E: 'adefg', R: 'abefg' }; // 1, I: 1 nét đứng giữa · T: gạch trên + nét giữa · R: như P + chân chéo
 function glyph(T, ch, x, y, z, h, color, back = false) {
   const w = h * 0.55, t = h * 0.17, d = 0.005, sx = back ? -1 : 1;
   const seg = { a: [0, h / 2, w, t], d: [0, -h / 2, w, t], g: [0, 0, w, t], b: [w / 2, h / 4, t, h / 2], c: [w / 2, -h / 4, t, h / 2], e: [-w / 2, -h / 4, t, h / 2], f: [-w / 2, h / 4, t, h / 2], i: [0, 0, t, h] };
@@ -413,6 +483,7 @@ function glyph(T, ch, x, y, z, h, color, back = false) {
     T.add(new THREE.BoxGeometry(sw, sh, d), color, x + cx * sx, y + cy, z);
   }
   if (ch === 'G') T.add(new THREE.BoxGeometry(w / 2, t, d), color, x + (w / 4) * sx, y, z); // nét ngang nửa phải của chữ G
+  if (ch === 'R') T.add(new THREE.BoxGeometry(t, h * 0.58, d), color, x + (w / 4) * sx, y - h / 4, z, 0, 0, 0.5 * sx); // chân chéo chữ R
 }
 const starGeo = (r) => {
   const s = new THREE.Shape();
@@ -540,6 +611,15 @@ function torsoGeo(o) {
         if (st === 'biker') for (const s of [-1, 1]) T.add(new THREE.BoxGeometry(0.05, 0.11, 0.008), shade(o.shirt, 1.25), s * 0.07, Y(0.6), fz(Y(0.6), 0.02), 0.2, 0, s * 0.5); // ve áo da
         if (st !== 'biker') teeNeck();
       }
+    } else if (st === 'racing') {
+      // áo da đua: kín, cổ đứng viền trắng, khóa kéo lệch, ốp vai, sọc trắng 2 bên sườn + chữ RACE trắng trên ngực
+      T.add(frontStrip(fullP, 0.12, 0.17, Y(0.1), Y(0.62), 0.006), 0x3a3a3a);
+      T.add(new THREE.CylinderGeometry(0.058, 0.07, 0.045, SEG, 1, true), shade(o.shirt, 1.2), 0, Y(0.672), -0.004);
+      T.add(new THREE.CylinderGeometry(0.0585, 0.0705, 0.008, SEG, 1, true), c2, 0, Y(0.65), -0.004);
+      for (const s of [-1, 1]) T.add(frontStrip(fullP, s * 1.45 - 0.06, s * 1.45 + 0.06, Y(0.12), Y(0.58), 0.004), c2);
+      const y = Y(0.52), z = fz(y, 0.006);
+      [...'RACE'].forEach((ch, i) => glyph(T, ch, -0.115 + i * 0.03, y, z, 0.026, c2));
+      for (const s of [-1, 1]) T.add(egg(0.07, 0.03, 0.06), shade(o.shirt, 1.3), s * 0.15, Y(0.635), 0, 0, 0, -s * 0.45);
     } else if (st === 'hoodie') {
       teeNeck();
       hood(o.shirt);
@@ -869,7 +949,7 @@ export function buildPerson(o) {
   if (st === 'overalls' || st === 'pajama') [ps, pants, p2] = [st === 'overalls' ? 'jeans' : 'long', o.shirt, o.shirt2];
   const sl = SLEEVE[st] || 'long';
   const cloth = st === 'gile' || st === 'overalls' ? o.shirt2 ?? 0xffffff : o.shirt; // gile / yếm: tay áo là áo thun bên trong
-  const trim = st === 'soccer' ? o.shirt2 ?? 0x222222 : st === 'vnteam' ? 0xffd200 : null;
+  const trim = st === 'soccer' ? o.shirt2 ?? 0x222222 : st === 'vnteam' ? 0xffd200 : st === 'racing' ? o.shirt2 ?? 0xffffff : null;
   const rings = st === 'plaid' || st === 'pajama' ? o.shirt2 ?? 0xffffff : null;
   const torso = mesh(torsoGeo, {
     female: f, shirt: o.shirt, shirt2: o.shirt2 ?? null, shirtStyle: st, pants, pantsStyle: ps, skin: o.skin, hair: o.hair, style: o.style, bag: o.bag,
@@ -942,6 +1022,16 @@ export function buildPerson(o) {
   PEOPLE.add(g);
   if (PEOPLE_MODE === 'simple') setPersonDetail(g, true);
   return g;
+}
+
+// Mũ bảo hiểm rời (vd cầm trên tay lúc tháo nón trong cốt truyện) — gốc ở tâm đầu; HEAD_Y = độ cao tâm đầu khi đứng (chưa nhân vóc)
+export const HEAD_CENTER_Y = HEAD_Y - 0.005;
+export function makeHelmetMesh({ hatColor = 0x1c1c1c, helmetStyle = 'full' } = {}) {
+  const T = new Parts();
+  addHat(T, { hat: 'helmet', hatColor, helmetStyle }, 0);
+  const m = new THREE.Mesh(T.build(), PERSON_MAT);
+  m.castShadow = true;
+  return m;
 }
 
 // ---------- ĐỔI CHI TIẾT THEO KHOẢNG CÁCH ----------

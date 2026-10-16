@@ -8,7 +8,7 @@ import { rowMenu, addButton, entryButtons, doRemove, doCopyActivity, doPasteActi
 import { personPreview } from './personPreview.js';
 import { housePreview } from './housePreview.js';
 import { LOOKS, guessLook, lookOf, looksFor, CAMPUS_LOOKS } from '../../data/looks.js';
-import { personOf, HAIR_BY_GENDER, LOOK_AGES, LOOK_BUILDS } from '../../sim/people.js';
+import { personOf, HAIR_BY_GENDER, HAIR_EXTRA, LOOK_AGES, LOOK_BUILDS } from '../../sim/people.js';
 import { fmt } from '../../content/index.js';
 import { el, field, textInput, numInput, colorInput, selectInput, checkInput, button, sideList, areaInput, dragHandle, makeSortable, emojiInput, explain, openDayInput, subTabs, advanced } from './ui.js';
 import { openDayOf } from '../../sim/placeRules.js';
@@ -194,7 +194,7 @@ export function render(root, ctx) {
           field('Tên NPC', textInput(n.name, (v) => { n.name = v; genderSel.options[0].textContent = guessLabel(); changedN(); }), opt('npc.name', { hint: 'Chị/Cô/Bà… → nữ; Anh/Chú/Ông… → nam' })),
           field('Chân dung (emoji)', emojiInput(n.portrait, (v) => { n.portrait = v; changedP(); }), opt('npc.portrait')),
           field('Giới tính', genderSel, opt('npc.gender')),
-          field('Kiểu tóc', optSel('hairStyle', [['', 'Theo giới tính (nam ngắn vuốt lệch, nữ dài thẳng)'], ...HAIR_BY_GENDER.m.map((s) => [s, 'Nam · ' + fmt('hair.' + s)]), ...HAIR_BY_GENDER.f.map((s) => [s, 'Nữ · ' + fmt('hair.' + s)])]), opt('npc.hairStyle', { hint: 'Chọn kiểu nào cũng được, không phụ thuộc giới tính' })),
+          field('Kiểu tóc', optSel('hairStyle', [['', 'Theo giới tính (nam ngắn vuốt lệch, nữ dài thẳng)'], ...[...HAIR_BY_GENDER.m, ...HAIR_EXTRA.m].map((s) => [s, 'Nam · ' + fmt('hair.' + s)]), ...HAIR_BY_GENDER.f.map((s) => [s, 'Nữ · ' + fmt('hair.' + s)])]), opt('npc.hairStyle', { hint: 'Chọn kiểu nào cũng được, không phụ thuộc giới tính' })),
           field('Màu tóc', optSel('hair', [['', 'Đen'], ['#5a3825', 'Nâu'], ['#8d8d8d', 'Bạc (lớn tuổi)'], ['#d4a94f', 'Vàng (nhuộm)'], ['#8e2b2b', 'Đỏ (nhuộm)']]), opt('npc.hair')),
           field('Màu da', optSel('skin', [['', 'Ngẫu nhiên (cố định)'], ['#ffdbac', 'Rất sáng'], ['#f1c27d', 'Sáng'], ['#e0ac69', 'Trung bình'], ['#c68642', 'Ngăm']]), opt('npc.skin')),
           field('Màu áo', colorInput(n.shirt, (v) => { n.shirt = v; changedN(); }), opt('npc.shirt')),

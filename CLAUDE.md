@@ -24,10 +24,10 @@ src/
   content/   vi.json — MỌI chữ hiển thị; code gọi fmt(khóa, tham số) / pick / list
   sim/       mô phỏng thuần (không Three.js, không DOM): clock (đồng hồ 24h liên tục), OrderManager (máy trạng thái), ItemPhysics,
              OrderCondition, economy, hazards, GameState, objectives, cityLayout, rng
-  world/     Three.js: city, controllers (xe, đi bộ, camera), traffic, sky, models, textures, physics
+  world/     Three.js: city, controllers (xe, đi bộ, camera), traffic, sky, models, textures, physics · storyProps (đạo cụ cảnh phim: xe tải dài, tấm ván)
   ui/        hud, phone (app GoShip, Túi đồ chia ô + bảng "Đang mặc", Xe), avatar (avatar 3D), modal, packing (xếp túi), minimap, screens
   devtools/  autopilot (?debug), editor/ (công cụ nội dung ?editor), relationship/ (sơ đồ quan hệ ?relationship)
-  game.js    lớp Game: khởi tạo, vòng đời ngày, vòng lặp; các nhóm hàm khác ở game/ (events · roadRules · navigation · story · visuals · phoneData,
+  game.js    lớp Game: khởi tạo, vòng đời ngày, vòng lặp; các nhóm hàm khác ở game/ (events · roadRules · navigation · story · visuals · phoneData · scene = cảnh phim nâng cao: đạo cụ, té xe, chặn đầu, tháo nón,
              mỗi file là lớp "phần" gắn vào Game.prototype bằng mixParts ở game/shared.js — trong đó vẫn dùng this như game.js; hằng số chung ở shared.js)
   interactions.js  mọi thao tác/hội thoại — chỉ gom lại; code ở interactions/ (common · nearby · phone · delivery · places · road)
 tests/       run.js (bộ thử luật + dữ liệu) · economy-sim.js (bot chơi headless) · scripts/kiem-ten.js (dò tên chưa import, chạy kèm npm test)

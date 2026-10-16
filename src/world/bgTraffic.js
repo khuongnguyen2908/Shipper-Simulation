@@ -77,6 +77,13 @@ export class BgTraffic {
   // ctx: { onSeg (xe NPC thật theo đoạn, traffic.onSeg), floodIds, elev, dt }
   update(dt, px, pz, ctx = {}) {
     if (!this.bikes.length) return;
+    // cảnh phim cốt truyện (held): tắt hết xe nền, hết cảnh rải lại từ đầu
+    if (this.held) {
+      for (const b of this.bikes) b.on = false;
+      this.first = true;
+      this.view?.sync(ctx.elev);
+      return;
+    }
     const near = num(this.cfg.near, 35), far = Math.max(near + 20, num(this.cfg.far, 140));
     // đoạn đường trong tầm (tính lại mỗi 0,5 giây)
     if ((this.nearT -= dt) <= 0) {

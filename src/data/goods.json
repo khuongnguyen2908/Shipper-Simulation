@@ -1772,5 +1772,78 @@
     "slot": "bag",
     "style": "crossbody",
     "color": "#1c1c1c"
+  },
+  "aoDaDua_den": {
+    "id": "aoDaDua_den",
+    "name": "Áo da đua đen",
+    "icon": "🧥",
+    "price": 0,
+    "desc": "Áo da đua mô tô: đen, sọc trắng 2 bên, chữ RACE trên ngực, có ốp vai.",
+    "slot": "shirt",
+    "style": "racing",
+    "color": "#141414",
+    "color2": "#f2f2f2",
+    "type": "outfit",
+    "npcOnly": true
+  },
+  "muFullfaceDua": {
+    "id": "muFullfaceDua",
+    "name": "Nón fullface đua carbon",
+    "icon": "⛑️",
+    "price": 0,
+    "desc": "Nón fullface đen bóng như carbon, kính khói, sọc trắng giữa đỉnh, cánh gió sau gáy.",
+    "slot": "helmet",
+    "style": "race",
+    "color": "#17181a",
+    "type": "outfit",
+    "npcOnly": true
+  },
+  "gangDa_den": {
+    "id": "gangDa_den",
+    "name": "Găng da đen",
+    "icon": "🧤",
+    "price": 0,
+    "desc": "Găng da đi mô tô, cổ ngắn.",
+    "slot": "hands",
+    "style": "gloves",
+    "color": "#111111",
+    "type": "outfit",
+    "npcOnly": true
+  },
+  "quanDua_den": {
+    "id": "quanDua_den",
+    "name": "Quần jean đen",
+    "icon": "👖",
+    "price": 0,
+    "desc": "Quần jean đen ôm, đi mô tô.",
+    "slot": "pants",
+    "style": "jeans",
+    "color": "#1c1d22",
+    "type": "outfit",
+    "npcOnly": true
+  },
+  "botDua_den": {
+    "id": "botDua_den",
+    "name": "Bốt đi mô tô đen",
+    "icon": "🥾",
+    "price": 0,
+    "desc": "Bốt da cổ cao, đế dày.",
+    "slot": "shoes",
+    "style": "boots",
+    "color": "#0e0e0e",
+    "type": "outfit",
+    "npcOnly": true
+  },
+  "kinhGongMay_den": {
+    "id": "kinhGongMay_den",
+    "name": "Kính gọng mày đen",
+    "icon": "👓",
+    "price": 0,
+    "desc": "Kính gọng mày: gọng trên đen dày, vành dưới mảnh bạc, mắt kính trong.",
+    "type": "outfit",
+    "slot": "face",
+    "style": "browline",
+    "color": "#1a1a1a",
+    "npcOnly": true
   }
 }

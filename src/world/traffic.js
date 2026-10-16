@@ -288,6 +288,15 @@ export class Traffic {
 
   // ---------------- xe buýt ----------------
   // Mỗi tuyến vài xe; vị trí lấy thẳng từ lịch chạy (cùng lịch dùng để tính chờ / đi khi người chơi đi xe)
+  // Cảnh phim cốt truyện: tạm giấu xe NPC + xe buýt quanh (x, z) bán kính r (chỉ máy người chơi này — chỉ để nhìn), release() thì hiện lại
+  holdNear(x, z, r) {
+    for (const a of this.agents) if (Math.hypot(a.x - x, a.z - z) < r) a.held = true;
+    for (const b of this.buses) if (Math.hypot(b.x - x, b.z - z) < r) b.held = true;
+  }
+  release() {
+    for (const a of this.agents) a.held = false;
+    for (const b of this.buses) b.held = false;
+  }
   setBuses(sys) {
     for (const b of this.buses) this.scene.remove(b.mesh);
     this.buses = [];
@@ -348,7 +357,7 @@ export class Traffic {
       d = ((d + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
       b.heading = b.ready ? b.heading + d * Math.min(1, dt * 6) : p.heading;
       b.ready = true;
-      b.mesh.visible = on && Math.abs(p.x - px) < FAR && Math.abs(p.z - pz) < FAR;
+      b.mesh.visible = !b.held && on && Math.abs(p.x - px) < FAR && Math.abs(p.z - pz) < FAR;
       b.mesh.position.set(p.x, this.elev ? this.elev.topAt(p.x, p.z) : 0, p.z);
       b.mesh.rotation.y = b.heading;
     }
@@ -1079,6 +1088,8 @@ export class Traffic {
     this.clock = (this.clock || 0) + dt;
     // xe đặc biệt ngoài giờ chạy (Jetjet ban ngày, ba gác ban đêm): ẩn, đứng yên, không tính nhường / va chạm
     for (const a of this.agents) {
+      if (a.held) { a.off = a.heldOff = true; a.mesh.visible = false; continue; } // cảnh phim: tạm giấu
+      if (a.heldOff) { a.off = a.heldOff = false; }
       if (!a.hours || ctx.hour == null) continue;
       const [h0, h1] = a.hours, h = ctx.hour < h0 && h1 > 24 ? ctx.hour + 24 : ctx.hour;
       a.off = !(h >= h0 && h < h1);

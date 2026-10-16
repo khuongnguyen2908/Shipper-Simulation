@@ -42,11 +42,17 @@ export const TRAITS = {
 };
 export const ACTOR_SPOTS = { xeOm: 'Cạnh gốc cây kế chú xe ôm nằm ở địa điểm …', place: 'Trước cửa địa điểm … (cách cửa … m ra phía đường, lệch … m dọc đường)', near: 'Gần người chơi (cách … m, thấy trên màn hình)' };
 // Xe đi kèm người lạ (dựng cạnh, bỏ đi thì đội mũ lên xe chạy mất)
-export const ACTOR_VEHICLES = { moto: 'Mô tô phân khối lớn (xịn)' };
+export const ACTOR_VEHICLES = { moto: 'Sport bike phân khối lớn đen sọc xanh lá (cùng chiếc anh mô tô chạy ở chương 3)' };
 // Dấu nhảy trên đầu (việc "react"): ? ngạc nhiên · ! giật mình
 export const REACT_ICONS = { '?': '? Ngạc nhiên', '!': '! Giật mình' };
 // Cảnh phim: camera nhìn vào đâu
-export const CINE_TARGETS = { place: 'Địa điểm …', actor: 'Người lạ …', player: 'Người chơi' };
+export const CINE_TARGETS = { place: 'Địa điểm …', actor: 'Người lạ …', prop: 'Đạo cụ …', player: 'Người chơi' };
+// Đạo cụ cảnh phim (việc "prop"): xe tải chạy ra chặn đường · tấm ván làm dốc · chó chạy ngang
+export const PROP_KINDS = { truck: '🚛 Xe tải container dài', ramp: '🪵 Tấm ván dựng làm dốc', dog: '🐕 Chó chạy ngang', car: '🚗 Ô tô diễn viên (chạy theo đường, 2 xe dí né)', moto: '🛵 Xe máy diễn viên (chạy theo đường, 2 xe dí né)' };
+// Hành động ở điểm lộ trình chạy trốn (act): drift quẹo gắt · crash té xe → bỏ xe chạy bộ
+export const ROUTE_ACTS = { drift: '💨 Drift (quẹo gắt, đuôi văng, khói lốp)', crash: '💥 Té xe → bỏ xe chạy bộ' };
+// Kiểu xe người lạ chạy trốn / đuổi theo
+export const CHASE_BIKES = { sport: 'Tay côn (Exciter)', supersport: 'Sport bike phân khối lớn (đen sọc xanh lá)' };
 // =============================================================
 import storyData from '../data/story.json' with { type: 'json' };
 import { BRANDS } from '../data/apps.js';
@@ -81,6 +87,7 @@ export const UNTIL = {
   chosen: 'Người chơi đã chọn câu trả lời (việc "Chọn câu trả lời" mã …)',
   cine: 'Cảnh phim (việc "🎬 Cảnh phim" ở bước này) đã chiếu xong',
   chased: 'Người lạ … (việc "🏍️ Chạy trốn") đã chạy hết lộ trình, người chơi đang bám theo',
+  reach: 'Người chơi tới gần chỗ [x, z] trên bản đồ (vd giữa cầu)',
   never: 'Chưa viết tiếp — dừng ở bước này (để chỗ cho nội dung sau)',
 };
 // Mốc của điều kiện "order"
@@ -113,6 +120,9 @@ export const ACTIONS = {
   offer: 'Mời 1 đơn cốt truyện: cuốc chở khách thường / đơn giao đồ ăn ở quán … (không hết hạn, không bỏ qua được, không sự cố)',
   fuel: 'Đặt xăng / pin xe đang dùng còn … %',
   sound: 'Phát tiếng (mã âm thanh, vd tiếng la "Cướp!")',
+  prop: '🚛 Đạo cụ cảnh phim: xe tải chạy ra chặn đường / tấm ván làm dốc / chó chạy ngang (chạy khi người lạ tới mốc …)',
+  dismount: 'Người lạ đang chạy xe dừng hẳn rồi xuống xe, đứng cạnh xe',
+  helmetOff: 'Người lạ tháo nón bảo hiểm (2 tay giơ lên gỡ nón, cầm nón trên tay — lộ tóc)',
   end: 'Kết thúc chương (hiện chữ, lưu game)',
 };
 // Hướng dẫn trên điện thoại (làm sáng nút cần bấm)
@@ -222,6 +232,7 @@ export function untilMet(u, gs, ctx) {
     case 'chosen': return s.picks?.[u.id] != null;
     case 'cine': return !!s.ev.cineDone;
     case 'chased': return !!s.ev[`chased:${u.who}`] || !!ctx.chased?.(u.who);
+    case 'reach': return !!ctx.reachAt?.(u.at, u.r || 8);
     case 'never': return false;
     case 'ordersSince': return (gs.account?.completed || 0) - (s.base || 0) >= (u.n || 1);
     case 'newDay': return (gs.day || 1) > (s.baseDay ?? gs.day ?? 1);

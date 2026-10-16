@@ -4686,6 +4686,20 @@
         3
       ],
       "lot": "f5"
+    },
+    {
+      "id": "congTrinhCang",
+      "name": "Công trình đang xây",
+      "short": "Công trình",
+      "kind": "scenery",
+      "icon": "🏗️",
+      "look": "construction",
+      "color": "#d35400",
+      "block": [
+        5,
+        7
+      ],
+      "lot": "E1"
     }
   ]
 }

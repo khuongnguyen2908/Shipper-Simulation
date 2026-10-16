@@ -29,7 +29,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
 ## 💬 Đang bàn
 ### 🏗️ Chuẩn bị dự án nặng hơn + làm gọn tool cốt truyện (16/10 — chủ game duyệt thứ tự: Đợt 1 → tool cốt truyện → Đợt 2 → Đợt 3)
 - **Đợt 1 (xong)**: nén âm thanh (cài ffmpeg; 8,9 MB → 3,9 MB, bản đăng 14,8 MB → 7,9 MB) + lệnh `npm run nen-am-thanh` cho file mới.
-  Giữ editor trong bản đăng (README ghi chủ game có dùng "editor online"; bỏ thì nhẹ thêm ~0,9 MB — chờ chủ game quyết).
+  Giữ editor trong bản đăng (README ghi chủ game có dùng "editor online"; bỏ thì nhẹ thêm ~0,9 MB — chủ game chốt 16/10: GIỮ editor).
 - **Tool cốt truyện (xong, theo phác thảo `sketches/story-tool.png`)**: 1 bước chia 3 thẻ con (🎬 Diễn biến · 👀 Người chơi thấy gì · ⚙️ Luật trong bước,
   số = đã đặt bao nhiêu thứ) · khung chưa dùng thu gọn · ô hiếm dùng của "Người lạ xuất hiện" gấp vào "▸ Thêm" · "Thêm việc" / "Xong bước khi" chia nhóm
   (ACTION_GROUPS / UNTIL_GROUPS trong tabStory.js) · ẩn mục chưa ai dùng (say, give, fuel, read, talk kiểu cũ, hướng dẫn reply — bước đang dùng vẫn
@@ -45,7 +45,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
 ### 🎬 Trong chương thì không có đơn (16/10 — đã làm, chủ game chốt: "sau bước hiện tên chương là không nhận được đơn nào, xong chương mới có đơn lại")
 - `sim/story.js inChapter()`: đã hiện tên chương (bước có việc "title") mà chưa hết chương → app không phát đơn thường (om.hold), trong app nhận
   đơn có dòng "🎬 Đang trong Chương N…"; bật công tắc → không cho + thông báo (trừ bước cốt truyện bắt bật công tắc — hướng dẫn chương 1).
-- Đơn do cốt truyện mời (bún mọc Cô Yến, cuốc chở thử chương 1) vẫn có như cũ.
+- Đơn do cốt truyện mời (bún mọc Cô Yến, cuốc chở thử chương 1) vẫn có như cũ. Cuốc chở thử chương 1 KHÔNG có thanh đếm ngược (chủ game chốt 16/10).
 - Tới bước hiện tên chương mà: đang chạy đơn → chờ giao xong / hủy mới hiện tên chương (nhắc mỗi 30 giây) · có đơn mời chưa nhận → bỏ đơn mời,
   không tính bỏ đơn (OrderManager.dismissOffer). Xong chương → thông báo "giờ nhận đơn lại được rồi" (trễ hạn quay lùi trong chương thì không báo).
 - Chưa làm (chờ chủ game nếu cần): các bước TRƯỚC tên chương (vd chương 3: chờ chị Linh lúc 8h) vẫn cho nhận / chạy đơn như thường.
@@ -104,7 +104,41 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   cách quá lose (700 m màn hình = 70 đơn vị) → thua: màn tối, về chỗ bắt đầu dí (gs.story.chaseStart, lưu lúc hết cảnh cướp) — không chiếu lại cảnh phim.
   Thử: xe đạp hết ga bám được tới cầu (xa nhất ~22 đơn vị, kể cả khựng 2 giây); đứng yên ~11 giây thì thua. Nẹt pô (city.rev) giờ phát lúc tên cướp lướt ngang người chơi (revAt 'pass').
   Chủ game đã chỉnh gap = 10 trong editor.
-- Còn để ý: tên cướp đi xuyên qua xe NPC (không né); mở lại game giữa cảnh phim → bỏ qua cảnh đó; giữa lúc dí → tên cướp hiện trước người chơi ~30 m trên lộ trình.
+- Còn để ý: mở lại game giữa cảnh phim → bỏ qua cảnh đó; giữa lúc dí → tên cướp hiện trước người chơi ~30 m trên lộ trình.
+
+### 🏍️ Chương 3 — cảnh dí cướp phần 2 (17/10 — XONG, CHỜ chủ game xem trong game; phác họa duyệt: sketches/canh-di-cuop/storyboard.jpg)
+- Chủ game chốt: làm kiểu khối dùng lại được (A) · công trình đặt hẳn ở khối 5,7 (a) · tháo nón khi người chơi tới (2 tay gỡ nón) · nâng nhạc trước · quay chậm 3 giây.
+- Luồng: dí qua cầu sắt 1 → xuống đường ven sông qua sân bóng → quẹo phải lên cầu 2 → **qua nửa cầu** (until "reach" [182, 0]) → 🎬 cảnh phim lớn ~37 giây (bước bigChase):
+  ① mắt người chơi nhìn tới (pô gầm sau lưng `city.motoPass`) ② ngoái lại ③ xe vượt mặt, lia theo ④ trên cao ⑤ góc nhà thờ: drift + khói ⑥ bám theo qua cầu kênh
+  ⑦ ngã tư bến cảng: xe tải container lao ra (còi `city.truckHorn`), tên cướp lạng trái lọt qua ⑧ lên tấm ván bay qua xe tải (quay chậm 0,6 ≈ 3 giây)
+  ⑨ bám theo tới công viên ⑩ chó lao ra, té xe (`city.bikeFall`) ⑪ bỏ xe chạy bộ, anh mô tô vượt lên thắng gấp xoay ngang chặn ⑫ người chơi chạy tới từ xa →
+  bước arrive2 (anh mô tô xuống xe, người chơi lại gần) → helmetOff (2 tay giơ gỡ nón, lộ tóc undercut vuốt ngược, cầm nón tay phải) → wip.
+- Máy mới (đều chỉnh được ở ?editor → Cốt truyện):
+  - Cảnh quay: kiểu máy (quanh vật / góc nhìn thứ nhất / cố định ở tọa độ), quay đầu yaw→yawTo, nhìn theo (lookAt), tới mốc thì sang cảnh sau (until "người:mốc"),
+    quay chậm (slow — chỉ diễn viên, đạo cụ, xe người chơi; đồng hồ chung vẫn chạy), góc rộng (fov), tiếng lúc vào cảnh. Cảnh phim: xe người chơi tự chạy theo (ride),
+    dọn xe NPC quanh người chơi (clear — chỉ máy mình, hết cảnh hiện lại).
+  - Chạy trốn: điểm tọa độ [x, z] (chạy thẳng), mốc, hành động (drift / té xe → chạy bộ), lệch ngang, cao (ván), bay, tốc độ từ điểm; kiểu xe (supersport), màu,
+    đuổi theo người khác (follow — người đó té thì vượt lên chặn), xuất hiện sau lưng, né xe / người / chó (dodge), dáng "theo sơ đồ quan hệ" + bộ đồ.
+  - Việc mới: 🚛 Đạo cụ (prop: xe tải / tấm ván / chó, chạy khi tới mốc) · Xuống xe (dismount) · Tháo nón (helmetOff). Điều kiện mới: Tới chỗ [x, z] (reach).
+- Mô hình mới: xe `supersport` (đen sọc xanh lá — dùng chung chương 2 + 3), áo `racing` (chữ RACE, sọc trắng), nón `race` (kính khói, sọc, cánh gió), tóc `crop`
+  (chỉ NPC — không có ở màn tạo nhân vật), xe tải container + tấm ván (world/storyProps.js). Đồ đua NPC: aoDaDua_den, muFullfaceDua, gangDa_den, quanDua_den, botDua_den.
+  Sơ đồ quan hệ: bộ đồ có thể có "Kiểu tóc riêng" (anh mô tô bộ "Đi đua (dí cướp)" → slick); bộ "Thường ngày" lúc nói chuyện với chị Linh giữ nguyên.
+- Công trình đang xây: địa điểm mới `congTrinhCang` (khối 5,7 lô E1). Nhạc dí cướp: nén lại từ bản gốc + nâng to ~12 dB, âm lượng 160% (cũ 200%).
+- Bốc đầu tên cướp giờ đúng lúc nẹt pô (lướt ngang người chơi).
+- Âm thanh mới (đang dùng tạm file có sẵn, CHỜ người làm sound): drive.skid, city.motoPass, city.truckHorn, city.bikeFall (docs/am-thanh.md).
+- Sửa 17/10: tiếng máy xe (loop.engine) không kêu dù đã gắn file — lỗi audio.js (file tải sẵn rồi thì vòng lặp không bao giờ phát), đã sửa ·
+  tiếng mô tô vụt qua phát khi anh mô tô tới cách người chơi ~20 (chase.nearSound / nearDist) · tách tiếng cuối: city.thiefCrash (té xe vì đâm chó, gắn ở điểm
+  lộ trình "Té xe") + city.thiefDog (con chó lao ra, đạo cụ dog1) · tóc slick làm lại bằng các sợi chải ngược (hết giống búi len).
+- Sửa 17/10 (2): tiếng ở điểm lộ trình phát SỚM cho khoảnh khắc mạnh nhất trong file (tự dò, hoặc ô "rầm lúc") trùng lúc tới điểm, tên cướp tự chỉnh tốc độ
+  để tới đúng lúc (kể cả có quay chậm chen giữa) — file am_thanh_te_xe "rầm" ở giây 5,3 · tiếng chó (yodguard) phát đúng lúc bị đâm (gắn ở điểm té xe, bỏ ở đạo cụ chó) ·
+  tiếng máy xe anh mô tô: mã lặp loop.motoChase (chase.loop), to nhỏ theo khoảng cách camera · tóc: 5 mẫu xem thử slickA–E (sketches/canh-di-cuop/mau-toc.jpg),
+  → chủ game chốt (17/10): tóc "crop" (ngắn tỉa, mái rủ trán, đen — theo ảnh mẫu, làm gọn) cho bộ "Đi đua"; kính gọng mày đen (kinhGongMay_den,
+  kiểu browline) đeo ở MỌI bộ đồ của anh mô tô. Đã bỏ tóc slick + các mẫu thử. Kính có gọng mới (5 kiểu: roundBig, roundThick, squareBig, aviator, browline)
+  chọn được cho món "Phụ kiện đầu" ở ?editor.
+- Sửa 17/10 (3): lúc chiếu cảnh dí lớn TẮT HẾT xe thường (cine.clearAll: xe NPC, xe buýt, xe nền — chỉ máy mình, hết cảnh chạy lại) · thay bằng 6 xe diễn viên
+  (đạo cụ car / moto: xeW1–W3 đường trước nhà thờ, xeS1–S3 đường xuống bến cảng) chạy đúng làn, hiện khi tên cướp tới mốc west / south, có xe tấp lề dừng (keep) ·
+  2 xe dí + xe người chơi tự chạy đều né xe diễn viên (sửa lỗi hàm né: đo lệch sai + bỏ né khi đang chạy ngang hàng). Đo: gần nhất 1,6 (tâm-tâm), không xuyên qua nhau.
+- Còn để ý: xe NPC ở khu bến cảng vẫn chạy (để 2 xe có cái mà né) nên đôi khi chắn ống kính; mở lại game giữa cảnh phim → bỏ qua cảnh, anh mô tô + tên cướp đặt ở cuối đường.
 
 ### 🗣️ Xưng hô "anh/chị" theo giới tính người chơi (16/10 — XONG)
 - Ô Tự xưng / Gọi là trên dây trong ?relationship gõ `anh/chị` (hoặc `chị/anh`) → người chơi nam thành "anh", nữ thành "chị".
@@ -205,7 +239,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
     bật công tắc → sáng dòng mục tiêu (cho bấm I / Tab); chờ nói chuyện theo truyện thì không hiện nút E thường của nơi đó; tự đi tới nơi trước khi
     bấm 📍 cũng tính (≤ 15 m, không bị kẹt); vào hãng → xe hãng dựng trước văn phòng, tính giờ đậu lại (trước đây có thể bị cẩu ngay vì xe đạp
     để ngoài đường lâu).
-  - Chờ chủ game quyết: bấm 📍 quán Chú Hai có tự cất điện thoại như lần đầu không.
+  - Bấm 📍 quán Dượng Hai: điện thoại tự cất như lần đầu (bước "mount" có việc closePhone — chủ game chốt 16/10).
   - Sửa 15/10: hướng dẫn Shift = làm sáng dòng phím dưới cùng (bỏ bảng nhắc giữa màn hình — bị màn đen); xe đạp dựng sẵn trong hầm từ đầu;
     dấu ! giữ tới khi Mẹ trả lời xong mới thành ?; Cô Hai gửi 2 món (hũ chao dễ vỡ + bịch tàu hũ món nước) — màn xếp túi có hướng dẫn
     chọn món → bấm ô → xoay → xếp xong (game.packGuide); Chú Hai tặng 2 phần cơm chay; ăn xong giải thích thanh Thể lực → Tinh thần → Xe

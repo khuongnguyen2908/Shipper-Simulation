@@ -3663,7 +3663,10 @@ console.log('Âm thanh: mã từng chỗ phát tiếng, file gắn trong sounds.
     for (const m of code.matchAll(/\bsound\([^)]*\?\s*'([\w.]+)'\s*:\s*'([\w.]+)'/g)) used.push(m[1], m[2]);
     for (const id of used) assert.ok(SP.SOUNDS[id], `sound('${id}') chưa có trong soundSpec.js`);
     // mã phát từ dữ liệu cốt truyện (story.json → việc "Phát tiếng") cũng tính là có dùng
-    const storyCodes = readJson('src/data/story.json').chapters.flatMap((c) => c.steps.flatMap((st) => [...(st.on || []).filter((x) => x.do === 'sound').map((x) => x.code), ...(st.music ? [st.music] : [])]));
+    // (+ tiếng đi kèm cảnh quay "sound" và tiếng đạo cụ lúc bắt đầu chạy)
+    const storyCodes = readJson('src/data/story.json').chapters.flatMap((c) => c.steps.flatMap((st) => [...(st.on || []).filter((x) => x.do === 'sound').map((x) => x.code), ...(st.music ? [st.music] : []),
+      ...(st.on || []).filter((x) => x.do === 'cine').flatMap((x) => (x.shots || []).map((sh) => sh.sound).filter(Boolean)), ...(st.on || []).filter((x) => x.do === 'prop' && x.sound).map((x) => x.sound),
+      ...(st.on || []).filter((x) => x.do === 'chase').flatMap((x) => [x.nearSound, x.loop, ...(x.route || []).flatMap((r) => [].concat(r.sound || []))].filter(Boolean))]));
     for (const id of storyCodes) assert.ok(SP.SOUNDS[id], `story.json: mã âm thanh "${id}" chưa có trong soundSpec.js`);
     for (const id of SP.SOUND_IDS) assert.ok(code.includes(`'${id}'`) || storyCodes.includes(id), `mã ${id} không chỗ nào dùng`);
     assert.ok(!/\bsfx\.\w+\(\)/.test(code), 'còn chỗ gọi sfx.xxx() kiểu cũ');
@@ -4174,11 +4177,11 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     assert.equal(gs.story.ch, 'c2');
     assert.ok(objectives(gs).some((x) => x.id === 'orders'), 'hết chương 1 → mục tiêu giao 10 đơn');
   });
-  test('Chương 3 "Xui xẻo": Dượng Hai nhắn → ngủ qua ngày → chị Linh nhắc → 8h chị ra tiệm → quá 9h thất bại, mai 8h nhận lại → tới trường → chị Nhi, anh Hoàng → cảnh phim cướp → dí tên cướp (không phạt) → qua cầu', () => {
+  test('Chương 3 "Xui xẻo": Dượng Hai nhắn → ngủ qua ngày → chị Linh nhắc → 8h chị ra tiệm → quá 9h thất bại, mai 8h nhận lại → tới trường → chị Nhi, anh Hoàng → cảnh phim cướp → dí tên cướp (không phạt) → qua nửa cầu 2 → cảnh phim dí lớn (anh mô tô) → xuống xe → tháo nón', () => {
     const gs = new GameState({ carry: { flags: { story: 2 } } });
     Object.assign(gs.story, { ch: 'c3', step: 0, fired: false, waited: 0, ev: {}, done: ['c1', 'c2'] });
-    let near = null, boarded = false, now = 20 * 60, closeTo = false, mounted = false, chased = false;
-    const ctx = () => ({ near: (p) => p === near, now, actorNear: () => closeTo, actorBoarded: () => boarded, mounted, chased: () => chased });
+    let near = null, boarded = false, now = 20 * 60, closeTo = false, mounted = false, chased = false, pos = { x: 0, z: 0 };
+    const ctx = () => ({ near: (p) => p === near, now, actorNear: () => closeTo, actorBoarded: () => boarded, mounted, chased: () => chased, reachAt: (at, r) => Math.hypot(pos.x - at[0], pos.z - at[1]) < r });
     const acts = [];
     const tick = (n = 1) => { for (let i = 0; i < n; i++) { acts.push(...storyTick(gs, 1, ctx())); now += 1; } };
     const sid = () => stepOf(gs.story)?.id;
@@ -4236,17 +4239,35 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     assert.equal(sid(), 'chaseMount');
     assert.ok(stepOf(gs.story).noFines, 'đang dí: không bị phạt');
     assert.ok(stepOf(gs.story).noBeacon && stepOf(gs.story).mark.icon === 'dot', 'tên cướp: chấm đỏ, không cột sáng');
-    assert.ok(['robbery', 'chaseMount', 'chase', 'bridgeCut'].every((id) => ch3.steps.find((x) => x.id === id).music === 'music.chase'), 'nhạc dí cướp từ cảnh cướp tới qua cầu');
-    assert.ok(!ch3.steps.find((x) => x.id === 'wip').music, 'qua cầu xong → nhạc thường');
+    assert.ok(['robbery', 'chaseMount', 'chase', 'bigChase'].every((id) => ch3.steps.find((x) => x.id === id).music === 'music.chase'), 'nhạc dí cướp từ cảnh cướp tới hết cảnh phim dí lớn');
+    assert.ok(!ch3.steps.find((x) => x.id === 'wip').music, 'hết cảnh dí → nhạc thường');
     assert.equal(acts.find((a) => a.do === 'cine' && a.endRide)?.endRide, 'thief', 'hết cảnh cướp → ngồi sẵn trên xe, quay về hướng tên cướp');
     assert.ok(acts.filter((a) => a.do === 'approach').every((a) => a.stop), 'Nhi, Hoàng chạy tới rồi đứng lại (không đi theo)');
     mounted = true; tick(2);
     assert.equal(sid(), 'chase');
     tick(5);
     assert.equal(sid(), 'chase', 'chưa qua cầu');
-    chased = true; tick(2);
-    assert.equal(sid(), 'bridgeCut', 'tên cướp chạy hết lộ trình (qua cầu) → cảnh phim');
+    pos = { x: 200, z: 0 }; tick(2);
+    assert.equal(sid(), 'chase', 'mới lên đầu cầu 2');
+    pos = { x: 181, z: -1.8 }; tick(2);
+    assert.equal(sid(), 'bigChase', 'qua nửa cầu 2 → cảnh phim dí lớn');
+    const big = stepOf(gs.story).on, man = big.find((a) => a.do === 'chase');
+    assert.ok(man && man.who === 'man' && man.follow === 'thief' && man.spawn === 'behind' && man.bike === 'supersport', 'anh mô tô từ sau lưng vọt lên đuổi theo tên cướp, xe sport bike');
+    assert.ok(man.route.some((r) => r.act === 'drift') && man.route.some((r) => r.air > 0), 'drift ở góc nhà thờ, bay qua xe tải');
+    const kinds = new Set(big.filter((a) => a.do === 'prop').map((a) => a.kind));
+    assert.ok(['dog', 'ramp', 'truck', 'car', 'moto'].every((k) => kinds.has(k)), 'xe tải, tấm ván, con chó + xe diễn viên (ô tô, xe máy)');
+    assert.ok(big.find((a) => a.do === 'cine').clearAll, 'lúc chiếu tắt hết xe thường, chỉ còn xe diễn viên');
+    const cine = big.find((a) => a.do === 'cine');
+    assert.ok(cine.ride === 'thief' && cine.shots.slice(0, 3).every((sh) => sh.eye), 'xe người chơi tự chạy theo · 3 cảnh đầu góc nhìn thứ nhất');
+    assert.ok(cine.shots.some((sh) => sh.slow < 1), 'có cảnh quay chậm (bay qua xe tải)');
+    assert.ok(chase.route.some((r) => r.act === 'crash'), 'tên cướp té xe ở công viên');
     storyEvent(gs.story, 'cineDone'); tick(2);
+    assert.equal(sid(), 'arrive2');
+    assert.ok(acts.some((a) => a.do === 'dismount' && a.who === 'man'), 'anh mô tô xuống xe');
+    closeTo = true; tick(2);
+    assert.equal(sid(), 'helmetOff');
+    assert.ok(acts.some((a) => a.do === 'helmetOff' && a.who === 'man'), 'tháo nón');
+    tick(4);
     assert.equal(sid(), 'wip');
     tick(20);
     assert.equal(sid(), 'wip', 'chưa viết tiếp: dừng ở đây');
@@ -4513,6 +4534,36 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     assert.ok(/k\.thieu/.test(errs), errs);
     assert.equal(validateStory(STORY, {}).filter((i) => i.level === 'error').length, 0, 'cốt truyện hiện tại không lỗi');
   });
+  test('Bộ kiểm tra cảnh phim nâng cao: đạo cụ, mốc, góc máy, đuổi theo, tới chỗ — dữ liệu sai thì báo', () => {
+    const bad = { contacts: {}, people: { t: {}, m: {} }, items: {}, parcels: {}, chapters: [{ id: 'c', title: 't', steps: [
+      { id: 'a', on: [{ do: 'chase', who: 't', route: [{ node: [1, 1] }, { at: [5, 'x'] }, { at: [9, 9], mark: 'go', act: 'bay', lat: 20, air: -1 }] }], until: { type: 'reach', at: [1], r: 999 } },
+      { id: 'b', on: [
+        { do: 'chase', who: 'm', follow: 'khongCo', spawn: 'sau', bike: 'xe lạ', route: [{ node: [0, 0] }, { node: [1, 0] }] },
+        { do: 'prop', id: '1x', kind: 'tau', when: 't:khongCoMoc' },
+        { do: 'cine', ride: 'ai', shots: [{ eye: true, t: 2, slow: 3, until: 'khong co' }, { pos: [1, 2], t: 1 }, { at: 'prop:khongCo', t: 1, lookAt: 'actor:ai' }] },
+        { do: 'helmetOff', who: 'ai' },
+      ], until: { type: 'cine' } },
+    ] }] };
+    const all = validateStory(bad, {});
+    const errs = all.filter((i) => i.level === 'error').map((i) => i.msg).join(' | ');
+    for (const w of ['tọa độ phải là [x, z]', 'hành động lạ "bay"', 'lệch ngang', 'bay cao thêm', 'Tới chỗ: tọa độ', 'Tới chỗ: bán kính', '"đuổi theo" — "khongCo"', 'chỗ xuất hiện lạ', 'kiểu xe lạ',
+      'Đạo cụ: mã', 'Đạo cụ: loại lạ "tau"', '"xe người chơi tự chạy theo" — "ai"', 'quay chậm 0,1–1', 'người:mốc', 'chỗ đặt máy quay', 'đạo cụ "khongCo"', '"nhìn theo" — "actor:ai"', 'Người lạ "ai"']) assert.ok(errs.includes(w), `thiếu lỗi: ${w}`);
+    assert.ok(all.some((i) => i.level === 'warn' && i.msg.includes('t:khongCoMoc')), 'đạo cụ chờ mốc không có → cảnh báo');
+  });
+  {
+    const { HAIR_BY_GENDER, HAIR_STYLES, HAIR_EXTRA } = await import('../src/sim/people.js');
+    const { lookOfChar } = await import('../src/data/relations.js');
+    const rel = readJson('src/data/relations.json');
+    test('Tóc "crop" (ngắn tỉa, mái rủ trán): hợp lệ cho NPC, không có ở màn tạo nhân vật; bộ "Đi đua" của anh mô tô để tóc crop, bộ thường giữ tóc cũ; anh ấy đeo kính gọng mày mọi bộ', () => {
+      assert.ok(HAIR_STYLES.includes('crop') && HAIR_EXTRA.m.includes('crop') && !HAIR_BY_GENDER.m.includes('crop'));
+      const man = rel.characters.man;
+      assert.equal(lookOfChar(man, 'duaXe').hairStyle, 'crop');
+      for (const o of man.outfits) assert.equal(lookOfChar(man, o.id).face, 'browline', `bộ ${o.name}: đeo kính gọng mày`);
+      assert.equal(lookOfChar(man, 'duaXe').helmetStyle, 'race');
+      assert.equal(lookOfChar(man, 'duaXe').shirtStyle, 'racing');
+      assert.equal(lookOfChar(man, 'thuongNgay').hairStyle, man.look.hairStyle, 'bộ thường ngày (nói chuyện với chị Linh) giữ tóc cũ');
+    });
+  }
 }
 
 console.log('Sơ đồ quan hệ nhân vật (relations.json — /?relationship)');

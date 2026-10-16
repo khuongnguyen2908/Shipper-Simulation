@@ -17,7 +17,7 @@ import { validateRelations, ID_RE, findOldName, swapName, PLACE_TEXT } from '../
 import { DEFAULT_TYPES, LOOK_SLOTS, lookOfChar, PLAYER } from '../../data/relations.js';
 import { OUTFIT_SLOTS, canWearOutfit } from '../../data/goods.js';
 import { isPlaced } from '../../data/places.js';
-import { HAIR_BY_GENDER, HAIR_COLORS, PLAYER_SKINS, LOOK_AGES, LOOK_BUILDS } from '../../sim/people.js';
+import { HAIR_BY_GENDER, HAIR_EXTRA, HAIR_COLORS, PLAYER_SKINS, LOOK_AGES, LOOK_BUILDS } from '../../sim/people.js';
 import { colorsToNumbers } from '../../data/balance.js';
 import { npcLook } from '../../world/models.js';
 import { el, field, textInput, numInput, selectInput, checkInput, areaInput, button, emojiInput, colorInput, clone } from '../editor/ui.js';
@@ -731,7 +731,7 @@ export function startRelationship(root) {
     show();
     const setL = (k, v, re = false) => { L[k] = v; if (k === 'gender') c.gender = v; changed({ panel: re }); show(); };
     const sw = (list, cur, on) => el('div', { class: 'rl-sw' }, list.map((n) => el('button', { type: 'button', class: hex(n) === String(cur).toLowerCase() ? 'on' : '', style: `background:${hex(n)}`, onclick: () => on(hex(n)) })));
-    const hairs = HAIR_BY_GENDER[L.gender === 'f' ? 'f' : 'm'];
+    const hairs = [...HAIR_BY_GENDER[L.gender === 'f' ? 'f' : 'm'], ...HAIR_EXTRA[L.gender === 'f' ? 'f' : 'm']];
     side.append(el('div', { class: 'rl-look' }, prev.el, el('div', { class: 'rl-look-f' },
       field('Giới tính', selectInput(L.gender || 'm', [['m', 'Nam'], ['f', 'Nữ']], (v) => { L.hairStyle = HAIR_BY_GENDER[v][0]; setL('gender', v, true); })),
       field('Kiểu tóc', selectInput(L.hairStyle, hairs.map((h) => [h, data.content[`hair.${h}`] || h]), (v) => setL('hairStyle', v))),
@@ -754,6 +754,7 @@ export function startRelationship(root) {
         } }, '＋ Bộ khác')),
       el('div', { class: 'grid2' },
         field('Tên bộ đồ', textInput(o.name, (v) => { o.name = v; changed(); }), { hint: 'Cốt truyện chọn bộ theo tên này (việc "Người lạ xuất hiện").' }),
+        field('Kiểu tóc riêng', selectInput(o.hairStyle || '', [['', '— Như trên —'], ...hairs.map((h) => [h, data.content[`hair.${h}`] || h])], (v) => { if (v) o.hairStyle = v; else delete o.hairStyle; changed({ panel: true }); }), { hint: 'Mặc bộ này thì để kiểu tóc này (vd đi đua: undercut vuốt ngược). Bỏ trống = kiểu tóc chung ở trên.' }),
         c.outfits.length > 1 ? field('', button('🗑 Bỏ bộ này', () => { c.outfits = c.outfits.filter((x) => x !== o); delete S.outfit[id]; breakStep(hist); changed({ panel: true }); }, 'danger small')) : null));
     const g = L.gender === 'f' ? 'f' : 'm';
     for (const slot of LOOK_SLOTS) {

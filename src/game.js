@@ -52,6 +52,7 @@ import { NavigationPart } from './game/navigation.js';
 import { StoryPart } from './game/story.js';
 import { VisualsPart } from './game/visuals.js';
 import { PhoneDataPart } from './game/phoneData.js';
+import { ScenePart } from './game/scene.js';
 
 export class Game {
   constructor(canvas, uiRoot) {
@@ -783,7 +784,8 @@ export class Game {
     if (this.ferryRide) this.ferryTick(dt); // đang trên phà: người + xe đứng yên trên boong, phà chở qua sông
     else {
       const pedal = gs.power === 'pedal', ev = gs.power === 'electric';
-      const moved = bike.update(dt, mounted && !this.cine ? inp.state : {}, { mounted, fuel: this.stalled ? 0 : pedal ? 1 : gs.fuel, hp: gs.bikeHp, wet: !!rain, speedCap: Number.isFinite(speedCap) ? speedCap : 0, grid: this.city.grid, elev: this.city.elev, potholes: this.potholes, emit });
+      // cảnh phim có xe người chơi tự chạy theo (cine.ride) → xe đi theo lộ trình người bị đuổi, không theo phím
+      const moved = this.cine?.ride && mounted ? this.cineRide(dt) : bike.update(dt, mounted && !this.cine ? inp.state : {}, { mounted, fuel: this.stalled ? 0 : pedal ? 1 : gs.fuel, hp: gs.bikeHp, wet: !!rain, speedCap: Number.isFinite(speedCap) ? speedCap : 0, grid: this.city.grid, elev: this.city.elev, potholes: this.potholes, emit });
       if (mounted) {
         const km = (moved * DIST.displayPerUnit) / 1000;
         if (pedal) gs.addKm(km); // xe đạp: không xăng, không bảo dưỡng — chỉ cộng đồng hồ km
@@ -801,7 +803,7 @@ export class Game {
           else if (gs.maintLeftKm < gs.maintIntervalKm * 0.1) this.toastOnce('oilSoon', fmt(ev ? 'toast.batterySoon' : 'toast.oilSoon', { km: gs.maintLeftKm.toFixed(1) }), 'warn', 300);
         }
         activity = speed > 0.5 ? (pedal ? 'pedal' : gs.fuel <= 0 || this.stalled ? 'push' : 'drive') : 'idle';
-        for (const h of this.traffic.collidePlayer(bike.pos, 0.75, bike.vel, true, bike.mesh.position.y)) this.onTrafficHit(h, env);
+        if (!this.cine?.ride) for (const h of this.traffic.collidePlayer(bike.pos, 0.75, bike.vel, true, bike.mesh.position.y)) this.onTrafficHit(h, env); // xe tự chạy trong cảnh phim: không va chạm
       } else {
         // đang nói chuyện với người lạ (cốt truyện): đứng yên tới khi nói xong (phím đi bị bỏ qua; đồng hồ vẫn chạy)
         activity = this.walker.update(dt, this.storyTalkActor() || this.cine ? NO_MOVE : inp.state, this.rig.yaw, { grid: this.city.grid, elev: this.city.elev, phys: gs.phys, speedMul: floodBand(water) >= 2 ? floodNum('walkMul') : 1 });
@@ -1069,4 +1071,4 @@ export class Game {
 
 }
 
-mixParts(Game, [EventsPart, RoadRulesPart, NavigationPart, StoryPart, VisualsPart, PhoneDataPart]);
+mixParts(Game, [EventsPart, RoadRulesPart, NavigationPart, StoryPart, VisualsPart, PhoneDataPart, ScenePart]);

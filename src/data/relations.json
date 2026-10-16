@@ -247,7 +247,8 @@
             "shoes": "giayTay_den",
             "wrist": "dongHo_bac",
             "cap": "muLuoiTrai_den",
-            "bag": "tuiCheo_den"
+            "bag": "tuiCheo_den",
+            "face": "kinhGongMay_den"
           }
         },
         {
@@ -259,8 +260,23 @@
             "shoes": "giayTay_den",
             "wrist": "dongHo_bac",
             "helmet": "muFullface",
-            "bag": "tuiCheo_den"
+            "bag": "tuiCheo_den",
+            "face": "kinhGongMay_den"
           }
+        },
+        {
+          "id": "duaXe",
+          "name": "Đi đua (dí cướp)",
+          "worn": {
+            "shirt": "aoDaDua_den",
+            "pants": "quanDua_den",
+            "shoes": "botDua_den",
+            "hands": "gangDa_den",
+            "wrist": "dongHo_bac",
+            "helmet": "muFullfaceDua",
+            "face": "kinhGongMay_den"
+          },
+          "hairStyle": "crop"
         }
       ]
     },

@@ -518,7 +518,11 @@
           "goal": "story.c1.mount.goal",
           "hint": "story.c1.mount.hint",
           "target": "bike",
-          "on": [],
+          "on": [
+            {
+              "do": "closePhone"
+            }
+          ],
           "guide": null
         },
         {
@@ -2238,15 +2242,95 @@
                     10,
                     2
                   ]
+                },
+                {
+                  "node": [
+                    10,
+                    5
+                  ]
+                },
+                {
+                  "node": [
+                    7,
+                    5
+                  ],
+                  "speed": 14,
+                  "mark": "west"
+                },
+                {
+                  "node": [
+                    6,
+                    5
+                  ],
+                  "mark": "south"
+                },
+                {
+                  "at": [
+                    52,
+                    96
+                  ]
+                },
+                {
+                  "at": [
+                    52,
+                    106
+                  ],
+                  "mark": "truck"
+                },
+                {
+                  "at": [
+                    52,
+                    146
+                  ],
+                  "lat": -3.6
+                },
+                {
+                  "at": [
+                    52,
+                    166
+                  ],
+                  "lat": -3.2,
+                  "mark": "passed"
+                },
+                {
+                  "at": [
+                    52,
+                    182
+                  ]
+                },
+                {
+                  "at": [
+                    52,
+                    208
+                  ],
+                  "mark": "dog"
+                },
+                {
+                  "at": [
+                    52,
+                    222
+                  ],
+                  "act": "crash",
+                  "sound": [
+                    "city.thiefCrash",
+                    "city.thiefDog"
+                  ]
+                },
+                {
+                  "at": [
+                    52,
+                    257
+                  ]
                 }
               ],
               "gap": 10,
               "speed": 12,
               "delay": 2,
-              "wheelie": true,
               "pct": 85,
               "lose": 700,
-              "revAt": "pass"
+              "revAt": "pass",
+              "wheelie": true,
+              "dodge": true
             }
           ],
           "guide": null,
@@ -2275,8 +2359,12 @@
         {
           "id": "chase",
           "until": {
-            "type": "chased",
-            "who": "thief"
+            "type": "reach",
+            "at": [
+              182,
+              0
+            ],
+            "r": 9
           },
           "on": [],
           "guide": null,
@@ -2293,35 +2381,466 @@
           "music": "music.chase"
         },
         {
-          "id": "bridgeCut",
+          "id": "bigChase",
+          "hold": true,
+          "noFines": true,
+          "music": "music.chase",
+          "guide": null,
           "until": {
             "type": "cine"
           },
           "on": [
             {
-              "do": "cine",
-              "shots": [
+              "do": "chase",
+              "who": "man",
+              "look": "char",
+              "outfit": "duaXe",
+              "bike": "supersport",
+              "color": "#15171c",
+              "spawn": "behind",
+              "back": 64,
+              "follow": "thief",
+              "gap": 12,
+              "speed": 22,
+              "delay": 0,
+              "dodge": true,
+              "route": [
                 {
-                  "at": "actor:thief",
-                  "t": 3,
-                  "dist": 11,
-                  "height": 4.5,
-                  "angle": 25
+                  "node": [
+                    10,
+                    5
+                  ]
                 },
                 {
-                  "at": "player",
-                  "t": 2.5,
-                  "dist": 7,
-                  "height": 3,
-                  "angle": 200
+                  "node": [
+                    7,
+                    5
+                  ]
+                },
+                {
+                  "at": [
+                    82,
+                    0
+                  ],
+                  "mark": "corner"
+                },
+                {
+                  "node": [
+                    6,
+                    5
+                  ],
+                  "act": "drift"
+                },
+                {
+                  "at": [
+                    52,
+                    96
+                  ]
+                },
+                {
+                  "at": [
+                    52,
+                    124
+                  ]
+                },
+                {
+                  "at": [
+                    52,
+                    131
+                  ],
+                  "lat": 3.2
+                },
+                {
+                  "at": [
+                    52,
+                    136
+                  ],
+                  "lat": 3.2
+                },
+                {
+                  "at": [
+                    52,
+                    143
+                  ],
+                  "lat": 3.2,
+                  "y": 1.6,
+                  "mark": "ramp"
+                },
+                {
+                  "at": [
+                    52,
+                    168
+                  ],
+                  "air": 4.2,
+                  "mark": "landed"
+                },
+                {
+                  "at": [
+                    52,
+                    200
+                  ]
+                },
+                {
+                  "at": [
+                    52,
+                    254
+                  ]
+                }
+              ],
+              "nearSound": "city.motoPass",
+              "nearDist": 20,
+              "loop": "loop.motoChase"
+            },
+            {
+              "do": "prop",
+              "id": "ramp1",
+              "kind": "ramp",
+              "at": [
+                47,
+                136
+              ],
+              "heading": 0,
+              "len": 7.2,
+              "h": 1.6
+            },
+            {
+              "do": "prop",
+              "id": "truck1",
+              "kind": "truck",
+              "when": "thief:truck",
+              "sound": "city.truckHorn",
+              "speed": 16,
+              "route": [
+                {
+                  "at": [
+                    -14,
+                    157.8
+                  ]
+                },
+                {
+                  "at": [
+                    47,
+                    157.8
+                  ],
+                  "wait": 1.5
+                },
+                {
+                  "at": [
+                    160,
+                    157.8
+                  ]
                 }
               ]
+            },
+            {
+              "do": "prop",
+              "id": "dog1",
+              "kind": "dog",
+              "when": "thief:dog",
+              "speed": 9,
+              "route": [
+                {
+                  "at": [
+                    59,
+                    220.5
+                  ]
+                },
+                {
+                  "at": [
+                    36,
+                    222
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "prop",
+              "id": "xeW1",
+              "kind": "car",
+              "when": "thief:west",
+              "speed": 6,
+              "color": "#ecf0f1",
+              "route": [
+                {
+                  "at": [
+                    92,
+                    -1.8
+                  ]
+                },
+                {
+                  "at": [
+                    -20,
+                    -1.8
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "prop",
+              "id": "xeW2",
+              "kind": "moto",
+              "when": "thief:west",
+              "speed": 5,
+              "route": [
+                {
+                  "at": [
+                    78,
+                    -4.4
+                  ]
+                },
+                {
+                  "at": [
+                    -20,
+                    -4.4
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "prop",
+              "id": "xeW3",
+              "kind": "moto",
+              "when": "thief:west",
+              "speed": 8,
+              "route": [
+                {
+                  "at": [
+                    40,
+                    2
+                  ]
+                },
+                {
+                  "at": [
+                    200,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "prop",
+              "id": "xeS1",
+              "kind": "moto",
+              "when": "thief:south",
+              "speed": 6,
+              "keep": true,
+              "route": [
+                {
+                  "at": [
+                    50.2,
+                    40
+                  ]
+                },
+                {
+                  "at": [
+                    50.2,
+                    86
+                  ]
+                },
+                {
+                  "at": [
+                    46.6,
+                    94
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "prop",
+              "id": "xeS2",
+              "kind": "car",
+              "when": "thief:south",
+              "speed": 8,
+              "model": "taxi",
+              "route": [
+                {
+                  "at": [
+                    53.8,
+                    95
+                  ]
+                },
+                {
+                  "at": [
+                    53.8,
+                    -30
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "prop",
+              "id": "xeS3",
+              "kind": "moto",
+              "when": "thief:south",
+              "speed": 9,
+              "route": [
+                {
+                  "at": [
+                    55.4,
+                    150
+                  ]
+                },
+                {
+                  "at": [
+                    55.4,
+                    -30
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "cine",
+              "ride": "thief",
+              "rideSpeed": 11,
+              "rideStop": 14,
+              "shots": [
+                {
+                  "eye": true,
+                  "t": 2.6,
+                  "yaw": 0
+                },
+                {
+                  "eye": true,
+                  "t": 1.5,
+                  "yaw": 0,
+                  "yawTo": 168,
+                  "turn": 0.7
+                },
+                {
+                  "eye": true,
+                  "t": 2.2,
+                  "lookAt": "actor:man"
+                },
+                {
+                  "at": "actor:man",
+                  "t": 4,
+                  "dist": 6,
+                  "height": 36,
+                  "angle": 180,
+                  "follow": true,
+                  "until": "man:corner"
+                },
+                {
+                  "pos": [
+                    62,
+                    9,
+                    -4
+                  ],
+                  "lookAt": "actor:man",
+                  "t": 3.2,
+                  "fov": 52
+                },
+                {
+                  "at": "actor:man",
+                  "t": 7,
+                  "dist": 9,
+                  "height": 11,
+                  "angle": 180,
+                  "follow": true,
+                  "until": "thief:truck"
+                },
+                {
+                  "pos": [
+                    57,
+                    5,
+                    176
+                  ],
+                  "lookAt": "actor:thief",
+                  "t": 4.5,
+                  "until": "man:ramp",
+                  "fov": 62
+                },
+                {
+                  "pos": [
+                    57,
+                    1.5,
+                    171
+                  ],
+                  "lookAt": "actor:man",
+                  "t": 3.5,
+                  "slow": 0.6,
+                  "until": "man:landed",
+                  "fov": 55
+                },
+                {
+                  "at": "actor:man",
+                  "t": 3,
+                  "dist": 10,
+                  "height": 8,
+                  "angle": 180,
+                  "follow": true,
+                  "until": "thief:dog"
+                },
+                {
+                  "pos": [
+                    49,
+                    2.6,
+                    238
+                  ],
+                  "lookAt": "actor:thief",
+                  "t": 3
+                },
+                {
+                  "pos": [
+                    44,
+                    2.2,
+                    240
+                  ],
+                  "lookAt": "actor:man",
+                  "t": 3.5
+                },
+                {
+                  "pos": [
+                    49,
+                    2.8,
+                    246
+                  ],
+                  "lookAt": "player",
+                  "t": 4.5
+                }
+              ],
+              "clearAll": true
             }
-          ],
-          "guide": null,
+          ]
+        },
+        {
+          "id": "arrive2",
           "hold": true,
           "noFines": true,
-          "music": "music.chase"
+          "guide": null,
+          "on": [
+            {
+              "do": "dismount",
+              "who": "man"
+            }
+          ],
+          "until": {
+            "type": "near",
+            "who": "man",
+            "r": 6
+          },
+          "goal": "story.c3.arrive.goal",
+          "target": "actor:man",
+          "mark": {
+            "actor": "man",
+            "icon": "!"
+          }
+        },
+        {
+          "id": "helmetOff",
+          "hold": true,
+          "noFines": true,
+          "guide": null,
+          "on": [
+            {
+              "do": "helmetOff",
+              "who": "man"
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 2.5
+          }
         },
         {
           "id": "wip",

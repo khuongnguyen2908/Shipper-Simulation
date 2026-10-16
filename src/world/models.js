@@ -592,7 +592,7 @@ export function gripBar(g, model) {
   };
   // tay không với tới thì chồm người tới trước (tối đa ~30°) cho tay còn hơi gập khuỷu
   let lean = 0;
-  while (lean < 0.52 && Math.hypot(...toGrip(lean)) > L1 + L2 - 0.03) lean += 0.02;
+  while (lean < (S.leanMax ?? 0.52) && Math.hypot(...toGrip(lean)) > L1 + L2 - 0.03) lean += 0.02; // sport bike: tay lái thấp → chồm sâu hơn
   const [px, py, pz] = toGrip(lean);
   // đổi sang hệ tọa độ của thân đang chồm (xoay ngược góc chồm)
   const by2 = py * Math.cos(lean) + pz * Math.sin(lean), bz2 = -py * Math.sin(lean) + pz * Math.cos(lean);
@@ -769,6 +769,33 @@ const BIKE_SPECS = {
       K.add(rodGeo([0.0, 0.55, -0.2], [0.0, 0.85, -0.35], 0.03), CHROME); // phuộc sau giữa
     },
   },
+  // Sport bike phân khối lớn (kiểu xe đua đường phố): ốp kín thân, mũi nhọn đèn đôi xếch, kính chắn gió khói, tay lái thấp (người lái chồm sát
+  // bình xăng), đuôi vểnh, pô ngắn dưới bụng, phuộc vàng. Sơn chính = màu xe; sọc xanh lá chanh cố định (vd xe anh mô tô chương 2–3)
+  supersport: {
+    wheel: [0.33, 0.74, -0.7, 'mag', 0.09], lamp: [0.9, 1.02], tail: [1.1, -1.02], rackY: 1.1, bar: [0.29, 0.96, 0.44], spread: 0.3, leanMax: 0.95, seatZ: -0.26,
+    build(P, D, K) {
+      P.add(sideGeo([[0.0, 0.5], [0.45, 0.46], [0.8, 0.64], [1.08, 0.86], [1.06, 0.96], [0.84, 1.06], [0.55, 1.02], [0.3, 0.92], [0.02, 0.8]], 0.46, 0.016), PAINT_WHITE); // ốp sườn kín + mũi
+      P.add(sideGeo([[-0.1, 0.94], [0.04, 1.12], [0.42, 1.16], [0.58, 1.06], [0.46, 0.92], [0.0, 0.9]], 0.42, 0.016), PAINT_WHITE); // bình xăng
+      P.add(sideGeo([[-1.1, 1.14], [-1.04, 1.2], [-0.6, 1.08], [-0.2, 0.98], [-0.14, 0.88], [-0.62, 0.92]], 0.26, 0.012), PAINT_WHITE); // đuôi vểnh
+      P.add(fenderGeo(0.37, 0.03, 0.34), PAINT_WHITE, 0, 0.33, 0.74);
+      const G = 0x5ad12b; // sọc xanh lá chanh
+      D.add(sideGeo([[0.36, 0.62], [0.84, 0.8], [0.94, 0.88], [0.86, 0.9], [0.4, 0.72]], 0.47, 0.004), G);
+      D.add(sideGeo([[0.08, 0.54], [0.44, 0.5], [0.48, 0.54], [0.1, 0.6]], 0.47, 0.004), G);
+      D.add(sideGeo([[-1.0, 1.13], [-0.6, 1.05], [-0.58, 1.02], [-0.98, 1.1]], 0.27, 0.003), G);
+      D.add(sideGeo([[0.06, 1.1], [0.42, 1.14], [0.42, 1.12], [0.06, 1.08]], 0.43, 0.003), G);
+      D.add(sideGeo([[0.7, 1.04], [0.86, 1.3], [0.96, 1.22], [0.98, 1.04]], 0.3, 0.004), 0x4b5d68); // kính chắn gió khói
+      D.add(sideGeo([[-0.62, 1.05], [-0.15, 0.99], [-0.05, 0.96], [-0.12, 0.93], [-0.62, 1.0]], 0.26), 0x151515); // yên đơn
+      D.add(sideGeo([[-0.1, 0.3], [0.5, 0.32], [0.64, 0.48], [0.0, 0.5]], 0.36), 0x1e1e1e); // ốp bụng
+      D.add(new THREE.BoxGeometry(0.3, 0.3, 0.42), 0x2a2a2a, 0, 0.52, 0.12); // máy
+      for (const s of [-1, 1]) {
+        D.add(rodGeo([s * 0.08, 0.33, 0.74], [s * 0.08, 0.98, 0.6], 0.032), 0xd4a017); // phuộc vàng
+        K.add(rodGeo([s * 0.12, 0.33, -0.7], [s * 0.12, 0.46, -0.06], 0.026), ALU); // gắp sau
+        D.add(new THREE.BoxGeometry(0.1, 0.035, 0.04), 0x111111, s * 0.08, 0.86, 1.06, 0, 0, -s * 0.25); // 2 hốc đèn xếch
+      }
+      K.add(rodGeo([0.14, 0.36, -0.06], [0.17, 0.46, -0.5], 0.06, 8), GREY); // pô ngắn dưới bụng
+      K.add(rodGeo([0.0, 0.56, -0.18], [0.0, 0.88, -0.36], 0.03), CHROME); // phuộc sau giữa
+    },
+  },
   // Xe đạp: khung ống sơn, yên nhỏ, giò đạp + bàn đạp, baga sau chở túi; không máy, không gương / biển số (plain)
   bicycle: {
     wheel: [0.34, 0.52, -0.52, 'wire', 0.022], lamp: [0.86, 0.47], tail: [0.8, -0.8], rackY: 0.9, bar: [0.27, 1.04, 0.36], spread: 0.06, plain: true, noDisc: true,
@@ -797,6 +824,8 @@ const BIKE_SPECS = {
   },
 };
 export const BIKE_MODELS = Object.keys(BIKE_SPECS);
+// chỗ ngồi người lái theo kiểu xe (sport bike: yên lùi về sau)
+export const bikeSeatZ = (model) => BIKE_SPECS[model]?.seatZ ?? -0.05;
 
 // Phần dùng chung mọi kiểu: tay lái, gương, đồng hồ, gác chân, chân chống, biển số, baga
 // S.plain (xe đạp): chỉ tay lái + tay nắm + đèn hậu phản quang + baga

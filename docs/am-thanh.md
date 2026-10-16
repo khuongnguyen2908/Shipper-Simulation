@@ -64,6 +64,7 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [x] | `drive.dismount` | Xuống xe | Xuống xe (F) | tiếng ngắn | 🎧 có file |
 | [x] | `drive.horn` | Bóp còi | Bấm H khi đang chạy xe | tiếng ngắn | 🔉 tổng hợp |
 | [x] | `drive.brake` | Phanh gấp | Bấm Space khi đang chạy nhanh | tiếng ngắn | 🔇 im |
+| [ ] | `drive.skid` | Rít lốp (drift / thắng gấp) | Cảnh phim chương 3: anh mô tô drift quẹo ở nhà thờ, thắng gấp xoay ngang chặn tên cướp | tiếng ngắn | 🔉 tạm dùng brake.mp3 |
 | [x] | `drive.bump` | Xóc / ổ gà | Xe sụp ổ gà, leo lề | tiếng ngắn | 🎧 có file |
 | [x] | `drive.crash` | Đâm xe | Đâm vào ô tô, xe máy, tường | tiếng ngắn | 🎧 có file |
 | [x] | `drive.hitPed` | Đâm người | Tông người đi đường | tiếng ngắn | 🎧 có file |
@@ -104,6 +105,12 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [x] | `city.honk` | Xe khác bóp còi | Xe NPC bóp còi khi mình chắn đường | tiếng ngắn | 🔉 tổng hợp |
 | [x] | `city.dog` | Chó sủa | Chó lao ra đường sủa · chó sủa xe trộm chó | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `city.rev` | Nẹt pô | Nhóm Jetjet chạy ngang mình · xe trộm chó rồ ga bỏ chạy · tên cướp bốc đầu xe bỏ chạy (chương 3) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `city.motoPass` | Mô tô gầm tới sau lưng rồi vụt qua | Cảnh phim chương 3: anh mô tô chạy tới cách người chơi ~20 đơn vị (sắp vượt mặt) thì phát — pô gầm to dần rồi vụt qua (~2–3 giây) | tiếng ngắn | 🔉 tạm dùng file pass-by của city.rev |
+| [ ] | `city.truckHorn` | Còi hơi xe tải | Cảnh phim chương 3: xe tải container lao ra ngã tư chặn đầu | tiếng ngắn | 🔉 tạm dùng horn-2.mp3 |
+| [ ] | `city.bikeFall` | Xe té, trượt trên đường | Cảnh phim chương 3: tên cướp tránh chó không kịp, xe đổ trượt dài | tiếng ngắn | 🔉 tạm dùng impactmetal |
+| [x] | `city.thiefCrash` | Tên cướp đâm chó té xe | Cảnh phim chương 3, khúc cuối: đâm con chó, xe đổ trượt dài. File dài có tiếng trượt phía trước thì game tự phát sớm cho tiếng "rầm" trùng lúc đổ | tiếng ngắn | am_thanh_te_xe |
+| [x] | `city.thiefDog` | Con chó bị xe tên cướp đâm | Cảnh phim chương 3, khúc cuối: kêu / sủa đúng lúc bị đâm | tiếng ngắn | yodguard dog bark |
+| [ ] | `loop.motoChase` | Máy xe anh mô tô (cảnh phim) | Tiếng lặp: sport bike anh mô tô lúc dí cướp — to nhỏ theo khoảng cách tới camera, cao độ theo tốc độ | tiếng lặp | 🔉 tạm dùng file máy xe chakong |
 | [ ] | `city.thiefShout` | La "Cướp!" | Chương 3: người trong chợ la lên "Cướp cướp!" | tiếng ngắn | 🔇 im |
 | [x] | `city.thunder` | Sấm | Trời bắt đầu mưa | tiếng ngắn | 🔇 im |
 | [x] | `city.morning` | Sáng ngày mới | 6:00 sang ngày mới (gà gáy, chim hót…) | tiếng ngắn | 🔇 im |
