@@ -278,6 +278,23 @@
     "phone.call": {
       "files": [],
       "volume": 1.5
+    },
+    "city.thiefShout": {
+      "files": [
+        "universfield-scared-woman-scream-191977.mp3"
+      ],
+      "volume": 2
+    },
+    "city.rev": {
+      "files": [
+        "universfield-fast-motorcycle-pass-by-559409.mp3"
+      ]
+    },
+    "music.chase": {
+      "files": [
+        "freesound_community-chase-8-bit-73312.mp3"
+      ],
+      "volume": 1.5
     }
   }
 }

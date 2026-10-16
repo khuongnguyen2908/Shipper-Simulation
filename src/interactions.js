@@ -165,7 +165,7 @@ export function gatherInteractions(g) {
   // việc của đơn hàng luôn ưu tiên (dist đã trừ 10), kể cả khi đang mờ để người chơi thấy hướng dẫn
   E.sort((a, b) => a.dist - b.dist);
   // đang chọn câu trả lời (phím 1/2/3) / người lạ sắp đáp lại: tạm không có nút E (khỏi bấm nhầm vào cửa bên cạnh)
-  const storyBusy = !!g.storyChoice;
+  const storyBusy = !!g.storyChoice || !!g.cine; // đang chọn câu / đang chiếu cảnh phim
   if (E.length && !storyBusy) out.unshift({ key: 'E', ...E[0] });
   return out;
 }
@@ -244,6 +244,11 @@ function mount(g) {
     g.gs.flags.story = 2;
     if (!g.gs.story?.ch) g.hud.toast(fmt('toast.firstRide'), 'big', 7000);
   }
+}
+
+// Cốt truyện tự cho người chơi leo lên xe (hết cảnh phim cướp → ngồi sẵn trên xe để đuổi theo) — game.js storyRideAfterCine
+export function mountBike(g) {
+  if (g.mode !== 'bike') mount(g);
 }
 
 // Lấy xe trong hầm ra chạy: xe đang dùng dựng vào chỗ xe vừa lấy, rồi leo lên xe mới luôn

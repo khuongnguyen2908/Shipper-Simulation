@@ -62,6 +62,29 @@ const limb = (r0, r1, h) => new THREE.CylinderGeometry(r0, r1, h, LSEG, 1, true)
 const ball = (r) => new THREE.SphereGeometry(r, LSEG, LITE ? 3 : 5);
 const egg = (rx, ry, rz, seg = LSEG, rows = 5) => new THREE.SphereGeometry(1, LITE ? Math.min(seg, LSEG) : seg, LITE ? 3 : rows).scale(rx, ry, rz);
 const cone = (r, h, seg = 4) => new THREE.ConeGeometry(r, h, seg);
+// Vóc dáng: nở ngang [bề ngang, bề dày trước-sau] của thân / tay chân (data: npc.build, look.build)
+const BUILD_W = { thin: [0.82, 0.85], chubby: [1.2, 1.3], fat: [1.38, 1.6] };
+// Độ nở theo độ cao: thân nở đủ, lên tới vai nhỏ dần, cổ + đầu giữ nguyên
+const buildFade = (y) => Math.min(1, Math.max(0, (1.47 - y) / 0.11));
+function widen(g, [wx, wz]) {
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const t = buildFade(p.getY(i));
+    p.setX(i, p.getX(i) * (1 + (wx - 1) * t));
+    p.setZ(i, p.getZ(i) * (1 + (wz - 1) * t));
+  }
+  g.computeVertexNormals();
+  return g;
+}
+// Lưng trên cong + đầu đưa ra trước (người lớn tuổi): từ ngang ngực trở lên dời dần ra trước, càng cao càng nhiều
+const BEND_Y = 1.1;
+const bendZ = (y, k) => k * Math.max(0, y - BEND_Y) ** 2;
+function bend(g, k) {
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) p.setZ(i, p.getZ(i) + bendZ(p.getY(i), k));
+  g.computeVertexNormals();
+  return g;
+}
 const latheOf = (prof, k = 1) => new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r * k, y)), SEG).rotateY(PI / SEG).scale(1, 1, ZS);
 // bán kính thân tiện ở độ cao y (nội suy theo mặt cắt)
 function radiusAt(prof, y) {
@@ -658,7 +681,9 @@ function torsoGeo(o) {
       for (const a of [0, PI]) T.add(frontStrip(shirtP, (y) => a + (a ? -1 : 1) * (-0.75 + ((y - Y(0.2)) / 0.44) * 1.5) - 0.06, (y) => a + (a ? -1 : 1) * (-0.75 + ((y - Y(0.2)) / 0.44) * 1.5) + 0.06, Y(0.2), Y(0.64), 0.006), shade(cc, 0.7));
       T.add(new THREE.BoxGeometry(0.06, 0.13, 0.11), cc, -0.165, Y(0.17), 0.02, 0, 0, 0.05);
     }
-    return T.build();
+    let g = T.build();
+    if (o.w) g = widen(g, o.w);
+    return o.bend ? bend(g, o.bend) : g;
   });
 }
 // Tà trước áo dài: khối riêng xoay quanh eo, theo chân bước lên trước (models.js followTa) — không bị chân đâm xuyên
@@ -851,7 +876,13 @@ export function buildPerson(o) {
     hat: o.hat, hatColor: o.hat ? o.hatColor : null, helmetStyle: o.hat === 'helmet' ? o.helmetStyle : null,
     overlay: o.overlay === 'jacket' || o.overlay === 'raincoat' ? o.overlay : null, uniform: !o.overlay ? o.uniform ?? null : null,
     face: o.face || null, faceColor: o.face ? o.faceColor : null, carry: o.carry || null, carryColor: o.carry ? o.carryColor : null,
+    ...(BUILD_W[o.build] ? { w: BUILD_W[o.build] } : {}),
+    ...(o.bend ? { bend: o.bend } : {}),
   }, body, true);
+  // vóc dáng: tay chân to / nhỏ theo thân (độ nở tay chân bớt hơn thân)
+  const [wx, wz] = BUILD_W[o.build] || [1, 1];
+  const limbK = (k) => 1 + (wx - 1) * k;
+  const thick = (m, k) => { if (wx !== 1) m.scale.set(limbK(k), 1, limbK(k)); return m; };
   // tà trước áo dài: khối riêng xoay quanh eo
   let ta = null;
   if (st === 'aodai') {
@@ -859,6 +890,7 @@ export function buildPerson(o) {
     ta.position.set(0, Y0 + 0.17, 0);
     body.add(ta);
     mesh(taGeo, { shirt: o.shirt, f }, ta, true);
+    ta.scale.set(wx, 1, wz);
   }
   // áo mưa dài: vạt dưới tới mắt cá (khối riêng — parts.overlay, ngồi xe thì thu ngắn)
   let coat = null;
@@ -868,42 +900,45 @@ export function buildPerson(o) {
     coat.userData.coat = true;
     body.add(coat);
     mesh(coatGeo, { color: o.shirt, f }, coat, true);
+    coat.scale.set(wx, 1, wz);
     // vạt trước: đứng thì khép kín, bước chân / ngồi xe thì nhấc theo đùi (followTa)
     ta = new THREE.Group();
     ta.position.set(0, Y0 + 0.13, 0);
     ta.userData.coatFlap = true;
     body.add(ta);
     mesh(coatGeo, { color: o.shirt, f, front: true }, ta, true);
+    ta.scale.set(wx, 1, wz);
   }
-  const hipX = f ? 0.07 : 0.074, side = ps === 'cargo' || ps === 'track'; // quần có chi tiết 1 bên (túi hộp, 3 sọc) → hình riêng từng chân
+  const hipX = (f ? 0.07 : 0.074) * limbK(0.8), side = ps === 'cargo' || ps === 'track'; // quần có chi tiết 1 bên (túi hộp, 3 sọc) → hình riêng từng chân
   const foot = o.shoeStyle || 'sneaker';
   const legParts = [-1, 1].map((s) => {
     const hip = new THREE.Group();
     hip.position.set(s * hipX, HIP_Y, 0);
     g.add(hip);
-    mesh(thighGeo, { pants, skin: o.skin, ps, f, p2: p2 ?? null, s: side ? s : 0 }, hip);
+    thick(mesh(thighGeo, { pants, skin: o.skin, ps, f, p2: p2 ?? null, s: side ? s : 0 }, hip), 0.8);
     const knee = new THREE.Group();
     knee.position.y = -THIGH;
     hip.add(knee);
-    mesh(shinGeo, { pants, skin: o.skin, ps, shoe: o.shoe, s2: o.shoe2 ?? null, foot, p2: p2 ?? null, s: side ? s : 0 }, knee);
+    thick(mesh(shinGeo, { pants, skin: o.skin, ps, shoe: o.shoe, s2: o.shoe2 ?? null, foot, p2: p2 ?? null, s: side ? s : 0 }, knee), 0.5);
     return [hip, knee];
   });
-  const shX = f ? 0.165 : 0.178;
+  const shX = (f ? 0.165 : 0.178) * (1 + (wx - 1) * buildFade(SHOULDER_Y)); // vai dời ra / vào theo thân
+  const armZ = 0.08 + Math.max(0, wx - 1) * 0.45; // người mập: tay dang ra hơn, không lẹm vào bụng
   const glove = o.gloves ? o.gloveColor : null, gloveLong = o.gloves === 'armSleeves';
   const arms = [-1, 1].map((s) => {
     const sh = new THREE.Group();
-    sh.position.set(s * shX, SHOULDER_Y, 0);
-    sh.rotation.z = s * 0.08;
+    sh.position.set(s * shX, SHOULDER_Y, bendZ(SHOULDER_Y, o.bend || 0)); // lưng cong → vai ra trước theo
+    sh.rotation.z = s * armZ;
     body.add(sh);
-    mesh(upperArmGeo, { cloth, skin: o.skin, sl, f, s, sleeve: gloveLong && sl !== 'long' ? glove : null, trim, rings }, sh);
+    thick(mesh(upperArmGeo, { cloth, skin: o.skin, sl, f, s, sleeve: gloveLong && sl !== 'long' ? glove : null, trim, rings }, sh), 0.7);
     const el = new THREE.Group();
     el.position.y = -UPPER_ARM;
     el.rotation.x = -0.15;
     sh.add(el);
-    mesh(foreArmGeo, { cloth, skin: o.skin, sl, f, s, glove, gloveLong, rings, wrist: s < 0 ? o.wrist || null : null, wristColor: s < 0 && o.wrist ? o.wristColor : null }, el);
+    thick(mesh(foreArmGeo, { cloth, skin: o.skin, sl, f, s, glove, gloveLong, rings, wrist: s < 0 ? o.wrist || null : null, wristColor: s < 0 && o.wrist ? o.wristColor : null }, el), 0.5);
     return [sh, el];
   });
-  g.userData.parts = { legL: legParts[0][0], legR: legParts[1][0], kneeL: legParts[0][1], kneeR: legParts[1][1], armL: arms[0][0], armR: arms[1][0], elbowL: arms[0][1], elbowR: arms[1][1], body, torso, overlay: coat, ta, female: f };
+  g.userData.parts = { legL: legParts[0][0], legR: legParts[1][0], kneeL: legParts[0][1], kneeR: legParts[1][1], armL: arms[0][0], armR: arms[1][0], elbowL: arms[0][1], elbowR: arms[1][1], body, torso, overlay: coat, ta, female: f, armZ };
   PEOPLE.add(g);
   if (PEOPLE_MODE === 'simple') setPersonDetail(g, true);
   return g;

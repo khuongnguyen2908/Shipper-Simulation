@@ -1,7 +1,7 @@
 # Việc đang dở — Shipper Simulation
 
 Ghi lại những việc đã bàn mà chưa làm / còn treo, để đổi máy hay đổi tài khoản Claude vẫn làm tiếp được.
-Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây"). Cập nhật lần cuối: 14/10/2026 (tối).
+Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây"). Cập nhật lần cuối: 16/10/2026.
 
 ## ⏸ Hoãn có chủ đích
 
@@ -49,6 +49,53 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   (nhân vật có oldNames — tự nhớ khi đổi tên). Lưu mà relations.json vừa bị lưu chỗ khác → hỏi trước khi ghi đè (từng bị 1 tab cũ ghi đè 16/10).
 - Khi chủ game vẽ xong / nhắn "soát quan hệ": Claude đọc relations.json, sửa thoại cho khớp, ghi ý kiến vào notes (hiện ở ✅ Kiểm tra).
 
+### 📖 Chương 3 "Xui xẻo" (16/10 — XONG tới đoạn qua cầu; cutscene sau cầu chủ game tính sau)
+- Luồng (story.json c3, 26 bước, lời thoại nháp story.c3.* — chủ game tự sửa):
+  Dượng Hai nhắn cảm ơn (3 câu trả lời) → ngủ qua ngày → sáng chị Linh nhắc "8h nhớ qua" (3 câu) → chờ 8h–9h →
+  8h chị Linh đứng trước Tiệm Trà A Di Đà (!) → E nói chuyện → "đi thôi" → hiện "Chương 3: Xui xẻo" → chị lên xe →
+  chở tới ĐH Mỹ thuật **trước 9h** (quá 9h: báo thất bại + chị nhắn tin → quay lại chờ 8h **sáng hôm sau**, đồng hồ chung không quay ngược) →
+  chị Nhi chạy lại (?) → hỏi đáp → 😅 → anh Hoàng chạy lại (!) → "Giờ này còn đứng đây…" → Linh, Nhi (!) → lần lượt chạy vào trường, "Bye em" → 😆 →
+  🎬 cảnh phim: chợ Hòa Bình, cô Tư bán cá la "Cướp!" → tên cướp (dáng trẻ trâu) bốc đầu xe, camera bám theo →
+  mục tiêu "Đuổi theo tên cướp!" (không bị phạt) → dí: Chợ → ĐH Mỹ thuật → Nhà thờ → ngã tư [7,5] quẹo trái → [7,2] quẹo phải → qua cầu Sông Ngân → [10,2] →
+  🎬 cảnh phim MẪU ở chân cầu (chủ game sửa / thêm cảnh) → bước "wip" (Chưa viết tiếp — dừng ở đây, chơi bình thường).
+- Máy mới (sửa được ở ?editor → Cốt truyện):
+  - Việc: 🎬 Cảnh phim (cine — cảnh quay: nhìn địa điểm / người lạ / người chơi, giây, cách xa, cao, góc, bám theo) · 🏍️ Chạy trốn (chase — lộ trình địa điểm / ngã tư [cột, hàng],
+    cách người chơi, tốc độ, chờ, bốc đầu) · Dấu ? / ! (react) · Đi / chạy vào địa điểm (goto) · Phát tiếng (sound) · "Người lạ đi tới" có ô Chạy.
+  - Điều kiện: Cảnh phim chiếu xong (cine) · Người lạ chạy hết lộ trình (chased) · Chưa viết tiếp (never).
+  - Bước: ⏰ Hạn giờ (deadline: giờ, quay lại bước, thông báo, tin nhắn) · NPC vắng mặt (hideNpc — bước + cả chương) · Không bị phạt (noFines).
+  - Người lạ là nhân vật của NPC địa điểm (vd chị Linh ↔ tiệm trà) đang có mặt → NPC đó tự vắng (không bị 2 chị Linh).
+  - ?cheat: "⏩ Bỏ qua cảnh phim"; "Xong mục tiêu" ở bước dí xe → tên cướp tới cuối lộ trình.
+- Sơ đồ quan hệ: chị Nhi (chiNhi → story "nhi"), anh Hoàng (nhanVatMoi → story "hoang") — đã gắn cốt truyện, thêm ngoại hình riêng (Nhi: tóc xoăn nâu, sơ mi trắng + chân váy be;
+  Hoàng: gầy, áo bà ba kem + quần tây) + dây với người chơi (Nhi: chị – bé · Hoàng: anh – em). Chủ game sửa lại tùy ý.
+- Âm thanh: mới `city.thiefShout` (la "Cướp!"), dùng lại `city.rev` (nẹt pô bốc đầu).
+- Lỗi cũ sửa luôn: người lạ "đi tới / chạy lại" khi người chơi đang ngồi xe bị chạy nhầm hướng (lấy nhầm tọa độ hình người chơi gắn trên xe) → game.js storyPlayerAt().
+- Chơi nhiều người: cốt truyện riêng từng người — tên cướp, chị Linh, Nhi, Hoàng chỉ máy người đó thấy; cảnh phim không dừng giờ (1 giây = 1 phút game);
+  hạn 9h theo giờ chung, thất bại thì chờ hôm sau. Sau này "không bị phạt lúc dí xe" cần máy chủ biết người chơi đang ở bước noFines.
+- Đợt sửa 2 (16/10): Nhi, Hoàng chạy tới rồi **đứng lại** (việc "Người lạ đi tới" có ô "Tới nơi thì đứng lại": chọn 1 chỗ trống quanh người chơi ~1,9 m, không chồng người khác,
+  quay về phía người đang nói — game.js storyCircleSpot) · dấu cảm xúc (react) đổi thành ? vàng / ! đỏ **không khung** (textures.js makeReactTexture); dấu nhiệm vụ vẫn khung tròn vàng ·
+  tên cướp: bỏ cột sáng (bước có noBeacon) + dấu "dot" = chấm đỏ nhấp nháy · hết cảnh cướp (cine.endRide = thief) → người chơi tự ngồi lên xe (xe xa thì dắt lại),
+  xe + camera quay theo hướng lộ trình dí (game.js storyRideAfterCine, interactions.js mountBike).
+- Nhạc dí cướp (16/10): mã mới `music.chase`; bước có ô "Nhạc riêng" (story.json → music) thay nhạc ngày / đêm — đặt cho robbery → chaseMount → chase → bridgeCut,
+  phát liền mạch, qua cầu (wip) về nhạc thường. CHỜ chủ game tìm bài (gợi ý: Pixabay Music "chase music loop", 140–160 bpm, 1–2 phút, 96–128 kbps) rồi gắn ở thẻ 🔊 Âm thanh.
+- Còn để ý: tên cướp đi xuyên qua xe NPC (không né); mở lại game giữa cảnh phim → bỏ qua cảnh đó; giữa lúc dí → tên cướp hiện trước người chơi ~30 m trên lộ trình.
+
+### 🗣️ Xưng hô "anh/chị" theo giới tính người chơi (16/10 — XONG)
+- Ô Tự xưng / Gọi là trên dây trong ?relationship gõ `anh/chị` (hoặc `chị/anh`) → người chơi nam thành "anh", nữ thành "chị".
+  Dùng cho: NPC gọi người chơi (Gọi là) + người chơi tự xưng (Tự xưng). sim/people.js isAnhChi / anhChiOf, data/relations.js voiceOfChar.
+- ✅ Kiểm tra: ô có `{…}` → lỗi; "anh/chị" trên dây giữa 2 NPC hoặc ở ô nói về NPC → cảnh báo.
+- Dây Người chơi ↔ Em Minh: đã điền anh/chị vào 2 ô trống (người chơi tự xưng, Em Minh gọi người chơi).
+
+### 👵 Tuổi + vóc dáng cho ngoại hình (16/10 — XONG, chờ chủ game xem)
+- Ô mới ở `?editor` → Địa điểm & NPC (NPC đứng ở cửa) và `?relationship` → 👕 Ngoại hình (nhân vật có ngoại hình riêng):
+  - **Vóc dáng**: Vừa · Gầy · Đầy đặn · Mập (`build`: thin/chubby/fat) — nở ngang thân + tay chân, đầu giữ nguyên; người mập tay dang ra hơn.
+  - **Tuổi**: Bình thường · Lớn tuổi (~60, lưng trên hơi cong, đầu đưa ra trước) · Cao tuổi (còng hơn) (`age`: old/elder). Không chống gậy.
+  - Danh sách: `sim/people.js` LOOK_AGES / LOOK_BUILDS · hình: `world/person.js` (BUILD_W, bend) + `world/models.js` (AGE_BEND, AGE_HUNCH) · kiểm: validate.js.
+- Dì Hai + Dượng Hai: `age: old`, tóc bạc #8d8d8d; Dì Hai đổi tóc mái bằng → búi. Chủ game đổi lại được trong ?editor.
+- Lưu ý: hồ sơ trong sơ đồ quan hệ vẫn ghi Dì Hai 55 tuổi, Dượng Hai 58 tuổi → chủ game sửa thành 60+ nếu muốn khớp.
+- Không có ở màn tạo nhân vật của người chơi (chủ game chọn chỉ làm trong công cụ).
+- Luật ngoại hình (16/10, chủ game chốt): nhân vật gắn NPC địa điểm → game LUÔN dùng hình NPC (places.json), kể cả khi ra cảnh cốt truyện / lên xe;
+  ngoại hình riêng chỉ dùng cho nhân vật không gắn địa điểm (vd người đàn ông chạy moto). game.js storyActorLook + storyHelmetLook.
+
 ### 🧪 Chơi thử chương 1 như người chơi (16/10) — đã sửa theo ý chủ game
 - **Từ nay mọi lời thoại cốt truyện là bong bóng** (chủ game chốt): nói chuyện ở địa điểm (talk), việc "say", câu "nhắn mẹ chưa?" →
   bong bóng trên đầu NPC (game.storyConverse: bấm E "Nghe tiếp" qua câu, câu "ok" = người chơi đáp; đứng yên + camera xích lại; dấu !/? ẩn khi đang nói).
@@ -85,6 +132,8 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   zone (vòng tím) · talkLabel (chữ nút E) · mark nhiều dấu (mảng). Camera nói chuyện canh cả nhóm (2 người) — TALK_CAM_GROUP.
 - Thoại tuần tự (16/10): mỗi lúc chỉ 1 bong bóng chờ E — câu người chơi chọn giữ tới khi bấm E rồi người kia mới đáp; câu thoại / bảng chọn câu mới
   xếp hàng (storyQueue) tới khi bấm E. Bán kính trong thẻ Cốt truyện tính theo đơn vị bản đồ (1 ≈ 10 m trên màn hình, cột sáng vàng ≈ 1).
+- (16/10) Chương 2: chị Linh + người đàn ông dùng dáng "Theo sơ đồ quan hệ" (man → bộ thuongNgay; lên mô tô tự mặc bộ có mũ bảo hiểm — "Đi mô tô";
+  chị Linh chưa có bộ riêng → lấy hình NPC tiệm trà, ngồi sau xe đội mũ hồng). Hàm game.storyHelmetLook.
 - Cheat (?cheat → 📖 Cốt truyện): ✅ Xong mục tiêu này (×5) — làm luôn phần đi kèm (nhận gói hàng, chọn câu đầu, đọc tin…) · ⏩ Nhảy tới bước bất kỳ · bảng soi ghi chương / bước / điểm tính cách.
 - Bản lưu đã xong chương 1 từ hồi chưa có chương 2 (story.ch = null) → mở game tự vào chương 2 (resumeNewChapters).
 - CHƯA làm: mở lại game giữa lúc đang chở chị Linh → chị đứng lại ở sau trường (phải quay lại đón).

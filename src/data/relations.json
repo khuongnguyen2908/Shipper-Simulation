@@ -55,15 +55,15 @@
       "icon": "🧑",
       "name": "Người chơi",
       "gender": "",
-      "age": 19,
+      "age": 20,
       "role": "Sinh viên năm 1 từ quê lên thành phố, vừa học vừa chạy shipper",
       "personality": "Theo lựa chọn của người chơi (3 tính cách: gương mẫu / trung lập / xấu tính)",
       "notes": "Tên, giới tính do người chơi đặt ở màn tạo nhân vật.",
       "story": "",
       "place": "",
       "from": 1,
-      "x": 644,
-      "y": 383,
+      "x": 516,
+      "y": 493,
       "look": null,
       "outfits": []
     },
@@ -78,8 +78,8 @@
       "story": "me",
       "place": "",
       "from": 1,
-      "x": 300,
-      "y": 120,
+      "x": -85,
+      "y": 43,
       "look": null,
       "outfits": []
     },
@@ -87,15 +87,15 @@
       "icon": "👵",
       "name": "Dì Hai",
       "gender": "f",
-      "age": 55,
+      "age": 60,
       "role": "Chủ nhà trọ, chị gái của mẹ",
       "personality": "Tốt bụng, lo cho người chơi như con, nhưng nhắc tiền phòng rất đúng hạn",
       "notes": "",
       "story": "coHai",
       "place": "home",
       "from": 1,
-      "x": 280,
-      "y": 400,
+      "x": -278,
+      "y": 261,
       "look": null,
       "outfits": [],
       "oldNames": [
@@ -106,15 +106,15 @@
       "icon": "🧓",
       "name": "Dượng Hai",
       "gender": "m",
-      "age": 58,
+      "age": 62,
       "role": "Chủ quán cơm chay, đứng ở xóm mấy chục năm",
       "personality": "Xởi lởi, chuyện gì trong khu cũng biết",
       "notes": "",
       "story": "chuHai",
       "place": "dichvu4",
       "from": 1,
-      "x": 360,
-      "y": 640,
+      "x": -277,
+      "y": 455,
       "look": null,
       "outfits": [],
       "oldNames": [
@@ -132,8 +132,8 @@
       "story": "",
       "place": "bunmoc",
       "from": 1,
-      "x": 840,
-      "y": 14,
+      "x": 424,
+      "y": -17,
       "look": null,
       "outfits": []
     },
@@ -148,8 +148,8 @@
       "story": "",
       "place": "",
       "from": 1,
-      "x": 1000,
-      "y": 140,
+      "x": 661,
+      "y": -18,
       "look": null,
       "outfits": []
     },
@@ -164,8 +164,8 @@
       "story": "flyer",
       "place": "",
       "from": 1,
-      "x": 551,
-      "y": 34,
+      "x": 170,
+      "y": -8,
       "look": null,
       "outfits": []
     },
@@ -175,13 +175,13 @@
       "gender": "f",
       "age": 27,
       "role": "Sinh viên Đại học Mỹ thuật, có tiệm trà sát chùa Rất Linh",
-      "personality": "Bí ẩn, nhưng thân thiện",
+      "personality": "Thân thiện với người dễ thương",
       "notes": "",
       "story": "linh",
       "place": "tra",
       "from": 2,
-      "x": 697,
-      "y": 639,
+      "x": -291,
+      "y": 660,
       "look": null,
       "outfits": []
     },
@@ -196,8 +196,8 @@
       "story": "",
       "place": "chua",
       "from": 2,
-      "x": 1195,
-      "y": 635,
+      "x": 46,
+      "y": 734,
       "look": null,
       "outfits": []
     },
@@ -212,8 +212,8 @@
       "story": "",
       "place": "dhMyThuat",
       "from": 2,
-      "x": 1203,
-      "y": 267,
+      "x": 886,
+      "y": -22,
       "look": null,
       "outfits": []
     },
@@ -221,15 +221,15 @@
       "icon": "😎",
       "name": "Người đàn ông chạy xe moto",
       "gender": "m",
-      "age": 32,
+      "age": 30,
       "role": "Đi mô tô xịn, hẹn gặp chị Linh ở trường — chưa rõ danh tính",
       "personality": "Bí ẩn nhưng có vẻ cũng thân thiện",
       "notes": "Hỏi chị Linh \"Em của em hả?\" khi thấy người chơi.",
       "story": "man",
       "place": "",
       "from": 2,
-      "x": 1224,
-      "y": 416,
+      "x": 16,
+      "y": 919,
       "look": {
         "gender": "m",
         "hairStyle": "part",
@@ -263,6 +263,122 @@
           }
         }
       ]
+    },
+    "emMinh": {
+      "icon": "👧",
+      "name": "Em Minh",
+      "gender": "f",
+      "age": 18,
+      "role": "chủ nhà sách",
+      "personality": "dễ thương thân thiện",
+      "notes": "Hay cho người chơi thuê thiếu truyện, hay rủ chơi game",
+      "story": "",
+      "place": "nhasach",
+      "from": 1,
+      "look": null,
+      "outfits": [],
+      "x": 4,
+      "y": 1108
+    },
+    "lanAnh": {
+      "icon": "👩",
+      "name": "Lan Anh",
+      "gender": "f",
+      "age": 18,
+      "role": "chủ tiệm thú cưng",
+      "personality": "vui vẻ nhưng hướng nội",
+      "notes": "nói chuyện hơi ngại ngùng",
+      "story": "",
+      "place": "dichvu3",
+      "from": 1,
+      "look": null,
+      "outfits": [],
+      "x": 479,
+      "y": 1107
+    },
+    "chiNhi": {
+      "icon": "👩",
+      "name": "Chị Nhi",
+      "gender": "f",
+      "age": 27,
+      "role": "Sinh viên đại học Mỹ thuật, làm họa sĩ chung với chị Linh",
+      "personality": "Thân thiện",
+      "notes": "Giàu có nhưng không chảnh ",
+      "story": "nhi",
+      "place": "",
+      "from": 3,
+      "look": {
+        "gender": "f",
+        "hairStyle": "curlyLong",
+        "hair": "#5a3825",
+        "skin": "#ffdbac",
+        "scale": 1
+      },
+      "outfits": [
+        {
+          "id": "thuongNgay",
+          "name": "Thường ngày",
+          "worn": {
+            "shirt": "aoSoMiTrang",
+            "pants": "chanVay_be",
+            "shoes": "giayBupBe_den",
+            "bag": "tuiCheo_nau",
+            "wrist": "vongTay_vang"
+          }
+        }
+      ],
+      "x": -602,
+      "y": 552
+    },
+    "nhanVatMoi": {
+      "icon": "👨",
+      "name": "Anh Hoàng",
+      "gender": "m",
+      "age": 30,
+      "role": "Chủ câu lạc bộ Thư Pháp",
+      "personality": "Hơi khó tính",
+      "notes": "Nói giọng hơi khó tính, dạy đời",
+      "story": "hoang",
+      "place": "",
+      "from": 3,
+      "look": {
+        "gender": "m",
+        "hairStyle": "part",
+        "hair": "#1b1b1b",
+        "skin": "#e0ac69",
+        "scale": 1.05,
+        "build": "thin"
+      },
+      "outfits": [
+        {
+          "id": "thuongNgay",
+          "name": "Thường ngày",
+          "worn": {
+            "shirt": "aoBaBa_kem",
+            "pants": "quanTay_den",
+            "shoes": "giayLuoi_nau",
+            "wrist": "dongHo_den"
+          }
+        }
+      ],
+      "x": -619,
+      "y": 882
+    },
+    "nhanVatMoi2": {
+      "icon": "🧑",
+      "name": "Tân",
+      "gender": "m",
+      "age": 19,
+      "role": "Chủ sân tennis/pickleball Châu Minh",
+      "personality": "Hòa đồng",
+      "notes": "Tự tin",
+      "story": "",
+      "place": "",
+      "from": 3,
+      "look": null,
+      "outfits": [],
+      "x": 1,
+      "y": 1300
     }
   },
   "links": [
@@ -595,6 +711,248 @@
       "to": null,
       "secret": true,
       "notes": "Thấy nói chuyện với chị Linh, không biết là ai"
+    },
+    {
+      "id": "l16",
+      "a": "linh",
+      "b": "emMinh",
+      "type": "friend",
+      "ab": {
+        "label": "Bạn bè",
+        "self": "chị",
+        "call": "em",
+        "feel": 2
+      },
+      "ba": {
+        "label": "bạn bè",
+        "self": "em",
+        "call": "chị",
+        "feel": 2
+      },
+      "from": 3,
+      "to": null,
+      "secret": false,
+      "notes": "Chị Linh là sinh viên khóa trên còn em Minh là sinh viên khóa dưới học tại trường đại học mỹ thuật"
+    },
+    {
+      "id": "l17",
+      "a": "player",
+      "b": "emMinh",
+      "type": "friend",
+      "ab": {
+        "label": "bạn bè",
+        "self": "anh/chị",
+        "call": "em",
+        "feel": 2
+      },
+      "ba": {
+        "label": "bạn bè",
+        "self": "em",
+        "call": "anh/chị",
+        "feel": 2
+      },
+      "from": 3,
+      "to": null,
+      "secret": false,
+      "notes": "Đã quen biết nhau từ trước do chơi game chung"
+    },
+    {
+      "id": "l18",
+      "a": "emMinh",
+      "b": "lanAnh",
+      "type": "friend",
+      "ab": {
+        "label": "Bạn bè",
+        "self": "em",
+        "call": "chị",
+        "feel": 3
+      },
+      "ba": {
+        "label": "bạn bè",
+        "self": "chị",
+        "call": "em",
+        "feel": 3
+      },
+      "from": 1,
+      "to": null,
+      "secret": false,
+      "notes": "Bạn cùng trường đại học"
+    },
+    {
+      "id": "l19",
+      "a": "player",
+      "b": "lanAnh",
+      "type": "acquaint",
+      "ab": {
+        "label": "Khách quen",
+        "self": "anh/chị",
+        "call": "em",
+        "feel": 1
+      },
+      "ba": {
+        "label": "Người quen",
+        "self": "em",
+        "call": "anh/chị",
+        "feel": 1
+      },
+      "from": 3,
+      "to": null,
+      "secret": false,
+      "notes": "Quen biết nhau do người chơi có gửi chó qua đây"
+    },
+    {
+      "id": "l20",
+      "a": "chiNhi",
+      "b": "linh",
+      "type": "work",
+      "ab": {
+        "label": "bạn bè",
+        "self": "tôi",
+        "call": "bà",
+        "feel": 3
+      },
+      "ba": {
+        "label": "bạn bè",
+        "self": "tôi",
+        "call": "bà",
+        "feel": 3
+      },
+      "from": 3,
+      "to": null,
+      "secret": false,
+      "notes": ""
+    },
+    {
+      "id": "l21",
+      "a": "nhanVatMoi",
+      "b": "linh",
+      "type": "boss",
+      "ab": {
+        "label": "Đàn anh khóa trên",
+        "self": "anh",
+        "call": "em",
+        "feel": 0
+      },
+      "ba": {
+        "label": "đàn em khóa dưới",
+        "self": "em",
+        "call": "anh",
+        "feel": 0
+      },
+      "from": 3,
+      "to": null,
+      "secret": false,
+      "notes": ""
+    },
+    {
+      "id": "l22",
+      "a": "chiNhi",
+      "b": "nhanVatMoi",
+      "type": "boss",
+      "ab": {
+        "label": "Đàn anh khóa trên",
+        "self": "em",
+        "call": "anh",
+        "feel": 0
+      },
+      "ba": {
+        "label": "đàn em khóa dưới",
+        "self": "anh",
+        "call": "em",
+        "feel": 0
+      },
+      "from": 3,
+      "to": null,
+      "secret": false,
+      "notes": ""
+    },
+    {
+      "id": "l23",
+      "a": "nhanVatMoi",
+      "b": "man",
+      "type": "acquaint",
+      "ab": {
+        "label": "Có quen biết",
+        "self": "Hoàng",
+        "call": "ông",
+        "feel": 0
+      },
+      "ba": {
+        "label": "Có quen biết",
+        "self": "Tôi",
+        "call": "ông",
+        "feel": 0
+      },
+      "from": 3,
+      "to": null,
+      "secret": false,
+      "notes": ""
+    },
+    {
+      "id": "l24",
+      "a": "emMinh",
+      "b": "nhanVatMoi2",
+      "type": "love",
+      "ab": {
+        "label": "Người yêu",
+        "self": "em",
+        "call": "anh",
+        "feel": 3
+      },
+      "ba": {
+        "label": "Người yêu",
+        "self": "anh",
+        "call": "em",
+        "feel": 3
+      },
+      "from": 3,
+      "to": null,
+      "secret": false,
+      "notes": "Là hai người yêu nha"
+    },
+    {
+      "id": "l25",
+      "a": "chiNhi",
+      "b": "player",
+      "type": "acquaint",
+      "ab": {
+        "label": "bé ship của bà Linh",
+        "self": "chị",
+        "call": "bé",
+        "feel": 1
+      },
+      "ba": {
+        "label": "bạn của chị Linh",
+        "self": "em",
+        "call": "chị",
+        "feel": 1
+      },
+      "from": 3,
+      "to": null,
+      "secret": false,
+      "notes": "Gặp ở cổng trường lúc chở chị Linh đi học (chương 3)"
+    },
+    {
+      "id": "l26",
+      "a": "nhanVatMoi",
+      "b": "player",
+      "type": "acquaint",
+      "ab": {
+        "label": "mới gặp",
+        "self": "anh",
+        "call": "em",
+        "feel": 0
+      },
+      "ba": {
+        "label": "đàn anh của chị Linh",
+        "self": "em",
+        "call": "anh",
+        "feel": 0
+      },
+      "from": 3,
+      "to": null,
+      "secret": false,
+      "notes": "Gặp ở cổng trường (chương 3), nói giọng dạy đời"
     }
   ],
   "notes": [],
@@ -630,6 +988,22 @@
     {
       "ref": "link:l12",
       "msg": "Thoại lệch sơ đồ — story.c2.guardWho.a3: Chú bảo vệ trường nói với Người chơi có chữ \"mày\" nhưng sơ đồ ghi Chú bảo vệ trường gọi Người chơi là \"con\". Sửa câu (hoặc dùng {ban} / {khach}) hay sửa dây."
+    },
+    {
+      "ref": "link:l20",
+      "msg": "Chị Nhi ↔ Chị Linh: Chị Nhi gọi Chị Linh là \"bà\" nhưng Chị Linh tự xưng \"tôi\" — hai chiều chưa khớp."
+    },
+    {
+      "ref": "link:l20",
+      "msg": "Chị Nhi ↔ Chị Linh: Chị Linh gọi Chị Nhi là \"bà\" nhưng Chị Nhi tự xưng \"tôi\" — hai chiều chưa khớp."
+    },
+    {
+      "ref": "link:l23",
+      "msg": "Anh Hoàng ↔ Người đàn ông chạy xe moto: Anh Hoàng gọi Người đàn ông chạy xe moto là \"ông\" nhưng Người đàn ông chạy xe moto tự xưng \"Tôi\" — hai chiều chưa khớp."
+    },
+    {
+      "ref": "link:l23",
+      "msg": "Anh Hoàng ↔ Người đàn ông chạy xe moto: Người đàn ông chạy xe moto gọi Anh Hoàng là \"ông\" nhưng Anh Hoàng tự xưng \"Hoàng\" — hai chiều chưa khớp."
     }
   ]
 }

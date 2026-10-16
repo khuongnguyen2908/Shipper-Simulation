@@ -23,6 +23,7 @@ const LIST = [
   // ---- nhạc ----
   ['music.menu', 'music', 'Nhạc màn hình chính', 'Đang ở màn hình chính / tạo nhân vật', '', 'music'],
   ['music.day', 'music', 'Nhạc trong game (ban ngày)', 'Đang chơi, trời sáng', '', 'music'],
+  ['music.chase', 'music', 'Nhạc dí cướp', 'Cốt truyện: bước có ô "Nhạc riêng" = mã này (chương 3: từ cảnh cướp tới qua cầu). Chưa gắn file → vẫn nhạc ngày / đêm', '', 'music'],
   ['music.night', 'music', 'Nhạc trong game (ban đêm)', 'Đang chơi, trời tối', '', 'music'],
   // ---- giao diện ----
   ['ui.click', 'ui', 'Bấm nút', 'Bấm nút trong menu, hộp thoại, điện thoại', '', 'sfx'],
@@ -86,7 +87,8 @@ const LIST = [
   ['loop.city', 'city', 'Tiếng phố mở đầu (lặp)', 'Màn đen "Đã tới Sài Gòn": kèn xe, xe cộ, người cãi nhau', 'city', 'loop'],
   ['city.honk', 'city', 'Xe khác bóp còi', 'Xe NPC bóp còi khi mình chắn đường', 'horn', 'sfx'],
   ['city.dog', 'city', 'Chó sủa', 'Chó lao ra đường sủa · chó sủa xe trộm chó', 'bark', 'sfx'],
-  ['city.rev', 'city', 'Nẹt pô', 'Nhóm Jetjet chạy ngang mình · xe trộm chó rồ ga bỏ chạy', 'rev', 'sfx'],
+  ['city.rev', 'city', 'Nẹt pô', 'Nhóm Jetjet chạy ngang mình · xe trộm chó rồ ga bỏ chạy · tên cướp bốc đầu xe bỏ chạy (cốt truyện chương 3)', 'rev', 'sfx'],
+  ['city.thiefShout', 'city', 'La "Cướp!"', 'Cốt truyện chương 3: người trong chợ la lên "Cướp cướp!" (việc "Phát tiếng" trong story.json)', '', 'sfx'],
   ['city.thunder', 'city', 'Sấm', 'Trời bắt đầu mưa', '', 'sfx'],
   ['city.morning', 'city', 'Sáng ngày mới', '6:00 sang ngày mới (gà gáy, chim hót…)', '', 'sfx'],
   ['city.busArrive', 'city', 'Xe buýt tới trạm', 'Đi xe buýt tới trạm, xuống xe', '', 'sfx'],

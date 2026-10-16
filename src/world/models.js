@@ -266,6 +266,10 @@ function torsoGeo(o) {
 // Khớp: legL/R (háng) → kneeL/R (gối), armL/R (vai) → elbowL/R (khuỷu); body = phần thân nhún khi đi
 // Kiểu người cũ (khối vuông) — giữ lại tạm để so / làm bản "người đơn giản" (đợt P4); bật bằng ?nguoicu
 const CLASSIC = typeof location !== 'undefined' && /[?&]nguoicu\b/.test(location.search);
+// Dáng theo tuổi: bend = độ cong lưng trên + đầu đưa ra trước (person.js) · hunch = gập nhẹ quanh hông (rad)
+// (người già đi đường — npcStyles 'elder' — gập hông 0,26 + chống gậy)
+const AGE_BEND = { old: 0.3, elder: 0.55 };
+const AGE_HUNCH = { old: 0.04, elder: 0.12 };
 export function makePerson(opts = {}) {
   if (CLASSIC) return makePersonClassic(opts);
   let { shirt = 0x3498db, pants = 0x2c3e50, skin = SKINS[0], hat = null, hatColor = 0x2ecc71, hair = 0x1b1b1b, scale = 1, bag = false, gender = 'm', hairStyle, skirt = false, sleeves = 'long', shorts = false, helmetStyle = 'half', overlay = null, shoe = null, shoeStyle = 'sneaker', face = null, faceColor = 0x222222, gloves = null, gloveColor = 0x333333, uniform = null } = opts;
@@ -281,9 +285,15 @@ export function makePerson(opts = {}) {
   shoe ??= [0x2b2b2b, 0xe8e8e8, 0x6b4a2b, 0x34495e][((shirt >>> 3) + (pants >>> 5)) % 4]; // giày đổi theo bộ đồ, cố định cho cùng một người
   // kiểu áo / quần / giày mới + màu phụ, mũ lưỡi trai (hat 'cap'), đồng hồ / vòng tay, balo / túi chéo (data/goods.js OUTFIT_SLOTS)
   const { shirtStyle = null, shirt2 = null, pantsStyle = null, pants2 = null, shoe2 = null, wrist = null, wristColor = 0x222222, carry = null, carryColor = 0x34495e } = opts;
+  // build: vóc dáng gầy / đầy đặn / mập · age: tuổi → dáng đứng (sim/people.js AGES, BUILDS)
   const g = buildPerson({ shirt, pants, skin, hat, hatColor, hair, bag, gender, style: hairStyle || (female ? 'long' : 'short'), skirt, sleeves, shorts, helmetStyle, overlay, shoe, shoeStyle, face, faceColor, gloves, gloveColor, uniform,
-    shirtStyle, shirt2, pantsStyle, pants2, shoe2, wrist, wristColor, carry, carryColor });
+    shirtStyle, shirt2, pantsStyle, pants2, shoe2, wrist, wristColor, carry, carryColor, build: opts.build || null, bend: AGE_BEND[opts.age] || 0 });
   g.scale.setScalar(scale);
+  if (AGE_HUNCH[opts.age]) {
+    const p = g.userData.parts;
+    p.pose = { hunch: AGE_HUNCH[opts.age] };
+    applyPose(p); // người đứng yên (NPC cửa tiệm, xem trước) không chạy animatePerson → đặt dáng ngay
+  }
   return g;
 }
 
@@ -410,7 +420,7 @@ export function csgtLook(rng, sitting = false) {
 export function npcLook(id, npc) {
   const gender = personOf(npc.name, { gender: npc.gender }).gender; // không đoán được theo tên → cố định theo tên (khớp với xưng hô trong lời thoại)
   const o = { ...randomPersonOpts(makeRng(hashStr(id)), gender), hairStyle: gender === 'f' ? 'long' : 'short', skirt: false, hair: 0x1b1b1b };
-  for (const k of ['shirt', 'pants', 'hat', 'hatColor', 'scale', 'hairStyle', 'hair', 'skin', 'skirt']) if (npc[k] !== undefined) o[k] = npc[k];
+  for (const k of ['shirt', 'pants', 'hat', 'hatColor', 'scale', 'hairStyle', 'hair', 'skin', 'skirt', 'age', 'build']) if (npc[k] !== undefined) o[k] = npc[k];
   o.gender = gender;
   return o;
 }
@@ -535,8 +545,8 @@ export function setSitting(g, sitting, chair = false) {
   p.kneeL.rotation.x = p.kneeR.rotation.x = sitting ? (chair ? 1.45 : 1.25) : 0;
   p.armL.rotation.x = p.armR.rotation.x = sitting ? (chair ? -0.45 : -0.95) : 0;
   p.elbowL.rotation.x = p.elbowR.rotation.x = sitting ? (chair ? -0.55 : -0.35) : -0.15;
-  p.armL.rotation.z = -0.08;
-  p.armR.rotation.z = 0.08;
+  p.armL.rotation.z = -(p.armZ ?? 0.08); // tay buông (người mập dang ra hơn — person.js armZ)
+  p.armR.rotation.z = p.armZ ?? 0.08;
   // ngồi xe: banh 2 đùi ra 2 bên (người lái theo kiểu xe — gripBar; người ngồi sau mặc định 0,3 — yên sau rộng) · ngồi ghế / đứng: khép lại
   const spread = sitting && !chair ? p.spread ?? 0.3 : 0;
   p.legL.rotation.z = -spread;

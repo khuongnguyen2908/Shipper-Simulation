@@ -17,7 +17,7 @@ import { validateRelations, ID_RE, findOldName, swapName, PLACE_TEXT } from '../
 import { DEFAULT_TYPES, LOOK_SLOTS, lookOfChar, PLAYER } from '../../data/relations.js';
 import { OUTFIT_SLOTS, canWearOutfit } from '../../data/goods.js';
 import { isPlaced } from '../../data/places.js';
-import { HAIR_BY_GENDER, HAIR_COLORS, PLAYER_SKINS } from '../../sim/people.js';
+import { HAIR_BY_GENDER, HAIR_COLORS, PLAYER_SKINS, LOOK_AGES, LOOK_BUILDS } from '../../sim/people.js';
 import { colorsToNumbers } from '../../data/balance.js';
 import { npcLook } from '../../world/models.js';
 import { el, field, textInput, numInput, selectInput, checkInput, areaInput, button, emojiInput, colorInput, clone } from '../editor/ui.js';
@@ -737,7 +737,9 @@ export function startRelationship(root) {
       field('Kiểu tóc', selectInput(L.hairStyle, hairs.map((h) => [h, data.content[`hair.${h}`] || h]), (v) => setL('hairStyle', v))),
       field('Màu tóc', el('div', {}, sw(HAIR_COLORS, L.hair, (v) => setL('hair', v, true)), colorInput(L.hair, (v) => /^#[0-9a-f]{6}$/i.test(v) && setL('hair', v)))),
       field('Màu da', el('div', {}, sw(PLAYER_SKINS, L.skin, (v) => setL('skin', v, true)), colorInput(L.skin, (v) => /^#[0-9a-f]{6}$/i.test(v) && setL('skin', v)))),
-      field('Vóc người', numInput(L.scale ?? 1, (v) => Number.isFinite(v) && setL('scale', Math.max(0.6, Math.min(1.4, v))), { min: 0.6, max: 1.4, step: 0.05 }), { hint: '1 = bình thường · 0,85 thấp nhỏ · 1,1 cao to.' }))));
+      field('Vóc người', numInput(L.scale ?? 1, (v) => Number.isFinite(v) && setL('scale', Math.max(0.6, Math.min(1.4, v))), { min: 0.6, max: 1.4, step: 0.05 }), { hint: '1 = bình thường · 0,85 thấp nhỏ · 1,1 cao to.' }),
+      field('Vóc dáng', selectInput(L.build || '', [['', 'Vừa'], ...Object.entries(LOOK_BUILDS)], (v) => { if (v) setL('build', v); else { delete L.build; changed({}); show(); } }), { hint: 'Gầy / đầy đặn / mập (bề ngang người).' }),
+      field('Tuổi', selectInput(L.age || '', [['', 'Bình thường'], ...Object.entries(LOOK_AGES)], (v) => { if (v) setL('age', v); else { delete L.age; changed({}); show(); } }), { hint: 'Lớn tuổi: đứng hơi khom lưng. Tóc bạc chọn ở "Màu tóc".' }))));
     // bộ đồ
     side.append(el('h4', {}, '👕 Bộ đồ'),
       el('div', { class: 'rl-chips' },
@@ -810,8 +812,8 @@ export function startRelationship(root) {
         el('b', {}, `${from?.name || '?'} → ${to?.name || '?'}`),
         field(`${from?.name || '?'} là gì của ${to?.name || '?'}`, textInput(s.label, (v) => { s.label = v; changed(); }), { hint: 'Vd: mẹ, chủ trọ, bạn thân, đàn em… (chữ trên dây lấy chiều đầu).' }),
         el('div', { class: 'grid2' },
-          field('Tự xưng', textInput(s.self, (v) => { s.self = v; changed(); }), { hint: `${from?.name || ''} tự gọi mình là gì khi nói với ${to?.name || ''} (game: {toi}).` }),
-          field('Gọi là', textInput(s.call, (v) => { s.call = v; changed(); }), { hint: `${from?.name || ''} gọi ${to?.name || ''} là gì (game: {ban}).` })),
+          field('Tự xưng', textInput(s.self, (v) => { s.self = v; changed(); }), { hint: `${from?.name || ''} tự gọi mình là gì khi nói với ${to?.name || ''}. Điền chữ thật (em, anh, chị…), không điền {…}.${(key === 'ab' ? l.a : l.b) === PLAYER ? ' Gõ anh/chị = người chơi nam → anh, nữ → chị.' : ''}` }),
+          field('Gọi là', textInput(s.call, (v) => { s.call = v; changed(); }), { hint: `${from?.name || ''} gọi ${to?.name || ''} là gì. Điền chữ thật, không điền {…}.${(key === 'ab' ? l.b : l.a) === PLAYER ? ' Gõ anh/chị = người chơi nam → anh, nữ → chị.' : ''}` })),
         field('Tình cảm', el('div', { class: 'rl-range' }, range, feel)));
     };
     side.append(dir(A, B, 'ab'), dir(B, A, 'ba'));

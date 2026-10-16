@@ -11,6 +11,15 @@
 //   leash  — { place, r, text }: chưa xong bước thì không cho đi xa địa điểm quá r m (bị giữ lại + thông báo text)
 //   zone   — { place, r }: vòng tròn tím quanh địa điểm (vùng tìm kiếm, không mũi tên)
 //   talkLabel — chữ trên nút E ở bước chờ bấm E nói chuyện (talkActor), vd "Chở chị Linh"
+//   deadline — { hour, back, text, from, msg }: phải xong trước hour giờ (giờ chung). Các bước liền nhau cùng có deadline dùng chung 1 hạn
+//              (tính lúc vào bước đầu tiên). Quá hạn → thông báo text (+ tin nhắn msg của from) → quay lại bước back (vd chờ 8h sáng hôm sau).
+//              Không tua / quay ngược đồng hồ (đồng hồ là của chung khi chơi nhiều người).
+//   hideNpc  — [mã địa điểm]: NPC của các địa điểm này vắng mặt trong bước (vd chị Linh chưa ra tiệm trà trước 8h). Chương cũng có hideNpc
+//              (cả chương). Người lạ đang có mặt mà là nhân vật của NPC địa điểm (sơ đồ quan hệ) thì NPC đó cũng tự vắng (không bị 2 người giống nhau).
+//   noFines  — true: đang ở bước này thì không bị phạt / CSGT cho qua (vd đang đuổi theo tên cướp)
+//   music    — mã nhạc (music.*) thay nhạc ngày / đêm trong lúc chờ bước này (vd music.chase lúc dí cướp); chưa gắn file → giữ nhạc thường
+//   noBeacon — true: mũi tên chỉ tới mục tiêu nhưng không có cột sáng (vd mục tiêu là tên cướp đang chạy — đã có chấm đỏ trên đầu)
+//   mark.icon — '!' / '?' (dấu nhiệm vụ, khung tròn vàng) · 'dot' (chấm đỏ nhấp nháy: mục tiêu đang truy đuổi)
 // Người nói trong bong bóng / chọn câu: 'player' · mã người lạ (people) · 'place:<mã địa điểm>' (NPC đứng ở địa điểm đó, vd sư cô ở chùa)
 // Tiến độ lưu trong GameState.story: { ch, step, fired, waited, ev, done, items, carry, picks }.
 // picks: câu trả lời người chơi đã chọn ({ mã lựa chọn: số thứ tự 0..2 }) — để chương sau cho nhân vật phản ứng khác nhau.
@@ -32,6 +41,10 @@ export const TRAITS = {
 export const ACTOR_SPOTS = { xeOm: 'Cạnh gốc cây kế chú xe ôm nằm ở địa điểm …', place: 'Trước cửa địa điểm … (cách cửa … m ra phía đường, lệch … m dọc đường)', near: 'Gần người chơi (cách … m, thấy trên màn hình)' };
 // Xe đi kèm người lạ (dựng cạnh, bỏ đi thì đội mũ lên xe chạy mất)
 export const ACTOR_VEHICLES = { moto: 'Mô tô phân khối lớn (xịn)' };
+// Dấu nhảy trên đầu (việc "react"): ? ngạc nhiên · ! giật mình
+export const REACT_ICONS = { '?': '? Ngạc nhiên', '!': '! Giật mình' };
+// Cảnh phim: camera nhìn vào đâu
+export const CINE_TARGETS = { place: 'Địa điểm …', actor: 'Người lạ …', player: 'Người chơi' };
 // =============================================================
 import storyData from '../data/story.json' with { type: 'json' };
 import { BRANDS } from '../data/apps.js';
@@ -64,6 +77,9 @@ export const UNTIL = {
   clock: 'Đồng hồ trong khoảng … giờ (quá giờ thì chờ hôm sau)',
   bring: 'Đã chở người lạ … (ngồi sau xe) tới gần địa điểm …',
   chosen: 'Người chơi đã chọn câu trả lời (việc "Chọn câu trả lời" mã …)',
+  cine: 'Cảnh phim (việc "🎬 Cảnh phim" ở bước này) đã chiếu xong',
+  chased: 'Người lạ … (việc "🏍️ Chạy trốn") đã chạy hết lộ trình, người chơi đang bám theo',
+  never: 'Chưa viết tiếp — dừng ở bước này (để chỗ cho nội dung sau)',
 };
 // Mốc của điều kiện "order"
 export const ORDER_STAGES = { offer: 'Có đơn mời', accept: 'Đã nhận đơn', pickup: 'Đã đón khách / lấy hàng', deliver: 'Đã giao xong 1 đơn' };
@@ -73,7 +89,11 @@ export const ACTIONS = {
   say: 'Hội thoại bằng bong bóng trên đầu người nói (bấm E qua câu)',
   actor: 'Người lạ xuất hiện (chỉ người chơi này thấy)',
   bubble: 'Bong bóng thoại trên đầu (người lạ / người chơi) — không mở hộp thoại',
-  approach: 'Người lạ đi tới chỗ người chơi',
+  approach: 'Người lạ đi (hoặc chạy) tới chỗ người chơi',
+  goto: 'Người lạ đi (hoặc chạy) vào địa điểm … rồi biến mất (vd chạy vào trường)',
+  react: 'Dấu ? / ! nhảy trên đầu những người … (ngạc nhiên / giật mình)',
+  cine: '🎬 Cảnh phim: camera rời người chơi, quay lần lượt các cảnh (địa điểm / người lạ / bám theo người lạ) — khóa điều khiển, đồng hồ vẫn chạy',
+  chase: '🏍️ Chạy trốn: người lạ chạy xe theo lộ trình (địa điểm / ngã tư), luôn ở trước người chơi một đoạn — dí mãi không kịp',
   leave: 'Người lạ bỏ đi (chạy mất rồi biến khỏi cảnh)',
   remove: 'Người lạ biến mất (không còn đứng đó)',
   choose: 'Chọn câu trả lời (2–3 câu trên đầu người chơi, phím 1/2/3) — người nói đáp lại theo câu đã chọn',
@@ -90,6 +110,7 @@ export const ACTIONS = {
   closePhone: 'Tự cất điện thoại',
   offer: 'Mời 1 đơn cốt truyện: cuốc chở khách thường / đơn giao đồ ăn ở quán … (không hết hạn, không bỏ qua được, không sự cố)',
   fuel: 'Đặt xăng / pin xe đang dùng còn … %',
+  sound: 'Phát tiếng (mã âm thanh, vd tiếng la "Cướp!")',
   end: 'Kết thúc chương (hiện chữ, lưu game)',
 };
 // Hướng dẫn trên điện thoại (làm sáng nút cần bấm)
@@ -197,6 +218,9 @@ export function untilMet(u, gs, ctx) {
     case 'near': return !!ctx.actorNear?.(u.who, u.r || 1.6);
     case 'talkActor': return !!s.ev[`actor:${u.who}`];
     case 'chosen': return s.picks?.[u.id] != null;
+    case 'cine': return !!s.ev.cineDone;
+    case 'chased': return !!s.ev[`chased:${u.who}`] || !!ctx.chased?.(u.who);
+    case 'never': return false;
     case 'ordersSince': return (gs.account?.completed || 0) - (s.base || 0) >= (u.n || 1);
     case 'newDay': return (gs.day || 1) > (s.baseDay ?? gs.day ?? 1);
     case 'clock': return inWindow(((ctx.now ?? 0) % 1440 + 1440) % 1440 / 60, u.from ?? 0, u.to ?? 24);
@@ -227,6 +251,16 @@ export function storyTick(gs, dt, ctx, data = STORY) {
   }
   if (!st) return [];
   s.waited += dt;
+  // hạn giờ (deadline): quá hạn → quay lại bước "back" (việc "fail" báo cho game dọn cảnh: người lạ, thông báo, tin nhắn)
+  if (st.deadline && ctx.now != null) {
+    if (s.due == null) s.due = dueAt(ctx.now, st.deadline.hour ?? 9);
+    if (ctx.now >= s.due) {
+      const back = chapterOf(s, data).steps.findIndex((x) => x.id === st.deadline.back);
+      Object.assign(s, { step: Math.max(0, back), fired: false, waited: 0, ev: {} });
+      delete s.due;
+      return [{ do: 'fail', ...st.deadline }];
+    }
+  } else if (s.due != null) delete s.due; // ra khỏi chuỗi bước có hạn
   if (!s.fired) {
     if (s.waited < (st.delay || 0)) return [];
     s.fired = true;
@@ -266,8 +300,8 @@ export function actorsPresent(s, data = STORY) {
   for (const st of ch.steps.slice(0, last + 1)) {
     if (skipStep(s, st)) continue;
     for (const a of st.on || []) {
-      if (a.do === 'actor') out[a.who] = a;
-      if (a.do === 'leave' || a.do === 'remove') delete out[a.who];
+      if (a.do === 'actor' || a.do === 'chase') out[a.who] = a;
+      if (a.do === 'leave' || a.do === 'remove' || a.do === 'goto') delete out[a.who];
     }
   }
   return out;
@@ -291,6 +325,11 @@ export function leaning(s) {
   const best = Math.max(t.good || 0, t.neutral || 0, t.bad || 0);
   const top = Object.keys(TRAITS).filter((k) => (t[k] || 0) === best);
   return top.length === 1 ? top[0] : 'neutral';
+}
+// Mốc giờ (phút tuyệt đối) lần tới đồng hồ chỉ hour giờ, tính từ now (đúng lúc đó thì là now)
+export function dueAt(now, hour) {
+  const tod = ((now % 1440) + 1440) % 1440;
+  return now + ((((hour * 60 - tod) % 1440) + 1440) % 1440);
 }
 // Giờ h (0–24) có nằm trong khoảng [from, to) không — khoảng qua nửa đêm (vd 22 → 2) cũng được
 function inWindow(h, from, to) {

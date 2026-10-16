@@ -8,7 +8,7 @@ import { rowMenu, addButton, entryButtons, doRemove, doCopyActivity, doPasteActi
 import { personPreview } from './personPreview.js';
 import { housePreview } from './housePreview.js';
 import { LOOKS, guessLook, lookOf, looksFor, CAMPUS_LOOKS } from '../../data/looks.js';
-import { personOf, HAIR_BY_GENDER } from '../../sim/people.js';
+import { personOf, HAIR_BY_GENDER, LOOK_AGES, LOOK_BUILDS } from '../../sim/people.js';
 import { fmt } from '../../content/index.js';
 import { el, field, textInput, numInput, colorInput, selectInput, checkInput, button, sideList, areaInput, dragHandle, makeSortable, emojiInput, explain, openDayInput, subTabs, advanced } from './ui.js';
 import { openDayOf } from '../../sim/placeRules.js';
@@ -202,6 +202,8 @@ export function render(root, ctx) {
           field('Mặc váy', checkInput(!!n.skirt, (v) => { if (v) n.skirt = true; else delete n.skirt; changedN(); }, 'Có'), opt('npc.skirt', { hint: 'Váy lấy màu quần; chân màu da' })),
           field('Đội mũ', selectInput(n.hat || '', [['', 'Không'], ['nonla', 'Nón lá'], ['helmet', 'Mũ bảo hiểm'], ['police', 'Mũ CSGT']], (v) => { n.hat = v || null; changedN(); }), opt('npc.hat')),
           field('Vóc người', numInput(n.scale ?? 1, (v) => { if (v === 1) delete n.scale; else n.scale = v; changedN(); }, { step: 0.05, min: 0.6, max: 1.3 }), opt('npc.scale', { hint: HINT.npc.scale })),
+          field('Vóc dáng', optSel('build', [['', 'Vừa'], ...Object.entries(LOOK_BUILDS)]), opt('npc.build', { hint: 'Người gầy / đầy đặn / mập (bề ngang thân, tay chân). Cao thấp chỉnh ở "Vóc người".' })),
+          field('Tuổi', optSel('age', [['', 'Bình thường'], ...Object.entries(LOOK_AGES)]), opt('npc.age', { hint: 'Người lớn tuổi đứng hơi khom lưng. Tóc bạc chọn ở "Màu tóc".' })),
         ),
         prev.el,
       ),

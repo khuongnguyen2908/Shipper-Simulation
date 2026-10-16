@@ -12,7 +12,7 @@ import { ITEMS } from '../data/items.js';
 import { minutesUntil, fmtClock } from '../sim/clock.js';
 import { depthAtPoint, floodBand } from '../sim/flood.js';
 import { roadSegAt } from '../sim/roads.js';
-import { STORY, stepOf, chapterOf, storyPick, finishChapter } from '../sim/story.js';
+import { STORY, stepOf, chapterOf, storyPick, finishChapter, storyEvent } from '../sim/story.js';
 
 const STORE = 'shipper-cheat'; // công tắc đang bật (localStorage, chỉ máy này)
 const DEFAULT = { lockStats: false, noPolice: false, noCrash: false, noStall: false, noLose: false, fast: false, timeScale: 1, rider: '', flood: null };
@@ -371,6 +371,7 @@ export function mountCheat(g) {
     g.pendingReply = null;
     g.storyQueue = [];
     g.storyTalkWith = null;
+    g.storyCineStop?.(); // đang chiếu cảnh phim → tắt
     if (g.talk) g.talkEnd();
     for (const k of [...g.bubbles.map.keys()]) if (k.startsWith('story:')) g.bubbles.remove(k);
     if (g.storyPacking) { g.modal.hide(); g.storyPacking = null; }
@@ -404,6 +405,7 @@ export function mountCheat(g) {
       storyPick(s, u.id, 0, a?.gains?.[0]); // chọn câu đầu
     }
     if (u.type === 'read' || u.type === 'open') gs.readThread(u.who);
+    if (u.type === 'chased') { const c = g.storyActors?.[u.who]?.chase; if (c) Object.assign(c, { s: c.total, done: true }); } // tên cướp tới cuối lộ trình
     if (u.type === 'reply' && gs.inbox.threads[u.who]?.replies?.length) gs.reply(u.who, 0, g.clockMin);
     storyClean();
     s.step += 1;
@@ -431,6 +433,13 @@ export function mountCheat(g) {
   };
   const gStory = group('📖 Cốt truyện & hướng dẫn', false,
     row(btn('✅ Xong mục tiêu này', storyDone), btn('×5', () => { for (let k = 0; k < 5; k++) storyDone(); })),
+    row(btn('⏩ Bỏ qua cảnh phim', () => {
+      const gs = need();
+      if (!gs || !g.cine) return say('Không có cảnh phim nào đang chiếu.', true);
+      g.storyCineStop();
+      storyEvent(gs.story, 'cineDone');
+      say('Đã bỏ qua cảnh phim');
+    })),
     row('Nhảy tới bước', stepSel, btn('⏩ Tới', storyJump)),
     row(btn('⏭ Bỏ hướng dẫn', () => { const gs = need(); if (gs) { gs.flags.tutSkip = true; Object.assign(gs.flags, { mounted: true, refueled: true, online: true }); say('Đã bỏ hướng dẫn người mới'); } })),
     row('Mở đầu', storySel, btn('Đặt', () => { const gs = need(); if (gs) { gs.flags.story = +storySel.value; refresh(); say(`Cốt truyện = ${storySel.value}`); } })),

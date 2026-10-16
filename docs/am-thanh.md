@@ -18,6 +18,7 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [x] | `music.menu` | Nhạc màn hình chính | Đang ở màn hình chính / tạo nhân vật | bài nhạc | 🎧 có file |
 | [x] | `music.day` | Nhạc trong game (ban ngày) | Đang chơi, trời sáng | bài nhạc | 🔇 im |
 | [x] | `music.night` | Nhạc trong game (ban đêm) | Đang chơi, trời tối | bài nhạc | 🔇 im |
+| [ ] | `music.chase` | Nhạc dí cướp | Chương 3: từ cảnh cướp tới qua cầu (bước có "Nhạc riêng"). Nên: nhịp nhanh 140–160 bpm, lặp liền, 1–2 phút, 96–128 kbps | bài nhạc | 🔇 im (chưa gắn → nhạc ngày / đêm) |
 
 ## 🖱️ Giao diện
 
@@ -100,7 +101,8 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [x] | `loop.city` | Tiếng phố mở đầu (lặp) | Màn đen "Đã tới Sài Gòn": kèn xe, xe cộ, người cãi nhau | lặp liên tục | 🔉 tổng hợp |
 | [x] | `city.honk` | Xe khác bóp còi | Xe NPC bóp còi khi mình chắn đường | tiếng ngắn | 🔉 tổng hợp |
 | [x] | `city.dog` | Chó sủa | Chó lao ra đường sủa · chó sủa xe trộm chó | tiếng ngắn | 🔉 tổng hợp |
-| [ ] | `city.rev` | Nẹt pô | Nhóm Jetjet chạy ngang mình · xe trộm chó rồ ga bỏ chạy | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `city.rev` | Nẹt pô | Nhóm Jetjet chạy ngang mình · xe trộm chó rồ ga bỏ chạy · tên cướp bốc đầu xe bỏ chạy (chương 3) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `city.thiefShout` | La "Cướp!" | Chương 3: người trong chợ la lên "Cướp cướp!" | tiếng ngắn | 🔇 im |
 | [x] | `city.thunder` | Sấm | Trời bắt đầu mưa | tiếng ngắn | 🔇 im |
 | [x] | `city.morning` | Sáng ngày mới | 6:00 sang ngày mới (gà gáy, chim hót…) | tiếng ngắn | 🔇 im |
 | [x] | `city.busArrive` | Xe buýt tới trạm | Đi xe buýt tới trạm, xuống xe | tiếng ngắn | 🔇 im |

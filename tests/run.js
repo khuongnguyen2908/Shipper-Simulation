@@ -1881,6 +1881,16 @@ console.log('Ngoại hình nam/nữ');
     assert.deepEqual([set.gender, set.hairStyle, set.skirt, set.hair, set.skin], ['m', 'bun', true, 0x8d8d8d, 0xc68642]);
     assert.deepEqual(npcLook('pho', { name: 'Bà Tư' }), npcLook('pho', { name: 'Bà Tư' }));
     assert.equal(npcLook('x', { name: 'Chủ quán' }).gender, 'm'); // không đoán được → nam như cũ
+    const old = npcLook('home', { name: 'Dì Hai', age: 'old', build: 'chubby' });
+    assert.deepEqual([old.age, old.build], ['old', 'chubby'], 'tuổi + vóc dáng NPC đi qua npcLook');
+  });
+  test('Tuổi / vóc dáng: places.json (npc) và relations.json (look) chỉ nhận mã hợp lệ', () => {
+    const pd = JSON.parse(JSON.stringify(DATA.places));
+    const home = pd.places.find((p) => p.id === 'home');
+    const errOf = () => VALIDATE.validatePlaces(pd, DATA.items).filter((i) => i.level === 'error' && i.ref === 'home').map((i) => i.field);
+    assert.deepEqual(errOf().filter((f) => f === 'npc.age' || f === 'npc.build'), []);
+    Object.assign(home.npc, { age: 'gia', build: 'beo' });
+    assert.ok(errOf().includes('npc.age') && errOf().includes('npc.build'));
   });
   test('Người ngẫu nhiên: trộn nam/nữ; ngồi sau xe thì không mặc váy', () => {
     const rng = makeRng(3);
@@ -3652,7 +3662,10 @@ console.log('Âm thanh: mã từng chỗ phát tiếng, file gắn trong sounds.
     // sound(điều kiện ? 'a' : 'b')
     for (const m of code.matchAll(/\bsound\([^)]*\?\s*'([\w.]+)'\s*:\s*'([\w.]+)'/g)) used.push(m[1], m[2]);
     for (const id of used) assert.ok(SP.SOUNDS[id], `sound('${id}') chưa có trong soundSpec.js`);
-    for (const id of SP.SOUND_IDS) assert.ok(code.includes(`'${id}'`), `mã ${id} không chỗ nào dùng`);
+    // mã phát từ dữ liệu cốt truyện (story.json → việc "Phát tiếng") cũng tính là có dùng
+    const storyCodes = readJson('src/data/story.json').chapters.flatMap((c) => c.steps.flatMap((st) => [...(st.on || []).filter((x) => x.do === 'sound').map((x) => x.code), ...(st.music ? [st.music] : [])]));
+    for (const id of storyCodes) assert.ok(SP.SOUNDS[id], `story.json: mã âm thanh "${id}" chưa có trong soundSpec.js`);
+    for (const id of SP.SOUND_IDS) assert.ok(code.includes(`'${id}'`) || storyCodes.includes(id), `mã ${id} không chỗ nào dùng`);
     assert.ok(!/\bsfx\.\w+\(\)/.test(code), 'còn chỗ gọi sfx.xxx() kiểu cũ');
     for (const s2 of Object.values(SP.SOUNDS)) assert.ok(SP.SOUND_CATS[s2.cat] && ['sfx', 'loop', 'music'].includes(s2.kind), s2.id);
   });
@@ -3967,7 +3980,7 @@ console.log('Cốt truyện (story.json) + tin nhắn');
 {
   const { STORY, stepOf, storyTick, beginChapter, storyEvent, wearsBrandKit, actorsPresent, storyPick, leaning } = await import('../src/sim/story.js');
   const { personOf: personOfS } = await import('../src/sim/people.js');
-  const { finishChapter: finishChapterS } = await import('../src/sim/story.js');
+  const { finishChapter: finishChapterS, dueAt } = await import('../src/sim/story.js');
   const { validateStory } = await import('../src/data/validate.js');
   // chạy bộ chạy cốt truyện tới khi đứng ở bước có mã id (tối đa n lần), ctx giả lập việc người chơi làm
   const runTo = (gs, id, ctx, acts = [], n = 200) => {
@@ -4156,9 +4169,87 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     const end = [];
     runTo(gs, 'zzz', ctx, end, 20);
     assert.ok(end.some((a) => a.do === 'end'), 'bấm Đã rõ → chương 1 kết thúc');
-    finishChapterS(gs.story);
+    if (gs.story.ch === 'c1') finishChapterS(gs.story); // bước "end" (game.js) — chạy thử ở trên có thể đã tự sang chương 2
     storyTick(gs, 1, ctx);
+    assert.equal(gs.story.ch, 'c2');
     assert.ok(objectives(gs).some((x) => x.id === 'orders'), 'hết chương 1 → mục tiêu giao 10 đơn');
+  });
+  test('Chương 3 "Xui xẻo": Dượng Hai nhắn → ngủ qua ngày → chị Linh nhắc → 8h chị ra tiệm → quá 9h thất bại, mai 8h nhận lại → tới trường → chị Nhi, anh Hoàng → cảnh phim cướp → dí tên cướp (không phạt) → qua cầu', () => {
+    const gs = new GameState({ carry: { flags: { story: 2 } } });
+    Object.assign(gs.story, { ch: 'c3', step: 0, fired: false, waited: 0, ev: {}, done: ['c1', 'c2'] });
+    let near = null, boarded = false, now = 20 * 60, closeTo = false, mounted = false, chased = false;
+    const ctx = () => ({ near: (p) => p === near, now, actorNear: () => closeTo, actorBoarded: () => boarded, mounted, chased: () => chased });
+    const acts = [];
+    const tick = (n = 1) => { for (let i = 0; i < n; i++) { acts.push(...storyTick(gs, 1, ctx())); now += 1; } };
+    const sid = () => stepOf(gs.story)?.id;
+    const ch3 = STORY.chapters.find((c) => c.id === 'c3');
+    assert.ok(ch3 && ch3.hideNpc.includes('tra'), 'chương 3: chị Linh không đứng sẵn ở tiệm trà');
+    tick(4);
+    assert.ok(acts.some((a) => a.do === 'msg' && a.from === 'chuHai'), 'Dượng Hai nhắn cảm ơn');
+    assert.ok(acts.some((a) => a.do === 'replies' && a.who === 'chuHai' && a.texts.length === 3), '3 câu trả lời');
+    storyEvent(gs.story, 'reply:chuHai'); tick(2);
+    assert.equal(sid(), 'sleep');
+    gs.day += 1; now = 2 * 1440 + 6.5 * 60; tick(3);
+    assert.ok(acts.some((a) => a.do === 'msg' && a.from === 'linh'), 'sáng hôm sau chị Linh nhắc');
+    storyEvent(gs.story, 'reply:linh'); tick(2);
+    assert.equal(sid(), 'wait8', 'chờ 8h');
+    now = 2 * 1440 + 8 * 60; tick(2);
+    assert.equal(sid(), 'linhWait');
+    assert.ok(acts.some((a) => a.do === 'actor' && a.who === 'linh' && a.place === 'tra'), '8h chị Linh ra trước tiệm trà');
+    // trễ quá 9h → thất bại, quay lại chờ 8h (sáng hôm sau — đồng hồ chung không quay ngược)
+    now = 2 * 1440 + 9 * 60; tick(1);
+    assert.equal(sid(), 'wait8', 'quá 9h → quay lại bước chờ 8h');
+    const fail = acts.find((a) => a.do === 'fail');
+    assert.ok(fail && fail.text && fail.from === 'linh', 'báo thất bại + chị Linh nhắn');
+    assert.equal(gs.story.due, undefined, 'xóa hạn cũ');
+    tick(30);
+    assert.equal(sid(), 'wait8', '9h30 cùng ngày: chưa nhận lại được');
+    now = 3 * 1440 + 8 * 60 + 5; tick(2);
+    assert.equal(sid(), 'linhWait', '8h hôm sau: chị Linh ra lại');
+    storyEvent(gs.story, 'actor:linh'); tick(2);
+    assert.equal(sid(), 'linhGo');
+    storyEvent(gs.story, 'actor:linh'); tick(2);
+    assert.ok(acts.some((a) => a.do === 'title'), 'tên chương 3');
+    assert.ok(acts.some((a) => a.do === 'board' && a.who === 'linh'), 'chị Linh lên xe');
+    tick(6);
+    assert.equal(sid(), 'ride');
+    boarded = true; near = 'dhMyThuat'; tick(3);
+    assert.equal(sid(), 'arrive', 'tới trường trước 9h');
+    assert.equal(gs.story.due, undefined, 'xong phần có hạn → bỏ hạn');
+    const n0 = acts.length;
+    closeTo = true;
+    for (let i = 0; i < 40 && sid() !== 'robbery'; i++) {
+      const st = stepOf(gs.story);
+      if (st.until?.type === 'talkActor') storyEvent(gs.story, `actor:${st.until.who}`);
+      tick(1);
+    }
+    assert.equal(sid(), 'robbery');
+    const after = acts.slice(n0);
+    assert.ok(after.some((a) => a.do === 'react' && a.icon === '!' && a.who.includes('linh')), 'Linh, Nhi giật mình (!)');
+    assert.deepEqual(after.filter((a) => a.do === 'goto').map((a) => a.who), ['nhi', 'linh', 'hoang'], 'lần lượt chạy vào trường');
+    tick(2);
+    const chase = acts.find((a) => a.do === 'chase');
+    assert.ok(acts.some((a) => a.do === 'cine') && chase && chase.route.length >= 4, 'cảnh phim + tên cướp chạy theo lộ trình');
+    assert.equal(sid(), 'robbery', 'chưa chiếu xong cảnh phim');
+    storyEvent(gs.story, 'cineDone'); tick(2);
+    assert.equal(sid(), 'chaseMount');
+    assert.ok(stepOf(gs.story).noFines, 'đang dí: không bị phạt');
+    assert.ok(stepOf(gs.story).noBeacon && stepOf(gs.story).mark.icon === 'dot', 'tên cướp: chấm đỏ, không cột sáng');
+    assert.ok(['robbery', 'chaseMount', 'chase', 'bridgeCut'].every((id) => ch3.steps.find((x) => x.id === id).music === 'music.chase'), 'nhạc dí cướp từ cảnh cướp tới qua cầu');
+    assert.ok(!ch3.steps.find((x) => x.id === 'wip').music, 'qua cầu xong → nhạc thường');
+    assert.equal(acts.find((a) => a.do === 'cine' && a.endRide)?.endRide, 'thief', 'hết cảnh cướp → ngồi sẵn trên xe, quay về hướng tên cướp');
+    assert.ok(acts.filter((a) => a.do === 'approach').every((a) => a.stop), 'Nhi, Hoàng chạy tới rồi đứng lại (không đi theo)');
+    mounted = true; tick(2);
+    assert.equal(sid(), 'chase');
+    tick(5);
+    assert.equal(sid(), 'chase', 'chưa qua cầu');
+    chased = true; tick(2);
+    assert.equal(sid(), 'bridgeCut', 'tên cướp chạy hết lộ trình (qua cầu) → cảnh phim');
+    storyEvent(gs.story, 'cineDone'); tick(2);
+    assert.equal(sid(), 'wip');
+    tick(20);
+    assert.equal(sid(), 'wip', 'chưa viết tiếp: dừng ở đây');
+    assert.equal(dueAt(10 * 60, 9), 10 * 60 + 23 * 60, 'mốc 9h tiếp theo tính từ 10h = 9h hôm sau');
   });
   test('Chương 2 "Bạn mới ở thành phố": giao thêm 10 đơn → 17h30–19h chú Hai nhắn → đọc tin mới vào chương → chú Hai (cơm chay) → tiệm trà đóng → sư cô (3 câu) → bảo vệ (mở lời 3 câu + 3 câu) → tìm trong vòng tím → chị Linh + người đàn ông → chở chị Linh về → Linh nhắn số → hết chương', () => {
     const gs = new GameState({ carry: { flags: { story: 0 } } });
@@ -4422,6 +4513,24 @@ console.log('Sơ đồ quan hệ nhân vật (relations.json — /?relationship)
     assert.equal(L.face, 'glasses');
     assert.equal(L.scale, 1.05);
     assert.equal(R.lookOfChar({ name: 'x' }), null);
+    const old = R.lookOfChar({ look: { gender: 'f', age: 'old', build: 'fat' } });
+    assert.deepEqual([old.age, old.build], ['old', 'fat'], 'tuổi + vóc dáng');
+  });
+  test('Xưng hô "anh/chị": đổi theo giới tính người chơi; ô có {…} bị báo lỗi', () => {
+    const rel = {
+      types: { friend: { name: 'Bạn', color: '#2ecc71' } },
+      characters: { player: { name: 'Người chơi', age: 19 }, minh: { name: 'Minh', gender: 'f', story: 'minh' }, x: { name: 'X' } },
+      links: [
+        { id: 'l1', a: 'player', b: 'minh', type: 'friend', ab: { self: 'anh/chị', call: 'em' }, ba: { self: 'em', call: 'Chị / Anh' } },
+        { id: 'l2', a: 'player', b: 'x', type: 'friend', ab: { self: '{tôi}', call: 'em' }, ba: { self: 'em', call: '{ban}' } },
+      ],
+    };
+    const m = R.voiceOf('minh', 'm', 1, rel), f = R.voiceOf('minh', 'f', 1, rel);
+    assert.deepEqual([m.ban, m.Ban, m.minh, m.toi, m.khach], ['anh', 'Anh', 'anh', 'em', 'em'], 'người chơi nam');
+    assert.deepEqual([f.ban, f.minh], ['chị', 'chị'], 'người chơi nữ');
+    const errs = validateRelations(rel, {}).filter((i) => i.level === 'error').map((i) => i.msg);
+    assert.equal(errs.filter((x) => x.includes('{…}')).length, 2, 'ô {tôi} + ô {ban}');
+    assert.ok(!errs.some((x) => x.includes('Minh')), 'anh/chị hợp lệ');
   });
   test('Bộ kiểm tra quan hệ: dây hỏng, thiếu xưng hô với người chơi, trùng dây, chương sai, xưng ngược tuổi, 2 chiều không khớp, thoại lệch sơ đồ', () => {
     const rel = {

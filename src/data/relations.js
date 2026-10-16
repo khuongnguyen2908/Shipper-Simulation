@@ -9,7 +9,7 @@
 // =============================================================
 import raw from './relations.json' with { type: 'json' };
 import { GOODS, outfitLook } from './goods.js';
-import { personOf, pronouns } from '../sim/people.js';
+import { personOf, pronouns, anhChiOf } from '../sim/people.js';
 
 export const REL = raw;
 export const PLAYER = 'player'; // mã nhân vật người chơi (luôn có, không xóa được)
@@ -64,7 +64,8 @@ export function voiceOfChar(charId, playerGender = 'm', chapter = null, rel = RE
   if (!l) return null;
   const base = pronouns(personOf(c.name || '', { gender: c.gender || undefined }), playerGender);
   const them = sideOf(l, charId), me = sideOf(l, PLAYER);
-  const pick = (v, d) => (String(v || '').trim() ? String(v).trim() : d);
+  // ô có chữ thì dùng chữ đó ("anh/chị" → theo giới tính người chơi), trống thì đoán theo tên
+  const pick = (v, d) => (String(v || '').trim() ? anhChiOf(String(v).trim(), playerGender) : d);
   const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
   const toi = pick(them.self, base.toi), ban = pick(them.call, base.ban), minh = pick(me.self, ban), khach = pick(me.call, toi);
   return { ...base, toi, Toi: cap(toi), ban, Ban: cap(ban), minh, Minh: cap(minh), khach, Khach: cap(khach) };
@@ -100,6 +101,8 @@ export function lookOfChar(c, outfitId = null, goods = GOODS) {
     hair: hexNum(L.hair, 0x1b1b1b),
     skin: hexNum(L.skin, 0xf1c27d),
     scale: Number.isFinite(L.scale) && L.scale > 0 ? L.scale : 1,
+    age: L.age || null, // tuổi → dáng đứng (sim/people.js AGES)
+    build: L.build || null, // vóc dáng (BUILDS)
   };
 }
 

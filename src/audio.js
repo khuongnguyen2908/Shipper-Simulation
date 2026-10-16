@@ -202,6 +202,10 @@ function pump(tr) {
   });
 }
 // ?debug: xem nhạc đang chạy thế nào
+// Mã nhạc này đã gắn file chưa (chưa gắn → game giữ nhạc ngày / đêm, không tắt nhạc)
+export function hasMusic(id) {
+  return filesOf(id).length > 0;
+}
 export function musicState() {
   const tr = music.track;
   return { id: music.id, now: ctx?.currentTime ?? 0, nextAt: tr?.nextAt ?? 0, passes: tr?.passes.length ?? 0, files: tr?.list ?? [] };

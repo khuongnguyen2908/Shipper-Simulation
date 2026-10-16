@@ -32,6 +32,18 @@
     "man": {
       "icon": "😎",
       "name": "story.people.man"
+    },
+    "nhi": {
+      "icon": "👩",
+      "name": "story.people.nhi"
+    },
+    "hoang": {
+      "icon": "👨",
+      "name": "story.people.hoang"
+    },
+    "thief": {
+      "icon": "🦹",
+      "name": "story.people.thief"
     }
   },
   "items": {
@@ -1215,7 +1227,7 @@
             {
               "do": "actor",
               "who": "linh",
-              "look": "girl",
+              "look": "char",
               "spot": "place",
               "place": "doChoi",
               "dist": 16.5,
@@ -1225,13 +1237,14 @@
             {
               "do": "actor",
               "who": "man",
-              "look": "gentleman",
+              "look": "char",
               "spot": "place",
               "place": "doChoi",
               "dist": 16.5,
               "lat": 0.7,
               "faceTo": "linh",
-              "vehicle": "moto"
+              "vehicle": "moto",
+              "outfit": "thuongNgay"
             }
           ],
           "until": {
@@ -1664,6 +1677,658 @@
             "type": "none"
           },
           "guide": null
+        }
+      ]
+    },
+    {
+      "id": "c3",
+      "title": "story.c3.title",
+      "name": "story.c3.name",
+      "hideNpc": [
+        "tra"
+      ],
+      "steps": [
+        {
+          "id": "chuHaiMsg",
+          "until": {
+            "type": "reply",
+            "who": "chuHai"
+          },
+          "on": [
+            {
+              "do": "msg",
+              "from": "chuHai",
+              "text": "story.c3.chuHai.m1",
+              "loc": []
+            },
+            {
+              "do": "replies",
+              "who": "chuHai",
+              "texts": [
+                "story.c3.chuHai.r1",
+                "story.c3.chuHai.r2",
+                "story.c3.chuHai.r3"
+              ],
+              "gains": [
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ]
+            }
+          ],
+          "delay": 2,
+          "goal": "story.c3.chuHai.goal",
+          "guide": null
+        },
+        {
+          "id": "sleep",
+          "until": {
+            "type": "newDay"
+          },
+          "on": [],
+          "guide": null,
+          "goal": "story.c3.sleep.goal",
+          "hint": "story.c3.sleep.hint",
+          "target": "home"
+        },
+        {
+          "id": "linhMsg",
+          "until": {
+            "type": "reply",
+            "who": "linh"
+          },
+          "on": [
+            {
+              "do": "msg",
+              "from": "linh",
+              "text": "story.c3.linh.m1",
+              "loc": []
+            },
+            {
+              "do": "replies",
+              "who": "linh",
+              "texts": [
+                "story.c3.linh.r1",
+                "story.c3.linh.r2",
+                "story.c3.linh.r3"
+              ],
+              "gains": [
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ]
+            }
+          ],
+          "delay": 1,
+          "goal": "story.c3.linhMsg.goal",
+          "guide": null
+        },
+        {
+          "id": "wait8",
+          "until": {
+            "type": "clock",
+            "from": 8,
+            "to": 9
+          },
+          "on": [],
+          "guide": null,
+          "goal": "story.c3.wait8.goal",
+          "hint": "story.c3.wait8.hint",
+          "target": "tra"
+        },
+        {
+          "id": "linhWait",
+          "until": {
+            "type": "talkActor",
+            "who": "linh"
+          },
+          "on": [
+            {
+              "do": "actor",
+              "who": "linh",
+              "look": "char",
+              "spot": "place",
+              "place": "tra",
+              "dist": 1.5,
+              "call": "story.c3.linh.call"
+            }
+          ],
+          "guide": null,
+          "hold": true,
+          "goal": "story.c3.meet.goal",
+          "target": "tra",
+          "mark": {
+            "actor": "linh",
+            "icon": "!"
+          },
+          "talkLabel": "story.c3.meet.label",
+          "deadline": {
+            "hour": 9,
+            "back": "wait8",
+            "text": "story.c3.late",
+            "from": "linh",
+            "msg": "story.c3.linh.late"
+          }
+        },
+        {
+          "id": "linhGo",
+          "until": {
+            "type": "talkActor",
+            "who": "linh"
+          },
+          "on": [
+            {
+              "do": "bubble",
+              "who": "linh",
+              "text": "story.c3.linh.go",
+              "hold": true
+            }
+          ],
+          "guide": null,
+          "hold": true,
+          "talkLabel": "story.c3.go.label",
+          "deadline": {
+            "hour": 9,
+            "back": "wait8",
+            "text": "story.c3.late",
+            "from": "linh",
+            "msg": "story.c3.linh.late"
+          }
+        },
+        {
+          "id": "title",
+          "until": {
+            "type": "wait",
+            "min": 5.3
+          },
+          "on": [
+            {
+              "do": "title"
+            },
+            {
+              "do": "board",
+              "who": "linh"
+            }
+          ],
+          "guide": null,
+          "hold": true,
+          "deadline": {
+            "hour": 9,
+            "back": "wait8",
+            "text": "story.c3.late",
+            "from": "linh",
+            "msg": "story.c3.linh.late"
+          }
+        },
+        {
+          "id": "ride",
+          "until": {
+            "type": "bring",
+            "who": "linh",
+            "place": "dhMyThuat",
+            "r": 4
+          },
+          "on": [],
+          "guide": null,
+          "hold": true,
+          "goal": "story.c3.ride.goal",
+          "hint": "story.c3.ride.hint",
+          "target": "dhMyThuat",
+          "deadline": {
+            "hour": 9,
+            "back": "wait8",
+            "text": "story.c3.late",
+            "from": "linh",
+            "msg": "story.c3.linh.late"
+          }
+        },
+        {
+          "id": "arrive",
+          "until": {
+            "type": "near",
+            "who": "nhi",
+            "r": 2.6
+          },
+          "on": [
+            {
+              "do": "alight",
+              "who": "linh"
+            },
+            {
+              "do": "actor",
+              "who": "nhi",
+              "look": "char",
+              "spot": "place",
+              "place": "dhMyThuat",
+              "dist": 1.5,
+              "lat": 10
+            },
+            {
+              "do": "react",
+              "who": [
+                "nhi"
+              ],
+              "icon": "?"
+            },
+            {
+              "do": "approach",
+              "who": "nhi",
+              "run": true,
+              "stop": true
+            }
+          ],
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "nhiAsk",
+          "until": {
+            "type": "talkActor",
+            "who": "nhi"
+          },
+          "on": [
+            {
+              "do": "bubble",
+              "who": "nhi",
+              "text": "story.c3.nhi.ask",
+              "hold": true
+            }
+          ],
+          "guide": null,
+          "hold": true,
+          "delay": 1
+        },
+        {
+          "id": "linhAns",
+          "until": {
+            "type": "talkActor",
+            "who": "linh"
+          },
+          "on": [
+            {
+              "do": "bubble",
+              "who": "linh",
+              "text": "story.c3.linh.ans",
+              "hold": true
+            }
+          ],
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "nhiHi",
+          "until": {
+            "type": "talkActor",
+            "who": "nhi"
+          },
+          "on": [
+            {
+              "do": "bubble",
+              "who": "nhi",
+              "text": "story.c3.nhi.hi",
+              "hold": true
+            }
+          ],
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "smile",
+          "until": {
+            "type": "wait",
+            "min": 2.5
+          },
+          "on": [
+            {
+              "do": "bubble",
+              "who": "player",
+              "text": "story.c3.smile1"
+            }
+          ],
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "hoangCome",
+          "until": {
+            "type": "near",
+            "who": "hoang",
+            "r": 2.6
+          },
+          "on": [
+            {
+              "do": "actor",
+              "who": "hoang",
+              "look": "char",
+              "spot": "place",
+              "place": "dhMyThuat",
+              "dist": 1.5,
+              "lat": -10
+            },
+            {
+              "do": "react",
+              "who": [
+                "hoang"
+              ],
+              "icon": "!"
+            },
+            {
+              "do": "approach",
+              "who": "hoang",
+              "run": true,
+              "stop": true
+            }
+          ],
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "hoangSay",
+          "until": {
+            "type": "talkActor",
+            "who": "hoang"
+          },
+          "on": [
+            {
+              "do": "bubble",
+              "who": "hoang",
+              "text": "story.c3.hoang.say",
+              "hold": true
+            }
+          ],
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "hurry",
+          "until": {
+            "type": "wait",
+            "min": 1.2
+          },
+          "on": [
+            {
+              "do": "react",
+              "who": [
+                "linh",
+                "nhi"
+              ],
+              "icon": "!"
+            }
+          ],
+          "guide": null,
+          "hold": true,
+          "delay": 1
+        },
+        {
+          "id": "nhiGo",
+          "until": {
+            "type": "wait",
+            "min": 1.2
+          },
+          "on": [
+            {
+              "do": "goto",
+              "who": "nhi",
+              "place": "dhMyThuat",
+              "run": true
+            }
+          ],
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "linhBye",
+          "until": {
+            "type": "talkActor",
+            "who": "linh"
+          },
+          "on": [
+            {
+              "do": "bubble",
+              "who": "linh",
+              "text": "story.c3.linh.bye",
+              "hold": true
+            }
+          ],
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "linhGoIn",
+          "until": {
+            "type": "wait",
+            "min": 1
+          },
+          "on": [
+            {
+              "do": "goto",
+              "who": "linh",
+              "place": "dhMyThuat",
+              "run": true
+            }
+          ],
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "hoangGoIn",
+          "until": {
+            "type": "wait",
+            "min": 2.5
+          },
+          "on": [
+            {
+              "do": "goto",
+              "who": "hoang",
+              "place": "dhMyThuat",
+              "run": true
+            }
+          ],
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "smile2",
+          "until": {
+            "type": "wait",
+            "min": 2.5
+          },
+          "on": [
+            {
+              "do": "bubble",
+              "who": "player",
+              "text": "story.c3.smile2"
+            }
+          ],
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "robbery",
+          "until": {
+            "type": "cine"
+          },
+          "on": [
+            {
+              "do": "cine",
+              "shots": [
+                {
+                  "at": "place:choTruyenThong",
+                  "t": 2.2,
+                  "dist": 12,
+                  "height": 4,
+                  "angle": 20
+                },
+                {
+                  "at": "actor:thief",
+                  "t": 8,
+                  "dist": 8,
+                  "height": 2.2,
+                  "angle": 135,
+                  "follow": true
+                }
+              ],
+              "endRide": "thief"
+            },
+            {
+              "do": "sound",
+              "code": "city.thiefShout"
+            },
+            {
+              "do": "bubble",
+              "who": "place:choTruyenThong",
+              "text": "story.c3.shout"
+            },
+            {
+              "do": "chase",
+              "who": "thief",
+              "look": "jetjet",
+              "route": [
+                {
+                  "place": "choTruyenThong"
+                },
+                {
+                  "place": "dhMyThuat"
+                },
+                {
+                  "place": "nhaThoDaDo"
+                },
+                {
+                  "node": [
+                    7,
+                    5
+                  ]
+                },
+                {
+                  "node": [
+                    7,
+                    2
+                  ]
+                },
+                {
+                  "node": [
+                    9,
+                    2
+                  ]
+                },
+                {
+                  "node": [
+                    10,
+                    2
+                  ]
+                }
+              ],
+              "gap": 10,
+              "speed": 12,
+              "delay": 2,
+              "wheelie": true
+            }
+          ],
+          "guide": null,
+          "hold": true,
+          "music": "music.chase"
+        },
+        {
+          "id": "chaseMount",
+          "until": {
+            "type": "mount"
+          },
+          "on": [],
+          "guide": null,
+          "hold": true,
+          "noFines": true,
+          "goal": "story.c3.chase.goal",
+          "hint": "story.c3.chase.mountHint",
+          "target": "actor:thief",
+          "mark": {
+            "actor": "thief",
+            "icon": "dot"
+          },
+          "noBeacon": true,
+          "music": "music.chase"
+        },
+        {
+          "id": "chase",
+          "until": {
+            "type": "chased",
+            "who": "thief"
+          },
+          "on": [],
+          "guide": null,
+          "hold": true,
+          "noFines": true,
+          "goal": "story.c3.chase.goal",
+          "hint": "story.c3.chase.hint",
+          "target": "actor:thief",
+          "mark": {
+            "actor": "thief",
+            "icon": "dot"
+          },
+          "noBeacon": true,
+          "music": "music.chase"
+        },
+        {
+          "id": "bridgeCut",
+          "until": {
+            "type": "cine"
+          },
+          "on": [
+            {
+              "do": "cine",
+              "shots": [
+                {
+                  "at": "actor:thief",
+                  "t": 3,
+                  "dist": 11,
+                  "height": 4.5,
+                  "angle": 25
+                },
+                {
+                  "at": "player",
+                  "t": 2.5,
+                  "dist": 7,
+                  "height": 3,
+                  "angle": 200
+                }
+              ]
+            }
+          ],
+          "guide": null,
+          "hold": true,
+          "noFines": true,
+          "music": "music.chase"
+        },
+        {
+          "id": "wip",
+          "until": {
+            "type": "never"
+          },
+          "on": [
+            {
+              "do": "remove",
+              "who": "thief"
+            }
+          ],
+          "guide": null,
+          "goal": "story.c3.wip.goal"
         }
       ]
     }

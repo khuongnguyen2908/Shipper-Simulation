@@ -160,7 +160,9 @@
         "hat": null,
         "portrait": "👵",
         "gender": "f",
-        "hairStyle": "bangs"
+        "hairStyle": "bun",
+        "hair": "#8d8d8d",
+        "age": "old"
       }
     },
     {
@@ -178,7 +180,9 @@
         "shirt": "#f5f5f5",
         "pants": "#4e342e",
         "hat": null,
-        "portrait": "🧓"
+        "portrait": "🧓",
+        "hair": "#8d8d8d",
+        "age": "old"
       },
       "hours": [
         6,
@@ -1370,11 +1374,11 @@
       "sign": "NHÀ SÁCH TỰ DO",
       "signBg": "#636363",
       "npc": {
-        "name": "Em Minh chủ tiệm",
+        "name": "Em Minh",
         "shirt": "#9eecff",
-        "pants": "#9c9c9c",
+        "pants": "#ffffff",
         "hat": null,
-        "portrait": "📚",
+        "portrait": "👧",
         "hairStyle": "long",
         "gender": "f",
         "skin": "#ffdbac",
@@ -4648,14 +4652,16 @@
       "sign": "PET LAN ANH",
       "signBg": "#2e86c1",
       "npc": {
-        "name": "Chăm sóc viên",
-        "shirt": "#757575",
+        "name": "Lan Anh",
+        "shirt": "#c3bbbb",
         "pants": "#000000",
         "hat": null,
         "portrait": "👩",
         "gender": "f",
-        "hairStyle": "bun",
-        "skin": "#ffdbac"
+        "hairStyle": "shoulder",
+        "skin": "#ffdbac",
+        "build": "thin",
+        "scale": 0.95
       },
       "hours": "hanhChinh",
       "activities": [

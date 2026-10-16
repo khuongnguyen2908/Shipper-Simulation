@@ -638,3 +638,12 @@ b.plus { color: #58d68d; }
 /* HUD: nhắc lỗi đang mắc (chưa đội mũ bảo hiểm) */
 .hud-warn { color: #ff6b6b; animation: hudWarn 1.2s ease-in-out infinite alternate; }
 @keyframes hudWarn { from { opacity: 1; } to { opacity: 0.55; } }
+
+/* 🎬 Cảnh phim cốt truyện (game.js storyCineStart): 2 dải đen trên dưới trượt vào, ẩn bảng giao diện — bong bóng thoại vẫn hiện */
+#cine { position: fixed; inset: 0; pointer-events: none; z-index: 5; display: none; }
+#cine::before, #cine::after { content: ''; position: absolute; left: 0; right: 0; height: 11vh; background: #000; animation: cineBar 0.45s ease-out; }
+#cine::before { top: 0; transform-origin: top; }
+#cine::after { bottom: 0; transform-origin: bottom; }
+@keyframes cineBar { from { transform: scaleY(0); } }
+body.cine #cine { display: block; }
+body.cine #hud, body.cine #minimap, body.cine #phoneIcon, body.cine #phoneNote, body.cine #prompt, body.cine #speedo, body.cine #cargo, body.cine #toasts, body.cine #spotlight { visibility: hidden; }

@@ -199,6 +199,38 @@ export function makeQuestTexture(symbol = '!') {
   return toTexture(c);
 }
 
+// Dấu cảm xúc nhảy trên đầu (cốt truyện — việc "react"): chỉ có ký hiệu, viền tối cho dễ thấy, KHÔNG khung tròn
+// (khác dấu nhiệm vụ ! / ? có khung tròn vàng). ? ngạc nhiên = vàng · ! giật mình = đỏ
+export function makeReactTexture(symbol = '?', color = '#f4d03f') {
+  const [c, g] = canvas(128, 128);
+  g.font = '900 116px "Segoe UI", Arial, sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.lineJoin = 'round';
+  g.lineWidth = 12;
+  g.strokeStyle = 'rgba(20,14,0,0.85)';
+  g.strokeText(symbol, 64, 70);
+  g.fillStyle = color;
+  g.fillText(symbol, 64, 70);
+  return toTexture(c);
+}
+
+// Chấm đỏ mục tiêu (dấu "dot" trên đầu người đang bị truy đuổi, vd tên cướp): vòng đỏ + chấm giữa, viền trắng mảnh
+export function makeTargetDotTexture() {
+  const [c, g] = canvas(128, 128);
+  const ring = (r, w, col) => { g.beginPath(); g.arc(64, 64, r, 0, Math.PI * 2); g.lineWidth = w; g.strokeStyle = col; g.stroke(); };
+  ring(50, 14, 'rgba(255,255,255,0.9)');
+  ring(50, 9, '#e53935');
+  g.beginPath();
+  g.arc(64, 64, 20, 0, Math.PI * 2);
+  g.fillStyle = '#e53935';
+  g.fill();
+  g.lineWidth = 4;
+  g.strokeStyle = 'rgba(255,255,255,0.9)';
+  g.stroke();
+  return toTexture(c);
+}
+
 // Nhãn nổi trên đầu NPC
 export function makeLabelTexture(text, bg = 'rgba(20,24,32,0.8)') {
   const [c, g] = canvas(512, 96);
