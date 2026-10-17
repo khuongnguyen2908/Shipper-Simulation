@@ -110,6 +110,9 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [ ] | `city.bikeFall` | Xe té, trượt trên đường | Cảnh phim chương 3: tên cướp tránh chó không kịp, xe đổ trượt dài | tiếng ngắn | 🔉 tạm dùng impactmetal |
 | [x] | `city.thiefCrash` | Tên cướp đâm chó té xe | Cảnh phim chương 3, khúc cuối: đâm con chó, xe đổ trượt dài. File dài có tiếng trượt phía trước thì game tự phát sớm cho tiếng "rầm" trùng lúc đổ | tiếng ngắn | am_thanh_te_xe |
 | [x] | `city.thiefDog` | Con chó bị xe tên cướp đâm | Cảnh phim chương 3, khúc cuối: kêu / sủa đúng lúc bị đâm | tiếng ngắn | yodguard dog bark |
+| [ ] | `city.qte` | Nút bấm nhanh hiện ra | Chương 3: hiện nút "E — Chặn lại!" lúc tên cướp lao tới — tiếng báo gấp, ngắn | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `city.tackle` | Vật ngã | Chương 3: anh Đạt quật tên cướp xuống đường (bịch, sột soạt quần áo) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `city.siren` | Còi hú xe công an | Chương 3: xe công an chạy tới áp giải tên cướp (hú vài giây, nghe từ xa tới gần) | tiếng ngắn | 🔉 tổng hợp (tạm) |
 | [ ] | `loop.motoChase` | Máy xe anh mô tô (cảnh phim) | Tiếng lặp: sport bike anh mô tô lúc dí cướp — to nhỏ theo khoảng cách tới camera, cao độ theo tốc độ | tiếng lặp | 🔉 tạm dùng file máy xe chakong |
 | [ ] | `city.thiefShout` | La "Cướp!" | Chương 3: người trong chợ la lên "Cướp cướp!" | tiếng ngắn | 🔇 im |
 | [x] | `city.thunder` | Sấm | Trời bắt đầu mưa | tiếng ngắn | 🔇 im |

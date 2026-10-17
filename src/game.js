@@ -806,7 +806,7 @@ export class Game {
         if (!this.cine?.ride) for (const h of this.traffic.collidePlayer(bike.pos, 0.75, bike.vel, true, bike.mesh.position.y)) this.onTrafficHit(h, env); // xe tự chạy trong cảnh phim: không va chạm
       } else {
         // đang nói chuyện với người lạ (cốt truyện): đứng yên tới khi nói xong (phím đi bị bỏ qua; đồng hồ vẫn chạy)
-        activity = this.walker.update(dt, this.storyTalkActor() || this.cine ? NO_MOVE : inp.state, this.rig.yaw, { grid: this.city.grid, elev: this.city.elev, phys: gs.phys, speedMul: floodBand(water) >= 2 ? floodNum('walkMul') : 1 });
+        activity = this.walker.update(dt, this.storyTalkActor() || this.cine || this.tackle ? NO_MOVE : inp.state, this.rig.yaw, { grid: this.city.grid, elev: this.city.elev, phys: gs.phys, speedMul: floodBand(water) >= 2 ? floodNum('walkMul') : 1 });
         const talk = this.storyTalkActor(); // đang nói chuyện với người lạ, đứng yên → quay mặt về phía người đó
         if (talk && activity === 'idle' && !this.walker.seat) {
           const m = talk.mesh.position, w = this.walker.pos;

@@ -17,8 +17,8 @@ const TRAITS = [['fragile', '⚠️ Dễ vỡ'], ['hot', '🔥 Nóng'], ['cold',
 // không cho thêm mới, nhưng bước đang dùng thì vẫn hiện + sửa được (nhóm "Kiểu cũ"). Bộ chạy (sim/story.js) vẫn hiểu hết.
 const ACTION_GROUPS = [
   ['💬 Thoại & tin nhắn', ['bubble', 'choose', 'msg', 'replies']],
-  ['🧍 Người lạ', ['actor', 'approach', 'leave', 'board', 'alight', 'react', 'dismount', 'helmetOff']],
-  ['🎬 Cảnh & hành động', ['title', 'cine', 'chase', 'prop', 'sound']],
+  ['🧍 Người lạ', ['actor', 'approach', 'leave', 'board', 'alight', 'react', 'dismount', 'helmetOff', 'helmetOn', 'wave', 'rideOff']],
+  ['🎬 Cảnh & hành động', ['title', 'cine', 'chase', 'prop', 'tackle', 'fade', 'phoneCall', 'sound']],
   ['📦 Đồ & đơn', ['item', 'drop', 'offer', 'bike']],
   ['📱 Điện thoại & khác', ['openPhone', 'closePhone', 'toast', 'end']],
 ];
@@ -30,7 +30,7 @@ const UNTIL_GROUPS = [
   ['💬 Tin nhắn', ['open', 'reply', 'routed']],
   ['🗺️ Di chuyển', ['arrive', 'reach', 'mount']],
   ['📦 Đơn & xe', ['ordersSince', 'order', 'switch', 'fuel', 'brand', 'wear', 'use']],
-  ['⏱️ Thời gian & cảnh', ['wait', 'clock', 'newDay', 'cine', 'ack']],
+  ['⏱️ Thời gian & cảnh', ['wait', 'clock', 'newDay', 'cine', 'tackled', 'ack']],
   ['Khác', ['none', 'never']],
 ];
 const HIDDEN_GUIDES = ['reply']; // chưa chương nào dùng
@@ -90,7 +90,8 @@ export function render(root, ctx) {
   const contactOpts = Object.entries(data.contacts).map(([id, c]) => [id, `${c.icon || ''} ${C[c.name] || id}`]);
   const actorOpts = () => Object.entries(data.people).map(([id, c]) => [id, `${c.icon || ''} ${C[c.name] || id}`]); // người lạ (story.json → people)
   // người nói được: người lạ + NPC đứng ở địa điểm ('place:<mã>', vd sư cô ở chùa, bảo vệ trường)
-  const speakerOpts2 = () => [...actorOpts(), ...ctx.data.places.places.filter((p) => isPlaced(p) && p.npc).sort((a, b) => a.name.localeCompare(b.name)).map((p) => [`place:${p.id}`, `🏠 ${p.npc.name} — ${p.name}`])];
+  const policeOpts = () => (data.chapters.find((c) => c.id === sel.ch)?.steps || []).flatMap((x) => x.on || []).filter((y) => y.do === 'prop' && y.kind === 'police' && y.id).map((y) => [`prop:${y.id}`, `👮 Công an (xe ${y.id})`]);
+  const speakerOpts2 = () => [...actorOpts(), ...policeOpts(), ...ctx.data.places.places.filter((p) => isPlaced(p) && p.npc).sort((a, b) => a.name.localeCompare(b.name)).map((p) => [`place:${p.id}`, `🏠 ${p.npc.name} — ${p.name}`])];
   // NPC địa điểm vắng mặt (hideNpc): các địa điểm có NPC đứng ở cửa — ô tick
   const npcChips = (obj, onChange) => {
     const cur = new Set(obj.hideNpc || []);
@@ -241,11 +242,14 @@ export function render(root, ctx) {
       if (!v) return;
       const a = { do: v };
       if (v === 'say') Object.assign(a, { who: speakerOpts[0]?.[0] || '', text: newKey(`${base}.say`) });
-      if (['actor', 'approach', 'leave', 'remove', 'board', 'alight', 'goto', 'chase', 'dismount', 'helmetOff'].includes(v)) a.who = Object.keys(data.people)[0] || '';
+      if (['actor', 'approach', 'leave', 'remove', 'board', 'alight', 'goto', 'chase', 'dismount', 'helmetOff', 'helmetOn', 'wave', 'rideOff', 'tackle'].includes(v)) a.who = Object.keys(data.people)[0] || '';
       if (v === 'prop') Object.assign(a, { id: `prop${(ch.steps || []).flatMap((x) => x.on || []).filter((y) => y.do === 'prop').length + 1}`, kind: 'ramp', at: [0, 0], heading: 0, len: 7, h: 1.5 });
       if (v === 'drop') a.id = Object.keys(data.parcels)[0] || '';
       if (v === 'goto') Object.assign(a, { place: placeOpts[0]?.[0] || '', run: true });
       if (v === 'approach') a.stop = true;
+      if (v === 'tackle') Object.assign(a, { target: Object.keys(data.people).find((id) => id !== a.who) || '', qte: 2, text: 'story.qte.block' });
+      if (v === 'fade') Object.assign(a, { text: newKey(`${base}.fade`), t: 2 });
+      if (v === 'phoneCall') a.on = true;
       if (v === 'react') Object.assign(a, { who: [Object.keys(data.people)[0] || 'player'], icon: '!' });
       if (v === 'cine') a.shots = [{ at: 'player', t: 3, dist: 8, height: 3, angle: 180 }];
       if (v === 'chase') Object.assign(a, { look: 'jetjet', route: [{ place: placeOpts[0]?.[0] || '' }, { place: placeOpts[1]?.[0] || '' }], gap: 30, pct: 85, lose: 700, speed: 14, delay: 1, wheelie: true, revAt: 'pass' });
@@ -445,7 +449,7 @@ export function render(root, ctx) {
       button('✕', () => { st.on.splice(k, 1); rerender(); }, 'small danger'));
     const box = el('div', { class: 'story-act' }, tools);
     const o = opt('on');
-    if (['actor', 'approach', 'leave', 'remove', 'board', 'alight', 'goto', 'chase', 'dismount', 'helmetOff'].includes(a.do)) box.append(field('Người lạ', selectInput(a.who, actorOpts(), (v) => { a.who = v; ctx.changed('story'); }), { ...o, hint: 'Thêm người ở 👥 Danh bạ → Người nói.' }));
+    if (['actor', 'approach', 'leave', 'remove', 'board', 'alight', 'goto', 'chase', 'dismount', 'helmetOff', 'helmetOn', 'wave', 'rideOff', 'tackle'].includes(a.do)) box.append(field('Người lạ', selectInput(a.who, actorOpts(), (v) => { a.who = v; ctx.changed('story'); }), { ...o, hint: 'Thêm người ở 👥 Danh bạ → Người nói.' }));
     // rời cảnh: đổi cách rời = đổi mã việc (remove / leave / goto) — bộ chạy giữ nguyên 3 mã
     if (LEAVE_KINDS.some(([d]) => d === a.do)) box.append(field('Cách rời', selectInput(a.do, LEAVE_KINDS, (v) => {
       a.do = v;
@@ -532,6 +536,35 @@ export function render(root, ctx) {
     if (a.do === 'chase') box.append(chaseEditor(a, rerender, o));
     if (a.do === 'prop') box.append(propEditor(a, rerender, o));
     if (a.do === 'dismount') box.append(el('p', { class: 'muted' }, 'Người lạ đang ngồi xe (chạy trốn / đuổi theo / mô tô đậu) dừng hẳn, xuống đứng bên trái xe; xe dựng lại.'));
+    if (a.do === 'helmetOn') box.append(el('p', { class: 'muted' }, 'Người lạ đang cầm nón trên tay (sau "tháo nón"): 2 tay đưa nón lên cao rồi chụp xuống đầu, hạ tay. Thường dùng trước khi lên xe chạy đi ("Lên xe chạy đi" tự đội nón nếu còn cầm).'));
+    if (a.do === 'wave') box.append(field('Vẫy trong (giây)', numInput(a.t ?? 2, (v) => { a.t = v; ctx.changed('story'); }, { step: 0.5, min: 0.5, max: 6 }), { ...o, hint: 'Tay trái giơ cao vẫy qua lại (tay phải có thể đang cầm nón).' }));
+    if (a.do === 'rideOff') box.append(
+      el('p', { class: 'muted' }, 'Người lạ có xe đi kèm (mô tô đậu / xe lúc chạy trốn, đã xuống xe): đang cầm nón thì đội lại → đi tới xe → leo lên, nẹt pô, chạy theo hướng đầu xe ~7 giây rồi mất khỏi cảnh. Không có xe thì bỏ chạy như "Người lạ rời cảnh".'),
+      field('Tiếng lúc lên xe', selectInput(a.sound ?? 'city.rev', [['', '— Không —'], ...Object.values(SOUNDS).filter((x) => x.kind === 'sfx').map((x) => [x.id, `${x.id} — ${x.label}`])], (v) => { if (v === 'city.rev') delete a.sound; else a.sound = v; ctx.changed('story'); }), o));
+    if (a.do === 'phoneCall') box.append(field('', checkInput(a.on !== false, (v) => { if (v) delete a.on; else a.on = false; ctx.changed('story'); }, 'Đưa điện thoại lên tai (bỏ tick = cất điện thoại)'), { ...o, hint: 'Hình người chơi tay phải áp điện thoại bên tai. Màn đen ("fade") tự cất.' }));
+    if (a.do === 'tackle') box.append(
+      el('p', { class: 'muted' }, 'Người bị vật (đang chạy bộ sau khi té xe / đứng) vùng chạy về phía người chơi; hiện nút "E — Chặn lại!" có vòng đếm. Bấm kịp: người chơi dang tay chặn, nó khựng lại · không kịp: nó lách qua, người vật vẫn tóm được từ phía sau (không có thua). Người vật lao tới quật xuống — cảnh quay chậm ngang hông — rồi ghì nằm sấp, 2 tay bẻ ra sau lưng. Người chơi đang ngồi xe thì tự xuống xe. Điều kiện xong bước: "Vật ngã xong".'),
+      el('div', { class: 'grid' },
+        field('Người bị vật', selectInput(a.target || '', actorOpts(), (v) => { a.target = v; ctx.changed('story'); }), o),
+        field('Nút bấm nhanh (giây)', numInput(a.qte ?? 2, (v) => { a.qte = v; ctx.changed('story'); }, { step: 0.5, min: 0, max: 5 }), { ...o, hint: '0 = không có nút (người chơi đứng xem).' }),
+        field('', checkInput(a.cine !== false, (v) => { if (v) delete a.cine; else a.cine = false; ctx.changed('story'); }, 'Quay chậm lúc quật xuống'), o)),
+      textBox('Chữ trên nút', a.text || 'story.qte.block', 1, { hint: 'Dùng chung cho mọi nút "chặn lại".', ...o }));
+    if (a.do === 'fade') {
+      const rm = new Set([].concat(a.remove || []));
+      box.append(
+        el('p', { class: 'muted' }, 'Màn hình tối dần → hiện chữ → sáng lại. Lúc tối hẳn: dọn những người lạ được tick (vd tên cướp đã bị áp giải), dọn đạo cụ (xe công an…), người lạ "đứng lại" đứng dậy trước mặt người chơi. Cất điện thoại, thôi ghì. Đồng hồ vẫn chạy (bước sau nên chờ ≥ thời gian tối + 1,5 phút).'),
+        textBox('Chữ trên màn đen', a.text, 1, o),
+        el('div', { class: 'grid' },
+          field('Giữ tối (giây)', numInput(a.t ?? 2, (v) => { a.t = v; ctx.changed('story'); }, { step: 0.5, min: 0.5, max: 10 }), o),
+          field('', checkInput(!!a.props, (v) => { if (v) a.props = true; else delete a.props; ctx.changed('story'); }, 'Dọn hết đạo cụ'), o),
+          field('Người đứng lại trước mặt', selectInput(a.stand || '', [['', '— Không —'], ...actorOpts()], (v) => { if (v) a.stand = v; else delete a.stand; rerender(); }), o),
+          a.stand ? field('Cách người chơi (m)', numInput(a.dist ?? 2.2, (v) => { a.dist = v; ctx.changed('story'); }, { step: 0.1, min: 1, max: 6 }), o) : null),
+        field('Dọn người lạ', el('div', { class: 'chips' }, actorOpts().map(([id, label]) => checkInput(rm.has(id), (on) => {
+          if (on) rm.add(id); else rm.delete(id);
+          if (rm.size) a.remove = [...rm]; else delete a.remove;
+          ctx.changed('story');
+        }, label))), o));
+    }
     if (a.do === 'helmetOff') box.append(el('p', { class: 'muted' }, 'Người lạ đang đội mũ bảo hiểm (đang ngồi xe thì tự xuống trước): 2 tay giơ lên gỡ nón khỏi đầu (lộ tóc — kiểu tóc riêng của bộ đồ trong sơ đồ quan hệ), hạ xuống cầm nón tay phải.'));
     if (a.do === 'board') box.append(el('p', { class: 'muted' }, 'Người lạ đi theo người chơi; người chơi lên xe và chạy tới sát thì leo lên ngồi sau (tự đội mũ của mình, không qua app, không tính tiền). Dùng với điều kiện "Đã chở người lạ … tới …".'));
     if (a.do === 'alight') box.append(el('p', { class: 'muted' }, 'Người lạ xuống xe, đứng cạnh xe.'));
@@ -706,6 +739,8 @@ export function render(root, ctx) {
         a.kind !== 'ramp' ? field('Tốc độ', numInput(a.speed ?? 8, (v) => setOpt('speed', v, (x) => x > 0), { step: 1, min: 1, max: 30 }), o) : null,
         a.kind === 'car' || a.kind === 'moto' ? field('Màu', textInput(a.color || '', (v) => setOpt('color', v.trim(), (x) => /^#[0-9a-f]{6}$/i.test(x)), { placeholder: 'bỏ trống = màu ngẫu nhiên cố định' }), o) : null,
         a.kind !== 'ramp' ? field('', checkInput(!!a.keep, (v) => { if (v) a.keep = true; else delete a.keep; ctx.changed('story'); }, 'Hết đường thì dừng lại (không biến mất)'), { ...o, hint: 'Vd xe máy tấp vào lề dừng hẳn. Không tick: hết đường thì đi khỏi cảnh (nên để điểm cuối ở xa, ngoài ống kính).' }) : null,
+        a.kind === 'police' ? field('Số anh công an', numInput(a.cops ?? 2, (v) => { a.cops = v; ctx.changed('story'); }, { step: 1, min: 1, max: 4 }), { ...o, hint: 'Xe dừng ở cuối đường (tick "dừng lại") thì các anh bước xuống. Nói được: bong bóng "Ai nói" → 👮 Công an (xe <mã>).' }) : null,
+        a.kind === 'police' ? field('Đi tới chỗ', selectInput(a.copsTo || '', [['', '— Đứng cạnh xe —'], ...actorOpts().map(([id, l]) => [`actor:${id}`, l])], (v) => setOpt('copsTo', v)), o) : null,
         a.kind === 'car' ? field('Kiểu ô tô', selectInput(a.model || '', [['', 'Sedan'], ['suv', 'SUV'], ['taxi', 'Taxi'], ['truck', 'Xe tải nhỏ']], (v) => setOpt('model', v)), o) : null,
         field('Tiếng lúc hiện ra', selectInput(a.sound || '', [['', '— Không —'], ...Object.values(SOUNDS).filter((x) => x.kind === 'sfx').map((x) => [x.id, `${x.id} — ${x.label}`])], (v) => setOpt('sound', v)), o),
         a.kind === 'ramp' ? field('Chỗ đặt [x, z]', el('div', { class: 'row' }, ...[0, 1].map((i) => numInput((a.at ||= [0, 0])[i], (v) => { a.at[i] = v; ctx.changed('story'); }, { step: 0.5 }))), o) : null,

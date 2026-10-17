@@ -646,4 +646,20 @@ b.plus { color: #58d68d; }
 #cine::after { bottom: 0; transform-origin: bottom; }
 @keyframes cineBar { from { transform: scaleY(0); } }
 body.cine #cine { display: block; }
+/* Nút bấm nhanh (việc "tackle" — game/scene.js qteShow): phím E trong vòng đếm ngược vàng + chữ "Chặn lại!" giữa dưới màn hình */
+#qte { position: fixed; left: 50%; bottom: 20vh; transform: translateX(-50%) scale(0.6); display: flex; align-items: center; gap: 14px; z-index: 30; pointer-events: none; opacity: 0; transition: opacity 0.15s, transform 0.15s; }
+#qte.on { opacity: 1; transform: translateX(-50%) scale(1); }
+#qte svg { width: 92px; height: 92px; transform: rotate(-90deg); }
+#qte circle { fill: none; stroke-width: 7; }
+#qte .bg { fill: rgba(0, 0, 0, 0.6); stroke: rgba(255, 255, 255, 0.2); }
+#qte .ring { stroke: #ffd84a; stroke-dasharray: 264; stroke-linecap: round; }
+#qte b { position: absolute; left: 24px; width: 44px; height: 44px; border-radius: 10px; background: #fff; color: #111; font: 800 30px/44px system-ui, sans-serif; text-align: center; animation: qtePulse 0.4s ease-in-out infinite alternate; }
+#qte span { font: 800 30px system-ui, sans-serif; color: #fff; text-shadow: 0 0 6px #000, 0 2px 0 #000; }
+#qte.ok b { background: #6fe03a; animation: none; }
+#qte.ok .ring { stroke: #6fe03a; }
+#qte.miss { opacity: 0; transition: opacity 0.4s; }
+@keyframes qtePulse { to { transform: scale(1.12); } }
+/* Màn đen + chữ (việc "fade" — vd "Ít phút sau…"): tối dần, giữ, sáng lại */
+#storyFade { position: fixed; inset: 0; z-index: 40; background: #000; color: #fff; display: flex; align-items: center; justify-content: center; font: italic 34px system-ui, sans-serif; opacity: 0; pointer-events: none; transition: opacity 0.7s; }
+#storyFade.on { opacity: 1; }
 body.cine #hud, body.cine #minimap, body.cine #phoneIcon, body.cine #phoneNote, body.cine #prompt, body.cine #speedo, body.cine #cargo, body.cine #toasts, body.cine #spotlight { visibility: hidden; }

@@ -219,10 +219,10 @@
     },
     "man": {
       "icon": "😎",
-      "name": "Người đàn ông chạy xe moto",
+      "name": "Đạt",
       "gender": "m",
       "age": 30,
-      "role": "Đi mô tô xịn, hẹn gặp chị Linh ở trường — chưa rõ danh tính",
+      "role": "Đi sport bike đen sọc xanh lá, quen chị Linh. Chương 3: cùng người chơi bắt tên cướp, để lại số điện thoại",
       "personality": "Bí ẩn nhưng có vẻ cũng thân thiện",
       "notes": "Hỏi chị Linh \"Em của em hả?\" khi thấy người chơi.",
       "story": "man",
@@ -278,6 +278,9 @@
           },
           "hairStyle": "crop"
         }
+      ],
+      "oldNames": [
+        "Người đàn ông chạy xe moto"
       ]
     },
     "emMinh": {
@@ -712,21 +715,21 @@
       "b": "man",
       "type": "acquaint",
       "ab": {
-        "label": "bạn của chị Linh?",
+        "label": "quen nhau lúc bắt cướp",
         "self": "em",
         "call": "anh",
         "feel": 0
       },
       "ba": {
-        "label": "em của Linh?",
+        "label": "em gan dạ hôm bắt cướp",
         "self": "anh",
         "call": "em",
         "feel": 0
       },
       "from": 2,
       "to": null,
-      "secret": true,
-      "notes": "Thấy nói chuyện với chị Linh, không biết là ai"
+      "secret": false,
+      "notes": "Chương 2: thấy nói chuyện với chị Linh ở trường, không biết là ai. Chương 3: cùng bắt cướp, Đạt giới thiệu tên, nhắn tin cho người chơi."
     },
     {
       "id": "l16",

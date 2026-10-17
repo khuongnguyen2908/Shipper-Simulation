@@ -113,6 +113,12 @@ export class StoryPart {
       else if (a.do === 'prop') this.storyPropSpawn(a); // đạo cụ cảnh phim: xe tải, tấm ván, chó
       else if (a.do === 'dismount') this.storyActorDismount(a.who);
       else if (a.do === 'helmetOff') this.storyHelmetOff(a.who);
+      else if (a.do === 'helmetOn') this.storyHelmetOn(a.who); // đội nón lại (đang cầm trên tay)
+      else if (a.do === 'tackle') this.storyTackleStart(a); // vật ngã người bị đuổi (có nút bấm nhanh E)
+      else if (a.do === 'wave') this.storyWave(a.who, a.t);
+      else if (a.do === 'rideOff') this.storyActorRideOff(a.who, a); // lên xe của mình chạy đi
+      else if (a.do === 'phoneCall') this.storyPhoneCall(a.on !== false); // người chơi đưa điện thoại lên tai / cất
+      else if (a.do === 'fade') this.storyFade(a); // màn đen "Ít phút sau…"
       else if (a.do === 'fail') this.storyFail(a);
       else if (a.do === 'sound' && a.code) sound(a.code);
       else if (a.do === 'leave') this.storyActorLeave(a.who);
@@ -255,6 +261,8 @@ export class StoryPart {
     this.pendingReply = null;
     this.storyQueue = [];
     this.storyCineStop();
+    this.sceneRelease(); // xe NPC đã dọn cho cảnh vật ngã
+    this.tackle = null;
     for (const a of Object.values(actorsPresent(this.gs.story))) {
       if (a.do === 'chase') this.storyChaseSpawn(a, true);
       else if (a.spot === 'xeOm' || a.spot === 'place') this.storyActorSpawn(a);
@@ -265,6 +273,9 @@ export class StoryPart {
       for (const a of st.on || []) {
         if (a.do === 'dismount' && this.storyActors?.[a.who]) this.storyActorDismount(a.who);
         if (a.do === 'helmetOff' && this.storyActors?.[a.who]) this.storyHelmetOff(a.who, true);
+        if (a.do === 'helmetOn' && this.storyActors?.[a.who]) this.storyHelmetOn(a.who, true);
+        if (a.do === 'fade') this.storyFadeClean(a); // màn đen đã qua: người / đạo cụ đã dọn
+        if (a.do === 'rideOff') this.storyActorRemove(a.who); // đã chạy đi mất
       }
     }
     // mở lại game giữa cảnh phim → bỏ qua cảnh phim đó
@@ -281,6 +292,10 @@ export class StoryPart {
     if (String(who).startsWith('place:')) {
       const id = who.slice(6), m = this.npcs[id];
       return m ? { mesh: m, name: this.layout.placeById[id]?.npc?.name || '', up: 1.95 } : null;
+    }
+    if (String(who).startsWith('prop:')) {
+      const p = this.storyProps?.[who.slice(5)], m = p?.cops?.[0];
+      return m ? { mesh: m, name: fmt(p.def.name || 'story.people.cop'), up: 1.95 } : null;
     }
     const ac = this.storyActors?.[who];
     return ac ? { mesh: ac.seated || ac.mesh, name: fmt(STORY.people?.[who]?.name || ''), up: ac.seated ? 1.6 : 1.95, ac } : null;
@@ -1030,6 +1045,7 @@ export class StoryPart {
   // Mỗi khung hình: đi tới chỗ người chơi, đứng nhìn người chơi / người cùng nói chuyện (def.faceTo), chạy đi, lên xe đi mất, theo người chơi lên xe
   storyActorsTick(dt) {
     this.reactsTick(dt);
+    this.tackleTick(dt); // vật ngã (việc "tackle"): người vật + người bị vật do phần cảnh phim điều khiển
     this.storyPropsTick(dt * this.sceneScale()); // đạo cụ cảnh phim (xe tải, chó…) + khói lốp
     // câu đáp lại câu người chơi vừa chọn (người lạ / NPC địa điểm)
     // câu đang giữ đã tắt (vd đi xa) mà còn câu xếp hàng → hiện câu kế
@@ -1037,6 +1053,8 @@ export class StoryPart {
     for (const [who, ac] of Object.entries(this.storyActors || {})) {
       if (ac.seated) continue; // đang ngồi sau xe người chơi: đi theo xe
       if (ac.mode === 'chase') { this.chaseTick(who, ac, dt * this.sceneScale()); continue; } // tên cướp chạy xe theo lộ trình (quay chậm: chạy chậm lại)
+      if (ac.mode === 'tackled' || ac.mode === 'tackler') continue; // đang vật / bị ghì (tackleTick)
+      if (ac.mode === 'rideoff') { if (ac.helmet) this.helmetTick(ac, dt); this.rideOffTick(who, ac, dt); continue; } // đội nón, lên xe chạy đi
       if (ac.mode === 'ride') { // lên mô tô chạy dọc đường, 6 giây sau biến mất
         ac.t += dt;
         ac.speed = Math.min(11, ac.speed + dt * 5);
@@ -1101,6 +1119,7 @@ export class StoryPart {
       ac.phase += dt * (amount ? 5 + speed : 0);
       animatePerson(ac.mesh, ac.phase, amount);
       if (ac.helmet) this.helmetTick(ac, dt); // đang tháo nón / cầm nón trên tay
+      if (ac.wave) this.waveTick(ac, dt); // vẫy tay chào
       if (ac.mode === 'leave' && (ac.t += dt) > 5) this.storyActorRemove(who);
     }
   }

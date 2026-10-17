@@ -1,7 +1,7 @@
 # Việc đang dở — Shipper Simulation
 
 Ghi lại những việc đã bàn mà chưa làm / còn treo, để đổi máy hay đổi tài khoản Claude vẫn làm tiếp được.
-Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây"). Cập nhật lần cuối: 16/10/2026.
+Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây"). Cập nhật lần cuối: 17/10/2026.
 
 ## ⏸ Hoãn có chủ đích
 
@@ -112,7 +112,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   ① mắt người chơi nhìn tới (pô gầm sau lưng `city.motoPass`) ② ngoái lại ③ xe vượt mặt, lia theo ④ trên cao ⑤ góc nhà thờ: drift + khói ⑥ bám theo qua cầu kênh
   ⑦ ngã tư bến cảng: xe tải container lao ra (còi `city.truckHorn`), tên cướp lạng trái lọt qua ⑧ lên tấm ván bay qua xe tải (quay chậm 0,6 ≈ 3 giây)
   ⑨ bám theo tới công viên ⑩ chó lao ra, té xe (`city.bikeFall`) ⑪ bỏ xe chạy bộ, anh mô tô vượt lên thắng gấp xoay ngang chặn ⑫ người chơi chạy tới từ xa →
-  bước arrive2 (anh mô tô xuống xe, người chơi lại gần) → helmetOff (2 tay giơ gỡ nón, lộ tóc undercut vuốt ngược, cầm nón tay phải) → wip.
+  bước arrive2 (anh mô tô xuống xe, người chơi lại gần) → phần cuối chương (mục "🤼 Chương 3 — cuối chương" bên dưới).
 - Máy mới (đều chỉnh được ở ?editor → Cốt truyện):
   - Cảnh quay: kiểu máy (quanh vật / góc nhìn thứ nhất / cố định ở tọa độ), quay đầu yaw→yawTo, nhìn theo (lookAt), tới mốc thì sang cảnh sau (until "người:mốc"),
     quay chậm (slow — chỉ diễn viên, đạo cụ, xe người chơi; đồng hồ chung vẫn chạy), góc rộng (fov), tiếng lúc vào cảnh. Cảnh phim: xe người chơi tự chạy theo (ride),
@@ -138,6 +138,22 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
 - Sửa 17/10 (3): lúc chiếu cảnh dí lớn TẮT HẾT xe thường (cine.clearAll: xe NPC, xe buýt, xe nền — chỉ máy mình, hết cảnh chạy lại) · thay bằng 6 xe diễn viên
   (đạo cụ car / moto: xeW1–W3 đường trước nhà thờ, xeS1–S3 đường xuống bến cảng) chạy đúng làn, hiện khi tên cướp tới mốc west / south, có xe tấp lề dừng (keep) ·
   2 xe dí + xe người chơi tự chạy đều né xe diễn viên (sửa lỗi hàm né: đo lệch sai + bỏ né khi đang chạy ngang hàng). Đo: gần nhất 1,6 (tâm-tâm), không xuyên qua nhau.
+
+### 🤼 Chương 3 — cuối chương: bắt cướp → công an → làm quen anh Đạt (17/10 — XONG, CHƯA commit; phác họa duyệt: sketches/canh-bat-cuop/storyboard.jpg)
+- Chủ game chốt: cách 1 (anh Đạt vật ngã) + nút E · công an kiểu gọn (xe tới → màn đen "Ít phút sau…") · không cần nút lưu danh bạ, chỉ tự nhắn qua
+  (chữ tin nhắn chủ game sửa sau — khóa story.c3.dat.m1) · không cài câu móc · đổi tên "Người đàn ông chạy xe moto" → **Đạt** trong sơ đồ quan hệ (giữ tên cũ).
+- Luồng (story.json chương 3, sau bigChase): arrive2 (tới gần tên cướp) → catch (tên cướp vùng chạy về phía người chơi, nút "E — Chặn lại!" 2 giây;
+  bấm kịp: dang tay chặn · trễ: nó lách qua; anh Đạt vẫn quật xuống — quay chậm, ghì nằm sấp) → callPolice (chọn 3 câu) → callAns → call113 (điện thoại lên tai)
+  → police (xe CẢNH SÁT hú còi `city.siren` chạy tới góc ngã tư, 2 anh công an đi tới tên cướp) → copSay → later (màn đen; dọn tên cướp + đạo cụ, anh Đạt đứng
+  dậy trước mặt) → helmetOff → hi (vẫy tay) → who / whoAns → realize / realizeAns → name ("Anh tên Đạt…") → rideOff (đội nón, lên xe, nẹt pô, chạy đúng làn phải)
+  → datMsg (tin nhắn từ "Anh Đạt" — danh bạ mã `man`, 3 câu trả lời) → done (hết chương 3).
+- Việc mới (dùng lại được, có ở ?editor): 🤼 Vật ngã (tackle) + điều kiện "Vật ngã xong" (tackled) · ⬛ Màn đen (fade) · Đội nón lại (helmetOn) · Vẫy tay (wave)
+  · Lên xe chạy đi (rideOff) · Người chơi gọi điện (phoneCall) · đạo cụ 🚓 xe công an (prop police: cops, copsTo; bong bóng "Ai nói" → prop:<mã>).
+  Từ lúc vật ngã tới lúc anh Đạt chạy đi: giữ vùng 55 m quanh đó không có xe NPC (traffic.holdNear kiểu vùng) — chỉ máy mình.
+- Xe anh Đạt (supersport) làm lại: vỏ "nặn" thon (models.js loftGeo), đèn đôi xếch, kính chắn gió, gương trên đầu xe, mảng xanh kiểu Ninja, mâm 3 chấu kép
+  (so sánh: sketches/xe-dat/so-sanh.jpg). Dùng chung chương 2 + 3, chỗ ngồi / tay lái giữ nguyên.
+- Âm thanh mới CHỜ gắn file: `city.siren` (còi hú — tạm tiếng tổng hợp), `city.tackle` (vật ngã), `city.qte` (nút bấm hiện).
+- Còn để ý: dáng ghì / quỳ đặt bằng tay (không có hoạt cảnh mẫu) — thấy cứng thì chỉnh ở game/scene.js tackleTick.
 - Còn để ý: xe NPC ở khu bến cảng vẫn chạy (để 2 xe có cái mà né) nên đôi khi chắn ống kính; mở lại game giữa cảnh phim → bỏ qua cảnh, anh mô tô + tên cướp đặt ở cuối đường.
 
 ### 🗣️ Xưng hô "anh/chị" theo giới tính người chơi (16/10 — XONG)

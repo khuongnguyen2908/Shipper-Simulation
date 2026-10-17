@@ -18,6 +18,10 @@
       "icon": "👩",
       "name": "story.contact.linh",
       "place": "tra"
+    },
+    "man": {
+      "icon": "😎",
+      "name": "story.contact.man"
     }
   },
   "people": {
@@ -2816,14 +2820,212 @@
           ],
           "until": {
             "type": "near",
-            "who": "man",
-            "r": 6
+            "who": "thief",
+            "r": 8
           },
           "goal": "story.c3.arrive.goal",
           "target": "actor:man",
           "mark": {
             "actor": "man",
             "icon": "!"
+          }
+        },
+        {
+          "id": "catch",
+          "hold": true,
+          "noFines": true,
+          "guide": null,
+          "on": [
+            {
+              "do": "tackle",
+              "who": "man",
+              "target": "thief",
+              "qte": 2,
+              "text": "story.qte.block"
+            }
+          ],
+          "until": {
+            "type": "tackled"
+          },
+          "goal": "story.c3.catch.goal"
+        },
+        {
+          "id": "callPolice",
+          "hold": true,
+          "noFines": true,
+          "guide": null,
+          "delay": 1,
+          "on": [
+            {
+              "do": "bubble",
+              "who": "man",
+              "text": "story.c3.dat.call",
+              "hold": true
+            },
+            {
+              "do": "choose",
+              "id": "c3Call",
+              "who": "man",
+              "options": [
+                "story.c3.call.o1",
+                "story.c3.call.o2",
+                "story.c3.call.o3"
+              ],
+              "answers": [
+                "story.c3.call.a1",
+                "story.c3.call.a2",
+                "story.c3.call.a3"
+              ],
+              "gains": [
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ]
+            }
+          ],
+          "until": {
+            "type": "chosen",
+            "id": "c3Call"
+          }
+        },
+        {
+          "id": "callAns",
+          "hold": true,
+          "noFines": true,
+          "guide": null,
+          "on": [],
+          "until": {
+            "type": "talkActor",
+            "who": "man"
+          }
+        },
+        {
+          "id": "call113",
+          "hold": true,
+          "noFines": true,
+          "guide": null,
+          "on": [
+            {
+              "do": "phoneCall",
+              "on": true
+            },
+            {
+              "do": "bubble",
+              "who": "player",
+              "text": "story.c3.call113"
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 4
+          }
+        },
+        {
+          "id": "police",
+          "hold": true,
+          "noFines": true,
+          "guide": null,
+          "on": [
+            {
+              "do": "phoneCall",
+              "on": false
+            },
+            {
+              "do": "prop",
+              "id": "police1",
+              "kind": "police",
+              "route": [
+                {
+                  "at": [
+                    -12,
+                    263
+                  ]
+                },
+                {
+                  "at": [
+                    36,
+                    263
+                  ]
+                },
+                {
+                  "at": [
+                    45,
+                    262.5
+                  ]
+                }
+              ],
+              "speed": 11,
+              "keep": true,
+              "cops": 2,
+              "copsTo": "actor:thief",
+              "sound": "city.siren"
+            },
+            {
+              "do": "cine",
+              "shots": [
+                {
+                  "at": "prop:police1",
+                  "t": 4.5,
+                  "dist": 10,
+                  "height": 3,
+                  "angle": 160,
+                  "follow": true
+                }
+              ]
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 9
+          }
+        },
+        {
+          "id": "copSay",
+          "hold": true,
+          "noFines": true,
+          "guide": null,
+          "on": [
+            {
+              "do": "bubble",
+              "who": "prop:police1",
+              "text": "story.c3.cop.thanks"
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 3.5
+          }
+        },
+        {
+          "id": "later",
+          "hold": true,
+          "noFines": true,
+          "guide": null,
+          "on": [
+            {
+              "do": "fade",
+              "text": "story.c3.later",
+              "t": 2,
+              "remove": [
+                "thief"
+              ],
+              "props": true,
+              "stand": "man",
+              "dist": 2.3
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 4.5
           }
         },
         {
@@ -2839,22 +3041,217 @@
           ],
           "until": {
             "type": "wait",
-            "min": 2.5
+            "min": 2.2
           }
         },
         {
-          "id": "wip",
-          "until": {
-            "type": "never"
-          },
+          "id": "hi",
+          "hold": true,
+          "guide": null,
           "on": [
             {
-              "do": "remove",
-              "who": "thief"
+              "do": "wave",
+              "who": "man",
+              "t": 2
+            },
+            {
+              "do": "bubble",
+              "who": "man",
+              "text": "story.c3.dat.hi",
+              "hold": true
             }
           ],
+          "until": {
+            "type": "talkActor",
+            "who": "man"
+          },
+          "goal": "story.c3.talk.goal"
+        },
+        {
+          "id": "who",
+          "hold": true,
           "guide": null,
-          "goal": "story.c3.wip.goal"
+          "on": [
+            {
+              "do": "choose",
+              "id": "c3Who",
+              "who": "man",
+              "options": [
+                "story.c3.who.o1",
+                "story.c3.who.o2",
+                "story.c3.who.o3"
+              ],
+              "answers": [
+                "story.c3.who.a1",
+                "story.c3.who.a2",
+                "story.c3.who.a3"
+              ],
+              "gains": [
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ]
+            }
+          ],
+          "until": {
+            "type": "chosen",
+            "id": "c3Who"
+          }
+        },
+        {
+          "id": "whoAns",
+          "hold": true,
+          "guide": null,
+          "on": [],
+          "until": {
+            "type": "talkActor",
+            "who": "man"
+          }
+        },
+        {
+          "id": "realize",
+          "hold": true,
+          "guide": null,
+          "on": [
+            {
+              "do": "choose",
+              "id": "c3Realize",
+              "who": "man",
+              "options": [
+                "story.c3.realize.o1",
+                "story.c3.realize.o2",
+                "story.c3.realize.o3"
+              ],
+              "answers": [
+                "story.c3.realize.a1",
+                "story.c3.realize.a2",
+                "story.c3.realize.a3"
+              ],
+              "gains": [
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ]
+            }
+          ],
+          "until": {
+            "type": "chosen",
+            "id": "c3Realize"
+          }
+        },
+        {
+          "id": "realizeAns",
+          "hold": true,
+          "guide": null,
+          "on": [],
+          "until": {
+            "type": "talkActor",
+            "who": "man"
+          }
+        },
+        {
+          "id": "name",
+          "hold": true,
+          "guide": null,
+          "on": [
+            {
+              "do": "bubble",
+              "who": "man",
+              "text": "story.c3.dat.name",
+              "hold": true
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "man"
+          }
+        },
+        {
+          "id": "rideOff",
+          "hold": true,
+          "guide": null,
+          "on": [
+            {
+              "do": "rideOff",
+              "who": "man"
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 6
+          }
+        },
+        {
+          "id": "datMsg",
+          "hold": true,
+          "guide": null,
+          "delay": 2,
+          "on": [
+            {
+              "do": "msg",
+              "from": "man",
+              "text": "story.c3.dat.m1",
+              "loc": []
+            },
+            {
+              "do": "replies",
+              "who": "man",
+              "texts": [
+                "story.c3.dat.r1",
+                "story.c3.dat.r2",
+                "story.c3.dat.r3"
+              ],
+              "gains": [
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ]
+            }
+          ],
+          "until": {
+            "type": "reply",
+            "who": "man"
+          },
+          "goal": "story.c3.datMsg.goal"
+        },
+        {
+          "id": "done",
+          "on": [
+            {
+              "do": "end"
+            }
+          ],
+          "until": {
+            "type": "none"
+          },
+          "guide": null
         }
       ]
     }

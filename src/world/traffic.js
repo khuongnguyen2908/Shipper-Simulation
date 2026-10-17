@@ -288,14 +288,17 @@ export class Traffic {
 
   // ---------------- xe buýt ----------------
   // Mỗi tuyến vài xe; vị trí lấy thẳng từ lịch chạy (cùng lịch dùng để tính chờ / đi khi người chơi đi xe)
-  // Cảnh phim cốt truyện: tạm giấu xe NPC + xe buýt quanh (x, z) bán kính r (chỉ máy người chơi này — chỉ để nhìn), release() thì hiện lại
-  holdNear(x, z, r) {
+  // Cảnh phim cốt truyện: tạm giấu xe NPC + xe buýt quanh (x, z) bán kính r (chỉ máy người chơi này — chỉ để nhìn), release() thì hiện lại.
+  // zone: giữ luôn cả vùng — xe chạy vào vùng sau đó cũng bị giấu (cảnh dài đứng giữa đường, vd vật ngã → nói chuyện)
+  holdNear(x, z, r, zone = false) {
     for (const a of this.agents) if (Math.hypot(a.x - x, a.z - z) < r) a.held = true;
     for (const b of this.buses) if (Math.hypot(b.x - x, b.z - z) < r) b.held = true;
+    if (zone) this.holdZone = { x, z, r };
   }
   release() {
     for (const a of this.agents) a.held = false;
     for (const b of this.buses) b.held = false;
+    this.holdZone = null;
   }
   setBuses(sys) {
     for (const b of this.buses) this.scene.remove(b.mesh);
@@ -357,7 +360,8 @@ export class Traffic {
       d = ((d + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
       b.heading = b.ready ? b.heading + d * Math.min(1, dt * 6) : p.heading;
       b.ready = true;
-      b.mesh.visible = !b.held && on && Math.abs(p.x - px) < FAR && Math.abs(p.z - pz) < FAR;
+      const Z = this.holdZone, inZone = !!Z && Math.hypot(p.x - Z.x, p.z - Z.z) < Z.r; // vùng đang giữ cho cảnh cốt truyện
+      b.mesh.visible = !b.held && !inZone && on && Math.abs(p.x - px) < FAR && Math.abs(p.z - pz) < FAR;
       b.mesh.position.set(p.x, this.elev ? this.elev.topAt(p.x, p.z) : 0, p.z);
       b.mesh.rotation.y = b.heading;
     }
@@ -1087,7 +1091,9 @@ export class Traffic {
     // xe NPC — ẩn / hiện có vùng đệm 2 phía mép tầm nhìn (xe không bật tắt liên tục ở mép)
     this.clock = (this.clock || 0) + dt;
     // xe đặc biệt ngoài giờ chạy (Jetjet ban ngày, ba gác ban đêm): ẩn, đứng yên, không tính nhường / va chạm
+    const Z = this.holdZone;
     for (const a of this.agents) {
+      if (Z && !a.held && Math.hypot(a.x - Z.x, a.z - Z.z) < Z.r) a.held = true; // chạy vào vùng đang giữ cho cảnh
       if (a.held) { a.off = a.heldOff = true; a.mesh.visible = false; continue; } // cảnh phim: tạm giấu
       if (a.heldOff) { a.off = a.heldOff = false; }
       if (!a.hours || ctx.hour == null) continue;

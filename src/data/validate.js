@@ -849,8 +849,8 @@ export function storyGifts(story) {
   }
   return out;
 }
-const STORY_UNTIL = ['none', 'wait', 'read', 'open', 'reply', 'routed', 'ack', 'use', 'arrive', 'talk', 'mount', 'brand', 'wear', 'switch', 'fuel', 'order', 'near', 'talkActor', 'chosen', 'ordersSince', 'newDay', 'clock', 'bring', 'cine', 'chased', 'reach', 'never'];
-const STORY_DO = ['title', 'say', 'actor', 'bubble', 'approach', 'leave', 'remove', 'choose', 'board', 'alight', 'drop', 'msg', 'replies', 'item', 'bike', 'give', 'toast', 'openPhone', 'closePhone', 'offer', 'fuel', 'end', 'goto', 'react', 'cine', 'chase', 'sound', 'prop', 'dismount', 'helmetOff'];
+const STORY_UNTIL = ['none', 'wait', 'read', 'open', 'reply', 'routed', 'ack', 'use', 'arrive', 'talk', 'mount', 'brand', 'wear', 'switch', 'fuel', 'order', 'near', 'talkActor', 'chosen', 'ordersSince', 'newDay', 'clock', 'bring', 'cine', 'chased', 'reach', 'tackled', 'never'];
+const STORY_DO = ['title', 'say', 'actor', 'bubble', 'approach', 'leave', 'remove', 'choose', 'board', 'alight', 'drop', 'msg', 'replies', 'item', 'bike', 'give', 'toast', 'openPhone', 'closePhone', 'offer', 'fuel', 'end', 'goto', 'react', 'cine', 'chase', 'sound', 'prop', 'dismount', 'helmetOff', 'helmetOn', 'tackle', 'wave', 'rideOff', 'phoneCall', 'fade'];
 const STORY_ACTOR_LOOKS = ['jetjet', 'normal', 'girl', 'gentleman', 'char']; // = ACTOR_LOOKS (sim/story.js)
 const STORY_ACTOR_SPOTS = ['xeOm', 'place', 'near']; // = ACTOR_SPOTS (sim/story.js)
 const STORY_ACTOR_VEHICLES = ['moto']; // = ACTOR_VEHICLES (sim/story.js)
@@ -980,6 +980,7 @@ export function validateStory(story, { places = null, goods = null, content = nu
         if (!ok) add('error', ref, 'until', `Chờ chọn câu trả lời "${u.id}" mà chưa có việc "Chọn câu trả lời" mã này ở bước này hoặc bước trước → kẹt.`);
       }
       if (u.type === 'cine' && !(st.on || []).some((a) => a.do === 'cine')) add('error', ref, 'until', 'Chờ cảnh phim chiếu xong mà bước này không có việc "🎬 Cảnh phim" → kẹt.');
+      if (u.type === 'tackled' && !(st.on || []).some((a) => a.do === 'tackle')) add('error', ref, 'until', 'Chờ vật ngã xong mà bước này không có việc "🤼 Vật ngã" → kẹt.');
       if (u.type === 'chased') {
         const ok = (ch.steps || []).slice(0, i + 1).some((x) => (x.on || []).some((a) => a.do === 'chase' && a.who === u.who));
         if (!ok) add('error', ref, 'until', `Chờ "${u.who}" chạy hết lộ trình mà chưa có việc "🏍️ Chạy trốn" cho người này ở bước này hoặc bước trước → kẹt.`);
@@ -1056,7 +1057,25 @@ export function validateStory(story, { places = null, goods = null, content = nu
           text(ref, 'on', a.text, 'câu nói');
         }
         if (a.do === 'toast') text(ref, 'on', a.text, 'thông báo');
-        if (['actor', 'approach', 'leave', 'remove', 'board', 'alight', 'goto', 'chase', 'dismount', 'helmetOff'].includes(a.do) && !people[a.who]) add('error', ref, 'on', `Người lạ "${a.who}" không có (danh sách Người nói).`);
+        if (['actor', 'approach', 'leave', 'remove', 'board', 'alight', 'goto', 'chase', 'dismount', 'helmetOff', 'helmetOn', 'tackle', 'wave', 'rideOff'].includes(a.do) && !people[a.who]) add('error', ref, 'on', `Người lạ "${a.who}" không có (danh sách Người nói).`);
+        if (a.do === 'tackle') {
+          if (!people[a.target] || a.target === a.who) add('error', ref, 'on', `Vật ngã: người bị vật "${a.target}" không có (hoặc trùng người vật).`);
+          if (a.qte != null && !(num(a.qte) && a.qte >= 0 && a.qte <= 5)) add('error', ref, 'on', 'Vật ngã: nút bấm nhanh 0–5 giây (0 = không có nút).');
+          if (a.text != null) text(ref, 'on', a.text, 'chữ trên nút bấm nhanh');
+          if (a.cine != null && typeof a.cine !== 'boolean') add('error', ref, 'on', 'Vật ngã: "quay chậm" phải là có / không.');
+          if (u.type !== 'tackled') add('warn', ref, 'on', 'Vật ngã: điều kiện xong của bước nên là "Vật ngã xong" (tackled) — không thì bước sau có thể chạy khi chưa vật xong.');
+        }
+        if (a.do === 'wave' && a.t != null && !(num(a.t) && a.t >= 0.5 && a.t <= 6)) add('error', ref, 'on', 'Vẫy tay: 0,5–6 giây.');
+        if (a.do === 'rideOff' && a.sound && !SOUNDS[a.sound]) add('error', ref, 'on', `Lên xe chạy đi: mã âm thanh lạ "${a.sound}".`);
+        if (a.do === 'phoneCall' && a.on != null && typeof a.on !== 'boolean') add('error', ref, 'on', 'Gọi điện: "đưa lên tai" phải là có / không.');
+        if (a.do === 'fade') {
+          if (a.text != null) text(ref, 'on', a.text, 'chữ trên màn đen');
+          if (a.t != null && !(num(a.t) && a.t >= 0.5 && a.t <= 10)) add('error', ref, 'on', 'Màn đen: giữ tối 0,5–10 giây.');
+          for (const w of [].concat(a.remove || [])) if (!people[w]) add('error', ref, 'on', `Màn đen: dọn người lạ "${w}" không có.`);
+          if (a.props != null && typeof a.props !== 'boolean') add('error', ref, 'on', 'Màn đen: "dọn đạo cụ" phải là có / không.');
+          if (a.stand != null && !people[a.stand]) add('error', ref, 'on', `Màn đen: người đứng lại "${a.stand}" không có.`);
+          if (a.dist != null && !(num(a.dist) && a.dist >= 1 && a.dist <= 6)) add('error', ref, 'on', 'Màn đen: đứng cách người chơi 1–6 m.');
+        }
         if (a.do === 'actor' && a.look && !STORY_ACTOR_LOOKS.includes(a.look)) add('error', ref, 'on', `Dáng người lạ lạ "${a.look}".`);
         // dáng "theo sơ đồ quan hệ": phải có nhân vật gắn với người này, có ngoại hình riêng hoặc là NPC địa điểm
         if (a.do === 'actor' && a.look === 'char' && relations) {
@@ -1082,7 +1101,7 @@ export function validateStory(story, { places = null, goods = null, content = nu
           if (a.idle) text(ref, 'on', a.idle, 'câu nói khi hết chuyện');
         }
         if (a.do === 'bubble') {
-          if (!speakerOk(a.who, true)) add('error', ref, 'on', `Bong bóng: người nói "${a.who}" không có (player / người lạ / place:<địa điểm có NPC>).`);
+          if (!speakerOk(a.who, true) && !(String(a.who).startsWith('prop:') && chActs.some((x) => x.do === 'prop' && x.kind === 'police' && x.id === a.who.slice(5)))) add('error', ref, 'on', `Bong bóng: người nói "${a.who}" không có (player / người lạ / place:<địa điểm có NPC> / prop:<xe công an>).`);
           text(ref, 'on', a.text, 'bong bóng thoại');
           if (a.hold != null && typeof a.hold !== 'boolean') add('error', ref, 'on', 'Ô "giữ tới câu sau" phải là có / không.');
         }
@@ -1181,7 +1200,10 @@ export function validateStory(story, { places = null, goods = null, content = nu
         }
         if (a.do === 'prop') {
           if (!ID_RE.test(String(a.id || ''))) add('error', ref, 'on', 'Đạo cụ: mã chỉ gồm chữ không dấu, số (vd truck1).');
-          if (!['truck', 'ramp', 'dog', 'car', 'moto'].includes(a.kind)) add('error', ref, 'on', `Đạo cụ: loại lạ "${a.kind}" (truck / ramp / dog / car / moto).`);
+          if (!['truck', 'ramp', 'dog', 'car', 'moto', 'police'].includes(a.kind)) add('error', ref, 'on', `Đạo cụ: loại lạ "${a.kind}" (truck / ramp / dog / car / moto / police).`);
+          if (a.cops != null && !(Number.isInteger(a.cops) && a.cops >= 1 && a.cops <= 4)) add('error', ref, 'on', 'Xe công an: 1–4 anh công an.');
+          if (a.copsTo != null && !(String(a.copsTo).startsWith('actor:') && people[String(a.copsTo).slice(6)])) add('error', ref, 'on', `Xe công an: "đi tới chỗ" phải là actor:<người lạ có trong danh sách>.`);
+          if (a.name != null) text(ref, 'on', a.name, 'tên người nói (công an)');
           if (a.color != null && !COLOR_RE.test(String(a.color))) add('error', ref, 'on', 'Đạo cụ: màu dạng #rrggbb.');
           if (a.model != null && !['suv', 'taxi', 'truck'].includes(a.model)) add('error', ref, 'on', `Đạo cụ: kiểu ô tô lạ "${a.model}".`);
           if (a.keep != null && typeof a.keep !== 'boolean') add('error', ref, 'on', 'Đạo cụ: "dừng lại ở cuối đường" phải là có / không.');

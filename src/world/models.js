@@ -659,13 +659,52 @@ export function rodGeo(a, b, r, seg = 6) {
   g.translate(...A.add(B).multiplyScalar(0.5).toArray());
   return g;
 }
+// Vỏ "nặn" từ nhiều lát cắt ngang (z = dọc xe): mỗi lát là hình 8 cạnh (đáy hẹp, hông phình, nóc thu lại) — vỏ sport bike thon, không phẳng như sideGeo.
+// secs: [{ z, yb (đáy), yt (nóc), w (nửa bề ngang hông), wt? (nửa ngang nóc), wb? (nửa ngang đáy), ku?/kl? (độ cao 2 góc hông, 0..1), acc?: [cạnh] }]
+// acc: các cạnh tô màu nhấn từ lát này tới lát sau (0 vai phải, 1 hông phải, 2 hông dưới phải, 3 đáy, 4–6 bên trái, 7 nóc)
+// accent = false → phần thường (có bịt 2 đầu) · true → chỉ các mảng màu nhấn
+export function loftGeo(secs, accent = false) {
+  const ring = (q) => {
+    const wt = q.wt ?? q.w * 0.55, wb = q.wb ?? q.w * 0.6, h = q.yt - q.yb, yu = q.yb + h * (q.ku ?? 0.7), yl = q.yb + h * (q.kl ?? 0.28);
+    return [[wt, q.yt], [q.w, yu], [q.w, yl], [wb, q.yb], [-wb, q.yb], [-q.w, yl], [-q.w, yu], [-wt, q.yt]].map(([x, y]) => new THREE.Vector3(x, y, q.z));
+  };
+  const R = secs.map(ring), pos = [], ac = new THREE.Vector3(), n = new THREE.Vector3(), m = new THREE.Vector3();
+  // tam giác quay mặt ra ngoài (ra xa điểm "bên trong" ctr)
+  const tri = (a, b, c, ctr) => {
+    n.subVectors(b, a).cross(ac.subVectors(c, a));
+    if (n.lengthSq() < 1e-12) return;
+    m.copy(a).add(b).add(c).multiplyScalar(1 / 3).sub(ctr);
+    if (n.dot(m) < 0) pos.push(a, c, b);
+    else pos.push(a, b, c);
+  };
+  for (let k = 0; k < R.length - 1; k++) {
+    const A = R[k], B = R[k + 1], acc = secs[k].acc || [];
+    const ctr = new THREE.Vector3(0, (secs[k].yb + secs[k].yt + secs[k + 1].yb + secs[k + 1].yt) / 4, (secs[k].z + secs[k + 1].z) / 2);
+    for (let i = 0; i < 8; i++) {
+      if (acc.includes(i) !== accent) continue;
+      const j = (i + 1) % 8;
+      tri(A[i], A[j], B[j], ctr);
+      tri(A[i], B[j], B[i], ctr);
+    }
+  }
+  if (!accent) for (const [ri, other] of [[0, 1], [R.length - 1, R.length - 2]]) { // bịt 2 đầu
+    const r = R[ri], c = r.reduce((v, p) => v.add(p), new THREE.Vector3()).multiplyScalar(1 / 8);
+    const inside = c.clone().setZ(c.z + Math.sign(secs[other].z - secs[ri].z) * 0.05);
+    for (let i = 0; i < 8; i++) tri(c, r[i], r[(i + 1) % 8], inside);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos.flatMap((p) => [p.x, p.y, p.z]), 3));
+  g.computeVertexNormals();
+  return g;
+}
 // cung dè bánh xe (nửa trên vòng bánh)
 const fenderGeo = (R, t = 0.035, arc = 0.55) => new THREE.TorusGeometry(R, t, 3, 8, PI * arc).rotateZ(PI * (0.5 - arc / 2)).rotateY(PI / 2);
 
-const BLACK = 0x161616, DARK = 0x2a2a2a, GREY = 0x6b6f74, CHROME = 0xd5dade, ALU = 0x9aa0a6, SEAT = 0x2b2420, CREAM = 0xf3ead3;
+const BLACK = 0x161616, DARK = 0x2a2a2a, GREY = 0x6b6f74, CHROME = 0xd5dade, ALU = 0x9aa0a6, SEAT = 0x2b2420, CREAM = 0xf3ead3, GOLD = 0xd4a017, LIME = 0x5ad12b;
 
-// Bánh xe: lốp + vành + nan (đúc 5 chấu hoặc nan căm) + đùm + đĩa phanh (bánh trước)
+// Bánh xe: lốp + vành + nan (đúc 5 chấu hoặc nan căm) + đùm + đĩa phanh (bánh trước) · 'sport': mâm 3 chấu kép đen, chỉ viền xanh lá
 function wheelGeo(R, t, spokes, disc) {
+  if (spokes === 'sport') return vehCached(`wh|${R}|${t}|sport|${disc}`, () => sportWheelGeo(R, t, disc));
   return vehCached(`wh|${R}|${t}|${spokes}|${disc}`, () => {
     const L = new PartList();
     L.add(new THREE.TorusGeometry(R - t, t, 5, 14).rotateY(PI / 2), BLACK, 0, 0, 0, 0, 0, 0, 0.8);
@@ -680,6 +719,26 @@ function wheelGeo(R, t, spokes, disc) {
     if (disc) L.add(new THREE.CylinderGeometry(R * 0.38, R * 0.38, 0.008, 14).rotateZ(PI / 2), CHROME, 0.055, 0, 0, 0, 0, 0, 1);
     return L.build();
   });
+}
+
+// Bánh sport bike: lốp dẹt bản to, mâm 3 chấu kép, chỉ viền mâm xanh lá 2 bên, đĩa phanh đôi + heo dầu vàng (bánh trước)
+function sportWheelGeo(R, t, front) {
+  const L = new PartList();
+  L.add(new THREE.TorusGeometry(R - t, t, 6, 18).scale(1, 1, 1.25).rotateY(PI / 2), BLACK, 0, 0, 0, 0, 0, 0, 0.8);
+  L.add(new THREE.CylinderGeometry(R - t * 1.05, R - t * 1.05, 0.05, 18, 1, true).rotateZ(PI / 2), 0x1d1d1d, 0, 0, 0, 0, 0, 0, 0.9);
+  for (const s of [-1, 1]) L.add(new THREE.TorusGeometry(R - t * 1.02, 0.007, 3, 18).rotateY(PI / 2), LIME, s * 0.027, 0, 0, 0, 0, 0, 1); // chỉ viền mâm
+  L.add(new THREE.CylinderGeometry(0.045, 0.045, 0.13, 8).rotateZ(PI / 2), GREY);
+  const len = R - t - 0.03;
+  for (let k = 0; k < 3; k++) for (const o of [-0.13, 0.13]) {
+    const sp = new THREE.BoxGeometry(0.02, len, 0.022);
+    sp.translate(0, len / 2, 0);
+    L.add(sp, 0x1d1d1d, 0, 0, 0, (k * 2 * PI) / 3 + o, 0, 0, 1);
+  }
+  if (front) for (const s of [-1, 1]) {
+    L.add(new THREE.CylinderGeometry(R * 0.5, R * 0.5, 0.008, 16).rotateZ(PI / 2), CHROME, s * 0.06, 0, 0, 0, 0, 0, 1); // đĩa phanh
+    L.add(new THREE.BoxGeometry(0.03, 0.1, 0.06), GOLD, s * 0.075, 0.1, -0.1, 0.6, 0, 0, 1); // heo dầu
+  } else L.add(new THREE.CylinderGeometry(R * 0.36, R * 0.36, 0.008, 14).rotateZ(PI / 2), CHROME, -0.06, 0, 0, 0, 0, 0, 1);
+  return L.build();
 }
 
 // Mỗi kiểu xe: P = phần sơn, D = phần thường (màu riêng), K = kim loại, rồi các số đo dùng chung
@@ -769,31 +828,131 @@ const BIKE_SPECS = {
       K.add(rodGeo([0.0, 0.55, -0.2], [0.0, 0.85, -0.35], 0.03), CHROME); // phuộc sau giữa
     },
   },
-  // Sport bike phân khối lớn (kiểu xe đua đường phố): ốp kín thân, mũi nhọn đèn đôi xếch, kính chắn gió khói, tay lái thấp (người lái chồm sát
-  // bình xăng), đuôi vểnh, pô ngắn dưới bụng, phuộc vàng. Sơn chính = màu xe; sọc xanh lá chanh cố định (vd xe anh mô tô chương 2–3)
+  // Sport bike phân khối lớn (kiểu Ninja): vỏ "nặn" thon (loftGeo) — mũi nhọn đèn đôi xếch, kính chắn gió khói ôm đầu, gương trên đầu xe,
+  // bình xăng gù, yên + đuôi vểnh liền khối, ốp hông dưới yên; mảng xanh lá chanh ở ốp sườn / hông đầu / hông đuôi; tay lái thấp (người lái chồm),
+  // gắp nhôm bản to, phuộc sau lò xo đỏ, pô lon ngắn bên phải, phuộc trước lộn ngược vàng, mâm 3 chấu kép. Sơn chính = màu xe (vd anh Đạt: đen).
+  // own: tự dựng tay lái / gương / đèn / biển số (không dùng phần chung) · lampGeo: đèn pha đôi (sáng lên ban đêm)
   supersport: {
-    wheel: [0.33, 0.74, -0.7, 'mag', 0.09], lamp: [0.9, 1.02], tail: [1.1, -1.02], rackY: 1.1, bar: [0.29, 0.96, 0.44], spread: 0.3, leanMax: 0.95, seatZ: -0.26,
-    build(P, D, K) {
-      P.add(sideGeo([[0.0, 0.5], [0.45, 0.46], [0.8, 0.64], [1.08, 0.86], [1.06, 0.96], [0.84, 1.06], [0.55, 1.02], [0.3, 0.92], [0.02, 0.8]], 0.46, 0.016), PAINT_WHITE); // ốp sườn kín + mũi
-      P.add(sideGeo([[-0.1, 0.94], [0.04, 1.12], [0.42, 1.16], [0.58, 1.06], [0.46, 0.92], [0.0, 0.9]], 0.42, 0.016), PAINT_WHITE); // bình xăng
-      P.add(sideGeo([[-1.1, 1.14], [-1.04, 1.2], [-0.6, 1.08], [-0.2, 0.98], [-0.14, 0.88], [-0.62, 0.92]], 0.26, 0.012), PAINT_WHITE); // đuôi vểnh
-      P.add(fenderGeo(0.37, 0.03, 0.34), PAINT_WHITE, 0, 0.33, 0.74);
-      const G = 0x5ad12b; // sọc xanh lá chanh
-      D.add(sideGeo([[0.36, 0.62], [0.84, 0.8], [0.94, 0.88], [0.86, 0.9], [0.4, 0.72]], 0.47, 0.004), G);
-      D.add(sideGeo([[0.08, 0.54], [0.44, 0.5], [0.48, 0.54], [0.1, 0.6]], 0.47, 0.004), G);
-      D.add(sideGeo([[-1.0, 1.13], [-0.6, 1.05], [-0.58, 1.02], [-0.98, 1.1]], 0.27, 0.003), G);
-      D.add(sideGeo([[0.06, 1.1], [0.42, 1.14], [0.42, 1.12], [0.06, 1.08]], 0.43, 0.003), G);
-      D.add(sideGeo([[0.7, 1.04], [0.86, 1.3], [0.96, 1.22], [0.98, 1.04]], 0.3, 0.004), 0x4b5d68); // kính chắn gió khói
-      D.add(sideGeo([[-0.62, 1.05], [-0.15, 0.99], [-0.05, 0.96], [-0.12, 0.93], [-0.62, 1.0]], 0.26), 0x151515); // yên đơn
-      D.add(sideGeo([[-0.1, 0.3], [0.5, 0.32], [0.64, 0.48], [0.0, 0.5]], 0.36), 0x1e1e1e); // ốp bụng
-      D.add(new THREE.BoxGeometry(0.3, 0.3, 0.42), 0x2a2a2a, 0, 0.52, 0.12); // máy
+    wheel: [0.33, 0.74, -0.7, 'sport', 0.085], lamp: [0, 0], tail: [1.08, -1.06], rackY: 1.1, bar: [0.29, 0.96, 0.44], spread: 0.3, leanMax: 0.95, seatZ: -0.26, own: true,
+    lampGeo: () => {
+      const L = new PartList();
+      for (const s of [-1, 1]) L.add(new THREE.BoxGeometry(0.13, 0.04, 0.02), 0xffffff, s * 0.098, 0.915, 1.06, 0, s * 1.0, s * 0.22, 1);
+      return L.build();
+    },
+    build(P, D, K, Lt) {
+      const R = 0.33, zf = 0.74, zr = -0.7;
+      const paint = (secs) => { P.add(loftGeo(secs), PAINT_WHITE); D.add(loftGeo(secs, true), LIME, 0, 0, 0, 0, 0, 0, 1); }; // vỏ sơn + mảng xanh
+      // --- vỏ trên (đầu xe): mũi nhọn, ôm phía trên bánh trước
+      paint([
+        { z: 1.15, yb: 0.89, yt: 0.95, w: 0.05, wt: 0.03 },
+        { z: 1.05, yb: 0.81, yt: 1.02, w: 0.12, wt: 0.05, wb: 0.05 },
+        { z: 0.88, yb: 0.74, yt: 1.12, w: 0.2, wt: 0.1, wb: 0.1, acc: [2, 4] },
+        { z: 0.68, yb: 0.72, yt: 1.19, w: 0.24, wt: 0.13 },
+        { z: 0.52, yb: 0.74, yt: 1.12, w: 0.24, wt: 0.12 },
+      ]);
+      // --- ốp sườn (che máy) — mảng xanh lá chéo ở hông
+      paint([
+        { z: 0.62, yb: 0.72, yt: 0.92, w: 0.26, acc: [1] },
+        { z: 0.48, yb: 0.58, yt: 0.93, w: 0.27, acc: [1, 5, 2, 4] },
+        { z: 0.36, yb: 0.3, yt: 0.92, w: 0.27, acc: [2, 4] },
+        { z: 0.18, yb: 0.27, yt: 0.88, w: 0.25, acc: [2, 4] },
+        { z: 0.02, yb: 0.3, yt: 0.78, w: 0.21 },
+        { z: -0.1, yb: 0.36, yt: 0.66, w: 0.16 },
+      ]);
+      // --- bình xăng
+      paint([
+        { z: 0.56, yb: 0.92, yt: 1.05, w: 0.13, wt: 0.06 },
+        { z: 0.47, yb: 0.88, yt: 1.1, w: 0.17, wt: 0.08 },
+        { z: 0.32, yb: 0.86, yt: 1.15, w: 0.2, wt: 0.1 },
+        { z: 0.1, yb: 0.86, yt: 1.13, w: 0.2, wt: 0.11, acc: [] },
+        { z: -0.06, yb: 0.9, yt: 1.03, w: 0.16, wt: 0.1 },
+      ]);
+      // --- ốp hông dưới yên (che khung phụ), sọc xanh chạy dọc
+      paint([
+        { z: 0.04, yb: 0.6, yt: 0.92, w: 0.17, wb: 0.12 },
+        { z: -0.2, yb: 0.66, yt: 0.94, w: 0.16, wb: 0.11, acc: [1, 5] },
+        { z: -0.45, yb: 0.76, yt: 0.96, w: 0.15, wb: 0.1 },
+        { z: -0.6, yb: 0.86, yt: 0.98, w: 0.12, wb: 0.08 },
+      ]);
+      // --- đuôi vểnh nhọn (có sọc xanh hông đuôi)
+      paint([
+        { z: -0.44, yb: 0.88, yt: 1.05, w: 0.16, wt: 0.1 },
+        { z: -0.68, yb: 0.94, yt: 1.1, w: 0.13, wt: 0.08, acc: [1, 5] },
+        { z: -0.92, yb: 1.0, yt: 1.14, w: 0.08, wt: 0.05 },
+        { z: -1.08, yb: 1.06, yt: 1.12, w: 0.03, wt: 0.02 },
+      ]);
+      // yên đơn (bọc da đen, vân nhám)
+      D.add(loftGeo([
+        { z: -0.04, yb: 0.9, yt: 0.99, w: 0.15, wt: 0.11 },
+        { z: -0.3, yb: 0.9, yt: 1.0, w: 0.14, wt: 0.11 },
+        { z: -0.5, yb: 0.92, yt: 1.05, w: 0.13, wt: 0.1 },
+      ]), 0x141414);
+      // gầm đuôi + bụng
+      D.add(loftGeo([
+        { z: -0.4, yb: 0.78, yt: 0.9, w: 0.12 },
+        { z: -0.8, yb: 0.92, yt: 0.99, w: 0.08 },
+        { z: -0.95, yb: 0.99, yt: 1.02, w: 0.05 },
+      ]), DARK);
+      D.add(loftGeo([
+        { z: 0.32, yb: 0.24, yt: 0.36, w: 0.17 },
+        { z: 0.0, yb: 0.27, yt: 0.4, w: 0.15 },
+        { z: -0.12, yb: 0.32, yt: 0.42, w: 0.1 },
+      ]), 0x202020);
+      // kính chắn gió khói (mỏng, cong theo đầu xe)
+      D.add(loftGeo([
+        { z: 0.86, yb: 1.12, yt: 1.15, w: 0.17, wt: 0.15, wb: 0.17 },
+        { z: 0.68, yb: 1.22, yt: 1.25, w: 0.15, wt: 0.12, wb: 0.15 },
+        { z: 0.58, yb: 1.26, yt: 1.28, w: 0.1, wt: 0.08, wb: 0.1 },
+      ]), 0x3a4a56);
+      // khung nhôm 2 thanh (lộ dưới bình xăng) + máy
+      for (const s of [-1, 1]) K.add(rodGeo([s * 0.17, 0.92, 0.5], [s * 0.19, 0.58, -0.06], 0.035, 5), ALU);
+      D.add(new THREE.BoxGeometry(0.3, 0.38, 0.4), 0x262626, 0, 0.5, 0.12);
+      // gắp sau nhôm bản to + giảm xóc lò xo đỏ
       for (const s of [-1, 1]) {
-        D.add(rodGeo([s * 0.08, 0.33, 0.74], [s * 0.08, 0.98, 0.6], 0.032), 0xd4a017); // phuộc vàng
-        K.add(rodGeo([s * 0.12, 0.33, -0.7], [s * 0.12, 0.46, -0.06], 0.026), ALU); // gắp sau
-        D.add(new THREE.BoxGeometry(0.1, 0.035, 0.04), 0x111111, s * 0.08, 0.86, 1.06, 0, 0, -s * 0.25); // 2 hốc đèn xếch
+        const a = new THREE.Vector3(s * 0.12, 0.5, -0.06), b = new THREE.Vector3(s * 0.12, R, zr), d = b.clone().sub(a);
+        const arm = new THREE.BoxGeometry(0.04, 0.09, d.length()); arm.lookAt(d); arm.translate(...a.clone().add(b).multiplyScalar(0.5).toArray());
+        K.add(arm, ALU);
       }
-      K.add(rodGeo([0.14, 0.36, -0.06], [0.17, 0.46, -0.5], 0.06, 8), GREY); // pô ngắn dưới bụng
-      K.add(rodGeo([0.0, 0.56, -0.18], [0.0, 0.88, -0.36], 0.03), CHROME); // phuộc sau giữa
+      K.add(rodGeo([0, 0.46, -0.22], [0, 0.84, -0.34], 0.022), CHROME);
+      for (let k = 0; k < 6; k++) D.add(new THREE.TorusGeometry(0.035, 0.009, 3, 8).rotateX(PI / 2 - 0.3), 0xc0392b, 0, 0.52 + k * 0.05, -0.24 - k * 0.016, 0, 0, 0, 1);
+      // xích + nhông
+      D.add(new THREE.TorusGeometry(0.07, 0.012, 3, 10).rotateY(PI / 2), GREY, -0.13, R, zr, 0, 0, 0, 1);
+      D.add(rodGeo([-0.13, 0.4, 0.0], [-0.13, R + 0.06, zr], 0.012, 4), GREY);
+      // pô: cổ pô dưới bụng → lon pô ngắn lục giác bên phải, đầu crôm
+      K.add(rodGeo([0.06, 0.3, 0.25], [0.14, 0.32, -0.15], 0.04, 7), GREY);
+      K.add(rodGeo([0.14, 0.32, -0.15], [0.2, 0.48, -0.5], 0.075, 6), 0x3b3f44);
+      K.add(rodGeo([0.2, 0.48, -0.5], [0.21, 0.51, -0.56], 0.05, 6), CHROME);
+      // phuộc trước vàng (lộn ngược): ống to vàng trên, ống nhỏ đen dưới + cặp chảng
+      for (const s of [-1, 1]) {
+        D.add(rodGeo([s * 0.085, 0.64, 0.66], [s * 0.085, 1.0, 0.56], 0.035, 8), GOLD);
+        K.add(rodGeo([s * 0.085, R, zf], [s * 0.085, 0.66, 0.655], 0.026, 8), 0x2b2b2b);
+      }
+      K.add(new THREE.BoxGeometry(0.24, 0.035, 0.08), ALU, 0, 1.0, 0.55);
+      // dè trước ôm bánh
+      P.add(new THREE.TorusGeometry(R + 0.02, 0.035, 3, 10, PI * 0.42).rotateZ(PI * 0.29).rotateY(PI / 2).scale(2.6, 1, 1), 0xffffff, 0, R, zf);
+      // dè sau ôm bánh (dưới gắp) + pát biển số gọn sau đuôi
+      D.add(new THREE.TorusGeometry(R + 0.03, 0.03, 3, 8, PI * 0.35).rotateZ(PI * 0.3).rotateY(PI / 2).scale(2.4, 1, 1), DARK, 0, R, zr);
+      D.add(rodGeo([0, 0.98, -0.86], [0, 0.82, -1.0], 0.015, 4), DARK);
+      D.add(new THREE.BoxGeometry(0.19, 0.13, 0.012), 0xf2f2f2, 0, 0.78, -1.02, 0.3, 0, 0, 1);
+      for (const k of [-1, 1]) D.add(new THREE.BoxGeometry(0.14, 0.02, 0.014), 0x222222, 0, 0.78 + k * 0.03, -1.013, 0.3, 0, 0, 1);
+      // tay lái thấp (clip-on) 2 bên cổ phuộc + đồng hồ + gác chân lùi sau
+      for (const s of [-1, 1]) {
+        D.add(new THREE.CylinderGeometry(0.018, 0.018, 0.2, 6).rotateZ(PI / 2 - s * 0.2), DARK, s * 0.19, 0.96, 0.44);
+        D.add(new THREE.CylinderGeometry(0.03, 0.03, 0.12, 7).rotateZ(PI / 2), BLACK, s * 0.29, 0.94, 0.44);
+        // gương gắn trên đầu xe
+        D.add(rodGeo([s * 0.22, 1.1, 0.66], [s * 0.3, 1.16, 0.64], 0.01, 4), DARK);
+        D.add(new THREE.BoxGeometry(0.11, 0.06, 0.035), BLACK, s * 0.33, 1.17, 0.64, 0, s * 0.2, 0);
+        D.add(new THREE.BoxGeometry(0.04, 0.03, 0.12), DARK, s * 0.2, 0.47, -0.2); // gác chân
+        // đèn pha đôi xếch + xi nhan
+        D.add(new THREE.BoxGeometry(0.15, 0.06, 0.02), 0x0b0b0b, s * 0.094, 0.915, 1.055, 0, s * 1.0, s * 0.22); // viền đèn
+        Lt.add(new THREE.BoxGeometry(0.05, 0.025, 0.03), 0xffa21a, s * 0.24, 0.98, 0.78, 0, s * 0.6, 0);
+        Lt.add(new THREE.BoxGeometry(0.04, 0.025, 0.04), 0xffa21a, s * 0.1, 0.94, -0.98);
+      }
+      D.add(new THREE.BoxGeometry(0.07, 0.06, 0.08), 0x0d0d0d, 0, 0.84, 1.08); // hốc gió giữa mũi
+      D.add(new THREE.BoxGeometry(0.02, 0.012, 0.18), LIME, 0, 1.0, 0.98, 0.5, 0, 0, 1); // sọc giữa mũi
+      D.add(new THREE.BoxGeometry(0.16, 0.08, 0.04), 0x111111, 0, 1.12, 0.54, -0.6, 0, 0); // đồng hồ
+      Lt.add(new THREE.BoxGeometry(0.1, 0.03, 0.04), 0xff2a2a, 0, 1.08, -1.06); // đèn hậu
+
     },
   },
   // Xe đạp: khung ống sơn, yên nhỏ, giò đạp + bàn đạp, baga sau chở túi; không máy, không gương / biển số (plain)
@@ -875,8 +1034,8 @@ export function makeBike(color = 0x3a6fb0, model = 'underbone') {
   const [R, zf, zr, spokes, t] = S.wheel;
   const parts = vehCached(`bike|${model}`, () => {
     const P = new PartList(), D = new PartList(), K = new PartList(), Lt = new PartList();
-    S.build(P, D, K);
-    commonBikeParts(S, D, K, Lt);
+    S.build(P, D, K, Lt);
+    if (!S.own) commonBikeParts(S, D, K, Lt); // own: kiểu xe tự dựng tay lái, gương, đèn, biển số
     return { paint: P.build(), dark: D.build(), metal: K.build(), lights: Lt.build() };
   });
   const g = new THREE.Group();
@@ -894,7 +1053,8 @@ export function makeBike(color = 0x3a6fb0, model = 'underbone') {
   const wheelF = mk(wheelGeo(R, t, spokes, !S.noDisc), VEH_MAT, 0, R, zf);
   const wheelR = mk(wheelGeo(R, t, spokes, false), VEH_MAT, 0, R, zr);
   // đèn pha: vật liệu riêng từng xe (ban đêm sáng lên)
-  const lamp = mk(new THREE.IcosahedronGeometry(0.075, 1).scale(1, 0.8, 0.5), new THREE.MeshStandardMaterial({ color: 0xfff4c8, emissive: 0xffeeaa, emissiveIntensity: 0.4 }), 0, S.lamp[0], S.lamp[1]);
+  const lampGeo = S.lampGeo ? vehCached(`lamp|${model}`, S.lampGeo) : new THREE.IcosahedronGeometry(0.075, 1).scale(1, 0.8, 0.5); // đèn pha riêng của kiểu xe (vd đèn đôi xếch)
+  const lamp = mk(lampGeo, new THREE.MeshStandardMaterial({ color: 0xfff4c8, emissive: 0xffeeaa, emissiveIntensity: 0.4 }), 0, S.lamp[0], S.lamp[1]);
   lamp.castShadow = false;
   const bagY = S.rackY + 0.24;
   const bagMesh = mk(bagGeo(), VEH_MAT, 0, bagY, -0.62);

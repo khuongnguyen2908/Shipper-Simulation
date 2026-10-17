@@ -48,7 +48,7 @@ export const REACT_ICONS = { '?': '? Ngạc nhiên', '!': '! Giật mình' };
 // Cảnh phim: camera nhìn vào đâu
 export const CINE_TARGETS = { place: 'Địa điểm …', actor: 'Người lạ …', prop: 'Đạo cụ …', player: 'Người chơi' };
 // Đạo cụ cảnh phim (việc "prop"): xe tải chạy ra chặn đường · tấm ván làm dốc · chó chạy ngang
-export const PROP_KINDS = { truck: '🚛 Xe tải container dài', ramp: '🪵 Tấm ván dựng làm dốc', dog: '🐕 Chó chạy ngang', car: '🚗 Ô tô diễn viên (chạy theo đường, 2 xe dí né)', moto: '🛵 Xe máy diễn viên (chạy theo đường, 2 xe dí né)' };
+export const PROP_KINDS = { truck: '🚛 Xe tải container dài', ramp: '🪵 Tấm ván dựng làm dốc', dog: '🐕 Chó chạy ngang', car: '🚗 Ô tô diễn viên (chạy theo đường, 2 xe dí né)', moto: '🛵 Xe máy diễn viên (chạy theo đường, 2 xe dí né)', police: '🚓 Xe công an (đèn chớp; dừng ở cuối đường → các anh công an bước xuống)' };
 // Hành động ở điểm lộ trình chạy trốn (act): drift quẹo gắt · crash té xe → bỏ xe chạy bộ
 export const ROUTE_ACTS = { drift: '💨 Drift (quẹo gắt, đuôi văng, khói lốp)', crash: '💥 Té xe → bỏ xe chạy bộ' };
 // Kiểu xe người lạ chạy trốn / đuổi theo
@@ -88,6 +88,7 @@ export const UNTIL = {
   cine: 'Cảnh phim (việc "🎬 Cảnh phim" ở bước này) đã chiếu xong',
   chased: 'Người lạ … (việc "🏍️ Chạy trốn") đã chạy hết lộ trình, người chơi đang bám theo',
   reach: 'Người chơi tới gần chỗ [x, z] trên bản đồ (vd giữa cầu)',
+  tackled: 'Việc "🤼 Vật ngã" ở bước này đã xong (người kia bị ghì nằm sấp)',
   never: 'Chưa viết tiếp — dừng ở bước này (để chỗ cho nội dung sau)',
 };
 // Mốc của điều kiện "order"
@@ -123,6 +124,12 @@ export const ACTIONS = {
   prop: '🚛 Đạo cụ cảnh phim: xe tải chạy ra chặn đường / tấm ván làm dốc / chó chạy ngang (chạy khi người lạ tới mốc …)',
   dismount: 'Người lạ đang chạy xe dừng hẳn rồi xuống xe, đứng cạnh xe',
   helmetOff: 'Người lạ tháo nón bảo hiểm (2 tay giơ lên gỡ nón, cầm nón trên tay — lộ tóc)',
+  helmetOn: 'Người lạ đội nón lại (nón đang cầm trên tay: 2 tay đưa lên chụp xuống đầu)',
+  tackle: '🤼 Vật ngã: người bị đuổi chạy về phía người chơi → nút bấm nhanh "E — Chặn lại!" → người lạ … lao tới quật xuống (quay chậm), ghì nằm sấp',
+  wave: 'Người lạ vẫy tay chào (tay trái)',
+  rideOff: 'Người lạ lên xe của mình chạy đi (đang cầm nón thì đội lại trước, nẹt pô, chạy dọc đường rồi mất)',
+  phoneCall: 'Người chơi đưa điện thoại lên tai (gọi điện) / cất điện thoại',
+  fade: '⬛ Màn đen + chữ (vd "Ít phút sau…"): lúc tối dọn người lạ / đạo cụ, người lạ … đứng lại trước mặt người chơi',
   end: 'Kết thúc chương (hiện chữ, lưu game)',
 };
 // Hướng dẫn trên điện thoại (làm sáng nút cần bấm)
@@ -233,6 +240,7 @@ export function untilMet(u, gs, ctx) {
     case 'cine': return !!s.ev.cineDone;
     case 'chased': return !!s.ev[`chased:${u.who}`] || !!ctx.chased?.(u.who);
     case 'reach': return !!ctx.reachAt?.(u.at, u.r || 8);
+    case 'tackled': return !!s.ev.tackled;
     case 'never': return false;
     case 'ordersSince': return (gs.account?.completed || 0) - (s.base || 0) >= (u.n || 1);
     case 'newDay': return (gs.day || 1) > (s.baseDay ?? gs.day ?? 1);
@@ -326,7 +334,8 @@ export function actorsPresent(s, data = STORY) {
     if (skipStep(s, st)) continue;
     for (const a of st.on || []) {
       if (a.do === 'actor' || a.do === 'chase') out[a.who] = a;
-      if (a.do === 'leave' || a.do === 'remove' || a.do === 'goto') delete out[a.who];
+      if (a.do === 'leave' || a.do === 'remove' || a.do === 'goto' || a.do === 'rideOff') delete out[a.who];
+      if (a.do === 'fade') for (const w of [].concat(a.remove || [])) delete out[w]; // dọn lúc màn đen
     }
   }
   return out;
