@@ -139,7 +139,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   (đạo cụ car / moto: xeW1–W3 đường trước nhà thờ, xeS1–S3 đường xuống bến cảng) chạy đúng làn, hiện khi tên cướp tới mốc west / south, có xe tấp lề dừng (keep) ·
   2 xe dí + xe người chơi tự chạy đều né xe diễn viên (sửa lỗi hàm né: đo lệch sai + bỏ né khi đang chạy ngang hàng). Đo: gần nhất 1,6 (tâm-tâm), không xuyên qua nhau.
 
-### 🧭 Sửa sau chương 4 + bảng mục tiêu mới (18/10 — XONG, CHƯA commit; phác họa duyệt: sketches/hud-muc-tieu/hud-sketch2.jpg)
+### 🧭 Sửa sau chương 4 + bảng mục tiêu mới (18/10 — XONG, đã đẩy lên GitHub 7c0f470; phác họa duyệt: sketches/hud-muc-tieu/hud-sketch2.jpg)
 - Chỉ đường: bước cốt truyện không có chỗ đến (vd "Đi ngủ") mà người chơi tự bấm 📍 Chỉ đường trên bản đồ → chỉ tới chỗ đó (trước bị nuốt, navigation.js currentTarget).
 - Màn hình: bỏ bảng mục tiêu cũ dưới bảng giờ/tiền. **Thanh giữa trên** (mũi tên + "Đi đến …" + khoảng cách) CHỈ hiện khi bước cốt truyện có chỗ đến;
   chữ mẫu `goal.goTo` ("Đi đến {place}") ở Chữ & hội thoại, từng bước muốn ghi khác: thẻ 📖 → "Người chơi thấy gì" → "＋ Chữ thanh 'Đi đến …' riêng" (st.goTo).
@@ -150,7 +150,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
 - Đứng game sau khi nói với anh Đại (lỗi của Claude: khóa đứng yên cả khi bước sau chờ người khác) → đã sửa. Giờ người chơi nói trước 1 câu
   ("chị Linh gửi thiệp mời…") rồi anh Đại / em Minh / Lan Anh mới trả lời (story.c4.player.toDai / toMinh / toLan — sửa được).
 
-### 🗑️ Chương 4: ghé Triangle K · núp thùng rác · bị rượt phải lên xe (18/10 — XONG, CHƯA commit; phác họa duyệt: sketches/trianglek/storyboard.png)
+### 🗑️ Chương 4: ghé Triangle K · núp thùng rác · bị rượt phải lên xe (18/10 — XONG, đã đẩy lên GitHub 7c0f470; phác họa duyệt: sketches/trianglek/storyboard.png)
 - Đường về: "Ghé Triangle K mua chai nước" (dichvu1_5, khối 5,1 lô f8, đối diện hẻm) → tới cửa (không bắt mua) → 🎬 cảnh phim ngang tầm mắt (máy quay đặt cố định trước cửa tiệm, cao 1,6 m —
   không dùng "mắt người chơi" vì cây ngay trước cửa che khuất) → anh tờ rơi + cậu SV nói qua lại 5 câu (3 câu cũ dời từ lúc bám theo + 2 câu mới) → "Hỏi nhiều quá… Đi lẹ đi!" → tắt cảnh phim, 2 người đi vô hẻm luôn.
   Chỗ đứng nói chuyện dời xuống [-7.6, -173.6] (cây ở miệng hẻm che), thêm làm điểm đầu lộ trình bám theo.
