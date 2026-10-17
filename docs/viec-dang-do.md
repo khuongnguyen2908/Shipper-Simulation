@@ -139,7 +139,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   (đạo cụ car / moto: xeW1–W3 đường trước nhà thờ, xeS1–S3 đường xuống bến cảng) chạy đúng làn, hiện khi tên cướp tới mốc west / south, có xe tấp lề dừng (keep) ·
   2 xe dí + xe người chơi tự chạy đều né xe diễn viên (sửa lỗi hàm né: đo lệch sai + bỏ né khi đang chạy ngang hàng). Đo: gần nhất 1,6 (tâm-tâm), không xuyên qua nhau.
 
-### 🖼️ Chương 4 "Bức tranh dang dở" (17/10 — XONG phần logic, CHƯA commit; chủ game tự sửa lời thoại trong ?editor)
+### 🖼️ Chương 4 "Bức tranh dang dở" (17/10 — XONG, đã đẩy lên GitHub 23ab10c; chủ game tự sửa lời thoại trong ?editor)
 - Luồng (story.json c4, 51 bước): chiều tối chị Linh nhắn (sáng mốt khai mạc, chiều mai 5h qua sân bay) → ngủ → 17h Sân bay: tên chương + xếp 3 bức tranh dễ vỡ
   (trễ 18h → quay lại hôm sau) → trường: chị Nhi nhận tranh, anh Hoàng chê (chọn 3 câu) → ⬛ "2 tiếng sau…" (tua giờ thật như ngủ) → chị Nhi đưa thiệp →
   anh Đại (sạp Trái Cây Ba Miền, NPC địa điểm) → em Minh (đứng trước Nhà Sách) → Lan Anh (trước tiệm thú cưng) → về trọ ngang khối 4,1: anh phát tờ rơi dắt
