@@ -101,6 +101,12 @@
       "ref": "story.c1.arrive.say",
       "field": "text",
       "msg": "Đang để trống."
+    },
+    {
+      "tab": "text",
+      "ref": "story.c3.call.a1",
+      "field": "text",
+      "msg": "Đang để trống."
     }
   ]
 }

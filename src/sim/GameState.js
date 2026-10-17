@@ -874,8 +874,7 @@ export class GameState {
   }
   // Gắn câu trả lời nhanh (khóa chữ, tối đa 3) vào cuộc trò chuyện · gains: điểm tính cách của từng câu ({ trait, pts } | null)
   setReplies(id, keys, gains = null) {
-    const t = this.inbox.threads[id];
-    if (!t) return;
+    const t = (this.inbox.threads[id] ||= { msgs: [], unread: 0 }); // người chơi nhắn trước (chưa có cuộc trò chuyện) → tạo mới
     t.replies = keys.slice(0, 3);
     if (gains?.some(Boolean)) t.replyGains = gains.slice(0, 3);
     else delete t.replyGains;

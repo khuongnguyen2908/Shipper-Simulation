@@ -75,3 +75,62 @@ export function makeRamp({ len = 7, h = 1.5, w = 1.2 } = {}) {
   g.userData = { len, run, h, w, slope: a };
   return g;
 }
+
+// Giá vẽ chân chữ A + bức tranh (triển lãm): tranh quay về +z, màu tranh vẽ bằng vài mảng màu ngẫu nhiên cố định theo seed
+export function makeEasel(seed = 1) {
+  const g = new THREE.Group(), wood = 0x8a5a33;
+  for (const s of [-1, 1]) {
+    const leg = box(g, 0.05, 1.7, 0.05, wood, s * 0.32, 0.83, 0.05);
+    leg.rotation.z = -s * 0.12;
+  }
+  const back = box(g, 0.05, 1.6, 0.05, wood, 0, 0.78, -0.35);
+  back.rotation.x = -0.3;
+  box(g, 0.8, 0.05, 0.08, wood, 0, 0.75, 0.08); // gờ đỡ tranh
+  const P = [[0xe74c3c, 0xf1c40f, 0x2980b9], [0x16a085, 0xecf0f1, 0x8e44ad], [0xd35400, 0x2c3e50, 0xf39c12], [0x27ae60, 0xe8daef, 0xc0392b]][Math.abs(seed) % 4];
+  box(g, 0.86, 0.7, 0.04, 0xf5f0e6, 0, 1.15, 0.12); // khung + vải
+  box(g, 0.7, 0.28, 0.01, P[0], 0, 1.27, 0.145);
+  box(g, 0.34, 0.24, 0.01, P[1], -0.17, 1.0, 0.145);
+  box(g, 0.32, 0.24, 0.01, P[2], 0.18, 1.0, 0.145);
+  return g;
+}
+// Thùng rác nhựa xanh có nắp (chỗ núp khi bám theo lén)
+export function makeBin() {
+  const g = new THREE.Group();
+  box(g, 0.62, 0.95, 0.62, 0x1e8449, 0, 0.48, 0);
+  box(g, 0.68, 0.08, 0.68, 0x145a32, 0, 0.99, 0);
+  for (const s of [-1, 1]) box(g, 0.08, 0.2, 0.2, 0x111111, s * 0.33, 0.12, -0.25); // bánh xe
+  return g;
+}
+// Lon nước ngọt nằm lăn lóc giữa hẻm (vấp → kêu "keng")
+export function makeCan() {
+  const g = new THREE.Group();
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.14, 10).rotateZ(Math.PI / 2), mat(0xc0392b, { metalness: 0.6, roughness: 0.3 }));
+  m.position.y = 0.05;
+  m.castShadow = true;
+  g.add(m);
+  return g;
+}
+
+// Bó hoa gói giấy kraft (anh Đạt buộc trên đuôi xe, chương 4): nằm dọc trục z, đầu hoa về +z, dài ~0,55 m
+export function makeBouquet() {
+  const g = new THREE.Group();
+  const paper = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.42, 8, 1, true).rotateX(-Math.PI / 2), mat(0xc8a27a, { side: THREE.DoubleSide }));
+  paper.position.z = 0.02; // đầu nhọn về phía cuống (−z), miệng loe ôm bông hoa (+z)
+  paper.castShadow = true;
+  g.add(paper);
+  box(g, 0.05, 0.05, 0.16, 0x3d7a2e, 0, 0, -0.25); // cuống
+  box(g, 0.06, 0.02, 0.04, 0xc0392b, 0, 0, -0.14); // nơ
+  const cols = [0xe74c3c, 0xff8fb1, 0xffffff, 0xe74c3c, 0xff8fb1, 0xf5b7b1, 0xe74c3c];
+  cols.forEach((c, i) => {
+    const a = (i / cols.length) * Math.PI * 2, r = i === 0 ? 0 : 0.08;
+    const f = new THREE.Mesh(new THREE.IcosahedronGeometry(0.068, 0), mat(c));
+    f.position.set(Math.cos(a) * r * 1.1, Math.sin(a) * r * 1.1, 0.22 + (i % 2) * 0.04);
+    f.castShadow = true;
+    g.add(f);
+  });
+  for (let i = 0; i < 4; i++) {
+    const l = box(g, 0.02, 0.09, 0.12, 0x2e8b3a, Math.cos(i * 1.6) * 0.1, Math.sin(i * 1.6) * 0.1, 0.2);
+    l.rotation.z = i * 1.6;
+  }
+  return g;
+}

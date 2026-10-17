@@ -69,7 +69,7 @@
       "walk": false
     },
     "3,1": {
-      "alley": "I",
+      "alley": "T",
       "rot": 1,
       "walk": false
     },
@@ -150,6 +150,31 @@
     },
     "8,3": {
       "alley": "I",
+      "rot": 0,
+      "walk": false
+    },
+    "5,2": {
+      "alley": "L",
+      "rot": 2,
+      "walk": false
+    },
+    "5,0": {
+      "alley": "T",
+      "rot": 0,
+      "walk": false
+    },
+    "4,1": {
+      "alley": "snake",
+      "rot": 1,
+      "walk": true
+    },
+    "0,4": {
+      "alley": "L",
+      "rot": 0,
+      "walk": false
+    },
+    "0,3": {
+      "alley": "fish",
       "rot": 0,
       "walk": false
     }

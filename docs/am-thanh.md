@@ -113,6 +113,9 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [ ] | `city.qte` | Nút bấm nhanh hiện ra | Chương 3: hiện nút "E — Chặn lại!" lúc tên cướp lao tới — tiếng báo gấp, ngắn | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `city.tackle` | Vật ngã | Chương 3: anh Đạt quật tên cướp xuống đường (bịch, sột soạt quần áo) | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `city.siren` | Còi hú xe công an | Chương 3: xe công an chạy tới áp giải tên cướp (hú vài giây, nghe từ xa tới gần) | tiếng ngắn | 🔉 tổng hợp (tạm) |
+| [ ] | `city.applause` | Vỗ tay | Chương 4: khai mạc triển lãm, mọi người vỗ tay sau khi chị Linh phát biểu (~3 giây) | tiếng ngắn | 🔇 im |
+| [ ] | `city.canKick` | Vấp lon | Chương 4: núp trong hẻm, lùi lại vấp cái lon kêu "keng" lăn lóc | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `city.sneakCaught` | Bị phát hiện | Bám theo lén: người phía trước quay lại thấy người chơi ("Ai đó?!") — tiếng giật mình ngắn | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `loop.motoChase` | Máy xe anh mô tô (cảnh phim) | Tiếng lặp: sport bike anh mô tô lúc dí cướp — to nhỏ theo khoảng cách tới camera, cao độ theo tốc độ | tiếng lặp | 🔉 tạm dùng file máy xe chakong |
 | [ ] | `city.thiefShout` | La "Cướp!" | Chương 3: người trong chợ la lên "Cướp cướp!" | tiếng ngắn | 🔇 im |
 | [x] | `city.thunder` | Sấm | Trời bắt đầu mưa | tiếng ngắn | 🔇 im |

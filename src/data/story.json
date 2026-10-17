@@ -48,6 +48,54 @@
     "thief": {
       "icon": "🦹",
       "name": "story.people.thief"
+    },
+    "dai": {
+      "icon": "🧑",
+      "name": "story.people.dai"
+    },
+    "minh": {
+      "icon": "👧",
+      "name": "story.people.minh"
+    },
+    "lanAnh": {
+      "icon": "👩",
+      "name": "story.people.lanAnh"
+    },
+    "student": {
+      "icon": "🎒",
+      "name": "story.people.student"
+    },
+    "boss": {
+      "icon": "😠",
+      "name": "story.people.boss"
+    },
+    "thug1": {
+      "icon": "😈",
+      "name": "story.people.thug"
+    },
+    "thug2": {
+      "icon": "😈",
+      "name": "story.people.thug"
+    },
+    "guest1": {
+      "icon": "🙂",
+      "name": "story.people.guest"
+    },
+    "guest2": {
+      "icon": "🙂",
+      "name": "story.people.guest"
+    },
+    "guest3": {
+      "icon": "🙂",
+      "name": "story.people.guest"
+    },
+    "guest4": {
+      "icon": "🙂",
+      "name": "story.people.guest"
+    },
+    "guest5": {
+      "icon": "🙂",
+      "name": "story.people.guest"
     }
   },
   "items": {
@@ -80,6 +128,47 @@
       "desc": "story.parcel.comChayDesc",
       "traits": [
         "hot"
+      ]
+    },
+    "tranhA": {
+      "icon": "🖼️",
+      "name": "story.parcel.tranh",
+      "desc": "story.parcel.tranhDesc",
+      "traits": [
+        "fragile"
+      ]
+    },
+    "tranhB": {
+      "icon": "🖼️",
+      "name": "story.parcel.tranh",
+      "desc": "story.parcel.tranhDesc",
+      "traits": [
+        "fragile"
+      ]
+    },
+    "tranhC": {
+      "icon": "🖼️",
+      "name": "story.parcel.tranh",
+      "desc": "story.parcel.tranhDesc",
+      "traits": [
+        "fragile"
+      ]
+    },
+    "hoa": {
+      "icon": "💐",
+      "name": "story.parcel.hoa",
+      "desc": "story.parcel.hoaDesc",
+      "traits": [
+        "fragile"
+      ]
+    },
+    "banhKem": {
+      "icon": "🎂",
+      "name": "story.parcel.banhKem",
+      "desc": "story.parcel.banhKemDesc",
+      "traits": [
+        "cold",
+        "fragile"
       ]
     }
   },
@@ -3243,6 +3332,1810 @@
         },
         {
           "id": "done",
+          "on": [
+            {
+              "do": "end"
+            }
+          ],
+          "until": {
+            "type": "none"
+          },
+          "guide": null
+        }
+      ]
+    },
+    {
+      "id": "c4",
+      "title": "story.c4.title",
+      "name": "story.c4.name",
+      "steps": [
+        {
+          "id": "evening",
+          "on": [],
+          "until": {
+            "type": "clock",
+            "from": 17,
+            "to": 21
+          },
+          "guide": null
+        },
+        {
+          "id": "linhMsg",
+          "on": [
+            {
+              "do": "msg",
+              "from": "linh",
+              "text": "story.c4.linh.m1",
+              "loc": []
+            },
+            {
+              "do": "replies",
+              "who": "linh",
+              "texts": [
+                "story.c4.linh.r1",
+                "story.c4.linh.r2",
+                "story.c4.linh.r3"
+              ],
+              "gains": [
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ]
+            }
+          ],
+          "until": {
+            "type": "reply",
+            "who": "linh"
+          },
+          "goal": "story.c4.linhMsg.goal",
+          "guide": null
+        },
+        {
+          "id": "sleep1",
+          "on": [],
+          "until": {
+            "type": "newDay"
+          },
+          "goal": "story.c4.sleep1.goal",
+          "hint": "story.c4.sleep1.hint",
+          "guide": null
+        },
+        {
+          "id": "waitAirport",
+          "on": [],
+          "until": {
+            "type": "clock",
+            "from": 16.5,
+            "to": 18
+          },
+          "goal": "story.c4.airport.goal",
+          "target": "sanbay",
+          "guide": null
+        },
+        {
+          "id": "airport",
+          "hold": true,
+          "on": [
+            {
+              "do": "title"
+            }
+          ],
+          "talk": {
+            "place": "sanbay",
+            "label": "story.c4.airport.talk",
+            "text": "story.c4.airport.say",
+            "pack": [
+              "tranhA",
+              "tranhB",
+              "tranhC"
+            ]
+          },
+          "until": {
+            "type": "talk",
+            "place": "sanbay"
+          },
+          "goal": "story.c4.airport.goal",
+          "hint": "story.c4.airport.hint",
+          "target": "sanbay",
+          "mark": {
+            "place": "sanbay",
+            "icon": "!"
+          },
+          "guide": null,
+          "deadline": {
+            "hour": 18,
+            "back": "waitAirport",
+            "text": "story.c4.airport.late",
+            "from": "linh",
+            "msg": "story.c4.linh.late"
+          }
+        },
+        {
+          "id": "toSchool",
+          "hold": true,
+          "on": [
+            {
+              "do": "actor",
+              "who": "nhi",
+              "look": "char",
+              "spot": "place",
+              "place": "dhMyThuat",
+              "dist": 2,
+              "lat": 1.5
+            },
+            {
+              "do": "actor",
+              "who": "hoang",
+              "look": "char",
+              "spot": "place",
+              "place": "dhMyThuat",
+              "dist": 2.2,
+              "lat": -1.6
+            }
+          ],
+          "until": {
+            "type": "near",
+            "who": "nhi",
+            "r": 3.5
+          },
+          "goal": "story.c4.toSchool.goal",
+          "target": "dhMyThuat",
+          "guide": null
+        },
+        {
+          "id": "nhiTake",
+          "hold": true,
+          "on": [
+            {
+              "do": "drop",
+              "id": "tranhA"
+            },
+            {
+              "do": "bubble",
+              "who": "nhi",
+              "text": "story.c4.nhi.take",
+              "hold": true
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "nhi"
+          },
+          "guide": null
+        },
+        {
+          "id": "hoangSay",
+          "hold": true,
+          "on": [
+            {
+              "do": "bubble",
+              "who": "hoang",
+              "text": "story.c4.hoang.say",
+              "hold": true
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "hoang"
+          },
+          "guide": null
+        },
+        {
+          "id": "hoangAns",
+          "hold": true,
+          "on": [
+            {
+              "do": "choose",
+              "id": "c4Hoang",
+              "who": "hoang",
+              "options": [
+                "story.c4.hoang.o1",
+                "story.c4.hoang.o2",
+                "story.c4.hoang.o3"
+              ],
+              "answers": [
+                "story.c4.hoang.a1",
+                "story.c4.hoang.a2",
+                "story.c4.hoang.a3"
+              ],
+              "gains": [
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ]
+            }
+          ],
+          "until": {
+            "type": "chosen",
+            "id": "c4Hoang"
+          },
+          "guide": null
+        },
+        {
+          "id": "hoangEnd",
+          "hold": true,
+          "on": [],
+          "until": {
+            "type": "talkActor",
+            "who": "hoang"
+          },
+          "guide": null
+        },
+        {
+          "id": "later2h",
+          "hold": true,
+          "on": [
+            {
+              "do": "fade",
+              "text": "story.c4.later2h",
+              "t": 2,
+              "skip": 120
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 4.5
+          },
+          "guide": null
+        },
+        {
+          "id": "invite",
+          "hold": true,
+          "on": [
+            {
+              "do": "bubble",
+              "who": "nhi",
+              "text": "story.c4.nhi.invite",
+              "hold": true
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "nhi"
+          },
+          "guide": null
+        },
+        {
+          "id": "toDai",
+          "hold": true,
+          "on": [
+            {
+              "do": "remove",
+              "who": "nhi"
+            },
+            {
+              "do": "remove",
+              "who": "hoang"
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "place:traiCay"
+          },
+          "goal": "story.c4.dai.goal",
+          "target": "traiCay",
+          "mark": {
+            "place": "traiCay",
+            "icon": "!"
+          },
+          "guide": null
+        },
+        {
+          "id": "daiSay",
+          "hold": true,
+          "on": [
+            {
+              "do": "bubble",
+              "who": "place:traiCay",
+              "text": "story.c4.dai.invite",
+              "hold": true
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "place:traiCay"
+          },
+          "guide": null
+        },
+        {
+          "id": "toMinh",
+          "hold": true,
+          "on": [
+            {
+              "do": "actor",
+              "who": "minh",
+              "look": "char",
+              "spot": "place",
+              "place": "nhasach",
+              "dist": 1.5
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "minh"
+          },
+          "goal": "story.c4.minh.goal",
+          "target": "actor:minh",
+          "mark": {
+            "actor": "minh",
+            "icon": "!"
+          },
+          "hideNpc": [
+            "nhasach"
+          ],
+          "guide": null
+        },
+        {
+          "id": "minhSay",
+          "hold": true,
+          "on": [
+            {
+              "do": "bubble",
+              "who": "minh",
+              "text": "story.c4.minh.invite",
+              "hold": true
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "minh"
+          },
+          "hideNpc": [
+            "nhasach"
+          ],
+          "guide": null
+        },
+        {
+          "id": "toLan",
+          "hold": true,
+          "on": [
+            {
+              "do": "remove",
+              "who": "minh"
+            },
+            {
+              "do": "actor",
+              "who": "lanAnh",
+              "look": "char",
+              "spot": "place",
+              "place": "dichvu3",
+              "dist": 1.5
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "lanAnh"
+          },
+          "goal": "story.c4.lanAnh.goal",
+          "target": "actor:lanAnh",
+          "mark": {
+            "actor": "lanAnh",
+            "icon": "!"
+          },
+          "hideNpc": [
+            "dichvu3"
+          ],
+          "guide": null
+        },
+        {
+          "id": "lanSay",
+          "hold": true,
+          "on": [
+            {
+              "do": "bubble",
+              "who": "lanAnh",
+              "text": "story.c4.lanAnh.invite",
+              "hold": true
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "lanAnh"
+          },
+          "hideNpc": [
+            "dichvu3"
+          ],
+          "guide": null
+        },
+        {
+          "id": "goHome",
+          "hold": true,
+          "on": [
+            {
+              "do": "remove",
+              "who": "lanAnh"
+            },
+            {
+              "do": "actor",
+              "who": "flyer",
+              "look": "jetjet",
+              "spot": "at",
+              "at": [
+                -7.5,
+                -176
+              ],
+              "heading": 180
+            },
+            {
+              "do": "actor",
+              "who": "student",
+              "look": "student",
+              "spot": "at",
+              "at": [
+                -7.5,
+                -175
+              ],
+              "heading": 180
+            }
+          ],
+          "until": {
+            "type": "reach",
+            "at": [
+              -3,
+              -180
+            ],
+            "r": 16
+          },
+          "goal": "story.c4.goHome.goal",
+          "target": "home",
+          "guide": null
+        },
+        {
+          "id": "sneak",
+          "hold": true,
+          "noFines": true,
+          "on": [
+            {
+              "do": "bubble",
+              "who": "player",
+              "text": "story.c4.spot.say"
+            },
+            {
+              "do": "prop",
+              "id": "bin1",
+              "kind": "bin",
+              "at": [
+                -15.4,
+                -177
+              ],
+              "heading": 0,
+              "route": []
+            },
+            {
+              "do": "prop",
+              "id": "bin2",
+              "kind": "bin",
+              "at": [
+                -22.4,
+                -180
+              ],
+              "heading": 0,
+              "route": []
+            },
+            {
+              "do": "prop",
+              "id": "bin3",
+              "kind": "bin",
+              "at": [
+                -29.4,
+                -185
+              ],
+              "heading": 0,
+              "route": []
+            },
+            {
+              "do": "prop",
+              "id": "can1",
+              "kind": "can",
+              "at": [
+                -36.3,
+                -177.3
+              ],
+              "heading": 30,
+              "route": []
+            },
+            {
+              "do": "actor",
+              "who": "boss",
+              "look": "jetjet",
+              "spot": "at",
+              "at": [
+                -36,
+                -189.6
+              ],
+              "heading": 0
+            },
+            {
+              "do": "actor",
+              "who": "thug1",
+              "look": "jetjet",
+              "spot": "at",
+              "at": [
+                -35.4,
+                -188.2
+              ],
+              "heading": 200
+            },
+            {
+              "do": "actor",
+              "who": "thug2",
+              "look": "jetjet",
+              "spot": "at",
+              "at": [
+                -36.6,
+                -188
+              ],
+              "heading": 160
+            },
+            {
+              "do": "sneak",
+              "who": "flyer",
+              "with": "student",
+              "route": [
+                {
+                  "at": [
+                    -7.5,
+                    -176
+                  ]
+                },
+                {
+                  "at": [
+                    -7.5,
+                    -182
+                  ]
+                },
+                {
+                  "at": [
+                    -16,
+                    -182
+                  ],
+                  "look": 2
+                },
+                {
+                  "at": [
+                    -16,
+                    -172
+                  ]
+                },
+                {
+                  "at": [
+                    -23,
+                    -172
+                  ],
+                  "look": 2.5
+                },
+                {
+                  "at": [
+                    -23,
+                    -183
+                  ],
+                  "look": 2
+                },
+                {
+                  "at": [
+                    -23,
+                    -192
+                  ]
+                },
+                {
+                  "at": [
+                    -30,
+                    -192
+                  ]
+                },
+                {
+                  "at": [
+                    -30,
+                    -180
+                  ],
+                  "look": 2.5
+                },
+                {
+                  "at": [
+                    -30,
+                    -172
+                  ]
+                },
+                {
+                  "at": [
+                    -36,
+                    -172
+                  ],
+                  "look": 2
+                },
+                {
+                  "at": [
+                    -36,
+                    -185.5
+                  ]
+                }
+              ],
+              "speed": 1.3,
+              "see": 11,
+              "lose": 24,
+              "start": 16,
+              "retry": [
+                -3,
+                -176
+              ]
+            },
+            {
+              "do": "bubble",
+              "who": "flyer",
+              "text": "story.c4.flyer.l1",
+              "after": 6
+            },
+            {
+              "do": "bubble",
+              "who": "student",
+              "text": "story.c4.student.l1",
+              "after": 11
+            },
+            {
+              "do": "bubble",
+              "who": "flyer",
+              "text": "story.c4.flyer.l2",
+              "after": 15
+            }
+          ],
+          "until": {
+            "type": "sneaked"
+          },
+          "goal": "story.c4.sneak.goal",
+          "hint": "story.c4.sneak.hint",
+          "target": "actor:flyer",
+          "mark": {
+            "actor": "flyer",
+            "icon": "dot"
+          },
+          "noBeacon": true,
+          "guide": null
+        },
+        {
+          "id": "overhear1",
+          "hold": true,
+          "on": [
+            {
+              "do": "bubble",
+              "who": "boss",
+              "text": "story.c4.boss.l1"
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 4
+          },
+          "guide": null
+        },
+        {
+          "id": "overhear2",
+          "hold": true,
+          "on": [
+            {
+              "do": "bubble",
+              "who": "thug1",
+              "text": "story.c4.thug.l1"
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 2.5
+          },
+          "guide": null
+        },
+        {
+          "id": "overhear3",
+          "hold": true,
+          "on": [
+            {
+              "do": "bubble",
+              "who": "boss",
+              "text": "story.c4.boss.l2"
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 3
+          },
+          "guide": null
+        },
+        {
+          "id": "trip",
+          "hold": true,
+          "noFines": true,
+          "on": [
+            {
+              "do": "sound",
+              "code": "city.canKick"
+            },
+            {
+              "do": "bubble",
+              "who": "player",
+              "text": "story.c4.player.oops",
+              "after": 0.3
+            },
+            {
+              "do": "react",
+              "who": [
+                "boss",
+                "thug1",
+                "thug2",
+                "flyer"
+              ],
+              "icon": "!"
+            },
+            {
+              "do": "bubble",
+              "who": "thug1",
+              "text": "story.c4.thug.shout",
+              "after": 0.5
+            },
+            {
+              "do": "bubble",
+              "who": "boss",
+              "text": "story.c4.boss.shout",
+              "after": 1.6
+            },
+            {
+              "do": "pursue",
+              "who": [
+                "thug1",
+                "thug2"
+              ],
+              "speed": 4.6,
+              "delay": 1.1,
+              "lose": 30,
+              "stopText": "story.c4.thug.stop",
+              "caughtText": "story.c4.thug.caught"
+            }
+          ],
+          "until": {
+            "type": "escaped"
+          },
+          "goal": "story.c4.flee.goal",
+          "hint": "story.c4.flee.hint",
+          "target": "home",
+          "guide": null
+        },
+        {
+          "id": "flee",
+          "hold": true,
+          "on": [
+            {
+              "do": "remove",
+              "who": "flyer"
+            },
+            {
+              "do": "remove",
+              "who": "student"
+            },
+            {
+              "do": "remove",
+              "who": "boss"
+            }
+          ],
+          "until": {
+            "type": "arrive",
+            "place": "home",
+            "r": 10
+          },
+          "goal": "story.c4.flee.goal",
+          "target": "home",
+          "guide": null
+        },
+        {
+          "id": "msgDat",
+          "hold": true,
+          "on": [
+            {
+              "do": "remove",
+              "who": "thug1"
+            },
+            {
+              "do": "remove",
+              "who": "thug2"
+            },
+            {
+              "do": "openPhone",
+              "app": "chat",
+              "who": "man"
+            },
+            {
+              "do": "replies",
+              "who": "man",
+              "texts": [
+                "story.c4.dat.r1",
+                "story.c4.dat.r2",
+                "story.c4.dat.r3"
+              ],
+              "gains": [
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ]
+            }
+          ],
+          "until": {
+            "type": "reply",
+            "who": "man"
+          },
+          "goal": "story.c4.datMsg.goal",
+          "guide": null
+        },
+        {
+          "id": "datAns",
+          "hold": true,
+          "delay": 3,
+          "on": [
+            {
+              "do": "msg",
+              "from": "man",
+              "text": "story.c4.dat.m1",
+              "loc": []
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 2
+          },
+          "guide": null
+        },
+        {
+          "id": "sleep2",
+          "hold": true,
+          "on": [],
+          "until": {
+            "type": "newDay"
+          },
+          "goal": "story.c4.sleep2.goal",
+          "guide": null
+        },
+        {
+          "id": "wait8",
+          "hold": true,
+          "on": [],
+          "until": {
+            "type": "clock",
+            "from": 7.5,
+            "to": 13
+          },
+          "goal": "story.c4.wait8.goal",
+          "target": "dhMyThuat",
+          "guide": null
+        },
+        {
+          "id": "exhibit",
+          "hold": true,
+          "on": [
+            {
+              "do": "prop",
+              "id": "ea1",
+              "kind": "easel",
+              "at": [
+                -137.4,
+                19.5
+              ],
+              "heading": 90,
+              "route": []
+            },
+            {
+              "do": "prop",
+              "id": "ea2",
+              "kind": "easel",
+              "at": [
+                -137.4,
+                23.5
+              ],
+              "heading": 90,
+              "route": []
+            },
+            {
+              "do": "prop",
+              "id": "ea3",
+              "kind": "easel",
+              "at": [
+                -137.4,
+                27.5
+              ],
+              "heading": 90,
+              "route": []
+            },
+            {
+              "do": "prop",
+              "id": "ea4",
+              "kind": "easel",
+              "at": [
+                -122.6,
+                19.5
+              ],
+              "heading": 270,
+              "route": []
+            },
+            {
+              "do": "prop",
+              "id": "ea5",
+              "kind": "easel",
+              "at": [
+                -122.6,
+                23.5
+              ],
+              "heading": 270,
+              "route": []
+            },
+            {
+              "do": "prop",
+              "id": "ea6",
+              "kind": "easel",
+              "at": [
+                -122.6,
+                27.5
+              ],
+              "heading": 270,
+              "route": []
+            },
+            {
+              "do": "actor",
+              "who": "linh",
+              "look": "char",
+              "spot": "at",
+              "at": [
+                -130,
+                18.6
+              ],
+              "heading": 180,
+              "idle": "story.c4.linh.idle"
+            },
+            {
+              "do": "actor",
+              "who": "nhi",
+              "look": "char",
+              "spot": "at",
+              "at": [
+                -127.6,
+                24
+              ],
+              "heading": 200,
+              "idle": "story.c4.nhi.idle"
+            },
+            {
+              "do": "actor",
+              "who": "hoang",
+              "look": "char",
+              "spot": "at",
+              "at": [
+                -133.8,
+                27.2
+              ],
+              "heading": 140,
+              "idle": "story.c4.hoang.idle"
+            },
+            {
+              "do": "actor",
+              "who": "minh",
+              "look": "char",
+              "spot": "at",
+              "at": [
+                -124.6,
+                21
+              ],
+              "heading": 270,
+              "idle": "story.c4.minh.idle"
+            },
+            {
+              "do": "actor",
+              "who": "lanAnh",
+              "look": "char",
+              "spot": "at",
+              "at": [
+                -124.4,
+                25.6
+              ],
+              "heading": 260,
+              "idle": "story.c4.lanAnh.idle"
+            },
+            {
+              "do": "actor",
+              "who": "dai",
+              "look": "char",
+              "spot": "at",
+              "at": [
+                -134.6,
+                19.2
+              ],
+              "heading": 120,
+              "idle": [
+                "story.c4.dai.idle1",
+                "story.c4.dai.idle2"
+              ]
+            },
+            {
+              "do": "actor",
+              "who": "guest1",
+              "look": "normal",
+              "spot": "at",
+              "at": [
+                -135.6,
+                22.4
+              ],
+              "heading": 90
+            },
+            {
+              "do": "actor",
+              "who": "guest2",
+              "look": "normal",
+              "spot": "at",
+              "at": [
+                -135.4,
+                27
+              ],
+              "heading": 80
+            },
+            {
+              "do": "actor",
+              "who": "guest3",
+              "look": "normal",
+              "spot": "at",
+              "at": [
+                -124.6,
+                28.4
+              ],
+              "heading": 280
+            },
+            {
+              "do": "actor",
+              "who": "guest4",
+              "look": "normal",
+              "spot": "at",
+              "at": [
+                -131.2,
+                29.4
+              ],
+              "heading": 160
+            },
+            {
+              "do": "actor",
+              "who": "guest5",
+              "look": "normal",
+              "spot": "at",
+              "at": [
+                -127.2,
+                15.6
+              ],
+              "heading": 200
+            }
+          ],
+          "until": {
+            "type": "arrive",
+            "place": "dhMyThuat",
+            "r": 14
+          },
+          "goal": "story.c4.wait8.goal",
+          "target": "dhMyThuat",
+          "guide": null
+        },
+        {
+          "id": "mingle",
+          "hold": true,
+          "on": [],
+          "until": {
+            "type": "clock",
+            "from": 8.5,
+            "to": 13
+          },
+          "goal": "story.c4.exhibit.goal",
+          "guide": null
+        },
+        {
+          "id": "linhAsk",
+          "hold": true,
+          "on": [],
+          "until": {
+            "type": "talkActor",
+            "who": "linh"
+          },
+          "goal": "story.c4.errand.goal",
+          "target": "actor:linh",
+          "mark": {
+            "actor": "linh",
+            "icon": "!"
+          },
+          "guide": null
+        },
+        {
+          "id": "linhAsk2",
+          "hold": true,
+          "on": [
+            {
+              "do": "bubble",
+              "who": "linh",
+              "text": "story.c4.linh.ask",
+              "hold": true
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "linh"
+          },
+          "guide": null
+        },
+        {
+          "id": "flowers",
+          "hold": true,
+          "on": [],
+          "talk": {
+            "place": "choTruyenThong",
+            "label": "story.c4.flowers.talk",
+            "text": "story.c4.flowers.say",
+            "pack": [
+              "hoa"
+            ]
+          },
+          "until": {
+            "type": "talk",
+            "place": "choTruyenThong"
+          },
+          "goal": "story.c4.flowers.goal",
+          "target": "choTruyenThong",
+          "mark": {
+            "place": "choTruyenThong",
+            "icon": "!"
+          },
+          "guide": null
+        },
+        {
+          "id": "cake",
+          "hold": true,
+          "on": [],
+          "talk": {
+            "place": "banh",
+            "label": "story.c4.cake.talk",
+            "text": "story.c4.cake.say",
+            "pack": [
+              "banhKem"
+            ]
+          },
+          "until": {
+            "type": "talk",
+            "place": "banh"
+          },
+          "goal": "story.c4.cake.goal",
+          "target": "banh",
+          "mark": {
+            "place": "banh",
+            "icon": "!"
+          },
+          "guide": null
+        },
+        {
+          "id": "back",
+          "hold": true,
+          "on": [],
+          "until": {
+            "type": "talkActor",
+            "who": "linh"
+          },
+          "goal": "story.c4.back.goal",
+          "target": "actor:linh",
+          "mark": {
+            "actor": "linh",
+            "icon": "!"
+          },
+          "guide": null
+        },
+        {
+          "id": "thanksOk",
+          "hold": true,
+          "onlyBefore": 9.84,
+          "on": [
+            {
+              "do": "drop",
+              "id": [
+                "hoa",
+                "banhKem"
+              ]
+            },
+            {
+              "do": "bubble",
+              "who": "linh",
+              "text": "story.c4.linh.thanks",
+              "hold": true
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "linh"
+          },
+          "guide": null
+        },
+        {
+          "id": "thanksLate",
+          "hold": true,
+          "onlyAfter": 9.84,
+          "on": [
+            {
+              "do": "drop",
+              "id": [
+                "hoa",
+                "banhKem"
+              ]
+            },
+            {
+              "do": "bubble",
+              "who": "linh",
+              "text": "story.c4.linh.lateErrand",
+              "hold": true
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "linh"
+          },
+          "guide": null
+        },
+        {
+          "id": "waitOpen",
+          "hold": true,
+          "on": [],
+          "until": {
+            "type": "clock",
+            "from": 10,
+            "to": 13
+          },
+          "goal": "story.c4.waitOpen.goal",
+          "guide": null
+        },
+        {
+          "id": "opening",
+          "hold": true,
+          "on": [
+            {
+              "do": "cine",
+              "shots": [
+                {
+                  "pos": [
+                    -126.5,
+                    3.2,
+                    11.5
+                  ],
+                  "lookAt": "actor:linh",
+                  "t": 3.5
+                },
+                {
+                  "at": "actor:linh",
+                  "t": 4.5,
+                  "dist": 3.4,
+                  "height": 1.6,
+                  "angle": 0,
+                  "lookY": 1.5
+                },
+                {
+                  "pos": [
+                    -124,
+                    2.2,
+                    30.5
+                  ],
+                  "lookAt": "actor:linh",
+                  "t": 3
+                },
+                {
+                  "at": "actor:dai",
+                  "t": 2.5,
+                  "dist": 3.2,
+                  "height": 1.6,
+                  "angle": 20,
+                  "lookY": 1.5
+                },
+                {
+                  "at": "actor:nhi",
+                  "t": 2.5,
+                  "dist": 3.2,
+                  "height": 1.6,
+                  "angle": -20,
+                  "lookY": 1.5
+                }
+              ]
+            },
+            {
+              "do": "bubble",
+              "who": "linh",
+              "text": "story.c4.linh.speech",
+              "after": 0.6
+            },
+            {
+              "do": "sound",
+              "code": "city.applause",
+              "after": 8.2
+            },
+            {
+              "do": "bubble",
+              "who": "dai",
+              "text": "story.c4.dai.shout",
+              "after": 11.2
+            },
+            {
+              "do": "bubble",
+              "who": "nhi",
+              "text": "story.c4.nhi.shush",
+              "after": 13.6
+            }
+          ],
+          "until": {
+            "type": "cine"
+          },
+          "guide": null
+        },
+        {
+          "id": "before30",
+          "hold": true,
+          "on": [
+            {
+              "do": "fade",
+              "text": "story.c4.before30",
+              "t": 1.5
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 2.6
+          },
+          "guide": null
+        },
+        {
+          "id": "datCine",
+          "hold": true,
+          "on": [
+            {
+              "do": "chase",
+              "who": "man",
+              "look": "char",
+              "outfit": "diXe",
+              "bike": "supersport",
+              "color": "#15171c",
+              "route": [
+                {
+                  "at": [
+                    60,
+                    -3
+                  ]
+                },
+                {
+                  "at": [
+                    24,
+                    -3
+                  ],
+                  "mark": "block"
+                },
+                {
+                  "at": [
+                    -36,
+                    -3
+                  ]
+                }
+              ],
+              "speed": 12,
+              "gap": 10,
+              "pct": 100,
+              "lose": 5000,
+              "delay": 0,
+              "revAt": "none",
+              "carry": "bouquet"
+            },
+            {
+              "do": "prop",
+              "id": "car1",
+              "kind": "car",
+              "model": "suv",
+              "color": "#111111",
+              "when": "man:block",
+              "route": [
+                {
+                  "at": [
+                    -50,
+                    -60
+                  ]
+                },
+                {
+                  "at": [
+                    -50,
+                    -12
+                  ]
+                },
+                {
+                  "at": [
+                    -41.5,
+                    -4.2
+                  ]
+                }
+              ],
+              "speed": 14,
+              "keep": true
+            },
+            {
+              "do": "prop",
+              "id": "car2",
+              "kind": "car",
+              "model": "suv",
+              "color": "#111111",
+              "when": "man:block",
+              "route": [
+                {
+                  "at": [
+                    62,
+                    -3
+                  ]
+                },
+                {
+                  "at": [
+                    -30.8,
+                    -3.6
+                  ]
+                }
+              ],
+              "speed": 16,
+              "keep": true
+            },
+            {
+              "do": "prop",
+              "id": "car3",
+              "kind": "car",
+              "model": "suv",
+              "color": "#111111",
+              "when": "man:block",
+              "route": [
+                {
+                  "at": [
+                    -100,
+                    3
+                  ]
+                },
+                {
+                  "at": [
+                    -36.5,
+                    -0.4
+                  ]
+                }
+              ],
+              "speed": 15,
+              "keep": true
+            },
+            {
+              "do": "cine",
+              "clearAll": true,
+              "shots": [
+                {
+                  "at": "actor:man",
+                  "t": 3.5,
+                  "dist": 7,
+                  "height": 2,
+                  "angle": 200,
+                  "follow": true
+                },
+                {
+                  "at": "actor:man",
+                  "t": 3,
+                  "dist": 6,
+                  "height": 1.2,
+                  "angle": 15,
+                  "follow": true
+                },
+                {
+                  "pos": [
+                    -64,
+                    9,
+                    5
+                  ],
+                  "lookAt": "actor:man",
+                  "t": 4
+                },
+                {
+                  "at": "actor:man",
+                  "t": 3,
+                  "dist": 3,
+                  "height": 1.6,
+                  "angle": 70,
+                  "lookY": 1.2
+                }
+              ]
+            },
+            {
+              "do": "bubble",
+              "who": "man",
+              "text": "story.c4.dat.phone",
+              "after": 10.8
+            }
+          ],
+          "until": {
+            "type": "cine"
+          },
+          "guide": null
+        },
+        {
+          "id": "noon",
+          "hold": true,
+          "on": [
+            {
+              "do": "fade",
+              "text": "story.c4.noon",
+              "t": 1.5,
+              "skipTo": 11,
+              "remove": [
+                "man"
+              ],
+              "props": [
+                "car1",
+                "car2",
+                "car3"
+              ]
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 3
+          },
+          "guide": null
+        },
+        {
+          "id": "linhHome",
+          "hold": true,
+          "on": [
+            {
+              "do": "bubble",
+              "who": "linh",
+              "text": "story.c4.linh.goHome",
+              "hold": true
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "linh"
+          },
+          "target": "actor:linh",
+          "mark": {
+            "actor": "linh",
+            "icon": "!"
+          },
+          "guide": null
+        },
+        {
+          "id": "askDat",
+          "hold": true,
+          "on": [
+            {
+              "do": "choose",
+              "id": "c4AskDat",
+              "who": "linh",
+              "options": [
+                "story.c4.askDat.o1",
+                "story.c4.askDat.o2",
+                "story.c4.askDat.o3"
+              ],
+              "answers": [
+                "story.c4.askDat.a",
+                "story.c4.askDat.a",
+                "story.c4.askDat.a"
+              ],
+              "gains": [
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ]
+            }
+          ],
+          "until": {
+            "type": "chosen",
+            "id": "c4AskDat"
+          },
+          "guide": null
+        },
+        {
+          "id": "askEnd",
+          "hold": true,
+          "on": [],
+          "until": {
+            "type": "talkActor",
+            "who": "linh"
+          },
+          "guide": null
+        },
+        {
+          "id": "ride",
+          "hold": true,
+          "on": [
+            {
+              "do": "board",
+              "who": "linh"
+            },
+            {
+              "do": "bubble",
+              "who": "linh",
+              "text": "story.c4.linh.voicemail",
+              "after": 14
+            },
+            {
+              "do": "bubble",
+              "who": "linh",
+              "text": "story.c4.linh.sigh",
+              "after": 21
+            }
+          ],
+          "until": {
+            "type": "bring",
+            "who": "linh",
+            "place": "tra",
+            "r": 8
+          },
+          "goal": "story.c4.ride.goal",
+          "target": "tra",
+          "guide": null
+        },
+        {
+          "id": "arriveTra",
+          "hold": true,
+          "on": [
+            {
+              "do": "alight",
+              "who": "linh"
+            },
+            {
+              "do": "remove",
+              "who": "nhi"
+            },
+            {
+              "do": "remove",
+              "who": "hoang"
+            },
+            {
+              "do": "remove",
+              "who": "minh"
+            },
+            {
+              "do": "remove",
+              "who": "lanAnh"
+            },
+            {
+              "do": "remove",
+              "who": "dai"
+            },
+            {
+              "do": "remove",
+              "who": "guest1"
+            },
+            {
+              "do": "remove",
+              "who": "guest2"
+            },
+            {
+              "do": "remove",
+              "who": "guest3"
+            },
+            {
+              "do": "remove",
+              "who": "guest4"
+            },
+            {
+              "do": "remove",
+              "who": "guest5"
+            },
+            {
+              "do": "fade",
+              "t": 0.5,
+              "props": [
+                "ea1",
+                "ea2",
+                "ea3",
+                "ea4",
+                "ea5",
+                "ea6"
+              ]
+            },
+            {
+              "do": "bubble",
+              "who": "linh",
+              "text": "story.c4.linh.bye",
+              "hold": true
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "linh"
+          },
+          "guide": null
+        },
+        {
+          "id": "linhIn",
+          "hold": true,
+          "on": [
+            {
+              "do": "goto",
+              "who": "linh",
+              "place": "tra"
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 2
+          },
+          "guide": null
+        },
+        {
+          "id": "finalMsg",
+          "hold": true,
+          "on": [
+            {
+              "do": "openPhone",
+              "app": "chat",
+              "who": "man"
+            },
+            {
+              "do": "replies",
+              "who": "man",
+              "texts": [
+                "story.c4.final.r1",
+                "story.c4.final.r2",
+                "story.c4.final.r3"
+              ],
+              "gains": [
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ]
+            }
+          ],
+          "until": {
+            "type": "reply",
+            "who": "man"
+          },
+          "goal": "story.c4.final.goal",
+          "guide": null
+        },
+        {
+          "id": "done",
+          "delay": 3,
           "on": [
             {
               "do": "end"

@@ -139,6 +139,24 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   (đạo cụ car / moto: xeW1–W3 đường trước nhà thờ, xeS1–S3 đường xuống bến cảng) chạy đúng làn, hiện khi tên cướp tới mốc west / south, có xe tấp lề dừng (keep) ·
   2 xe dí + xe người chơi tự chạy đều né xe diễn viên (sửa lỗi hàm né: đo lệch sai + bỏ né khi đang chạy ngang hàng). Đo: gần nhất 1,6 (tâm-tâm), không xuyên qua nhau.
 
+### 🖼️ Chương 4 "Bức tranh dang dở" (17/10 — XONG phần logic, CHƯA commit; chủ game tự sửa lời thoại trong ?editor)
+- Luồng (story.json c4, 51 bước): chiều tối chị Linh nhắn (sáng mốt khai mạc, chiều mai 5h qua sân bay) → ngủ → 17h Sân bay: tên chương + xếp 3 bức tranh dễ vỡ
+  (trễ 18h → quay lại hôm sau) → trường: chị Nhi nhận tranh, anh Hoàng chê (chọn 3 câu) → ⬛ "2 tiếng sau…" (tua giờ thật như ngủ) → chị Nhi đưa thiệp →
+  anh Đại (sạp Trái Cây Ba Miền, NPC địa điểm) → em Minh (đứng trước Nhà Sách) → Lan Anh (trước tiệm thú cưng) → về trọ ngang khối 4,1: anh phát tờ rơi dắt
+  cậu sinh viên (dáng người lạ mới "student": áo thun, quần jean, balo) vào hẻm → 🕵️ bám theo lén → nghe lỏm đại ca ("thằng đó dạo này đánh hơi tụi mình… mai dọn cho gọn") → vấp lon, 🏃 2 đàn em rượt (người chơi TỰ chạy, không cảnh phim — chủ game chốt 17/10; bị tóm → làm lại từ chỗ núp; thoát = lên xe chạy / bỏ xa) → chạy về trọ →
+  nhắn anh Đạt (3 câu) → "Hẹn em ngày mai :)" → ngủ → 8h triển lãm trong sân trường (giá tranh, khách, người quen nói "idle"; anh Đại câu 2 kể xe hơi đen) →
+  8h30 chị Linh nhờ lấy hoa (Chợ Hòa Bình) + bánh (Tiệm Bánh Hạnh Phúc) trước 9h50 (kịp / trễ = 2 câu khác nhau, không thua) → 10h 🎬 khai mạc →
+  ⬛ "30 phút trước…" → 🎬 anh Đạt (bó hoa buộc trên đuôi xe — chase.carry "bouquet") chạy lên trường bị 3 ô tô đen ép (📱 Linh đang gọi…) → ⬛ "Gần trưa…" (tua tới 11h) → chở chị Linh về (dọc đường gọi anh Đạt:
+  thuê bao) → tiệm trà → nhắn anh Đạt (3 câu) → không ai đọc ("Đã gửi") → hết chương.
+- Hẻm mới khối 4,1: kiểu `snake` (ngoằn ngoèo ~99 m, cụt, hẻm đi bộ 2 m, nhà mặt phố mỏng 5 m), miệng hẻm quay ra đường dọc x ≈ 0; Lẩu Dê Bảy Hiền dời lô f14 (sát miệng hẻm).
+- Việc mới (có ở ?editor): 🕵️ Bám theo lén (sneak + điều kiện sneaked) · 🏃 Bị rượt (pursue + điều kiện escaped: chạy theo dấu chân người chơi) · ⬛ Màn đen tua giờ (fade.skip / skipTo, dọn đạo cụ chọn lẻ) · 🚧 Giữ vùng vắng xe (traffic) ·
+  Cảnh phim: người chơi tự chạy bộ (playerRun, runSpeed, runDelay, bikeAt) · Người lạ đứng đúng tọa độ (spot "at") · câu "idle" nhiều câu · bước chỉ chạy trước / từ giờ
+  (onlyBefore / onlyAfter) · bong bóng / tiếng "sau … giây" (after) · đạo cụ giá vẽ / thùng rác / lon. App Tin nhắn: "Đã gửi" dưới tin cuối của mình (cách A, đã duyệt phác họa).
+- Dáng người lạ "jetjet" giờ cố định theo người (không đổi theo ngày) — anh phát tờ rơi chương 1 gặp lại vẫn y vậy (tên cướp chương 3 cũng đổi mặt theo).
+- Âm thanh mới chờ gắn file: city.applause, city.canKick, city.sneakCaught.
+- Sửa 17/10 tối: ô "Giao gói hàng" trong ?editor chọn được nhiều gói (trước chỉ 1 → giao 3 bức tranh hiện thành "Hũ chao" — lỗi hiển thị editor, game vẫn đúng).
+- Còn để ý: lấy hoa + bánh 8h30 → 9h50 ≈ 80 giây thật, đường đi ~530 đơn vị — xe máy kịp, xe đạp dễ trễ (trễ chỉ đổi câu thoại). Bám theo lén núp kỹ ~85 giây.
+
 ### 🤼 Chương 3 — cuối chương: bắt cướp → công an → làm quen anh Đạt (17/10 — XONG, đã đẩy lên GitHub 247f977; phác họa duyệt: sketches/canh-bat-cuop/storyboard.jpg)
 - Chủ game chốt: cách 1 (anh Đạt vật ngã) + nút E · công an kiểu gọn (xe tới → màn đen "Ít phút sau…") · không cần nút lưu danh bạ, chỉ tự nhắn qua
   (chữ tin nhắn chủ game sửa sau — khóa story.c3.dat.m1) · không cài câu móc · đổi tên "Người đàn ông chạy xe moto" → **Đạt** trong sơ đồ quan hệ (giữ tên cũ).

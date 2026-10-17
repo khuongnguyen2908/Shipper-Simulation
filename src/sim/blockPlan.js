@@ -16,7 +16,7 @@ const MID = 17;
 // Bề rộng hẻm xe máy / hẻm đi bộ (m) — số nguyên, tâm hẻm ở số nguyên → mép hẻm trùng lưới 1 m (nhà không lấn hẻm).
 // Hẻm đi bộ 2 m + 2 cột chắn ở miệng hẻm chừa khe giữa 0,9 m — người (0,7 m) đi qua, xe máy (1,4 m) thì không.
 export const ALLEY_W = { bike: 4, walk: 2 };
-const FRONT_D = 9; // độ sâu nhà mặt phố
+const FRONT_DEPTH = 9; // độ sâu nhà mặt phố (mặc định)
 const ALLEY_D = 6; // độ sâu nhà trong hẻm
 
 // Đoạn hẻm: { a: 'v' (dọc, u = c, v từ s → e) | 'h' (ngang, v = c, u từ s → e), c, s, e }
@@ -26,6 +26,14 @@ export const ALLEY_TEMPLATES = {
   L: { label: 'Hẻm chữ L', segs: [{ a: 'v', c: MID, s: 0, e: MID }, { a: 'h', c: MID, s: MID, e: INNER }] },
   T: { label: 'Hẻm chữ T', segs: [{ a: 'h', c: MID, s: 0, e: INNER }, { a: 'v', c: MID, s: MID, e: INNER }] },
   fish: { label: 'Hẻm xương cá', segs: [{ a: 'v', c: MID, s: 0, e: INNER }, { a: 'h', c: 12, s: 3, e: MID }, { a: 'h', c: 22, s: MID, e: 31 }] },
+  // hẻm ngoằn ngoèo dài ~95 m, cụt ở cuối (chương 4: bám theo anh phát tờ rơi) — nhà mặt phố mỏng 5 m để đủ chỗ uốn 4 lượt; trong hẻm toàn tường
+  snake: {
+    label: 'Hẻm ngoằn ngoèo (dài, cụt)', front: 5,
+    segs: [
+      { a: 'v', c: MID, s: 0, e: 7 }, { a: 'h', c: 7, s: MID, e: 27 }, { a: 'v', c: 27, s: 7, e: 14 }, { a: 'h', c: 14, s: 7, e: 27 },
+      { a: 'v', c: 7, s: 14, e: 21 }, { a: 'h', c: 21, s: 7, e: 27 }, { a: 'v', c: 27, s: 21, e: 27 }, { a: 'h', c: 27, s: 9, e: 27 },
+    ],
+  },
 };
 
 // Xoay đoạn hẻm quanh tâm khối, mỗi lần 90° theo chiều kim đồng hồ (nhìn từ trên: bắc lên trên)
@@ -43,6 +51,7 @@ function rotSeg(sg, rot) {
 export function planBlock(spec, seed) {
   const tpl = ALLEY_TEMPLATES[spec && spec.alley];
   if (!tpl) return null;
+  const FRONT_D = tpl.front ?? FRONT_DEPTH; // độ sâu nhà mặt phố (kiểu hẻm có thể đặt riêng)
   const rng = makeRng(seed);
   const w = spec.walk ? ALLEY_W.walk : ALLEY_W.bike;
   const segs = tpl.segs.map((s) => rotSeg(s, spec.rot || 0));

@@ -5,11 +5,11 @@
 // Chỉ để nhìn, chỉ máy người chơi này vẽ (cốt truyện riêng); đồng hồ chung vẫn chạy (quay chậm chỉ làm chậm diễn viên + camera).
 // =============================================================
 import * as THREE from 'three';
-import { makeDog, makePerson, makeCar, makeNpcMoto, bikeSeatZ } from '../world/models.js';
+import { makeDog, makePerson, makeCar, makeNpcMoto, bikeSeatZ, animatePerson } from '../world/models.js';
 import { makeRng } from '../sim/rng.js';
 import { storyEvent } from '../sim/story.js';
 import { makeHelmetMesh, HEAD_CENTER_Y } from '../world/person.js';
-import { makeLongTruck, makeRamp } from '../world/storyProps.js';
+import { makeLongTruck, makeRamp, makeEasel, makeBin, makeCan } from '../world/storyProps.js';
 import { makeCsgtCar, seatRider } from '../world/npcVehicles.js';
 import { lerpAngle } from '../world/controllers.js';
 import { CITY, roadPos } from '../sim/cityLayout.js';
@@ -43,7 +43,10 @@ export class ScenePart {
     const mesh = a.kind === 'truck' ? makeLongTruck() : a.kind === 'ramp' ? makeRamp({ len: a.len ?? 7, h: a.h ?? 1.5 }) : a.kind === 'dog' ? makeDog(0xd9a15b)
       : a.kind === 'car' ? makeCar(color ?? rng.pick([0xc0392b, 0x2c3e50, 0xecf0f1, 0x7f8c8d, 0x2980b9]), a.model || null) // xe diễn viên trong cảnh phim (thay xe thường)
       : a.kind === 'moto' ? makeNpcMoto(color ?? rng.pick([0x1f6fd1, 0xc0392b, 0x27ae60, 0x8e44ad, 0x2c3e50]), rng)
-      : a.kind === 'police' ? makeCsgtCar(fmt('story.policeCar')) : null;
+      : a.kind === 'police' ? makeCsgtCar(fmt('story.policeCar'))
+      : a.kind === 'easel' ? makeEasel([...String(a.id)].reduce((h, c) => h + c.charCodeAt(0), 0)) // giá vẽ + tranh (triển lãm)
+      : a.kind === 'bin' ? makeBin() // thùng rác (chỗ núp)
+      : a.kind === 'can' ? makeCan() : null;
     if (!mesh) return;
     const route = (a.route || []).filter((r) => Array.isArray(r?.at)).map((r) => ({ x: r.at[0], z: r.at[1], wait: r.wait || 0, speed: r.speed }));
     const start = route[0] || (Array.isArray(a.at) ? { x: a.at[0], z: a.at[1] } : null);
@@ -518,6 +521,13 @@ export class ScenePart {
       this.sceneRelease();
     }
   }
+  // Việc "traffic": clear > 0 → giữ vùng bán kính clear quanh người chơi (hoặc at [x, z]) không có xe NPC; clear 0 → trả lại
+  storyTraffic(a) {
+    if (!(a.clear > 0)) return this.sceneRelease();
+    const p = Array.isArray(a.at) ? { x: a.at[0], z: a.at[1] } : this.playerPos;
+    this.traffic.holdNear(p.x, p.z, a.clear, true);
+    this.sceneHold = true;
+  }
   // Trả lại xe NPC đã dọn cho cảnh (vật ngã → chạy đi)
   sceneRelease() {
     if (!this.sceneHold) return;
@@ -556,9 +566,16 @@ export class ScenePart {
       this.fadeTimer = setTimeout(() => el.classList.remove('on'), hold * 1000);
     }, 700);
   }
-  storyFadeClean(a) {
+  storyFadeClean(a, restore = false) {
     for (const who of [].concat(a.remove || [])) this.storyActorRemove(who);
-    if (a.props) this.storyPropsClear();
+    if (a.props === true) this.storyPropsClear();
+    else if (Array.isArray(a.props)) for (const id of a.props) this.storyPropRemove(id); // chỉ dọn mấy đạo cụ này
+    // tua giờ như lúc ngủ dậy (vd "2 tiếng sau…"): skip phút, hoặc skipTo giờ trong ngày (đang trước giờ đó)
+    if (!restore) {
+      const day = Math.floor(this.clockMin / 1440) * 1440, to = a.skipTo != null ? day + a.skipTo * 60 : null;
+      const n = to != null ? to - this.clockMin : a.skip || 0;
+      if (n > 0) this.advance(n, 'idle', { quiet: true });
+    }
     if (this.tackle) this.tackle = null;
     this.storyPhoneCall(false);
     const ac = a.stand && this.storyActors?.[a.stand];
@@ -704,5 +721,235 @@ export class ScenePart {
       wp.armL.rotation.z = -1.2 * s;
       wp.armR.rotation.z = 1.2 * s;
     }
+  }
+
+  // ---------- BÁM THEO LÉN (việc "sneak"): người lạ who (dắt theo with) đi theo lộ trình route; điểm có look: dừng lại ngoái nhìn bấy nhiêu giây.
+  // Người chơi phải theo sau, không để bị thấy: lúc người đó ngoái lại mà người chơi trong tầm nhìn (see m, nón 120°, không bị tường / thùng rác che)
+  // thì "bị nghi" tăng; đi sát quá (< 2,5 m) hay chạy / đi xe máy gần cũng bị nghe. Bị nghi đầy hoặc bỏ xa quá (lose m) → màn đen, làm lại từ đầu
+  // (người chơi về chỗ retry). Tới điểm cuối → điều kiện "sneaked" xong. Không thua hẳn. Chỉ máy người chơi này (cốt truyện riêng).
+  storySneakStart(a) {
+    const A = this.storyActors?.[a.who];
+    const pts = (a.route || []).filter((r) => Array.isArray(r?.at)).map((r) => ({ x: r.at[0], z: r.at[1], look: r.look || 0 }));
+    if (!A || pts.length < 2) return storyEvent(this.gs.story, 'sneaked');
+    this.sneak = { a, pts, i: 0, wait: 0, sus: 0, phase: 'wait', trail: [], hmmT: 0 };
+    this.sneakPlace(true);
+  }
+  // Đặt người đi trước + người đi theo về đầu lộ trình (bắt đầu / làm lại)
+  sneakPlace(first = false) {
+    const S = this.sneak, A = this.storyActors?.[S.a.who], B = S.a.with && this.storyActors?.[S.a.with], p0 = S.pts[0], p1 = S.pts[1];
+    const h = Math.atan2(p1.x - p0.x, p1.z - p0.z);
+    Object.assign(S, { i: 0, wait: 0, sus: 0, phase: 'wait', trail: [], hmmT: 0 });
+    for (const [ac, back] of [[A, 0], [B, 1.1]]) {
+      if (!ac) continue;
+      ac.mode = 'sneak';
+      ac.mesh.position.set(p0.x - Math.sin(h) * back, this.city.elev?.topAt(p0.x, p0.z) ?? 0, p0.z - Math.cos(h) * back);
+      ac.mesh.rotation.set(0, h, 0);
+    }
+    if (!first && Array.isArray(S.a.retry)) {
+      const w = this.walker;
+      if (this.mode === 'bike') act.dismount(this);
+      w.pos.set(S.a.retry[0], 0, S.a.retry[1]);
+      w.mesh.position.set(S.a.retry[0], 0, S.a.retry[1]);
+    }
+  }
+  // Có thấy được điểm (x, z) từ chỗ người lạ không: tường (lưới va chạm) / thùng rác chắn giữa thì không thấy
+  sneakSees(from, to) {
+    const dx = to.x - from.x, dz = to.z - from.z, d = Math.hypot(dx, dz), n = Math.ceil(d / 0.4);
+    const bins = Object.values(this.storyProps || {}).filter((p) => p.def.kind === 'bin').map((p) => p.mesh.position);
+    for (let k = 1; k < n; k++) {
+      const x = from.x + (dx * k) / n, z = from.z + (dz * k) / n;
+      if (this.city.grid.inside(x, 1.0, z)) return false;
+      if (bins.some((b) => Math.hypot(b.x - x, b.z - z) < 0.5)) return false;
+    }
+    return true;
+  }
+  sneakTick(dt) {
+    const S = this.sneak;
+    if (!S || S.phase === 'done' || S.phase === 'reset') return;
+    const a = S.a, A = this.storyActors?.[a.who], B = a.with && this.storyActors?.[a.with];
+    if (!A) { this.sneak = null; return; }
+    const P = this.mode === 'bike' ? this.bike.pos : this.walker.pos, m = A.mesh.position;
+    const d = Math.hypot(P.x - m.x, P.z - m.z), speed = a.speed ?? 1.3;
+    // bắt đầu đi khi người chơi tới gần đầu lộ trình
+    if (S.phase === 'wait') {
+      if (d < (a.start ?? 16)) S.phase = 'walk';
+      else { this.sneakAnim(A, B, 0, dt); return; }
+    }
+    let moving = 0;
+    if (S.phase === 'walk') {
+      const T = S.pts[S.i + 1];
+      if (!T) {
+        S.phase = 'done';
+        storyEvent(this.gs.story, 'sneaked');
+        this.sneakAnim(A, B, 0, dt);
+        return;
+      }
+      const gx = T.x - m.x, gz = T.z - m.z, gd = Math.hypot(gx, gz);
+      const step = Math.min(gd, speed * dt);
+      m.x += (gx / (gd || 1)) * step;
+      m.z += (gz / (gd || 1)) * step;
+      A.mesh.rotation.y = lerpAngle(A.mesh.rotation.y, Math.atan2(gx, gz), 1 - Math.exp(-8 * dt));
+      moving = speed;
+      if (gd - step < 0.05) {
+        S.i += 1;
+        if (T.look > 0) { S.phase = 'look'; S.wait = T.look; S.lookFrom = A.mesh.rotation.y; this.storyReact([a.who], '?'); }
+      }
+    } else if (S.phase === 'look') {
+      // ngoái lại nhìn phía sau (hướng ngược đường vừa đi)
+      A.mesh.rotation.y = lerpAngle(A.mesh.rotation.y, S.lookFrom + Math.PI, 1 - Math.exp(-5 * dt));
+      if ((S.wait -= dt) <= 0) S.phase = 'walk';
+    }
+    // người đi theo: theo vết chân người đi trước, cách ~1,1 m
+    S.trail.push({ x: m.x, z: m.z });
+    if (S.trail.length > 400) S.trail.shift();
+    if (B) {
+      let k = S.trail.length - 1, acc = 0;
+      while (k > 0 && acc < 1.1) { acc += Math.hypot(S.trail[k].x - S.trail[k - 1].x, S.trail[k].z - S.trail[k - 1].z); k--; }
+      const t = S.trail[k], b = B.mesh.position, mx = t.x - b.x, mz = t.z - b.z;
+      if (Math.hypot(mx, mz) > 0.02) B.mesh.rotation.y = lerpAngle(B.mesh.rotation.y, Math.atan2(mx, mz), 1 - Math.exp(-8 * dt));
+      b.x = t.x;
+      b.z = t.z;
+    }
+    this.sneakAnim(A, B, moving, dt);
+    // bị nghi: đang ngoái lại + thấy người chơi trong tầm · đi sát / chạy / xe máy gần → nghe tiếng
+    const see = a.see ?? 11, face = A.mesh.rotation.y, ang = Math.atan2(P.x - m.x, P.z - m.z);
+    const inCone = Math.abs(Math.atan2(Math.sin(ang - face), Math.cos(ang - face))) < Math.PI / 3;
+    const loud = this.mode === 'bike' ? 14 : this.walker.speed > 4 ? 6 : 2.5;
+    let gain = 0;
+    if (S.phase === 'look' && d < see && inCone && this.sneakSees(m, P)) gain = 1.6 * (1.2 - d / see);
+    if (d < loud) gain = Math.max(gain, 0.9);
+    S.sus = Math.max(0, Math.min(1, S.sus + (gain > 0 ? gain * dt : -0.25 * dt)));
+    if (S.sus > 0.35 && (S.hmmT -= dt) <= 0) { S.hmmT = 2.5; this.storyBubble(a.who, a.hmm || 'story.sneak.hmm'); }
+    if (S.sus >= 1) return this.sneakFail(a.caught || 'story.sneak.caught', a.who);
+    if (S.i >= 1 && d > (a.lose ?? 24)) return this.sneakFail('story.sneak.lost');
+  }
+  sneakAnim(A, B, v, dt) {
+    for (const ac of [A, B]) {
+      if (!ac) continue;
+      ac.phase = (ac.phase || 0) + dt * (v ? 5 + v : 0);
+      animatePerson(ac.mesh, ac.phase, v ? 0.55 : 0);
+    }
+  }
+  // Bị phát hiện / mất dấu: (câu "Ai đó?!") → màn đen ngắn → làm lại từ đầu lộ trình
+  sneakFail(text, who = null) {
+    const S = this.sneak;
+    S.phase = 'reset';
+    if (who) { this.storyBubble(who, text); sound('city.sneakCaught'); } else this.hud.toast(fmt(text), 'warn', 3500);
+    setTimeout(() => {
+      this.storyFade({ text: 'story.sneak.retry', t: 1 });
+      setTimeout(() => { if (this.sneak === S) this.sneakPlace(false); }, 750);
+    }, who ? 900 : 0);
+  }
+
+  // ---------- CẢNH PHIM: người chơi tự chạy bộ (cine.playerRun: các điểm [x, z]); hết cảnh: leo lên xe đặt sẵn ở cine.bikeAt [x, z, hướng°] ----------
+  cinePlayerRun(dt) {
+    const R = this.cine?.run;
+    if (!R || this.mode !== 'foot') return;
+    const w = this.walker, T = R.pts[R.i];
+    if (R.delay > 0) { R.delay -= dt; return; } // chờ … giây rồi mới chạy (vd vấp lon, bọn kia quay lại)
+    if (!T) { w.speed = 0; animatePerson(w.mesh, w.phase, 0); return; }
+    const dx = T[0] - w.pos.x, dz = T[1] - w.pos.z, d = Math.hypot(dx, dz), v = R.speed;
+    const step = Math.min(d, v * dt);
+    w.pos.x += (dx / (d || 1)) * step;
+    w.pos.z += (dz / (d || 1)) * step;
+    w.heading = lerpAngle(w.heading, Math.atan2(dx, dz), 1 - Math.exp(-12 * dt));
+    w.speed = v;
+    if (d - step < 0.05) R.i += 1;
+    w.phase += dt * v * 2.6;
+    animatePerson(w.mesh, w.phase, 1);
+    w.mesh.position.set(w.pos.x, this.city.elev?.topAt(w.pos.x, w.pos.z) ?? 0, w.pos.z);
+    w.mesh.rotation.set(0, w.heading, 0);
+  }
+  cineRunEnd(def) {
+    const at = def?.bikeAt;
+    if (!Array.isArray(at) || this.mode === 'bike') return;
+    const b = this.bike, h = ((at[2] ?? 0) * Math.PI) / 180;
+    b.pos.set(at[0], 0, at[1]);
+    b.heading = h;
+    b.speed = 0;
+    b.vel?.set(0, 0);
+    b.mesh.position.set(at[0], this.city.elev?.topAt(at[0], at[1]) ?? 0, at[1]);
+    b.mesh.rotation.set(0, h, 0);
+    this.walker.pos.set(at[0], 0, at[1]);
+    act.mountBike(this);
+    this.rig.yaw = h + Math.PI;
+  }
+
+  // ---------- BỊ RƯỢT (việc "pursue"): những người lạ who[] rượt theo người chơi — chạy theo đúng dấu chân người chơi (quẹo theo hẻm, không xuyên tường).
+  // Người chơi tự chạy thoát: leo lên xe chạy đi, hoặc bỏ xa hơn lose m → điều kiện "escaped" xong (bọn kia đứng lại la).
+  // Bị tóm (gần hơn 1 m) → màn đen, làm lại: người chơi về chỗ đứng lúc bắt đầu, bọn kia về chỗ cũ. Không thua hẳn. Chỉ máy người chơi này.
+  storyPursueStart(a) {
+    const who = [].concat(a.who || []).filter((w) => this.storyActors?.[w]);
+    if (!who.length) return storyEvent(this.gs.story, 'escaped');
+    const P = this.playerPos;
+    this.pursue = {
+      a, who, phase: 'run', wait: a.delay ?? 0.8, trail: [{ x: P.x, z: P.z }], start: { x: P.x, z: P.z },
+      home: Object.fromEntries(who.map((w) => [w, this.storyActors[w].mesh.position.clone()])),
+      idx: Object.fromEntries(who.map((w) => [w, 0])), boost: 0,
+    };
+    for (const w of who) this.storyActors[w].mode = 'pursue';
+  }
+  pursueTick(dt) {
+    const R = this.pursue;
+    if (!R || R.phase !== 'run') return;
+    const a = R.a, P = this.mode === 'bike' ? this.bike.pos : this.walker.pos;
+    // ghi dấu chân người chơi (mỗi 0,3 m)
+    const last = R.trail[R.trail.length - 1];
+    if (Math.hypot(P.x - last.x, P.z - last.z) > 0.3) R.trail.push({ x: P.x, z: P.z });
+    if ((R.wait -= dt) > 0) { for (const w of R.who) this.pursueFace(w, P, dt); return; }
+    const speed = a.speed ?? 4.6;
+    let nearest = Infinity;
+    R.who.forEach((w, k) => {
+      const ac = this.storyActors?.[w];
+      if (!ac) return;
+      const m = ac.mesh.position;
+      let left = speed * (1 - k * 0.06) * dt; // tên sau chậm hơn chút, không chồng lên nhau
+      // đi theo dấu chân: tới điểm kế thì sang điểm sau; gần người chơi (thấy rõ) thì lao thẳng tới
+      while (left > 0) {
+        const i = R.idx[w], T = i < R.trail.length ? R.trail[i] : P;
+        const dx = T.x - m.x, dz = T.z - m.z, d = Math.hypot(dx, dz);
+        if (d < 1e-3) { if (i < R.trail.length) R.idx[w] += 1; else break; continue; }
+        const step = Math.min(d, left);
+        m.x += (dx / d) * step;
+        m.z += (dz / d) * step;
+        ac.mesh.rotation.y = lerpAngle(ac.mesh.rotation.y, Math.atan2(dx, dz), 1 - Math.exp(-12 * dt));
+        left -= step;
+        if (step >= d - 1e-6 && i < R.trail.length) R.idx[w] += 1;
+      }
+      m.y = this.city.elev?.topAt(m.x, m.z) ?? 0;
+      ac.phase = (ac.phase || 0) + dt * (5 + speed);
+      this.animateRunner(ac.mesh, ac.phase, 1);
+      nearest = Math.min(nearest, Math.hypot(P.x - m.x, P.z - m.z));
+    });
+    // thoát: đã lên xe chạy · hoặc bỏ xa
+    if ((this.mode === 'bike' && Math.abs(this.bike.speed) > 3) || nearest > (a.lose ?? 30)) {
+      R.phase = 'done';
+      for (const w of R.who) { const ac = this.storyActors?.[w]; if (ac) { ac.mode = 'idle'; this.animateRunner(ac.mesh, 0, 0); } }
+      if (a.stopText) this.storyBubble(R.who[0], a.stopText);
+      storyEvent(this.gs.story, 'escaped');
+      return;
+    }
+    // bị tóm
+    if (nearest < (a.catch ?? 1.0) && this.mode === 'foot') {
+      R.phase = 'reset';
+      if (a.caughtText) this.storyBubble(R.who[0], a.caughtText);
+      setTimeout(() => {
+        this.storyFade({ text: a.retryText || 'story.pursue.retry', t: 1 });
+        setTimeout(() => {
+          if (this.pursue !== R) return;
+          const w = this.walker;
+          w.pos.set(R.start.x, 0, R.start.z);
+          w.mesh.position.set(R.start.x, 0, R.start.z);
+          for (const who of R.who) { const ac = this.storyActors?.[who]; if (ac) ac.mesh.position.copy(R.home[who]); R.idx[who] = 0; }
+          Object.assign(R, { phase: 'run', wait: a.delay ?? 0.8, trail: [{ x: R.start.x, z: R.start.z }] });
+        }, 750);
+      }, 700);
+    }
+  }
+  pursueFace(w, P, dt) {
+    const ac = this.storyActors?.[w];
+    if (!ac) return;
+    const m = ac.mesh.position;
+    ac.mesh.rotation.y = lerpAngle(ac.mesh.rotation.y, Math.atan2(P.x - m.x, P.z - m.z), 1 - Math.exp(-8 * dt));
   }
 }

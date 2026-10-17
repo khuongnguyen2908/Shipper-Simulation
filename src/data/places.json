@@ -275,10 +275,10 @@
       "short": "Ăn",
       "kind": "restaurant",
       "block": [
-        2,
-        4
+        0,
+        3
       ],
-      "lot": "N0",
+      "lot": "f1",
       "floors": 2,
       "color": "#ac4d4d",
       "sign": "BÁNH MÌ BÔNG",
@@ -973,7 +973,7 @@
         5,
         0
       ],
-      "lot": "N0",
+      "lot": "f10",
       "floors": 1,
       "color": "#bdc3c7",
       "sign": "SỬA XE BẢY LÙN",
@@ -1365,10 +1365,10 @@
       "kind": "service",
       "icon": "⭐",
       "block": [
-        1,
-        5
+        5,
+        2
       ],
-      "lot": "f7",
+      "lot": "h2",
       "floors": 2,
       "color": "#ba5512",
       "sign": "NHÀ SÁCH TỰ DO",
@@ -1590,10 +1590,10 @@
       "kind": "service",
       "icon": "👕",
       "block": [
-        2,
-        4
+        0,
+        3
       ],
-      "lot": "S0",
+      "lot": "h0",
       "floors": 2,
       "color": "#d6eaf8",
       "sign": "QUẦN ÁO",
@@ -1695,10 +1695,10 @@
       "kind": "service",
       "icon": "👕",
       "block": [
-        2,
-        4
+        0,
+        3
       ],
-      "lot": "S1",
+      "lot": "h2",
       "floors": 2,
       "color": "#d6eaf8",
       "sign": "GIẦY DÉP",
@@ -1760,10 +1760,10 @@
       "kind": "service",
       "icon": "👕",
       "block": [
-        2,
-        4
+        0,
+        3
       ],
-      "lot": "S2",
+      "lot": "h3",
       "floors": 2,
       "color": "#d6eaf8",
       "sign": "PHỤ KIỆN",
@@ -1815,10 +1815,10 @@
       "kind": "service",
       "icon": "👕",
       "block": [
-        2,
-        4
+        0,
+        3
       ],
-      "lot": "W1",
+      "lot": "h1",
       "floors": 2,
       "color": "#d6eaf8",
       "sign": "MŨ NÓN",
@@ -2699,9 +2699,9 @@
       ],
       "block": [
         5,
-        2
+        1
       ],
-      "lot": "N0",
+      "lot": "f5",
       "orders": {
         "parcelWeight": 1,
         "parcelItems": [
@@ -2869,10 +2869,10 @@
         "gender": "f"
       },
       "block": [
-        0,
+        1,
         3
       ],
-      "lot": "W1",
+      "lot": "h3",
       "orders": {
         "rideWeight": 1
       }
@@ -2911,7 +2911,7 @@
         0,
         4
       ],
-      "lot": "S1",
+      "lot": "h2",
       "orders": {
         "rideWeight": 1
       }
@@ -3095,10 +3095,10 @@
         "gender": "m"
       },
       "block": [
-        5,
-        0
+        4,
+        1
       ],
-      "lot": "W1",
+      "lot": "f14",
       "orders": {
         "rideWeight": 1
       }
@@ -3127,9 +3127,9 @@
       },
       "block": [
         4,
-        1
+        0
       ],
-      "lot": "N1",
+      "lot": "S1",
       "orders": {
         "rideWeight": 1
       }
@@ -3220,9 +3220,9 @@
       },
       "block": [
         5,
-        2
+        1
       ],
-      "lot": "N1",
+      "lot": "f6",
       "orders": {
         "rideWeight": 1
       }
@@ -3923,14 +3923,14 @@
         0,
         4
       ],
-      "lot": "S2",
+      "lot": "f7",
       "hours": "caNgay",
       "npc": {
-        "name": "Anh Đại Bom",
+        "name": "Anh Đại",
         "shirt": "#0032fa",
         "pants": "#2c3e50",
         "hat": null,
-        "portrait": "👩‍🌾",
+        "portrait": "🧑",
         "gender": "m",
         "hairStyle": "short"
       },
@@ -4644,7 +4644,7 @@
     {
       "id": "dichvu3",
       "name": "Tiệm thú cưng Lan Anh",
-      "short": "Mới",
+      "short": "Pet",
       "kind": "service",
       "icon": "⭐",
       "floors": 2,
@@ -4682,10 +4682,10 @@
         "parcelWeight": 1
       },
       "block": [
-        1,
-        3
+        4,
+        0
       ],
-      "lot": "f5"
+      "lot": "E1"
     },
     {
       "id": "congTrinhCang",

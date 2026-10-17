@@ -33,14 +33,14 @@
 // không mở hộp thoại; chỉ máy của người chơi đó vẽ (cốt truyện riêng — chơi nhiều người người khác không thấy, không cần đồng bộ).
 // Người chơi đứng gần bấm E: bước đang chờ "talkActor" → sang bước sau (câu tiếp theo); không thì người lạ nói câu "idle".
 // Có dấu ! trên đầu thì người lạ cứ vài giây gọi câu "call". Dáng: ACTOR_LOOKS · chỗ đứng: ACTOR_SPOTS.
-export const ACTOR_LOOKS = { jetjet: 'Trẻ trâu (sơ mi caro, nón lưỡi trai đội ngược)', normal: 'Người đi đường bình thường', girl: 'Cô gái trẻ (sinh viên)', gentleman: 'Đàn ông lịch lãm (sơ mi trắng, quần tây, giày da)', char: 'Theo sơ đồ quan hệ (ngoại hình nhân vật gắn với người này — /?relationship)' };
+export const ACTOR_LOOKS = { jetjet: 'Trẻ trâu (sơ mi caro, nón lưỡi trai đội ngược)', normal: 'Người đi đường bình thường', girl: 'Cô gái trẻ (sinh viên)', student: 'Nam sinh viên (áo thun, quần jean, đeo balo)', gentleman: 'Đàn ông lịch lãm (sơ mi trắng, quần tây, giày da)', char: 'Theo sơ đồ quan hệ (ngoại hình nhân vật gắn với người này — /?relationship)' };
 // 3 tính cách (tên hiển thị ở vi.json: story.trait.<mã>) — mô tả cho công cụ ?editor
 export const TRAITS = {
   good: 'Công dân gương mẫu — kết vui: nhân hậu, hiền hòa với mọi người',
   neutral: 'Công dân trung lập — kết bình thường',
   bad: 'Công dân xấu tính — kết xấu: tha hóa khi lên thành phố',
 };
-export const ACTOR_SPOTS = { xeOm: 'Cạnh gốc cây kế chú xe ôm nằm ở địa điểm …', place: 'Trước cửa địa điểm … (cách cửa … m ra phía đường, lệch … m dọc đường)', near: 'Gần người chơi (cách … m, thấy trên màn hình)' };
+export const ACTOR_SPOTS = { xeOm: 'Cạnh gốc cây kế chú xe ôm nằm ở địa điểm …', place: 'Trước cửa địa điểm … (cách cửa … m ra phía đường, lệch … m dọc đường)', near: 'Gần người chơi (cách … m, thấy trên màn hình)', at: 'Đúng tọa độ [x, z] trên bản đồ (quay mặt theo hướng …°)' };
 // Xe đi kèm người lạ (dựng cạnh, bỏ đi thì đội mũ lên xe chạy mất)
 export const ACTOR_VEHICLES = { moto: 'Sport bike phân khối lớn đen sọc xanh lá (cùng chiếc anh mô tô chạy ở chương 3)' };
 // Dấu nhảy trên đầu (việc "react"): ? ngạc nhiên · ! giật mình
@@ -48,7 +48,7 @@ export const REACT_ICONS = { '?': '? Ngạc nhiên', '!': '! Giật mình' };
 // Cảnh phim: camera nhìn vào đâu
 export const CINE_TARGETS = { place: 'Địa điểm …', actor: 'Người lạ …', prop: 'Đạo cụ …', player: 'Người chơi' };
 // Đạo cụ cảnh phim (việc "prop"): xe tải chạy ra chặn đường · tấm ván làm dốc · chó chạy ngang
-export const PROP_KINDS = { truck: '🚛 Xe tải container dài', ramp: '🪵 Tấm ván dựng làm dốc', dog: '🐕 Chó chạy ngang', car: '🚗 Ô tô diễn viên (chạy theo đường, 2 xe dí né)', moto: '🛵 Xe máy diễn viên (chạy theo đường, 2 xe dí né)', police: '🚓 Xe công an (đèn chớp; dừng ở cuối đường → các anh công an bước xuống)' };
+export const PROP_KINDS = { truck: '🚛 Xe tải container dài', ramp: '🪵 Tấm ván dựng làm dốc', dog: '🐕 Chó chạy ngang', car: '🚗 Ô tô diễn viên (chạy theo đường, 2 xe dí né)', moto: '🛵 Xe máy diễn viên (chạy theo đường, 2 xe dí né)', police: '🚓 Xe công an (đèn chớp; dừng ở cuối đường → các anh công an bước xuống)', easel: '🖼️ Giá vẽ + tranh (đặt cố định)', bin: '🗑️ Thùng rác (chỗ núp khi bám theo lén)', can: '🥫 Lon nước nằm dưới đất' };
 // Hành động ở điểm lộ trình chạy trốn (act): drift quẹo gắt · crash té xe → bỏ xe chạy bộ
 export const ROUTE_ACTS = { drift: '💨 Drift (quẹo gắt, đuôi văng, khói lốp)', crash: '💥 Té xe → bỏ xe chạy bộ' };
 // Kiểu xe người lạ chạy trốn / đuổi theo
@@ -89,6 +89,8 @@ export const UNTIL = {
   chased: 'Người lạ … (việc "🏍️ Chạy trốn") đã chạy hết lộ trình, người chơi đang bám theo',
   reach: 'Người chơi tới gần chỗ [x, z] trên bản đồ (vd giữa cầu)',
   tackled: 'Việc "🤼 Vật ngã" ở bước này đã xong (người kia bị ghì nằm sấp)',
+  escaped: 'Người chơi đã chạy thoát (việc "🏃 Bị rượt" ở bước này: lên xe chạy đi / bỏ xa)',
+  sneaked: 'Việc "🕵️ Bám theo lén" ở bước này đã xong (người bị bám theo tới điểm cuối mà không phát hiện người chơi)',
   never: 'Chưa viết tiếp — dừng ở bước này (để chỗ cho nội dung sau)',
 };
 // Mốc của điều kiện "order"
@@ -129,7 +131,10 @@ export const ACTIONS = {
   wave: 'Người lạ vẫy tay chào (tay trái)',
   rideOff: 'Người lạ lên xe của mình chạy đi (đang cầm nón thì đội lại trước, nẹt pô, chạy dọc đường rồi mất)',
   phoneCall: 'Người chơi đưa điện thoại lên tai (gọi điện) / cất điện thoại',
-  fade: '⬛ Màn đen + chữ (vd "Ít phút sau…"): lúc tối dọn người lạ / đạo cụ, người lạ … đứng lại trước mặt người chơi',
+  fade: '⬛ Màn đen + chữ (vd "2 tiếng sau…"): lúc tối dọn người lạ / đạo cụ, tua giờ (như ngủ dậy), người lạ … đứng lại trước mặt người chơi',
+  pursue: '🏃 Bị rượt: người lạ … rượt theo người chơi (chạy theo dấu chân) — người chơi tự chạy thoát (lên xe / bỏ xa); bị tóm → làm lại',
+  traffic: '🚧 Giữ vùng vắng xe NPC quanh người chơi (cảnh đứng giữa đường lâu) — bán kính 0 = trả lại xe',
+  sneak: '🕵️ Bám theo lén: người lạ … (dắt theo người khác) đi theo lộ trình, thỉnh thoảng ngoái lại — người chơi theo sau không để bị thấy (bị phát hiện / mất dấu → làm lại)',
   end: 'Kết thúc chương (hiện chữ, lưu game)',
 };
 // Hướng dẫn trên điện thoại (làm sáng nút cần bấm)
@@ -241,6 +246,8 @@ export function untilMet(u, gs, ctx) {
     case 'chased': return !!s.ev[`chased:${u.who}`] || !!ctx.chased?.(u.who);
     case 'reach': return !!ctx.reachAt?.(u.at, u.r || 8);
     case 'tackled': return !!s.ev.tackled;
+    case 'sneaked': return !!s.ev.sneaked;
+    case 'escaped': return !!s.ev.escaped;
     case 'never': return false;
     case 'ordersSince': return (gs.account?.completed || 0) - (s.base || 0) >= (u.n || 1);
     case 'newDay': return (gs.day || 1) > (s.baseDay ?? gs.day ?? 1);
@@ -274,7 +281,7 @@ export function storyTick(gs, dt, ctx, data = STORY) {
   const s = gs.story;
   let st = stepOf(s, data);
   // bước chưa chạy mà chỉ dành cho tính cách khác → bỏ qua, sang bước sau
-  while (st && !s.fired && skipStep(s, st)) {
+  while (st && !s.fired && skipStep(s, st, ctx.now)) {
     s.step += 1;
     s.waited = 0;
     s.ev = {};
@@ -376,7 +383,13 @@ export function ordersProgress(gs) {
   return { n: Math.max(0, (gs.account?.completed || 0) - (gs.story.base || 0)), goal: st.until.n || 1 };
 }
 // Bước dành riêng cho tính cách khác (onlyTrait) → bỏ qua
-const skipStep = (s, st) => !!st?.onlyTrait && leaning(s) !== st.onlyTrait;
+// … hoặc chỉ chạy trước giờ onlyBefore / từ giờ onlyAfter trong ngày (now = giờ chung; không có giờ thì bỏ qua điều kiện giờ)
+const skipStep = (s, st, now = null) => {
+  if (st?.onlyTrait && leaning(s) !== st.onlyTrait) return true;
+  if (now == null || (st?.onlyBefore == null && st?.onlyAfter == null)) return false;
+  const h = (((now % 1440) + 1440) % 1440) / 60;
+  return (st.onlyBefore != null && h >= st.onlyBefore) || (st.onlyAfter != null && h < st.onlyAfter);
+};
 
 // Ghi một việc người chơi vừa làm (đã trả lời tin của X, đã nói chuyện ở Y…) để bước đang chạy kiểm tra
 export function storyEvent(s, key) {

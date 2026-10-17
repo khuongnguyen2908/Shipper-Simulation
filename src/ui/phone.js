@@ -483,7 +483,9 @@ export class Phone {
         ${(m.loc || []).map((id) => `<button class="msg-loc${d.waypoint === id ? ' on' : ''}" data-act="waypoint" data-id="${id}">📍 ${esc(placeName(id))}</button>`).join('')}
         <small>${when(m.at)}</small></div>`).join('');
       const replies = t.replies?.length ? `<div class="msg-replies">${t.replies.map((k, i) => `<button data-act="reply" data-thread="${this.thread}" data-i="${i}">${fmt(k, vo(this.thread))}</button>`).join('')}</div>` : '';
-      return `<div class="msg-head"><i class="msg-av">${ic}</i><b>${name}</b></div><div class="msg-thread">${bubbles}</div>${replies}`;
+      // tin cuối là của mình (người kia chưa trả lời) → chữ nhỏ "Đã gửi" dưới tin đó (không bao giờ có "Đã xem")
+      const sent = t.msgs.at(-1)?.me ? `<div class="msg-sent">${fmt('phone.msgSent')}</div>` : '';
+      return `<div class="msg-head"><i class="msg-av">${ic}</i><b>${name}</b></div><div class="msg-thread">${bubbles}${sent}</div>${replies}`;
     }
     const ids = Object.keys(threads).filter((id) => threads[id].msgs.length).sort((a, b) => (threads[b].last ?? 0) - (threads[a].last ?? 0));
     if (!ids.length) return `<div class="ph-note">${fmt('phone.msgEmpty')}</div>`;

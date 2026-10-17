@@ -219,7 +219,7 @@
     },
     "man": {
       "icon": "😎",
-      "name": "Đạt",
+      "name": "Anh Đạt",
       "gender": "m",
       "age": 30,
       "role": "Đi sport bike đen sọc xanh lá, quen chị Linh. Chương 3: cùng người chơi bắt tên cướp, để lại số điện thoại",
@@ -280,7 +280,8 @@
         }
       ],
       "oldNames": [
-        "Người đàn ông chạy xe moto"
+        "Người đàn ông chạy xe moto",
+        "Đạt"
       ]
     },
     "emMinh": {
@@ -291,7 +292,7 @@
       "role": "chủ nhà sách",
       "personality": "dễ thương thân thiện",
       "notes": "Hay cho người chơi thuê thiếu truyện, hay rủ chơi game",
-      "story": "",
+      "story": "minh",
       "place": "nhasach",
       "from": 1,
       "look": null,
@@ -307,7 +308,7 @@
       "role": "chủ tiệm thú cưng",
       "personality": "vui vẻ nhưng hướng nội",
       "notes": "nói chuyện hơi ngại ngùng",
-      "story": "",
+      "story": "lanAnh",
       "place": "dichvu3",
       "from": 1,
       "look": null,
@@ -398,6 +399,25 @@
       "outfits": [],
       "x": 1,
       "y": 1300
+    },
+    "anhDaiBom": {
+      "icon": "🧑",
+      "name": "Anh Đại",
+      "gender": "m",
+      "age": 28,
+      "role": "Bán trái cây ở sạp Trái Cây Ba Miền, bạn của chị Linh",
+      "personality": "Vui tính, lanh chanh, hay chọc chị Linh; bán ở góc đường cả ngày nên chuyện gì ngoài phố cũng thấy",
+      "notes": "",
+      "story": "dai",
+      "place": "traiCay",
+      "from": 1,
+      "look": null,
+      "outfits": [],
+      "x": -908,
+      "y": 647,
+      "oldNames": [
+        "Anh Đại Bom"
+      ]
     }
   },
   "links": [
@@ -972,6 +992,50 @@
       "to": null,
       "secret": false,
       "notes": "Gặp ở cổng trường (chương 3), nói giọng dạy đời"
+    },
+    {
+      "id": "l27",
+      "a": "linh",
+      "b": "anhDaiBom",
+      "type": "friend",
+      "ab": {
+        "label": "bạn bè",
+        "self": "tôi",
+        "call": "ông",
+        "feel": 1
+      },
+      "ba": {
+        "label": "bạn bè",
+        "self": "tôi",
+        "call": "bà",
+        "feel": 1
+      },
+      "from": 3,
+      "to": null,
+      "secret": false,
+      "notes": ""
+    },
+    {
+      "id": "l28",
+      "a": "anhDaiBom",
+      "b": "player",
+      "type": "acquaint",
+      "ab": {
+        "label": "bạn của chị Linh",
+        "self": "anh",
+        "call": "em",
+        "feel": 1
+      },
+      "ba": {
+        "label": "anh bán trái cây",
+        "self": "em",
+        "call": "anh",
+        "feel": 1
+      },
+      "from": 4,
+      "to": null,
+      "secret": false,
+      "notes": "Gặp lúc đưa thiệp mời triển lãm (chương 4)"
     }
   ],
   "notes": [],

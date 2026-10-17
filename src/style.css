@@ -338,6 +338,7 @@ b.plus { color: #58d68d; }
 .bub.them { align-self: flex-start; background: #232c3a; border-bottom-left-radius: 4px; }
 .bub.me { align-self: flex-end; background: #0e8a4a; border-bottom-right-radius: 4px; }
 .bub small { display: block; margin-top: 3px; font-size: 10px; color: rgba(255, 255, 255, 0.55); text-align: right; }
+.msg-sent { align-self: flex-end; margin-top: -3px; padding-right: 4px; font-size: 10.5px; color: var(--muted); } /* "Đã gửi" dưới tin cuối của mình */
 .msg-loc { display: block; width: 100%; margin-top: 6px; padding: 7px 8px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.2); background: #2e86de; color: #fff; font: 600 12px var(--font); text-align: left; cursor: pointer; }
 .msg-loc.on { background: #1e8449; }
 .msg-replies { display: flex; flex-direction: column; gap: 5px; margin-top: 10px; }

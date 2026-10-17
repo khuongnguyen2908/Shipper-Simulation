@@ -18,7 +18,7 @@ const TRAITS = [['fragile', '⚠️ Dễ vỡ'], ['hot', '🔥 Nóng'], ['cold',
 const ACTION_GROUPS = [
   ['💬 Thoại & tin nhắn', ['bubble', 'choose', 'msg', 'replies']],
   ['🧍 Người lạ', ['actor', 'approach', 'leave', 'board', 'alight', 'react', 'dismount', 'helmetOff', 'helmetOn', 'wave', 'rideOff']],
-  ['🎬 Cảnh & hành động', ['title', 'cine', 'chase', 'prop', 'tackle', 'fade', 'phoneCall', 'sound']],
+  ['🎬 Cảnh & hành động', ['title', 'cine', 'chase', 'prop', 'tackle', 'sneak', 'pursue', 'fade', 'phoneCall', 'traffic', 'sound']],
   ['📦 Đồ & đơn', ['item', 'drop', 'offer', 'bike']],
   ['📱 Điện thoại & khác', ['openPhone', 'closePhone', 'toast', 'end']],
 ];
@@ -30,7 +30,7 @@ const UNTIL_GROUPS = [
   ['💬 Tin nhắn', ['open', 'reply', 'routed']],
   ['🗺️ Di chuyển', ['arrive', 'reach', 'mount']],
   ['📦 Đơn & xe', ['ordersSince', 'order', 'switch', 'fuel', 'brand', 'wear', 'use']],
-  ['⏱️ Thời gian & cảnh', ['wait', 'clock', 'newDay', 'cine', 'tackled', 'ack']],
+  ['⏱️ Thời gian & cảnh', ['wait', 'clock', 'newDay', 'cine', 'tackled', 'sneaked', 'escaped', 'ack']],
   ['Khác', ['none', 'never']],
 ];
 const HIDDEN_GUIDES = ['reply']; // chưa chương nào dùng
@@ -156,7 +156,7 @@ export function render(root, ctx) {
       if (on) cur.add(id); else cur.delete(id);
       if (cur.size) t[key] = [...cur]; else delete t[key];
       changed();
-    }, `${x.icon || ''} ${C[x.name] || id}`)));
+    }, `${x.icon || ''} ${C[x.name] || id}${Object.values(data.parcels).filter((y) => y.name === x.name).length > 1 ? ` (${id})` : ''}`))); // trùng tên (3 bức tranh) → kèm mã
   }
 
   // ======================== CHƯƠNG ========================
@@ -216,7 +216,7 @@ export function render(root, ctx) {
     // 3 thẻ con: 🎬 Diễn biến · 👀 Người chơi thấy gì · ⚙️ Luật trong bước (số = đã đặt bao nhiêu thứ)
     const nFlow = (st.on || []).length + (st.until?.type && st.until.type !== 'none' ? 1 : 0);
     const nShow = [st.goal, st.guide, st.mark, st.zone, st.talkLabel].filter(Boolean).length;
-    const nRules = [st.hold && !afterTitle, st.noFines, st.leash, st.deadline, st.music, st.onlyTrait, st.hideNpc?.length].filter(Boolean).length;
+    const nRules = [st.hold && !afterTitle, st.noFines, st.leash, st.deadline, st.music, st.onlyTrait, st.onlyBefore != null || st.onlyAfter != null, st.hideNpc?.length].filter(Boolean).length;
     const T = subTabs('storyStep', [['flow', `🎬 Diễn biến (${nFlow})`], ['show', `👀 Người chơi thấy gì (${nShow})`], ['rules', `⚙️ Luật trong bước (${nRules})`]]);
     body.append(T.el);
     // khung hiếm dùng: chưa đặt gì thì thu gọn (bấm để mở)
@@ -230,6 +230,8 @@ export function render(root, ctx) {
         : field('', checkInput(st.hold, (v) => { if (v) st.hold = true; else delete st.hold; changed(); }, 'Chặn đơn thường trong bước này'), opt('hold', { hint: 'Bước trước tên chương: app chưa phát đơn mới trong lúc chờ bước này (để hướng dẫn / cuốc cốt truyện không bị đơn khác chen vào). Sau tên chương thì tự khóa.' })),
       el('div', { class: 'grid' },
         field('Nhạc riêng trong bước này', selectInput(st.music || '', [['', '— Nhạc ngày / đêm như thường —'], ...Object.values(SOUNDS).filter((x) => x.kind === 'music' && x.id !== 'music.menu').map((x) => [x.id, `${x.label} (${x.id})`])], (v) => { if (v) st.music = v; else delete st.music; changed(); }), opt('music', { hint: 'Thay nhạc ngày / đêm trong lúc chờ bước này. Các bước liền nhau cùng nhạc thì phát liền mạch. Gắn file ở thẻ 🔊 Âm thanh — mã chưa có file thì vẫn nhạc ngày / đêm. Mã nhạc mới: nhờ Claude thêm vào soundSpec.js.' })),
+        field('Chỉ chạy trước giờ', numInput(st.onlyBefore ?? 0, (v) => { if (v > 0) st.onlyBefore = v; else delete st.onlyBefore; changed(); }, { step: 0.05, min: 0, max: 24 }), opt('onlyBefore', { hint: 'Vd 9.83 (= 9h50): tới bước này mà đã quá giờ thì bỏ qua bước. Dùng cặp với "chỉ chạy từ giờ" để có 2 câu: kịp giờ / trễ giờ. 0 = không.' })),
+        field('Chỉ chạy từ giờ', numInput(st.onlyAfter ?? 0, (v) => { if (v > 0) st.onlyAfter = v; else delete st.onlyAfter; changed(); }, { step: 0.05, min: 0, max: 24 }), opt('onlyAfter', { hint: 'Tới bước này mà chưa tới giờ thì bỏ qua bước. 0 = không.' })),
         field('Chỉ chạy khi tính cách', selectInput(st.onlyTrait || '', [['', '— Mọi tính cách —'], ...Object.keys(PERSONAS).map((t) => [t, `đang nghiêng về ${C[`story.trait.${t}`] || t}`])], (v) => { if (v) st.onlyTrait = v; else delete st.onlyTrait; changed(); }), opt('onlyTrait', { hint: 'Nội dung riêng của 1 tính cách: người chơi đang nghiêng về tính cách khác thì bỏ qua bước này (đi thẳng sang bước sau). Nghiêng = tính cách nhiều điểm nhất, bằng nhau → trung lập.' })),
         field('', checkInput(!!st.noFines, (v) => { if (v) st.noFines = true; else delete st.noFines; changed(); }, '🚫 Không bị phạt trong bước này'), opt('noFines', { hint: 'CSGT cho qua, không dán phạt / cẩu xe, vượt đèn không bị ghi (vd đang đuổi theo tên cướp).' }))),
     );
@@ -242,7 +244,7 @@ export function render(root, ctx) {
       if (!v) return;
       const a = { do: v };
       if (v === 'say') Object.assign(a, { who: speakerOpts[0]?.[0] || '', text: newKey(`${base}.say`) });
-      if (['actor', 'approach', 'leave', 'remove', 'board', 'alight', 'goto', 'chase', 'dismount', 'helmetOff', 'helmetOn', 'wave', 'rideOff', 'tackle'].includes(v)) a.who = Object.keys(data.people)[0] || '';
+      if (['actor', 'approach', 'leave', 'remove', 'board', 'alight', 'goto', 'chase', 'dismount', 'helmetOff', 'helmetOn', 'wave', 'rideOff', 'tackle', 'sneak'].includes(v)) a.who = Object.keys(data.people)[0] || '';
       if (v === 'prop') Object.assign(a, { id: `prop${(ch.steps || []).flatMap((x) => x.on || []).filter((y) => y.do === 'prop').length + 1}`, kind: 'ramp', at: [0, 0], heading: 0, len: 7, h: 1.5 });
       if (v === 'drop') a.id = Object.keys(data.parcels)[0] || '';
       if (v === 'goto') Object.assign(a, { place: placeOpts[0]?.[0] || '', run: true });
@@ -250,6 +252,9 @@ export function render(root, ctx) {
       if (v === 'tackle') Object.assign(a, { target: Object.keys(data.people).find((id) => id !== a.who) || '', qte: 2, text: 'story.qte.block' });
       if (v === 'fade') Object.assign(a, { text: newKey(`${base}.fade`), t: 2 });
       if (v === 'phoneCall') a.on = true;
+      if (v === 'traffic') a.clear = 40;
+      if (v === 'pursue') Object.assign(a, { who: [Object.keys(data.people)[0] || ''], speed: 4.6, delay: 0.8, lose: 30 });
+      if (v === 'sneak') Object.assign(a, { route: [{ at: [0, 0] }, { at: [0, 10], look: 2 }], speed: 1.3, see: 11, lose: 24 });
       if (v === 'react') Object.assign(a, { who: [Object.keys(data.people)[0] || 'player'], icon: '!' });
       if (v === 'cine') a.shots = [{ at: 'player', t: 3, dist: 8, height: 3, angle: 180 }];
       if (v === 'chase') Object.assign(a, { look: 'jetjet', route: [{ place: placeOpts[0]?.[0] || '' }, { place: placeOpts[1]?.[0] || '' }], gap: 30, pct: 85, lose: 700, speed: 14, delay: 1, wheelie: true, revAt: 'pass' });
@@ -449,7 +454,7 @@ export function render(root, ctx) {
       button('✕', () => { st.on.splice(k, 1); rerender(); }, 'small danger'));
     const box = el('div', { class: 'story-act' }, tools);
     const o = opt('on');
-    if (['actor', 'approach', 'leave', 'remove', 'board', 'alight', 'goto', 'chase', 'dismount', 'helmetOff', 'helmetOn', 'wave', 'rideOff', 'tackle'].includes(a.do)) box.append(field('Người lạ', selectInput(a.who, actorOpts(), (v) => { a.who = v; ctx.changed('story'); }), { ...o, hint: 'Thêm người ở 👥 Danh bạ → Người nói.' }));
+    if (['actor', 'approach', 'leave', 'remove', 'board', 'alight', 'goto', 'chase', 'dismount', 'helmetOff', 'helmetOn', 'wave', 'rideOff', 'tackle', 'sneak'].includes(a.do)) box.append(field('Người lạ', selectInput(a.who, actorOpts(), (v) => { a.who = v; ctx.changed('story'); }), { ...o, hint: 'Thêm người ở 👥 Danh bạ → Người nói.' }));
     // rời cảnh: đổi cách rời = đổi mã việc (remove / leave / goto) — bộ chạy giữ nguyên 3 mã
     if (LEAVE_KINDS.some(([d]) => d === a.do)) box.append(field('Cách rời', selectInput(a.do, LEAVE_KINDS, (v) => {
       a.do = v;
@@ -473,6 +478,7 @@ export function render(root, ctx) {
           a.spot = v;
           if (v === 'xeOm') { a.place = a.place || xeOmPlaces[0]?.[0] || ''; delete a.dist; delete a.lat; }
           else if (v === 'place') { a.place = a.place || placeOpts[0]?.[0] || ''; a.dist = a.dist ?? 1.5; }
+          else if (v === 'at') { a.at = a.at || [0, 0]; a.heading = a.heading ?? 0; delete a.place; delete a.dist; delete a.lat; }
           else { a.dist = a.dist ?? 8; delete a.place; delete a.lat; }
           rerender();
         }), { ...o, hint: 'Cạnh chú xe ôm: chỗ cố định (mở lại game vẫn đứng đó). Gần người chơi: hiện chếch phía trước, mở lại game giữa cảnh thì không còn.' }),
@@ -482,7 +488,11 @@ export function render(root, ctx) {
             ? el('div', { class: 'grid' },
               field('Trước cửa địa điểm', selectInput(a.place, placeOpts, (v) => { a.place = v; ctx.changed('story'); }), o),
               field('Cách cửa ra phía đường (m)', numInput(a.dist ?? 1.5, (v) => { a.dist = v; ctx.changed('story'); }, { step: 0.5, min: 0, max: 40 }), { ...o, hint: '≈ 1,5 = ngay trước cửa · ≈ 16,5 = vỉa hè bên kia đường.' }))
-            : field('Đứng cách người chơi (m)', numInput(a.dist ?? 8, (v) => { a.dist = v; ctx.changed('story'); }, { step: 1, min: 3, max: 20 }), o));
+            : spot === 'at'
+              ? el('div', { class: 'grid' },
+                field('Tọa độ x, z', el('div', { class: 'row' }, ...[0, 1].map((i) => numInput((a.at ||= [0, 0])[i], (v) => { a.at[i] = v; ctx.changed('story'); }, { step: 0.5 }))), { ...o, hint: 'Xem chỗ đang đứng: mở game ?debug, gõ game.snapshot().pos. Mở lại game vẫn đứng đó.' }),
+                field('Hướng mặt (độ, 0 = nhìn về nam)', numInput(a.heading ?? 0, (v) => { a.heading = v; ctx.changed('story'); }, { step: 15, min: -360, max: 360 }), o))
+              : field('Đứng cách người chơi (m)', numInput(a.dist ?? 8, (v) => { a.dist = v; ctx.changed('story'); }, { step: 1, min: 3, max: 20 }), o));
       // ô hiếm dùng → gấp vào "▸ Thêm" (đã đặt thì mở sẵn)
       const more = el('details', { class: 'adv', open: !!(a.lat || a.faceTo || a.vehicle || a.call || a.idle) },
         el('summary', {}, `▸ Thêm${spot === 'place' ? ': lệch dọc đường, nhìn về phía, xe đi kèm,' : ':'} câu gọi người chơi, câu nói khi hết chuyện`));
@@ -491,10 +501,13 @@ export function render(root, ctx) {
         field('Nhìn về phía', selectInput(a.faceTo || '', [['', '— Cửa địa điểm —'], ...actorOpts().filter(([id]) => id !== a.who)], (v) => { if (v) a.faceTo = v; else delete a.faceTo; ctx.changed('story'); }), { ...o, hint: 'Hai người đứng nói chuyện với nhau. Người chơi tới gần (12 m) thì quay sang người chơi.' }),
         field('Xe đi kèm', selectInput(a.vehicle || '', [['', '— Không —'], ...Object.entries(ACTOR_VEHICLES)], (v) => { if (v) a.vehicle = v; else delete a.vehicle; ctx.changed('story'); }), { ...o, hint: 'Dựng sát lề. Việc "rời cảnh: bỏ chạy" → đội nón full-face, lên xe chạy mất.' })));
       // câu gọi (khi có dấu ! trên đầu) + câu nói khi hết chuyện (bấm E)
-      for (const [k, label, hint] of [['call', 'Câu gọi người chơi', 'Khi có dấu ! trên đầu người này, cứ ~6 giây gọi một lần (người chơi ở trong 25 m).'], ['idle', 'Câu nói khi hết chuyện', 'Người chơi bấm E lúc không có bước nào chờ nói chuyện với người này.']]) {
-        if (a[k]) more.append(textBox(label, a[k], 1, { hint, ...o }), button(`✕ Bỏ ${label.toLowerCase()}`, () => { delete a[k]; rerender(); }, 'small'));
-        else more.append(button(`＋ ${label}`, () => { a[k] = newKey(`${base}.${k}`); rerender(); }, 'small'));
-      }
+      if (a.call) more.append(textBox('Câu gọi người chơi', a.call, 1, { hint: 'Khi có dấu ! trên đầu người này, cứ ~6 giây gọi một lần (người chơi ở trong 25 m).', ...o }), button('✕ Bỏ câu gọi người chơi', () => { delete a.call; rerender(); }, 'small'));
+      else more.append(button('＋ Câu gọi người chơi', () => { a.call = newKey(`${base}.call`); rerender(); }, 'small'));
+      // câu nói khi hết chuyện: 1 hoặc nhiều câu (mỗi lần bấm E một câu, hết thì lặp câu cuối)
+      const idles = a.idle == null ? [] : [].concat(a.idle);
+      idles.forEach((k, i) => more.append(textBox(`Câu nói khi hết chuyện ${idles.length > 1 ? i + 1 : ''}`, k, 1, { hint: 'Người chơi bấm E lúc không có bước nào chờ nói chuyện với người này. Nhiều câu: mỗi lần bấm E nói câu kế, hết thì lặp câu cuối.', ...o }),
+        button('✕', () => { idles.splice(i, 1); if (!idles.length) delete a.idle; else a.idle = idles.length > 1 ? idles : idles[0]; rerender(); }, 'small')));
+      more.append(button(`＋ Câu nói khi hết chuyện${idles.length ? ' (câu kế)' : ''}`, () => { idles.push(newKey(`${base}.idle${idles.length || ''}`)); a.idle = idles.length > 1 ? idles : idles[0]; rerender(); }, 'small'));
       box.append(more);
     }
     if (a.do === 'choose') {
@@ -549,6 +562,41 @@ export function render(root, ctx) {
         field('Nút bấm nhanh (giây)', numInput(a.qte ?? 2, (v) => { a.qte = v; ctx.changed('story'); }, { step: 0.5, min: 0, max: 5 }), { ...o, hint: '0 = không có nút (người chơi đứng xem).' }),
         field('', checkInput(a.cine !== false, (v) => { if (v) delete a.cine; else a.cine = false; ctx.changed('story'); }, 'Quay chậm lúc quật xuống'), o)),
       textBox('Chữ trên nút', a.text || 'story.qte.block', 1, { hint: 'Dùng chung cho mọi nút "chặn lại".', ...o }));
+    if (a.do === 'pursue') {
+      const cur = new Set([].concat(a.who || []));
+      const setN = (k, v, ok) => { if (ok(v)) a[k] = v; else delete a[k]; ctx.changed('story'); };
+      box.append(
+        el('p', { class: 'muted' }, 'Những người được tick rượt theo người chơi, chạy theo đúng dấu chân người chơi (quẹo theo hẻm, không xuyên tường). Người chơi tự chạy (giữ Shift chạy nhanh hơn bọn kia; đi bộ thì chậm hơn): leo lên xe chạy đi hoặc bỏ xa → "Đã chạy thoát". Bị tóm → màn đen, làm lại từ chỗ đứng lúc bắt đầu.'),
+        field('Ai rượt', el('div', { class: 'chips' }, actorOpts().map(([id, label]) => checkInput(cur.has(id), (on) => { if (on) cur.add(id); else cur.delete(id); a.who = [...cur]; ctx.changed('story'); }, label))), o),
+        el('div', { class: 'grid' },
+          field('Tốc độ chạy', numInput(a.speed ?? 4.6, (v) => setN('speed', v, (x) => x > 0), { step: 0.1, min: 1, max: 9 }), { ...o, hint: 'Người chơi đi bộ 3,4 · chạy (Shift) 6,2.' }),
+          field('Khựng lại trước khi rượt (giây)', numInput(a.delay ?? 0.8, (v) => setN('delay', v, (x) => x >= 0), { step: 0.1, min: 0, max: 5 }), o),
+          field('Bỏ xa bao nhiêu thì thoát', numInput(a.lose ?? 30, (v) => setN('lose', v, (x) => x > 0), { step: 1, min: 8, max: 120 }), o)),
+        ...[['stopText', 'Câu khi người chơi thoát (người rượt đầu tiên nói)'], ['caughtText', 'Câu khi tóm được']].map(([k, label]) => a[k]
+          ? el('div', {}, textBox(label, a[k], 1, o), button('✕', () => { delete a[k]; rerender(); }, 'small'))
+          : button(`＋ ${label}`, () => { a[k] = newKey(`${base}.${k}`); rerender(); }, 'small')));
+    }
+    if (a.do === 'traffic') box.append(field('Bán kính (0 = trả lại xe)', numInput(a.clear ?? 40, (v) => { a.clear = v; ctx.changed('story'); }, { step: 5, min: 0, max: 200 }), { ...o, hint: 'Tạm giấu xe máy, ô tô, xe buýt NPC quanh chỗ người chơi đang đứng — xe chạy vào vùng cũng bị giấu — tới khi có việc này với bán kính 0 (hoặc người lạ "lên xe chạy đi" xong). Chỉ máy người chơi này. Dùng cho cảnh đông người đứng giữa đường (vd triển lãm).' }));
+    if (a.do === 'bubble' || a.do === 'sound') box.append(field('Nói / phát sau (giây)', numInput(a.after ?? 0, (v) => { if (v > 0) a.after = v; else delete a.after; ctx.changed('story'); }, { step: 0.5, min: 0, max: 60 }), { ...o, hint: 'Đợi bấy nhiêu giây (đồng hồ thật) mới nói / phát — để trong cảnh phim mọi người nói lần lượt. 0 = ngay.' }));
+    if (a.do === 'sneak') {
+      a.route ||= [];
+      const setN = (k, v, ok) => { if (ok(v)) a[k] = v; else delete a[k]; ctx.changed('story'); };
+      box.append(
+        el('p', { class: 'muted' }, 'Người lạ đi theo các điểm [x, z] (dắt theo người "đi cùng"); điểm có "ngoái lại" thì dừng, quay về phía sau nhìn bấy nhiêu giây (dấu ?). Người chơi theo sau: đang ngoái lại mà thấy người chơi (trong tầm nhìn, không bị tường / thùng rác che) thì bị nghi tăng; đi sát quá / chạy / đi xe gần cũng bị nghe. Bị nghi đầy hoặc bỏ xa quá → màn đen, làm lại từ đầu (người chơi về "chỗ làm lại"). Tới điểm cuối → điều kiện "Bám theo lén xong". Đặt thùng rác (đạo cụ 🗑️) dọc đường làm chỗ núp.'),
+        el('div', { class: 'grid' },
+          field('Người đi cùng', selectInput(a.with || '', [['', '— Không —'], ...actorOpts().filter(([id]) => id !== a.who)], (v) => { if (v) a.with = v; else delete a.with; ctx.changed('story'); }), o),
+          field('Tốc độ đi', numInput(a.speed ?? 1.3, (v) => setN('speed', v, (x) => x > 0), { step: 0.1, min: 0.5, max: 4 }), o),
+          field('Tầm nhìn khi ngoái lại', numInput(a.see ?? 11, (v) => setN('see', v, (x) => x > 0), { step: 1, min: 3, max: 30 }), o),
+          field('Bỏ xa quá thì mất dấu', numInput(a.lose ?? 24, (v) => setN('lose', v, (x) => x > 0), { step: 1, min: 8, max: 80 }), o),
+          field('Người chơi tới gần bao nhiêu thì bắt đầu đi', numInput(a.start ?? 16, (v) => setN('start', v, (x) => x > 0), { step: 1, min: 2, max: 60 }), o),
+          field('Chỗ làm lại [x, z]', el('div', { class: 'row' }, ...[0, 1].map((i) => numInput((a.retry || [0, 0])[i], (v) => { a.retry = [...(a.retry || [0, 0])]; a.retry[i] = v; ctx.changed('story'); }, { step: 0.5 }))), { ...o, hint: 'Bị phát hiện → người chơi đứng ở đây (vd ngoài miệng hẻm).' })));
+      a.route.forEach((r, k) => box.append(el('div', { class: 'row' }, el('b', {}, `${k + 1}.`),
+        numInput(r.at?.[0] ?? 0, (v) => { r.at = [v, r.at?.[1] ?? 0]; ctx.changed('story'); }, { step: 0.5 }),
+        numInput(r.at?.[1] ?? 0, (v) => { r.at = [r.at?.[0] ?? 0, v]; ctx.changed('story'); }, { step: 0.5 }),
+        el('label', { class: 'muted' }, 'ngoái lại (giây) ', numInput(r.look ?? 0, (v) => { if (v > 0) r.look = v; else delete r.look; ctx.changed('story'); }, { step: 0.5, min: 0, max: 10 })),
+        button('✕', () => { a.route.splice(k, 1); rerender(); }, 'small danger'))));
+      box.append(button('＋ Điểm', () => { a.route.push({ at: [...(a.route.at(-1)?.at || [0, 0])] }); rerender(); }, 'small'));
+    }
     if (a.do === 'fade') {
       const rm = new Set([].concat(a.remove || []));
       box.append(
@@ -556,19 +604,30 @@ export function render(root, ctx) {
         textBox('Chữ trên màn đen', a.text, 1, o),
         el('div', { class: 'grid' },
           field('Giữ tối (giây)', numInput(a.t ?? 2, (v) => { a.t = v; ctx.changed('story'); }, { step: 0.5, min: 0.5, max: 10 }), o),
-          field('', checkInput(!!a.props, (v) => { if (v) a.props = true; else delete a.props; ctx.changed('story'); }, 'Dọn hết đạo cụ'), o),
+          field('', checkInput(a.props === true, (v) => { if (v) a.props = true; else delete a.props; rerender(); }, 'Dọn hết đạo cụ'), o),
+          field('Tua giờ (phút, như ngủ dậy)', numInput(a.skip ?? 0, (v) => { if (v > 0) { a.skip = v; delete a.skipTo; } else delete a.skip; ctx.changed('story'); }, { step: 10, min: 0, max: 720 }), { ...o, hint: 'Vd "2 tiếng sau…" = 120. Đồng hồ nhảy thật (như ngủ dậy) lúc màn hình tối.' }),
+          field('… hoặc tua tới giờ', numInput(a.skipTo ?? 0, (v) => { if (v > 0) { a.skipTo = v; delete a.skip; } else delete a.skipTo; ctx.changed('story'); }, { step: 0.25, min: 0, max: 23.75 }), { ...o, hint: 'Vd 11 = tua tới 11h (đang trước giờ đó). 0 = không.' }),
           field('Người đứng lại trước mặt', selectInput(a.stand || '', [['', '— Không —'], ...actorOpts()], (v) => { if (v) a.stand = v; else delete a.stand; rerender(); }), o),
           a.stand ? field('Cách người chơi (m)', numInput(a.dist ?? 2.2, (v) => { a.dist = v; ctx.changed('story'); }, { step: 0.1, min: 1, max: 6 }), o) : null),
         field('Dọn người lạ', el('div', { class: 'chips' }, actorOpts().map(([id, label]) => checkInput(rm.has(id), (on) => {
           if (on) rm.add(id); else rm.delete(id);
           if (rm.size) a.remove = [...rm]; else delete a.remove;
           ctx.changed('story');
-        }, label))), o));
+        }, label))), o),
+        a.props === true ? null : (() => {
+          const ids = (data.chapters.find((c) => c.id === sel.ch)?.steps || []).flatMap((x) => x.on || []).filter((y) => y.do === 'prop' && y.id).map((y) => y.id);
+          const cur = new Set(Array.isArray(a.props) ? a.props : []);
+          return field('Dọn mấy đạo cụ này', el('div', { class: 'chips' }, ids.map((id) => checkInput(cur.has(id), (on) => {
+            if (on) cur.add(id); else cur.delete(id);
+            if (cur.size) a.props = [...cur]; else delete a.props;
+            ctx.changed('story');
+          }, id))), o);
+        })());
     }
     if (a.do === 'helmetOff') box.append(el('p', { class: 'muted' }, 'Người lạ đang đội mũ bảo hiểm (đang ngồi xe thì tự xuống trước): 2 tay giơ lên gỡ nón khỏi đầu (lộ tóc — kiểu tóc riêng của bộ đồ trong sơ đồ quan hệ), hạ xuống cầm nón tay phải.'));
     if (a.do === 'board') box.append(el('p', { class: 'muted' }, 'Người lạ đi theo người chơi; người chơi lên xe và chạy tới sát thì leo lên ngồi sau (tự đội mũ của mình, không qua app, không tính tiền). Dùng với điều kiện "Đã chở người lạ … tới …".'));
     if (a.do === 'alight') box.append(el('p', { class: 'muted' }, 'Người lạ xuống xe, đứng cạnh xe.'));
-    if (a.do === 'drop') box.append(field('Gói hàng', selectInput(a.id, parcelOpts.filter(([id]) => id), (v) => { a.id = v; ctx.changed('story'); }), o));
+    if (a.do === 'drop') box.append(field('Gói hàng', parcelChips(a, 'id'), { ...o, hint: 'Tick 1 hay nhiều gói (vd 3 bức tranh) — gói nào người chơi đang chở thì giao luôn.' }));
     if (a.do === 'bubble') box.append(
       field('Ai nói', selectInput(a.who, [['player', '🙂 Người chơi'], ...speakerOpts2()], (v) => { a.who = v; ctx.changed('story'); }), o),
       textBox('Câu (bong bóng)', a.text, 2, { hint: 'Câu ngắn, hiện trên đầu ~3–9 giây (hoặc giữ tới câu sau). Không có chữ đậm / [tiếp]. {name} = tên người chơi', ...o }),
@@ -655,6 +714,18 @@ export function render(root, ctx) {
       a.ride ? field('Tốc độ xe người chơi', numInput(a.rideSpeed ?? 10, (v) => { a.rideSpeed = v; ctx.changed('story'); }, { step: 1, min: 3, max: 30 }), o) : null,
       a.ride ? field('Dừng cách (đơn vị bản đồ)', numInput(a.rideStop ?? 12, (v) => { a.rideStop = v; ctx.changed('story'); }, { step: 1, min: 2, max: 80 }), o) : null,
       field('', checkInput(!!a.clearAll, (v) => { if (v) a.clearAll = true; else delete a.clearAll; ctx.changed('story'); }, 'Tắt HẾT xe thường trên đường (xe NPC, xe buýt, xe nền) trong lúc chiếu'), { ...o, hint: 'Chỉ còn xe diễn viên: việc "🚛 Đạo cụ" loại ô tô / xe máy — đặt đúng chỗ, đúng làn, 2 xe dí né qua. Hết cảnh xe thường chạy lại. Chỉ máy người chơi này.' }),
+      (() => {
+        const pr = el('details', { class: 'adv', open: !!a.playerRun }, el('summary', {}, '▸ Người chơi tự chạy bộ trong lúc chiếu (vd bỏ chạy khỏi hẻm)'));
+        (a.playerRun || []).forEach((p, k) => pr.append(el('div', { class: 'row' }, el('b', {}, `${k + 1}.`),
+          numInput(p[0], (v) => { p[0] = v; ctx.changed('story'); }, { step: 0.5 }), numInput(p[1], (v) => { p[1] = v; ctx.changed('story'); }, { step: 0.5 }),
+          button('✕', () => { a.playerRun.splice(k, 1); if (!a.playerRun.length) { delete a.playerRun; delete a.runSpeed; delete a.bikeAt; } rerender(); }, 'small danger'))));
+        pr.append(button('＋ Điểm chạy [x, z]', () => { (a.playerRun ||= []).push([...(a.playerRun?.at(-1) || [0, 0])]); rerender(); }, 'small'));
+        if (a.playerRun) pr.append(el('div', { class: 'grid' },
+          field('Tốc độ chạy', numInput(a.runSpeed ?? 5.5, (v) => { a.runSpeed = v; ctx.changed('story'); }, { step: 0.5, min: 1, max: 9 }), o),
+          field('Chờ trước khi chạy (giây)', numInput(a.runDelay ?? 0, (v) => { if (v > 0) a.runDelay = v; else delete a.runDelay; ctx.changed('story'); }, { step: 0.5, min: 0, max: 20 }), o),
+          field('Hết cảnh: xe chờ ở [x, z, hướng°] rồi leo lên', el('div', { class: 'row' }, ...[0, 1, 2].map((i) => numInput((a.bikeAt || [0, 0, 0])[i] ?? 0, (v) => { a.bikeAt = [...(a.bikeAt || [0, 0, 0])]; a.bikeAt[i] = v; ctx.changed('story'); }, { step: i === 2 ? 15 : 0.5 }))), { ...o, hint: 'Xe người chơi được dời tới đây, người chơi leo lên luôn. Bỏ trống: đứng yên chỗ chạy tới.' })));
+        return pr;
+      })(),
       field('Dọn xe NPC quanh người chơi (bán kính, 0 = không)', numInput(a.clear ?? 0, (v) => { if (v > 0) a.clear = v; else delete a.clear; ctx.changed('story'); }, { step: 10, min: 0, max: 200 }), { ...o, hint: 'Lúc bắt đầu chiếu: tạm giấu xe máy, ô tô, xe buýt NPC trong bán kính này (khỏi chắn ống kính, vd ngoái lại nhìn). Hết cảnh hiện lại. Chỉ máy người chơi này.' }));
     return wrap;
   }
@@ -671,6 +742,7 @@ export function render(root, ctx) {
         field('Dáng', selectInput(a.look || 'jetjet', Object.entries(ACTOR_LOOKS), (v) => { a.look = v; if (v !== 'char') delete a.outfit; rerender(); }), o),
         a.look === 'char' ? charOutfit(a, o) : null,
         field('Kiểu xe', selectInput(a.bike || 'sport', Object.entries(CHASE_BIKES), (v) => setOpt('bike', v, (x) => x !== 'sport')), o),
+        field('Chở theo', selectInput(a.carry || '', [['', '— Không —'], ['bouquet', '💐 Bó hoa (buộc trên đuôi xe)']], (v) => setOpt('carry', v)), o),
         field('Màu xe', textInput(a.color || '', (v) => setOpt('color', v.trim(), (x) => /^#[0-9a-f]{6}$/i.test(x)), { placeholder: '#b3261e (đỏ)' }), { ...o, hint: 'Dạng #rrggbb. Bỏ trống = đỏ.' }),
         field('Đuổi theo người khác', selectInput(a.follow || '', [['', '— Không (chạy trốn người chơi) —'], ...others], (v) => setOpt('follow', v)), o),
         field('Xuất hiện', selectInput(a.spawn || '', [['', 'Ở điểm đầu lộ trình'], ['behind', 'Sau lưng người chơi (trên lộ trình)']], (v) => { setOpt('spawn', v); rerender(); }), o),
@@ -736,17 +808,17 @@ export function render(root, ctx) {
         field('Mã đạo cụ', textInput(a.id || '', (v) => { a.id = v.trim(); ctx.changed('story'); }), { ...o, hint: 'Cảnh quay nhìn vào đạo cụ: "prop:<mã>".' }),
         field('Loại', selectInput(a.kind || 'ramp', Object.entries(PROP_KINDS), (v) => { a.kind = v; rerender(); }), o),
         field('Chạy khi tới mốc', selectInput(a.when || '', [['', a.kind === 'ramp' ? '— Có sẵn ngay —' : '— Chạy ngay —'], ...marks.map((m) => [m, m])], (v) => setOpt('when', v)), o),
-        a.kind !== 'ramp' ? field('Tốc độ', numInput(a.speed ?? 8, (v) => setOpt('speed', v, (x) => x > 0), { step: 1, min: 1, max: 30 }), o) : null,
+        !['ramp', 'easel', 'bin', 'can'].includes(a.kind) ? field('Tốc độ', numInput(a.speed ?? 8, (v) => setOpt('speed', v, (x) => x > 0), { step: 1, min: 1, max: 30 }), o) : null,
         a.kind === 'car' || a.kind === 'moto' ? field('Màu', textInput(a.color || '', (v) => setOpt('color', v.trim(), (x) => /^#[0-9a-f]{6}$/i.test(x)), { placeholder: 'bỏ trống = màu ngẫu nhiên cố định' }), o) : null,
-        a.kind !== 'ramp' ? field('', checkInput(!!a.keep, (v) => { if (v) a.keep = true; else delete a.keep; ctx.changed('story'); }, 'Hết đường thì dừng lại (không biến mất)'), { ...o, hint: 'Vd xe máy tấp vào lề dừng hẳn. Không tick: hết đường thì đi khỏi cảnh (nên để điểm cuối ở xa, ngoài ống kính).' }) : null,
+        !['ramp', 'easel', 'bin', 'can'].includes(a.kind) ? field('', checkInput(!!a.keep, (v) => { if (v) a.keep = true; else delete a.keep; ctx.changed('story'); }, 'Hết đường thì dừng lại (không biến mất)'), { ...o, hint: 'Vd xe máy tấp vào lề dừng hẳn. Không tick: hết đường thì đi khỏi cảnh (nên để điểm cuối ở xa, ngoài ống kính).' }) : null,
         a.kind === 'police' ? field('Số anh công an', numInput(a.cops ?? 2, (v) => { a.cops = v; ctx.changed('story'); }, { step: 1, min: 1, max: 4 }), { ...o, hint: 'Xe dừng ở cuối đường (tick "dừng lại") thì các anh bước xuống. Nói được: bong bóng "Ai nói" → 👮 Công an (xe <mã>).' }) : null,
         a.kind === 'police' ? field('Đi tới chỗ', selectInput(a.copsTo || '', [['', '— Đứng cạnh xe —'], ...actorOpts().map(([id, l]) => [`actor:${id}`, l])], (v) => setOpt('copsTo', v)), o) : null,
         a.kind === 'car' ? field('Kiểu ô tô', selectInput(a.model || '', [['', 'Sedan'], ['suv', 'SUV'], ['taxi', 'Taxi'], ['truck', 'Xe tải nhỏ']], (v) => setOpt('model', v)), o) : null,
         field('Tiếng lúc hiện ra', selectInput(a.sound || '', [['', '— Không —'], ...Object.values(SOUNDS).filter((x) => x.kind === 'sfx').map((x) => [x.id, `${x.id} — ${x.label}`])], (v) => setOpt('sound', v)), o),
-        a.kind === 'ramp' ? field('Chỗ đặt [x, z]', el('div', { class: 'row' }, ...[0, 1].map((i) => numInput((a.at ||= [0, 0])[i], (v) => { a.at[i] = v; ctx.changed('story'); }, { step: 0.5 }))), o) : null,
-        a.kind === 'ramp' ? field('Hướng (độ, 0 = lên dần về phía nam)', numInput(a.heading ?? 0, (v) => { a.heading = v; ctx.changed('story'); }, { step: 15, min: -360, max: 360 }), o) : null,
+        ['ramp', 'easel', 'bin', 'can'].includes(a.kind) ? field('Chỗ đặt [x, z]', el('div', { class: 'row' }, ...[0, 1].map((i) => numInput((a.at ||= [0, 0])[i], (v) => { a.at[i] = v; ctx.changed('story'); }, { step: 0.5 }))), o) : null,
+        ['ramp', 'easel', 'bin', 'can'].includes(a.kind) ? field(a.kind === 'ramp' ? 'Hướng (độ, 0 = lên dần về phía nam)' : 'Hướng (độ, 0 = quay mặt về nam)', numInput(a.heading ?? 0, (v) => { a.heading = v; ctx.changed('story'); }, { step: 15, min: -360, max: 360 }), o) : null,
         a.kind === 'ramp' ? field('Dài / cao', el('div', { class: 'row' }, numInput(a.len ?? 7, (v) => { a.len = v; ctx.changed('story'); }, { step: 0.5, min: 2, max: 15 }), numInput(a.h ?? 1.5, (v) => { a.h = v; ctx.changed('story'); }, { step: 0.1, min: 0.3, max: 4 })), { ...o, hint: 'Khớp với điểm "cao" (y) của lộ trình chạy lên ván.' }) : null));
-    if (a.kind !== 'ramp') {
+    if (!['ramp', 'easel', 'bin', 'can'].includes(a.kind)) {
       a.route.forEach((r, k) => wrap.append(el('div', { class: 'row' }, el('b', {}, `${k + 1}.`),
         numInput(r.at?.[0] ?? 0, (v) => { r.at = [v, r.at?.[1] ?? 0]; ctx.changed('story'); }, { step: 1 }),
         numInput(r.at?.[1] ?? 0, (v) => { r.at = [r.at?.[0] ?? 0, v]; ctx.changed('story'); }, { step: 1 }),
