@@ -139,7 +139,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   (đạo cụ car / moto: xeW1–W3 đường trước nhà thờ, xeS1–S3 đường xuống bến cảng) chạy đúng làn, hiện khi tên cướp tới mốc west / south, có xe tấp lề dừng (keep) ·
   2 xe dí + xe người chơi tự chạy đều né xe diễn viên (sửa lỗi hàm né: đo lệch sai + bỏ né khi đang chạy ngang hàng). Đo: gần nhất 1,6 (tâm-tâm), không xuyên qua nhau.
 
-### 🤼 Chương 3 — cuối chương: bắt cướp → công an → làm quen anh Đạt (17/10 — XONG, CHƯA commit; phác họa duyệt: sketches/canh-bat-cuop/storyboard.jpg)
+### 🤼 Chương 3 — cuối chương: bắt cướp → công an → làm quen anh Đạt (17/10 — XONG, đã đẩy lên GitHub 247f977; phác họa duyệt: sketches/canh-bat-cuop/storyboard.jpg)
 - Chủ game chốt: cách 1 (anh Đạt vật ngã) + nút E · công an kiểu gọn (xe tới → màn đen "Ít phút sau…") · không cần nút lưu danh bạ, chỉ tự nhắn qua
   (chữ tin nhắn chủ game sửa sau — khóa story.c3.dat.m1) · không cài câu móc · đổi tên "Người đàn ông chạy xe moto" → **Đạt** trong sơ đồ quan hệ (giữ tên cũ).
 - Luồng (story.json chương 3, sau bigChase): arrive2 (tới gần tên cướp) → catch (tên cướp vùng chạy về phía người chơi, nút "E — Chặn lại!" 2 giây;
