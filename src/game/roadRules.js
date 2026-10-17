@@ -19,6 +19,7 @@ import * as act from '../interactions.js';
 import { sound, hasMusic } from '../audio.js';
 import { fmt } from '../content/index.js';
 import { dist2 } from './shared.js';
+import { MUSIC_FALLBACK } from '../data/soundSpec.js';
 
 export class RoadRulesPart {
   // ======================== ĐẬU XE (src/sim/parking.js) ========================
@@ -71,7 +72,10 @@ export class RoadRulesPart {
   // Nhạc riêng của bước cốt truyện đang chạy (story.json → music). Mã chưa gắn file → null (giữ nhạc ngày / đêm)
   storyMusic() {
     const s = this.gs?.story, id = s?.ch ? stepOf(s)?.music : null;
-    return id && hasMusic(id) ? id : null;
+    if (!id) return null;
+    if (hasMusic(id)) return id;
+    const alt = MUSIC_FALLBACK[id]; // chưa gắn file → tạm phát nhạc dự phòng (vd nhạc bị rượt → nhạc dí cướp)
+    return alt && hasMusic(alt) ? alt : null;
   }
   // Bước cốt truyện có noFines (vd đang đuổi theo tên cướp) → cũng không phạt
   noFines() {

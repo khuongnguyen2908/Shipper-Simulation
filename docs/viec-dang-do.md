@@ -1,7 +1,7 @@
 # Việc đang dở — Shipper Simulation
 
 Ghi lại những việc đã bàn mà chưa làm / còn treo, để đổi máy hay đổi tài khoản Claude vẫn làm tiếp được.
-Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây"). Cập nhật lần cuối: 17/10/2026.
+Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây"). Cập nhật lần cuối: 18/10/2026.
 
 ## ⏸ Hoãn có chủ đích
 
@@ -139,6 +139,28 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   (đạo cụ car / moto: xeW1–W3 đường trước nhà thờ, xeS1–S3 đường xuống bến cảng) chạy đúng làn, hiện khi tên cướp tới mốc west / south, có xe tấp lề dừng (keep) ·
   2 xe dí + xe người chơi tự chạy đều né xe diễn viên (sửa lỗi hàm né: đo lệch sai + bỏ né khi đang chạy ngang hàng). Đo: gần nhất 1,6 (tâm-tâm), không xuyên qua nhau.
 
+### 🧭 Sửa sau chương 4 + bảng mục tiêu mới (18/10 — XONG, CHƯA commit; phác họa duyệt: sketches/hud-muc-tieu/hud-sketch2.jpg)
+- Chỉ đường: bước cốt truyện không có chỗ đến (vd "Đi ngủ") mà người chơi tự bấm 📍 Chỉ đường trên bản đồ → chỉ tới chỗ đó (trước bị nuốt, navigation.js currentTarget).
+- Màn hình: bỏ bảng mục tiêu cũ dưới bảng giờ/tiền. **Thanh giữa trên** (mũi tên + "Đi đến …" + khoảng cách) CHỈ hiện khi bước cốt truyện có chỗ đến;
+  chữ mẫu `goal.goTo` ("Đi đến {place}") ở Chữ & hội thoại, từng bước muốn ghi khác: thẻ 📖 → "Người chơi thấy gì" → "＋ Chữ thanh 'Đi đến …' riêng" (st.goTo).
+  **Góc phải "📋 Mục tiêu"** = danh sách: ⭐ mục tiêu cốt truyện (vàng) · 📦 đơn · 🧭 tự chỉ đường · ⚠️/😴/🚌… rồi tới mục tiêu hôm nay.
+  Chạy đơn / tự chỉ đường: không có mũi tên giữa trên, chỉ còn đường trên bản đồ tròn + dòng "Rẽ phải sau …" (chủ game chốt).
+- Chị Nhi vào danh bạ, đưa thiệp xong nhắn 3 địa chỉ (anh Đại, em Minh, Lan Anh — bấm vào là chỉ đường).
+- Khung vàng hướng dẫn xếp túi: ô "Hướng dẫn xếp túi (khung vàng)" trong việc nói chuyện (talk.guide); chỉ chương 1 bật. Tắt = xếp như đơn thường.
+- Đứng game sau khi nói với anh Đại (lỗi của Claude: khóa đứng yên cả khi bước sau chờ người khác) → đã sửa. Giờ người chơi nói trước 1 câu
+  ("chị Linh gửi thiệp mời…") rồi anh Đại / em Minh / Lan Anh mới trả lời (story.c4.player.toDai / toMinh / toLan — sửa được).
+
+### 🗑️ Chương 4: ghé Triangle K · núp thùng rác · bị rượt phải lên xe (18/10 — XONG, CHƯA commit; phác họa duyệt: sketches/trianglek/storyboard.png)
+- Đường về: "Ghé Triangle K mua chai nước" (dichvu1_5, khối 5,1 lô f8, đối diện hẻm) → tới cửa (không bắt mua) → 🎬 cảnh phim ngang tầm mắt (máy quay đặt cố định trước cửa tiệm, cao 1,6 m —
+  không dùng "mắt người chơi" vì cây ngay trước cửa che khuất) → anh tờ rơi + cậu SV nói qua lại 5 câu (3 câu cũ dời từ lúc bám theo + 2 câu mới) → "Hỏi nhiều quá… Đi lẹ đi!" → tắt cảnh phim, 2 người đi vô hẻm luôn.
+  Chỗ đứng nói chuyện dời xuống [-7.6, -173.6] (cây ở miệng hẻm che), thêm làm điểm đầu lộ trình bám theo.
+- Thùng rác (đạo cụ bin) chặn đường thật (lưới va chạm, SpatialGrid.remove khi dọn) · đứng sát bấm E "Núp sau thùng rác" → ngồi thụp (Walker.crouch), người kia ngoái lại không thấy,
+  E / bấm đi → đứng dậy. Editor: ô "Núp được (E)" của thùng rác.
+- Bị rượt: "Chỉ thoát bằng xe" (bikeOnly) — lên xe thì bọn kia đuối (80% tốc độ), xe chạy được 45 (quãng đường) thì biến mất (tính quãng xe chạy vì xe đạp chỉ nhanh ngang người chạy bộ).
+  "Bị tóm = thua" (fail): màn "Bị tụi nó tóm rồi…" + nút ↻ Chơi lại (E / Enter cũng được) → chơi lại từ lúc vấp lon, xe để nguyên chỗ đậu. Mục tiêu bước này chỉ tới xe.
+- Nhạc mới music.flee (bước trip + flee), chưa gắn file → tạm phát music.chase (MUSIC_FALLBACK trong soundSpec.js). Tiếng mới city.caught (màn thua).
+- Bong bóng cốt truyện đè nhau (2 người đứng sát) → câu cũ tự đẩy lên trên câu mới (ui/bubbles.js) — có tác dụng cho mọi cảnh.
+
 ### 🖼️ Chương 4 "Bức tranh dang dở" (17/10 — XONG, đã đẩy lên GitHub 23ab10c; chủ game tự sửa lời thoại trong ?editor)
 - Luồng (story.json c4, 51 bước): chiều tối chị Linh nhắn (sáng mốt khai mạc, chiều mai 5h qua sân bay) → ngủ → 17h Sân bay: tên chương + xếp 3 bức tranh dễ vỡ
   (trễ 18h → quay lại hôm sau) → trường: chị Nhi nhận tranh, anh Hoàng chê (chọn 3 câu) → ⬛ "2 tiếng sau…" (tua giờ thật như ngủ) → chị Nhi đưa thiệp →
@@ -153,7 +175,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   Cảnh phim: người chơi tự chạy bộ (playerRun, runSpeed, runDelay, bikeAt) · Người lạ đứng đúng tọa độ (spot "at") · câu "idle" nhiều câu · bước chỉ chạy trước / từ giờ
   (onlyBefore / onlyAfter) · bong bóng / tiếng "sau … giây" (after) · đạo cụ giá vẽ / thùng rác / lon. App Tin nhắn: "Đã gửi" dưới tin cuối của mình (cách A, đã duyệt phác họa).
 - Dáng người lạ "jetjet" giờ cố định theo người (không đổi theo ngày) — anh phát tờ rơi chương 1 gặp lại vẫn y vậy (tên cướp chương 3 cũng đổi mặt theo).
-- Âm thanh mới chờ gắn file: city.applause, city.canKick, city.sneakCaught.
+- Âm thanh mới chờ gắn file: city.applause, city.canKick, city.sneakCaught, city.caught, music.flee.
 - Sửa 17/10 tối: ô "Giao gói hàng" trong ?editor chọn được nhiều gói (trước chỉ 1 → giao 3 bức tranh hiện thành "Hũ chao" — lỗi hiển thị editor, game vẫn đúng).
 - Còn để ý: lấy hoa + bánh 8h30 → 9h50 ≈ 80 giây thật, đường đi ~530 đơn vị — xe máy kịp, xe đạp dễ trễ (trễ chỉ đổi câu thoại). Bám theo lén núp kỹ ~85 giây.
 

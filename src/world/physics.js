@@ -22,6 +22,16 @@ export class SpatialGrid {
       }
     }
   }
+  // Gỡ 1 vật cản đã thêm (đạo cụ cốt truyện, vd thùng rác — dọn cảnh thì gỡ)
+  remove(c) {
+    const i = this.all.indexOf(c);
+    if (i < 0) return;
+    this.all.splice(i, 1);
+    for (const list of this.map.values()) {
+      const k = list.indexOf(c);
+      if (k >= 0) list.splice(k, 1);
+    }
+  }
   query(x, z, r) {
     const s = this.cell;
     const out = new Set();

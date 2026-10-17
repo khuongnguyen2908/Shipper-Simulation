@@ -2120,10 +2120,10 @@
         "parcelWeight": 0
       },
       "block": [
-        7,
+        5,
         1
       ],
-      "lot": "f3",
+      "lot": "f8",
       "sells": {
         "goods": [
           "energyDrink",
@@ -3095,10 +3095,10 @@
         "gender": "m"
       },
       "block": [
-        4,
+        5,
         1
       ],
-      "lot": "f14",
+      "lot": "f9",
       "orders": {
         "rideWeight": 1
       }

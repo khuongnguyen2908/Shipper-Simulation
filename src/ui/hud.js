@@ -119,8 +119,11 @@ export class Hud {
     }
     if (!pedal) this.bar('bFuel', d.tank > 0 ? (d.fuel / d.tank) * 100 : 0);
     this.bar('bHp', d.hp);
-    $(this.el, '.hud-obj').style.display = d.objectives.length ? '' : 'none'; // không còn mục nào → ẩn cả bảng
-    this.set('objList', d.objectives.map((o) => `<li class="${o.done ? 'done' : ''}${o.optional ? ' opt' : ''}${o.current ? ' cur' : ''}">${o.done ? '✔' : o.optional ? '◇' : '○'} ${o.optional ? fmt('obj.optionalPrefix') : ''}${o.text}</li>`).join(''));
+    // góc phải: mục tiêu đang có (⭐ cốt truyện vàng, 📦 đơn, 🧭 tự chỉ đường…) rồi tới mục tiêu hôm nay
+    const goals = d.goals || [];
+    $(this.el, '.hud-obj').style.display = d.objectives.length || goals.length ? '' : 'none'; // không còn mục nào → ẩn cả bảng
+    this.set('objList', goals.map((g) => `<li class="goal${g.story ? ' story' : ''}"><i>${g.icon}</i><span>${g.text}${g.sub ? `<small>${g.sub}</small>` : ''}</span></li>`).join('')
+      + d.objectives.map((o) => `<li class="${o.done ? 'done' : ''}${o.optional ? ' opt' : ''}${o.current ? ' cur' : ''}">${o.done ? '✔' : o.optional ? '◇' : '○'} ${o.optional ? fmt('obj.optionalPrefix') : ''}${o.text}</li>`).join(''));
     this.set('gText', d.goal ? d.goal.text : '');
     this.set('gSub', d.goal ? d.goal.sub || '' : '');
     const arrow = $(this.el, '#gArrow');

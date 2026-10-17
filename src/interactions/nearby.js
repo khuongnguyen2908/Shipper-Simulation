@@ -106,6 +106,12 @@ export function gatherInteractions(g) {
     const d = dist(p, stop.wait) - 0.6;
     E.push(foot ? { label: fmt('act.bus', { stop: stop.name }), dist: d, busStop: stop.id, run: () => busDialog(g, stop) } : { label: fmt('act.busNeedFoot'), dist: d, busStop: stop.id, disabled: true });
   }
+  // thùng rác cốt truyện (bám theo lén): đứng sát thùng bấm E ngồi thụp núp · đang núp: E đứng dậy (bấm đi cũng đứng dậy)
+  if (foot && g.walker.crouch) E.push({ label: fmt('act.standUp'), dist: -5, run: () => g.walker.leaveCrouch() });
+  else if (foot) {
+    const b = g.storyHideSpot(p, 1.3);
+    if (b) E.push({ label: fmt('act.hideBin'), dist: b.d - 1, run: () => g.storyHide(b) });
+  }
   // ghế (quán, công viên, trạm xe buýt…): đứng sát ghế bấm E ngồi · đang ngồi thì E đứng dậy (bấm đi cũng đứng dậy)
   if (foot && g.walker.seat) E.push({ label: fmt('act.standUp'), dist: -5, seatAct: true, run: () => g.walker.leaveSeat() });
   else if (foot) {
@@ -157,20 +163,21 @@ function storyTalk(g, st, pl) {
         g.hud.toast(fmt('toast.storyGift', { item: GOODS[t.give].name, qty: n > 1 ? ` ×${n}` : '' }), 'good', 4000);
       }
       const pack = list(t.pack).filter((id) => STORY.parcels?.[id]);
-      if (pack.length) return storyPack(g, pack, done);
+      if (pack.length) return storyPack(g, pack, done, !!t.guide);
       done();
     },
   });
 }
 // Xếp các gói hàng cốt truyện vào túi (dùng màn xếp túi của đơn hàng, có hướng dẫn — game.packGuide) → xong thì đang chở các gói đó
-function storyPack(g, ids, done) {
+// guide: bật khung vàng hướng dẫn từng bước + bắt xếp đúng luật (chương 1). Tắt: xếp túi như đơn thường, không hướng dẫn
+function storyPack(g, ids, done, guide = false) {
   const gs = g.gs;
   const items = ids.map((id) => { const P = STORY.parcels[id]; return new DeliveryItem({ id, name: fmt(P.name), icon: P.icon, traits: P.traits || [] }); });
   sound('order.pickup');
   const node = buildPacking({
     items,
     bag: gs.bagSpec,
-    strict: true, // xếp túi có hướng dẫn (cốt truyện): phải xếp đúng luật mới đi
+    strict: guide, // có hướng dẫn: phải xếp đúng luật mới đi
     onDone: () => {
       g.modal.hide();
       g.storyPacking = null;
@@ -180,6 +187,7 @@ function storyPack(g, ids, done) {
     },
   });
   g.storyPacking = node;
+  node.guided = guide;
   // hướng dẫn "chọn món": nhớ món người chơi đã tự bấm chọn (màn xếp túi tự chọn sẵn món kế tiếp, nhưng vẫn dạy bước chọn món)
   node.picked = new Set();
   node.addEventListener('click', (e) => { const b = e.target.closest('[data-item]'); if (b) node.picked.add(Number(b.dataset.item)); }, true);

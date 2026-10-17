@@ -659,7 +659,7 @@ export class Game {
     const inp = this.input;
     // con trỏ: ẩn + xoay camera theo chuột khi đang chơi; mở điện thoại / hộp thoại / tạm dừng thì hiện lại
     // đang hướng dẫn (màn hình tối): thả con trỏ để bấm được nút Tiếp / hình điện thoại
-    inp.setLock(this.state === 'play' && !this.paused && !this.phone.open && !this.modal.open && !this.screens.open && !this.chatBox.typing && !this.cheatOpen && !this.spotlight.step);
+    inp.setLock(this.state === 'play' && !this.paused && !this.phone.open && !this.modal.open && !this.screens.open && !this.chatBox.typing && !this.cheatOpen && !this.spotlight.step && !this.storyLose);
     // Esc vừa thả con trỏ (trình duyệt) → onUnlock đã tạm dừng; bỏ qua phím Esc đó để không bật tắt 2 lần
     if (inp.was('Escape') && performance.now() - (inp.unlockedAt || 0) < 400) inp.pressed.delete('Escape');
     // đang hướng dẫn (màn hình tối, chỉ sáng nút cần bấm): chặn mọi phím trừ Esc (tạm dừng) và phím số của app đang sáng
@@ -785,7 +785,7 @@ export class Game {
     else {
       const pedal = gs.power === 'pedal', ev = gs.power === 'electric';
       // cảnh phim có xe người chơi tự chạy theo (cine.ride) → xe đi theo lộ trình người bị đuổi, không theo phím
-      const moved = this.cine?.ride && mounted ? this.cineRide(dt) : bike.update(dt, mounted && !this.cine ? inp.state : {}, { mounted, fuel: this.stalled ? 0 : pedal ? 1 : gs.fuel, hp: gs.bikeHp, wet: !!rain, speedCap: Number.isFinite(speedCap) ? speedCap : 0, grid: this.city.grid, elev: this.city.elev, potholes: this.potholes, emit });
+      const moved = this.cine?.ride && mounted ? this.cineRide(dt) : bike.update(dt, mounted && !this.cine && !this.storyLose ? inp.state : {}, { mounted, fuel: this.stalled ? 0 : pedal ? 1 : gs.fuel, hp: gs.bikeHp, wet: !!rain, speedCap: Number.isFinite(speedCap) ? speedCap : 0, grid: this.city.grid, elev: this.city.elev, potholes: this.potholes, emit });
       if (mounted) {
         const km = (moved * DIST.displayPerUnit) / 1000;
         if (pedal) gs.addKm(km); // xe đạp: không xăng, không bảo dưỡng — chỉ cộng đồng hồ km
@@ -806,7 +806,7 @@ export class Game {
         if (!this.cine?.ride) for (const h of this.traffic.collidePlayer(bike.pos, 0.75, bike.vel, true, bike.mesh.position.y)) this.onTrafficHit(h, env); // xe tự chạy trong cảnh phim: không va chạm
       } else {
         // đang nói chuyện với người lạ (cốt truyện): đứng yên tới khi nói xong (phím đi bị bỏ qua; đồng hồ vẫn chạy)
-        activity = this.walker.update(dt, this.storyTalkActor() || this.cine || this.tackle ? NO_MOVE : inp.state, this.rig.yaw, { grid: this.city.grid, elev: this.city.elev, phys: gs.phys, speedMul: floodBand(water) >= 2 ? floodNum('walkMul') : 1 });
+        activity = this.walker.update(dt, this.storyTalkActor() || this.cine || this.tackle || this.storyLose ? NO_MOVE : inp.state, this.rig.yaw, { grid: this.city.grid, elev: this.city.elev, phys: gs.phys, speedMul: floodBand(water) >= 2 ? floodNum('walkMul') : 1 });
         const talk = this.storyTalkActor(); // đang nói chuyện với người lạ, đứng yên → quay mặt về phía người đó
         if (talk && activity === 'idle' && !this.walker.seat) {
           const m = talk.mesh.position, w = this.walker.pos;

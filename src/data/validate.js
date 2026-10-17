@@ -1023,10 +1023,12 @@ export function validateStory(story, { places = null, goods = null, content = nu
         text(ref, 'talk', st.talk.text, 'câu nói');
         if (st.talk.ok) text(ref, 'talk', st.talk.ok, 'chữ nút đồng ý (cũ, không còn hiện)');
         for (const pid of [].concat(st.talk.pack || [], st.talk.drop || [])) if (!parcels[pid]) add('error', ref, 'talk', `Gói hàng "${pid}" không có.`);
+        if (st.talk.guide != null && typeof st.talk.guide !== 'boolean') add('error', ref, 'talk', 'Ô "hướng dẫn xếp túi" phải là có / không.');
         if (st.talk.giveQty != null && !(num(st.talk.giveQty) && st.talk.giveQty >= 1 && st.talk.giveQty <= 20)) add('error', ref, 'talk', 'Số phần tặng: 1–20.');
         if (st.talk.give && goods && !goods[st.talk.give]) add('error', ref, 'talk', `Đồ tặng "${st.talk.give}" không có trong đồ dùng.`);
       }
       if (st.goal) text(ref, 'goal', st.goal, 'mục tiêu');
+      if (st.goTo) text(ref, 'goTo', st.goTo, 'chữ thanh chỉ đường');
       if (st.hint) text(ref, 'hint', st.hint, 'gợi ý');
       if (st.target?.startsWith('actor:')) { if (!people[st.target.slice(6)]) add('error', ref, 'target', `Mũi tên: người lạ "${st.target.slice(6)}" không có.`); }
       else if (st.target && !['bike', 'office', 'fuel'].includes(st.target)) place(ref, 'target', st.target);
@@ -1083,8 +1085,10 @@ export function validateStory(story, { places = null, goods = null, content = nu
         if (a.do === 'pursue') {
           const ws = [].concat(a.who || []);
           if (!ws.length || ws.some((w) => !people[w])) add('error', ref, 'on', 'Bị rượt: người rượt phải là người lạ có trong danh sách.');
-          for (const [k, lo, hi] of [['speed', 1, 9], ['delay', 0, 5], ['lose', 8, 120], ['catch', 0.5, 3]]) if (a[k] != null && !(num(a[k]) && a[k] >= lo && a[k] <= hi)) add('error', ref, 'on', `Bị rượt: ${k} ${lo}–${hi}.`);
-          for (const k of ['stopText', 'caughtText', 'retryText']) if (a[k] != null) text(ref, 'on', a[k], 'câu khi bị rượt');
+          for (const [k, lo, hi] of [['speed', 1, 9], ['delay', 0, 5], ['lose', 8, 120], ['catch', 0.5, 3], ['vanish', 10, 200]]) if (a[k] != null && !(num(a[k]) && a[k] >= lo && a[k] <= hi)) add('error', ref, 'on', `Bị rượt: ${k} ${lo}–${hi}.`);
+          for (const k of ['stopText', 'caughtText', 'retryText', 'failText', 'failHint']) if (a[k] != null) text(ref, 'on', a[k], 'câu khi bị rượt');
+          for (const k of ['bikeOnly', 'fail']) if (a[k] != null && typeof a[k] !== 'boolean') add('error', ref, 'on', `Bị rượt: ${k} phải là có / không.`);
+          if (a.vanish != null && !(num(a.vanish) && a.vanish >= 10 && a.vanish <= 200)) add('error', ref, 'on', 'Bị rượt: chạy xe được 10–200 thì bọn kia biến mất.');
           if (u.type !== 'escaped') add('warn', ref, 'on', 'Bị rượt: điều kiện xong của bước nên là "Đã chạy thoát" (escaped).');
         }
         if (a.do === 'traffic') {
@@ -1238,6 +1242,7 @@ export function validateStory(story, { places = null, goods = null, content = nu
         if (a.do === 'prop') {
           if (!ID_RE.test(String(a.id || ''))) add('error', ref, 'on', 'Đạo cụ: mã chỉ gồm chữ không dấu, số (vd truck1).');
           if (!['truck', 'ramp', 'dog', 'car', 'moto', 'police', 'easel', 'bin', 'can'].includes(a.kind)) add('error', ref, 'on', `Đạo cụ: loại lạ "${a.kind}" (truck / ramp / dog / car / moto / police / easel / bin / can).`);
+          if (a.hide != null && (a.kind !== 'bin' || typeof a.hide !== 'boolean')) add('error', ref, 'on', 'Đạo cụ: "núp được" chỉ cho thùng rác, phải là có / không.');
           if (a.cops != null && !(Number.isInteger(a.cops) && a.cops >= 1 && a.cops <= 4)) add('error', ref, 'on', 'Xe công an: 1–4 anh công an.');
           if (a.copsTo != null && !(String(a.copsTo).startsWith('actor:') && people[String(a.copsTo).slice(6)])) add('error', ref, 'on', `Xe công an: "đi tới chỗ" phải là actor:<người lạ có trong danh sách>.`);
           if (a.name != null) text(ref, 'on', a.name, 'tên người nói (công an)');

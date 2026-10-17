@@ -478,7 +478,8 @@ export class StoryPart {
     const who = this.storyTalkWith;
     if (!who || this.mode !== 'foot') return null;
     const s = this.gs.story, st = s?.ch ? stepOf(s) : null, u = st?.until;
-    const on = u?.type === 'talkActor' || u?.type === 'chosen' || this.storyWaitE() || !!this.storyChoice;
+    // chỉ khóa đứng yên khi bước đang chờ nói chuyện đúng với người này (bước sau chờ người khác → đi được, không kẹt)
+    const on = (u?.type === 'talkActor' && u.who === who) || u?.type === 'chosen' || this.storyWaitE() || !!this.storyChoice;
     const focus = (this.lastSpeaker && this.bubbles.map.has(`story:${this.lastSpeaker}`) && this.speakerOf(this.lastSpeaker)) || this.speakerOf(who);
     if (!on || !focus || focus.ac?.leaving || dist2(this.walker.pos, focus.mesh.position) > 5) {
       if (!on && s?.fired) this.storyTalkWith = null;
@@ -1207,18 +1208,20 @@ export class StoryPart {
     const rg = st.guide?.type === 'route' ? st.guide : st.guide?.type === 'fuel' ? { place: 'fuel' } : null; // bước phải bấm 📍 Chỉ đường
     if (rg && this.storyRouted(rg)) this.gs.story.ev.routed = true; // đã bấm 📍 → nhớ (tới nơi game xóa chỉ đường)
     if (rg && !this.gs.story.ev.routed) return g;
-    let at = null;
-    if (st.target === 'bike') at = this.bike.pos;
+    let at = null, dest = '';
+    if (st.target === 'bike') { at = this.bike.pos; dest = this.gs.vehicleSpec?.name || ''; }
     else if (st.target === 'fuel') {
-      const w = this.waypointPlace();
-      at = (w && ['gas', 'charger', 'swap'].includes(w.kind) ? w : this.fuelStop())?.door;
+      const w = this.waypointPlace(), pl = w && ['gas', 'charger', 'swap'].includes(w.kind) ? w : this.fuelStop();
+      at = pl?.door; dest = pl?.name || '';
     }
     else if (st.target === 'office') {
-      const w = this.waypointPlace();
-      at = (w?.kind === 'office' ? w : this.nearestPlace((pl) => pl.kind === 'office'))?.door;
-    } else if (st.target?.startsWith('actor:')) at = this.storyActors?.[st.target.slice(6)]?.mesh.position;
-    else if (st.target) at = this.layout.placeById[st.target]?.door;
-    return at ? { ...g, x: at.x, z: at.z } : g;
+      const w = this.waypointPlace(), pl = w?.kind === 'office' ? w : this.nearestPlace((p) => p.kind === 'office');
+      at = pl?.door; dest = pl?.name || '';
+    } else if (st.target?.startsWith('actor:')) { const who = st.target.slice(6); at = this.storyActors?.[who]?.mesh.position; dest = fmt(STORY.people?.[who]?.name || ''); }
+    else if (st.target) { const pl = this.layout.placeById[st.target]; at = pl?.door; dest = pl?.name || ''; }
+    // thanh "Đi đến …" giữa trên (chỉ khi cốt truyện chỉ đường): chữ riêng của bước (goTo) hoặc mẫu chung goal.goTo
+    const nav = st.goTo ? this.storyText(st.goTo) : fmt('goal.goTo', { place: dest });
+    return at ? { ...g, x: at.x, z: at.z, storyNav: nav } : g;
   }
   // Đã bấm 📍 Chỉ đường tới đúng chỗ của bước chưa ('office' = văn phòng hãng nào cũng được ·
   // 'fuel' = cây xăng / trụ sạc / trạm đổi pin nào cũng được, xe đã đầy thì coi như xong)
@@ -1230,7 +1233,7 @@ export class StoryPart {
   // Hướng dẫn màn xếp túi lúc nhận đồ theo cốt truyện (interactions.storyPack → this.storyPacking = màn xếp túi)
   packGuide() {
     const node = this.storyPacking;
-    if (!node?.isConnected) return null;
+    if (!node?.isConnected || !node.guided) return null; // bước không bật "Hướng dẫn xếp túi" → không khung vàng
     const { items, selected, placed, upright } = node.packState();
     const G = (id, sel, tk, params = {}) => ({ id, sel: [sel], title: fmt(`story.guide.${tk}`, params), hint: fmt(`story.guide.${tk}Hint`, params), top: true });
     const i = items.findIndex((it, k) => placed[k] < 0 || (it.has('liquid') && !upright[k]));

@@ -22,6 +22,10 @@
     "man": {
       "icon": "😎",
       "name": "story.contact.man"
+    },
+    "nhi": {
+      "icon": "👩",
+      "name": "story.contact.nhi"
     }
   },
   "people": {
@@ -568,7 +572,8 @@
             "pack": [
               "huChao",
               "tauHu"
-            ]
+            ],
+            "guide": true
           },
           "goal": "story.c1.talk2.goal",
           "hint": "story.c1.talk2.hint",
@@ -3418,7 +3423,6 @@
             "to": 18
           },
           "goal": "story.c4.airport.goal",
-          "target": "sanbay",
           "guide": null
         },
         {
@@ -3435,8 +3439,7 @@
             "text": "story.c4.airport.say",
             "pack": [
               "tranhA",
-              "tranhB",
-              "tranhC"
+              "tranhB"
             ]
           },
           "until": {
@@ -3605,6 +3608,12 @@
               "who": "nhi",
               "text": "story.c4.nhi.invite",
               "hold": true
+            },
+            {
+              "do": "bubble",
+              "who": "nhi",
+              "text": "story.c4.invite.bubble",
+              "hold": true
             }
           ],
           "until": {
@@ -3618,12 +3627,22 @@
           "hold": true,
           "on": [
             {
-              "do": "remove",
-              "who": "nhi"
+              "do": "goto",
+              "who": "nhi",
+              "place": "dhMyThuat",
+              "run": false
             },
             {
-              "do": "remove",
-              "who": "hoang"
+              "do": "goto",
+              "who": "hoang",
+              "place": "dhMyThuat",
+              "run": false
+            },
+            {
+              "do": "msg",
+              "from": "nhi",
+              "text": "story.c4.nhi.addr",
+              "loc": []
             }
           ],
           "until": {
@@ -3642,6 +3661,12 @@
           "id": "daiSay",
           "hold": true,
           "on": [
+            {
+              "do": "bubble",
+              "who": "player",
+              "text": "story.c4.player.toDai",
+              "hold": true
+            },
             {
               "do": "bubble",
               "who": "place:traiCay",
@@ -3687,6 +3712,12 @@
           "id": "minhSay",
           "hold": true,
           "on": [
+            {
+              "do": "bubble",
+              "who": "player",
+              "text": "story.c4.player.toMinh",
+              "hold": true
+            },
             {
               "do": "bubble",
               "who": "minh",
@@ -3741,6 +3772,12 @@
           "on": [
             {
               "do": "bubble",
+              "who": "player",
+              "text": "story.c4.player.toLan",
+              "hold": true
+            },
+            {
+              "do": "bubble",
               "who": "lanAnh",
               "text": "story.c4.lanAnh.invite",
               "hold": true
@@ -3769,10 +3806,10 @@
               "look": "jetjet",
               "spot": "at",
               "at": [
-                -7.5,
-                -176
+                -7.6,
+                -173.6
               ],
-              "heading": 180
+              "heading": 0
             },
             {
               "do": "actor",
@@ -3780,22 +3817,76 @@
               "look": "student",
               "spot": "at",
               "at": [
-                -7.5,
-                -175
+                -7.6,
+                -172.4
               ],
               "heading": 180
             }
           ],
           "until": {
-            "type": "reach",
-            "at": [
-              -3,
-              -180
-            ],
-            "r": 16
+            "type": "arrive",
+            "place": "dichvu1_5",
+            "r": 5
           },
-          "goal": "story.c4.goHome.goal",
-          "target": "home",
+          "goal": "story.c4.water.goal",
+          "target": "dichvu1_5",
+          "guide": null
+        },
+        {
+          "id": "spotCine",
+          "hold": true,
+          "noFines": true,
+          "on": [
+            {
+              "do": "cine",
+              "shots": [
+                {
+                  "pos": [
+                    6,
+                    1.6,
+                    -185.6
+                  ],
+                  "lookAt": "actor:flyer",
+                  "lookY": 1.3,
+                  "t": 18.6,
+                  "fov": 40
+                }
+              ]
+            },
+            {
+              "do": "bubble",
+              "who": "flyer",
+              "text": "story.c4.flyer.l1",
+              "after": 0.8
+            },
+            {
+              "do": "bubble",
+              "who": "student",
+              "text": "story.c4.student.l1",
+              "after": 4.8
+            },
+            {
+              "do": "bubble",
+              "who": "flyer",
+              "text": "story.c4.flyer.l3",
+              "after": 8.6
+            },
+            {
+              "do": "bubble",
+              "who": "student",
+              "text": "story.c4.student.l2",
+              "after": 12.2
+            },
+            {
+              "do": "bubble",
+              "who": "flyer",
+              "text": "story.c4.flyer.go",
+              "after": 15.8
+            }
+          ],
+          "until": {
+            "type": "cine"
+          },
           "guide": null
         },
         {
@@ -3892,6 +3983,12 @@
               "route": [
                 {
                   "at": [
+                    -7.6,
+                    -173.6
+                  ]
+                },
+                {
+                  "at": [
                     -7.5,
                     -176
                   ]
@@ -3971,29 +4068,11 @@
               "speed": 1.3,
               "see": 11,
               "lose": 24,
-              "start": 16,
+              "start": 26,
               "retry": [
                 -3,
                 -176
               ]
-            },
-            {
-              "do": "bubble",
-              "who": "flyer",
-              "text": "story.c4.flyer.l1",
-              "after": 6
-            },
-            {
-              "do": "bubble",
-              "who": "student",
-              "text": "story.c4.student.l1",
-              "after": 11
-            },
-            {
-              "do": "bubble",
-              "who": "flyer",
-              "text": "story.c4.flyer.l2",
-              "after": 15
             }
           ],
           "until": {
@@ -4039,7 +4118,8 @@
             "type": "wait",
             "min": 2.5
           },
-          "guide": null
+          "guide": null,
+          "delay": 2
         },
         {
           "id": "overhear3",
@@ -4055,7 +4135,8 @@
             "type": "wait",
             "min": 3
           },
-          "guide": null
+          "guide": null,
+          "delay": 3
         },
         {
           "id": "trip",
@@ -4102,18 +4183,23 @@
               ],
               "speed": 4.6,
               "delay": 1.1,
-              "lose": 30,
               "stopText": "story.c4.thug.stop",
-              "caughtText": "story.c4.thug.caught"
+              "caughtText": "story.c4.thug.caught",
+              "bikeOnly": true,
+              "vanish": 45,
+              "fail": true,
+              "failText": "story.pursue.fail",
+              "failHint": "story.c4.thug.failHint"
             }
           ],
           "until": {
             "type": "escaped"
           },
-          "goal": "story.c4.flee.goal",
+          "goal": "story.c4.trip.goal",
           "hint": "story.c4.flee.hint",
-          "target": "home",
-          "guide": null
+          "target": "bike",
+          "guide": null,
+          "music": "music.flee"
         },
         {
           "id": "flee",
@@ -4130,6 +4216,14 @@
             {
               "do": "remove",
               "who": "boss"
+            },
+            {
+              "do": "remove",
+              "who": "thug1"
+            },
+            {
+              "do": "remove",
+              "who": "thug2"
             }
           ],
           "until": {
@@ -4139,7 +4233,8 @@
           },
           "goal": "story.c4.flee.goal",
           "target": "home",
-          "guide": null
+          "guide": null,
+          "music": "music.flee"
         },
         {
           "id": "msgDat",
@@ -4228,7 +4323,8 @@
           },
           "goal": "story.c4.wait8.goal",
           "target": "dhMyThuat",
-          "guide": null
+          "guide": null,
+          "noBeacon": true
         },
         {
           "id": "exhibit",
@@ -4985,7 +5081,7 @@
               "do": "bubble",
               "who": "linh",
               "text": "story.c4.linh.voicemail",
-              "after": 14
+              "after": 12
             },
             {
               "do": "bubble",

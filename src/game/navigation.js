@@ -84,7 +84,12 @@ export class NavigationPart {
     const P = this.layout.placeById;
     // cốt truyện đang chạy: mục tiêu của bước hiện tại
     const sg = om.state !== S.OFFERED && this.storyGoal();
-    if (sg) return sg;
+    if (sg) {
+      // bước cốt truyện không có chỗ đến (vd "Đi ngủ", "Nhắn cho anh Đạt") mà người chơi tự bấm 📍 Chỉ đường trên bản đồ → chỉ tới chỗ đó
+      const wp0 = sg.x == null && this.waypointPlace();
+      if (wp0) return { ...wp0.door, text: fmt('goal.waypoint', { place: wp0.name }), sub: sg.text, color: '#1e90ff' };
+      return sg;
+    }
     if (gs.story?.ch && !gs.brand) return null; // giữa 2 bước cốt truyện (chưa vào hãng): chưa có gì để nhắc
     // địa điểm tự chọn trên bản đồ điện thoại (Chỉ đường) — ưu tiên hơn gợi ý mục tiêu
     const wp = this.waypointPlace();

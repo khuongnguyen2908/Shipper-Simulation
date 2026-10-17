@@ -89,7 +89,7 @@ export const UNTIL = {
   chased: 'Người lạ … (việc "🏍️ Chạy trốn") đã chạy hết lộ trình, người chơi đang bám theo',
   reach: 'Người chơi tới gần chỗ [x, z] trên bản đồ (vd giữa cầu)',
   tackled: 'Việc "🤼 Vật ngã" ở bước này đã xong (người kia bị ghì nằm sấp)',
-  escaped: 'Người chơi đã chạy thoát (việc "🏃 Bị rượt" ở bước này: lên xe chạy đi / bỏ xa)',
+  escaped: 'Người chơi đã chạy thoát (việc "🏃 Bị rượt" ở bước này: lên xe chạy đi / bỏ xa · chỉ bằng xe: chạy xe bỏ xa, bọn kia biến mất)',
   sneaked: 'Việc "🕵️ Bám theo lén" ở bước này đã xong (người bị bám theo tới điểm cuối mà không phát hiện người chơi)',
   never: 'Chưa viết tiếp — dừng ở bước này (để chỗ cho nội dung sau)',
 };
@@ -132,7 +132,7 @@ export const ACTIONS = {
   rideOff: 'Người lạ lên xe của mình chạy đi (đang cầm nón thì đội lại trước, nẹt pô, chạy dọc đường rồi mất)',
   phoneCall: 'Người chơi đưa điện thoại lên tai (gọi điện) / cất điện thoại',
   fade: '⬛ Màn đen + chữ (vd "2 tiếng sau…"): lúc tối dọn người lạ / đạo cụ, tua giờ (như ngủ dậy), người lạ … đứng lại trước mặt người chơi',
-  pursue: '🏃 Bị rượt: người lạ … rượt theo người chơi (chạy theo dấu chân) — người chơi tự chạy thoát (lên xe / bỏ xa); bị tóm → làm lại',
+  pursue: '🏃 Bị rượt: người lạ … rượt theo người chơi (chạy theo dấu chân) — người chơi tự chạy thoát (lên xe / bỏ xa, hoặc chỉ bằng xe); bị tóm → làm lại / màn thua',
   traffic: '🚧 Giữ vùng vắng xe NPC quanh người chơi (cảnh đứng giữa đường lâu) — bán kính 0 = trả lại xe',
   sneak: '🕵️ Bám theo lén: người lạ … (dắt theo người khác) đi theo lộ trình, thỉnh thoảng ngoái lại — người chơi theo sau không để bị thấy (bị phát hiện / mất dấu → làm lại)',
   end: 'Kết thúc chương (hiện chữ, lưu game)',

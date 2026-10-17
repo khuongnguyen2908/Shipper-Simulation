@@ -5,7 +5,7 @@ import { blockAt } from '../sim/cityLayout.js';
 import { DRIVING } from '../data/balance.js';
 const D = (k, def) => (Number.isFinite(DRIVING[k]) ? DRIVING[k] : def);
 import { resolveCircle } from './physics.js';
-import { makeBike, makePerson, animatePerson, setSitting, setBikeColor, sitY, gripBar, bikeSeatZ } from './models.js';
+import { makeBike, makePerson, animatePerson, setSitting, setCrouch, setBikeColor, sitY, gripBar, bikeSeatZ } from './models.js';
 
 const SW_H = 0.15;
 export const lerpAngle = (a, b, t) => {
@@ -226,6 +226,26 @@ export class Walker {
         return 'idle';
       }
     }
+    if (this.crouch) {
+      const c = this.crouch;
+      // bị dời đi chỗ khác (làm lại, dịch chuyển…) / bấm đi → đứng dậy
+      if (Math.hypot(this.pos.x - c.x, this.pos.z - c.z) > 0.3 || input.forward || input.back || input.left || input.right) this.leaveCrouch();
+      else {
+        const floorY = blockAt(c.x, c.z) ? SW_H : 0;
+        const el = ctx.elev ? ctx.elev.settle(this, 0.35, floorY, 2.0) : { y: floorY };
+        if (c.dy == null) {
+          // đo 1 lần: hạ người xuống bao nhiêu thì bàn chân chạm đất
+          this.mesh.position.set(0, 0, 0);
+          this.mesh.rotation.set(0, 0, 0);
+          this.mesh.updateMatrixWorld(true);
+          const parentY = this.mesh.parent ? new THREE.Vector3().setFromMatrixPosition(this.mesh.parent.matrixWorld).y : 0;
+          c.dy = -(new THREE.Box3().setFromObject(this.mesh).min.y - parentY);
+        }
+        this.mesh.position.set(c.x, el.y + c.dy, c.z);
+        this.mesh.rotation.set(0, c.ry, 0);
+        return 'idle';
+      }
+    }
     const fx = -Math.sin(camYaw), fz = -Math.cos(camYaw);
     const rx = -fz, rz = fx;
     let mx = 0, mz = 0;
@@ -271,6 +291,7 @@ export class Walker {
       parent.add(m);
     }
     if (this.sitting || this.seat) setSitting(m, true, !!this.seat);
+    if (this.crouch) { setCrouch(m, true); this.crouch.dy = null; } // đang ngồi núp: đo lại chiều cao
     if (this.sitting && parent?.userData.model) gripBar(m, parent.userData.model); // đang ngồi xe: tay nắm lại tay lái
     this.mesh = m;
   }
@@ -297,7 +318,23 @@ export class Walker {
     this._ez = this.pos.z;
   }
 
+  // Ngồi thụp núp (sau thùng rác): spot { x, z, ry (hướng mặt) } · bấm đi / E thì đứng dậy tại chỗ
+  crouchAt(spot) {
+    this.leaveSeat(false);
+    this.crouch = { x: spot.x, z: spot.z, ry: spot.ry, dy: null };
+    this.pos.set(spot.x, 0, spot.z);
+    this.heading = spot.ry;
+    this.speed = 0;
+    setCrouch(this.mesh, true);
+  }
+  leaveCrouch() {
+    if (!this.crouch) return;
+    this.crouch = null;
+    setCrouch(this.mesh, false);
+  }
+
   sitOn(bike) {
+    this.leaveCrouch();
     this.sitting = true;
     setSitting(this.mesh, true);
     bike.mesh.add(this.mesh);

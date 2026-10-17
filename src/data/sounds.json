@@ -335,7 +335,37 @@
       "files": [
         "spinopel-off-road-motorcycle-409407.mp3"
       ],
-      "volume": 1.5
+      "volume": 1
+    },
+    "city.canKick": {
+      "files": [
+        "masp005-iron-bang-119810.mp3"
+      ]
+    },
+    "city.qte": {
+      "files": [
+        "freesound_community-beep-warning-6387.mp3"
+      ]
+    },
+    "city.tackle": {
+      "files": [
+        "am_thanh_tieng_cu_dam-www_tiengdong_com.mp3"
+      ]
+    },
+    "city.siren": {
+      "files": [
+        "dragon-studio-police-siren-397963.mp3"
+      ]
+    },
+    "city.applause": {
+      "files": [
+        "tieng_vo_tay_trong_powerpoint-www_tiengdong_com.mp3"
+      ]
+    },
+    "music.flee": {
+      "files": [
+        "hieu_ung_hanh_dong-www_tiengdong_com.mp3"
+      ]
     }
   }
 }

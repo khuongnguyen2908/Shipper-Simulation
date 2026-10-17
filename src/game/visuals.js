@@ -28,6 +28,8 @@ import { fmt, has } from '../content/index.js';
 import { fmtK } from '../sim/economy.js';
 import { GARAGE_CAM, SW_H, TALK_CAM_GROUP, TALK_CAM, fmtTime, dist2 } from './shared.js';
 
+// Biểu tượng mục tiêu trong danh sách góc phải, theo màu của mục tiêu (game/navigation.js currentTarget)
+const GOAL_ICON = { '#f39c12': '📦', '#2ecc71': '📦', '#9b59b6': '📦', '#e67e22': '📦', '#1e90ff': '🧭', '#5dade2': '🛵', '#e74c3c': '⚠️', '#8e7cc3': '😴', '#16a085': '🚌', '#f4d03f': '⭐' };
 export class VisualsPart {
   // ======================== HIỂN THỊ ========================
   updateCamera(dt) {
@@ -437,17 +439,19 @@ export class VisualsPart {
       this.zoneRing.position.set(tgt.zone.x, 0.25, tgt.zone.z);
       this.zoneRing.scale.setScalar(tgt.zone.r);
     }
+    // thanh giữa trên: mũi tên + "Đi đến …" + khoảng cách — CHỈ khi cốt truyện chỉ đường (bước có chỗ đến)
     let goal = null;
-    if (tgt) {
-      goal = { text: tgt.text, sub: tgt.sub, color: tgt.color };
-      if (hasPos) {
-        const d = dist2(pp, tgt);
-        const fx = -Math.sin(this.rig.yaw), fz = -Math.cos(this.rig.yaw);
-        const tx = (tgt.x - pp.x) / (d || 1), tz = (tgt.z - pp.z) / (d || 1);
-        goal.angle = Math.atan2(tx * -fz + tz * fx, tx * fx + tz * fz);
-        goal.sub = fmt('goal.distance', { dist: fmtDist(this.goalRouteDist(pp, tgt, d)), hint: goal.sub || '' });
-      }
+    if (tgt?.storyNav && hasPos) {
+      const d = dist2(pp, tgt);
+      const fx = -Math.sin(this.rig.yaw), fz = -Math.cos(this.rig.yaw);
+      const tx = (tgt.x - pp.x) / (d || 1), tz = (tgt.z - pp.z) / (d || 1);
+      goal = { text: tgt.storyNav, sub: fmtDist(this.goalRouteDist(pp, tgt, d)), color: tgt.color, angle: Math.atan2(tx * -fz + tz * fx, tx * fx + tz * fz) };
     }
+    // danh sách mục tiêu góc phải: ⭐ cốt truyện · mục tiêu đang chỉ (đơn hàng, tự chỉ đường, tiền nhà, buồn ngủ…)
+    const goals = [];
+    const sg = this.state === 'play' ? this.storyGoal() : null;
+    if (sg) goals.push({ icon: '⭐', text: sg.text, sub: sg.sub, story: true });
+    if (tgt && tgt.text !== sg?.text) goals.push({ icon: GOAL_ICON[tgt.color] || '•', text: tgt.text, sub: tgt.sub === sg?.text ? '' : tgt.sub });
 
     const mounted = this.mode === 'bike';
     const o = om.order;
@@ -484,6 +488,7 @@ export class VisualsPart {
       // bảng "Mục tiêu hôm nay": không lặp mục tiêu cốt truyện (đã ở dòng mục tiêu góc trái), không ghi mục trả tiền nhà (chủ game bỏ)
       objectives: objs.filter((x) => x.id !== 'story' && x.id !== 'rent').map((x) => ({ ...x, current: x === firstOpen })),
       goal,
+      goals,
       prompts: this.prompts || [],
       speedo: mounted
         ? fmt('hud.speed', { kmh: Math.round(Math.abs(this.bike.speed) * 3.6) }) + (Math.abs(this.bike.speed) > this.speedLimit() ? fmt('hud.overSpeed', { limit: this.speedLimitKmh() }) : '') + (this.inJam ? fmt('hud.inJam') : '') + (this.floodBandNow ? fmt('hud.flood', { kmh: Math.round(floodSpeedCap(this.floodHere()) * 3.6) }) : '') + (this.stalled ? fmt('hud.stalled') : '') + (gs.power !== 'pedal' && gs.fuel <= 0 ? fmt(gs.power === 'electric' ? 'hud.noBattery' : 'hud.noFuel') : '')

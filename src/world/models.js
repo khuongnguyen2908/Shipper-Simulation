@@ -537,6 +537,24 @@ export function holdPhone(g, style = 'vlog') {
   return g;
 }
 
+// Ngồi thụp (núp sau thùng rác): ngồi xổm, gối gập hết, lưng khom tới trước, 2 tay đưa ra trước bám thùng.
+// on = false: về dáng đứng. Chiều cao thân (hạ xuống bao nhiêu cho chân chạm đất) do Walker tự đo.
+export function setCrouch(g, on) {
+  setSitting(g, false);
+  if (!on) return;
+  const p = g.userData.parts;
+  p.legL.rotation.x = p.legR.rotation.x = -1.75;
+  p.kneeL.rotation.x = p.kneeR.rotation.x = 2.45;
+  p.legL.rotation.z = -0.18;
+  p.legR.rotation.z = 0.18;
+  const bend = 0.55; // khom lưng quanh hông
+  p.body.rotation.x = bend;
+  p.body.position.set(0, HIP_Y * (1 - Math.cos(bend)), -HIP_Y * Math.sin(bend));
+  p.armL.rotation.x = p.armR.rotation.x = -1.25;
+  p.elbowL.rotation.x = p.elbowR.rotation.x = -0.7;
+  followTa(p);
+}
+
 // Ngồi (trên xe / ghế): đùi đưa ra trước, cẳng chân thả xuống chỗ gác chân, hai tay đưa ra trước (cầm lái).
 // chair = true: ngồi ghế — cẳng chân thả thẳng xuống đất, tay để hờ trên đùi
 export function setSitting(g, sitting, chair = false) {

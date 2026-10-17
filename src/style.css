@@ -57,6 +57,10 @@ kbd { display: inline-block; min-width: 1.6em; padding: 1px 6px; border-radius: 
 .hud-obj li { padding: 3px 0; color: var(--muted); line-height: 1.3; }
 .hud-obj li.done { color: #7dcea0; text-decoration: line-through; opacity: 0.7; }
 .hud-obj li.cur { color: #fff; font-weight: 600; }
+.hud-obj li.goal { display: flex; gap: 7px; color: #fff; font-weight: 600; padding: 4px 0; }
+.hud-obj li.goal i { font-style: normal; flex: none; }
+.hud-obj li.goal small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; margin-top: 1px; }
+.hud-obj li.story { color: #f4d03f; } /* mục tiêu cốt truyện */
 .hud-obj li.opt { color: #d2b4de; }
 .hud-br { position: absolute; right: 14px; bottom: 8px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 /* bản đồ tròn: chỉ vùng quanh mình, xoay theo hướng xe */
@@ -483,8 +487,8 @@ b.plus { color: #58d68d; }
 
 @media (max-width: 1100px) {
   .hud-obj { width: 230px; font-size: 11.5px; }
-  .hud-goal { top: 182px; left: 14px; transform: none; max-width: min(320px, 46vw); border-radius: 14px; font-size: 13.5px; }
-  #toasts { top: 14px; width: max(260px, min(560px, calc(100vw - 520px))); } /* giữa phía trên (giữa bảng giờ / tiền và bảng mục tiêu), không đè dòng nút E dưới cùng */
+  .hud-goal { width: min(420px, calc(100vw - 560px)); font-size: 13.5px; } /* vẫn giữa trên (giữa bảng giờ / tiền và danh sách mục tiêu) */
+  #toasts { top: 72px; width: max(260px, min(560px, calc(100vw - 520px))); } /* giữa phía trên (giữa bảng giờ / tiền và bảng mục tiêu), không đè dòng nút E dưới cùng */
   #phone { right: 14px; bottom: 300px; }
   #phoneIcon { right: 22px; bottom: 318px; } /* hình điện thoại nhỏ lên trên bản đồ (máy to cũng bật lên ở đây) */
   #phoneNote { right: 84px; bottom: 360px; }
@@ -663,4 +667,12 @@ body.cine #cine { display: block; }
 /* Màn đen + chữ (việc "fade" — vd "Ít phút sau…"): tối dần, giữ, sáng lại */
 #storyFade { position: fixed; inset: 0; z-index: 40; background: #000; color: #fff; display: flex; align-items: center; justify-content: center; font: italic 34px system-ui, sans-serif; opacity: 0; pointer-events: none; transition: opacity 0.7s; }
 #storyFade.on { opacity: 1; }
+/* màn thua (bị rượt mà bị tóm): chữ + gợi ý + nút Chơi lại */
+#storyLose { position: fixed; inset: 0; z-index: 41; background: rgba(0, 0, 0, 0.86); display: none; align-items: center; justify-content: center; text-align: center; color: #fff; }
+#storyLose.on { display: flex; animation: loseIn 0.5s ease-out; }
+#storyLose h2 { margin: 0 0 8px; font-size: 34px; }
+#storyLose p { margin: 0 0 20px; color: #bbc; font-size: 15px; }
+#storyLose button { font: inherit; font-weight: 800; font-size: 17px; padding: 11px 30px; border-radius: 12px; border: 0; background: #f4d03f; color: #111; cursor: pointer; }
+#storyLose button:hover { filter: brightness(1.08); }
+@keyframes loseIn { from { opacity: 0; } to { opacity: 1; } }
 body.cine #hud, body.cine #minimap, body.cine #phoneIcon, body.cine #phoneNote, body.cine #prompt, body.cine #speedo, body.cine #cargo, body.cine #toasts, body.cine #spotlight { visibility: hidden; }

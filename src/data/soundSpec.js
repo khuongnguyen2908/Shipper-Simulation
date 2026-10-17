@@ -24,6 +24,7 @@ const LIST = [
   ['music.menu', 'music', 'Nhạc màn hình chính', 'Đang ở màn hình chính / tạo nhân vật', '', 'music'],
   ['music.day', 'music', 'Nhạc trong game (ban ngày)', 'Đang chơi, trời sáng', '', 'music'],
   ['music.chase', 'music', 'Nhạc dí cướp', 'Cốt truyện: bước có ô "Nhạc riêng" = mã này (chương 3: từ cảnh cướp tới qua cầu). Chưa gắn file → vẫn nhạc ngày / đêm', '', 'music'],
+  ['music.flee', 'music', 'Nhạc bị rượt', 'Cốt truyện chương 4: bị giang hồ rượt ra khỏi hẻm (từ lúc vấp lon tới lúc về tới trọ). Chưa gắn file → tạm phát nhạc dí cướp (music.chase)', '', 'music'],
   ['music.night', 'music', 'Nhạc trong game (ban đêm)', 'Đang chơi, trời tối', '', 'music'],
   // ---- giao diện ----
   ['ui.click', 'ui', 'Bấm nút', 'Bấm nút trong menu, hộp thoại, điện thoại', '', 'sfx'],
@@ -98,6 +99,7 @@ const LIST = [
   ['city.siren', 'city', 'Còi hú xe công an', 'Chương 3: xe công an chạy tới áp giải tên cướp (hú còi vài giây)', 'whistle', 'sfx'],
   ['city.applause', 'city', 'Vỗ tay', 'Chương 4: khai mạc triển lãm, mọi người vỗ tay sau khi chị Linh phát biểu', '', 'sfx'],
   ['city.canKick', 'city', 'Vấp lon (keng)', 'Chương 4: núp trong hẻm, lùi lại vấp cái lon kêu "keng"', 'bump', 'sfx'],
+  ['city.caught', 'city', 'Bị tóm (thua)', 'Bị rượt (chương 4) mà bị tụi giang hồ tóm → màn "Bị tụi nó tóm rồi…" + nút Chơi lại', 'bad', 'sfx'],
   ['city.sneakCaught', 'city', 'Bị phát hiện', 'Bám theo lén (chương 4): người phía trước quay lại thấy người chơi — "Ai đó?!"', 'bad', 'sfx'],
   ['loop.motoChase', 'city', 'Máy xe anh mô tô (cảnh phim)', 'Tiếng lặp: sport bike của anh mô tô lúc dí cướp (chương 3) — to nhỏ theo khoảng cách tới camera, cao độ theo tốc độ', '', 'loop'],
   ['city.rev', 'city', 'Nẹt pô', 'Nhóm Jetjet chạy ngang mình · xe trộm chó rồ ga bỏ chạy · tên cướp bốc đầu xe bỏ chạy (cốt truyện chương 3)', 'rev', 'sfx'],
@@ -142,6 +144,9 @@ export const SOUNDS = Object.fromEntries(LIST.map(([id, cat, label, where, synth
 export const SOUND_IDS = Object.keys(SOUNDS);
 export const SOUND_EXT = ['ogg', 'mp3', 'wav', 'm4a'];
 export const SOUND_FILE_RE = /^[a-z0-9_\-.]+\.(ogg|mp3|wav|m4a)$/i; // tên file gọn: chữ không dấu, số, - _ .
+
+// Nhạc chưa gắn file thì tạm phát nhạc khác (mã → mã dự phòng) — vd nhạc bị rượt chưa có thì dùng nhạc dí cướp
+export const MUSIC_FALLBACK = { 'music.flee': 'music.chase' };
 
 // Nhóm âm lượng trong Cài đặt
 export const volumeGroup = (id) => (SOUNDS[id]?.kind === 'music' ? 'music' : 'sfx');

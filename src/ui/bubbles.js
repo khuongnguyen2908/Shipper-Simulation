@@ -36,7 +36,7 @@ export class Bubbles {
     b.el.append(b.tx);
     b.key = opt.wait ? span('bub-key', 'E') : null;
     if (b.key) { b.key.hidden = !!opt.type; b.el.append(b.key); }
-    Object.assign(b, { full: text, shown: opt.type ? 0 : text.length, typing: !!opt.type, head, pick: null });
+    Object.assign(b, { full: text, shown: opt.type ? 0 : text.length, typing: !!opt.type, head, pick: null, born: (this.seq = (this.seq || 0) + 1) });
     b.t = life ?? Math.min(9, 3 + text.length * 0.06); // câu dài hiện lâu hơn
   }
   // Bảng 2–3 câu trả lời trên đầu (người chơi chọn bằng phím 1/2/3 hoặc bấm vào) → onPick(số thứ tự)
@@ -110,6 +110,21 @@ export class Bubbles {
       b.el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
       b.el.style.opacity = String(Math.min(1, b.t / 0.4)); // mờ dần lúc sắp tắt
       b.box = [x, y, x + w, y + h];
+    }
+    // 2 bong bóng cốt truyện đè lên nhau (2 người đứng sát nhau nói qua lại): câu mới nằm đúng chỗ, câu cũ đẩy lên trên câu mới
+    const story = [...this.map].filter(([id, b]) => id.startsWith('story:') && b.el.style.display !== 'none' && b.box && b.born).map(([, b]) => b).sort((a, b) => b.born - a.born);
+    const placed = [];
+    for (const b of story) {
+      let [x0, y0, x1, y1] = b.box;
+      for (let k = 0; k < 4; k++) {
+        const hit = placed.find(([a0, b0, a1, b1]) => x0 < a1 + 4 && x1 > a0 - 4 && y0 < b1 + 4 && y1 > b0 - 4);
+        if (!hit) break;
+        const h = y1 - y0;
+        y1 = hit[1] - 6;
+        y0 = y1 - h;
+      }
+      if (y0 !== b.box[1]) { b.el.style.transform = `translate3d(${x0}px, ${Math.max(4, y0)}px, 0)`; b.box = [x0, y0, x1, y1]; }
+      placed.push(b.box);
     }
     // bong bóng cốt truyện (id "story:…") được ưu tiên: bong bóng khác chồng lên nó thì tạm ẩn
     const main = [...this.map].filter(([id, b]) => id.startsWith('story:') && b.el.style.display !== 'none').map(([, b]) => b.box);

@@ -20,6 +20,7 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [x] | `music.menu` | Nhạc màn hình chính | Đang ở màn hình chính / tạo nhân vật | bài nhạc | 🎧 có file |
 | [x] | `music.day` | Nhạc trong game (ban ngày) | Đang chơi, trời sáng | bài nhạc | 🔇 im |
 | [x] | `music.night` | Nhạc trong game (ban đêm) | Đang chơi, trời tối | bài nhạc | 🔇 im |
+| [ ] | `music.flee` | Nhạc bị rượt | Chương 4: bị giang hồ rượt ra khỏi hẻm, từ lúc vấp lon tới lúc về tới trọ. Nên: căng thẳng, dồn dập 150–170 bpm, lặp liền, 1–2 phút, 96–128 kbps | bài nhạc | ↪ chưa gắn → tạm phát `music.chase` |
 | [ ] | `music.chase` | Nhạc dí cướp | Chương 3: từ cảnh cướp tới qua cầu (bước có "Nhạc riêng"). Nên: nhịp nhanh 140–160 bpm, lặp liền, 1–2 phút, 96–128 kbps | bài nhạc | 🔇 im (chưa gắn → nhạc ngày / đêm) |
 
 ## 🖱️ Giao diện
@@ -115,6 +116,7 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [ ] | `city.siren` | Còi hú xe công an | Chương 3: xe công an chạy tới áp giải tên cướp (hú vài giây, nghe từ xa tới gần) | tiếng ngắn | 🔉 tổng hợp (tạm) |
 | [ ] | `city.applause` | Vỗ tay | Chương 4: khai mạc triển lãm, mọi người vỗ tay sau khi chị Linh phát biểu (~3 giây) | tiếng ngắn | 🔇 im |
 | [ ] | `city.canKick` | Vấp lon | Chương 4: núp trong hẻm, lùi lại vấp cái lon kêu "keng" lăn lóc | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `city.caught` | Bị tóm (thua) | Bị rượt mà bị tụi giang hồ tóm → màn "Bị tụi nó tóm rồi…" + nút Chơi lại — tiếng thua ngắn, nặng | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `city.sneakCaught` | Bị phát hiện | Bám theo lén: người phía trước quay lại thấy người chơi ("Ai đó?!") — tiếng giật mình ngắn | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `loop.motoChase` | Máy xe anh mô tô (cảnh phim) | Tiếng lặp: sport bike anh mô tô lúc dí cướp — to nhỏ theo khoảng cách tới camera, cao độ theo tốc độ | tiếng lặp | 🔉 tạm dùng file máy xe chakong |
 | [ ] | `city.thiefShout` | La "Cướp!" | Chương 3: người trong chợ la lên "Cướp cướp!" | tiếng ngắn | 🔇 im |
