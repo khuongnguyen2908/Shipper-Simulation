@@ -38,7 +38,7 @@ import { Modal } from './ui/modal.js';
 import { Spotlight } from './ui/spotlight.js';
 import { Screens } from './ui/screens.js';
 import * as act from './interactions.js';
-import { sound, setEngine, setRain, unlockAudio, setMuted, setVolumes, setMusic, cityAmbience } from './audio.js';
+import { sound, setEngine, setRain, unlockAudio, setMuted, setVolumes, setMusic, setLoopDuck, cityAmbience } from './audio.js';
 import { loadSettings, saveSettings, normSettings } from './settings.js';
 import { fmt } from './content/index.js';
 import { ChatChannel } from './sim/chat.js';
@@ -607,7 +607,9 @@ export class Game {
     requestAnimationFrame((tt) => this.frame(tt));
     // nhạc nền: màn hình chính → music.menu · đang chơi → nhạc riêng của bước cốt truyện (story.json → music, vd dí cướp)
     // hoặc music.day / music.night theo giờ trong game. Các bước liền nhau cùng nhạc thì phát liền mạch, không chạy lại từ đầu
-    setMusic(this.state === 'play' ? this.storyMusic() || (isDark(this.clockMin) ? 'music.night' : 'music.day') : 'music.menu');
+    const storyTrack = this.state === 'play' ? this.storyMusic() : null;
+    setMusic(this.state === 'play' ? storyTrack || (isDark(this.clockMin) ? 'music.night' : 'music.day') : 'music.menu');
+    setLoopDuck(storyTrack ? 0.4 : 1); // nhạc riêng của cốt truyện (dí cướp, bị rượt): tiếng máy xe / phố / mưa nhỏ lại cho nhạc nổi lên
     const dt = Math.min(0.05, Math.max(0, (t - this.lastT) / 1000));
     this.fpsN++;
     this.fpsT += Math.max(0, (t - this.lastT) / 1000) || 0; // đo theo thời gian thật (không giới hạn 0,05 giây như dt)

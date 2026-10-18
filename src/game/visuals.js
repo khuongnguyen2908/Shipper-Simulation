@@ -355,17 +355,18 @@ export class VisualsPart {
     const talkingMesh = this.talk?.mesh || (this.storyTalkWith && this.speakerOf(this.storyTalkWith)?.mesh); // đang nói chuyện với người này → ẩn dấu
     [this.questMark, ...this.extraMarks].forEach((sprite, i) => {
       const k = marks[i];
-      const host = k && (k.actor ? this.storyActors?.[k.actor]?.seated || this.storyActors?.[k.actor]?.mesh : this.npcs[k.place]);
+      const host = k && (k.actor ? this.storyActors?.[k.actor]?.seated || this.storyActors?.[k.actor]?.mesh : k.prop ? this.storyProps?.[k.prop]?.mesh : this.npcs[k.place]); // dấu trên người lạ / đạo cụ (thùng rác) / NPC địa điểm
       sprite.visible = !!host && talkingMesh !== host; // đang nói chuyện với chính người đó → tạm ẩn dấu
       if (!sprite.visible) return;
       if (sprite.parent !== host) host.add(sprite);
-      sprite.scale.set(0.75, 0.75, 1);
+      sprite.scale.setScalar(k.prop ? 0.5 : 0.75); // dấu trên đạo cụ nhỏ hơn (khỏi che người phía sau)
+      sprite.scale.z = 1;
       const tex = this.questTex[k.icon] || this.questTex['!'];
       if (sprite.material.map !== tex) { sprite.material.map = tex; sprite.material.needsUpdate = true; }
       // người lạ đang nói (bong bóng trên đầu) → nhấc dấu lên trên bong bóng cho khỏi bị che
-      let y = 2.75;
-      sprite.material.depthTest = !k.actor; // dấu của người lạ: luôn vẽ đè (đứng dưới mái che vẫn thấy)
-      sprite.renderOrder = k.actor ? 10 : 0;
+      let y = k.prop ? 1.5 : 2.75; // đạo cụ thấp (thùng rác ~1 m) → dấu thấp hơn
+      sprite.material.depthTest = !k.actor && !k.prop; // dấu của người lạ / đạo cụ: luôn vẽ đè (trong hẻm, dưới mái che vẫn thấy)
+      sprite.renderOrder = k.actor || k.prop ? 10 : 0;
       const bub = this.bubbles.map.get(`story:${k.actor || `place:${k.place}`}`);
       if (bub && bub.el.style.display !== 'none') {
         const perPx = (2 * host.position.distanceTo(this.camera.position) * Math.tan((this.camera.fov * Math.PI) / 360)) / innerHeight; // mét / điểm ảnh ở chỗ người nói

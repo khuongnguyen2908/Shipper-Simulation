@@ -89,6 +89,7 @@ export const UNTIL = {
   chased: 'Người lạ … (việc "🏍️ Chạy trốn") đã chạy hết lộ trình, người chơi đang bám theo',
   reach: 'Người chơi tới gần chỗ [x, z] trên bản đồ (vd giữa cầu)',
   tackled: 'Việc "🤼 Vật ngã" ở bước này đã xong (người kia bị ghì nằm sấp)',
+  hidden: 'Người chơi đang ngồi núp sau thùng rác … (đạo cụ 🗑️ — bấm E cạnh thùng)',
   escaped: 'Người chơi đã chạy thoát (việc "🏃 Bị rượt" ở bước này: lên xe chạy đi / bỏ xa · chỉ bằng xe: chạy xe bỏ xa, bọn kia biến mất)',
   sneaked: 'Việc "🕵️ Bám theo lén" ở bước này đã xong (người bị bám theo tới điểm cuối mà không phát hiện người chơi)',
   never: 'Chưa viết tiếp — dừng ở bước này (để chỗ cho nội dung sau)',
@@ -248,6 +249,7 @@ export function untilMet(u, gs, ctx) {
     case 'tackled': return !!s.ev.tackled;
     case 'sneaked': return !!s.ev.sneaked;
     case 'escaped': return !!s.ev.escaped;
+    case 'hidden': return !!ctx.hiddenAt?.(u.prop);
     case 'never': return false;
     case 'ordersSince': return (gs.account?.completed || 0) - (s.base || 0) >= (u.n || 1);
     case 'newDay': return (gs.day || 1) > (s.baseDay ?? gs.day ?? 1);

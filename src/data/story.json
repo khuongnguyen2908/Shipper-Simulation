@@ -3500,7 +3500,10 @@
           "on": [
             {
               "do": "drop",
-              "id": "tranhA"
+              "id": [
+                "tranhA",
+                "tranhB"
+              ]
             },
             {
               "do": "bubble",
@@ -3793,13 +3796,34 @@
           "guide": null
         },
         {
-          "id": "goHome",
-          "hold": true,
+          "id": "diveThoi",
+          "until": {
+            "type": "none"
+          },
           "on": [
             {
               "do": "remove",
               "who": "lanAnh"
             },
+            {
+              "do": "bubble",
+              "who": "player",
+              "text": "story.c4.b53.bubble",
+              "hold": true
+            },
+            {
+              "do": "bubble",
+              "who": "player",
+              "text": "story.c4.diveThoi.bubble",
+              "hold": true
+            }
+          ],
+          "guide": null
+        },
+        {
+          "id": "goHome",
+          "hold": true,
+          "on": [
             {
               "do": "actor",
               "who": "flyer",
@@ -3928,6 +3952,17 @@
               "at": [
                 -29.4,
                 -185
+              ],
+              "heading": 0,
+              "route": []
+            },
+            {
+              "do": "prop",
+              "id": "bin4",
+              "kind": "bin",
+              "at": [
+                -35.4,
+                -181.5
               ],
               "heading": 0,
               "route": []
@@ -4086,6 +4121,26 @@
             "icon": "dot"
           },
           "noBeacon": true,
+          "guide": null,
+          "goTo": "story.c4.sneak.goTo"
+        },
+        {
+          "id": "hideBin",
+          "hold": true,
+          "noFines": true,
+          "on": [],
+          "until": {
+            "type": "hidden",
+            "prop": "bin4"
+          },
+          "goal": "story.c4.hide.goal",
+          "hint": "story.c4.hide.hint",
+          "target": "prop:bin4",
+          "mark": {
+            "prop": "bin4",
+            "icon": "!"
+          },
+          "noBeacon": true,
           "guide": null
         },
         {
@@ -4100,7 +4155,7 @@
           ],
           "until": {
             "type": "wait",
-            "min": 4
+            "min": 3
           },
           "guide": null
         },
@@ -4119,7 +4174,7 @@
             "min": 2.5
           },
           "guide": null,
-          "delay": 2
+          "delay": 1
         },
         {
           "id": "overhear3",
@@ -4136,7 +4191,7 @@
             "min": 3
           },
           "guide": null,
-          "delay": 3
+          "delay": 2
         },
         {
           "id": "trip",
@@ -4229,7 +4284,7 @@
           "until": {
             "type": "arrive",
             "place": "home",
-            "r": 10
+            "r": 5
           },
           "goal": "story.c4.flee.goal",
           "target": "home",
@@ -4249,9 +4304,10 @@
               "who": "thug2"
             },
             {
-              "do": "openPhone",
-              "app": "chat",
-              "who": "man"
+              "do": "bubble",
+              "who": "player",
+              "text": "story.c4.msgDat.bubble",
+              "after": 0.5
             },
             {
               "do": "replies",
@@ -4542,7 +4598,7 @@
           "on": [],
           "until": {
             "type": "clock",
-            "from": 8.5,
+            "from": 8.25,
             "to": 13
           },
           "goal": "story.c4.exhibit.goal",
@@ -5094,7 +5150,7 @@
             "type": "bring",
             "who": "linh",
             "place": "tra",
-            "r": 8
+            "r": 2
           },
           "goal": "story.c4.ride.goal",
           "target": "tra",

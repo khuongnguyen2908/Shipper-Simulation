@@ -70,6 +70,7 @@ export class StoryPart {
       actorNear: (who, r) => { const a = this.storyActors?.[who]; return !a || a.leaving || dist2(this.playerPos, a.mesh.position) < r; }, // người lạ không còn (mở lại game giữa cảnh) → coi như xong
       actorBoarded: (who) => !!this.storyActors?.[who]?.seated, // người lạ đang ngồi sau xe người chơi
       chased: (who) => !!this.storyActors?.[who]?.chase?.done, // tên cướp đã chạy hết lộ trình (người chơi bám theo)
+      hiddenAt: (id) => { const b = this.mode === 'foot' && this.walker.crouch && this.storyHideSpot(this.playerPos, 1.4); return !!b && (!id || b.id === id); }, // đang núp sau thùng rác (id: đúng thùng này)
       reachAt: (at, r) => Array.isArray(at) && Math.hypot(this.playerPos.x - at[0], this.playerPos.z - at[1]) < r, // tới chỗ [x, z] (vd giữa cầu)
       now: this.clockMin, // giờ chung (điều kiện "trong khung giờ")
       switchOn: (w) => this.om.state !== S.OFFLINE && !this.gs.flags[w === 'food' ? 'noFood' : 'noRide'] && (w !== 'ride' || this.gs.effect('passengerSeat')),
@@ -1217,7 +1218,8 @@ export class StoryPart {
     else if (st.target === 'office') {
       const w = this.waypointPlace(), pl = w?.kind === 'office' ? w : this.nearestPlace((p) => p.kind === 'office');
       at = pl?.door; dest = pl?.name || '';
-    } else if (st.target?.startsWith('actor:')) { const who = st.target.slice(6); at = this.storyActors?.[who]?.mesh.position; dest = fmt(STORY.people?.[who]?.name || ''); }
+    } else if (st.target?.startsWith('prop:')) { const pr = this.storyProps?.[st.target.slice(5)]; at = pr?.mesh.position; dest = pr ? fmt(`story.propName.${pr.def.kind}`) : ''; } // đạo cụ (vd thùng rác để núp)
+    else if (st.target?.startsWith('actor:')) { const who = st.target.slice(6); at = this.storyActors?.[who]?.mesh.position; dest = fmt(STORY.people?.[who]?.name || ''); }
     else if (st.target) { const pl = this.layout.placeById[st.target]; at = pl?.door; dest = pl?.name || ''; }
     // thanh "Đi đến …" giữa trên (chỉ khi cốt truyện chỉ đường): chữ riêng của bước (goTo) hoặc mẫu chung goal.goTo
     const nav = st.goTo ? this.storyText(st.goTo) : fmt('goal.goTo', { place: dest });

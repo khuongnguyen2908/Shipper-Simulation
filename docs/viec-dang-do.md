@@ -150,6 +150,31 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
 - Đứng game sau khi nói với anh Đại (lỗi của Claude: khóa đứng yên cả khi bước sau chờ người khác) → đã sửa. Giờ người chơi nói trước 1 câu
   ("chị Linh gửi thiệp mời…") rồi anh Đại / em Minh / Lan Anh mới trả lời (story.c4.player.toDai / toMinh / toLan — sửa được).
 
+### 🔧 Chương 4 sửa thêm (18/10 chiều — XONG, CHƯA commit)
+- Nhạc bị rượt to hơn: bước cốt truyện có nhạc riêng (dí cướp, bị rượt) → tiếng lặp (máy xe, mưa, phố) hạ còn 40% (audio.js loopBus + setLoopDuck). File music.flee vốn đã to hơn nhạc menu (−10,5 vs −13,4 LUFS).
+- Thùng rác thứ 4 (bin4, [-35.4, -181.5]) sát tụi giang hồ + bước mới "hideBin": tới cuối hẻm → mục tiêu "Núp vào thùng rác gần đó để nghe lén" (mũi tên + dấu ! trên thùng),
+  núp rồi thoại nghe lén mới bắt đầu. Điều kiện mới "🗑️ Đang núp sau thùng rác" (until hidden), mũi tên / dấu chỉ vào đạo cụ (target "prop:<mã>", mark.prop) — có ở ?editor.
+- Lấy bánh: bó hoa còn nằm sẵn đúng ô cũ trong túi (khóa, không dời), chỉ xếp thêm bánh; giao chị Linh cả hai (packing.js preset, story.carrySlots).
+- 8h15 chị Linh nhờ (mingle until.from 8.25).
+- Lỗi của Claude từ 23ab10c: chị Nhi nhận tranh chỉ bỏ tranh A → tranh B nằm mãi trong túi. Đã sửa: bỏ hết tranh đã chở.
+
+### 🧪 Chơi thử chương 1 → 4 (18/10) — góp ý CHỜ chủ game chọn sửa
+- Quan trọng: 2 đơn hướng dẫn chương 1 vẫn tính trễ hạn (2★, 3★ → sao 4.58 ngay ngày đầu) dù thẻ đơn ghi "không hết hạn"; thông báo nhận đơn lại ghi "Hạn: 56 phút".
+- Quan trọng: đoạn bị rượt rơi vào cuối ngày → thể lực thấp (<8 không chạy được Shift, <15 đi chậm) → gần như chắc chắn bị tóm. Đề xuất: lúc bị rượt cho chạy bất kể thể lực (hoặc hồi thể lực).
+- Quan trọng: xe hãng bị cẩu mà không đủ tiền chuộc → không lấy được xe đạp cũ trong hầm (lấy xe hầm đòi xe đang dùng dựng trong hầm) → không có xe đi sân bay.
+- Quan trọng: tinh thần về 0 trong chương (thức khuya) → nằm 6 tiếng → lỡ mốc giờ (khai mạc 10h dời sang hôm sau).
+- Tiền nhà tăng mỗi kỳ (balance rentStep 200: 200k → 400k → 600k) trong khi chương 3/4 chặn đơn thường; chạy đơn cả sáng ngày 5 thì vẫn đủ 400k.
+- Thoại / chữ: chú bảo vệ (c2 guardAsk) 3 câu chọn dùng chung 1 câu đáp "…Nói chuyện bố láo thế?" · story.c3.call.a2 trống (bong bóng anh Đạt rỗng) ·
+  "Phần cơm chay Chú Hai" (goods.json, nên là Dượng Hai) · app Xe "Xe GoShip cấp khi vào hãng" · tin Dì Hai "GribBike" ≠ nút "GripBike" ·
+  chị nhân viên sân bay "3 bức" (giờ 2 bức) · tin chị Nhi "bấm vô là chỉ đường 👇" nhưng loc rỗng (không có nút 📍) · thẻ đơn giao bún ghi "Cuốc chở thử" ·
+  hướng dẫn "Bấm Mặc" nhưng nút là "Gắn vào" · pack.help thiếu 🔥 trước "Nóng" · goal sleep1 "Chiều mai 5h" khi đã qua ngày · người đi đường nói "Trời nắng quá" lúc 20h ·
+  lời khách "đồ còn hư" khi hàng 100% · anh Đạt tự giới thiệu rồi tên bong bóng vẫn "Người đàn ông chạy xe moto" · người đưa hoa ở chợ là "Cô Tư bán cá".
+- Giao diện: trong chương, bước không có mục tiêu thì góc phải hiện "• Bấm Tab → Bật nhận đơn" (dù đang chặn đơn) · nhiệm vụ phụ trả ví không hiện trong danh sách ·
+  thanh "Đi đến …" vẫn hiện khi đã đứng tại chỗ (10–20 m) · dấu ! trên thùng rác đã thu nhỏ · E "Lên phòng" bị "Lấy xe đạp cũ ra chạy" giành khi đứng sát xe để dành ·
+  nhắc phạt đậu xe hiện cả khi đi xe đạp (luật xe đạp không phạt).
+- Cốt truyện: câu chờ E ở bước diveThoi ("Xong rồi, đi về thôi") treo suốt đoạn bám theo, chiếm nút E (phải bấm qua mới núp được) ·
+  chỗ làm lại khi bị phát hiện [-3, -176] nằm giữa đường (xe bóp còi) · bong bóng "sau … giây" tính giờ thật, cảnh phim tính giờ game.
+
 ### 🗑️ Chương 4: ghé Triangle K · núp thùng rác · bị rượt phải lên xe (18/10 — XONG, đã đẩy lên GitHub 7c0f470; phác họa duyệt: sketches/trianglek/storyboard.png)
 - Đường về: "Ghé Triangle K mua chai nước" (dichvu1_5, khối 5,1 lô f8, đối diện hẻm) → tới cửa (không bắt mua) → 🎬 cảnh phim ngang tầm mắt (máy quay đặt cố định trước cửa tiệm, cao 1,6 m —
   không dùng "mắt người chơi" vì cây ngay trước cửa che khuất) → anh tờ rơi + cậu SV nói qua lại 5 câu (3 câu cũ dời từ lúc bám theo + 2 câu mới) → "Hỏi nhiều quá… Đi lẹ đi!" → tắt cảnh phim, 2 người đi vô hẻm luôn.

@@ -848,14 +848,14 @@ export class ScenePart {
     for (const pr of Object.values(this.storyProps || {})) {
       if (pr.def.kind !== 'bin' || pr.def.hide === false) continue;
       const m = pr.mesh.position, d = Math.hypot(p.x - m.x, p.z - m.z);
-      if (d <= r && (!best || d < best.d)) best = { x: m.x, z: m.z, d };
+      if (d <= r && (!best || d < best.d)) best = { x: m.x, z: m.z, d, id: pr.def.id };
     }
     return best;
   }
   // Bấm E cạnh thùng rác: ngồi thụp xuống sát thùng (phía người chơi đang đứng), quay mặt vào thùng
   storyHide(b) {
     const p = this.walker.pos, dx = p.x - b.x, dz = p.z - b.z, l = Math.hypot(dx, dz) || 1;
-    const x = b.x + (dx / l) * 0.72, z = b.z + (dz / l) * 0.72;
+    const x = b.x + (dx / l) * 0.85, z = b.z + (dz / l) * 0.85;
     this.walker.crouchAt({ x, z, ry: Math.atan2(b.x - x, b.z - z) });
   }
   // Bị phát hiện / mất dấu: (câu "Ai đó?!") → màn đen ngắn → làm lại từ đầu lộ trình
@@ -912,6 +912,7 @@ export class ScenePart {
   storyPursueStart(a) {
     const who = [].concat(a.who || []).filter((w) => this.storyActors?.[w]);
     if (!who.length) return storyEvent(this.gs.story, 'escaped');
+    this.walker.leaveCrouch(); // đang ngồi núp → đứng bật dậy
     const P = this.playerPos;
     this.pursue = {
       a, who, phase: 'run', wait: a.delay ?? 0.8, trail: [{ x: P.x, z: P.z }], start: { x: P.x, z: P.z },

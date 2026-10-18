@@ -30,7 +30,7 @@ const UNTIL_GROUPS = [
   ['💬 Tin nhắn', ['open', 'reply', 'routed']],
   ['🗺️ Di chuyển', ['arrive', 'reach', 'mount']],
   ['📦 Đơn & xe', ['ordersSince', 'order', 'switch', 'fuel', 'brand', 'wear', 'use']],
-  ['⏱️ Thời gian & cảnh', ['wait', 'clock', 'newDay', 'cine', 'tackled', 'sneaked', 'escaped', 'ack']],
+  ['⏱️ Thời gian & cảnh', ['wait', 'clock', 'newDay', 'cine', 'tackled', 'sneaked', 'hidden', 'escaped', 'ack']],
   ['Khác', ['none', 'never']],
 ];
 const HIDDEN_GUIDES = ['reply']; // chưa chương nào dùng
@@ -88,6 +88,9 @@ export function render(root, ctx) {
   // ---------- danh sách chọn ----------
   const placeOpts = ctx.data.places.places.filter((p) => isPlaced(p)).sort((a, b) => a.name.localeCompare(b.name)).map((p) => [p.id, `${p.name} (${p.id})`]);
   const contactOpts = Object.entries(data.contacts).map(([id, c]) => [id, `${c.icon || ''} ${C[c.name] || id}`]);
+  // đạo cụ trong chương đang xem (mã) — mũi tên / dấu / điều kiện núp chỉ vào đạo cụ
+  const propOpts = () => (data.chapters.find((c) => c.id === sel.ch)?.steps || []).flatMap((x) => (x.on || []).filter((a) => a.do === 'prop' && a.id)).map((a) => [a.id, `${PROP_KINDS[a.kind] || a.kind} (${a.id})`]);
+  const binOpts = () => (data.chapters.find((c) => c.id === sel.ch)?.steps || []).flatMap((x) => (x.on || []).filter((a) => a.do === 'prop' && a.kind === 'bin' && a.id)).map((a) => [a.id, `🗑️ ${a.id}`]);
   const actorOpts = () => Object.entries(data.people).map(([id, c]) => [id, `${c.icon || ''} ${C[c.name] || id}`]); // người lạ (story.json → people)
   // người nói được: người lạ + NPC đứng ở địa điểm ('place:<mã>', vd sư cô ở chùa, bảo vệ trường)
   const policeOpts = () => (data.chapters.find((c) => c.id === sel.ch)?.steps || []).flatMap((x) => x.on || []).filter((y) => y.do === 'prop' && y.kind === 'police' && y.id).map((y) => [`prop:${y.id}`, `👮 Công an (xe ${y.id})`]);
@@ -295,6 +298,7 @@ export function render(root, ctx) {
         if (v === 'bring') Object.assign(st.until, { who: Object.keys(data.people)[0] || '', place: placeOpts[0]?.[0] || '', r: 10 });
         if (v === 'chosen') st.until.id = chooseIds()[0] || '';
         if (v === 'reach') Object.assign(st.until, { at: [0, 0], r: 8 });
+        if (v === 'hidden') { const b = binOpts()[0]?.[0]; if (b) st.until.prop = b; }
         if (v === 'chased') st.until.who = (ch.steps || []).flatMap((x) => (x.on || []).filter((a) => a.do === 'chase').map((a) => a.who))[0] || Object.keys(data.people)[0] || '';
         if (v === 'talk') {
           const place = st.talk?.place || placeOpts[0]?.[0] || '';
@@ -315,6 +319,7 @@ export function render(root, ctx) {
       u.type === 'cine' ? el('p', { class: 'muted' }, 'Thêm việc "🎬 Cảnh phim" ở phần "Khi vào bước" — chiếu hết các cảnh quay thì sang bước sau.') : null,
       u.type === 'reach' ? field('Tọa độ x', numInput(u.at?.[0] ?? 0, (v) => { u.at = [v, u.at?.[1] ?? 0]; changed(); }, { step: 1 }), opt('until', { hint: 'Chỗ trên bản đồ (đơn vị bản đồ). Đường dọc thứ i ở x = (i − 5) × 52, đường ngang thứ j ở z = (j − 5) × 52 · xem vị trí đang đứng: mở game ?debug, gõ game.snapshot().pos. Vd giữa cầu Sông Ngân hàng 5: [182, 0].' })) : null,
       u.type === 'reach' ? field('Tọa độ z', numInput(u.at?.[1] ?? 0, (v) => { u.at = [u.at?.[0] ?? 0, v]; changed(); }, { step: 1 }), opt('until')) : null,
+      u.type === 'hidden' ? field('Thùng rác', selectInput(u.prop || '', [['', '— Thùng nào cũng được —'], ...binOpts()], (v) => { if (v) u.prop = v; else delete u.prop; changed(); }), opt('until', { hint: 'Thùng rác đặt bằng việc "🚛 Đạo cụ" (loại thùng rác) ở bước này hoặc bước trước. Người chơi đứng sát thùng bấm E ngồi núp → xong bước (vd núp rồi mới nghe lén).' })) : null,
       u.type === 'reach' ? field('Bán kính', numInput(u.r ?? 8, (v) => { u.r = v; changed(); }, { step: 1, min: 2, max: 60 }), opt('until', { hint: 'Người chơi tới cách chỗ này ít hơn bao nhiêu thì xong (1 ≈ 10 m trên màn hình). Đường rộng ~15 → bán kính 9 là chạy ngang qua chỗ đó.' })) : null,
       u.type === 'never' ? el('p', { class: 'muted' }, 'Người chơi dừng ở bước này (chơi tiếp bình thường, chỉ là cốt truyện chưa đi tiếp). Dùng làm chỗ "còn tiếp" khi chương chưa viết xong.') : null,
       u.type === 'talkActor' ? field('Người nói', selectInput(u.who, speakerOpts2(), (v) => { u.who = v; changed(); }), opt('until', { hint: 'Người chơi đứng gần bấm E → sang bước sau (câu tiếp theo). Người lạ phải xuất hiện ở bước này hoặc bước trước; NPC địa điểm thì luôn có.' })) : null,
@@ -372,8 +377,9 @@ export function render(root, ctx) {
           else st.mark = { place: st.mark?.place || st.talk?.place || placeOpts[0]?.[0] || '', icon: v };
           rerender();
         }), opt('mark')),
-        st.mark ? field('Trên đầu', selectInput(st.mark.actor ? `actor:${st.mark.actor}` : st.mark.place, [...placeOpts, ...actorOpts().map(([id, l]) => [`actor:${id}`, `👤 ${l}`])], (v) => {
-          if (v.startsWith('actor:')) { st.mark.actor = v.slice(6); delete st.mark.place; } else { st.mark.place = v; delete st.mark.actor; }
+        st.mark ? field('Trên đầu', selectInput(st.mark.actor ? `actor:${st.mark.actor}` : st.mark.prop ? `prop:${st.mark.prop}` : st.mark.place, [...placeOpts, ...actorOpts().map(([id, l]) => [`actor:${id}`, `👤 ${l}`]), ...propOpts().map(([id, l]) => [`prop:${id}`, `🚛 ${l}`])], (v) => {
+          delete st.mark.place; delete st.mark.actor; delete st.mark.prop;
+          if (v.startsWith('actor:')) st.mark.actor = v.slice(6); else if (v.startsWith('prop:')) st.mark.prop = v.slice(5); else st.mark.place = v;
           changed();
         }), opt('mark', { hint: 'NPC của địa điểm, hoặc người lạ đang ở cảnh (việc "Người lạ xuất hiện").' })) : null)));
 
@@ -410,7 +416,7 @@ export function render(root, ctx) {
         st.goal && st.target ? (st.goTo
           ? el('div', {}, textBox('Chữ thanh chỉ đường giữa trên (riêng bước này)', st.goTo, 1, { ref, fieldKey: 'goTo', hint: 'Bỏ trống dùng mẫu chung "Đi đến {place}" (thẻ Chữ & hội thoại → goal.goTo).' }), button('✕ Dùng mẫu chung', () => { delete st.goTo; rerender(); }, 'small'))
           : button('＋ Chữ thanh "Đi đến …" riêng', () => { st.goTo = newKey(`${base}.goTo`); rerender(); }, 'small')) : null,
-        st.goal ? field('Mũi tên chỉ tới', selectInput(st.target || '', [['', '— Không —'], ['bike', '🚲 Xe của mình'], ['office', '🏢 Văn phòng hãng (đã chỉ đường / gần nhất)'], ['fuel', '⛽ Cây xăng / trụ sạc (đã chỉ đường / gần nhất)'], ...actorOpts().map(([id, l]) => [`actor:${id}`, `👤 ${l}`]), ...placeOpts], (v) => { if (v) st.target = v; else delete st.target; changed(); }), opt('target')) : null,
+        st.goal ? field('Mũi tên chỉ tới', selectInput(st.target || '', [['', '— Không —'], ['bike', '🚲 Xe của mình'], ['office', '🏢 Văn phòng hãng (đã chỉ đường / gần nhất)'], ['fuel', '⛽ Cây xăng / trụ sạc (đã chỉ đường / gần nhất)'], ...actorOpts().map(([id, l]) => [`actor:${id}`, `👤 ${l}`]), ...propOpts().map(([id, l]) => [`prop:${id}`, `🚛 ${l}`]), ...placeOpts], (v) => { if (v) st.target = v; else delete st.target; changed(); }), opt('target')) : null,
         field('Hướng dẫn trên điện thoại', selectInput(g?.type || '', [['', '— Không —'], ...Object.entries(GUIDES).filter(([k]) => !HIDDEN_GUIDES.includes(k) || k === g?.type)], (v) => {
           if (!v) delete st.guide;
           else st.guide = { type: v, ...(['thread', 'route', 'reply'].includes(v) ? { who: contactOpts[0]?.[0] || '' } : {}), ...(v === 'route' ? { place: st.target || 'office' } : {}), ...(v === 'switch' ? { which: 'food' } : {}),

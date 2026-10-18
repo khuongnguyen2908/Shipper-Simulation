@@ -9,7 +9,8 @@ import soundsJson from './data/sounds.json' with { type: 'json' };
 import { SOUNDS } from './data/soundSpec.js';
 import { SOUND_URLS } from './soundFiles.js';
 
-let ctx = null, master = null, fxBus = null, musicBus = null;
+let ctx = null, master = null, fxBus = null, musicBus = null, loopBus = null;
+let duck = 1; // tiếng lặp (máy xe, mưa, phố…) đang được giữ bao nhiêu (bước cốt truyện có nhạc riêng → nhỏ lại cho nhạc nổi lên)
 let muted = false;
 const vol = { music: 0.6, sfx: 0.8 }; // người chơi chọn (0–1)
 const BASE = 0.5; // mức gốc của hiệu ứng
@@ -29,6 +30,10 @@ function ensure() {
   musicBus = ctx.createGain();
   musicBus.gain.value = vol.music;
   musicBus.connect(master);
+  // tiếng lặp đi riêng 1 đường (vẫn thuộc nhóm Hiệu ứng) để hạ nhỏ được mà không đụng tiếng ngắn (còi, la, va chạm…)
+  loopBus = ctx.createGain();
+  loopBus.gain.value = duck;
+  loopBus.connect(fxBus);
   return true;
 }
 
@@ -45,6 +50,13 @@ export function setMuted(on) {
   if (master) master.gain.value = muted ? 0 : 1;
   applyMusicVolume();
   return muted;
+}
+// Hạ tiếng lặp (máy xe, mưa, tiếng phố) còn k (0–1) — đang có nhạc riêng của cốt truyện (dí cướp, bị rượt) thì nhạc nổi lên.
+// Gọi mỗi khung hình; đổi mức thì nhỏ / to dần ~0,5 giây
+export function setLoopDuck(k) {
+  if (k === duck) return;
+  duck = k;
+  if (loopBus) loopBus.gain.setTargetAtTime(k, ctx.currentTime, 0.25);
 }
 // { music, sfx }: 0–1
 export function setVolumes(v) {
@@ -132,7 +144,7 @@ function loopFile(id, level, rate = 1) {
     if (level <= 0) return true;
     L = { g: ctx.createGain(), src: null };
     L.g.gain.value = 0;
-    L.g.connect(fxBus);
+    L.g.connect(loopBus);
     loops.set(id, L);
     // load() trả về buffer luôn nếu đã tải sẵn (preload) → bọc Promise.resolve (trước đây gọi .then trên buffer → lỗi, tiếng lặp không bao giờ phát)
     Promise.resolve(load(files[0])).then((buf) => {
@@ -311,7 +323,7 @@ function engineSynth(on, speed01) {
     f.frequency.value = 400;
     const g = ctx.createGain();
     g.gain.value = 0;
-    o.connect(f).connect(g).connect(fxBus);
+    o.connect(f).connect(g).connect(loopBus);
     o.start();
     engine = { o, g, f };
   }
@@ -342,7 +354,7 @@ function rainSynth(amount) {
     f.Q.value = 0.4;
     const g = ctx.createGain();
     g.gain.value = 0;
-    s.connect(f).connect(g).connect(fxBus);
+    s.connect(f).connect(g).connect(loopBus);
     s.start();
     rainNode = g;
   }
@@ -371,7 +383,7 @@ function citySynth(on) {
   const out = ctx.createGain();
   out.gain.value = 0;
   out.gain.setTargetAtTime(1, ctx.currentTime, 0.4);
-  out.connect(fxBus);
+  out.connect(loopBus);
   // tiếng xe cộ rì rầm: nhiễu nâu qua lọc thấp, lên xuống chậm
   const len = ctx.sampleRate * 4, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
   let last = 0;

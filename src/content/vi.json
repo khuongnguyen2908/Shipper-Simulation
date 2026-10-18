@@ -2360,5 +2360,13 @@
   "story.c4.water.goal": "Ghé Triangle K mua chai nước",
   "story.c4.flyer.l3": "Văn phòng ở trong hẻm, vô là biết liền.",
   "story.c4.student.l2": "Mà… tối rồi còn làm hả anh?",
-  "story.c4.flyer.go": "Hỏi nhiều quá… Đi lẹ đi!"
+  "story.c4.flyer.go": "Hỏi nhiều quá… Đi lẹ đi!",
+  "story.c4.b53.bubble": "Xong rồi, đi về thôi",
+  "story.c4.diveThoi.bubble": "À ghé Triangle K mua chai nước uống phát.",
+  "story.c4.sneak.goTo": "Bám theo sau",
+  "story.c4.msgDat.bubble": "Nhắn hỏi anh Đạt thử.",
+  "pack.already": "🔒 Đã nằm sẵn trong túi",
+  "story.c4.hide.goal": "Núp vào thùng rác gần đó để nghe lén",
+  "story.c4.hide.hint": "Đứng sát thùng rác, bấm E để ngồi núp.",
+  "story.propName.bin": "thùng rác"
 }

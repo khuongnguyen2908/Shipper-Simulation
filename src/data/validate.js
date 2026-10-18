@@ -849,7 +849,7 @@ export function storyGifts(story) {
   }
   return out;
 }
-const STORY_UNTIL = ['none', 'wait', 'read', 'open', 'reply', 'routed', 'ack', 'use', 'arrive', 'talk', 'mount', 'brand', 'wear', 'switch', 'fuel', 'order', 'near', 'talkActor', 'chosen', 'ordersSince', 'newDay', 'clock', 'bring', 'cine', 'chased', 'reach', 'tackled', 'sneaked', 'escaped', 'never'];
+const STORY_UNTIL = ['none', 'wait', 'read', 'open', 'reply', 'routed', 'ack', 'use', 'arrive', 'talk', 'mount', 'brand', 'wear', 'switch', 'fuel', 'order', 'near', 'talkActor', 'chosen', 'ordersSince', 'newDay', 'clock', 'bring', 'cine', 'chased', 'reach', 'tackled', 'sneaked', 'hidden', 'escaped', 'never'];
 const STORY_DO = ['title', 'say', 'actor', 'bubble', 'approach', 'leave', 'remove', 'choose', 'board', 'alight', 'drop', 'msg', 'replies', 'item', 'bike', 'give', 'toast', 'openPhone', 'closePhone', 'offer', 'fuel', 'end', 'goto', 'react', 'cine', 'chase', 'sound', 'prop', 'dismount', 'helmetOff', 'helmetOn', 'tackle', 'wave', 'rideOff', 'phoneCall', 'fade', 'sneak', 'traffic', 'pursue'];
 const STORY_ACTOR_LOOKS = ['jetjet', 'normal', 'girl', 'student', 'gentleman', 'char']; // = ACTOR_LOOKS (sim/story.js)
 const STORY_ACTOR_SPOTS = ['xeOm', 'place', 'near', 'at']; // = ACTOR_SPOTS (sim/story.js)
@@ -953,8 +953,11 @@ export function validateStory(story, { places = null, goods = null, content = nu
       }
       if (u.type === 'use' && goods && !goods[u.goods]) add('error', ref, 'until', `Món "${u.goods}" không có trong đồ dùng.`);
       if (u.type === 'ack' && u.max != null && !(num(u.max) && u.max >= 0)) add('error', ref, 'until', 'Tự tắt sau … phút phải ≥ 0.');
+      const chProps = new Set((ch.steps || []).flatMap((x) => (x.on || []).filter((a) => a.do === 'prop').map((a) => a.id)));
+      if (u.type === 'hidden' && u.prop != null && !(ch.steps || []).some((x) => (x.on || []).some((a) => a.do === 'prop' && a.kind === 'bin' && a.id === u.prop))) add('error', ref, 'until', `Núp sau thùng rác: chương này không có thùng rác "${u.prop}".`);
       for (const mk of [].concat(st.mark || [])) { // một hoặc nhiều dấu
-        if (mk.actor) { if (!people[mk.actor]) add('error', ref, 'mark', `Dấu trên đầu: người lạ "${mk.actor}" không có.`); }
+        if (mk.prop) { if (!chProps.has(mk.prop)) add('error', ref, 'mark', `Dấu: chương này không có đạo cụ "${mk.prop}".`); }
+        else if (mk.actor) { if (!people[mk.actor]) add('error', ref, 'mark', `Dấu trên đầu: người lạ "${mk.actor}" không có.`); }
         else place(ref, 'mark', mk.place);
         if (!['!', '?', 'dot'].includes(mk.icon)) add('error', ref, 'mark', 'Dấu trên đầu NPC chỉ là ! · ? · chấm đỏ (dot).');
       }
@@ -1031,6 +1034,7 @@ export function validateStory(story, { places = null, goods = null, content = nu
       if (st.goTo) text(ref, 'goTo', st.goTo, 'chữ thanh chỉ đường');
       if (st.hint) text(ref, 'hint', st.hint, 'gợi ý');
       if (st.target?.startsWith('actor:')) { if (!people[st.target.slice(6)]) add('error', ref, 'target', `Mũi tên: người lạ "${st.target.slice(6)}" không có.`); }
+      else if (st.target?.startsWith('prop:')) { if (!new Set((ch.steps || []).flatMap((x) => (x.on || []).filter((a) => a.do === 'prop').map((a) => a.id))).has(st.target.slice(5))) add('error', ref, 'target', `Mũi tên: chương này không có đạo cụ "${st.target.slice(5)}".`); }
       else if (st.target && !['bike', 'office', 'fuel'].includes(st.target)) place(ref, 'target', st.target);
       if (st.guide) {
         const gd = st.guide;

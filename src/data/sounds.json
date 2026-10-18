@@ -365,7 +365,8 @@
     "music.flee": {
       "files": [
         "hieu_ung_hanh_dong-www_tiengdong_com.mp3"
-      ]
+      ],
+      "volume": 2
     }
   }
 }

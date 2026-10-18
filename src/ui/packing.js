@@ -8,13 +8,23 @@ import { fmt } from '../content/index.js';
 
 // strict: còn món xếp sai luật thì không cho bấm Xếp xong (bước xếp túi có hướng dẫn của cốt truyện)
 // không strict (đơn hàng): xếp sai vẫn đi được nhưng phải bấm 2 lần ("Vẫn đi dù có món sai") — người chơi tự chịu hậu quả
-export function buildPacking({ items, bag, onDone, strict = false }) {
+// preset: [ { cell, upright } | null ] theo từng món — món đã nằm sẵn trong túi (vd bó hoa lấy lúc nãy): khóa đúng ô cũ, không dời được
+// onDone(mods, { placed, upright }): xếp xong (kèm ô + dựng đứng của từng món, để lần xếp sau đặt lại đúng chỗ)
+export function buildPacking({ items, bag, onDone, strict = false, preset = [] }) {
   let sure = false; // đã bấm "Xếp xong" 1 lần lúc còn món sai
   const cols = bag.cols, rows = bag.rows;
   const slots = new Array(cols * rows).fill(-1); // chỉ số món ở mỗi ô
   const placed = items.map(() => -1); // ô của từng món
   const upright = items.map((it) => !it.has('liquid')); // món nước ban đầu bị đưa nằm nghiêng
-  let selected = items.length ? 0 : -1;
+  const locked = items.map(() => false);
+  preset.forEach((p, i) => {
+    if (!p || !(p.cell >= 0 && p.cell < cols * rows) || slots[p.cell] >= 0) return;
+    slots[p.cell] = i;
+    placed[i] = p.cell;
+    upright[i] = p.upright ?? upright[i];
+    locked[i] = true;
+  });
+  let selected = locked.findIndex((l) => !l);
 
   const root = document.createElement('div');
   root.className = 'packing';
@@ -58,10 +68,10 @@ export function buildPacking({ items, bag, onDone, strict = false }) {
     const tray = items
       .map((it, i) => {
         const traits = it.def.traits.map((t) => `<span title="${traitLabel(t).text}">${traitLabel(t).icon}</span>`).join('');
-        return `<button class="pk-item${selected === i ? ' sel' : ''}${placed[i] >= 0 ? ' in' : ''}" data-item="${i}">
+        return `<button class="pk-item${selected === i ? ' sel' : ''}${placed[i] >= 0 ? ' in' : ''}${locked[i] ? ' locked' : ''}" data-item="${i}">
           <span class="pk-icon" style="transform:rotate(${upright[i] ? 0 : 90}deg)">${it.icon}</span>
           <span class="pk-name">${it.name}</span><span class="pk-traits">${traits}</span>
-          <span class="pk-state">${fmt(placed[i] >= 0 ? 'pack.inBag' : 'pack.notPlaced')}${it.has('liquid') ? fmt(upright[i] ? 'pack.upright' : 'pack.tilted') : ''}</span></button>`;
+          <span class="pk-state">${fmt(locked[i] ? 'pack.already' : placed[i] >= 0 ? 'pack.inBag' : 'pack.notPlaced')}${it.has('liquid') ? fmt(upright[i] ? 'pack.upright' : 'pack.tilted') : ''}</span></button>`;
       })
       .join('');
     let gridHtml = '';
@@ -77,11 +87,11 @@ export function buildPacking({ items, bag, onDone, strict = false }) {
       <div class="pk-wrap">
         <div class="pk-tray">${tray}</div>
         <div><div class="pk-grid" style="grid-template-columns:repeat(${cols},64px)">${gridHtml}</div>
-        <div class="pk-actions"><button class="btn" data-act="rotate" ${selected < 0 || !items[selected]?.has('liquid') ? 'disabled' : ''}>${fmt('pack.rotate')}</button>
+        <div class="pk-actions"><button class="btn" data-act="rotate" ${selected < 0 || locked[selected] || !items[selected]?.has('liquid') ? 'disabled' : ''}>${fmt('pack.rotate')}</button>
         <button class="btn ${warns.length && allPlaced ? 'warn' : 'primary'}" data-act="done" ${doneOk ? '' : 'disabled'}>${doneLabel}</button></div></div>
       </div>
       <div class="pk-warns">${warns.length ? warns.map((w) => `<div>${w}</div>`).join('') : allPlaced ? `<div class="ok">${fmt('pack.ok')}</div>` : ''}</div>`;
-    root.querySelectorAll('[data-item]').forEach((b) => b.addEventListener('click', () => { selected = Number(b.dataset.item); render(); }));
+    root.querySelectorAll('[data-item]').forEach((b) => b.addEventListener('click', () => { if (!locked[Number(b.dataset.item)]) { selected = Number(b.dataset.item); render(); } })); // món đã nằm sẵn: không chọn để dời
     root.querySelectorAll('[data-cell]').forEach((b) => b.addEventListener('click', () => clickCell(Number(b.dataset.cell))));
     root.querySelector('[data-act="rotate"]').addEventListener('click', rotate);
     root.querySelector('[data-act="done"]').addEventListener('click', done);
@@ -89,6 +99,7 @@ export function buildPacking({ items, bag, onDone, strict = false }) {
 
   const clickCell = (c) => {
     const occ = slots[c];
+    if (occ >= 0 && locked[occ]) return; // ô của món đã nằm sẵn: không đè, không đổi chỗ
     // bấm vào ô chứa chính món đang chọn (hoặc chưa chọn gì) → chọn món ở ô đó
     if (selected < 0 || occ === selected) {
       if (occ >= 0) selected = occ;
@@ -106,13 +117,13 @@ export function buildPacking({ items, bag, onDone, strict = false }) {
     slots[c] = selected;
     placed[selected] = c;
     sound('order.pack');
-    const next = placed.findIndex((p) => p < 0);
+    const next = placed.findIndex((p, i) => p < 0 && !locked[i]);
     if (next >= 0) selected = next;
     render();
   };
 
   const rotate = () => {
-    if (selected < 0 || !items[selected].has('liquid')) return;
+    if (selected < 0 || locked[selected] || !items[selected].has('liquid')) return;
     upright[selected] = !upright[selected];
     render();
   };
@@ -123,7 +134,7 @@ export function buildPacking({ items, bag, onDone, strict = false }) {
     if (warns.length && strict) return; // hướng dẫn: phải xếp đúng mới đi
     if (warns.length && !sure) { sure = true; sound('ui.warn'); return render(); } // đơn hàng: hỏi lại 1 lần
     window.removeEventListener('keydown', onKey, true);
-    onDone(analyze().mods);
+    onDone(analyze().mods, { placed: [...placed], upright: [...upright] });
   };
 
   const onKey = (e) => {

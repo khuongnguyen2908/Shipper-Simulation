@@ -170,19 +170,25 @@ function storyTalk(g, st, pl) {
 }
 // Xếp các gói hàng cốt truyện vào túi (dùng màn xếp túi của đơn hàng, có hướng dẫn — game.packGuide) → xong thì đang chở các gói đó
 // guide: bật khung vàng hướng dẫn từng bước + bắt xếp đúng luật (chương 1). Tắt: xếp túi như đơn thường, không hướng dẫn
+// Gói cốt truyện đang chở từ trước (vd bó hoa, rồi lấy thêm bánh) vẫn nằm trong túi: hiện sẵn đúng ô cũ (khóa), chỉ xếp thêm món mới
 function storyPack(g, ids, done, guide = false) {
   const gs = g.gs;
-  const items = ids.map((id) => { const P = STORY.parcels[id]; return new DeliveryItem({ id, name: fmt(P.name), icon: P.icon, traits: P.traits || [] }); });
+  const keep = [].concat(gs.story.carry || []).filter((id) => !ids.includes(id) && STORY.parcels[id]);
+  const all = [...keep, ...ids], slots = gs.story.carrySlots || {};
+  const items = all.map((id) => { const P = STORY.parcels[id]; return new DeliveryItem({ id, name: fmt(P.name), icon: P.icon, traits: P.traits || [] }); });
   sound('order.pickup');
   const node = buildPacking({
     items,
     bag: gs.bagSpec,
     strict: guide, // có hướng dẫn: phải xếp đúng luật mới đi
-    onDone: () => {
+    preset: all.map((id) => (keep.includes(id) ? slots[id] || null : null)),
+    onDone: (mods, pos) => {
       g.modal.hide();
       g.storyPacking = null;
-      gs.story.carry = [...ids];
-      g.hud.toast(fmt('story.carrying', { icon: items[0]?.icon || '📦', item: items.map((it) => it.name).join(' + ') }), 'good', 4000); // hình của gói đầu (hũ chao 🍯, hộp cơm 🍱…)
+      gs.story.carry = all;
+      gs.story.carrySlots = Object.fromEntries(all.map((id, i) => [id, { cell: pos.placed[i], upright: pos.upright[i] }])); // nhớ ô để lần xếp sau đặt lại đúng chỗ
+      const fresh = items.slice(keep.length);
+      g.hud.toast(fmt('story.carrying', { icon: fresh[0]?.icon || '📦', item: fresh.map((it) => it.name).join(' + ') }), 'good', 4000); // hình của gói mới (hũ chao 🍯, hộp cơm 🍱…)
       done();
     },
   });
