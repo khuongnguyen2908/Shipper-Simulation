@@ -150,7 +150,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
 - Đứng game sau khi nói với anh Đại (lỗi của Claude: khóa đứng yên cả khi bước sau chờ người khác) → đã sửa. Giờ người chơi nói trước 1 câu
   ("chị Linh gửi thiệp mời…") rồi anh Đại / em Minh / Lan Anh mới trả lời (story.c4.player.toDai / toMinh / toLan — sửa được).
 
-### 🔧 Chương 4 sửa thêm (18/10 chiều — XONG, CHƯA commit)
+### 🔧 Chương 4 sửa thêm (18/10 chiều — XONG, đã đẩy lên GitHub 7ab35e3)
 - Nhạc bị rượt to hơn: bước cốt truyện có nhạc riêng (dí cướp, bị rượt) → tiếng lặp (máy xe, mưa, phố) hạ còn 40% (audio.js loopBus + setLoopDuck). File music.flee vốn đã to hơn nhạc menu (−10,5 vs −13,4 LUFS).
 - Thùng rác thứ 4 (bin4, [-35.4, -181.5]) sát tụi giang hồ + bước mới "hideBin": tới cuối hẻm → mục tiêu "Núp vào thùng rác gần đó để nghe lén" (mũi tên + dấu ! trên thùng),
   núp rồi thoại nghe lén mới bắt đầu. Điều kiện mới "🗑️ Đang núp sau thùng rác" (until hidden), mũi tên / dấu chỉ vào đạo cụ (target "prop:<mã>", mark.prop) — có ở ?editor.
