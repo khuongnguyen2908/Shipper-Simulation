@@ -139,7 +139,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   (đạo cụ car / moto: xeW1–W3 đường trước nhà thờ, xeS1–S3 đường xuống bến cảng) chạy đúng làn, hiện khi tên cướp tới mốc west / south, có xe tấp lề dừng (keep) ·
   2 xe dí + xe người chơi tự chạy đều né xe diễn viên (sửa lỗi hàm né: đo lệch sai + bỏ né khi đang chạy ngang hàng). Đo: gần nhất 1,6 (tâm-tâm), không xuyên qua nhau.
 
-### 📖 Chương 5 "Hội nhóm shipper" (19/10 — XONG bản đầu, CHƯA commit; lời thoại nháp, chủ game tự sửa ở ?editor)
+### 📖 Chương 5 "Hội nhóm shipper" (19/10 — XONG bản đầu, đã đẩy lên GitHub d05cbe2; lời thoại nháp, chủ game tự sửa ở ?editor)
 - Cả chương đã duyệt (19/10): 4 giờ sáng ngủ dậy → chị Linh hỏi anh Đạt → gọi không được → nhiệm vụ "Lướt Tích Tắc" thấy Tí Sún khoe xe anh Đạt →
   nhắn tin hỏi mua (chốt 20 triệu, hẹn 21h gầm cầu sắt ven kênh) → gặp mặt nó đòi 100 triệu, đàn em nhận ra người chơi (hẻm chương 4), dọa, đuổi về →
   Tí Sún chặn tin nhắn → Dượng Hai chỉ chú Tư xe ôm ở bến xe → thử thách chở thuốc cho bà Năm (chấm điểm thật, cần ≥ 4★) → vào nhóm "Hội nhóm shipper"
@@ -178,7 +178,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
 - 8h15 chị Linh nhờ (mingle until.from 8.25).
 - Lỗi của Claude từ 23ab10c: chị Nhi nhận tranh chỉ bỏ tranh A → tranh B nằm mãi trong túi. Đã sửa: bỏ hết tranh đã chở.
 
-### 🧪 Chơi thử chương 1 → 4 (18/10) — ĐÃ SỬA 19/10 theo đề xuất (chủ game duyệt "theo đề xuất hết")
+### 🧪 Chơi thử chương 1 → 4 (18/10) — ĐÃ SỬA 19/10 theo đề xuất, đã đẩy lên GitHub d05cbe2 (chủ game duyệt "theo đề xuất hết")
 - Đã sửa:
   - Đơn cốt truyện (forced): không tính trễ, giao được là 5★; thông báo / thẻ đơn ghi "không giới hạn giờ"; thẻ đơn giao đồ ăn ghi "🎓 Đơn giao thử".
   - Bị rượt: chạy được bất kể thể lực, chạy không tốn thêm thể lực (game.js walker phys + drain).
