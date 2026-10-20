@@ -86,6 +86,7 @@ export const BALANCE_GROUPS = [
       ['energy.seat.mentalPerMin', 'Ngồi ghế: hồi tinh thần mỗi phút', { min: 0, max: 2, step: 0.01, hint: 'Ngồi ghế quán / ghế đá công viên / ghế trạm xe buýt (bấm E). 0,1 = ngồi 10 phút +1. 0 = ngồi chỉ cho vui. Mặc định 0,1.' }],
       ['energy.seat.mentalMax', 'Ngồi ghế: hồi tới tối đa', { min: 0, max: 100, step: 1, hint: 'Ngồi chơi chỉ kéo tinh thần lên tới mức này (muốn vui hơn thì ghé quán / địa điểm). Mặc định 70.' }],
       ['energy.collapse.hours', 'Kiệt sức: nằm nghỉ bắt buộc (giờ)', { min: 0, max: 24, step: 0.5, hint: 'Ngất / suy sụp → về phòng trọ nằm, đơn đang chạy bị hủy. Mặc định 6.' }],
+      ['energy.collapse.storyHours', 'Kiệt sức lúc sắp có hẹn trong cốt truyện: nằm (giờ)', { min: 0, max: 24, step: 0.5, hint: 'Bước cốt truyện đang chạy / vài bước tới có khung giờ hoặc hạn giờ → nằm ít hơn cho khỏi lỡ hẹn (vd khai mạc 10h). Mặc định 2.' }],
       ['energy.collapse.phys', 'Sau khi ngất: thể lực còn', { min: 1, max: 100, step: 1, hint: 'Mặc định 40.' }],
       ['energy.collapse.mental', 'Sau khi suy sụp: tinh thần còn', { min: 1, max: 100, step: 1, hint: 'Mặc định 40.' }],
     ],

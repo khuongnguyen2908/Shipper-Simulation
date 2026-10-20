@@ -824,5 +824,16 @@
     "cod": 0,
     "group": "parcel",
     "openDay": 2
+  },
+  "thuocBaNam": {
+    "id": "thuocBaNam",
+    "name": "Thuốc của bà Năm",
+    "icon": "💊",
+    "traits": [
+      "fragile",
+      "liquid"
+    ],
+    "base": 20,
+    "parcel": true
   }
 }

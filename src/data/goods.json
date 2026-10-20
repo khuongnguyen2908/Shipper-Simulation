@@ -440,10 +440,10 @@
   },
   "phanComChay": {
     "id": "phanComChay",
-    "name": "Phần cơm chay Chú Hai",
+    "name": "Phần cơm chay Dượng Hai",
     "icon": "🍱",
     "price": 0,
-    "desc": "Chú Hai gói cho, cơm chay nóng hổi.",
+    "desc": "Dượng Hai gói cho, cơm chay nóng hổi.",
     "type": "consumable",
     "use": {
       "minutes": 10,

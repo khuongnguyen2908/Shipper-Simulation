@@ -48,6 +48,7 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [x] | `phone.accept` | Nhận đơn | Bấm nhận đơn (Y) | tiếng ngắn | 🎧 có file |
 | [x] | `phone.decline` | Từ chối đơn | Bấm từ chối đơn (N) | tiếng ngắn | 🎧 có file |
 | [x] | `phone.message` | Tin nhắn mới | Tin nhắn nhóm tài xế / Cô Hai / phường… | tiếng ngắn | 🎧 có file |
+| [ ] | `phone.blocked` | Bị chặn tin nhắn | Chương 5: Tí Sún chặn người chơi | tiếng ngắn | 🔉 tổng hợp |
 | [x] | `phone.call` | Gọi điện | Gọi khách, gọi quán, khách gọi xuống | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `phone.swipe` | Lướt tin (Tích Tắc) | Lướt sang tin khác trong app Tích Tắc | tiếng ngắn | 🔇 im |
 | [ ] | `phone.shutter` | Chụp ảnh (lưu game) | Bấm Chụp trong app Máy ảnh — lưu game vào 1 ô album | tiếng ngắn | 🔉 tổng hợp |
@@ -113,6 +114,8 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [x] | `city.thiefDog` | Con chó bị xe tên cướp đâm | Cảnh phim chương 3, khúc cuối: kêu / sủa đúng lúc bị đâm | tiếng ngắn | yodguard dog bark |
 | [ ] | `city.qte` | Nút bấm nhanh hiện ra | Chương 3: hiện nút "E — Chặn lại!" lúc tên cướp lao tới — tiếng báo gấp, ngắn | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `city.tackle` | Vật ngã | Chương 3: anh Đạt quật tên cướp xuống đường (bịch, sột soạt quần áo) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `city.stall` | Xe chết máy giữa nước | Chương 5: mô tô Tí Sún lao vào đường ngập, máy khục khặc rồi tắt, nước văng | tiếng ngắn | 🔇 im |
+| [ ] | `city.hornCrowd` | Còi xe đồng loạt | Chương 5: anh em shipper bật đèn, bóp còi đồng loạt ép Tí Sún | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `city.siren` | Còi hú xe công an | Chương 3: xe công an chạy tới áp giải tên cướp (hú vài giây, nghe từ xa tới gần) | tiếng ngắn | 🔉 tổng hợp (tạm) |
 | [ ] | `city.applause` | Vỗ tay | Chương 4: khai mạc triển lãm, mọi người vỗ tay sau khi chị Linh phát biểu (~3 giây) | tiếng ngắn | 🔇 im |
 | [ ] | `city.canKick` | Vấp lon | Chương 4: núp trong hẻm, lùi lại vấp cái lon kêu "keng" lăn lóc | tiếng ngắn | 🔉 tổng hợp |

@@ -40,7 +40,7 @@ export class RoadRulesPart {
     // kind: chỗ đậu (hầm nhà trọ an toàn tuyệt đối; bãi giữ xe / ngoài đường vẫn có thể mất nón chở khách)
     const kind = safe ? (lot ? 'lot' : 'garage') : 'street';
     gs.parked = { since: this.clockMin, safe, kind, ticketed: false, robbed: false, checked: Math.floor(this.clockMin) };
-    if (!safe && !quiet) this.toastOnce('parkHint', fmt('toast.parkHint', { min: PARKING.graceMin }), 'info', 600);
+    if (!safe && !quiet) this.toastOnce('parkHint', fmt(this.noFines() ? 'toast.parkHintNoFine' : 'toast.parkHint', { min: PARKING.graceMin }), 'info', 600); // xe đạp (luật không phạt): chỉ nhắc trộm
     if (safe && !lot && !quiet) this.toastOnce('parkGarage', fmt('toast.parkGarage'), 'good', 60); // dựng xe trong hầm phòng trọ
   }
   // Gửi bảo vệ (chung cư…) → xe được trông tới khi lấy

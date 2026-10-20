@@ -6,7 +6,7 @@ import { ENERGY, NIGHT, ORDER, NPC_FLAVOR } from '../data/balance.js';
 import { APP } from '../data/apps.js';
 import { isDark } from '../sim/clock.js';
 import { S } from '../sim/OrderManager.js';
-import { STORY, storyEvent } from '../sim/story.js';
+import { STORY, storyEvent, stepOf } from '../sim/story.js';
 import { personOf, pronouns } from '../sim/people.js';
 import * as act from '../interactions.js';
 import { sound } from '../audio.js';
@@ -78,7 +78,7 @@ export class EventsPart {
     this.cooldowns.set('yell', now + 2500);
     key = key || (e.bus ? (e.angry ? 'bubble.busAngry' : 'bubble.busMild') : e.angry ? 'bubble.driverAngry' : 'bubble.driverMild');
     const up = e.bus ? 3.5 : e.car ? 1.9 : 2.2;
-    this.bubbles.show(e.id, () => headOf(e.obj.mesh, up), pick(key, Math.floor(Math.random() * 1000)));
+    this.bubbles.show(e.id, () => headOf(e.obj.mesh, up), pick(key, Math.floor(Math.random() * 1000), {}, [isDark(this.clockMin) ? 'night' : 'day'])); // câu "nắng quá" chỉ ban ngày
   }
 
   onTrafficHit(h, env) {
@@ -190,7 +190,7 @@ export class EventsPart {
       this.clearTempNpcs();
       this.hud.toast(fmt('toast.redirect', { address: e.order.dropoff.address }), 'warn', 5000);
     } else if (e.type === 'revealed') this.hud.toast(fmt('toast.revealed', { address: e.order.dropoff.address }), 'good', 5000);
-    else if (e.type === 'completed') storyEvent(this.gs.story, 'delivered'); // cốt truyện: giao xong 1 đơn
+    else if (e.type === 'completed') this.storyDelivered(e.receipt); // cốt truyện: giao xong 1 đơn
     else if (e.type === 'state') this.renderPhone();
   }
 
@@ -210,7 +210,7 @@ export class EventsPart {
     const near = this.traffic.peds.filter((p) => p.mesh.visible && p.knock <= 0 && Math.hypot(p.x - pp.x, p.z - pp.z) < 16);
     if (!near.length) return;
     const p = near[Math.floor(Math.random() * near.length)];
-    this.bubbles.show(`ped:${p.id}`, () => headOf(p.mesh, 1.95), pickFor('bubble.ped', p.who, Math.floor(Math.random() * 1000), pronouns(p.who || personOf(p.name), this.gs.profile?.gender))); // câu hợp vai người nói (vé số…)
+    this.bubbles.show(`ped:${p.id}`, () => headOf(p.mesh, 1.95), pickFor('bubble.ped', p.who, Math.floor(Math.random() * 1000), pronouns(p.who || personOf(p.name), this.gs.profile?.gender), [isDark(this.clockMin) ? 'night' : 'day'])); // câu hợp vai người nói (vé số…)
     sound('chat.bubble');
   }
 
@@ -220,10 +220,25 @@ export class EventsPart {
     this.onNewMessage(`x:${from}`, from, text);
   }
   // Tin nhắn cốt truyện: người gửi trong danh bạ story.json (Mẹ, Cô Hai…). m: { key, loc }
+  // Giao xong 1 đơn → cốt truyện. Đơn thử thách (offer.minStars, vd chở thuốc cho bà cụ): chưa đủ sao thì chưa tính — nhắc câu
+  // failText rồi mời lại đơn khác (storyUpdate tự mời lại vì chưa "delivered")
+  storyDelivered(receipt) {
+    const s = this.gs.story, st = s?.ch && s.fired ? stepOf(s) : null;
+    const a = st && (st.on || []).find((x) => x.do === 'offer' && x.minStars);
+    const stars = receipt?.ev?.stars ?? 5;
+    if (a && receipt?.order?.story && stars < a.minStars) {
+      sound('ui.warn');
+      if (a.failText) this.hud.toast(fmt(a.failText, { name: this.gs.profile.name, stars }), 'warn', 7000);
+      this.storyOfferAt = performance.now() + 4000; // nghỉ vài giây rồi mới mời lại
+      return;
+    }
+    storyEvent(this.gs.story, 'delivered');
+  }
   storyMessage(id, m) {
     this.gs.addMessage(id, m, this.clockMin);
     const c = STORY.contacts[id];
-    this.onNewMessage(id, c ? fmt(c.name) : id, fmt(m.key, this.storyVoice(id)));
+    const name = c ? fmt(c.name) : id; // nhóm chat: "Hội nhóm shipper · Hùng Grip"
+    this.onNewMessage(id, m.as ? `${name} · ${fmt(m.as)}` : name, fmt(m.key, this.storyVoice(id)));
   }
   // Có tin mới: đang mở đúng cuộc trò chuyện thì coi như đã đọc; rung + tiếng; báo trên điện thoại / màn hình
   onNewMessage(id, name, text) {

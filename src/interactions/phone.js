@@ -22,7 +22,7 @@ export function acceptOffer(g) {
   const what = o.kind === 'ride' ? fmt('toast.acceptedRide', { customer: o.customer })
     : o.kind === 'parcel' ? fmt('toast.acceptedParcel', { type: ORDER_TYPES[o.type]?.name || '', place: o.pickup.name })
     : fmt('toast.acceptedFood', { place: o.pickup.name });
-  g.hud.toast(fmt('toast.accepted', { id: o.id, what, min: o.allowedMin }), 'good');
+  g.hud.toast(fmt(o.forced ? 'toast.acceptedNoLimit' : 'toast.accepted', { id: o.id, what, min: o.allowedMin }), 'good'); // đơn cốt truyện: không có hạn
   if (o.story === 'wallet') g.gs.flags.walletOffered = true;
   g.waypoint = null; // nhận đơn thì bỏ chỉ đường tự chọn
 }

@@ -418,6 +418,55 @@
       "oldNames": [
         "Anh Đại Bom"
       ]
+    },
+    "tiSun": {
+      "icon": "😎",
+      "name": "Tí Sún",
+      "gender": "m",
+      "age": 22,
+      "role": "Trẻ trâu chạy xe khoe trên Tích Tắc — người của đường dây \"việc nhẹ lương cao\"",
+      "personality": "Láo, ham khoe, hay dọa nạt",
+      "notes": "Chương 5: cầm xe anh Đạt, hét giá 100 triệu, bị anh em shipper lùa vào đường cụt ngập. Sẽ gặp lại. Tên tạm — chủ game đổi sau.",
+      "story": "tiSun",
+      "place": "",
+      "from": 5,
+      "look": null,
+      "outfits": [],
+      "x": -700,
+      "y": 300
+    },
+    "chuTu": {
+      "icon": "🧓",
+      "name": "Chú Tư xe ôm",
+      "gender": "m",
+      "age": 62,
+      "role": "Xe ôm truyền thống ở bến xe buýt mấy chục năm, trưởng \"Hội nhóm shipper\"",
+      "personality": "Chịu chơi, thương anh em, nói chuyện bông đùa",
+      "notes": "Chương 5: thử người chơi bằng cuốc chở thuốc cho bà Năm rồi thêm vào nhóm; bày kế lùa Tí Sún vào đường ngập.",
+      "story": "chuTu",
+      "place": "",
+      "from": 5,
+      "look": {
+        "gender": "m",
+        "hairStyle": "short",
+        "hair": "#8d8d8d",
+        "skin": "#c68642",
+        "scale": 1,
+        "age": "old"
+      },
+      "outfits": [
+        {
+          "id": "thuongNgay",
+          "name": "Thường ngày",
+          "worn": {
+            "shirt": "aoBaBa_nau",
+            "pants": "quanTay_xam",
+            "shoes": "depToOng"
+          }
+        }
+      ],
+      "x": -700,
+      "y": 520
     }
   },
   "links": [
@@ -1036,6 +1085,94 @@
       "to": null,
       "secret": false,
       "notes": "Gặp lúc đưa thiệp mời triển lãm (chương 4)"
+    },
+    {
+      "id": "l29",
+      "a": "tiSun",
+      "b": "player",
+      "type": "enemy",
+      "ab": {
+        "label": "thằng hỏi mua xe",
+        "self": "tao",
+        "call": "mày",
+        "feel": -2
+      },
+      "ba": {
+        "label": "thằng cầm xe anh Đạt",
+        "self": "em",
+        "call": "anh",
+        "feel": -2
+      },
+      "from": 5,
+      "to": null,
+      "secret": false,
+      "notes": "Lúc nhắn tin làm quen thì gọi \"bro\"; gặp mặt bị nhận ra là thằng trong hẻm chương 4 → xưng mày tao."
+    },
+    {
+      "id": "l30",
+      "a": "tiSun",
+      "b": "flyer",
+      "type": "gang",
+      "ab": {
+        "label": "đàn em",
+        "self": "em",
+        "call": "anh",
+        "feel": 1
+      },
+      "ba": {
+        "label": "đàn em",
+        "self": "anh",
+        "call": "mày",
+        "feel": 0
+      },
+      "from": 5,
+      "to": null,
+      "secret": true,
+      "notes": "Cùng đường dây \"việc nhẹ lương cao\"."
+    },
+    {
+      "id": "l31",
+      "a": "chuTu",
+      "b": "player",
+      "type": "work",
+      "ab": {
+        "label": "trưởng nhóm shipper",
+        "self": "chú",
+        "call": "con",
+        "feel": 2
+      },
+      "ba": {
+        "label": "lính mới trong nhóm",
+        "self": "con",
+        "call": "chú",
+        "feel": 2
+      },
+      "from": 5,
+      "to": null,
+      "secret": false,
+      "notes": "Vào nhóm sau cuốc chở thuốc cho bà Năm (chương 5)."
+    },
+    {
+      "id": "l32",
+      "a": "chuTu",
+      "b": "duongHai",
+      "type": "friend",
+      "ab": {
+        "label": "bạn lâu năm",
+        "self": "tui",
+        "call": "ông Hai",
+        "feel": 2
+      },
+      "ba": {
+        "label": "bạn lâu năm",
+        "self": "tui",
+        "call": "ông Tư",
+        "feel": 2
+      },
+      "from": 5,
+      "to": null,
+      "secret": false,
+      "notes": "Dượng Hai giới thiệu người chơi tới gặp chú Tư."
     }
   ],
   "notes": [],

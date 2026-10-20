@@ -6,6 +6,7 @@
 //   until  — điều kiện xong bước (bảng UNTIL bên dưới) → sang bước sau
 //   goal / hint / target / guide — mục tiêu trên màn hình, chỗ mũi tên chỉ tới, nút cần làm sáng trên điện thoại
 //   talk   — nói chuyện ở một địa điểm (nút E riêng): có thể xếp hàng vào túi (pack) / giao hàng (drop) / tặng đồ (give)
+//            talk.who = mã người lạ đang có mặt → người đó nói thay NPC của địa điểm (vd chị bán hoa ở chợ, không phải cô bán cá)
 //   mark   — dấu trên đầu NPC trong lúc chờ bước này: { place, icon: '!' | '?' } (NPC của địa điểm) hoặc { actor, icon } (người lạ đang ở cảnh)
 //   hold   — true: app chưa phát đơn thường trong lúc chờ bước này (để hướng dẫn / đơn cốt truyện không bị đơn khác chen vào)
 //   leash  — { place, r, text }: chưa xong bước thì không cho đi xa địa điểm quá r m (bị giữ lại + thông báo text)
@@ -48,9 +49,9 @@ export const REACT_ICONS = { '?': '? Ngạc nhiên', '!': '! Giật mình' };
 // Cảnh phim: camera nhìn vào đâu
 export const CINE_TARGETS = { place: 'Địa điểm …', actor: 'Người lạ …', prop: 'Đạo cụ …', player: 'Người chơi' };
 // Đạo cụ cảnh phim (việc "prop"): xe tải chạy ra chặn đường · tấm ván làm dốc · chó chạy ngang
-export const PROP_KINDS = { truck: '🚛 Xe tải container dài', ramp: '🪵 Tấm ván dựng làm dốc', dog: '🐕 Chó chạy ngang', car: '🚗 Ô tô diễn viên (chạy theo đường, 2 xe dí né)', moto: '🛵 Xe máy diễn viên (chạy theo đường, 2 xe dí né)', police: '🚓 Xe công an (đèn chớp; dừng ở cuối đường → các anh công an bước xuống)', easel: '🖼️ Giá vẽ + tranh (đặt cố định)', bin: '🗑️ Thùng rác (chỗ núp khi bám theo lén)', can: '🥫 Lon nước nằm dưới đất' };
+export const PROP_KINDS = { truck: '🚛 Xe tải container dài', ramp: '🪵 Tấm ván dựng làm dốc', dog: '🐕 Chó chạy ngang', car: '🚗 Ô tô diễn viên (chạy theo đường, 2 xe dí né)', moto: '🛵 Xe máy diễn viên (chạy theo đường, 2 xe dí né)', police: '🚓 Xe công an (đèn chớp; dừng ở cuối đường → các anh công an bước xuống)', easel: '🖼️ Giá vẽ + tranh (đặt cố định)', bin: '🗑️ Thùng rác (chỗ núp khi bám theo lén)', can: '🥫 Lon nước nằm dưới đất', water: '🌊 Nước ngập (chỉ vẽ trên máy người chơi này, không đổi luật lái xe)', bigbike: '🏍️ Mô tô anh Đạt dựng sẵn (không người)' };
 // Hành động ở điểm lộ trình chạy trốn (act): drift quẹo gắt · crash té xe → bỏ xe chạy bộ
-export const ROUTE_ACTS = { drift: '💨 Drift (quẹo gắt, đuôi văng, khói lốp)', crash: '💥 Té xe → bỏ xe chạy bộ' };
+export const ROUTE_ACTS = { drift: '💨 Drift (quẹo gắt, đuôi văng, khói lốp)', crash: '💥 Té xe → bỏ xe chạy bộ', stall: '🌊 Chết máy giữa nước (văng nước, khựng lại, dừng hẳn — vẫn ngồi trên xe)' };
 // Kiểu xe người lạ chạy trốn / đuổi theo
 export const CHASE_BIKES = { sport: 'Tay côn (Exciter)', supersport: 'Sport bike phân khối lớn (đen sọc xanh lá)' };
 // =============================================================
@@ -91,6 +92,9 @@ export const UNTIL = {
   tackled: 'Việc "🤼 Vật ngã" ở bước này đã xong (người kia bị ghì nằm sấp)',
   hidden: 'Người chơi đang ngồi núp sau thùng rác … (đạo cụ 🗑️ — bấm E cạnh thùng)',
   escaped: 'Người chơi đã chạy thoát (việc "🏃 Bị rượt" ở bước này: lên xe chạy đi / bỏ xa · chỉ bằng xe: chạy xe bỏ xa, bọn kia biến mất)',
+  ttSeen: 'Người chơi đã lướt tới tin Tích Tắc … (việc "📱 Tin Tích Tắc")',
+  away: 'Người chơi đã đi xa người lạ … (hoặc chỗ [x, z]) hơn … đơn vị (vd bị đuổi về)',
+  ambushed: 'Đã bày chốt đúng trong mini game "🗺️ Bày trận" (việc ambush ở bước này)',
   sneaked: 'Việc "🕵️ Bám theo lén" ở bước này đã xong (người bị bám theo tới điểm cuối mà không phát hiện người chơi)',
   never: 'Chưa viết tiếp — dừng ở bước này (để chỗ cho nội dung sau)',
 };
@@ -119,6 +123,8 @@ export const ACTIONS = {
   bike: 'Cô Hai cho xe đạp (đặt trong hầm xe)',
   give: 'Tặng đồ dùng (goods.json)',
   toast: 'Thông báo nhỏ',
+  rename: 'Đổi tên hiển thị của người lạ … (vd sau khi tự giới thiệu: "Người đàn ông chạy xe moto" → "Anh Đạt") — giữ qua các chương sau',
+  pay: '💵 Nhận tiền: người quen trả công (chở, giúp việc…) — … nghìn đồng vào ví (chương chặn đơn thường vẫn có tiền trả nhà)',
   openPhone: 'Tự bật điện thoại (mở app …, tin nhắn của …)',
   closePhone: 'Tự cất điện thoại',
   offer: 'Mời 1 đơn cốt truyện: cuốc chở khách thường / đơn giao đồ ăn ở quán … (không hết hạn, không bỏ qua được, không sự cố)',
@@ -136,6 +142,10 @@ export const ACTIONS = {
   pursue: '🏃 Bị rượt: người lạ … rượt theo người chơi (chạy theo dấu chân) — người chơi tự chạy thoát (lên xe / bỏ xa, hoặc chỉ bằng xe); bị tóm → làm lại / màn thua',
   traffic: '🚧 Giữ vùng vắng xe NPC quanh người chơi (cảnh đứng giữa đường lâu) — bán kính 0 = trả lại xe',
   sneak: '🕵️ Bám theo lén: người lạ … (dắt theo người khác) đi theo lộ trình, thỉnh thoảng ngoái lại — người chơi theo sau không để bị thấy (bị phát hiện / mất dấu → làm lại)',
+  ttPost: '📱 Tin Tích Tắc của cốt truyện: ảnh chụp thật người lạ … / chỗ [x, z], chú thích, bình luận — nằm đầu danh sách app Tích Tắc',
+  block: '⛔ Người nhắn … chặn người chơi (tin nhắn không gửi được nữa, tin Tích Tắc của người đó biến mất)',
+  ambush: '🗺️ Bày trận: mini game trên bản đồ — đặt … chốt anh em chặn ngã tư để người bị vây chỉ còn đường vào chỗ bẫy',
+  ambushCrew: '🛵 Anh em shipper đứng ở các chốt đã bày (theo kế hoạch người chơi chốt trong "🗺️ Bày trận")',
   end: 'Kết thúc chương (hiện chữ, lưu game)',
 };
 // Hướng dẫn trên điện thoại (làm sáng nút cần bấm)
@@ -166,6 +176,7 @@ export const GUIDES = {
   fuel: 'App Xe → bấm 📍 Chỉ đường tới cây xăng / trụ sạc gần nhất',
   order: 'Có đơn mời: mở app nhận đơn → bấm Nhận',
   profile: 'App nhận đơn → 👤 Hồ sơ, giải thích luật tài khoản',
+  app: 'Mở app … trên điện thoại (vd Tích Tắc để lướt tin)',
 };
 
 // Tiến độ mới: started = vừa chơi mới (chương 1 chờ bắt đầu sau màn "tới thành phố"), không thì coi như đã xong cốt truyện
@@ -246,6 +257,9 @@ export function untilMet(u, gs, ctx) {
     case 'cine': return !!s.ev.cineDone;
     case 'chased': return !!s.ev[`chased:${u.who}`] || !!ctx.chased?.(u.who);
     case 'reach': return !!ctx.reachAt?.(u.at, u.r || 8);
+    case 'ttSeen': return !!s.ev[`tt:${u.id}`] || !!(s.ttSeen || []).includes(u.id);
+    case 'away': return !!ctx.awayFrom?.(u, u.r || 30);
+    case 'ambushed': return !!s.ev.ambushed;
     case 'tackled': return !!s.ev.tackled;
     case 'sneaked': return !!s.ev.sneaked;
     case 'escaped': return !!s.ev.escaped;

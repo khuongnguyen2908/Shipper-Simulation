@@ -146,7 +146,7 @@ export class Phone {
     this.screen = this.el.querySelector('#phScreen');
     this.notifEl = this.el.querySelector('#phNotif');
     this.cityMap = new CityMap({ action: (a, ds) => this.handlers.action(a, ds) });
-    this.tictac = new TicTac({ snap: (post) => this.handlers.snap?.(post) }); // app Tích Tắc (lướt tin cho vui)
+    this.tictac = new TicTac({ snap: (post) => this.handlers.snap?.(post), seen: (post) => this.handlers.ttSeen?.(post) }); // app Tích Tắc (lướt tin cho vui)
     this.lastHtml = '';
     // Túi đồ: nút lọc đang chọn, món đang chọn (khóa 'g:mã'), menu chuột phải { key, x, y }
     this.thread = null; // app Tin nhắn: cuộc trò chuyện đang mở (null = danh sách)
@@ -428,7 +428,7 @@ export class Phone {
     const ride = o.kind === 'ride';
     const floor = o.dropoff.apartment ? fmt('phone.floor', { floor: o.dropoff.floor }) : '';
     return `<div class="card offer">
-      <div class="offer-top"><b>${offerTitle(o)}</b><small>${forced ? fmt('phone.forcedOffer') : fmt('phone.offerSec', { sec: Math.ceil(left) })}</small></div>
+      <div class="offer-top"><b>${offerTitle(o)}</b><small>${forced ? fmt(o.kind === 'ride' ? 'phone.forcedOffer' : 'phone.forcedOfferFood') : fmt('phone.offerSec', { sec: Math.ceil(left) })}</small></div>
       ${forced ? `<div class="ph-note small">${fmt('phone.forcedNoSkip')}</div>` : `<div class="timer"><div style="width:${(left / ORDER.offerTimeoutSec) * 100}%"></div></div>`}
       <div class="pay-big">~${fmtK(o.estPay)}</div>
       <div class="route"><div>📍 <b>${o.pickup.name}</b><small>${ride ? fmt('phone.pickupRide', { customer: o.customer }) : o.pickup.address}</small></div>
@@ -451,7 +451,7 @@ export class Phone {
     const canCall = d.state === S.NO_ANSWER || d.state === S.TO_PICKUP || d.state === S.DELIVERING;
     const floor = o.dropoff.apartment ? fmt('phone.floor', { floor: o.dropoff.floor }) : '';
     return `<div class="card">
-      <div class="offer-top"><b>#${o.id} · ${stateLabel(d.state)}</b><span class="${left < 0 ? 'late' : 'pay'}">${left >= 0 ? fmt('phone.left', { min: left }) : fmt('phone.late', { min: -left })}</span></div>
+      <div class="offer-top"><b>#${o.id} · ${stateLabel(d.state)}</b><span class="${left < 0 && !o.forced ? 'late' : 'pay'}">${o.forced ? fmt('phone.noLimit') : left >= 0 ? fmt('phone.left', { min: left }) : fmt('phone.late', { min: -left })}</span></div>
       <div class="route"><div>📍 <b>${o.pickup.name}</b></div><div>🏁 <b>${o.revealed ? o.dropoff.address : fmt('phone.unknownAddr')}</b><small>${o.customer}${floor}</small></div></div>
       <div class="tags">${orderTags(o)}</div>
       <div class="segs">${steps.map((_, i) => `<i class="${i < cur ? 'done' : i === cur ? 'now' : ''}"></i>`).join('')}</div>
@@ -479,20 +479,23 @@ export class Phone {
     if (t) {
       const [ic, name] = who(this.thread);
       const placeName = (id) => PLACES.find((pl) => pl.id === id)?.name || id;
-      const bubbles = t.msgs.map((m) => `<div class="bub ${m.me ? 'me' : 'them'}"><div>${textOf(m)}</div>
+      // nhóm chat: dòng hệ thống ở giữa (vd "… đã thêm bạn vào nhóm") · tin của thành viên có tên người gửi ở trên
+      const bubbles = t.msgs.map((m) => (m.sys ? `<div class="msg-sys">${textOf(m)}</div>` : `<div class="bub ${m.me ? 'me' : 'them'}">${m.as && !m.me ? `<b class="bub-as">${esc(fmt(m.as))}</b>` : ''}<div>${textOf(m)}</div>
         ${(m.loc || []).map((id) => `<button class="msg-loc${d.waypoint === id ? ' on' : ''}" data-act="waypoint" data-id="${id}">📍 ${esc(placeName(id))}</button>`).join('')}
-        <small>${when(m.at)}</small></div>`).join('');
-      const replies = t.replies?.length ? `<div class="msg-replies">${t.replies.map((k, i) => `<button data-act="reply" data-thread="${this.thread}" data-i="${i}">${fmt(k, vo(this.thread))}</button>`).join('')}</div>` : '';
+        <small>${when(m.at)}</small></div>`)).join('');
+      // bị chặn: không gửi được nữa
+      const blocked = t.blocked ? `<div class="msg-sys bad">${fmt('phone.blocked', { name })}</div>` : '';
+      const replies = !t.blocked && t.replies?.length ? `<div class="msg-replies">${t.replies.map((k, i) => `<button data-act="reply" data-thread="${this.thread}" data-i="${i}">${fmt(k, vo(this.thread))}</button>`).join('')}</div>` : '';
       // tin cuối là của mình (người kia chưa trả lời) → chữ nhỏ "Đã gửi" dưới tin đó (không bao giờ có "Đã xem")
       const sent = t.msgs.at(-1)?.me ? `<div class="msg-sent">${fmt('phone.msgSent')}</div>` : '';
-      return `<div class="msg-head"><i class="msg-av">${ic}</i><b>${name}</b></div><div class="msg-thread">${bubbles}${sent}</div>${replies}`;
+      return `<div class="msg-head"><i class="msg-av">${ic}</i><b>${name}</b></div><div class="msg-thread">${bubbles}${sent}${blocked}</div>${replies}`;
     }
     const ids = Object.keys(threads).filter((id) => threads[id].msgs.length).sort((a, b) => (threads[b].last ?? 0) - (threads[a].last ?? 0));
     if (!ids.length) return `<div class="ph-note">${fmt('phone.msgEmpty')}</div>`;
     return `<div class="msg-list">${ids.map((id) => {
       const th = threads[id], m = th.msgs[th.msgs.length - 1], [ic, name] = who(id);
       const plain = String(textOf(m, id)).replace(/<[^>]+>/g, '');
-      const prev = (m.me ? fmt('phone.msgYou') : '') + (m.loc?.length && !plain ? fmt('phone.msgLoc') : plain);
+      const prev = (m.me ? fmt('phone.msgYou') : m.as ? `${fmt(m.as)}: ` : '') + (m.loc?.length && !plain ? fmt('phone.msgLoc') : plain);
       return `<button class="msg-row${th.unread ? ' unread' : ''}" data-thread="${id}"><i class="msg-av">${ic}</i>
         <span class="msg-main"><b>${name}</b><small>${esc(prev.length > 48 ? prev.slice(0, 46) + '…' : prev)}</small></span>
         <span class="msg-meta"><small>${when(th.last ?? m.at)}</small>${th.unread ? `<i class="badge">${th.unread}</i>` : ''}</span></button>`;

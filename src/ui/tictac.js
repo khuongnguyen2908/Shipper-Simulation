@@ -120,7 +120,7 @@ export class TicTac {
     const p = this.post();
     if (!p) return;
     const all = list('tt.comments'), h = hash(p.id), n = Math.min(4, all.length);
-    const rows = Array.from({ length: n }, (_, k) => all[(h + k * 7) % all.length]);
+    const rows = p.cmts?.length ? p.cmts.map((k) => fmt(k)) : Array.from({ length: n }, (_, k) => all[(h + k * 7) % all.length]); // tin cốt truyện: bình luận viết sẵn
     const names = ['nguoiquaduong', 'meomeo99', 'shipperhaiphong', 'banhmi_pate', 'saigonchill', 'cobe2k7', 'anhbaxeom'];
     const sh = this.q('.tt-sheet');
     sh.innerHTML = `<b>${esc(fmt('tt.commentsTitle', { n: fmtCount(p.comments) }))}</b><button data-tt="closeSheet">✕</button>`
@@ -150,6 +150,7 @@ export class TicTac {
     this.q('.tt-cap small').textContent = p.music ? fmt('tt.music', { music: p.music }) : '';
     this.side();
     if (p.media.type === 'photo' && !this.photos.has(p.id)) this.photos.set(p.id, this.opts.snap?.(p) || null);
+    this.opts.seen?.(p); // tin cốt truyện: báo game người chơi đã lướt tới
     this.draw();
   }
   // gọi mỗi khung hình khi app đang mở (phone.render)

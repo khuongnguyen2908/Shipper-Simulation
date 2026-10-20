@@ -1,7 +1,7 @@
 # Việc đang dở — Shipper Simulation
 
 Ghi lại những việc đã bàn mà chưa làm / còn treo, để đổi máy hay đổi tài khoản Claude vẫn làm tiếp được.
-Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây"). Cập nhật lần cuối: 18/10/2026.
+Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây"). Cập nhật lần cuối: 19/10/2026.
 
 ## ⏸ Hoãn có chủ đích
 
@@ -139,6 +139,26 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   (đạo cụ car / moto: xeW1–W3 đường trước nhà thờ, xeS1–S3 đường xuống bến cảng) chạy đúng làn, hiện khi tên cướp tới mốc west / south, có xe tấp lề dừng (keep) ·
   2 xe dí + xe người chơi tự chạy đều né xe diễn viên (sửa lỗi hàm né: đo lệch sai + bỏ né khi đang chạy ngang hàng). Đo: gần nhất 1,6 (tâm-tâm), không xuyên qua nhau.
 
+### 📖 Chương 5 "Hội nhóm shipper" (19/10 — XONG bản đầu, CHƯA commit; lời thoại nháp, chủ game tự sửa ở ?editor)
+- Cả chương đã duyệt (19/10): 4 giờ sáng ngủ dậy → chị Linh hỏi anh Đạt → gọi không được → nhiệm vụ "Lướt Tích Tắc" thấy Tí Sún khoe xe anh Đạt →
+  nhắn tin hỏi mua (chốt 20 triệu, hẹn 21h gầm cầu sắt ven kênh) → gặp mặt nó đòi 100 triệu, đàn em nhận ra người chơi (hẻm chương 4), dọa, đuổi về →
+  Tí Sún chặn tin nhắn → Dượng Hai chỉ chú Tư xe ôm ở bến xe → thử thách chở thuốc cho bà Năm (chấm điểm thật, cần ≥ 4★) → vào nhóm "Hội nhóm shipper"
+  (hiện tên chương), anh em góp ý → mini game 🗺️ Bày trận (3 chốt, chú Tư giữ sẵn 2 chốt, có đúng 2 lời giải) → đêm: anh em đứng chốt, bóp còi,
+  Tí Sún lao vào đường cụt ngập, chết máy (quay chậm) → người chơi lội Cub tới, anh em vây, Tí Sún bỏ xe chạy bộ → chú Tư nói đùa → đẩy xe ra →
+  xe dựng ở tiệm trà, chị Linh mở cốp: điện thoại anh Đạt (hết pin) + chìa khóa "Kho 7 – Bến cảng" → hết chương.
+- Tên "Tí Sún" là tạm (chủ game đổi sau, sẽ gặp lại). Nước ngập là "cách 2": chỉ vẽ trên máy người chơi này (đạo cụ water), không ngập thật cả thành phố.
+- Nhóm "Hội nhóm shipper" là nhóm chat CỐT TRUYỆN (danh bạ story.json, group: true) — khác tin nhóm tài xế GROUP_CHAT_ON (vẫn tắt).
+- Mới trong bộ chạy + ?editor (thẻ Cốt truyện): việc 📱 Tin Tích Tắc (ttPost) · ⛔ Chặn (block) · 🗺️ Bày trận (ambush, sim/ambush.js + ui/ambush.js; editor tự đếm
+  số lời giải) · 🛵 Anh em đứng chốt (ambushCrew) · "Làm sau … giây" cho mọi việc · mời đơn 📦 chở hàng (kind parcel: lấy ở, món, giao tới, chấm điểm thật,
+  cần ít nhất … sao, câu khi chưa đủ sao) · tin nhắn nhóm có tên người gửi / dòng hệ thống · rời cảnh "bỏ xe chạy bộ" · người lạ đứng đúng tọa độ có xe
+  đi kèm (chỗ dựng + đầu xe) · đạo cụ 🌊 nước ngập / 🏍️ mô tô dựng · lộ trình chạy trốn "chết máy giữa nước" · điều kiện: đã lướt tới tin Tích Tắc /
+  đi xa khỏi người lạ / đã bày chốt đúng · hướng dẫn "Mở app …" · danh bạ: ô "Nhóm chat". validate.js kiểm tra hết (bày trận không lời giải → lỗi).
+- Đã thử trong trình duyệt cả chương (tin Tích Tắc có ảnh thật, nhắn tin, gặp mặt, chặn, đơn thuốc đủ / thiếu sao, nhóm chat, bày trận, cảnh đêm, vây, hết chương).
+  Sửa khi thử: nước ban đêm sáng hơn · hết cảnh đêm người chơi ngồi sẵn trên Cub quay về phía Tí Sún (endRide) · màn đen chỉ dọn đạo cụ có lúc bắt đầu tối
+  (không xóa nhầm xe anh Đạt ở bước sau) · 😈 đứng lại chỗ dừng sau khi chạy thử · câu báo thiếu sao không dùng ngoặc kép.
+- Còn để ý: mở lại game giữa đoạn lội nước / vây thì nước + xe vây không vẽ lại (đạo cụ chỉ có lúc vào bước) — chủ game thấy cần thì làm.
+- Chơi nhiều người: cốt truyện của riêng từng người (Tí Sún, nước, anh em chốt chỉ máy mình vẽ); tiền / sao đơn thuốc đi qua OrderManager như đơn thường.
+
 ### 🧭 Sửa sau chương 4 + bảng mục tiêu mới (18/10 — XONG, đã đẩy lên GitHub 7c0f470; phác họa duyệt: sketches/hud-muc-tieu/hud-sketch2.jpg)
 - Chỉ đường: bước cốt truyện không có chỗ đến (vd "Đi ngủ") mà người chơi tự bấm 📍 Chỉ đường trên bản đồ → chỉ tới chỗ đó (trước bị nuốt, navigation.js currentTarget).
 - Màn hình: bỏ bảng mục tiêu cũ dưới bảng giờ/tiền. **Thanh giữa trên** (mũi tên + "Đi đến …" + khoảng cách) CHỈ hiện khi bước cốt truyện có chỗ đến;
@@ -158,7 +178,30 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
 - 8h15 chị Linh nhờ (mingle until.from 8.25).
 - Lỗi của Claude từ 23ab10c: chị Nhi nhận tranh chỉ bỏ tranh A → tranh B nằm mãi trong túi. Đã sửa: bỏ hết tranh đã chở.
 
-### 🧪 Chơi thử chương 1 → 4 (18/10) — góp ý CHỜ chủ game chọn sửa
+### 🧪 Chơi thử chương 1 → 4 (18/10) — ĐÃ SỬA 19/10 theo đề xuất (chủ game duyệt "theo đề xuất hết")
+- Đã sửa:
+  - Đơn cốt truyện (forced): không tính trễ, giao được là 5★; thông báo / thẻ đơn ghi "không giới hạn giờ"; thẻ đơn giao đồ ăn ghi "🎓 Đơn giao thử".
+  - Bị rượt: chạy được bất kể thể lực, chạy không tốn thêm thể lực (game.js walker phys + drain).
+  - Xe bị giữ ở ĐỒN mà thiếu tiền: lấy được xe khác trong hầm ("Lấy … ra chạy (xe kia để lại đồn, chuộc sau)"), xe kia vào gs.impound;
+    chuộc ở đồn (phí + phạt nguội) → xe về hầm. Bãi giữ xe thường không đổi (vẫn lấy hết tiền đang có rồi trả xe).
+  - Kiệt sức lúc bước đang chạy / 12 bước tới có khung giờ / hạn giờ / onlyBefore-After → chỉ nằm energy.collapse.storyHours (2 giờ, sửa ở ⚖️ Cân bằng);
+    cảnh báo "Thể lực / Tinh thần sắp cạn" khi < 15.
+  - Tiền nhà: việc mới 💵 "Nhận tiền" (pay) — chị Linh trả: c3 arrive 50k · c4 nhiTake 150k · thanksOk 60k / thanksLate 40k · arriveTra 40k (sửa ở ?editor).
+  - Chữ: bảo vệ 3 câu đáp riêng (guard.a1/a2, câu láo giữ guard.a) · c3.call.a1/a2 có chữ · "Phần cơm chay Dượng Hai" · GripBike · "2 bức" ·
+    "Bấm Gắn vào" · 🔥 Nóng · "5h chiều qua sân bay…" · tin chị Nhi có 3 nút 📍 (traiCay, nhasach, dichvu3) ·
+    thẻ điều kiện câu thoại [day] [night] [late] [damaged] (content/index.js COND_TAGS): ban đêm không than nắng, không chê "trễ / hư" khi không trễ / hư ·
+    việc mới "Đổi tên hiển thị" (rename): anh Đạt tự giới thiệu → bong bóng ghi "Anh Đạt" (gs.story.names) ·
+    chị bán hoa (people hoaBan, dáng girl) đứng cạnh cửa chợ, nói thay cô bán cá (talk.who — ô "Người nói thay NPC" trong thẻ Nói chuyện).
+  - Giao diện: chương / bước chặn đơn thì không nhắc "Bật nhận đơn" · thanh "Đi đến …" tắt khi cách < 3 đơn vị (~30 m) · dấu trên đạo cụ cùng cỡ ·
+    nút E: "Lên phòng" và "Lấy xe … ra chạy" cái nào gần hơn thì được (bằng nhau → Lên phòng) · xe đạp: câu nhắc đậu xe riêng (chỉ nói chuyện trộm).
+  - Cốt truyện: diveThoi 2 câu tự tắt (câu 2 sau 3 giây), không giữ chờ E · chỗ làm lại khi bị phát hiện → vỉa hè [-7.4, -168] ·
+    "nói / phát tiếng sau … giây" đếm theo vòng lặp game (storyAfter) như cảnh phim, không dùng setTimeout.
+- Chủ game chốt 19/10:
+  - Tiền chị Linh trả trong cốt truyện (việc 💵 Nhận tiền): GIỮ. Tiền thưởng cốt truyện không tính vào cân bằng kinh tế — không cần đo bằng npm run sim.
+  - Nhiệm vụ ví anh Minh: để nguyên (ngẫu nhiên khi chở khách, vẫn ẩn khỏi danh sách mục tiêu).
+  - Nhiệm vụ phụ (dấu ! ? xanh dương, kiếm thêm tiền / đồ — khác chính tuyến dấu vàng): HOÃN, tập trung làm xong cốt truyện trước.
+    Đã phác cách làm: dùng chung bộ chạy bước của cốt truyện, chạy song song, tiến độ riêng từng người, phần thưởng ghi trong dữ liệu (máy chủ kiểm tra được).
+- Ghi chú cũ (để đối chiếu):
 - Quan trọng: 2 đơn hướng dẫn chương 1 vẫn tính trễ hạn (2★, 3★ → sao 4.58 ngay ngày đầu) dù thẻ đơn ghi "không hết hạn"; thông báo nhận đơn lại ghi "Hạn: 56 phút".
 - Quan trọng: đoạn bị rượt rơi vào cuối ngày → thể lực thấp (<8 không chạy được Shift, <15 đi chậm) → gần như chắc chắn bị tóm. Đề xuất: lúc bị rượt cho chạy bất kể thể lực (hoặc hồi thể lực).
 - Quan trọng: xe hãng bị cẩu mà không đủ tiền chuộc → không lấy được xe đạp cũ trong hầm (lấy xe hầm đòi xe đang dùng dựng trong hầm) → không có xe đi sân bay.

@@ -677,3 +677,36 @@ body.cine #cine { display: block; }
 #storyLose button:hover { filter: brightness(1.08); }
 @keyframes loseIn { from { opacity: 0; } to { opacity: 1; } }
 body.cine #hud, body.cine #minimap, body.cine #phoneIcon, body.cine #phoneNote, body.cine #prompt, body.cine #speedo, body.cine #cargo, body.cine #toasts, body.cine #spotlight { visibility: hidden; }
+
+/* Nhóm chat (cốt truyện): dòng hệ thống giữa khung · tên người gửi trên bong bóng · bị chặn (đỏ nhạt) */
+.msg-sys { align-self: center; max-width: 92%; margin: 2px 0; padding: 3px 10px; border-radius: 10px; background: rgba(255,255,255,0.06); color: var(--muted); font-size: 11px; text-align: center; }
+.msg-sys.bad { background: rgba(231,76,60,0.14); color: #f1948a; }
+.bub-as { display: block; margin-bottom: 2px; font-size: 11px; color: #7fb3ff; }
+
+/* 🗺️ Mini game bày trận (ui/ambush.js) */
+.amb { display: flex; flex-direction: column; gap: 8px; }
+.amb-help { margin: 0; color: var(--muted); font-size: 13px; }
+.amb-map { width: 100%; max-height: 52vh; background: #142030; border-radius: 10px; }
+.amb-road { stroke: #4a5a70; stroke-width: 9; stroke-linecap: round; }
+.amb-flood { stroke: #4fa3d1; stroke-width: 11; stroke-linecap: round; stroke-dasharray: 3 7; }
+.amb-path { fill: none; stroke: #f4d03f; stroke-width: 4; stroke-dasharray: 8 6; opacity: 0.9; }
+.amb-path.escape, .amb-path.boxed { stroke: #e74c3c; }
+.amb-path.trap { stroke: #2ecc71; }
+.amb-node circle { fill: #2a3647; stroke: #6b7c93; stroke-width: 2; }
+.amb-node.free { cursor: pointer; }
+.amb-node.free:hover circle { stroke: #f4d03f; fill: #34465e; }
+.amb-node.mine circle { fill: #e67e22; stroke: #ffd29a; }
+.amb-node.fixed circle { fill: #59667a; stroke: #9aa7b8; }
+.amb-node.exit circle { fill: #1e6f43; stroke: #2ecc71; }
+.amb-node.trap circle { fill: #1f5d80; stroke: #4fa3d1; }
+.amb-node.start circle { fill: #6d2a2a; stroke: #e74c3c; }
+.amb-ic { font-size: 14px; text-anchor: middle; pointer-events: none; }
+.amb-label { font-size: 11px; text-anchor: middle; fill: #9fb0c6; pointer-events: none; }
+.amb-label.exit { fill: #58d68d; }
+.amb-label.flood { fill: #7cc3ea; text-anchor: start; }
+.amb-thief { font-size: 18px; pointer-events: none; }
+.amb-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.amb-count { font-weight: 700; }
+.amb-msg { flex: 1; min-width: 160px; font-size: 13px; }
+.amb-msg.good { color: #58d68d; } .amb-msg.bad { color: #f1948a; } .amb-msg.warn { color: #f4d03f; }
+.amb-legend { font-size: 12px; color: var(--muted); }

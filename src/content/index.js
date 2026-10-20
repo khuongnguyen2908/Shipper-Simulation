@@ -33,18 +33,30 @@ export function list(key) {
 }
 
 // Lấy câu thứ i (vòng lại) trong danh sách, có thay tham số (bỏ thẻ đầu câu "[veso] …" nếu có)
-export function pick(key, i = 0, params = {}) {
-  const l = list(key);
-  return fill(untag(l[((i % l.length) + l.length) % l.length]).text, params);
+// Thẻ ĐIỀU KIỆN (khác thẻ vai): câu chỉ nói khi đúng lúc — [day] ban ngày · [night] ban đêm · [late] giao trễ · [damaged] hàng hư / móp.
+// Ghép được với thẻ vai: "[veso,day] Vé số chiều nay xổ…". Người gọi đưa danh sách điều kiện đang đúng (cond); câu có thẻ điều kiện
+// mà điều kiện đó không đúng thì không nói. Không đưa cond → không lọc.
+export const COND_TAGS = ['day', 'night', 'late', 'damaged'];
+const condOk = (tags, cond) => !cond || tags.filter((t) => COND_TAGS.includes(t)).every((t) => cond.includes(t));
+const roleTags = (tags) => tags.filter((t) => !COND_TAGS.includes(t));
+// Câu hợp điều kiện; không còn câu nào → bỏ lọc (thà nói câu chung còn hơn im)
+function condLines(key, cond) {
+  const all = list(key).map(untag);
+  const ok = all.filter((x) => condOk(x.tags, cond));
+  return ok.length ? ok : all;
+}
+export function pick(key, i = 0, params = {}, cond = null) {
+  const l = condLines(key, cond);
+  return fill(l[((i % l.length) + l.length) % l.length].text, params);
 }
 
 // Như pick nhưng chỉ chọn câu hợp với người nói who (sim/people.js personOf): câu có thẻ "[veso] …" chỉ người có vai / tuổi /
 // giới tính trùng thẻ mới nói. Người có câu riêng thì ROLE_SHARE số lần nói câu riêng, còn lại câu chung (không thẻ) —
 // không vậy thì câu chung (nhiều hơn hẳn) lấn hết, vd khách nước ngoài toàn nói tiếng Việt, con nít hỏi giá vàng.
 export const ROLE_SHARE = 0.7;
-export function pickFor(key, who, i = 0, params = {}) {
-  const all = list(key).map(untag);
-  const own = all.filter((x) => x.tags.length && lineFits(x.tags, who)), plain = all.filter((x) => !x.tags.length);
+export function pickFor(key, who, i = 0, params = {}, cond = null) {
+  const all = condLines(key, cond);
+  const own = all.filter((x) => roleTags(x.tags).length && lineFits(roleTags(x.tags), who)), plain = all.filter((x) => !roleTags(x.tags).length);
   const n = ((i % 1000) + 1000) % 1000, roll = ((Math.imul(n + 1, 2654435761) >>> 0) % 1000) / 1000; // cố định theo i
   let l = own.length && (!plain.length || roll < ROLE_SHARE) ? own : plain;
   if (!l.length) l = all;

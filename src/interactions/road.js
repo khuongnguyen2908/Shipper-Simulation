@@ -12,7 +12,7 @@ import { tierLabel } from '../sim/roads.js';
 import { routeDestinations, inService, busRule } from '../sim/bus.js';
 import { fmt, pickFor } from '../content/index.js';
 import { personOf } from '../sim/people.js';
-import { fmtClock, minutesUntil } from '../sim/clock.js';
+import { fmtClock, minutesUntil, isDark } from '../sim/clock.js';
 import { sound } from '../audio.js';
 import { splitPages } from '../ui/modal.js';
 import { dist, say, npc, voice, custVoice, pedVoice } from './common.js';
@@ -320,7 +320,7 @@ export function talkPed(g, ped) {
     g.knownPolice.add(police.id);
     return say(g, ped.name, '🧑', fmt('dlg.pedPolice', { ...pedVoice(g, ped), place: intersectionName(...police.node) }), [{ label: fmt('dlg.thanks') }]);
   }
-  say(g, ped.name, '🧑', pickFor('ped.smallTalk', ped.who || personOf(ped.name), ped.id + Math.floor(g.clockMin / 30), pedVoice(g, ped)));
+  say(g, ped.name, '🧑', pickFor('ped.smallTalk', ped.who || personOf(ped.name), ped.id + Math.floor(g.clockMin / 30), pedVoice(g, ped), [isDark(g.clockMin) ? 'night' : 'day']));
 }
 
 // ======================== CSGT ========================

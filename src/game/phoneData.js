@@ -23,7 +23,7 @@ export class PhoneDataPart {
   // Chuyện đang xảy ra trong game lúc này → tin nóng (sim/feed.js). Danh sách đổi mỗi giờ trong game.
   feedNow() {
     const now = this.clockMin, hz = this.hz, gs = this.gs;
-    const key = `${gs.day}:${Math.floor(tod(now) / 60)}`;
+    const key = `${gs.day}:${Math.floor(tod(now) / 60)}:${(gs.story?.tt || []).length}`; // có tin cốt truyện mới → làm lại
     if (this.feedCache?.key === key) return this.feedCache.feed;
     const mid = (seg) => { const r = segmentRect(seg); return { x: (r.x0 + r.x1) / 2, z: (r.z0 + r.z1) / 2, axis: seg.axis }; };
     const uniq = (arr) => arr.filter((x, i) => arr.findIndex((y) => y.street === x.street) === i);
@@ -45,7 +45,7 @@ export class PhoneDataPart {
       dogThief: recentThieves(now, this.worldSeed).filter((e) => e.street).map((e) => ({ street: e.street, at: { x: e.x, z: e.z, axis: e.side % 2 ? 'x' : 'z' } })),
       me: { name: gs.profile?.name || fmt('profile.defaultName'), orders: gs.stats.completed, stars: gs.rating, day: gs.day },
     };
-    const feed = buildFeed({ facts, places: this.layout.places, seed: gs.day * 97 + Math.floor(tod(now) / 60) });
+    const feed = [...this.storyTtFeed(), ...buildFeed({ facts, places: this.layout.places, seed: gs.day * 97 + Math.floor(tod(now) / 60) })]; // tin cốt truyện nằm đầu
     this.feedCache = { key, feed };
     return feed;
   }
@@ -55,7 +55,11 @@ export class PhoneDataPart {
     const at = post.media.at;
     if (!at) return null;
     let eye, look;
-    if (at.placeId) {
+    if (at.story !== undefined) { // tin cốt truyện: chụp người lạ / chỗ đã định
+      const shot = this.storyTtShot(at.story);
+      if (!shot) return null;
+      ({ eye, look } = shot);
+    } else if (at.placeId) {
       const p = this.layout.placeById[at.placeId];
       if (!p?.door) return null;
       const n = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] }[p.face] || [0, 1];

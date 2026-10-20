@@ -88,7 +88,8 @@
     "collapse": {
       "hours": 6,
       "phys": 40,
-      "mental": 40
+      "mental": 40,
+      "storyHours": 2
     }
   },
   "order": {

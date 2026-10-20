@@ -3,6 +3,7 @@
 // Chỉ để nhìn — dựng bằng khối cơ bản, đầu xe / đầu dốc quay về +z.
 // =============================================================
 import * as THREE from 'three';
+import { makeBike } from './models.js';
 
 const mats = new Map();
 const mat = (color, opts = {}) => {
@@ -133,4 +134,27 @@ export function makeBouquet() {
     l.rotation.z = i * 1.6;
   }
   return g;
+}
+
+// Nước ngập (cảnh phim, chỉ máy người chơi này thấy): mặt nước đục, hơi trong, gợn nhẹ — đặt dọc đoạn đường (w ngang, l dọc)
+export function makeWater({ w = 9, l = 30, depth = 0.45 } = {}) {
+  const g = new THREE.Group();
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, depth, l), new THREE.MeshStandardMaterial({ color: 0x6f969e, emissive: 0x16323a, transparent: true, opacity: 0.8, roughness: 0.08, metalness: 0.2, depthWrite: false }));
+  m.position.y = depth / 2 - 0.02;
+  m.renderOrder = 2;
+  g.add(m);
+  // vệt sáng gợn nước
+  const hi = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.9, l * 0.95, 1, 1), new THREE.MeshBasicMaterial({ color: 0xcfe4ea, transparent: true, opacity: 0.18, depthWrite: false }));
+  hi.rotation.x = -Math.PI / 2;
+  hi.position.y = depth + 0.01;
+  g.add(hi);
+  g.userData.water = { hi };
+  return g;
+}
+// Mô tô anh Đạt dựng chân chống (không người ngồi) — dùng lại đúng mẫu xe sport bike đen sọc xanh lá
+export function makeParkedBigBike() {
+  const b = makeBike(0x15171c, 'supersport');
+  b.userData.bagMesh && (b.userData.bagMesh.visible = false);
+  b.rotation.z = 0.12; // nghiêng chân chống
+  return b;
 }

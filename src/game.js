@@ -19,7 +19,7 @@ import { GameState, START_VEHICLE } from './sim/GameState.js';
 import { OrderManager, S } from './sim/OrderManager.js';
 import { HazardManager } from './sim/hazards.js';
 import { floodBand, floodSpeedCap, floodNum, nearestSegId } from './sim/flood.js';
-import { storyEvent } from './sim/story.js';
+import { storyEvent, STORY } from './sim/story.js';
 import { buildCity } from './world/city.js';
 import { Bike, Walker, CameraRig, lerpAngle } from './world/controllers.js';
 import { Traffic } from './world/traffic.js';
@@ -143,6 +143,7 @@ export class Game {
       refresh: () => this.renderPhone(),
       action: (a, ds) => act.phoneAction(this, a, ds),
       snap: (post) => this.snapPhoto(post), // app Tích Tắc: chụp ảnh trong thế giới 3D cho tin "photo"
+      ttSeen: (post) => this.storyTtSeen(post), // lướt tới tin Tích Tắc của cốt truyện
     });
     this.screens = new Screens(uiRoot);
 
@@ -808,7 +809,7 @@ export class Game {
         if (!this.cine?.ride) for (const h of this.traffic.collidePlayer(bike.pos, 0.75, bike.vel, true, bike.mesh.position.y)) this.onTrafficHit(h, env); // xe tự chạy trong cảnh phim: không va chạm
       } else {
         // đang nói chuyện với người lạ (cốt truyện): đứng yên tới khi nói xong (phím đi bị bỏ qua; đồng hồ vẫn chạy)
-        activity = this.walker.update(dt, this.storyTalkActor() || this.cine || this.tackle || this.storyLose ? NO_MOVE : inp.state, this.rig.yaw, { grid: this.city.grid, elev: this.city.elev, phys: gs.phys, speedMul: floodBand(water) >= 2 ? floodNum('walkMul') : 1 });
+        activity = this.walker.update(dt, this.storyTalkActor() || this.cine || this.tackle || this.storyLose ? NO_MOVE : inp.state, this.rig.yaw, { grid: this.city.grid, elev: this.city.elev, phys: this.pursue && this.pursue.phase !== 'lost' ? 100 : gs.phys, speedMul: floodBand(water) >= 2 ? floodNum('walkMul') : 1 }); // đang bị rượt: chạy được bất kể thể lực
         const talk = this.storyTalkActor(); // đang nói chuyện với người lạ, đứng yên → quay mặt về phía người đó
         if (talk && activity === 'idle' && !this.walker.seat) {
           const m = talk.mesh.position, w = this.walker.pos;
@@ -833,6 +834,7 @@ export class Game {
     this.ticketTick();
     this.airportTick(mounted ? speed : 0);
     this.roadTick(mounted);
+    if (this.pursue && this.pursue.phase !== 'lost' && activity === 'run') activity = 'walk'; // bị rượt: chạy không tốn thêm thể lực (không ngất giữa đường)
     gs.drain(activity, dMin, { harshSun: hz.isHarshSun(now), raining: !!rain, outdoor: true, inJam: this.inJam, waiting: false, now: this.clockMin });
     // ngồi ghế (quán, công viên, trạm xe buýt): tinh thần hồi chậm, tới mức tối đa thì thôi (thẻ ⚖️ Cân bằng → energy.seat)
     const seatK = ENERGY.seat || {};
@@ -921,8 +923,21 @@ export class Game {
   }
 
   // Thua (bị đuổi / khóa tài khoản) · sự kiện tiền nhà · kiệt sức
+  // Bước cốt truyện đang chạy hoặc vài bước tới có hẹn giờ (chờ khung giờ, hạn giờ, chỉ chạy trước / từ giờ …)
+  storyTimedSoon() {
+    const s = this.gs?.story, ch = s?.ch ? STORY.chapters.find((c) => c.id === s.ch) : null;
+    if (!ch) return false;
+    return ch.steps.slice(Math.max(0, s.step), Math.max(0, s.step) + 12).some((x) => x.until?.type === 'clock' || x.deadline || x.onlyBefore != null || x.onlyAfter != null);
+  }
+  // Cảnh báo sớm trước khi kiệt sức (thể lực / tinh thần thấp) — mỗi loại tối đa 1 lần / 3 phút thật
+  lowStatWarn() {
+    const gs = this.gs;
+    if (gs.phys < 15) this.toastOnce('lowPhys', fmt('toast.lowPhys'), 'warn', 180);
+    if (gs.mental < 15) this.toastOnce('lowMental', fmt('toast.lowMental'), 'warn', 180);
+  }
   checkEnd() {
     const gs = this.gs;
+    this.lowStatWarn();
     const o = gs.checkEnd(this.clockMin);
     for (const e of gs.takeEvents()) this.onRentEvent(e);
     if (o) return this.endGame(o);
@@ -947,7 +962,9 @@ export class Game {
     om.goOffline();
     this.clearTempNpcs();
     this.placeAtHome();
-    this.advance(ENERGY.collapse.hours * 60, 'rest', { indoor: true, waiting: false, quiet: true });
+    // sắp có hẹn giờ trong cốt truyện (khung giờ / hạn giờ) → chỉ nằm ít hơn (energy.collapse.storyHours) cho khỏi lỡ hẹn. Đồng hồ chung vẫn chạy.
+    const hours = this.storyTimedSoon() ? ENERGY.collapse.storyHours ?? 2 : ENERGY.collapse.hours;
+    this.advance(hours * 60, 'rest', { indoor: true, waiting: false, quiet: true });
     if (this.state !== 'play') return;
     const r = gs.recoverCollapse(kind);
     gs.wake(this.clockMin);
@@ -956,7 +973,7 @@ export class Game {
     this.modal.show({
       speaker: fmt('npc.home.name'),
       portrait: '🏥',
-      text: fmt(kind === 'faint' ? 'dlg.faint' : 'dlg.burnout', { hours: ENERGY.collapse.hours, fee: fmtK(r.fee), time: fmtTime(this.clockMin) }),
+      text: fmt(kind === 'faint' ? 'dlg.faint' : 'dlg.burnout', { hours, fee: fmtK(r.fee), time: fmtTime(this.clockMin) }),
       choices: [{ label: fmt('dlg.ok'), primary: true }],
     });
   }

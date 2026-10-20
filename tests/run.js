@@ -535,6 +535,38 @@ console.log('Đồ dùng, hoạt động, điểm đến (luật bằng dữ li�
     gs.applyReceipt(r);
     assert.equal(gs.stats.refused, 0);
   });
+  test('Đơn cốt truyện (forced): giao trễ bao lâu cũng không trừ sao — luôn 5★; đơn thường trễ vẫn bị trừ', () => {
+    const run = (forced) => {
+      const { om } = mkOM(11, { carry: { money: 500, flags: { wallet: 5 } } });
+      om.goOnline();
+      om.offer = om.makeRide({ x: 0, z: 0 }, false, 600);
+      if (forced) om.offer.forced = true;
+      om.go(S.OFFERED);
+      om.accept(600);
+      assert.ok(om.boardPassenger(600));
+      assert.equal(om.arriveAtDropoff(600 + om.order.allowedMin * 3), 'ready');
+      return om.handOver(600 + om.order.allowedMin * 3 + 1);
+    };
+    assert.equal(run(true).ev.stars, 5, 'đơn cốt truyện trễ gấp 3 vẫn 5★');
+    assert.ok(run(false).ev.stars < 5, 'đơn thường trễ thì bị trừ');
+  });
+  test('Đơn cốt truyện chở hàng "chấm thật" (strict): giao trễ bị trừ sao như đơn thường; không strict thì 5★', () => {
+    const run = (strict) => {
+      const { om } = mkOM(11, { carry: { money: 500, flags: { wallet: 5 } } });
+      om.goOnline();
+      const o = om.storyParcel({ place: 'benXeBuyt', item: 'thuocBaNam', customer: 'Bà Năm', strict }, { x: 0, z: 0 }, 600);
+      assert.ok(o && o.forced && o.customer === 'Bà Năm' && o.itemIds[0] === 'thuocBaNam' && o.pickup.placeId === 'benXeBuyt');
+      assert.ok(om.forceOffer(o));
+      om.accept(600);
+      om.order.flags.picky = false;
+      const t = 600 + om.order.allowedMin * 3;
+      om.go(S.DELIVERING);
+      assert.equal(om.arriveAtDropoff(t), 'ready');
+      return om.handOver(t + 1);
+    };
+    assert.ok(run(true).ev.stars < 5, 'chấm thật: trễ bị trừ');
+    assert.equal(run(false).ev.stars, 5, 'không chấm thật: 5★');
+  });
   test('Trang phục: đồ giá 0 mặc sẵn; mua rồi phải mặc mới có tác dụng; giữ qua ngày sau', () => {
     const { outfitLook } = goodsMod;
     GOODS.__ao = { id: '__ao', name: 'Áo test', price: 0, type: 'outfit', slot: 'shirt', style: 'long', color: '#111111' };
@@ -3608,6 +3640,22 @@ console.log('Hầm xe nhà trọ: xe để dành, đổi xe');
     assert.ok(gs.sellVehicle('wave').ok);
     assert.ok(gs.buy('vehicles', 'exciter').ok, 'bán bớt rồi mua được');
   });
+  test('Xe bị giữ ở đồn mà thiếu tiền: lấy được xe đạp trong hầm, xe kia ở lại đồn; đủ tiền chuộc → xe về hầm', () => {
+    const gs = workerState({ carry: { money: 50 } });
+    gs.towed = { placeId: 'police1', fee: 150 };
+    assert.deepEqual(gs.parkedVehicles, ['xeDap']);
+    const r = gs.leaveTowed('xeDap');
+    assert.ok(r.ok && gs.vehicle === 'xeDap' && !gs.towed, 'lấy xe đạp ra chạy, hết bị kẹt');
+    assert.deepEqual(gs.impound.map((x) => x.id), ['cub'], 'cub nằm ở đồn');
+    assert.deepEqual(gs.parkedVehicles, [], 'cub không nằm trong hầm (không lấy lậu được)');
+    assert.ok(!gs.canSell('cub') && !gs.swapVehicle('cub').ok, 'xe ở đồn: không bán, không lấy ra được');
+    assert.ok(!gs.redeemImpound(0).ok && gs.money === 50, 'thiếu tiền: chưa chuộc, không mất tiền');
+    gs.money = 500;
+    const q = gs.redeemImpound(0);
+    assert.ok(q.ok && gs.money === 350 && !gs.impound.length, 'chuộc xong');
+    assert.deepEqual(gs.parkedVehicles, ['cub'], 'cub về hầm');
+    assert.deepEqual(new GameState({ carry: gs.carryOver?.() ?? gs.toSave?.() ?? {} }).impound ?? [], [], 'lưu được');
+  });
   test('Vào hãng khi hầm đầy: chưa vào được (không mất cọc); đủ chỗ thì xe đang dùng về hầm', () => {
     const full = new GameState({ day: 1, carry: { money: 5000, vehicle: 'wave', owned: { vehicles: ['xeDap', 'cub', 'wave', 'scooter'], bags: ['nylon'], gear: [] }, flags: { story: 2 } } });
     const m = full.money, before = full.brand, r = full.joinBrand('hongsm');
@@ -3984,6 +4032,7 @@ console.log('Cốt truyện (story.json) + tin nhắn');
   const { STORY, stepOf, storyTick, beginChapter, storyEvent, wearsBrandKit, actorsPresent, storyPick, leaning, inChapter, titleNext } = await import('../src/sim/story.js');
   const { personOf: personOfS } = await import('../src/sim/people.js');
   const { finishChapter: finishChapterS, dueAt } = await import('../src/sim/story.js');
+  const AMB5 = await import('../src/sim/ambush.js'); // mini game bày trận (chương 5)
   const { validateStory } = await import('../src/data/validate.js');
   // chạy bộ chạy cốt truyện tới khi đứng ở bước có mã id (tối đa n lần), ctx giả lập việc người chơi làm
   const runTo = (gs, id, ctx, acts = [], n = 200) => {
@@ -4176,6 +4225,71 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     storyTick(gs, 1, ctx);
     assert.equal(gs.story.ch, 'c2');
     assert.ok(objectives(gs).some((x) => x.id === 'orders'), 'hết chương 1 → mục tiêu giao 10 đơn');
+  });
+  test('Chương 5 "Hội nhóm shipper": Linh hỏi → gọi anh Đạt → Tích Tắc thấy xe → nhắn Tí Sún → 9h gầm cầu → đòi 100 triệu, bị nhận ra, đuổi về → Dượng Hai → chú Tư → chở thuốc (chấm thật) → vào nhóm → bày trận → đêm ngập → tiệm trà → hết chương', () => {
+    const A = AMB5, L = CITYLAYOUT;
+    const gs = new GameState({ carry: { flags: { story: 2 } } });
+    Object.assign(gs.story, { ch: 'c5', step: 0, fired: false, waited: 0, ev: {}, done: ['c1', 'c2', 'c3', 'c4'] });
+    let now = 7 * 60, closeTo = false, awayOk = false;
+    const ctx = () => ({ now, actorNear: () => closeTo, awayFrom: () => awayOk, near: () => false, threadOpen: () => false });
+    const acts = [];
+    const tick = (n = 1) => { for (let i = 0; i < n; i++) { acts.push(...storyTick(gs, 1, ctx())); now += 1; } };
+    const sid = () => stepOf(gs.story)?.id;
+    const run = (id, fn) => { for (let k = 0; k < 40 && sid() !== id; k++) { fn?.(stepOf(gs.story)); tick(1); } return sid(); };
+    const auto = (st) => {
+      const u = st?.until || {};
+      if (u.type === 'reply') storyEvent(gs.story, `reply:${u.who}`);
+      if (u.type === 'read') gs.story.ev.read = true, gs.inbox.threads[u.who] = { msgs: [{}], unread: 0 };
+      if (u.type === 'talkActor') storyEvent(gs.story, `actor:${u.who}`);
+      if (u.type === 'chosen') storyPick(gs.story, u.id, 0);
+    };
+    tick(2); gs.day += 1; tick(4);
+    assert.equal(run('ttNews', auto), 'ttNews');
+    tick(1); // bước vừa tới: chạy việc của bước
+    const post = acts.find((a) => a.do === 'ttPost');
+    assert.ok(post && post.photo.actor === 'tiSun' && acts.some((a) => a.do === 'actor' && a.who === 'tiSun' && a.vehicle === 'moto'), 'tin Tích Tắc chụp Tí Sún + xe anh Đạt');
+    tick(5);
+    assert.equal(sid(), 'ttNews', 'chưa lướt tới tin thì chưa qua');
+    gs.story.ttSeen = ['tiSunXe']; tick(2);
+    assert.equal(run('waitMeet', auto), 'waitMeet');
+    tick(10);
+    assert.equal(sid(), 'waitMeet', 'chờ 9h tối');
+    now = Math.floor(now / 1440) * 1440 + 21 * 60; tick(2);
+    closeTo = true;
+    assert.equal(run('leave', auto), 'leave');
+    tick(1);
+    assert.ok(acts.some((a) => a.do === 'react' && a.who.includes('thug1')), 'đàn em nhận ra người chơi');
+    tick(5);
+    assert.equal(sid(), 'leave', 'còn đứng gần thì chưa qua');
+    awayOk = true; tick(2);
+    assert.equal(run('med', auto), 'med');
+    tick(1);
+    const off = acts.find((a) => a.do === 'offer');
+    assert.ok(off.kind === 'parcel' && off.strict && off.minStars === 4, 'cuốc thử thách chấm điểm thật');
+    assert.ok(acts.some((a) => a.do === 'block' && a.who === 'tiSun'), 'Tí Sún chặn tin nhắn');
+    storyEvent(gs.story, 'delivered'); tick(2);
+    assert.equal(sid(), 'joined');
+    assert.ok(acts.some((a) => a.do === 'title'), 'vào nhóm mới hiện tên chương');
+    assert.equal(run('plan', auto), 'plan');
+    tick(1);
+    const am = acts.find((a) => a.do === 'ambush');
+    const nb = (i, j) => L.neighbors(i, j);
+    assert.equal(A.ambushSolutions(am, nb).length, 2, 'bày trận: đúng 2 lời giải');
+    assert.equal(A.ambushSolutions(am, nb, 2).length, 0, '2 chốt không đủ');
+    assert.equal(A.ambushRun(am, new Set(['0,8', '2,10', '3,8', '4,9', '4,10']), nb).result, 'trap');
+    assert.equal(A.ambushRun(am, new Set(['0,8', '2,10']), nb).result, 'escape');
+    tick(5);
+    assert.equal(sid(), 'plan', 'chưa bày xong');
+    storyEvent(gs.story, 'ambushed'); tick(2);
+    assert.equal(run('waitNight', auto), 'waitNight');
+    now = Math.floor(now / 1440) * 1440 + 22.5 * 60; tick(2);
+    assert.equal(run('night', auto), 'night');
+    tick(1);
+    const ch = acts.find((a) => a.do === 'chase' && a.who === 'tiSun');
+    assert.ok(ch.route.some((r) => r.act === 'stall'), 'xe Tí Sún chết máy giữa nước');
+    assert.ok(acts.some((a) => a.do === 'prop' && a.kind === 'water'), 'nước ngập chỉ là đạo cụ (không ngập cả thành phố)');
+    storyEvent(gs.story, 'cineDone'); tick(2);
+    assert.equal(run('done', (st) => { auto(st); if (st?.until?.type === 'cine') storyEvent(gs.story, 'cineDone'); if (st?.until?.type === 'arrive') gs.story.ev.__ = 1; }), 'toTea');
   });
   test('Chương 3 "Xui xẻo": Dượng Hai nhắn → ngủ qua ngày → chị Linh nhắc → 8h chị ra tiệm → quá 9h thất bại, mai 8h nhận lại → tới trường → chị Nhi, anh Hoàng → cảnh phim cướp → dí tên cướp (không phạt) → qua nửa cầu 2 → cảnh phim dí lớn (anh mô tô) → xuống xe → vật ngã (nút E) → gọi 113 → xe công an → màn đen → tháo nón, "Hi!" → làm quen anh Đạt → chạy đi → tin nhắn → hết chương', () => {
     const gs = new GameState({ carry: { flags: { story: 2 } } });
@@ -5110,6 +5224,17 @@ console.log('Xưng hô theo người nói');
     assert.equal(personOf('[khung] Thằng khùng').age, 'young');
     assert.equal(personOf('Thằng nhóc bán kẹo').age, 'kid');
     assert.ok(personOf('Sinh viên').guessed && !personOf('Anh sinh viên').guessed && !personOf('[f] Sinh viên').guessed);
+  });
+  test('Thẻ điều kiện: [day] không nói ban đêm · [late,damaged] chỉ khi vừa trễ vừa hư; không thẻ vai nên không lấn câu riêng', () => {
+    const hs = personOf('Cậu học sinh');
+    const night = Array.from({ length: 300 }, (_, i) => pickFor('bubble.ped', hs, i, pronouns(hs, 'm'), ['night']));
+    assert.ok(!night.some((s) => /nắng quá|Nóng quá trời/i.test(s)), 'ban đêm không than nắng');
+    const day = Array.from({ length: 300 }, (_, i) => pickFor('bubble.ped', hs, i, pronouns(hs, 'm'), ['day']));
+    assert.ok(day.some((s) => /nắng quá|Nóng quá trời/i.test(s)), 'ban ngày vẫn có');
+    const c2 = (cond) => Array.from({ length: 20 }, (_, i) => CONTENT.pick('comment.2', i, { ban: 'em' }, cond));
+    assert.ok(!c2([]).some((s) => /trễ mà đồ còn hư/.test(s)), 'đúng giờ + hàng nguyên: không chê trễ / hư');
+    assert.ok(c2(['late', 'damaged']).some((s) => /trễ mà đồ còn hư/.test(s)));
+    assert.ok(Array.from({ length: 20 }, (_, i) => CONTENT.pick('comment.2', i, { ban: 'em' })).every((s) => !/^\[/.test(s)), 'không bỏ sót thẻ ra chữ');
   });
   test('Câu gắn thẻ vai chỉ người đúng vai nói ("[veso] Mua vé số…"); tên người đi đường bỏ thẻ khi hiện', () => {
     const veso = personOf('[veso] Cô bán vé số'), hs = personOf('Cậu học sinh');

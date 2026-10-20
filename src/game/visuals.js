@@ -359,7 +359,7 @@ export class VisualsPart {
       sprite.visible = !!host && talkingMesh !== host; // đang nói chuyện với chính người đó → tạm ẩn dấu
       if (!sprite.visible) return;
       if (sprite.parent !== host) host.add(sprite);
-      sprite.scale.setScalar(k.prop ? 0.5 : 0.75); // dấu trên đạo cụ nhỏ hơn (khỏi che người phía sau)
+      sprite.scale.setScalar(0.75 / (host.scale.x || 1)); // cùng cỡ mọi nơi (đạo cụ thu nhỏ thì bù lại, không bị teo theo)
       sprite.scale.z = 1;
       const tex = this.questTex[k.icon] || this.questTex['!'];
       if (sprite.material.map !== tex) { sprite.material.map = tex; sprite.material.needsUpdate = true; }
@@ -442,7 +442,7 @@ export class VisualsPart {
     }
     // thanh giữa trên: mũi tên + "Đi đến …" + khoảng cách — CHỈ khi cốt truyện chỉ đường (bước có chỗ đến)
     let goal = null;
-    if (tgt?.storyNav && hasPos) {
+    if (tgt?.storyNav && hasPos && dist2(pp, tgt) >= 3) { // đứng sát chỗ cần tới (< 3 đơn vị ≈ 30 m màn hình) → tắt thanh "Đi đến …"
       const d = dist2(pp, tgt);
       const fx = -Math.sin(this.rig.yaw), fz = -Math.cos(this.rig.yaw);
       const tx = (tgt.x - pp.x) / (d || 1), tz = (tgt.z - pp.z) / (d || 1);
@@ -495,7 +495,7 @@ export class VisualsPart {
         ? fmt('hud.speed', { kmh: Math.round(Math.abs(this.bike.speed) * 3.6) }) + (Math.abs(this.bike.speed) > this.speedLimit() ? fmt('hud.overSpeed', { limit: this.speedLimitKmh() }) : '') + (this.inJam ? fmt('hud.inJam') : '') + (this.floodBandNow ? fmt('hud.flood', { kmh: Math.round(floodSpeedCap(this.floodHere()) * 3.6) }) : '') + (this.stalled ? fmt('hud.stalled') : '') + (gs.power !== 'pedal' && gs.fuel <= 0 ? fmt(gs.power === 'electric' ? 'hud.noBattery' : 'hud.noFuel') : '')
         : fmt('hud.walking'),
       cargo,
-      timeLeft: left >= 0 ? fmt('hud.minutes', { min: left }) : fmt('hud.late', { min: -left }),
+      timeLeft: o?.forced ? fmt('hud.noLimit') : left >= 0 ? fmt('hud.minutes', { min: left }) : fmt('hud.late', { min: -left }), // đơn cốt truyện: không hạn
       vignette: Math.max(0, (25 - Math.min(gs.phys, gs.mental)) / 25) * 0.8,
       round: roundMapData(this, tgt, dt), // bản đồ tròn góc màn hình
     });

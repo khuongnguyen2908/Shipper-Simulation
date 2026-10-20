@@ -125,7 +125,7 @@ export class NavigationPart {
           if (ch) return { ...(ch.chargeSpot || ch.door), text: fmt('goal.charge'), sub: fmt('goal.chargeHint'), color: '#5dade2' };
         } else if (gs.power === 'gas') return { ...P.gas.door, text: fmt('goal.fuel'), sub: fmt('goal.fuelHint'), color: '#5dade2' };
       }
-      if (ob.id === 'online') return { text: fmt('goal.online'), sub: '' };
+      if (ob.id === 'online' && !om.hold) return { text: fmt('goal.online'), sub: '' }; // cốt truyện đang chặn đơn thường → không nhắc bật nhận đơn
       // nhắc về trả tiền nhà chỉ vào NGÀY hạn trả (đủ tiền từ sớm thì cứ chạy đơn, không bị kéo về nhà sau khi đổ xăng / sạc)
       if (ob.id === 'rent' && gs.money >= gs.rent && gs.day >= gs.rentDueDay) return { ...P.home.door, text: fmt('goal.rent', { rent: gs.rent, day: gs.rentDueDay }), sub: fmt('goal.rentHint'), color: '#e74c3c' };
     }
@@ -136,6 +136,7 @@ export class NavigationPart {
     // đã vào hãng nhưng đang đi xe không đúng loại (xe đạp / xe xăng ↔ xe điện) → nhắc đổi xe
     if (gs.workBlock() === 'noUniform') return { text: fmt('goal.noUniform', { brand: gs.brandSpec.name }), sub: fmt('goal.noUniformHint') };
     if (gs.workBlock() === 'wrongVehicle') return { text: fmt('goal.wrongVehicle', { brand: gs.brandSpec.name, kind: fmt(`power.${gs.brandSpec.power}`) }), sub: fmt('goal.wrongVehicleHint') };
+    if (om.hold) return null; // trong chương / bước cốt truyện chặn đơn thường: không nhắc bật nhận đơn / chờ đơn
     if (om.state === S.OFFLINE) return { text: fmt('goal.online'), sub: '' };
     if (!gs.rentPaid && gs.money < gs.rent) return { text: fmt('goal.waiting', { k: Math.ceil(gs.rent - gs.money), day: gs.rentDueDay }), sub: fmt('goal.waitingHint') };
     return null;

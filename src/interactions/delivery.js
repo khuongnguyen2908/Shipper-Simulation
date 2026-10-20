@@ -313,7 +313,7 @@ export function showReceipt(g, receipt) {
   const ride = o.kind === 'ride'; // chở khách: chấm theo mức thoải mái, lời khách kiểu đi xe
   sound(ev.refused || ev.stars <= 2 ? 'order.badStars' : 'order.done');
   const cv = custVoice(g, o);
-  const comment = ev.refused ? fmt('dlg.refusedComment', cv) : receipt.quit ? fmt('dlg.quitComment', cv) : receipt.noPay ? fmt('dlg.noPayComment', cv) : ev.scared ? fmt('dlg.scaredComment', cv) : pick(`comment.${ride ? 'ride.' : ''}${ev.stars}`, o.id, cv);
+  const comment = ev.refused ? fmt('dlg.refusedComment', cv) : receipt.quit ? fmt('dlg.quitComment', cv) : receipt.noPay ? fmt('dlg.noPayComment', cv) : ev.scared ? fmt('dlg.scaredComment', cv) : pick(`comment.${ride ? 'ride.' : ''}${ev.stars}`, o.id, cv, [...(ev.timeRatio > 1 ? ['late'] : []), ...(ev.conditionPct < 90 ? ['damaged'] : [])]); // câu chê trễ / hư chỉ khi đúng là trễ / hư
   const reasons = ev.reasons.map(([k, v]) => `<span class="tag">${fmt(`dmg.${k}`)} −${v.toFixed(0)}%</span>`).join('') || `<span class="tag ok">${fmt(ride ? 'receipt.noDamageRide' : 'receipt.noDamage')}</span>`;
   const pens = ev.penalties.map((p) => `<div class="kv"><span>${p.label}</span><b class="minus">−${p.value} ★</b></div>`).join('');
   const row = (l, v, cls = '') => `<div class="kv ${cls}"><span>${l}</span><b>${v}</b></div>`;

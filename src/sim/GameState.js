@@ -88,6 +88,8 @@ export class GameState {
     // towed = xe bị cẩu về bãi { placeId, fee } — chuộc rồi mới lấy được (lưu qua các lần chơi)
     this.parked = null;
     this.towed = c.towed ?? null;
+    // impound = xe bị giữ ở đồn mà người chơi đã lấy xe khác trong hầm ra chạy: [{ id, placeId, fee }] — chuộc ở đồn xong xe được chở về hầm
+    this.impound = (c.impound || []).map((x) => ({ ...x }));
     // phạt nguội (nộp ở đồn công an): [{ amount, reason, at (lúc bị phạt), dueAt (phút tuyệt đối), overdue }]
     this.fines = (c.fines || []).map((f) => ({ ...f }));
     const tutorialDone = day > 1;
@@ -326,11 +328,35 @@ export class GameState {
   }
   canSell(id) {
     const v = VEHICLES[id];
-    return !!v && this.owned.vehicles.includes(id) && id !== START_VEHICLE && id !== this.companyVehicle && v.power !== 'pedal' && this.sellPrice(id) > 0;
+    return !!v && this.owned.vehicles.includes(id) && id !== START_VEHICLE && id !== this.companyVehicle && v.power !== 'pedal' && this.sellPrice(id) > 0 && !this.impounded(id);
   }
   // Xe đang để trong hầm nhà trọ = mọi xe đang có trừ xe đang dùng (thứ tự = chỗ dựng trong hầm)
   get parkedVehicles() {
-    return this.owned.vehicles.filter((v) => v !== this.vehicle && VEHICLES[v]);
+    return this.owned.vehicles.filter((v) => v !== this.vehicle && VEHICLES[v] && !this.impounded(v)); // xe đang bị giữ ở đồn không nằm trong hầm
+  }
+  impounded(id) {
+    return this.impound.some((x) => x.id === id);
+  }
+  // Xe đang dùng bị giữ ở đồn (không đủ tiền chuộc) → để xe đó lại đồn, lấy xe khác trong hầm ra chạy (không bị kẹt không có xe)
+  leaveTowed(nextId) {
+    if (!this.towed || !this.parkedVehicles.includes(nextId)) return { ok: false, msg: fmt('gs.noSuchItem') };
+    const left = { id: this.vehicle, placeId: this.towed.placeId, fee: this.towed.fee };
+    const r = this.swapVehicle(nextId);
+    if (!r.ok) return r;
+    this.impound.push(left);
+    this.towed = null;
+    return r;
+  }
+  // Chuộc xe để lại đồn (phí giữ + mọi phạt nguội) → xe chở về hầm nhà trọ
+  redeemImpound(i) {
+    const x = this.impound[i];
+    if (!x) return { ok: false, msg: fmt('gs.noSuchItem') };
+    const total = x.fee + this.finesTotal;
+    if (this.money < total) return { ok: false, msg: fmt('toast.redeemShort', { total, need: Math.ceil(total - this.money) }) };
+    this.spend(x.fee, 'tow');
+    const fines = this.payFines() || 0;
+    this.impound.splice(i, 1);
+    return { ok: true, total, fines, msg: fmt('toast.redeemedHome', { name: VEHICLES[x.id]?.name || x.id, total }) };
   }
   garageFull() {
     return this.parkedVehicles.length >= PARK_SLOTS;
@@ -338,7 +364,7 @@ export class GameState {
   // Lấy xe trong hầm ra dùng: xe đang dùng dựng vào đúng chỗ của xe vừa lấy (đổi chỗ trong danh sách)
   swapVehicle(id) {
     const list = this.owned.vehicles, i = list.indexOf(id), j = list.indexOf(this.vehicle);
-    if (i < 0 || id === this.vehicle || !VEHICLES[id]) return { ok: false, msg: fmt('gs.noSuchItem') };
+    if (i < 0 || id === this.vehicle || !VEHICLES[id] || this.impounded(id)) return { ok: false, msg: fmt('gs.noSuchItem') }; // xe đang ở đồn: phải chuộc trước
     if (j >= 0) [list[i], list[j]] = [list[j], list[i]];
     this.vehicle = id;
     return { ok: true, msg: fmt('gs.tookVehicle', { name: VEHICLES[id].name }) };
@@ -924,6 +950,7 @@ export class GameState {
       account: this.account,
       flags: { wallet: this.flags.wallet, walletDay: this.flags.walletDay, walletRetryAt: this.flags.walletRetryAt, story: this.flags.story, tutSkip: this.flags.tutSkip, groupDay: this.flags.groupDay },
       towed: this.towed,
+      impound: this.impound.map((x) => ({ ...x })),
       fines: this.fines.map((f) => ({ ...f })),
       inbox: this.inbox,
       story: this.story,

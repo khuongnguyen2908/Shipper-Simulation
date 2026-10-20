@@ -26,6 +26,15 @@
     "nhi": {
       "icon": "👩",
       "name": "story.contact.nhi"
+    },
+    "tiSun": {
+      "icon": "😎",
+      "name": "story.contact.tiSun"
+    },
+    "hoiShipper": {
+      "icon": "🛵",
+      "name": "story.contact.hoiShipper",
+      "group": true
     }
   },
   "people": {
@@ -100,6 +109,18 @@
     "guest5": {
       "icon": "🙂",
       "name": "story.people.guest"
+    },
+    "hoaBan": {
+      "icon": "💐",
+      "name": "story.people.hoaBan"
+    },
+    "tiSun": {
+      "icon": "😎",
+      "name": "story.people.tiSun"
+    },
+    "chuTu": {
+      "icon": "🧓",
+      "name": "story.people.chuTu"
     }
   },
   "items": {
@@ -107,6 +128,16 @@
       "icon": "📄",
       "name": "story.item.flyer",
       "desc": "story.item.flyerDesc"
+    },
+    "datPhone": {
+      "icon": "📱",
+      "name": "story.item.datPhone",
+      "desc": "story.item.datPhoneDesc"
+    },
+    "keyKho7": {
+      "icon": "🔑",
+      "name": "story.item.keyKho7",
+      "desc": "story.item.keyKho7Desc"
     }
   },
   "parcels": {
@@ -1228,8 +1259,8 @@
                 "story.c2.guard.o3"
               ],
               "answers": [
-                "story.c2.guard.a",
-                "story.c2.guard.a",
+                "story.c2.guard.a1",
+                "story.c2.guard.a2",
                 "story.c2.guard.a"
               ],
               "gains": [
@@ -2039,6 +2070,11 @@
               "who": "nhi",
               "run": true,
               "stop": true
+            },
+            {
+              "do": "pay",
+              "amount": 50,
+              "from": "linh"
             }
           ],
           "guide": null,
@@ -3271,6 +3307,11 @@
               "who": "man",
               "text": "story.c3.dat.name",
               "hold": true
+            },
+            {
+              "do": "rename",
+              "who": "man",
+              "name": "story.people.manKnown"
             }
           ],
           "until": {
@@ -3510,6 +3551,11 @@
               "who": "nhi",
               "text": "story.c4.nhi.take",
               "hold": true
+            },
+            {
+              "do": "pay",
+              "amount": 150,
+              "from": "linh"
             }
           ],
           "until": {
@@ -3645,7 +3691,11 @@
               "do": "msg",
               "from": "nhi",
               "text": "story.c4.nhi.addr",
-              "loc": []
+              "loc": [
+                "traiCay",
+                "nhasach",
+                "dichvu3"
+              ]
             }
           ],
           "until": {
@@ -3808,14 +3858,13 @@
             {
               "do": "bubble",
               "who": "player",
-              "text": "story.c4.b53.bubble",
-              "hold": true
+              "text": "story.c4.b53.bubble"
             },
             {
               "do": "bubble",
               "who": "player",
               "text": "story.c4.diveThoi.bubble",
-              "hold": true
+              "after": 3
             }
           ],
           "guide": null
@@ -4105,8 +4154,8 @@
               "lose": 24,
               "start": 26,
               "retry": [
-                -3,
-                -176
+                -7.4,
+                -168
               ]
             }
           ],
@@ -4640,14 +4689,25 @@
         {
           "id": "flowers",
           "hold": true,
-          "on": [],
+          "on": [
+            {
+              "do": "actor",
+              "who": "hoaBan",
+              "look": "girl",
+              "spot": "place",
+              "place": "choTruyenThong",
+              "dist": 1.5,
+              "lat": 2.5
+            }
+          ],
           "talk": {
             "place": "choTruyenThong",
             "label": "story.c4.flowers.talk",
             "text": "story.c4.flowers.say",
             "pack": [
               "hoa"
-            ]
+            ],
+            "who": "hoaBan"
           },
           "until": {
             "type": "talk",
@@ -4656,7 +4716,7 @@
           "goal": "story.c4.flowers.goal",
           "target": "choTruyenThong",
           "mark": {
-            "place": "choTruyenThong",
+            "actor": "hoaBan",
             "icon": "!"
           },
           "guide": null
@@ -4664,7 +4724,12 @@
         {
           "id": "cake",
           "hold": true,
-          "on": [],
+          "on": [
+            {
+              "do": "remove",
+              "who": "hoaBan"
+            }
+          ],
           "talk": {
             "place": "banh",
             "label": "story.c4.cake.talk",
@@ -4718,6 +4783,11 @@
               "who": "linh",
               "text": "story.c4.linh.thanks",
               "hold": true
+            },
+            {
+              "do": "pay",
+              "amount": 60,
+              "from": "linh"
             }
           ],
           "until": {
@@ -4743,6 +4813,11 @@
               "who": "linh",
               "text": "story.c4.linh.lateErrand",
               "hold": true
+            },
+            {
+              "do": "pay",
+              "amount": 40,
+              "from": "linh"
             }
           ],
           "until": {
@@ -5221,6 +5296,11 @@
               "who": "linh",
               "text": "story.c4.linh.bye",
               "hold": true
+            },
+            {
+              "do": "pay",
+              "amount": 40,
+              "from": "linh"
             }
           ],
           "until": {
@@ -5297,6 +5377,1490 @@
             "type": "none"
           },
           "guide": null
+        }
+      ]
+    },
+    {
+      "id": "c5",
+      "title": "story.c5.title",
+      "name": "story.c5.name",
+      "steps": [
+        {
+          "id": "morning",
+          "until": {
+            "type": "newDay"
+          },
+          "on": [],
+          "guide": null,
+          "goal": "story.c5.morning.goal",
+          "target": "home"
+        },
+        {
+          "id": "linhMsg",
+          "until": {
+            "type": "reply",
+            "who": "linh"
+          },
+          "on": [
+            {
+              "do": "msg",
+              "from": "linh",
+              "text": "story.c5.linh.m1",
+              "loc": []
+            },
+            {
+              "do": "replies",
+              "who": "linh",
+              "texts": [
+                "story.c5.linh.r1",
+                "story.c5.linh.r2",
+                "story.c5.linh.r3"
+              ],
+              "gains": [
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ]
+            }
+          ],
+          "guide": {
+            "type": "reply",
+            "who": "linh"
+          },
+          "delay": 2,
+          "goal": "story.c5.linhMsg.goal"
+        },
+        {
+          "id": "callDat",
+          "until": {
+            "type": "wait",
+            "min": 3
+          },
+          "on": [
+            {
+              "do": "phoneCall",
+              "on": true
+            },
+            {
+              "do": "bubble",
+              "who": "player",
+              "text": "story.c5.call.alo"
+            }
+          ],
+          "guide": null
+        },
+        {
+          "id": "callFail",
+          "until": {
+            "type": "wait",
+            "min": 4
+          },
+          "on": [
+            {
+              "do": "toast",
+              "text": "story.c5.call.fail"
+            },
+            {
+              "do": "phoneCall",
+              "on": false
+            },
+            {
+              "do": "bubble",
+              "who": "player",
+              "text": "story.c5.call.sigh",
+              "after": 1.5
+            }
+          ],
+          "guide": null
+        },
+        {
+          "id": "ttNews",
+          "until": {
+            "type": "ttSeen",
+            "id": "tiSunXe"
+          },
+          "on": [
+            {
+              "do": "actor",
+              "who": "tiSun",
+              "look": "jetjet",
+              "spot": "at",
+              "at": [
+                -113,
+                110.5
+              ],
+              "heading": 90,
+              "vehicle": "moto",
+              "bikeAt": [
+                -115.6,
+                111.4
+              ],
+              "bikeHeading": 90
+            },
+            {
+              "do": "ttPost",
+              "id": "tiSunXe",
+              "who": "tiSun",
+              "author": "story.c5.tt.author",
+              "caption": "story.c5.tt.cap",
+              "music": "story.c5.tt.music",
+              "overlay": "story.c5.tt.overlay",
+              "photo": {
+                "actor": "tiSun"
+              },
+              "likes": 4380,
+              "comments": [
+                "story.c5.tt.c1",
+                "story.c5.tt.c2",
+                "story.c5.tt.c3",
+                "story.c5.tt.c4"
+              ]
+            }
+          ],
+          "guide": {
+            "type": "app",
+            "app": "tictac"
+          },
+          "goal": "story.c5.tt.goal",
+          "hint": "story.c5.tt.hint"
+        },
+        {
+          "id": "seeBike",
+          "until": {
+            "type": "wait",
+            "min": 3
+          },
+          "on": [
+            {
+              "do": "bubble",
+              "who": "player",
+              "text": "story.c5.see"
+            }
+          ],
+          "guide": null
+        },
+        {
+          "id": "dm1",
+          "until": {
+            "type": "reply",
+            "who": "tiSun"
+          },
+          "on": [
+            {
+              "do": "msg",
+              "from": "tiSun",
+              "text": "story.c5.dm.start",
+              "loc": [],
+              "sys": true
+            },
+            {
+              "do": "replies",
+              "who": "tiSun",
+              "texts": [
+                "story.c5.dm.r1",
+                "story.c5.dm.r2",
+                "story.c5.dm.r3"
+              ],
+              "gains": [
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ]
+            }
+          ],
+          "guide": {
+            "type": "reply",
+            "who": "tiSun"
+          },
+          "goal": "story.c5.dm.goal"
+        },
+        {
+          "id": "dm2",
+          "until": {
+            "type": "reply",
+            "who": "tiSun"
+          },
+          "on": [
+            {
+              "do": "msg",
+              "from": "tiSun",
+              "text": "story.c5.dm.a1",
+              "loc": []
+            },
+            {
+              "do": "replies",
+              "who": "tiSun",
+              "texts": [
+                "story.c5.dm.r4",
+                "story.c5.dm.r5",
+                "story.c5.dm.r6"
+              ],
+              "gains": [
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ]
+            }
+          ],
+          "guide": {
+            "type": "reply",
+            "who": "tiSun"
+          },
+          "delay": 1,
+          "goal": "story.c5.dm.goal"
+        },
+        {
+          "id": "dm3",
+          "until": {
+            "type": "reply",
+            "who": "tiSun"
+          },
+          "on": [
+            {
+              "do": "msg",
+              "from": "tiSun",
+              "text": "story.c5.dm.a2",
+              "loc": []
+            },
+            {
+              "do": "replies",
+              "who": "tiSun",
+              "texts": [
+                "story.c5.dm.r7",
+                "story.c5.dm.r8",
+                "story.c5.dm.r9"
+              ],
+              "gains": [
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ]
+            }
+          ],
+          "guide": {
+            "type": "reply",
+            "who": "tiSun"
+          },
+          "delay": 1,
+          "goal": "story.c5.dm.goal"
+        },
+        {
+          "id": "dm4",
+          "until": {
+            "type": "read",
+            "who": "tiSun"
+          },
+          "on": [
+            {
+              "do": "msg",
+              "from": "tiSun",
+              "text": "story.c5.dm.a3",
+              "loc": []
+            }
+          ],
+          "guide": null,
+          "delay": 1
+        },
+        {
+          "id": "waitMeet",
+          "until": {
+            "type": "clock",
+            "from": 20.75,
+            "to": 24
+          },
+          "on": [],
+          "guide": null,
+          "goal": "story.c5.wait.goal",
+          "hint": "story.c5.wait.hint",
+          "target": "actor:tiSun"
+        },
+        {
+          "id": "meet",
+          "until": {
+            "type": "near",
+            "who": "tiSun",
+            "r": 3.2
+          },
+          "on": [
+            {
+              "do": "actor",
+              "who": "thug1",
+              "look": "jetjet",
+              "spot": "at",
+              "at": [
+                -110.5,
+                112
+              ],
+              "heading": 250
+            },
+            {
+              "do": "actor",
+              "who": "thug2",
+              "look": "jetjet",
+              "spot": "at",
+              "at": [
+                -117,
+                109.5
+              ],
+              "heading": 80
+            }
+          ],
+          "guide": null,
+          "hold": true,
+          "goal": "story.c5.meet.goal",
+          "target": "actor:tiSun",
+          "mark": {
+            "actor": "tiSun",
+            "icon": "!"
+          }
+        },
+        {
+          "id": "ask",
+          "until": {
+            "type": "chosen",
+            "id": "c5Ask"
+          },
+          "on": [
+            {
+              "do": "choose",
+              "id": "c5Ask",
+              "who": "tiSun",
+              "options": [
+                "story.c5.ask.o1",
+                "story.c5.ask.o2",
+                "story.c5.ask.o3"
+              ],
+              "answers": [
+                "story.c5.ask.a",
+                "story.c5.ask.a",
+                "story.c5.ask.a"
+              ],
+              "gains": [
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ],
+              "ask": true
+            }
+          ],
+          "guide": null,
+          "hold": true,
+          "talkLabel": "story.c5.meet.label",
+          "goal": "story.c5.meet.goal"
+        },
+        {
+          "id": "raise",
+          "until": {
+            "type": "talkActor",
+            "who": "tiSun"
+          },
+          "on": [
+            {
+              "do": "bubble",
+              "who": "tiSun",
+              "text": "story.c5.raise",
+              "hold": true
+            }
+          ],
+          "guide": null,
+          "hold": true,
+          "delay": 1.5
+        },
+        {
+          "id": "huh",
+          "until": {
+            "type": "chosen",
+            "id": "c5Huh"
+          },
+          "on": [
+            {
+              "do": "choose",
+              "id": "c5Huh",
+              "who": "tiSun",
+              "options": [
+                "story.c5.huh.o1",
+                "story.c5.huh.o2",
+                "story.c5.huh.o3"
+              ],
+              "answers": [
+                "story.c5.huh.a1",
+                "story.c5.huh.a2",
+                "story.c5.huh.a3"
+              ],
+              "gains": [
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ]
+            }
+          ],
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "recognize",
+          "until": {
+            "type": "talkActor",
+            "who": "thug1"
+          },
+          "on": [
+            {
+              "do": "react",
+              "who": [
+                "thug1"
+              ],
+              "icon": "!"
+            },
+            {
+              "do": "bubble",
+              "who": "thug1",
+              "text": "story.c5.thug.know",
+              "hold": true
+            }
+          ],
+          "guide": null,
+          "hold": true,
+          "delay": 1.5
+        },
+        {
+          "id": "threat",
+          "until": {
+            "type": "talkActor",
+            "who": "tiSun"
+          },
+          "on": [
+            {
+              "do": "react",
+              "who": [
+                "tiSun"
+              ],
+              "icon": "!"
+            },
+            {
+              "do": "bubble",
+              "who": "tiSun",
+              "text": "story.c5.threat",
+              "hold": true
+            },
+            {
+              "do": "approach",
+              "who": "thug1",
+              "run": true,
+              "stop": true
+            },
+            {
+              "do": "approach",
+              "who": "thug2",
+              "stop": true
+            }
+          ],
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "leave",
+          "until": {
+            "type": "away",
+            "who": "tiSun",
+            "r": 30
+          },
+          "on": [],
+          "guide": null,
+          "hold": true,
+          "goal": "story.c5.leave.goal",
+          "hint": "story.c5.leave.hint"
+        },
+        {
+          "id": "blocked",
+          "until": {
+            "type": "wait",
+            "min": 3
+          },
+          "on": [
+            {
+              "do": "remove",
+              "who": "thug1"
+            },
+            {
+              "do": "remove",
+              "who": "thug2"
+            },
+            {
+              "do": "remove",
+              "who": "tiSun"
+            },
+            {
+              "do": "block",
+              "who": "tiSun",
+              "after": 1
+            },
+            {
+              "do": "bubble",
+              "who": "player",
+              "text": "story.c5.angry"
+            }
+          ],
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "toDuong",
+          "until": {
+            "type": "talkActor",
+            "who": "place:dichvu4"
+          },
+          "on": [],
+          "guide": null,
+          "hold": true,
+          "goal": "story.c5.duong.goal",
+          "target": "dichvu4",
+          "mark": {
+            "place": "dichvu4",
+            "icon": "!"
+          },
+          "talkLabel": "story.c5.duong.label"
+        },
+        {
+          "id": "duongTell",
+          "until": {
+            "type": "chosen",
+            "id": "c5Duong"
+          },
+          "on": [
+            {
+              "do": "choose",
+              "id": "c5Duong",
+              "who": "place:dichvu4",
+              "options": [
+                "story.c5.duong.o1",
+                "story.c5.duong.o2",
+                "story.c5.duong.o3"
+              ],
+              "answers": [
+                "story.c5.duong.a1",
+                "story.c5.duong.a2",
+                "story.c5.duong.a3"
+              ],
+              "gains": [
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ]
+            }
+          ],
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "duongTip",
+          "until": {
+            "type": "talkActor",
+            "who": "place:dichvu4"
+          },
+          "on": [
+            {
+              "do": "bubble",
+              "who": "place:dichvu4",
+              "text": "story.c5.duong.tip",
+              "hold": true
+            }
+          ],
+          "guide": null,
+          "hold": true,
+          "delay": 1.5
+        },
+        {
+          "id": "toTu",
+          "until": {
+            "type": "talkActor",
+            "who": "chuTu"
+          },
+          "on": [
+            {
+              "do": "actor",
+              "who": "chuTu",
+              "look": "char",
+              "spot": "xeOm",
+              "place": "benXeBuyt"
+            }
+          ],
+          "guide": null,
+          "hold": true,
+          "goal": "story.c5.tu.goal",
+          "target": "actor:chuTu",
+          "mark": {
+            "actor": "chuTu",
+            "icon": "!"
+          },
+          "talkLabel": "story.c5.tu.label"
+        },
+        {
+          "id": "tuTest",
+          "until": {
+            "type": "talkActor",
+            "who": "chuTu"
+          },
+          "on": [
+            {
+              "do": "bubble",
+              "who": "chuTu",
+              "text": "story.c5.tu.l1",
+              "hold": true
+            },
+            {
+              "do": "bubble",
+              "who": "chuTu",
+              "text": "story.c5.tu.l2",
+              "hold": true
+            }
+          ],
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "med",
+          "until": {
+            "type": "order",
+            "stage": "deliver"
+          },
+          "on": [
+            {
+              "do": "offer",
+              "kind": "parcel",
+              "place": "benXeBuyt",
+              "item": "thuocBaNam",
+              "customer": "story.c5.med.customer",
+              "strict": true,
+              "minStars": 4,
+              "failText": "story.c5.med.fail"
+            }
+          ],
+          "guide": {
+            "type": "order"
+          },
+          "hold": true,
+          "goal": "story.c5.med.goal",
+          "hint": "story.c5.med.hint"
+        },
+        {
+          "id": "joined",
+          "until": {
+            "type": "read",
+            "who": "hoiShipper"
+          },
+          "on": [
+            {
+              "do": "title"
+            },
+            {
+              "do": "msg",
+              "from": "hoiShipper",
+              "text": "story.c5.g.added",
+              "loc": [],
+              "sys": true
+            },
+            {
+              "do": "msg",
+              "from": "hoiShipper",
+              "text": "story.c5.g.hi1",
+              "loc": [],
+              "as": "story.c5.g.hung",
+              "after": 1.5
+            },
+            {
+              "do": "msg",
+              "from": "hoiShipper",
+              "text": "story.c5.g.hi2",
+              "loc": [],
+              "as": "story.c5.g.mai",
+              "after": 3
+            },
+            {
+              "do": "msg",
+              "from": "hoiShipper",
+              "text": "story.c5.g.hi3",
+              "loc": [],
+              "as": "story.c5.g.teo",
+              "after": 4.5
+            }
+          ],
+          "guide": {
+            "type": "thread",
+            "who": "hoiShipper"
+          },
+          "hold": true,
+          "delay": 1,
+          "goal": "story.c5.g.goal"
+        },
+        {
+          "id": "tell",
+          "until": {
+            "type": "reply",
+            "who": "hoiShipper"
+          },
+          "on": [
+            {
+              "do": "replies",
+              "who": "hoiShipper",
+              "texts": [
+                "story.c5.g.r1",
+                "story.c5.g.r2",
+                "story.c5.g.r3"
+              ],
+              "gains": [
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ]
+            }
+          ],
+          "guide": {
+            "type": "reply",
+            "who": "hoiShipper"
+          },
+          "hold": true,
+          "goal": "story.c5.g.tellGoal"
+        },
+        {
+          "id": "tips",
+          "until": {
+            "type": "wait",
+            "min": 9
+          },
+          "on": [
+            {
+              "do": "msg",
+              "from": "hoiShipper",
+              "text": "story.c5.g.t1",
+              "loc": [],
+              "as": "story.c5.g.hung",
+              "after": 1.5
+            },
+            {
+              "do": "msg",
+              "from": "hoiShipper",
+              "text": "story.c5.g.t2",
+              "loc": [],
+              "as": "story.c5.g.mai",
+              "after": 3.5
+            },
+            {
+              "do": "msg",
+              "from": "hoiShipper",
+              "text": "story.c5.g.t3",
+              "loc": [],
+              "as": "story.c5.g.tu",
+              "after": 6
+            }
+          ],
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "plan",
+          "until": {
+            "type": "ambushed"
+          },
+          "on": [
+            {
+              "do": "ambush",
+              "title": "story.c5.plan.title",
+              "region": [
+                0,
+                5,
+                8,
+                10
+              ],
+              "start": [
+                3,
+                10
+              ],
+              "trap": [
+                2,
+                8
+              ],
+              "trapTo": [
+                2,
+                7
+              ],
+              "exits": [
+                [
+                  0,
+                  7
+                ],
+                [
+                  3,
+                  7
+                ],
+                [
+                  6,
+                  8
+                ],
+                [
+                  6,
+                  9
+                ],
+                [
+                  6,
+                  10
+                ]
+              ],
+              "fixed": [
+                [
+                  0,
+                  8
+                ],
+                [
+                  2,
+                  10
+                ]
+              ],
+              "blocks": 3
+            }
+          ],
+          "guide": null,
+          "hold": true,
+          "goal": "story.c5.plan.goal"
+        },
+        {
+          "id": "planOk",
+          "until": {
+            "type": "wait",
+            "min": 3
+          },
+          "on": [
+            {
+              "do": "msg",
+              "from": "hoiShipper",
+              "text": "story.c5.g.ok",
+              "loc": [],
+              "as": "story.c5.g.tu",
+              "after": 0.5
+            }
+          ],
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "waitNight",
+          "until": {
+            "type": "clock",
+            "from": 22,
+            "to": 4
+          },
+          "on": [
+            {
+              "do": "remove",
+              "who": "chuTu"
+            },
+            {
+              "do": "actor",
+              "who": "chuTu",
+              "look": "char",
+              "spot": "at",
+              "at": [
+                -146.5,
+                163
+              ],
+              "heading": 270
+            }
+          ],
+          "guide": null,
+          "hold": true,
+          "goal": "story.c5.night.goal",
+          "hint": "story.c5.night.hint",
+          "target": "actor:chuTu"
+        },
+        {
+          "id": "gather",
+          "until": {
+            "type": "near",
+            "who": "chuTu",
+            "r": 4
+          },
+          "on": [],
+          "guide": null,
+          "hold": true,
+          "goal": "story.c5.gather.goal",
+          "target": "actor:chuTu",
+          "mark": {
+            "actor": "chuTu",
+            "icon": "!"
+          }
+        },
+        {
+          "id": "tuGo",
+          "until": {
+            "type": "talkActor",
+            "who": "chuTu"
+          },
+          "on": [
+            {
+              "do": "bubble",
+              "who": "chuTu",
+              "text": "story.c5.tu.go",
+              "hold": true
+            }
+          ],
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "night",
+          "until": {
+            "type": "cine"
+          },
+          "on": [
+            {
+              "do": "prop",
+              "id": "flood1",
+              "kind": "water",
+              "at": [
+                -156,
+                131
+              ],
+              "w": 12,
+              "len": 37,
+              "heading": 0,
+              "depth": 0.45
+            },
+            {
+              "do": "ambushCrew",
+              "per": 2
+            },
+            {
+              "do": "chase",
+              "who": "tiSun",
+              "look": "jetjet",
+              "bike": "supersport",
+              "color": "#15171c",
+              "route": [
+                {
+                  "node": [
+                    3,
+                    10
+                  ]
+                },
+                {
+                  "node": [
+                    3,
+                    9
+                  ],
+                  "mark": "go"
+                },
+                {
+                  "node": [
+                    2,
+                    9
+                  ],
+                  "mark": "turn"
+                },
+                {
+                  "node": [
+                    2,
+                    8
+                  ],
+                  "mark": "trap"
+                },
+                {
+                  "at": [
+                    -156,
+                    146
+                  ],
+                  "mark": "water"
+                },
+                {
+                  "at": [
+                    -156,
+                    132
+                  ],
+                  "act": "stall",
+                  "mark": "stall",
+                  "sound": "city.stall"
+                },
+                {
+                  "at": [
+                    -156,
+                    120
+                  ]
+                }
+              ],
+              "speed": 13,
+              "delay": 1.2,
+              "gap": 20,
+              "revAt": "none"
+            },
+            {
+              "do": "sound",
+              "code": "city.hornCrowd",
+              "after": 1.6
+            },
+            {
+              "do": "cine",
+              "shots": [
+                {
+                  "pos": [
+                    -112,
+                    2.2,
+                    266
+                  ],
+                  "lookAt": "actor:tiSun",
+                  "t": 2.8,
+                  "fov": 55
+                },
+                {
+                  "at": "actor:tiSun",
+                  "t": 7,
+                  "dist": 9,
+                  "height": 3.5,
+                  "angle": 200,
+                  "follow": true,
+                  "until": "tiSun:turn"
+                },
+                {
+                  "pos": [
+                    -149,
+                    2.4,
+                    200
+                  ],
+                  "lookAt": "actor:tiSun",
+                  "t": 6,
+                  "until": "tiSun:water",
+                  "fov": 55
+                },
+                {
+                  "pos": [
+                    -149.5,
+                    1.4,
+                    118
+                  ],
+                  "lookAt": "actor:tiSun",
+                  "t": 6,
+                  "slow": 0.5,
+                  "until": "tiSun:stall",
+                  "fov": 48
+                },
+                {
+                  "pos": [
+                    -149.5,
+                    1.4,
+                    118
+                  ],
+                  "lookAt": "actor:tiSun",
+                  "t": 3,
+                  "fov": 48
+                }
+              ],
+              "endRide": "tiSun"
+            }
+          ],
+          "guide": null,
+          "hold": true,
+          "noFines": true,
+          "music": "music.chase"
+        },
+        {
+          "id": "wade",
+          "until": {
+            "type": "near",
+            "who": "tiSun",
+            "r": 4.5
+          },
+          "on": [],
+          "guide": null,
+          "hold": true,
+          "noFines": true,
+          "music": "music.chase",
+          "goal": "story.c5.wade.goal",
+          "hint": "story.c5.wade.hint",
+          "target": "actor:tiSun",
+          "noBeacon": true,
+          "mark": {
+            "actor": "tiSun",
+            "icon": "dot"
+          }
+        },
+        {
+          "id": "surround",
+          "until": {
+            "type": "wait",
+            "min": 6
+          },
+          "on": [
+            {
+              "do": "prop",
+              "id": "ring0",
+              "kind": "moto",
+              "speed": 7,
+              "keep": true,
+              "route": [
+                {
+                  "at": [
+                    -160.0,
+                    176
+                  ]
+                },
+                {
+                  "at": [
+                    -160.5,
+                    125
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "prop",
+              "id": "ring1",
+              "kind": "moto",
+              "speed": 7,
+              "keep": true,
+              "route": [
+                {
+                  "at": [
+                    -158.5,
+                    176
+                  ]
+                },
+                {
+                  "at": [
+                    -159,
+                    129.5
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "prop",
+              "id": "ring2",
+              "kind": "moto",
+              "speed": 7,
+              "keep": true,
+              "route": [
+                {
+                  "at": [
+                    -154.5,
+                    176
+                  ]
+                },
+                {
+                  "at": [
+                    -155,
+                    131.5
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "prop",
+              "id": "ring3",
+              "kind": "moto",
+              "speed": 7,
+              "keep": true,
+              "route": [
+                {
+                  "at": [
+                    -150.5,
+                    176
+                  ]
+                },
+                {
+                  "at": [
+                    -151,
+                    130
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "prop",
+              "id": "ring4",
+              "kind": "moto",
+              "speed": 7,
+              "keep": true,
+              "route": [
+                {
+                  "at": [
+                    -149.5,
+                    176
+                  ]
+                },
+                {
+                  "at": [
+                    -150,
+                    125.5
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "remove",
+              "who": "chuTu"
+            },
+            {
+              "do": "actor",
+              "who": "chuTu",
+              "look": "char",
+              "spot": "at",
+              "at": [
+                -151.5,
+                133
+              ],
+              "heading": 200
+            },
+            {
+              "do": "react",
+              "who": [
+                "tiSun"
+              ],
+              "icon": "!"
+            },
+            {
+              "do": "bubble",
+              "who": "tiSun",
+              "text": "story.c5.tisun.lose",
+              "after": 1.2
+            },
+            {
+              "do": "leave",
+              "who": "tiSun",
+              "onFoot": true,
+              "after": 3.2
+            }
+          ],
+          "guide": null,
+          "hold": true,
+          "noFines": true
+        },
+        {
+          "id": "tuJoke",
+          "until": {
+            "type": "talkActor",
+            "who": "chuTu"
+          },
+          "on": [
+            {
+              "do": "bubble",
+              "who": "chuTu",
+              "text": "story.c5.tu.joke",
+              "hold": true
+            }
+          ],
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "push",
+          "until": {
+            "type": "wait",
+            "min": 4
+          },
+          "on": [
+            {
+              "do": "fade",
+              "text": "story.c5.push.fade",
+              "t": 2.5,
+              "props": true,
+              "remove": [
+                "tiSun",
+                "chuTu"
+              ]
+            }
+          ],
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "toTea",
+          "until": {
+            "type": "arrive",
+            "place": "tra",
+            "r": 6
+          },
+          "on": [
+            {
+              "do": "prop",
+              "id": "datBike",
+              "kind": "bigbike",
+              "at": [
+                -212.4,
+                70.2
+              ],
+              "heading": 0
+            },
+            {
+              "do": "actor",
+              "who": "linh",
+              "look": "char",
+              "spot": "place",
+              "place": "tra",
+              "dist": 1.5,
+              "lat": -1.5
+            },
+            {
+              "do": "msg",
+              "from": "hoiShipper",
+              "text": "story.c5.g.bike",
+              "loc": [],
+              "as": "story.c5.g.tu",
+              "after": 1
+            }
+          ],
+          "guide": null,
+          "hold": true,
+          "goal": "story.c5.tea.goal",
+          "target": "tra"
+        },
+        {
+          "id": "linhSee",
+          "until": {
+            "type": "talkActor",
+            "who": "linh"
+          },
+          "on": [
+            {
+              "do": "bubble",
+              "who": "linh",
+              "text": "story.c5.linh.see",
+              "hold": true
+            }
+          ],
+          "guide": null,
+          "hold": true,
+          "mark": {
+            "actor": "linh",
+            "icon": "!"
+          }
+        },
+        {
+          "id": "trunk",
+          "until": {
+            "type": "talkActor",
+            "who": "linh"
+          },
+          "on": [
+            {
+              "do": "bubble",
+              "who": "linh",
+              "text": "story.c5.linh.open",
+              "hold": true
+            },
+            {
+              "do": "item",
+              "id": "datPhone"
+            },
+            {
+              "do": "item",
+              "id": "keyKho7"
+            },
+            {
+              "do": "toast",
+              "text": "story.c5.items"
+            }
+          ],
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "kho7",
+          "until": {
+            "type": "talkActor",
+            "who": "linh"
+          },
+          "on": [
+            {
+              "do": "bubble",
+              "who": "linh",
+              "text": "story.c5.linh.kho7",
+              "hold": true
+            }
+          ],
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "done",
+          "until": {
+            "type": "none"
+          },
+          "on": [
+            {
+              "do": "end"
+            }
+          ],
+          "guide": null,
+          "delay": 2
         }
       ]
     }

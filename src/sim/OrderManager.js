@@ -221,6 +221,26 @@ export class OrderManager {
     o.customer = this.plainName(o.id);
     return o;
   }
+  // Đơn cốt truyện CHỞ HÀNG (vd chú Tư nhờ chở thuốc cho bà cụ): lấy ở địa điểm placeId, món itemId (items.json), giao nhà dân gần đó
+  // (hoặc địa điểm to), khách tên customer. strict: chấm điểm thật như đơn thường (trễ / hư bị trừ sao) — game xét đủ sao chưa
+  storyParcel({ place, item, customer = null, to = null, strict = false }, pos, now = 0) {
+    const r = this.layout.placeById?.[place] || this.layout.places.find((p) => p.id === place);
+    if (!r || !ITEMS[item]) return null;
+    const type = ORDER_TYPES.parcel || Object.values(ORDER_TYPES).find((t) => t.kind === 'parcel') || { id: 'parcel', kind: 'parcel', fareMult: 1, deadlineMult: 1 };
+    const pickup = { placeId: r.id, name: r.name, address: r.address || r.name, door: r.door };
+    const tp = to && (this.layout.placeById?.[to] || this.layout.places.find((p) => p.id === to));
+    const dropoff = tp ? { placeId: tp.id, name: tp.name, address: tp.address || tp.name, door: tp.door } : this.pickDropoff(r.door, false, now, null, r.id);
+    const o = this.buildOrder({ type, pickup, dropoff, itemIds: [item], pos, now });
+    Object.assign(o.flags, { noAnswer: false, picky: false, outOfStock: false, liftBroken: false, vague: false, bom: false });
+    o.cod = 0;
+    o.revealed = true;
+    o.zone = null;
+    o.story = 'storyParcel';
+    o.forced = true;
+    o.strict = !!strict;
+    o.customer = customer || this.plainName(o.id);
+    return o;
+  }
   // Tên khách "người bình thường": người lớn / người trẻ, tên Việt (không bé, không cụ già, không tên Tây) — chọn cố định theo mã đơn
   plainName(seed = 0) {
     const ok = CUSTOMER_NAMES.filter((n) => { const w = personOf(n); return (w.age === 'young' || w.age === 'adult') && !/^[a-z][a-z -]*$/i.test(w.name.trim()); });
@@ -811,7 +831,11 @@ export class OrderManager {
     if (!this.canHandOver() || !o) return null;
     const rider = this.riderOf(o);
     const elapsed = now - o.acceptedAt;
-    const ev = evaluateOrder({ items: o.items, elapsedMin: elapsed, allowedMin: o.allowedMin, picky: o.flags.picky, extraPenalty: o.extraPenalty, ride: o.kind === 'ride' });
+    // đơn cốt truyện (forced — hướng dẫn / chở chị Linh…): không tính trễ, giao được là 5★ (không làm tụt sao lúc mới chơi)
+    // strict (đơn cốt truyện thử thách, vd chở thuốc gấp): chấm như đơn thường
+    const easy = o.forced && !o.strict;
+    const ev = evaluateOrder({ items: o.items, elapsedMin: elapsed, allowedMin: easy ? 0 : o.allowedMin, picky: o.flags.picky, extraPenalty: o.extraPenalty, ride: o.kind === 'ride' });
+    if (easy && !ev.refused && !ev.scared) Object.assign(ev, { stars: 5, penalties: [] });
     // khách say có khi quỵt tiền
     const noPay = !ev.refused && !!rider && this.rng.chance(rider.noPayChance || 0);
     const farePct = noPay ? 0 : ev.scared ? ECONOMY.scaredFarePct : 1;

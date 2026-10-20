@@ -9,7 +9,7 @@ import { makeDog, makePerson, makeCar, makeNpcMoto, bikeSeatZ, animatePerson } f
 import { makeRng } from '../sim/rng.js';
 import { storyEvent } from '../sim/story.js';
 import { makeHelmetMesh, HEAD_CENTER_Y } from '../world/person.js';
-import { makeLongTruck, makeRamp, makeEasel, makeBin, makeCan } from '../world/storyProps.js';
+import { makeLongTruck, makeRamp, makeEasel, makeBin, makeCan, makeWater, makeParkedBigBike } from '../world/storyProps.js';
 import { makeCsgtCar, seatRider } from '../world/npcVehicles.js';
 import { lerpAngle } from '../world/controllers.js';
 import { CITY, roadPos } from '../sim/cityLayout.js';
@@ -46,7 +46,9 @@ export class ScenePart {
       : a.kind === 'police' ? makeCsgtCar(fmt('story.policeCar'))
       : a.kind === 'easel' ? makeEasel([...String(a.id)].reduce((h, c) => h + c.charCodeAt(0), 0)) // giá vẽ + tranh (triển lãm)
       : a.kind === 'bin' ? makeBin() // thùng rác (chỗ núp)
-      : a.kind === 'can' ? makeCan() : null;
+      : a.kind === 'can' ? makeCan()
+      : a.kind === 'water' ? makeWater({ w: a.w ?? 9, l: a.len ?? 30, depth: a.depth ?? 0.45 }) // nước ngập chỉ vẽ trên máy mình (không ngập thật cả thành phố)
+      : a.kind === 'bigbike' ? makeParkedBigBike() : null;
     if (!mesh) return;
     const route = (a.route || []).filter((r) => Array.isArray(r?.at)).map((r) => ({ x: r.at[0], z: r.at[1], wait: r.wait || 0, speed: r.speed }));
     const start = route[0] || (Array.isArray(a.at) ? { x: a.at[0], z: a.at[1] } : null);
@@ -90,6 +92,8 @@ export class ScenePart {
         if (a.sound) sound(a.sound);
       }
       p.t += dt;
+      const wv = p.mesh.userData.water; // nước ngập: vệt sáng gợn nhẹ
+      if (wv) wv.hi.material.opacity = 0.16 + 0.07 * Math.sin(p.t * 2.3);
       const lt = p.mesh.userData.lights; // đèn xanh đỏ trên nóc xe công an chớp liên tục
       if (lt) { const on = Math.floor(p.t * 4) % 2 === 0; lt[0].visible = on; lt[1].visible = !on; }
       if (p.cops) this.copsTick(p, dt);
@@ -153,9 +157,12 @@ export class ScenePart {
   }
 
   // ---------- KHÓI LỐP (drift, thắng gấp, té xe) ----------
-  sceneSmoke(x, y, z, n = 3) {
+  // color: màu hạt (mặc định khói xám; nước văng = xanh nhạt)
+  sceneSmoke(x, y, z, n = 3, color = 0xdddddd) {
     this.sceneSmokes ||= [];
-    this.smokeMat ||= new THREE.MeshBasicMaterial({ color: 0xdddddd, transparent: true, opacity: 0.55, depthWrite: false });
+    this.smokeMats ||= new Map();
+    if (!this.smokeMats.has(color)) this.smokeMats.set(color, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.55, depthWrite: false }));
+    this.smokeMat = this.smokeMats.get(color);
     this.smokeGeo ||= new THREE.IcosahedronGeometry(0.35, 0);
     for (let k = 0; k < n && this.sceneSmokes.length < 60; k++) {
       const m = new THREE.Mesh(this.smokeGeo, this.smokeMat.clone());
@@ -206,6 +213,10 @@ export class ScenePart {
       const nx = c.path[Math.min(c.path.length - 1, k + 2)], a1 = Math.atan2(nx.x - p.x, nx.z - p.z);
       c.drift = { t: 0, dir: Math.sign(Math.atan2(Math.sin(a1 - a0), Math.cos(a1 - a0))) || 1 };
       sound('drive.skid');
+    } else if (p.act === 'stall' && !c.stall) { // chạy vào chỗ ngập: máy khục khặc rồi tắt
+      c.stall = { t: 0 };
+      sound('city.stall');
+      this.chaseEngine(ac, false);
     } else if (p.act === 'crash' && !c.crash) {
       c.crash = { t: 0, v: Math.max(4, c.v), h: c.heading ?? 0 };
       if (!p.sound) sound('city.bikeFall'); // điểm có tiếng riêng (vd city.thiefCrash) thì đã phát sớm cho khớp ở chaseSounds
@@ -569,14 +580,19 @@ export class ScenePart {
     el.textContent = a.text ? fmt(a.text) : '';
     el.classList.add('on');
     clearTimeout(this.fadeTimer);
+    const had = Object.keys(this.storyProps || {}); // chỉ dọn đạo cụ đang có lúc bắt đầu mờ (bước sau kịp đặt đạo cụ mới thì giữ)
     this.fadeTimer = setTimeout(() => {
-      this.storyFadeClean(a);
+      this.storyFadeClean(a, false, had);
       this.fadeTimer = setTimeout(() => el.classList.remove('on'), hold * 1000);
     }, 700);
   }
-  storyFadeClean(a, restore = false) {
+  storyFadeClean(a, restore = false, had = null) {
     for (const who of [].concat(a.remove || [])) this.storyActorRemove(who);
-    if (a.props === true) this.storyPropsClear();
+    if (a.props === true && had) {
+      for (const id of had) this.storyPropRemove(id);
+      for (const sm of this.sceneSmokes || []) this.scene.remove(sm.mesh);
+      this.sceneSmokes = [];
+    } else if (a.props === true) this.storyPropsClear();
     else if (Array.isArray(a.props)) for (const id of a.props) this.storyPropRemove(id); // chỉ dọn mấy đạo cụ này
     // tua giờ như lúc ngủ dậy (vd "2 tiếng sau…"): skip phút, hoặc skipTo giờ trong ngày (đang trước giờ đó)
     if (!restore) {

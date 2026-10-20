@@ -36,14 +36,16 @@ export function gatherInteractions(g) {
   if (!foot) out.push({ key: 'F', label: fmt('act.dismount'), dist: 0, disabled: !slow, run: () => dismount(g) });
 
   const E = [];
-  // hầm xe nhà trọ: tới gần xe để dành, bấm E lấy ra chạy (xe đang dùng phải dựng trong hầm, không có đơn, xe không bị giữ)
-  if (foot && g.bikeReady() && !g.gs.towed && !om.order) {
+  // hầm xe nhà trọ: tới gần xe để dành, bấm E lấy ra chạy (xe đang dùng phải dựng trong hầm, không có đơn).
+  // Xe đang dùng bị giữ ở ĐỒN (thiếu tiền chuộc) → vẫn lấy được xe khác, xe kia để lại đồn chờ chuộc (gs.impound)
+  const stuck = g.gs.towed && towedAtStation(g);
+  if (foot && (g.bikeReady() || stuck) && (!g.gs.towed || stuck) && !om.order) {
     const home = g.layout.placeById.home, slots = parkSlots(home);
     g.gs.parkedVehicles.slice(0, slots.length).forEach((id, i) => {
       const d = dist(p, slots[i]);
       if (d > 1.6) return;
-      const name = VEHICLES[id].name, here = g.bikeInGarage();
-      E.push({ label: fmt(here ? 'act.takeVehicle' : 'act.takeVehicleNeedBike', { name }), dist: here ? d - 30 : d, disabled: !here, run: () => takeVehicle(g, id) }); // đứng sát xe: ưu tiên hơn "Lên phòng"
+      const name = VEHICLES[id].name, here = stuck || g.bikeInGarage();
+      E.push({ label: fmt(stuck ? 'act.takeVehicleTowed' : here ? 'act.takeVehicle' : 'act.takeVehicleNeedBike', { name }), dist: d + 0.5, disabled: !here, run: () => (stuck ? takeVehicleTowed(g, id, slots[i]) : takeVehicle(g, id)) }); // cái nào gần hơn thì được nút E; ngang nhau thì "Lên phòng" (cửa) thắng
     });
   }
   const o = om.order;
@@ -147,11 +149,13 @@ function nearestSeat(g, p, r) {
 // story.json → talk { place, label, text, ok, pack (xếp gói hàng vào túi), drop (giao gói hàng), give (tặng đồ) }
 function storyTalk(g, st, pl) {
   const t = st.talk, n = npc(g, pl.id), gs = g.gs;
+  // talk.who: người lạ đang có mặt nói thay NPC của địa điểm (vd chị bán hoa đứng ở chợ)
+  const sp = t.who ? g.speakerOf(t.who) : null;
   // nói bằng bong bóng trên đầu NPC (bấm E sang câu sau); người chơi không tự nói gì
   g.storyConverse({
-    mesh: g.npcs[pl.id] || null,
-    name: n.name,
-    pages: splitPages(fmt(t.text, g.storyVoice(`place:${pl.id}`))),
+    mesh: sp?.mesh || g.npcs[pl.id] || null,
+    name: sp?.name || n.name,
+    pages: splitPages(fmt(t.text, g.storyVoice(sp ? t.who : `place:${pl.id}`))),
     onDone: () => {
       const done = () => storyEvent(gs.story, `talk:${pl.id}`);
       const list = (x) => (Array.isArray(x) ? x : x ? [x] : []);
@@ -218,6 +222,21 @@ function mount(g) {
 // Cốt truyện tự cho người chơi leo lên xe (hết cảnh phim cướp → ngồi sẵn trên xe để đuổi theo) — game.js storyRideAfterCine
 export function mountBike(g) {
   if (g.mode !== 'bike') mount(g);
+}
+
+// Xe đang dùng bị giữ ở đồn: để nó lại đồn (chuộc sau ở đồn, chuộc xong xe về hầm), lấy xe trong hầm ra chạy luôn
+function takeVehicleTowed(g, id, slot) {
+  const r = g.gs.leaveTowed(id);
+  if (!r.ok) return g.hud.toast(r.msg, 'bad');
+  g.bike.setSpec(g.gs.vehicleSpec);
+  g.bike.setBag(g.gs.bagSpec);
+  g.bike.pos.set(slot.x, 0, slot.z); // xe trong hầm (xe kia vẫn ở đồn)
+  g.bike.mesh.position.set(slot.x, g.bike.mesh.position.y, slot.z);
+  g.bike.speed = 0;
+  g.bike.vel?.set(0, 0);
+  g.hud.toast(fmt('toast.leftTowed', { name: VEHICLES[id].name }), 'good', 6000);
+  sound('place.takeVehicle');
+  mount(g);
 }
 
 // Lấy xe trong hầm ra chạy: xe đang dùng dựng vào chỗ xe vừa lấy, rồi leo lên xe mới luôn
@@ -290,6 +309,22 @@ function redeemBike(g, { ride = true } = {}) {
 export function policeChoices(g, pl) {
   const { gs } = g;
   const out = [];
+  // xe để lại đồn (đã lấy xe khác trong hầm ra chạy): chuộc → chở về hầm nhà trọ
+  gs.impound.forEach((x, i) => {
+    if (x.placeId !== pl.id) return;
+    const total = x.fee + gs.finesTotal;
+    out.push({
+      label: fmt('dlg.policeRedeemHome', { name: VEHICLES[x.id]?.name || x.id, total }),
+      hint: gs.money >= total ? fmt('dlg.policeRedeemHint', { fee: x.fee, fines: gs.finesTotal }) : fmt('dlg.policeShort', { need: Math.ceil(total - gs.money) }),
+      disabled: gs.money < total,
+      onSelect: () => {
+        const r = gs.redeemImpound(i);
+        if (!r.ok) return g.hud.toast(r.msg, 'warn', 6000);
+        sound('money.pay');
+        g.hud.toast(r.msg, 'info', 6000);
+      },
+    });
+  });
   if (gs.towed && gs.towed.placeId === pl.id) {
     const total = gs.towed.fee + gs.finesTotal;
     out.push({

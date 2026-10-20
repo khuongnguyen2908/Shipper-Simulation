@@ -7,8 +7,10 @@ import { voiceOf, charOfStory, lookOfChar, chapterNum } from '../data/relations.
 import { ECONOMY, DIST, colorsToNumbers } from '../data/balance.js';
 import { GOODS } from '../data/goods.js';
 import { APP } from '../data/apps.js';
+import { APP_DEFS } from '../data/phoneApps.js';
 import { fmtClock } from '../sim/clock.js';
-import { routeDist, nodePos, navRoute } from '../sim/cityLayout.js';
+import { routeDist, nodePos, navRoute, neighbors } from '../sim/cityLayout.js';
+import { ambushPanel } from '../ui/ambush.js';
 import { makeRng } from '../sim/rng.js';
 import { uniformOf } from '../sim/GameState.js';
 import { S } from '../sim/OrderManager.js';
@@ -72,6 +74,8 @@ export class StoryPart {
       chased: (who) => !!this.storyActors?.[who]?.chase?.done, // tên cướp đã chạy hết lộ trình (người chơi bám theo)
       hiddenAt: (id) => { const b = this.mode === 'foot' && this.walker.crouch && this.storyHideSpot(this.playerPos, 1.4); return !!b && (!id || b.id === id); }, // đang núp sau thùng rác (id: đúng thùng này)
       reachAt: (at, r) => Array.isArray(at) && Math.hypot(this.playerPos.x - at[0], this.playerPos.z - at[1]) < r, // tới chỗ [x, z] (vd giữa cầu)
+      // đi xa người lạ who (hoặc chỗ at) hơn r — người lạ không còn thì coi như xong
+      awayFrom: (u, r) => { const p = u.who ? this.storyActors?.[u.who]?.mesh.position : Array.isArray(u.at) ? { x: u.at[0], z: u.at[1] } : null; return !p || Math.hypot(this.playerPos.x - p.x, this.playerPos.z - p.z) > r; },
       now: this.clockMin, // giờ chung (điều kiện "trong khung giờ")
       switchOn: (w) => this.om.state !== S.OFFLINE && !this.gs.flags[w === 'food' ? 'noFood' : 'noRide'] && (w !== 'ride' || this.gs.effect('passengerSeat')),
     });
@@ -96,6 +100,8 @@ export class StoryPart {
   runStoryActions(acts) {
     const gs = this.gs, ch = chapterOf(gs.story), name = gs.profile.name;
     for (const a of acts) {
+      // "sau … giây" cho mọi việc (tin nhắn nhóm lần lượt…) — đếm theo vòng lặp game như cảnh phim
+      if (a.after > 0 && a.do !== 'bubble' && a.do !== 'sound') { this.storyAfter(a.after, () => this.runStoryActions([{ ...a, after: 0 }])); continue; }
       if (a.do === 'title') this.chapterCard(fmt(ch.title), fmt(ch.name), true); // tự mờ dần sau ~5 giây (bước sau chờ "wait" cho mờ hết)
       else if (a.do === 'openPhone') {
         this.phone.toggle(true);
@@ -107,6 +113,10 @@ export class StoryPart {
         }
       } else if (a.do === 'closePhone') this.phone.toggle(false);
       else if (a.do === 'actor') this.storyActorSpawn(a);
+      else if (a.do === 'ttPost') this.storyTtPost(a); // tin Tích Tắc của cốt truyện
+      else if (a.do === 'block') this.storyBlock(a.who); // người nhắn chặn người chơi
+      else if (a.do === 'ambush') this.storyAmbushOpen(a); // mini game bày trận trên bản đồ
+      else if (a.do === 'ambushCrew') this.storyAmbushCrew(a); // anh em shipper đứng ở các chốt đã bày
       else if (a.do === 'approach') { const ac = this.storyActors?.[a.who]; if (ac) Object.assign(ac, { mode: 'approach', run: !!a.run, stop: !!a.stop, circle: null }); }
       else if (a.do === 'goto') this.storyActorGoto(a);
       else if (a.do === 'react') this.storyReact([].concat(a.who || []), a.icon);
@@ -124,9 +134,9 @@ export class StoryPart {
       else if (a.do === 'sneak') this.storySneakStart(a); // bám theo lén
       else if (a.do === 'pursue') this.storyPursueStart(a); // bị rượt — người chơi tự chạy thoát
       else if (a.do === 'fail') this.storyFail(a);
-      else if (a.do === 'sound' && a.code) { if (a.after > 0) setTimeout(() => sound(a.code), a.after * 1000); else sound(a.code); } // after: phát sau … giây
+      else if (a.do === 'sound' && a.code) { if (a.after > 0) this.storyAfter(a.after, () => sound(a.code)); else sound(a.code); } // after: phát sau … giây (giờ game)
       else if (a.do === 'traffic') this.storyTraffic(a); // giữ vùng vắng xe NPC (cảnh đứng giữa đường lâu) / trả lại
-      else if (a.do === 'leave') this.storyActorLeave(a.who);
+      else if (a.do === 'leave') this.storyActorLeave(a.who, a);
       else if (a.do === 'remove') this.storyActorRemove(a.who);
       else if (a.do === 'board') this.storyActorBoard(a.who);
       else if (a.do === 'alight') this.storyActorAlight(a.who);
@@ -135,14 +145,14 @@ export class StoryPart {
       else if (a.do === 'choose') { if (a.ask) this.storyChooseShow(a); else this.storyEnqueue(() => this.storyChooseShow(a)); }
       else if (a.do === 'bubble') {
         const go = () => this.storyEnqueue(() => this.storyBubble(a.who, a.text, a.hold));
-        if (a.after > 0) setTimeout(go, a.after * 1000); else go(); // after: nói sau … giây (cảnh phim nói lần lượt)
+        if (a.after > 0) this.storyAfter(a.after, go); else go(); // after: nói sau … giây (cảnh phim nói lần lượt)
       }
       else if (a.do === 'say') {
         // hội thoại bằng bong bóng trên đầu người nói: người lạ đang có mặt / NPC ở địa điểm của người trong danh bạ (không có thì trên đầu người chơi)
         const who = STORY.people?.[a.who] || STORY.contacts[a.who] || {};
         const mesh = this.storyActors?.[a.who]?.mesh || (who.place && this.npcs[who.place]) || null;
         this.storyConverse({ mesh, name: fmt(who.name || ''), pages: splitPages(fmt(a.text, this.storyVoice(a.who))) });
-      } else if (a.do === 'msg') this.storyMessage(a.from, { key: a.text, loc: a.loc });
+      } else if (a.do === 'msg') this.storyMessage(a.from, { key: a.text, loc: a.loc, ...(a.as ? { as: a.as } : {}), ...(a.sys ? { sys: true } : {}) }); // nhóm chat: as = tên người gửi · sys = dòng hệ thống (vd "… đã thêm bạn vào nhóm")
       else if (a.do === 'replies') gs.setReplies(a.who, a.texts || [], a.gains);
       else if (a.do === 'item') { if (!gs.story.items.includes(a.id)) gs.story.items.push(a.id); }
       else if (a.do === 'bike') {
@@ -152,6 +162,13 @@ export class StoryPart {
         this.hud.toast(fmt('toast.gotBike'), 'big', 6000);
       } else if (a.do === 'give' && GOODS[a.goods]) gs.consumables[a.goods] = (gs.consumables[a.goods] || 0) + 1;
       else if (a.do === 'toast') this.hud.toast(fmt(a.text, { name }), 'big', 6000);
+      else if (a.do === 'rename' && a.who && a.name) (gs.story.names ||= {})[a.who] = a.name; // tên hiển thị mới (lưu theo bản lưu, giữ qua các chương)
+      else if (a.do === 'pay' && a.amount > 0) { // người quen trả công (chơi nhiều người: máy chủ trả theo bước cốt truyện, mỗi bước 1 lần)
+        gs.earn(a.amount, 'story');
+        sound('money.earn');
+        const who = a.from ? this.speakerOf(a.from)?.name || fmt(STORY.contacts[a.from]?.name || STORY.people?.[a.from]?.name || '') : '';
+        this.hud.toast(a.text ? fmt(a.text, { name, k: a.amount, who }) : fmt(who ? 'story.pay' : 'story.payNoName', { k: a.amount, who }), 'good', 6000);
+      }
       else if (a.do === 'offer') this.storyOffer(a);
       else if (a.do === 'fuel' && gs.power !== 'pedal') gs.fuel = gs.vehicleSpec.tank * Math.max(0, Math.min(100, a.pct ?? 20)) / 100;
       else if (a.do === 'end') {
@@ -232,6 +249,18 @@ export class StoryPart {
       ac.vehicle = bike;
       ac.street = [spot.tx, spot.tz];
     }
+    // đứng đúng tọa độ (spot "at") có xe kèm: xe dựng ở bikeAt [x, z] (bỏ trống = bên phải người 1,6 m), đầu xe theo bikeHeading (độ)
+    if (a.vehicle === 'moto' && spot?.at) {
+      const bike = makeBike(0x15171c, 'supersport');
+      bike.userData.bagMesh.visible = false;
+      const bh = ((a.bikeHeading ?? a.heading ?? 0) * Math.PI) / 180;
+      const [bx, bz] = Array.isArray(a.bikeAt) ? a.bikeAt : [spot.x + Math.cos(spot.heading) * 1.6, spot.z - Math.sin(spot.heading) * 1.6];
+      bike.position.set(bx, (this.city.elev?.topAt(bx, bz) ?? 0) + 0.02, bz);
+      bike.rotation.y = bh;
+      this.scene.add(bike);
+      ac.vehicle = bike;
+      ac.street = [Math.sin(bh), Math.cos(bh)];
+    }
     this.storyActors[a.who] = ac;
   }
   // Chỗ đứng "trước cửa địa điểm": từ cửa đi ra phía đường dist m (≈16,5 m = vỉa hè bên kia đường), lệch dọc đường lat m.
@@ -267,6 +296,7 @@ export class StoryPart {
   }
   // Mở game / chơi mới: xóa người lạ của ván trước, dựng lại người đang có mặt (chỉ kiểu đứng cố định)
   storyActorsRestore() {
+    this.storyLater = []; // câu / tiếng hẹn giờ của cảnh cũ bỏ hết
     for (const who of Object.keys(this.storyActors || {})) this.storyActorRemove(who);
     this.storyPropsClear(); // đạo cụ cảnh phim, khói, mốc lộ trình
     this.storyChoiceClose();
@@ -307,6 +337,9 @@ export class StoryPart {
     if (pu) this.storyPursueStart(pu);
     const sn = s?.fired && !s.ev?.sneaked && (st?.on || []).find((a) => a.do === 'sneak');
     if (sn) this.storySneakStart(sn);
+    // … lúc đang bày trận → mở lại bản đồ bày chốt
+    const am = s?.fired && !s.ev?.ambushed && (st?.on || []).find((a) => a.do === 'ambush');
+    if (am) this.storyAmbushOpen(am);
   }
   // Người nói: 'player' · mã người lạ · 'place:<mã địa điểm>' (NPC đứng ở địa điểm) → { mesh, name, up (độ cao đỉnh đầu) }
   speakerOf(who) {
@@ -320,7 +353,7 @@ export class StoryPart {
       return m ? { mesh: m, name: fmt(p.def.name || 'story.people.cop'), up: 1.95 } : null;
     }
     const ac = this.storyActors?.[who];
-    return ac ? { mesh: ac.seated || ac.mesh, name: fmt(STORY.people?.[who]?.name || ''), up: ac.seated ? 1.6 : 1.95, ac } : null;
+    return ac ? { mesh: ac.seated || ac.mesh, name: fmt(this.gs.story?.names?.[who] || STORY.people?.[who]?.name || ''), up: ac.seated ? 1.6 : 1.95, ac } : null; // tên đổi sau khi tự giới thiệu (việc "rename")
   }
   // Bong bóng kiểu cốt truyện: viền vàng, tên người nói, chữ hiện dần kèm tiếng; hold thì hiện xong có dấu [E] nhấp nháy (giữ tới câu sau)
   storyBubble(who, text, hold = false) {
@@ -911,6 +944,13 @@ export class StoryPart {
         if (lc?.runner && !c.block && (c.blockIn = (c.blockIn ?? 1) - dt) <= 0) { c.block = { t: 0 }; c.v = Math.max(c.v, 8); }
       } else if (this.cine) want = top; // đang chiếu cảnh phim: chạy thẳng, bỏ xa
       else want = Math.min(Math.max(top, cruise) * 1.6, Math.max(cruise, pv + (gap - d) * 0.5 + (d < gap * 0.5 ? 6 : 0))); // tới gần → rồ ga bỏ xa
+      // chết máy giữa nước (act "stall"): khựng lại, nước văng, dừng hẳn, vẫn ngồi trên xe — coi như đã chạy xong
+      if (c.stall) {
+        want = 0;
+        c.stall.t += dt;
+        if (c.v > 0.6 && Math.random() < 0.6) this.sceneSmoke(pos.x, pos.y, pos.z, 1, 0x9fc6d6);
+        if (c.v < 0.15) { c.v = 0; c.done = true; }
+      }
       // tiếng khi chạy tới gần người chơi (vd pô mô tô gầm rồi vụt qua) — mỗi lần xuất hiện phát 1 lần
       if (a.nearSound && !c.nearPlayed && d < (a.nearDist ?? 20)) { c.nearPlayed = true; sound(a.nearSound); }
       // tiếng nẹt pô lúc lướt ngang người chơi (revAt 'pass')
@@ -921,7 +961,7 @@ export class StoryPart {
       }
       // bị bỏ xa quá (lose m trên màn hình) → mất dấu, làm lại từ đầu đoạn dí · gần mốc thì cảnh báo (người đuổi theo / cảnh phim: không)
       const lose = (a.lose ?? 700) / DIST.displayPerUnit;
-      if (!this.cine && !a.follow && !c.done && c.s < c.total) {
+      if (!this.cine && !a.follow && !c.done && !c.stall && c.s < c.total) {
         if (d > lose) return this.storyChaseLose(who, ac);
         if (d > lose * 0.7 && performance.now() - (c.warnAt || 0) > 5000) { c.warnAt = performance.now(); this.hud.toast(fmt('story.chase.warn'), 'warn', 3000); }
       }
@@ -978,7 +1018,7 @@ export class StoryPart {
   chaseEngine(ac, on = true) {
     const a = ac.def, c = ac.chase;
     if (!a?.loop) return;
-    if (!on || !c || !ac.vehicle?.parent || c.crash) return loopSound(a.loop, 0);
+    if (!on || !c || !ac.vehicle?.parent || c.crash || c.stall) return loopSound(a.loop, 0);
     const p = ac.vehicle.position, cam = this.camera.position;
     const d = Math.hypot(p.x - cam.x, p.y - cam.y, p.z - cam.z);
     const level = Math.max(0, Math.min(1, 1 - (d - 6) / 70)) * (c.v > 0.5 ? 1 : 0.35);
@@ -1018,10 +1058,18 @@ export class StoryPart {
     bike.rotation.set(-lift - Math.atan(slope) * (B.air || B.y || A.y ? 1 : 0), c.heading + slide, c.lean, 'YXZ');
   }
 
-  storyActorLeave(who) {
+  // a.onFoot: bỏ xe lại chạy bộ (vd xe chết máy giữa nước) — xe thành đạo cụ "leftBike_<mã>" nằm lại chỗ cũ
+  storyActorLeave(who, a = {}) {
     const ac = this.storyActors?.[who];
     if (!ac) return;
     this.bubbles.remove(`story:${who}`); // nói xong rồi mới đi
+    if (a.onFoot && ac.vehicle) {
+      if (ac.rider) this.storyActorDismount(who);
+      const id = `leftBike_${who}`;
+      this.storyProps ||= {};
+      this.storyProps[id] = { mesh: ac.vehicle, def: { id, kind: 'bigbike' }, route: [], i: 0, v: 0, wait: 0, on: true, done: true, t: 0 };
+      ac.vehicle = null;
+    }
     // có xe đi kèm: đội nón full-face, lên xe, chạy dọc đường rồi biến mất
     if (ac.vehicle) {
       this.scene.remove(ac.mesh);
@@ -1077,7 +1125,90 @@ export class StoryPart {
     if (this.lastSpeaker === who) this.lastSpeaker = null;
   }
   // Mỗi khung hình: đi tới chỗ người chơi, đứng nhìn người chơi / người cùng nói chuyện (def.faceTo), chạy đi, lên xe đi mất, theo người chơi lên xe
+  // ---------- 📱 TIN TÍCH TẮC CỦA CỐT TRUYỆN (việc "ttPost") ----------
+  // a: { id, who (người lạ — tên tác giả), author (khóa chữ, tên tài khoản), caption, music, overlay (khóa chữ), photo: { actor } | { at: [x, z], look: [x, z] },
+  //      likes, comments: [khóa chữ] } — lưu trong tiến độ (gs.story.tt) để mở lại game vẫn còn; nằm đầu danh sách app
+  storyTtPost(a) {
+    const s = this.gs.story;
+    s.tt ||= [];
+    if (!s.tt.some((x) => x.id === a.id)) s.tt.push({ ...a });
+    this.feedCache = null; // làm lại danh sách tin ngay
+  }
+  // Tin Tích Tắc cốt truyện → dạng tin của app (sim/feed.js). Người đã chặn mình thì tin của họ biến mất
+  storyTtFeed() {
+    const s = this.gs.story, blocked = (id) => !!this.gs.inbox.threads[id]?.blocked;
+    return (s?.tt || []).filter((a) => !blocked(a.who)).map((a) => ({
+      id: `story:${a.id}`, story: a.id, hot: false, key: 'story',
+      author: `@${fmt(a.author || 'story.tt.author')}`, caption: a.caption ? fmt(a.caption) : '', music: a.music ? fmt(a.music) : '', overlay: a.overlay ? fmt(a.overlay) : '',
+      media: { type: 'photo', what: 'story', at: { story: a.photo || null } },
+      likes: a.likes ?? 1200, comments: (a.comments || []).length * 37 + 12, cmts: a.comments || [],
+    }));
+  }
+  // Ảnh tin cốt truyện: máy ảnh chĩa vào người lạ (xe đang đi kèm) hoặc nhìn từ chỗ at về chỗ look
+  storyTtShot(ph) {
+    if (ph?.actor) {
+      const ac = this.storyActors?.[ph.actor], o = ac?.vehicle || ac?.mesh;
+      if (!o?.parent) return null;
+      const h = o.rotation.y + Math.PI / 2.6, d = ph.dist ?? 3.6, p = o.position;
+      return { eye: new THREE.Vector3(p.x + Math.sin(h) * d, p.y + (ph.height ?? 1.2), p.z + Math.cos(h) * d), look: new THREE.Vector3(p.x, p.y + 0.9, p.z) };
+    }
+    if (Array.isArray(ph?.at) && Array.isArray(ph?.look)) return { eye: new THREE.Vector3(ph.at[0], ph.height ?? 1.6, ph.at[1]), look: new THREE.Vector3(ph.look[0], 1, ph.look[1]) };
+    return null;
+  }
+  // Người chơi lướt tới tin cốt truyện (app gọi lại) → ghi nhớ (điều kiện "ttSeen")
+  storyTtSeen(post) {
+    if (!post?.story) return;
+    const s = this.gs.story;
+    if (!s) return;
+    s.ttSeen ||= [];
+    if (!s.ttSeen.includes(post.story)) s.ttSeen.push(post.story);
+    storyEvent(s, `tt:${post.story}`);
+  }
+  // ---------- 🗺️ BÀY TRẬN (việc "ambush"): mở bản đồ nhỏ, đặt chốt — đúng thì nhớ chỗ chốt (gs.story.ambush) cho cảnh vây sau ----------
+  storyAmbushOpen(a) {
+    const s = this.gs.story;
+    if (s.ev.ambushed || this.modal.open) return;
+    const node = ambushPanel({ def: a, nb: (i, j) => neighbors(i, j), onWin: (blocks) => {
+      s.ambush = { blocks, fixed: a.fixed || [] };
+      storyEvent(s, 'ambushed');
+      this.modal.hide();
+    } });
+    this.modal.show({ title: fmt(a.title || 'amb.title'), node, wide: true, dismissible: false });
+  }
+  // Anh em shipper đứng ở các chốt đã bày (cảnh vây đêm): mỗi chốt per chiếc xe, đầu xe quay vào giữa khu; id đạo cụ "crew<k>"
+  storyAmbushCrew(a) {
+    const s = this.gs.story, A = s.ambush;
+    if (!A) return;
+    const nodes = [...(A.fixed || []), ...(A.blocks || [])], per = Math.max(1, a.per ?? 2);
+    const cx = nodes.reduce((t, n) => t + nodePos(...n).x, 0) / nodes.length, cz = nodes.reduce((t, n) => t + nodePos(...n).z, 0) / nodes.length;
+    nodes.forEach((n, k) => {
+      const p = nodePos(...n), h = Math.atan2(cx - p.x, cz - p.z);
+      for (let q = 0; q < per; q++) {
+        const side = (q - (per - 1) / 2) * 1.6; // xếp hàng ngang chắn ngã tư
+        const x = p.x + Math.cos(h) * side, z = p.z - Math.sin(h) * side;
+        this.storyPropSpawn({ id: `crew${k}_${q}`, kind: 'moto', at: [x, z], heading: (h * 180) / Math.PI, color: a.color });
+      }
+    });
+  }
+  // ⛔ Người nhắn chặn người chơi: cuộc trò chuyện còn đó nhưng không gửi được nữa (không có câu trả lời nhanh), tin Tích Tắc của họ biến mất
+  storyBlock(who) {
+    const gs = this.gs, t = (gs.inbox.threads[who] ||= { msgs: [], unread: 0 });
+    t.blocked = true;
+    t.replies = [];
+    this.feedCache = null;
+    sound('phone.blocked');
+    this.renderPhone?.();
+  }
+  // Làm fn sau sec giây — đếm theo vòng lặp game (cùng nhịp cảnh phim: dừng game / ẩn tab thì cũng dừng), không dùng setTimeout
+  storyAfter(sec, fn) {
+    (this.storyLater ||= []).push({ t: sec, fn });
+  }
   storyActorsTick(dt) {
+    if (this.storyLater?.length) {
+      const due = [];
+      this.storyLater = this.storyLater.filter((x) => ((x.t -= dt) > 0 ? true : (due.push(x.fn), false)));
+      for (const fn of due) fn();
+    }
     this.reactsTick(dt);
     this.tackleTick(dt); // vật ngã (việc "tackle"): người vật + người bị vật do phần cảnh phim điều khiển
     this.sneakTick(dt); // bám theo lén (việc "sneak")
@@ -1166,7 +1297,9 @@ export class StoryPart {
   storyOffer(a = {}) {
     this.storyOfferAt = performance.now();
     if (this.om.order || this.om.state === S.OFFERED) return false;
-    const o = a.kind === 'food' ? this.om.storyFood(a.place, this.playerPos, this.clockMin) : this.om.storyRide(this.playerPos, this.clockMin, a.customer || null);
+    const o = a.kind === 'food' ? this.om.storyFood(a.place, this.playerPos, this.clockMin)
+      : a.kind === 'parcel' ? this.om.storyParcel({ place: a.place, item: a.item, customer: a.customer ? fmt(a.customer) : null, to: a.to || null, strict: !!a.strict }, this.playerPos, this.clockMin)
+      : this.om.storyRide(this.playerPos, this.clockMin, a.customer || null);
     return this.om.forceOffer(o);
   }
   // Chữ cốt truyện: có bản riêng theo loại xe (khóa + ".gas" / ".electric") thì dùng bản đó; tham số chung: tên, luật tài khoản
@@ -1279,6 +1412,10 @@ export class StoryPart {
     const G = (id, sel, tk, params = {}, app = null) => ({ id, sel: [sel], title: fmt(`story.guide.${tk}`, params), hint: fmt(`story.guide.${tk}Hint`, params), app });
     const back = () => G('back', '.ph-appbar [data-home]', 'back');
     const openApp = (app, tk, params) => (ph.app ? back() : G(`app-${app}`, `.ph-apps button[data-app="${app}"]`, tk, params, app));
+    if (gd.type === 'app') { // mở app … (vd Tích Tắc lướt tin)
+      if (ph.app === gd.app) return null;
+      return openApp(gd.app, 'appOpen', { app: fmt(APP_DEFS[gd.app]?.key || gd.app) });
+    }
     if (gd.type === 'thread' || gd.type === 'reply' || gd.type === 'route') {
       if (gd.type === 'route' && this.storyRouted(gd)) return null;
       if (ph.app !== 'chat') return openApp('chat', 'chatApp');
