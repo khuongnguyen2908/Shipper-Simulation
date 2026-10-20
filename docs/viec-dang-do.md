@@ -156,7 +156,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
 - Đã thử trong trình duyệt cả chương (tin Tích Tắc có ảnh thật, nhắn tin, gặp mặt, chặn, đơn thuốc đủ / thiếu sao, nhóm chat, bày trận, cảnh đêm, vây, hết chương).
   Sửa khi thử: nước ban đêm sáng hơn · hết cảnh đêm người chơi ngồi sẵn trên Cub quay về phía Tí Sún (endRide) · màn đen chỉ dọn đạo cụ có lúc bắt đầu tối
   (không xóa nhầm xe anh Đạt ở bước sau) · 😈 đứng lại chỗ dừng sau khi chạy thử · câu báo thiếu sao không dùng ngoặc kép.
-- Sửa 20/10 (chủ game báo chương 4 lấy tranh mà túi còn hũ chao + tàu hũ của chương 1 — do cheat "Nhảy tới bước" không dọn túi):
+- Sửa 20/10 (đã đẩy lên GitHub 9c29e28; chủ game báo chương 4 lấy tranh mà túi còn hũ chao + tàu hũ của chương 1 — do cheat "Nhảy tới bước" không dọn túi):
   hết chương dọn túi hàng cốt truyện (finishChapter) · xếp hàng chỉ giữ gói chương này đã cho xếp ở bước trước (sim/story.js carryAt — bản lưu bị sót tự hết) ·
   cheat "Nhảy tới bước" đặt túi đúng như chơi tới bước đó (vd giữa đoạn chở hoa thì có sẵn bó hoa).
 - Còn để ý: mở lại game giữa đoạn lội nước / vây thì nước + xe vây không vẽ lại (đạo cụ chỉ có lúc vào bước) — chủ game thấy cần thì làm.
