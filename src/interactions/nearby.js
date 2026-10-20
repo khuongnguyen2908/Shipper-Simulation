@@ -5,7 +5,7 @@
 import { VEHICLES } from '../data/balance.js';
 import { circleFree } from '../world/physics.js';
 import { GOODS } from '../data/goods.js';
-import { STORY, stepOf, storyEvent } from '../sim/story.js';
+import { STORY, stepOf, storyEvent, chapterOf, carryAt } from '../sim/story.js';
 import { DeliveryItem } from '../sim/ItemPhysics.js';
 import { S } from '../sim/OrderManager.js';
 import { nearestStop } from '../sim/bus.js';
@@ -174,10 +174,12 @@ function storyTalk(g, st, pl) {
 }
 // Xếp các gói hàng cốt truyện vào túi (dùng màn xếp túi của đơn hàng, có hướng dẫn — game.packGuide) → xong thì đang chở các gói đó
 // guide: bật khung vàng hướng dẫn từng bước + bắt xếp đúng luật (chương 1). Tắt: xếp túi như đơn thường, không hướng dẫn
-// Gói cốt truyện đang chở từ trước (vd bó hoa, rồi lấy thêm bánh) vẫn nằm trong túi: hiện sẵn đúng ô cũ (khóa), chỉ xếp thêm món mới
+// Gói cốt truyện đang chở từ trước (vd bó hoa, rồi lấy thêm bánh) vẫn nằm trong túi: hiện sẵn đúng ô cũ (khóa), chỉ xếp thêm món mới.
+// Chỉ giữ gói mà chương này đã cho xếp ở các bước trước (bản lưu bị sót hàng chương cũ — vd nhảy bước bằng cheat — tự hết)
 function storyPack(g, ids, done, guide = false) {
   const gs = g.gs;
-  const keep = [].concat(gs.story.carry || []).filter((id) => !ids.includes(id) && STORY.parcels[id]);
+  const should = new Set(carryAt(chapterOf(gs.story), gs.story.step));
+  const keep = [].concat(gs.story.carry || []).filter((id) => !ids.includes(id) && STORY.parcels[id] && should.has(id));
   const all = [...keep, ...ids], slots = gs.story.carrySlots || {};
   const items = all.map((id) => { const P = STORY.parcels[id]; return new DeliveryItem({ id, name: fmt(P.name), icon: P.icon, traits: P.traits || [] }); });
   sound('order.pickup');

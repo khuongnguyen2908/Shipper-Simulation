@@ -4031,7 +4031,7 @@ console.log('Cốt truyện (story.json) + tin nhắn');
 {
   const { STORY, stepOf, storyTick, beginChapter, storyEvent, wearsBrandKit, actorsPresent, storyPick, leaning, inChapter, titleNext } = await import('../src/sim/story.js');
   const { personOf: personOfS } = await import('../src/sim/people.js');
-  const { finishChapter: finishChapterS, dueAt } = await import('../src/sim/story.js');
+  const { finishChapter: finishChapterS, dueAt, carryAt } = await import('../src/sim/story.js');
   const AMB5 = await import('../src/sim/ambush.js'); // mini game bày trận (chương 5)
   const { validateStory } = await import('../src/data/validate.js');
   // chạy bộ chạy cốt truyện tới khi đứng ở bước có mã id (tối đa n lần), ctx giả lập việc người chơi làm
@@ -4225,6 +4225,19 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     storyTick(gs, 1, ctx);
     assert.equal(gs.story.ch, 'c2');
     assert.ok(objectives(gs).some((x) => x.id === 'orders'), 'hết chương 1 → mục tiêu giao 10 đơn');
+  });
+  test('Hàng cốt truyện: carryAt tính đúng túi theo bước; hết chương dọn túi (không sót hũ chao sang chương 4)', () => {
+    const ST = STORY, fin = finishChapterS;
+    const c1 = ST.chapters.find((c) => c.id === 'c1'), c4 = ST.chapters.find((c) => c.id === 'c4');
+    const iOf = (ch, id) => ch.steps.findIndex((x) => x.id === id);
+    assert.deepEqual(carryAt(c1, iOf(c1, 'toChuHai')).sort(), ['huChao', 'tauHu']); // đang chở tới quán Dượng Hai
+    assert.deepEqual(carryAt(c1, c1.steps.length), []); // giao xong hết
+    assert.deepEqual(carryAt(c4, iOf(c4, 'cake')), ['hoa']); // lấy bánh: bó hoa nằm sẵn trong túi
+    for (const ch of ST.chapters) assert.deepEqual(carryAt(ch, ch.steps.length), [], `${ch.id}: hết chương còn hàng`);
+    const s = { ch: 'c1', step: 0, done: [], carry: ['huChao', 'tauHu'], carrySlots: { huChao: {} } };
+    fin(s, ST);
+    assert.equal(s.carry, null);
+    assert.equal(s.carrySlots, undefined);
   });
   test('Chương 5 "Hội nhóm shipper": Linh hỏi → gọi anh Đạt → Tích Tắc thấy xe → nhắn Tí Sún → 9h gầm cầu → đòi 100 triệu, bị nhận ra, đuổi về → Dượng Hai → chú Tư → chở thuốc (chấm thật) → vào nhóm → bày trận → đêm ngập → tiệm trà → hết chương', () => {
     const A = AMB5, L = CITYLAYOUT;

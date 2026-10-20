@@ -334,10 +334,28 @@ export function storyTick(gs, dt, ctx, data = STORY) {
   return [];
 }
 
-// Kết thúc chương đang chạy → sang chương sau (nếu có), không thì hết cốt truyện
+// Gói hàng cốt truyện đang chở khi bắt đầu bước thứ upto của chương ch (chơi đúng thứ tự từ đầu chương):
+// lần lượt các bước trước đó — việc "drop" (giao) lúc vào bước, rồi lúc nói chuyện xong: talk.drop (giao) · talk.pack (xếp thêm vào túi)
+export function carryAt(ch, upto) {
+  const list = (x) => [].concat(x || []);
+  let carry = [];
+  for (const st of (ch?.steps || []).slice(0, Math.max(0, upto))) {
+    for (const a of st.on || []) if (a.do === 'drop') carry = carry.filter((id) => !list(a.id).includes(id));
+    const t = st.talk;
+    if (!t) continue;
+    if (t.drop) carry = carry.filter((id) => !list(t.drop).includes(id));
+    if (t.pack) carry = [...carry.filter((id) => !list(t.pack).includes(id)), ...list(t.pack)];
+  }
+  return carry;
+}
+
+// Kết thúc chương đang chạy → sang chương sau (nếu có), không thì hết cốt truyện.
+// Hàng cốt truyện không mang sang chương sau (mỗi chương giao hết hàng của mình) → dọn túi hàng cốt truyện
 export function finishChapter(s, data = STORY) {
   const i = data.chapters.findIndex((c) => c.id === s.ch);
   if (s.ch && !s.done.includes(s.ch)) s.done.push(s.ch);
+  s.carry = null;
+  delete s.carrySlots;
   const next = data.chapters[i + 1];
   s.ch = next ? next.id : null;
   s.step = next ? 0 : -1;

@@ -12,7 +12,7 @@ import { ITEMS } from '../data/items.js';
 import { minutesUntil, fmtClock } from '../sim/clock.js';
 import { depthAtPoint, floodBand } from '../sim/flood.js';
 import { roadSegAt } from '../sim/roads.js';
-import { STORY, stepOf, chapterOf, storyPick, finishChapter, storyEvent } from '../sim/story.js';
+import { STORY, stepOf, chapterOf, storyPick, finishChapter, storyEvent, carryAt } from '../sim/story.js';
 
 const STORE = 'shipper-cheat'; // công tắc đang bật (localStorage, chỉ máy này)
 const DEFAULT = { lockStats: false, noPolice: false, noCrash: false, noStall: false, noLose: false, fast: false, timeScale: 1, rider: '', flood: null };
@@ -426,6 +426,10 @@ export function mountCheat(g) {
     storyClean();
     const idx = STORY.chapters.findIndex((c) => c.id === chId);
     Object.assign(s, { ch: chId, step: +i, fired: false, waited: 0, ev: {}, done: STORY.chapters.slice(0, idx).map((c) => c.id) });
+    // túi hàng cốt truyện = đúng như chơi tới bước này (vd giữa đoạn chở hoa thì có sẵn bó hoa), bỏ hàng sót của chương khác
+    const carry = carryAt(STORY.chapters[idx], +i);
+    s.carry = carry.length ? carry : null;
+    delete s.carrySlots;
     if (idx > 0 || +i > 0) gs.flags.story = Math.max(gs.flags.story ?? 0, 2); // qua mở đầu → có xe đạp
     g.storyActorsRestore?.();
     refresh();
