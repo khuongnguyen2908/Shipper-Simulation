@@ -218,6 +218,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
     Sửa kèm: chỗ hẹn "spot:…" khi ra khỏi bản đồ riêng trước tra sai (luôn rỗng — lỗi của Claude) · màn đua không hiện túi giao hàng trên xe anh Đạt.
     ⚠️ Ai chơi xong chương 5 lúc này sẽ vào thẳng màn đua (chưa có đầu chương 6). Chèn đoạn mở đầu / lên tàu / bị bắt / mở trói / đánh nhau
     vào giữa bước "title" và "race" khi chủ game chốt.
+  - Đã commit + push 470b4eb (25/10): toàn bộ chương 6 tới giờ (tàu, đánh nhau, màn đua, kết chương).
 - Còn chờ chủ game: đoạn mở đầu chương 6.
 
 ### 🔧 Chương 4–5 sửa đợt 2 (24/10 tối — XONG, CHƯA commit)
