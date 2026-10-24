@@ -11,6 +11,7 @@ import { storyEvent } from '../sim/story.js';
 import { makeHelmetMesh, HEAD_CENTER_Y } from '../world/person.js';
 import { makeLongTruck, makeRamp, makeEasel, makeBin, makeCan, makeWater, makeParkedBigBike } from '../world/storyProps.js';
 import { makeCsgtCar, seatRider } from '../world/npcVehicles.js';
+import { makeCargoShip } from '../world/cargoShip.js';
 import { lerpAngle } from '../world/controllers.js';
 import { CITY, roadPos } from '../sim/cityLayout.js';
 import * as act from '../interactions.js';
@@ -74,6 +75,37 @@ export class ScenePart {
     for (const m of p.cops || []) this.scene.remove(m.mesh);
     this.bubbles?.remove(`story:prop:${id}`);
     delete this.storyProps[id];
+  }
+  // ---------- TÀU HÀNG HẢI LONG (việc "ship"): cập bến ở chỗ [x, z] (mũi theo hướng) / rời bến chạy ra ngoài theo mũi tàu ----------
+  // Trạng thái lưu trong bản lưu (gs.story.ship) → mở lại game vẫn thấy tàu đậu. Chỉ để nhìn, chỉ máy người chơi này vẽ.
+  storyShip(a) {
+    const s = this.gs.story;
+    if (a.state === 'dock') s.ship = { state: 'dock', at: [...(a.at || [163, 265])], heading: a.heading ?? 0 };
+    else if (s.ship) s.ship.state = a.state === 'leave' ? 'leave' : 'gone';
+    this.storyShipShow(false);
+  }
+  // Đặt tàu theo trạng thái đã lưu · restore: mở lại game giữa lúc tàu đang rời bến → coi như đã đi
+  storyShipShow(restore) {
+    const sh = this.gs.story?.ship;
+    if (sh?.state === 'leave' && restore) sh.state = 'gone';
+    const on = sh && sh.state !== 'gone';
+    if (!on) { if (this.shipMesh) this.shipMesh.visible = false; this.shipRun = null; return; }
+    if (!this.shipMesh) { this.shipMesh = makeCargoShip(); this.scene.add(this.shipMesh); }
+    const m = this.shipMesh, yaw = (sh.heading * Math.PI) / 180;
+    m.visible = true;
+    m.rotation.y = yaw;
+    if (sh.state === 'dock' || !this.shipRun) m.position.set(sh.at[0], 0, sh.at[1]);
+    this.shipRun = sh.state === 'leave' ? (this.shipRun || { v: 0, gone: 0 }) : null;
+  }
+  // Rời bến: tăng tốc từ từ tới ~7 m/s, chạy thẳng theo mũi tàu; đi xa ~650 m thì ẩn hẳn
+  storyShipTick(dt) {
+    const r = this.shipRun, m = this.shipMesh;
+    if (!r || !m) return;
+    r.v = Math.min(7, r.v + dt * 0.12);
+    r.gone += r.v * dt;
+    m.position.x += Math.sin(m.rotation.y) * r.v * dt;
+    m.position.z += Math.cos(m.rotation.y) * r.v * dt;
+    if (r.gone > 650) { this.gs.story.ship.state = 'gone'; this.storyShipShow(false); }
   }
   storyPropsClear() {
     for (const id of Object.keys(this.storyProps || {})) this.storyPropRemove(id);
@@ -1034,6 +1066,8 @@ export class ScenePart {
   }
   // Bấm "Chơi lại": tắt màn thua → màn đen ngắn → chơi lại từ lúc bắt đầu bị rượt
   pursueRetry() {
+    if (this.fight?.lost) return this.fightRetry(); // thua trận đánh (game/fight.js)
+    if (this.race?.lost) return this.raceRetry(); // thua màn đua (game/race.js)
     const R = this.pursue;
     this.loseEl?.classList.remove('on');
     if (!R || R.phase !== 'lost') { this.storyLose = false; return; }

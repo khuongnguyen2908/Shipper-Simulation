@@ -555,6 +555,26 @@ export function setCrouch(g, on) {
   followTa(p);
 }
 
+// Bị trói ngồi bệt dưới sàn (cốt truyện): 2 chân duỗi thẳng ra trước, 2 tay quặt ra sau lưng, lưng dựa ra sau chút.
+// Đặt người ở độ cao sitY(scale, sàn) để hông chạm sàn.
+export function setTied(g, on) {
+  setSitting(g, false);
+  if (!on) return;
+  const p = g.userData.parts;
+  p.legL.rotation.x = p.legR.rotation.x = -1.45;
+  p.kneeL.rotation.x = p.kneeR.rotation.x = 0.12;
+  p.legL.rotation.z = -0.1;
+  p.legR.rotation.z = 0.1;
+  p.armL.rotation.x = p.armR.rotation.x = 0.55;
+  p.elbowL.rotation.x = p.elbowR.rotation.x = -0.9;
+  p.armL.rotation.z = 0.12;
+  p.armR.rotation.z = -0.12;
+  const lean = -0.18;
+  p.body.rotation.x = lean;
+  p.body.position.set(0, HIP_Y * (1 - Math.cos(lean)), -HIP_Y * Math.sin(lean));
+  followTa(p);
+}
+
 // Ngồi (trên xe / ghế): đùi đưa ra trước, cẳng chân thả xuống chỗ gác chân, hai tay đưa ra trước (cầm lái).
 // chair = true: ngồi ghế — cẳng chân thả thẳng xuống đất, tay để hờ trên đùi
 export function setSitting(g, sitting, chair = false) {

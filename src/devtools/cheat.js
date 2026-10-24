@@ -10,6 +10,7 @@ import { VEHICLES, BAGS, ORDER } from '../data/balance.js';
 import { GOODS } from '../data/goods.js';
 import { ITEMS } from '../data/items.js';
 import { minutesUntil, fmtClock } from '../sim/clock.js';
+import { fmt } from '../content/index.js';
 import { depthAtPoint, floodBand } from '../sim/flood.js';
 import { roadSegAt } from '../sim/roads.js';
 import { STORY, stepOf, chapterOf, storyPick, finishChapter, storyEvent, carryAt } from '../sim/story.js';
@@ -81,6 +82,37 @@ export function mountCheat(g) {
     return null;
   };
   const refresh = () => { g.renderPhone?.(); g.lookKey = null; };
+  // ?cheat&fight=<mã trận>: mở game là vào thẳng trận đánh trên tàu (bỏ qua màn hình chính, coi như đã xong các chương trước, 21:00)
+  const quickFight = (id) => {
+    g.noSave = true; // ván thử: không ghi đè bản lưu "Tiếp tục" của người chơi
+    g.newGame({ name: 'Thử', gender: 'male' });
+    for (let i = 0; i < 5; i++) g.step(1 / 60, {}, 1 / 60, false);
+    while (g.modal.open && g.modal.choices?.length) { g.modal.pick(0); g.step(1 / 60, {}, 1 / 60, false); }
+    const gs = g.gs;
+    Object.assign(gs.story, { ch: null, step: 0, fired: false, waited: 0, ev: {}, done: STORY.chapters.map((c) => c.id) });
+    gs.flags.story = 2;
+    gs.flags.tutSkip = true;
+    g.clockMin = Math.floor(g.clockMin / 1440) * 1440 + 21 * 60;
+    g.storyActorsRestore();
+    document.querySelectorAll('#chapterCard, #fadeIn, #chapterDim').forEach((e) => e.remove()); // bỏ màn đen mở đầu / tên chương
+    const def = STORY.fights?.[id];
+    g.storyZone({ id: def?.zone || 'ship', gate: true, door: true });
+    gs.story.fpv = true;
+    if (id === null) return; // (dùng chung cho ?race)
+    g.fightStart(def ? id : Object.keys(STORY.fights || {})[0]);
+    say('Bấm vào màn hình để khóa chuột · chuột trái vung · chuột phải đỡ · Space né · E nhặt / đập lén · ` mở bảng cheat (⚔️ Thử trận: đổi trận / đánh lại)');
+  };
+  const qf = new URLSearchParams(location.search).get('fight');
+  if (qf != null) setTimeout(() => quickFight(qf || 'test'), 400);
+  // ?cheat&race=<mã màn đua>: vào thẳng màn đua thoát thân (ván thử, không ghi bản lưu)
+  const quickRace = (id) => {
+    quickFight(null);
+    delete g.gs.story.fpv;
+    g.raceStart(id || Object.keys(STORY.races || {})[0]);
+    say('W ga · S / Space phanh · A D lái · tự nhìn mà né chướng ngại, gạch bay, bán tải húc · cuối đường bay qua cầu cất · ` mở bảng cheat');
+  };
+  const qr = new URLSearchParams(location.search).get('race');
+  if (qr != null) setTimeout(() => quickRace(qr || 'escape'), 400);
   const now = () => g.clockMin;
 
   // ======================== 💰 TIỀN & CHỈ SỐ ========================
@@ -418,6 +450,7 @@ export function mountCheat(g) {
     say(`✅ Xong "${st.id}" → ${stepOf(s)?.id || 'hết cốt truyện'}`);
   };
   const stepSel = sel(STORY.chapters.flatMap((c) => c.steps.map((x, i) => [`${c.id}:${i}`, `${c.id} · ${i + 1}. ${x.id}`])));
+  const fightSel = sel(Object.entries(STORY.fights || {}).map(([id, f]) => [id, fmt(f.name || id)])); // trận đánh (story.json → fights)
   const storyJump = () => {
     const gs = need();
     if (!gs) return;
@@ -445,6 +478,30 @@ export function mountCheat(g) {
       say('Đã bỏ qua cảnh phim');
     })),
     row('Nhảy tới bước', stepSel, btn('⏩ Tới', storyJump)),
+    row('🗺️ Trên tàu', btn('➡️ Lên tàu (trói)', () => {
+      if (!need()) return;
+      g.storyZone({ id: 'ship', at: 'captive', gate: false, door: false });
+      g.storyTie({ who: 'player', on: true });
+      say('Đang ở bản đồ trên tàu, bị trói — bấm "✂️ Cởi trói"');
+    }), btn('✂️ Cởi trói', () => { if (need()) g.storyUntie({ who: 'player', need: 14 }); }),
+    btn('📦 Mở cửa', () => { if (need()) g.storyZone({ door: true, gate: true }); }),
+    btn('⬅️ Về phố', () => { if (need()) { g.storyTie({ who: 'player', on: false }); g.storyZone({ at: [146, 206] }); say('Đã về thành phố'); } })),
+    row('⚔️ Thử trận', fightSel, btn('▶ Đánh', () => {
+      if (!need()) return;
+      g.storyZone({ id: 'ship', at: 'deckMid', gate: true, door: true });
+      g.storyTie({ who: 'player', on: false });
+      g.gs.story.fpv = true;
+      g.fightStart(fightSel.value);
+      say('Đánh nhau: chuột trái vung · chuột phải đỡ · Space né · E nhặt / đập lén');
+    }), btn('🩹 Hồi máu', () => { if (g.fp) g.fp.hp = g.fp.max; if (g.fight?.ally) g.fight.ally.hp = g.fight.ally.max; }), btn('👁️ Tắt góc nhìn 1', () => { if (!need()) return; delete g.gs.story.fpv; g.fightStop(); g.fpvSet(false); })),
+    row('🏍️ Thử đua', btn('▶ Chạy', () => { if (!need()) return; g.fightStop(); delete g.gs.story.fpv; g.raceStart(Object.keys(STORY.races || {})[0]); }),
+      btn('⏩ Tới đoạn sau', () => { const R = g.race; if (!R) return say('Chưa chạy đua.', true); const si = Math.min(R.T.secStart.length - 1, R.si + 1); g.racePlaceBike(R.T.secStart[si] + 2, 0, 15); }),
+      btn('🩹 Hết té', () => { if (g.race) g.race.crashes = 0; })),
+    row('🚢 Tàu HẢI LONG', ...[['dock', '⚓ Cập bến'], ['leave', '🌊 Rời bến'], ['gone', '✖ Ẩn']].map(([state, label]) => btn(label, () => {
+      if (!need()) return;
+      g.storyShip({ state, at: [163, 265], heading: 0 });
+      say(`Tàu: ${label}`);
+    }))),
     row(btn('⏭ Bỏ hướng dẫn', () => { const gs = need(); if (gs) { gs.flags.tutSkip = true; Object.assign(gs.flags, { mounted: true, refueled: true, online: true }); say('Đã bỏ hướng dẫn người mới'); } })),
     row('Mở đầu', storySel, btn('Đặt', () => { const gs = need(); if (gs) { gs.flags.story = +storySel.value; refresh(); say(`Cốt truyện = ${storySel.value}`); } })),
     row('Nhiệm vụ ví', walletSel, btn('Đặt', () => {

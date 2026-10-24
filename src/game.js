@@ -29,6 +29,7 @@ import { BgTraffic } from './world/bgTraffic.js';
 import { pushCircle } from './world/physics.js';
 import { nextBoat, BOAT_DECK } from './sim/ferry.js';
 import { Sky } from './world/sky.js';
+import { mouthOpen } from './world/riverMouth.js';
 import { makePerson, makeBeacon, makeZoneRing, npcLook, updatePeopleLod, setPeopleMode } from './world/models.js';
 import { makeLabelTexture, makeQuestTexture, makeReactTexture, makeTargetDotTexture } from './world/textures.js';
 import { Input } from './input.js';
@@ -53,6 +54,9 @@ import { StoryPart } from './game/story.js';
 import { VisualsPart } from './game/visuals.js';
 import { PhoneDataPart } from './game/phoneData.js';
 import { ScenePart } from './game/scene.js';
+import { ZonePart } from './game/zone.js';
+import { FightPart } from './game/fight.js';
+import { RacePart } from './game/race.js';
 
 export class Game {
   constructor(canvas, uiRoot) {
@@ -78,6 +82,7 @@ export class Game {
     this.potholes = new HazardManager(makeRng(this.worldSeed)).potholes;
     this.city = buildCity(this.scene, this.layout, this.potholes, this.worldSeed);
     this.sky = new Sky(this.scene);
+    if (this.city.mouths.length) this.sky.openAt = (x, z) => mouthOpen(this.city.mouths, x, z); // gần cửa sông → nhìn xa
     this.traffic = new Traffic(this.scene, makeRng(99));
     this.traffic.elev = this.city.elev; // xe bot chạy lên cầu theo độ cao mặt cầu
     this.traffic.grid = this.city.grid; // người đi bộ né cây, cột, trạm xe buýt… trên vỉa hè
@@ -226,6 +231,7 @@ export class Game {
     }
   }
   writeSave(data) {
+    if (this.noSave) return; // ván thử (?cheat&fight=…): không đè bản lưu thật
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify(data));
     } catch {
@@ -428,6 +434,7 @@ export class Game {
       this.gs.towed = null;
       this.startParking(true);
     }
+    this.zoneApply(true); // bản đồ riêng (trên tàu…), điện thoại bị tịch thu, đang bị trói — theo bản lưu
     this.lookKey = null; // dựng lại ngoại hình shipper theo đồ đang mặc
     this.bike.update(0.016, {}, { mounted: false, fuel: 1, hp: 100, wet: false, grid: this.city.grid, elev: this.city.elev, potholes: [], emit: () => {} });
     this.walker.update(0.016, {}, 0, { grid: this.city.grid, elev: this.city.elev, phys: 100 });
@@ -786,12 +793,12 @@ export class Game {
     const speedCap = [this.inJam ? HAZARD.jamSpeedCap : 0, lug, floodSpeedCap(water)].filter((v) => v > 0).reduce((a, b) => Math.min(a, b), Infinity);
     if (this.ferryRide) this.ferryTick(dt); // đang trên phà: người + xe đứng yên trên boong, phà chở qua sông
     else {
-      const pedal = gs.power === 'pedal', ev = gs.power === 'electric';
+      const pedal = gs.power === 'pedal' && !this.race, ev = gs.power === 'electric'; // màn đua: chạy xe anh Đạt (mô tô)
       // cảnh phim có xe người chơi tự chạy theo (cine.ride) → xe đi theo lộ trình người bị đuổi, không theo phím
-      const moved = this.cine?.ride && mounted ? this.cineRide(dt) : bike.update(dt, mounted && !this.cine && !this.storyLose ? inp.state : {}, { mounted, fuel: this.stalled ? 0 : pedal ? 1 : gs.fuel, hp: gs.bikeHp, wet: !!rain, speedCap: Number.isFinite(speedCap) ? speedCap : 0, grid: this.city.grid, elev: this.city.elev, potholes: this.potholes, emit });
+      const moved = this.cine?.ride && mounted ? this.cineRide(dt) : bike.update(dt, mounted && !this.cine && !this.storyLose && !this.race?.lock ? inp.state : {}, { mounted, fuel: this.stalled ? 0 : pedal ? 1 : gs.fuel, hp: gs.bikeHp, wet: !!rain, speedCap: Number.isFinite(speedCap) ? speedCap : 0, grid: this.city.grid, elev: this.city.elev, potholes: this.potholes, emit });
       if (mounted) {
         const km = (moved * DIST.displayPerUnit) / 1000;
-        if (pedal) gs.addKm(km); // xe đạp: không xăng, không bảo dưỡng — chỉ cộng đồng hồ km
+        if (pedal || this.race) gs.addKm(km); // màn đua: xe anh Đạt, không trừ xăng xe mình // xe đạp: không xăng, không bảo dưỡng — chỉ cộng đồng hồ km
         else if (gs.fuel > 0 && !this.stalled) {
           // quá hạn bảo dưỡng (nhớt / pin) → hao xăng, điện thêm (balance.json → economy.oilFuelPct)
           const used = km * (gs.vehicleSpec.fuelPer100km / 100) * Math.max(0.1, 1 + gs.effect('fuelUsePct') / 100) * gs.maintFuelMul();
@@ -809,7 +816,7 @@ export class Game {
         if (!this.cine?.ride) for (const h of this.traffic.collidePlayer(bike.pos, 0.75, bike.vel, true, bike.mesh.position.y)) this.onTrafficHit(h, env); // xe tự chạy trong cảnh phim: không va chạm
       } else {
         // đang nói chuyện với người lạ (cốt truyện): đứng yên tới khi nói xong (phím đi bị bỏ qua; đồng hồ vẫn chạy)
-        activity = this.walker.update(dt, this.storyTalkActor() || this.cine || this.tackle || this.storyLose ? NO_MOVE : inp.state, this.rig.yaw, { grid: this.city.grid, elev: this.city.elev, phys: this.pursue && this.pursue.phase !== 'lost' ? 100 : gs.phys, speedMul: floodBand(water) >= 2 ? floodNum('walkMul') : 1 }); // đang bị rượt: chạy được bất kể thể lực
+        activity = this.walker.update(dt, this.storyTalkActor() || this.cine || this.tackle || this.untie || this.storyLose ? NO_MOVE : inp.state, this.rig.yaw, { grid: this.city.grid, elev: this.city.elev, phys: this.pursue && this.pursue.phase !== 'lost' ? 100 : gs.phys, speedMul: floodBand(water) >= 2 ? floodNum('walkMul') : 1 }); // đang bị rượt: chạy được bất kể thể lực
         const talk = this.storyTalkActor(); // đang nói chuyện với người lạ, đứng yên → quay mặt về phía người đó
         if (talk && activity === 'idle' && !this.walker.seat) {
           const m = talk.mesh.position, w = this.walker.pos;
@@ -835,7 +842,8 @@ export class Game {
     this.airportTick(mounted ? speed : 0);
     this.roadTick(mounted);
     if (this.pursue && this.pursue.phase !== 'lost' && activity === 'run') activity = 'walk'; // bị rượt: chạy không tốn thêm thể lực (không ngất giữa đường)
-    gs.drain(activity, dMin, { harshSun: hz.isHarshSun(now), raining: !!rain, outdoor: true, inJam: this.inJam, waiting: false, now: this.clockMin });
+    if (!this.zone) gs.drain(activity, dMin, // bản đồ riêng của cốt truyện (trên tàu, màn đua): thể lực / tinh thần đứng yên, không ngất giữa cảnh
+       { harshSun: hz.isHarshSun(now), raining: !!rain, outdoor: true, inJam: this.inJam, waiting: false, now: this.clockMin });
     // ngồi ghế (quán, công viên, trạm xe buýt): tinh thần hồi chậm, tới mức tối đa thì thôi (thẻ ⚖️ Cân bằng → energy.seat)
     const seatK = ENERGY.seat || {};
     if (!mounted && this.walker.seat && seatK.mentalPerMin > 0 && gs.mental < (seatK.mentalMax ?? 70)) {
@@ -849,6 +857,16 @@ export class Game {
     const f = bike.forward();
     const pp = this.playerPos;
     const py = (mounted ? bike.mesh : this.walker.mesh).position.y;
+    if (!this.zone) this.cityTick(dt, dMin, mounted, speed, f, pp, py);
+    this.zoneTick(dt);
+
+    // ---- đơn hàng ----
+    this.ordersTick(dt, dMin, env, mounted, speed, pp, rain, water);
+  }
+
+  // Giao thông + chướng ngại của thành phố (không chạy khi đang ở bản đồ riêng)
+  cityTick(dt, dMin, mounted, speed, f, pp, py) {
+    const { hz, bike } = this;
     this.ferries.update(this.clockMin, performance.now() / 1000);
     this.lightT += dt;
     this.traffic.lights.t = this.lightT;
@@ -877,7 +895,6 @@ export class Game {
 
     // ---- chướng ngại ----
     for (const e of hz.poll(this.clockMin)) this.onHazard(e);
-    this.floodTick(dt, water, mounted ? speed : 0, mounted);
     this.blockTick(dMin, dt);
     this.scamRumorTick();
     if (mounted && !this.cheat.noPolice) {
@@ -891,8 +908,12 @@ export class Game {
         }
       }
     }
+  }
 
-    // ---- đơn hàng ----
+  // Đơn hàng + ngập (chạy cả khi ở bản đồ riêng)
+  ordersTick(dt, dMin, env, mounted, speed, pp, rain, water) {
+    const { gs, om } = this, inp = this.input;
+    this.floodTick(dt, water, mounted ? speed : 0, mounted);
     om.update(dMin, dt, this.clockMin, pp);
     om.tickItems({ ...env, speed: mounted ? speed : 0 }, dMin);
     // khách xe ôm sợ quá (dưới ngưỡng của loại khách) → đòi xuống giữa đường
@@ -917,7 +938,7 @@ export class Game {
       if (p) p.run();
     }
 
-    setEngine(mounted && gs.power !== 'pedal' && gs.fuel > 0 && !this.stalled, Math.min(1, speed / gs.vehicleSpec.maxSpeed) * (gs.power === 'electric' ? 0.35 : 1)); // xe điện chạy êm, xe đạp không tiếng máy
+    setEngine(mounted && (gs.power !== 'pedal' || !!this.race) && (gs.fuel > 0 || !!this.race) && !this.stalled, Math.min(1, speed / (this.race ? this.bike.spec.maxSpeed : gs.vehicleSpec.maxSpeed)) * (gs.power === 'electric' && !this.race ? 0.35 : 1)); // xe điện chạy êm, xe đạp không tiếng máy
     setRain(rain ? (rain.heavy ? 1 : 0.5) : 0);
     this.checkEnd();
   }
@@ -1090,4 +1111,4 @@ export class Game {
 
 }
 
-mixParts(Game, [EventsPart, RoadRulesPart, NavigationPart, StoryPart, VisualsPart, PhoneDataPart, ScenePart]);
+mixParts(Game, [EventsPart, RoadRulesPart, NavigationPart, StoryPart, VisualsPart, PhoneDataPart, ScenePart, ZonePart, FightPart, RacePart]);

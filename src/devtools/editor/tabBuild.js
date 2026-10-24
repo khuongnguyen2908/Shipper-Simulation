@@ -14,7 +14,7 @@ import { blockUnder, dropTarget, lotProblem } from './buildRules.js';
 import { ALLEY_TEMPLATES } from '../../sim/blockPlan.js';
 import { isPlaced } from '../../data/places.js';
 import { PROTECTED } from '../../data/validate.js';
-import { LOOKS, lookOf, looksFor, lookFloors, CAMPUS_LOOKS } from '../../data/looks.js';
+import { LOOKS, lookOf, looksFor, lookFloors, CAMPUS_LOOKS, WHOLE_BLOCK_LOOKS } from '../../data/looks.js';
 import { makeClip, paste } from './ops.js';
 import { COPYABLE_KINDS } from './placeKind.js';
 import { el, button, selectInput, checkInput } from './ui.js';
@@ -28,7 +28,7 @@ const sizesFor = (p) => {
   const court = lookOf(p) === 'pagodaCourtyard', campus = CAMPUS_LOOKS.includes(lookOf(p));
   return Object.entries(SIZE_LABEL).filter(([k]) => {
     if (k === 'join') return lookOf(p) === 'airport'; // lô gộp 2 khối: chỉ sân bay (cần gộp khối ở thẻ Bản đồ)
-    if (k === 'block') return p.kind === 'scenery' || court || campus; // trường đại học: cả khối → khuôn viên
+    if (k === 'block') return p.kind === 'scenery' || court || campus || WHOLE_BLOCK_LOOKS.includes(lookOf(p)); // trường đại học: cả khối → khuôn viên · kho hàng cảng: bản cả khối
     if (k === 'blockCut') return court;
     if (court) return false;
     return k !== 'one' || p.kind !== 'police';

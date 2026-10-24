@@ -60,6 +60,13 @@ import { BRANDS } from '../data/apps.js';
 import { GOODS } from '../data/goods.js';
 
 export const STORY = storyData;
+// Chỗ hẹn theo tọa độ (story.json → spots: { mã: { icon, name, at: [x, z] } }) — gửi kèm tin nhắn như địa điểm, mã 'spot:<mã>'
+// (vd gầm cầu sắt ven kênh: không phải địa điểm có cửa). Trả về { id, name (khóa chữ), at } | null
+export function spotOf(id, data = STORY) {
+  if (typeof id !== 'string' || !id.startsWith('spot:')) return null;
+  const s = data.spots?.[id.slice(5)];
+  return s && Array.isArray(s.at) ? { id, name: s.name, at: s.at } : null;
+}
 
 // Điều kiện xong bước: mã → mô tả (cho công cụ ?editor)
 export const UNTIL = {
@@ -95,6 +102,9 @@ export const UNTIL = {
   ttSeen: 'Người chơi đã lướt tới tin Tích Tắc … (việc "📱 Tin Tích Tắc")',
   away: 'Người chơi đã đi xa người lạ … (hoặc chỗ [x, z]) hơn … đơn vị (vd bị đuổi về)',
   ambushed: 'Đã bày chốt đúng trong mini game "🗺️ Bày trận" (việc ambush ở bước này)',
+  raceWon: 'Đã chạy tới đích màn đua (việc "🏍️ Màn đua" ở bước này: tới đường cụt, xe dừng)',
+  fightWon: 'Đã thắng trận đánh (việc "⚔️ Trận đánh" ở bước này: hạ hết địch)',
+  untied: 'Đã cởi trói xong (việc "✂️ Cởi trói" ở bước này: bấm E liên tục tới khi đứt dây)',
   sneaked: 'Việc "🕵️ Bám theo lén" ở bước này đã xong (người bị bám theo tới điểm cuối mà không phát hiện người chơi)',
   never: 'Chưa viết tiếp — dừng ở bước này (để chỗ cho nội dung sau)',
 };
@@ -140,6 +150,14 @@ export const ACTIONS = {
   phoneCall: 'Người chơi đưa điện thoại lên tai (gọi điện) / cất điện thoại',
   fade: '⬛ Màn đen + chữ (vd "2 tiếng sau…"): lúc tối dọn người lạ / đạo cụ, tua giờ (như ngủ dậy), người lạ … đứng lại trước mặt người chơi',
   pursue: '🏃 Bị rượt: người lạ … rượt theo người chơi (chạy theo dấu chân) — người chơi tự chạy thoát (lên xe / bỏ xa, hoặc chỉ bằng xe); bị tóm → làm lại / màn thua',
+  zone: '🗺️ Bản đồ riêng: vào bản đồ trên tàu (đứng ở chỗ …) / về thành phố · mở – đóng cổng cầu thang mạn, cửa container nhốt người',
+  phone: '📵 Tịch thu điện thoại (ẩn điện thoại, Tab không mở được) / trả lại',
+  tie: '🪢 Trói người (ngồi bệt dưới sàn, tay quặt sau lưng) / thả ra',
+  fpv: '👁️ Góc nhìn thứ 1 (camera ở mắt, thấy 2 tay cầm đồ) — bật / tắt; lưu trong bản lưu',
+  race: '🏍️ Màn đua thoát thân: chạy xe anh Đạt (ngồi sau), bọn giang hồ rượt — đường đã soạn (mục 🏍️ Màn đua); xong khi tới đường cụt',
+  fight: '⚔️ Trận đánh (góc nhìn thứ 1): dựng địch + anh Đạt + đồ dưới đất theo trận đã soạn (thẻ ⚔️ Đánh nhau) — xong khi hạ hết',
+  untie: '✂️ Cởi trói: bấm E liên tục tới khi đứt dây (người chơi tự cắt / cắt cho người lạ)',
+  ship: '🚢 Tàu hàng HẢI LONG: cập bến ở chỗ [x, z] / rời bến (chạy ra ngoài bản đồ theo mũi tàu) — lưu trong bản lưu, chỉ để nhìn',
   traffic: '🚧 Giữ vùng vắng xe NPC quanh người chơi (cảnh đứng giữa đường lâu) — bán kính 0 = trả lại xe',
   sneak: '🕵️ Bám theo lén: người lạ … (dắt theo người khác) đi theo lộ trình, thỉnh thoảng ngoái lại — người chơi theo sau không để bị thấy (bị phát hiện / mất dấu → làm lại)',
   ttPost: '📱 Tin Tích Tắc của cốt truyện: ảnh chụp thật người lạ … / chỗ [x, z], chú thích, bình luận — nằm đầu danh sách app Tích Tắc',
@@ -261,6 +279,9 @@ export function untilMet(u, gs, ctx) {
     case 'away': return !!ctx.awayFrom?.(u, u.r || 30);
     case 'ambushed': return !!s.ev.ambushed;
     case 'tackled': return !!s.ev.tackled;
+    case 'untied': return !!s.ev.untied;
+    case 'fightWon': return !!s.ev.fightWon;
+    case 'raceWon': return !!s.ev.raceWon;
     case 'sneaked': return !!s.ev.sneaked;
     case 'escaped': return !!s.ev.escaped;
     case 'hidden': return !!ctx.hiddenAt?.(u.prop);
@@ -290,6 +311,8 @@ export function inChapter(s, data = STORY) {
   const t = ch.steps.findIndex((x) => (x.on || []).some((a) => a.do === 'title'));
   return t >= 0 && (s.step > t || (s.step === t && s.fired));
 }
+// Bước trước cho chạy đơn trong lúc chờ (orders) mà bước này thì không → bước này phải chờ giao xong đơn đang chạy
+export const orderGate = (s, data = STORY) => { const ch = chapterOf(s, data); return !!ch && s.step > 0 && !!ch.steps[s.step - 1]?.orders; };
 // Bước sắp hiện tên chương (chưa chạy)
 export const titleNext = (s, data = STORY) => { const st = stepOf(s, data); return !!st && !s.fired && (st.on || []).some((a) => a.do === 'title'); };
 
@@ -319,6 +342,7 @@ export function storyTick(gs, dt, ctx, data = STORY) {
   if (!s.fired) {
     if (s.waited < (st.delay || 0)) return [];
     if (ctx.busy?.() && (st.on || []).some((a) => a.do === 'title')) return []; // đang chạy đơn: giao xong mới vào chương
+    if (ctx.busy?.() && !st.orders && orderGate(s, data)) return []; // bước trước cho chạy đơn trong lúc chờ → giao xong đơn mới tiếp cốt truyện
     s.fired = true;
     s.waited = 0;
     if (st.until?.type === 'ordersSince') s.base = gs.account?.completed || 0; // đếm đơn từ lúc này

@@ -536,6 +536,8 @@ export function render(root, ctx) {
           changed();
           ctx.rerender();
         }, `Rộng cả dãy khối giữa ${roadName(r.axis, r.line)} và ${roadName(r.axis, r.line + 1)}`), { ...o('wide'), wide: true, hint: 'Sông lớn phủ 2 con đường và cả dãy khối ở giữa (khối đó thành mặt nước, địa điểm trong đó phải dời đi). Cầu qua sông lớn dài cả nhịp.' }),
+        field('Chảy ra ngoài bản đồ', selectInput(r.mouth || '', [['', 'Không (tường nhà vùng ven chắn)'], ['start', `Ở đầu (ngã tư ${r.from})`], ['end', `Ở cuối (ngã tư ${r.to})`], ['both', 'Cả hai đầu']], (v) => { if (v) r.mouth = v; else delete r.mouth; changed(); }),
+          { ...o('mouth'), hint: 'Sông chạy tiếp ra ngoài biên (chỉ để nhìn): nước loe dần, bờ dừa nước, cảng xa. Đứng gần cửa sông thì sương mù lùi xa để nhìn ra tới chân trời. Đầu sông phải chạm biên bản đồ (ngã tư 0 hoặc cuối).' }),
         field('Cầu ở ngã tư', el('div', { class: 'chips' }, nodes.map((k) => checkInput((r.bridges || []).includes(k), (on) => {
           r.bridges = on ? [...(r.bridges || []), k].sort((a, b) => a - b) : (r.bridges || []).filter((b) => b !== k);
           if (!on && r.bridgeStyles) delete r.bridgeStyles[k];

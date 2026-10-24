@@ -34,7 +34,8 @@
       "bridgeStyles": {
         "2": "arch",
         "5": "arch"
-      }
+      },
+      "mouth": "end"
     }
   ],
   "blocks": {

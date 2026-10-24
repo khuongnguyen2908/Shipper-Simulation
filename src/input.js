@@ -16,6 +16,8 @@ export class Input {
     this.pressed = new Set(); // phím vừa bấm trong khung hình này
     this.drag = { dx: 0, dy: 0 };
     this.look = { dx: 0, dy: 0 }; // chuột di khi đang khóa con trỏ
+    this.mouse = {}; // nút chuột đang giữ (0 = trái, 2 = phải) — đánh nhau góc nhìn thứ 1; vừa bấm: was('Mouse0')
+    this.free = { dx: 0, dy: 0 }; // chuột di khi KHÔNG khóa được con trỏ (trình duyệt nhúng không cho khóa) → góc nhìn thứ 1 vẫn nhìn quanh được
     this.canvas = canvas;
     this.locked = false;
     this.wantLock = false;
@@ -34,7 +36,8 @@ export class Input {
       this.lockFailedAt = performance.now();
     });
     document.addEventListener('mousemove', (e) => {
-      if (!this.locked) return;
+      this.mx = e.clientX; // chỗ con trỏ (không khóa được: đưa chuột sát mép trái / phải → quay tiếp)
+      if (!this.locked) { this.free.dx += e.movementX || 0; this.free.dy += e.movementY || 0; return; }
       this.look.dx += e.movementX || 0;
       this.look.dy += e.movementY || 0;
     });
@@ -53,12 +56,15 @@ export class Input {
     // nhả hết phím khi tab bị ẩn
     const release = () => {
       for (const k of Object.keys(this.state)) this.state[k] = false;
+      this.mouse = {};
       dragging = false;
     };
     window.addEventListener('blur', release);
     document.addEventListener('visibilitychange', release);
     canvas.addEventListener('pointerdown', (e) => {
       if (this.wantLock && !this.locked) this.requestLock(); // bấm vào màn hình chơi → khóa con trỏ
+      this.mouse[e.button] = true;
+      this.pressed.add(`Mouse${e.button}`);
       if (this.locked) return;
       dragging = true;
       lx = e.clientX;
@@ -72,7 +78,7 @@ export class Input {
       lx = e.clientX;
       ly = e.clientY;
     });
-    canvas.addEventListener('pointerup', () => (dragging = false));
+    canvas.addEventListener('pointerup', (e) => { dragging = false; this.mouse[e.button] = false; });
     canvas.addEventListener('pointercancel', () => (dragging = false));
     canvas.addEventListener('wheel', (e) => {
       this.wheel += e.deltaY;
@@ -112,6 +118,7 @@ export class Input {
     this.pressed.clear();
     this.drag.dx = this.drag.dy = 0;
     this.look.dx = this.look.dy = 0;
+    this.free.dx = this.free.dy = 0;
     this.wheel = 0;
   }
 }

@@ -5,7 +5,7 @@ import { blockAt } from '../sim/cityLayout.js';
 import { DRIVING } from '../data/balance.js';
 const D = (k, def) => (Number.isFinite(DRIVING[k]) ? DRIVING[k] : def);
 import { resolveCircle } from './physics.js';
-import { makeBike, makePerson, animatePerson, setSitting, setCrouch, setBikeColor, sitY, gripBar, bikeSeatZ } from './models.js';
+import { makeBike, makePerson, animatePerson, setSitting, setCrouch, setTied, setBikeColor, sitY, gripBar, bikeSeatZ } from './models.js';
 
 const SW_H = 0.15;
 export const lerpAngle = (a, b, t) => {
@@ -226,6 +226,16 @@ export class Walker {
         return 'idle';
       }
     }
+    // bị trói ngồi bệt (cốt truyện — game/zone.js): không đi được, hông chạm sàn
+    if (this.tied) {
+      const floorY = blockAt(this.pos.x, this.pos.z) ? SW_H : 0;
+      const el = ctx.elev ? ctx.elev.settle(this, 0.35, floorY, 2.0) : { y: floorY };
+      setTied(this.mesh, true);
+      this.mesh.position.set(this.pos.x, sitY(this.mesh.scale.x, el.y), this.pos.z);
+      this.mesh.rotation.set(0, this.heading, 0);
+      this.speed = 0;
+      return 'idle';
+    }
     if (this.crouch) {
       const c = this.crouch;
       // bị dời đi chỗ khác (làm lại, dịch chuyển…) / bấm đi → đứng dậy
@@ -292,6 +302,7 @@ export class Walker {
     }
     if (this.sitting || this.seat) setSitting(m, true, !!this.seat);
     if (this.crouch) { setCrouch(m, true); this.crouch.dy = null; } // đang ngồi núp: đo lại chiều cao
+    if (this.tied) setTied(m, true);
     if (this.sitting && parent?.userData.model) gripBar(m, parent.userData.model); // đang ngồi xe: tay nắm lại tay lái
     this.mesh = m;
   }
@@ -326,6 +337,11 @@ export class Walker {
     this.heading = spot.ry;
     this.speed = 0;
     setCrouch(this.mesh, true);
+  }
+  // Trói / cởi trói (cốt truyện): cởi thì đứng dậy tư thế thường
+  setTied(on) {
+    this.tied = !!on;
+    if (!on) setTied(this.mesh, false);
   }
   leaveCrouch() {
     if (!this.crouch) return;
@@ -409,7 +425,7 @@ export class CameraRig {
     for (let s = 1; s <= dist; s += 0.25) {
       const p = this.target.clone().addScaledVector(dir, s);
       if (grid.inside(p.x, p.y, p.z, still ? CAM_BLOCK_STILL : CAM_BLOCK)) {
-        d = Math.max(2, s - 0.8);
+        d = Math.max(limit?.min ?? 2, s - 0.8); // chỗ hẹp (trong tàu…) cho camera sát người hơn
         break;
       }
     }

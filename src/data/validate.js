@@ -5,7 +5,7 @@
 //  - warn : chạy được nhưng nên xem lại
 // =============================================================
 import { validateSounds, SOUNDS } from './soundSpec.js';
-import { ambushSolutions } from '../sim/ambush.js';
+import { ambushSolutions, roundDef, roundNb } from '../sim/ambush.js';
 import { CITY, LOT_IDS, MULTI_LOTS, lotParts, lotFaces, blockPlan, blockLotIds, roadGraph, neighbors, cutCell, joinList, joinSeg, joinPartner, isJoinLot, riverInfo, BRIDGE_STYLES } from '../sim/cityLayout.js';
 import { ALLEY_TEMPLATES } from '../sim/blockPlan.js';
 import { EFFECTS, CONSUMABLE_FIELDS, OUTFIT_SLOTS, FEMALE_STYLES } from './goods.js';
@@ -13,7 +13,7 @@ import { validatePhone } from './phoneApps.js';
 import { ORDER_KINDS, FROM_HOMES } from './apps.js';
 import { GENDERS, HAIR_STYLES, LOOK_AGES, LOOK_BUILDS, isAnhChi } from '../sim/people.js';
 import { openDayOf } from '../sim/placeRules.js';
-import { LOOKS, lookOf, looksFor, CAMPUS_LOOKS } from './looks.js';
+import { LOOKS, lookOf, looksFor, CAMPUS_LOOKS, WHOLE_BLOCK_LOOKS } from './looks.js';
 import { hoursProblem, totalHours } from '../sim/hours.js';
 import { BALANCE_GROUPS, KNOWN_PATHS, getPath } from './balanceSpec.js';
 import { ITEM_GROUP_IDS } from './itemGroups.js';
@@ -21,6 +21,7 @@ import { DISTRICT_TRAITS, TRAIT_RANGE, HOUSE_STYLE_IDS, DECOR_IDS, TREES_RANGE, 
 const ROAD_TIER_IDS = ['big', 'normal', 'small']; // cấp đường (giống TIER_IDS trong src/sim/roads.js)
 import { isPlaced } from './places.js';
 import { lightable } from '../sim/lights.js';
+import { ZONE_LIST, ZONE_POINTS } from '../sim/zones.js';
 
 const MAX_OPEN_DAY = 60;
 // "Mở từ ngày" / "Có đơn từ ngày": số nguyên 1–60, bỏ trống = ngày 1
@@ -371,7 +372,7 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null, m
     if (p.kind !== 'gas' && p.kind !== 'gate' && p.kind !== 'market' && p.kind !== 'scenery' && p.sign == null) add('warn', p.id, 'sign', 'Chưa có biển hiệu.');
     // cỡ cả khối: cảnh quan hoặc chùa tứ hợp viện · cả khối chừa góc: chỉ chùa tứ hợp viện (cảnh quan phủ kín khối)
     const courtyard = lookOf(p) === 'pagodaCourtyard', campus = CAMPUS_LOOKS.includes(lookOf(p));
-    if (p.lot === 'B' && p.kind !== 'scenery' && !courtyard && !campus) add('error', p.id, 'lot', 'Cỡ "Cả khối" chỉ dành cho cảnh quan, chùa tứ hợp viện hoặc trường đại học.');
+    if (p.lot === 'B' && p.kind !== 'scenery' && !courtyard && !campus && !WHOLE_BLOCK_LOOKS.includes(lookOf(p))) add('error', p.id, 'lot', 'Cỡ "Cả khối" chỉ dành cho cảnh quan, chùa tứ hợp viện, trường đại học hoặc kho hàng cảng.');
     if (p.lot === 'M' && p.kind !== 'scenery') add('error', p.id, 'lot', 'Ô giữa khối (M) không chạm đường — chỉ đặt cảnh quan (công viên, đất trống…).');
     if (cutCell(p.lot || '') && !courtyard) add('error', p.id, 'lot', 'Cỡ "Cả khối, chừa 1 góc" chỉ dành cho chùa tứ hợp viện.');
     if (courtyard && isPlaced(p) && p.lot !== 'B' && !cutCell(p.lot)) add('error', p.id, 'lot', 'Chùa tứ hợp viện chiếm cả khối — chọn kích thước "Cả khối" hoặc "Cả khối, chừa 1 góc" (khối không hẻm).');
@@ -737,6 +738,10 @@ export function validateMap(map, placesData = null) {
     if (!Array.isArray(r.bridges) || r.bridges.some((b) => !int(b, r.from, r.to))) add('error', ref, 'bridges', 'Cầu phải ở các ngã tư nằm trên đoạn sông.');
     if (r.wide != null && typeof r.wide !== 'boolean') add('error', ref, 'wide', 'Sông lớn phải là true/false.');
     if (r.wide && !int(r.line, 0, size - 1)) add('error', ref, 'line', `Sông lớn phủ đường số a và a+1 — a từ 0 đến ${size - 1}.`);
+    if (r.mouth != null) {
+      if (!['start', 'end', 'both'].includes(r.mouth)) add('error', ref, 'mouth', 'Cửa sông ra ngoài bản đồ: start (đầu) / end (cuối) / both (cả hai).');
+      else if (((r.mouth === 'start' || r.mouth === 'both') && r.from !== 0) || ((r.mouth === 'end' || r.mouth === 'both') && r.to !== size)) add('warn', ref, 'mouth', 'Sông chưa chạy tới biên bản đồ ở phía mở cửa → phía đó không mở được.');
+    }
     if (r.wide && Array.isArray(r.bridges) && !r.bridges.length) add('warn', ref, 'bridges', 'Sông lớn chưa có cầu nào.');
     if (r.bridgeStyles != null) {
       if (typeof r.bridgeStyles !== 'object' || Array.isArray(r.bridgeStyles)) add('error', ref, 'bridgeStyles', 'Kiểu cầu phải là bảng {ngã tư: kiểu}.');
@@ -852,8 +857,8 @@ export function storyGifts(story) {
   }
   return out;
 }
-const STORY_UNTIL = ['none', 'wait', 'read', 'open', 'reply', 'routed', 'ack', 'use', 'arrive', 'talk', 'mount', 'brand', 'wear', 'switch', 'fuel', 'order', 'near', 'talkActor', 'chosen', 'ordersSince', 'newDay', 'clock', 'bring', 'cine', 'chased', 'reach', 'tackled', 'sneaked', 'hidden', 'escaped', 'never', 'ttSeen', 'away', 'ambushed'];
-const STORY_DO = ['title', 'say', 'actor', 'bubble', 'approach', 'leave', 'remove', 'choose', 'board', 'alight', 'drop', 'msg', 'replies', 'item', 'bike', 'give', 'toast', 'openPhone', 'closePhone', 'offer', 'fuel', 'end', 'goto', 'react', 'cine', 'chase', 'sound', 'prop', 'dismount', 'helmetOff', 'helmetOn', 'tackle', 'wave', 'rideOff', 'phoneCall', 'fade', 'sneak', 'traffic', 'pursue', 'pay', 'rename', 'ttPost', 'block', 'ambush', 'ambushCrew'];
+const STORY_UNTIL = ['none', 'wait', 'read', 'open', 'reply', 'routed', 'ack', 'use', 'arrive', 'talk', 'mount', 'brand', 'wear', 'switch', 'fuel', 'order', 'near', 'talkActor', 'chosen', 'ordersSince', 'newDay', 'clock', 'bring', 'cine', 'chased', 'reach', 'tackled', 'sneaked', 'hidden', 'escaped', 'never', 'ttSeen', 'away', 'ambushed', 'untied', 'fightWon', 'raceWon'];
+const STORY_DO = ['title', 'say', 'actor', 'bubble', 'approach', 'leave', 'remove', 'choose', 'board', 'alight', 'drop', 'msg', 'replies', 'item', 'bike', 'give', 'toast', 'openPhone', 'closePhone', 'offer', 'fuel', 'end', 'goto', 'react', 'cine', 'chase', 'sound', 'prop', 'dismount', 'helmetOff', 'helmetOn', 'tackle', 'wave', 'rideOff', 'phoneCall', 'fade', 'sneak', 'traffic', 'pursue', 'pay', 'rename', 'ttPost', 'block', 'ambush', 'ambushCrew', 'ship', 'zone', 'phone', 'tie', 'untie', 'fpv', 'fight', 'race'];
 const STORY_ACTOR_LOOKS = ['jetjet', 'normal', 'girl', 'student', 'gentleman', 'char']; // = ACTOR_LOOKS (sim/story.js)
 const STORY_ACTOR_SPOTS = ['xeOm', 'place', 'near', 'at']; // = ACTOR_SPOTS (sim/story.js)
 const STORY_ACTOR_VEHICLES = ['moto']; // = ACTOR_VEHICLES (sim/story.js)
@@ -878,9 +883,10 @@ export function validateStory(story, { places = null, goods = null, content = nu
   const out = [];
   const add = (level, ref, field, msg) => out.push({ level, tab: 'story', ref, field, msg });
   const placeIds = new Set((places?.places || []).filter((p) => isPlaced(p)).map((p) => p.id));
-  const contacts = story?.contacts || {}, people = story?.people || {}, items = story?.items || {}, parcels = story?.parcels || {};
+  const contacts = story?.contacts || {}, people = story?.people || {}, items = story?.items || {}, parcels = story?.parcels || {}, spots = story?.spots || {};
   const text = (ref, field, key, what) => {
     if (!key) return add('error', ref, field, `Chưa có ${what}.`);
+    if (content && typeof content[key] === 'string' && content[key].split('[tiếp]').some((p) => p.replace(/<[^>]+>/g, '').trim().length > 100)) add('warn', ref, field, `Câu "${key}" có đoạn dài quá 100 chữ — chèn [tiếp] để chia trang (bấm E qua).`);
     if (content && content[key] === undefined) add('error', ref, field, `Thiếu chữ "${key}" (${what}) — gõ nội dung ở ô này.`);
   };
   // người lạ đang có mặt ở bước i của chương (việc actor ở bước 0..i, chưa leave / remove) — giống actorsPresent (sim/story.js)
@@ -907,8 +913,84 @@ export function validateStory(story, { places = null, goods = null, content = nu
     || (String(who).startsWith('place:') && (!places || (places.places || []).some((p) => p.id === who.slice(6) && p.npc)));
   const place = (ref, field, id, extra = []) => {
     if (!id) return add('error', ref, field, 'Chưa chọn địa điểm.');
+    if (String(id).startsWith('spot:')) { if (!spots[id.slice(5)]) add('error', ref, field, `Chỗ hẹn "${id.slice(5)}" không có (Danh bạ · người nói → 📍 Chỗ hẹn).`); return; } // chỗ hẹn theo tọa độ
     if (places && !placeIds.has(id) && !extra.includes(id)) add('error', ref, field, `Địa điểm "${id}" không có (hoặc chưa đặt lên bản đồ).`);
   };
+  for (const [id, sp] of Object.entries(spots)) {
+    const ref = `spot:${id}`;
+    if (!ID_RE.test(id)) add('error', ref, 'id', 'Mã chỗ hẹn chỉ gồm chữ không dấu, số, gạch dưới.');
+    text(ref, 'name', sp.name, 'tên chỗ hẹn');
+    if (!(Array.isArray(sp.at) && sp.at.length === 2 && sp.at.every(num))) add('error', ref, 'at', 'Chỗ hẹn: tọa độ phải là [x, z].');
+  }
+  // ---- đánh nhau: vũ khí · kiểu địch · trận (thẻ ⚔️) ----
+  const weapons = story?.weapons || {}, foes = story?.foes || {}, fights = story?.fights || {};
+  const nonNeg = (v) => v == null || (num(v) && v >= 0);
+  for (const [id, w] of Object.entries(weapons)) {
+    const ref = `weapon:${id}`;
+    if (!ID_RE.test(id)) add('error', ref, 'id', 'Mã vũ khí chỉ gồm chữ không dấu, số, gạch dưới.');
+    text(ref, 'name', w.name, 'tên vũ khí');
+    for (const k of ['dmg', 'cd', 'reach', 'dur', 'stun', 'block', 'trap']) if (!nonNeg(w[k])) add('error', ref, k, `Vũ khí: ${k} phải là số ≥ 0.`);
+    if (!w.throw && id !== 'fists' && !(w.cd > 0)) add('warn', ref, 'cd', 'Vũ khí cầm tay nên có thời gian chờ vung > 0.');
+  }
+  if (Object.keys(weapons).length && !weapons.fists) add('error', 'weapon:fists', 'id', 'Thiếu "fists" (tay không) — dùng khi chưa nhặt gì / vũ khí gãy.');
+  for (const [id, f] of Object.entries(foes)) {
+    const ref = `foe:${id}`;
+    if (!ID_RE.test(id)) add('error', ref, 'id', 'Mã kiểu địch chỉ gồm chữ không dấu, số, gạch dưới.');
+    text(ref, 'name', f.name, 'tên kiểu địch');
+    if (!(num(f.hp) && f.hp > 0)) add('error', ref, 'hp', 'Kiểu địch: máu phải > 0.');
+    for (const k of ['dmg', 'windup', 'cd', 'speed', 'reach', 'combo', 'recover']) if (!nonNeg(f[k])) add('error', ref, k, `Kiểu địch: ${k} phải là số ≥ 0.`);
+    if (f.rage != null && !(num(f.rage) && f.rage >= 0 && f.rage < 1)) add('error', ref, 'rage', 'Nổi điên khi còn: phần máu 0–1 (vd 0,5).');
+  }
+  for (const [id, t] of Object.entries(fights)) {
+    const ref = `fight:${id}`;
+    if (!ID_RE.test(id)) add('error', ref, 'id', 'Mã trận chỉ gồm chữ không dấu, số, gạch dưới.');
+    text(ref, 'name', t.name, 'tên trận');
+    if (!ZONE_LIST.includes(t.zone)) add('error', ref, 'zone', `Trận: bản đồ lạ "${t.zone}".`);
+    const xy = (v) => Array.isArray(v) && v.length === 2 && v.every(num);
+    if (!xy(t.start)) add('error', ref, 'start', 'Trận: chỗ người chơi bắt đầu phải là [x, z].');
+    if (t.ally && !people[t.ally]) add('error', ref, 'ally', `Trận: đồng đội "${t.ally}" không có trong "Người nói".`);
+    if (t.ally && !xy(t.allyAt)) add('error', ref, 'allyAt', 'Trận: chỗ đồng đội đứng phải là [x, z].');
+    if (!Array.isArray(t.foes) || !t.foes.length) add('error', ref, 'foes', 'Trận chưa có địch nào.');
+    const seen = new Set();
+    for (const f of t.foes || []) {
+      if (!ID_RE.test(f.who || '')) add('error', ref, 'foes', `Trận: mã người "${f.who}" chỉ gồm chữ không dấu, số, gạch dưới.`);
+      if (seen.has(f.who)) add('error', ref, 'foes', `Trận: mã người "${f.who}" bị trùng.`);
+      seen.add(f.who);
+      if (!foes[f.foe || 'thug']) add('error', ref, 'foes', `Trận: kiểu địch lạ "${f.foe}".`);
+      if (f.look && !STORY_ACTOR_LOOKS.includes(f.look)) add('error', ref, 'foes', `Trận: dáng lạ "${f.look}".`);
+      if (!xy(f.at)) add('error', ref, 'foes', `Trận: chỗ đứng của "${f.who}" phải là [x, z].`);
+      if (f.join != null && f.join !== 'rage' && !(num(f.join) && f.join >= 0)) add('error', ref, 'foes', `Trận: "${f.who}" vào trận sau … giây (số ≥ 0) hoặc khi boss nổi điên.`);
+      if (f.join === 'rage' && !(t.foes || []).some((x) => foes[x.foe]?.rage)) add('warn', ref, 'foes', `Trận: "${f.who}" chờ boss nổi điên mà trận không có boss nào nổi điên → không bao giờ vào.`);
+    }
+    for (const l of t.loot || []) {
+      if (!weapons[l.id] || l.id === 'fists') add('error', ref, 'loot', `Trận: đồ dưới đất lạ "${l.id}".`);
+      if (!xy(l.at)) add('error', ref, 'loot', 'Trận: chỗ đặt đồ phải là [x, z].');
+    }
+  }
+  const RACE_KINDS = ['port', 'gate', 'industrial', 'highway', 'work', 'dirt', 'village', 'canal', 'bridge', 'levee', 'drawbridge', 'deadend'];
+  const RACE_EVENTS = ['say', 'container', 'barrier', 'truck', 'bus', 'ram', 'potholes', 'ducks', 'puddle', 'stall', 'jump', 'drums', 'cones', 'brokencar', 'trunk', 'buffalo', 'forklift', 'cart', 'throwers', 'drawbridge'];
+  for (const [id, r] of Object.entries(story?.races || {})) {
+    const ref = `race:${id}`;
+    if (!ID_RE.test(id)) add('error', ref, 'id', 'Mã màn đua chỉ gồm chữ không dấu, số, gạch dưới.');
+    text(ref, 'name', r.name, 'tên màn đua');
+    if (r.ally && !people[r.ally]) add('error', ref, 'ally', `Màn đua: đồng đội "${r.ally}" không có trong "Người nói".`);
+    if (!Array.isArray(r.sections) || r.sections.length < 2) add('error', ref, 'sections', 'Màn đua cần ít nhất 2 đoạn đường.');
+    (r.sections || []).forEach((sec, i) => {
+      if (!RACE_KINDS.includes(sec.kind)) add('error', ref, 'sections', `Đoạn ${i + 1}: kiểu lạ "${sec.kind}".`);
+      if (!(num(sec.len) && sec.len >= 40)) add('error', ref, 'sections', `Đoạn ${i + 1}: dài phải ≥ 40 m.`);
+      if (sec.turn != null && !(num(sec.turn) && Math.abs(sec.turn) <= 180)) add('error', ref, 'sections', `Đoạn ${i + 1}: rẽ −180…180 độ.`);
+      if (sec.name) text(ref, 'sections', sec.name, `tên đoạn ${i + 1}`);
+      if (sec.line) text(ref, 'sections', sec.line, `câu hét đoạn ${i + 1}`);
+      for (const e of sec.events || []) {
+        if (!RACE_EVENTS.includes(e.type)) add('error', ref, 'sections', `Đoạn ${i + 1}: sự cố lạ "${e.type}".`);
+        if (!(num(e.at) && e.at >= 0 && e.at <= sec.len)) add('error', ref, 'sections', `Đoạn ${i + 1}: sự cố "${e.type}" phải nằm trong đoạn (0–${sec.len} m).`);
+        if (e.line) text(ref, 'sections', e.line, 'câu hét của sự cố');
+        if (e.type === 'drawbridge' && sec.kind !== 'drawbridge') add('warn', ref, 'sections', `Đoạn ${i + 1}: cầu cất nên nằm trong đoạn kiểu "Cầu cất" (có nước 2 bên).`);
+        if (e.type === 'drawbridge' && (e.at < 40 || e.at > sec.len - 120)) add('warn', ref, 'sections', `Đoạn ${i + 1}: cầu cất cần ≥ 40 m đường trước và ≥ 120 m đường sau để đáp xuống + phanh.`);
+      }
+    });
+    if (r.sections?.length && !['deadend', 'drawbridge'].includes(r.sections[r.sections.length - 1].kind)) add('warn', ref, 'sections', 'Đoạn cuối nên là "Cầu cất" hoặc "Đường cụt" (xe tự phanh dừng ở cuối đường).');
+  }
   for (const [id, c] of Object.entries(contacts)) {
     if (!ID_RE.test(id)) add('error', `contact:${id}`, 'id', 'Mã người nhắn chỉ gồm chữ không dấu, số, gạch dưới.');
     text(`contact:${id}`, 'name', c.name, 'tên người nhắn');
@@ -990,6 +1072,8 @@ export function validateStory(story, { places = null, goods = null, content = nu
       }
       if (u.type === 'cine' && !(st.on || []).some((a) => a.do === 'cine')) add('error', ref, 'until', 'Chờ cảnh phim chiếu xong mà bước này không có việc "🎬 Cảnh phim" → kẹt.');
       if (u.type === 'tackled' && !(st.on || []).some((a) => a.do === 'tackle')) add('error', ref, 'until', 'Chờ vật ngã xong mà bước này không có việc "🤼 Vật ngã" → kẹt.');
+      if (u.type === 'raceWon' && !(st.on || []).some((a) => a.do === 'race')) add('error', ref, 'until', 'Chờ tới đích màn đua mà bước này không có việc "🏍️ Màn đua" → kẹt.');
+      if (u.type === 'fightWon' && !(st.on || []).some((a) => a.do === 'fight')) add('error', ref, 'until', 'Chờ thắng trận mà bước này không có việc "⚔️ Trận đánh" → kẹt.');
       if (u.type === 'escaped' && !(st.on || []).some((a) => a.do === 'pursue')) add('error', ref, 'until', 'Chờ chạy thoát mà bước này không có việc "🏃 Bị rượt" → kẹt.');
       if (u.type === 'sneaked' && !(st.on || []).some((a) => a.do === 'sneak')) add('error', ref, 'until', 'Chờ bám theo lén xong mà bước này không có việc "🕵️ Bám theo lén" → kẹt.');
       if (u.type === 'chased') {
@@ -1040,6 +1124,7 @@ export function validateStory(story, { places = null, goods = null, content = nu
       }
       if (st.goal) text(ref, 'goal', st.goal, 'mục tiêu');
       if (st.goTo) text(ref, 'goTo', st.goTo, 'chữ thanh chỉ đường');
+      if (st.orders != null && typeof st.orders !== 'boolean') add('error', ref, 'orders', 'Ô "cho chạy đơn trong lúc chờ" phải là có / không.');
       if (st.hint) text(ref, 'hint', st.hint, 'gợi ý');
       if (st.target?.startsWith('actor:')) { if (!people[st.target.slice(6)]) add('error', ref, 'target', `Mũi tên: người lạ "${st.target.slice(6)}" không có.`); }
       else if (st.target?.startsWith('prop:')) { if (!new Set((ch.steps || []).flatMap((x) => (x.on || []).filter((a) => a.do === 'prop').map((a) => a.id))).has(st.target.slice(5))) add('error', ref, 'target', `Mũi tên: chương này không có đạo cụ "${st.target.slice(5)}".`); }
@@ -1113,6 +1198,23 @@ export function validateStory(story, { places = null, goods = null, content = nu
           if (a.vanish != null && !(num(a.vanish) && a.vanish >= 10 && a.vanish <= 200)) add('error', ref, 'on', 'Bị rượt: chạy xe được 10–200 thì bọn kia biến mất.');
           if (u.type !== 'escaped') add('warn', ref, 'on', 'Bị rượt: điều kiện xong của bước nên là "Đã chạy thoát" (escaped).');
         }
+        if (a.do === 'zone') {
+          if (a.id && !ZONE_LIST.includes(a.id)) add('error', ref, 'on', `Bản đồ riêng: mã lạ "${a.id}" (có: ${ZONE_LIST.join(', ')}).`);
+          if (a.at != null && !(Array.isArray(a.at) ? a.at.length === 2 && a.at.every(num) : typeof a.at === 'string' && (a.at.startsWith('spot:') ? spots[a.at.slice(5)] : ZONE_POINTS.includes(a.at)))) add('error', ref, 'on', `Bản đồ riêng: chỗ đứng lạ "${a.at}".`);
+          for (const k of ['gate', 'door']) if (a[k] != null && typeof a[k] !== 'boolean') add('error', ref, 'on', `Bản đồ riêng: ${k} phải là có / không.`);
+        }
+        if (a.do === 'actor' && a.tied != null && typeof a.tied !== 'boolean') add('error', ref, 'on', 'Người lạ: "bị trói" phải là có / không.');
+        if ((a.do === 'phone' && a.off != null && typeof a.off !== 'boolean') || (a.do === 'tie' && a.on != null && typeof a.on !== 'boolean')) add('error', ref, 'on', 'Tịch thu điện thoại / trói: phải là có / không.');
+        if ((a.do === 'tie' || a.do === 'untie') && a.who !== 'player' && !people[a.who]) add('error', ref, 'on', `Trói / cởi trói: người lạ "${a.who}" không có.`);
+        if (a.do === 'untie') {
+          if (a.need != null && !(num(a.need) && a.need >= 3 && a.need <= 60)) add('error', ref, 'on', 'Cởi trói: số lần bấm E 3–60.');
+          if (u.type !== 'untied') add('warn', ref, 'on', 'Cởi trói: điều kiện xong của bước nên là "Đã cởi trói" (untied).');
+        }
+        if (a.do === 'ship') {
+          if (!['dock', 'leave', 'gone'].includes(a.state)) add('error', ref, 'on', 'Tàu hàng: trạng thái dock (cập bến) / leave (rời bến) / gone (biến mất).');
+          if (a.state === 'dock' && !(Array.isArray(a.at) && a.at.length === 2 && a.at.every(num))) add('error', ref, 'on', 'Tàu hàng cập bến: chỗ đậu phải là [x, z].');
+          if (a.heading != null && !num(a.heading)) add('error', ref, 'on', 'Tàu hàng: hướng mũi tàu phải là số (độ).');
+        }
         if (a.do === 'traffic') {
           if (!(num(a.clear) && a.clear >= 0 && a.clear <= 200)) add('error', ref, 'on', 'Giữ vùng vắng xe: bán kính 0–200 (0 = trả lại xe).');
           if (a.at != null && !(Array.isArray(a.at) && a.at.length === 2 && a.at.every(num))) add('error', ref, 'on', 'Giữ vùng vắng xe: tâm vùng phải là [x, z].');
@@ -1133,6 +1235,9 @@ export function validateStory(story, { places = null, goods = null, content = nu
           if (Array.isArray(a.props)) for (const id of a.props) if (!chProps.has(id)) add('error', ref, 'on', `Màn đen: dọn đạo cụ "${id}" chưa có trong chương.`);
         }
         if (a.do === 'actor' && a.look && !STORY_ACTOR_LOOKS.includes(a.look)) add('error', ref, 'on', `Dáng người lạ lạ "${a.look}".`);
+        if (a.do === 'race' && !(story?.races || {})[a.id]) add('error', ref, 'on', `Màn đua: màn "${a.id}" không có (mục 🏍️ Màn đua).`);
+        if (a.do === 'fight' && !(story?.fights || {})[a.id]) add('error', ref, 'on', `Trận đánh: trận "${a.id}" không có (thẻ ⚔️ Đánh nhau).`);
+        if (a.do === 'fpv' && a.on != null && typeof a.on !== 'boolean') add('error', ref, 'on', 'Góc nhìn thứ 1: bật phải là có / không.');
         // dáng "theo sơ đồ quan hệ": phải có nhân vật gắn với người này, có ngoại hình riêng hoặc là NPC địa điểm
         if (a.do === 'actor' && a.look === 'char' && relations) {
           const c = Object.values(relations.characters || {}).find((x) => x.story === a.who);
@@ -1305,7 +1410,21 @@ export function validateStory(story, { places = null, goods = null, content = nu
         if (a.do === 'block' && !contacts[a.who]) add('error', ref, 'on', `Chặn: người nhắn "${a.who}" không có trong danh bạ.`);
         if (a.do === 'msg' && a.as) text(ref, 'on', a.as, 'tên người gửi trong nhóm');
         if (a.do === 'msg' && a.as && !contacts[a.from]?.group) add('warn', ref, 'on', 'Tin nhắn có "người gửi trong nhóm" mà người nhắn không phải nhóm chat.');
-        if (a.do === 'ambush') {
+        if (a.do === 'ambush' && Array.isArray(a.rounds)) { // nhiều màn vẽ tự do
+          const n2 = (v) => Array.isArray(v) && v.length === 2 && v.every((x) => Number.isInteger(x) && x >= -1 && x <= 12);
+          if (!a.rounds.length) add('error', ref, 'on', 'Bày trận: chưa có màn nào.');
+          a.rounds.forEach((R, k) => {
+            const w = `Bày trận màn ${k + 1}: `;
+            if (!(Number.isInteger(R.cols) && Number.isInteger(R.rows) && R.cols >= 2 && R.rows >= 2 && R.cols <= 9 && R.rows <= 8)) return add('error', ref, 'on', `${w}lưới 2–9 cột × 2–8 hàng.`);
+            if (![R.start, R.trap, R.trapTo].every(n2) || !(R.exits || []).every(n2) || !(R.fixed || []).every(n2) || !(R.cut || []).every((c) => Array.isArray(c) && c.length === 2 && c.every(n2))) return add('error', ref, 'on', `${w}ngã tư phải là [cột, hàng].`);
+            if (!(R.exits || []).length) add('error', ref, 'on', `${w}chưa có lối thoát.`);
+            const sols = ambushSolutions(roundDef(R), roundNb(R), R.blocks ?? 1).length;
+            if (!sols) add('error', ref, 'on', `${w}không có cách đặt ${R.blocks ?? 1} chốt nào thắng — người chơi kẹt.`);
+            else if ((R.blocks ?? 1) > 1 && ambushSolutions(roundDef(R), roundNb(R), (R.blocks ?? 1) - 1).length) add('warn', ref, 'on', `${w}ít chốt hơn vẫn thắng → dễ quá.`);
+          });
+        }
+        if (a.do === 'ambushCrew' && a.nodes != null && !(Array.isArray(a.nodes) && a.nodes.every((v) => Array.isArray(v) && v.length === 2 && v.every((x) => Number.isInteger(x) && x >= 0 && x <= 10)))) add('error', ref, 'on', 'Anh em đứng chốt: ngã tư thật phải là [cột, hàng] 0–10.');
+        if (a.do === 'ambush' && !Array.isArray(a.rounds)) {
           const n2 = (v) => Array.isArray(v) && v.length === 2 && v.every((x) => Number.isInteger(x) && x >= 0 && x <= 30);
           if (!(Array.isArray(a.region) && a.region.length === 4 && a.region.every(Number.isInteger))) add('error', ref, 'on', 'Bày trận: khung [cột đầu, cột cuối, hàng đầu, hàng cuối] chưa đúng.');
           else if (![a.start, a.trap].every(n2) || !(a.exits || []).every(n2) || !(a.fixed || []).every(n2)) add('error', ref, 'on', 'Bày trận: ngã tư phải là [cột, hàng].');

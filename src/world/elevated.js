@@ -86,14 +86,15 @@ export class Elevated {
         else {
           // chạm mép (lan can): giữ lại, trượt dọc mép nếu được
           slide(p, px, pz, (x, z) => this.heightAt(x, z, body.deckY, r) != null, normals);
-          y = body.deckY;
+          const h2 = this.heightAt(p.x, p.z, body.deckY, r); // trượt dọc mép dốc: độ cao theo chỗ mới (không thì lệch dần → kẹt)
+          y = body.deckY = h2 ?? body.deckY;
         }
       } else {
         // dưới đất: đoạn dốc còn thấp (chưa đủ cao để chui qua) → chắn như tường
         const blocked = (x, z) => this.hits(x, z, -r).some((s) => s.h - floorY >= STEP && s.h - floorY < clearance);
         if (blocked(p.x, p.z)) slide(p, px, pz, (x, z) => !blocked(x, z), normals);
-        // bước vào đầu dốc (mặt gần sát đất)
-        for (const s of this.hits(p.x, p.z, 0)) if (s.h - floorY < STEP && s.h > floorY - STEP) y = body.deckY = Math.max(body.deckY ?? -Infinity, s.h);
+        // bước vào đầu dốc (mặt gần sát đất) — phải vào hẳn trong mép 1 bán kính thân (không thì vừa lên đã "ra ngoài mép" → kẹt đứng yên)
+        for (const s of this.hits(p.x, p.z, r)) if (s.h - floorY < STEP && s.h > floorY - STEP) y = body.deckY = Math.max(body.deckY ?? -Infinity, s.h);
       }
     }
     body._ex = p.x;

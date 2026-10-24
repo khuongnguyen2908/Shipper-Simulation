@@ -9,12 +9,13 @@ import { GOODS } from '../data/goods.js';
 import { APP } from '../data/apps.js';
 import { APP_DEFS } from '../data/phoneApps.js';
 import { fmtClock } from '../sim/clock.js';
-import { routeDist, nodePos, navRoute, neighbors } from '../sim/cityLayout.js';
+import { routeDist, nodePos, navRoute, neighbors, blockAt } from '../sim/cityLayout.js';
 import { ambushPanel } from '../ui/ambush.js';
+import { roundDef, roundNb } from '../sim/ambush.js';
 import { makeRng } from '../sim/rng.js';
 import { uniformOf } from '../sim/GameState.js';
 import { S } from '../sim/OrderManager.js';
-import { STORY, HUD_PARTS, stepOf, chapterOf, storyTick, beginChapter, finishChapter, brandHelmet, storyEvent, actorsPresent, storyPick, REACT_ICONS, inChapter, titleNext } from '../sim/story.js';
+import { STORY, spotOf, HUD_PARTS, stepOf, chapterOf, storyTick, beginChapter, finishChapter, brandHelmet, storyEvent, actorsPresent, storyPick, REACT_ICONS, inChapter, titleNext, orderGate } from '../sim/story.js';
 import { lerpAngle } from '../world/controllers.js';
 import { resolveCircle } from '../world/physics.js';
 import { makePerson, setSitting, randomPersonOpts, npcLook, sitY, makeBike, animatePerson, bikeSeatZ } from '../world/models.js';
@@ -44,7 +45,7 @@ export class StoryPart {
     const st = s?.ch ? stepOf(s) : null;
     // bước đang chờ hướng dẫn / cuốc cốt truyện, hoặc đang trong chương (đã hiện tên chương): app không phát đơn thường
     const inCh = !!s?.ch && inChapter(s);
-    this.om.hold = !!st?.hold || inCh;
+    this.om.hold = (!!st?.hold || inCh) && !st?.orders; // bước chờ tới giờ có "cho chạy đơn" → app phát đơn thường như bình thường
     // xong chương (đã sang chương khác / hết truyện) → có đơn lại. Trễ hạn quay lùi trong cùng chương thì không báo
     if (this.inChapterOf && !inCh && this.inChapterOf !== (s?.ch || null) && this.gs.brand) this.hud.toast(fmt('toast.storyOrdersBack'), 'good', 5000);
     this.inChapterOf = inCh ? s.ch : null;
@@ -54,6 +55,12 @@ export class StoryPart {
       if (this.om.order && !this.om.order.story) {
         if (performance.now() - (this.storyBusyAt || 0) > 30000) { this.storyBusyAt = performance.now(); this.hud.toast(fmt('toast.storyBusy', { title }), 'warn', 6000); }
       } else if (this.om.state === S.OFFERED && this.om.dismissOffer(this.clockMin)) this.hud.toast(fmt('toast.storyOfferDropped', { title }), 'info', 5000);
+    }
+    // hết giờ chờ (bước trước cho chạy đơn) mà đang chạy đơn → nhắc giao xong rồi quay lại · đơn mời chưa nhận → bỏ, không tính bỏ đơn
+    if (st && !s.fired && !st.orders && orderGate(s)) {
+      if (this.om.order && !this.om.order.story) {
+        if (performance.now() - (this.storyBusyAt || 0) > 30000) { this.storyBusyAt = performance.now(); this.hud.toast(fmt('toast.storyOrderFirst'), 'warn', 6000); }
+      } else if (this.om.state === S.OFFERED) this.om.dismissOffer(this.clockMin);
     }
     // bước có cuốc cốt truyện mà cuốc chưa có (vừa mở lại game / lúc mời đang bận) → mời lại
     const offerAct = st && s.fired && (st.on || []).find((a) => a.do === 'offer');
@@ -65,7 +72,7 @@ export class StoryPart {
     const acts = storyTick(this.gs, dMin, {
       orderStage,
       busy: () => !!om.order && !om.order.story, // đang chạy đơn thường (không phải đơn cốt truyện)
-      near: (id, r) => { const pl = this.layout.placeById[id]; return !!pl && dist2(this.playerPos, pl.door) < r; },
+      near: (id, r) => { const sp = spotOf(id), pl = sp ? { door: { x: sp.at[0], z: sp.at[1] } } : this.layout.placeById[id]; return !!pl && dist2(this.playerPos, pl.door) < r; }, // địa điểm hoặc chỗ hẹn theo tọa độ
       mounted: this.mode === 'bike',
       threadOpen: (who) => this.phone.open && this.phone.app === 'chat' && this.phone.thread === who,
       routed: (place) => this.storyRouted({ place }),
@@ -123,6 +130,14 @@ export class StoryPart {
       else if (a.do === 'cine') this.storyCineStart(a);
       else if (a.do === 'chase') this.storyChaseSpawn(a);
       else if (a.do === 'prop') this.storyPropSpawn(a); // đạo cụ cảnh phim: xe tải, tấm ván, chó
+      else if (a.do === 'ship') this.storyShip(a); // tàu hàng HẢI LONG cập bến / rời bến
+      else if (a.do === 'zone') this.storyZone(a); // vào / ra bản đồ riêng (trên tàu), mở cổng / cửa
+      else if (a.do === 'phone') this.storyPhoneOff(a); // tịch thu / trả điện thoại
+      else if (a.do === 'tie') this.storyTie(a); // trói / thả (ngồi bệt, tay sau lưng)
+      else if (a.do === 'untie') this.storyUntie(a); // bấm E liên tục cắt dây
+      else if (a.do === 'fpv') { if (a.on !== false) gs.story.fpv = true; else delete gs.story.fpv; this.fpvSet(a.on !== false); } // góc nhìn thứ 1
+      else if (a.do === 'fight') this.fightStart(a.id); // trận đánh (story.json → fights)
+      else if (a.do === 'race') this.raceStart(a.id); // màn đua thoát thân (story.json → races)
       else if (a.do === 'dismount') this.storyActorDismount(a.who);
       else if (a.do === 'helmetOff') this.storyHelmetOff(a.who);
       else if (a.do === 'helmetOn') this.storyHelmetOn(a.who); // đội nón lại (đang cầm trên tay)
@@ -262,6 +277,7 @@ export class StoryPart {
       ac.street = [Math.sin(bh), Math.cos(bh)];
     }
     this.storyActors[a.who] = ac;
+    if (this.gs.story?.tied?.[a.who] != null || a.tied) { if (a.tied && this.gs.story) (this.gs.story.tied ||= {})[a.who] ??= true; this.tieApply(a.who); } // đứng sẵn bị trói
   }
   // Chỗ đứng "trước cửa địa điểm": từ cửa đi ra phía đường dist m (≈16,5 m = vỉa hè bên kia đường), lệch dọc đường lat m.
   // Quay mặt về phía cửa. Trả kèm hướng ra đường (nx, nz) và hướng dọc đường (tx, tz)
@@ -299,6 +315,11 @@ export class StoryPart {
     this.storyLater = []; // câu / tiếng hẹn giờ của cảnh cũ bỏ hết
     for (const who of Object.keys(this.storyActors || {})) this.storyActorRemove(who);
     this.storyPropsClear(); // đạo cụ cảnh phim, khói, mốc lộ trình
+    this.storyShipShow(true); // tàu hàng đang đậu (lưu trong bản lưu)
+    this.untie = null;
+    this.fightStop?.(); // trận đánh đang dở: bỏ (chơi lại từ bước bắt đầu trận)
+    this.raceStop?.(); // màn đua đang dở: bỏ, trả xe
+    this.zoneApply(true); // bản đồ riêng, điện thoại, người bị trói, góc nhìn thứ 1
     this.storyChoiceClose();
     this.storyTalkWith = null;
     this.storyAsk = null;
@@ -356,11 +377,19 @@ export class StoryPart {
     return ac ? { mesh: ac.seated || ac.mesh, name: fmt(this.gs.story?.names?.[who] || STORY.people?.[who]?.name || ''), up: ac.seated ? 1.6 : 1.95, ac } : null; // tên đổi sau khi tự giới thiệu (việc "rename")
   }
   // Bong bóng kiểu cốt truyện: viền vàng, tên người nói, chữ hiện dần kèm tiếng; hold thì hiện xong có dấu [E] nhấp nháy (giữ tới câu sau)
-  storyBubble(who, text, hold = false) {
+  // Câu có "[tiếp]" = chia trang: câu giữ chờ E → bấm E qua trang sau · câu tự tắt → trang sau tự hiện khi trang trước tắt
+  storyBubble(who, text, hold = false, page = null) {
     const sp = this.speakerOf(who);
     if (!sp || !text) return;
     if (who !== 'player') this.lastSpeaker = who; // camera nhìn theo người đang nói
-    this.bubbles.show(`story:${who}`, () => headOf(sp.mesh, sp.up), fmt(text, this.storyVoice(who)), 'story', hold ? Infinity : undefined, { name: sp.name, type: true, wait: hold });
+    let line = page ?? fmt(text, this.storyVoice(who));
+    const pages = line.split('[tiếp]').map((p) => p.trim()).filter(Boolean);
+    if (pages.length > 1) {
+      line = pages[0];
+      if (hold) (this.storyQueue ||= []).unshift(...pages.slice(1).map((p) => () => this.storyBubble(who, text, true, p))); // E qua trang sau (trước các câu đang xếp hàng)
+      else this.storyAfter(Math.min(9, 3 + line.length * 0.06), () => this.storyBubble(who, text, false, pages.slice(1).join('[tiếp]')));
+    }
+    this.bubbles.show(`story:${who}`, () => headOf(sp.mesh, sp.up), line, 'story', hold ? Infinity : undefined, { name: sp.name, type: true, wait: hold });
   }
   // Hiện 2–3 câu trả lời trên đầu người chơi (story.json → choose) · chọn bằng phím 1/2/3 hoặc bấm vào
   // a.ask: người chơi mở lời — chờ bấm E cạnh người nói (a.who) mới hiện các câu
@@ -1133,6 +1162,15 @@ export class StoryPart {
     s.tt ||= [];
     if (!s.tt.some((x) => x.id === a.id)) s.tt.push({ ...a });
     this.feedCache = null; // làm lại danh sách tin ngay
+    // chụp sẵn ảnh ngay lúc đăng (người lạ / xe còn đứng đó) → người lạ đi đâu sau đó ảnh vẫn còn (lưu cùng bản lưu)
+    // chụp hụt (cửa sổ game đang thu nhỏ…) → thử lại mỗi giây, trong lúc người lạ còn đứng đó
+    const tries = (n) => this.storyAfter(n === 30 ? 0.4 : 1, () => {
+      if (!a.photo || s.ttShots?.[a.id]) return;
+      const cv = this.snapPhoto({ media: { at: { story: a.photo } } });
+      if (cv) { try { (s.ttShots ||= {})[a.id] = cv.toDataURL('image/jpeg', 0.8); } catch { /* bỏ qua */ } }
+      else if (n > 0 && (!a.photo.actor || this.storyActors?.[a.photo.actor])) tries(n - 1);
+    });
+    tries(30);
   }
   // Tin Tích Tắc cốt truyện → dạng tin của app (sim/feed.js). Người đã chặn mình thì tin của họ biến mất
   storyTtFeed() {
@@ -1168,6 +1206,19 @@ export class StoryPart {
   storyAmbushOpen(a) {
     const s = this.gs.story;
     if (s.ev.ambushed || this.modal.open) return;
+    // nhiều màn vẽ tự do (rounds): thắng màn này mới sang màn sau, nhớ màn đang chơi (mở lại game chơi tiếp màn đó)
+    if (a.rounds?.length) {
+      const i = Math.min(s.ambushRound || 0, a.rounds.length - 1), R = a.rounds[i];
+      const node = ambushPanel({ def: roundDef(R), nb: roundNb(R), round: { i, n: a.rounds.length }, onWin: () => {
+        this.modal.hide();
+        if (i < a.rounds.length - 1) { s.ambushRound = i + 1; sound('ui.next'); this.storyAmbushOpen(a); return; }
+        delete s.ambushRound;
+        s.ambush = { rounds: a.rounds.length };
+        storyEvent(s, 'ambushed');
+      } });
+      this.modal.show({ title: fmt(a.title || 'amb.title'), node, wide: true, dismissible: false });
+      return;
+    }
     const node = ambushPanel({ def: a, nb: (i, j) => neighbors(i, j), onWin: (blocks) => {
       s.ambush = { blocks, fixed: a.fixed || [] };
       storyEvent(s, 'ambushed');
@@ -1175,11 +1226,12 @@ export class StoryPart {
     } });
     this.modal.show({ title: fmt(a.title || 'amb.title'), node, wide: true, dismissible: false });
   }
-  // Anh em shipper đứng ở các chốt đã bày (cảnh vây đêm): mỗi chốt per chiếc xe, đầu xe quay vào giữa khu; id đạo cụ "crew<k>"
+  // Anh em shipper đứng chốt (cảnh vây đêm): mỗi chốt per chiếc xe, đầu xe quay vào giữa khu; id đạo cụ "crew<k>"
+  // a.nodes: các ngã tư thật đứng chốt (cố định trong dữ liệu — bày trận vẽ tự do không dính bản đồ thật) · không có → theo chốt người chơi đã đặt
   storyAmbushCrew(a) {
     const s = this.gs.story, A = s.ambush;
-    if (!A) return;
-    const nodes = [...(A.fixed || []), ...(A.blocks || [])], per = Math.max(1, a.per ?? 2);
+    const nodes = a.nodes?.length ? a.nodes : A ? [...(A.fixed || []), ...(A.blocks || [])] : [], per = Math.max(1, a.per ?? 2);
+    if (!nodes.length) return;
     const cx = nodes.reduce((t, n) => t + nodePos(...n).x, 0) / nodes.length, cz = nodes.reduce((t, n) => t + nodePos(...n).z, 0) / nodes.length;
     nodes.forEach((n, k) => {
       const p = nodePos(...n), h = Math.atan2(cx - p.x, cz - p.z);
@@ -1215,11 +1267,12 @@ export class StoryPart {
     this.pursueTick(dt); // bị rượt (việc "pursue")
     if (this.cine?.run) this.cinePlayerRun(dt); // cảnh phim: người chơi tự chạy bộ
     this.storyPropsTick(dt * this.sceneScale()); // đạo cụ cảnh phim (xe tải, chó…) + khói lốp
+    this.storyShipTick(dt); // tàu hàng đang rời bến
     // câu đáp lại câu người chơi vừa chọn (người lạ / NPC địa điểm)
     // câu đang giữ đã tắt (vd đi xa) mà còn câu xếp hàng → hiện câu kế
     if (this.storyQueue?.length && !this.storyHeldId() && !this.pendingReply) this.storyQueue.shift()();
     for (const [who, ac] of Object.entries(this.storyActors || {})) {
-      if (ac.seated) continue; // đang ngồi sau xe người chơi: đi theo xe
+      if (ac.seated || ac.tied) continue; // đang ngồi sau xe người chơi: đi theo xe · bị trói ngồi bệt
       if (ac.mode === 'chase') { this.chaseTick(who, ac, dt * this.sceneScale()); continue; } // tên cướp chạy xe theo lộ trình (quay chậm: chạy chậm lại)
       if (ac.mode === 'tackled' || ac.mode === 'tackler' || ac.mode === 'sneak' || ac.mode === 'pursue') continue; // đang vật / bị ghì (tackleTick) · đang bị bám theo (sneakTick)
       if (ac.mode === 'rideoff') { if (ac.helmet) this.helmetTick(ac, dt); this.rideOffTick(who, ac, dt); continue; } // đội nón, lên xe chạy đi
@@ -1263,7 +1316,9 @@ export class StoryPart {
       m.x += ux * speed * dt;
       m.z += uz * speed * dt;
       if (speed) resolveCircle(m, 0.35, this.city.grid); // né nhà, cột, xe buýt đậu… (trượt dọc theo)
-      if (ac.mode === 'board' || ac.mode === 'approach' || ac.mode === 'goto' || (ac.def?.spot !== 'xeOm' && ac.def?.spot !== 'place')) m.y = p.y; // đứng cố định trên vỉa hè thì giữ nguyên độ cao
+      // độ cao theo mặt đất / mặt cầu ngay dưới chân người lạ (không theo người chơi: người chơi chạy lên cầu thì người đứng dưới gầm không bị nhấc lên)
+      // đứng yên → giữ chỗ đứng · đi lại → bám mặt gần độ cao hiện tại (lên dốc cầu dần dần), không có mặt cao → vỉa hè / lòng đường
+      if (speed) m.y = this.city.elev?.heightAt(m.x, m.z, m.y, 0.3) ?? (blockAt(m.x, m.z) ? SW_H : 0);
       if (speed) ac.mesh.rotation.y = Math.atan2(ux, uz);
       else {
         // đứng yên: người chơi tới gần (12 m) → quay về phía người đang nói (bong bóng đang hiện, không phải mình), không thì người chơi;
@@ -1351,7 +1406,8 @@ export class StoryPart {
     else if (st.target === 'office') {
       const w = this.waypointPlace(), pl = w?.kind === 'office' ? w : this.nearestPlace((p) => p.kind === 'office');
       at = pl?.door; dest = pl?.name || '';
-    } else if (st.target?.startsWith('prop:')) { const pr = this.storyProps?.[st.target.slice(5)]; at = pr?.mesh.position; dest = pr ? fmt(`story.propName.${pr.def.kind}`) : ''; } // đạo cụ (vd thùng rác để núp)
+    } else if (st.target?.startsWith('spot:')) { const sp = spotOf(st.target); if (sp) { at = { x: sp.at[0], z: sp.at[1] }; dest = fmt(sp.name); } } // chỗ hẹn theo tọa độ
+    else if (st.target?.startsWith('prop:')) { const pr = this.storyProps?.[st.target.slice(5)]; at = pr?.mesh.position; dest = pr ? fmt(`story.propName.${pr.def.kind}`) : ''; } // đạo cụ (vd thùng rác để núp)
     else if (st.target?.startsWith('actor:')) { const who = st.target.slice(6); at = this.storyActors?.[who]?.mesh.position; dest = fmt(STORY.people?.[who]?.name || ''); }
     else if (st.target) { const pl = this.layout.placeById[st.target]; at = pl?.door; dest = pl?.name || ''; }
     // thanh "Đi đến …" giữa trên (chỉ khi cốt truyện chỉ đường): chữ riêng của bước (goTo) hoặc mẫu chung goal.goTo

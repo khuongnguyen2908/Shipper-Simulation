@@ -83,12 +83,14 @@ export function resolveCircle(pos, r, grid, y = 0) {
       normals.push({ x: nx, z: nz });
     }
   }
-  // biên bản đồ
+  // biên bản đồ · đang ở bản đồ riêng (grid.zones: tàu…) → biên của bản đồ đó
   const lim = HALF + 3;
-  if (pos.x > lim) { pos.x = lim; normals.push({ x: -1, z: 0 }); }
-  if (pos.x < -lim) { pos.x = -lim; normals.push({ x: 1, z: 0 }); }
-  if (pos.z > lim) { pos.z = lim; normals.push({ x: 0, z: -1 }); }
-  if (pos.z < -lim) { pos.z = -lim; normals.push({ x: 0, z: 1 }); }
+  const zr = grid.zones?.find((r) => pos.x > r.x0 - 40 && pos.x < r.x1 + 40 && pos.z > r.z0 - 40 && pos.z < r.z1 + 40);
+  const [bx0, bx1, bz0, bz1] = zr ? [zr.x0, zr.x1, zr.z0, zr.z1] : [-lim, lim, -lim, lim];
+  if (pos.x > bx1) { pos.x = bx1; normals.push({ x: -1, z: 0 }); }
+  if (pos.x < bx0) { pos.x = bx0; normals.push({ x: 1, z: 0 }); }
+  if (pos.z > bz1) { pos.z = bz1; normals.push({ x: 0, z: -1 }); }
+  if (pos.z < bz0) { pos.z = bz0; normals.push({ x: 0, z: 1 }); }
   return normals;
 }
 

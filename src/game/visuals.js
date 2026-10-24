@@ -34,6 +34,8 @@ export class VisualsPart {
   // ======================== HIỂN THỊ ========================
   updateCamera(dt) {
     if (this.cine) return this.cineTick(dt); // đang chiếu cảnh phim cốt truyện: camera theo cảnh quay
+    if (this.fpvOn) return this.fpvCamera(dt); // góc nhìn thứ 1 (trên tàu — game/fight.js)
+    if (this.race && this.mode === 'bike') return this.raceCamera(dt); // màn đua: camera cố định sau lưng xe (game/race.js)
     // độ nhạy chuột + đảo trục dọc (màn hình Cài đặt)
     const k = this.settings.sens, ky = k * (this.settings.invertY ? -1 : 1);
     const locked = !!this.storyTalkActor(); // đang nói chuyện (cốt truyện): khóa camera ở góc nhìn 2 người, không xoay / phóng
@@ -68,7 +70,7 @@ export class VisualsPart {
     this.lastFocus = (this.lastFocus || new THREE.Vector3()).copy(focus);
     this.stillT = moving ? 0 : (this.stillT || 0) + dt;
     // đang nói chuyện: chỉ né nhà (né cây / cột lúc này kéo camera sát quá, mất khung cả nhóm) · nhóm 3 người → lùi xa hơn
-    this.rig.update(dt, talk ? this.talkFocus : focus, mounted && Math.abs(this.bike.speed) > 1 ? this.bike.heading : null, this.city.grid, inG ? GARAGE_CAM : talk ? (this.talkGroup > 1 ? TALK_CAM_GROUP : TALK_CAM) : null, !talk && this.stillT > 0.6);
+    this.rig.update(dt, talk ? this.talkFocus : focus, mounted && Math.abs(this.bike.speed) > 1 ? this.bike.heading : null, this.city.grid, inG ? GARAGE_CAM : this.zone?.camLimit?.(focus) || (talk ? (this.talkGroup > 1 ? TALK_CAM_GROUP : TALK_CAM) : null), !talk && this.stillT > 0.6);
     if (this.shake > 0) {
       this.camera.position.x += (Math.random() - 0.5) * this.shake;
       this.camera.position.y += (Math.random() - 0.5) * this.shake;
@@ -247,6 +249,7 @@ export class VisualsPart {
   // Tab / bấm hình điện thoại cạnh bản đồ: bật / cất máy. Có đơn đang mời mà máy đang ở màn hình chính → vào thẳng app nhận đơn
   togglePhone() {
     if (this.state !== 'play' || this.paused || this.modal.open || this.screens.open) return;
+    if (!this.phone.open && this.phoneBlocked()) return; // bị tịch thu điện thoại (cốt truyện)
     const opening = !this.phone.open;
     if (opening && this.om.state === S.OFFERED) this.phone.openApp('goship');
     this.phone.toggle();
@@ -254,6 +257,7 @@ export class VisualsPart {
   }
 
   toggleBag() {
+    if (!this.phone.open && this.phoneBlocked()) return;
     if (this.phone.open && this.phone.app === 'bag') return this.phone.toggle(false);
     this.phone.openApp('bag');
     if (!this.phone.open) this.phone.toggle(true);
@@ -327,6 +331,10 @@ export class VisualsPart {
     const pp = this.playerPos;
     this.applyLook();
     const { night, wet } = this.sky.update(dt, tod(now), rain, pp, this.camera);
+    if (this.race) { // màn đua: đêm sáng trăng (thấy đường + chướng ngại từ xa), đèn pha rọi xa
+      this.sky.hemi.intensity += 0.75 * night;
+      if (this.bike.headlight) { this.bike.headlight.distance = 70; this.bike.headlight.angle = 0.45; }
+    } else if (this.bike.headlight && this.bike.headlight.distance !== 28) { this.bike.headlight.distance = 28; this.bike.headlight.angle = 0.55; }
     this.nightLevel = night; // bản đồ tròn tối lại ban đêm
     this.city.update?.(dt, this.traffic.loopCars); // barie sân bay nâng khi ô tô tới
     // xe buýt chạy theo lịch; bị chắn trước đầu thì đứng chờ, chắn lâu thì bóp còi
@@ -400,10 +408,10 @@ export class VisualsPart {
       const talking = this.bubbles.map.has(`story:place:${n.userData.placeId}`) || this.storyTalkWith === `place:${n.userData.placeId}` || this.talk?.mesh === n;
       if (l) l.material.opacity = talking ? 0 : this.labelFade(n.position, 3, 3); // đang nói chuyện với NPC này → ẩn bảng tên
     }
-    const storyRider = Object.values(this.storyActors || {}).some((ac) => ac.seated); // người lạ ngồi sau (cốt truyện): túi giao hàng tạm ẩn
-    if (!storyRider && !this.cine?.bagHidden && !(this.om.order && this.om.order.kind === 'ride' && this.passengerMesh && this.passengerMesh.parent === this.bike.mesh)) this.bike.showBag(true); // cảnh phim góc nhìn thứ nhất: thùng tạm ẩn
+    const storyRider = Object.values(this.storyActors || {}).some((ac) => ac.seated); // người lạ ngồi sau (cốt truyện) / màn đua (xe anh Đạt): túi giao hàng tạm ẩn
+    if (!storyRider && !this.race && !this.cine?.bagHidden && !(this.om.order && this.om.order.kind === 'ride' && this.passengerMesh && this.passengerMesh.parent === this.bike.mesh)) this.bike.showBag(true); // cảnh phim góc nhìn thứ nhất: thùng tạm ẩn
     // xe đạp: chân đạp vòng theo tốc độ (đứng yên thì ngồi bình thường)
-    if (this.mode === 'bike' && this.gs.power === 'pedal' && this.walker.mesh.userData.parts) {
+    if (this.mode === 'bike' && this.gs.power === 'pedal' && !this.race && this.walker.mesh.userData.parts) { // màn đua: xe anh Đạt là mô tô
       const v = Math.abs(this.bike.speed);
       this.pedalPhase = (this.pedalPhase || 0) + dt * v * 2.2;
       pedalPerson(this.walker.mesh, this.pedalPhase, Math.min(1, v / 1.5));
@@ -468,7 +476,7 @@ export class VisualsPart {
     const amb = hz.ambient(now);
     const weather = (rain ? (rain.heavy ? '⛈️' : '🌦️') : hz.isHarshSun(now) ? '☀️🔥' : night > 0.5 ? '🌙' : '⛅') + (hz.floodedSegs(now).length ? '🌊' : '');
     // khu phố đang đứng (map.json → districts); đổi khu phố thì báo
-    const dist = districtAtPoint(this.playerPos.x, this.playerPos.z);
+    const dist = this.zone ? null : districtAtPoint(this.playerPos.x, this.playerPos.z); // bản đồ riêng: không thuộc khu phố nào
     if (dist && dist.id !== this.lastDistrict) {
       if (this.lastDistrict !== undefined) this.hud.toast(fmt('toast.enterDistrict', { name: dist.name }), 'info', 2500);
       this.lastDistrict = dist.id;
@@ -476,7 +484,7 @@ export class VisualsPart {
     this.hud.update({
       time: fmtTime(now),
       day: gs.day,
-      district: [dist?.name, fmt('hud.road', { road: tierLabel(this.roadTier || 'normal'), limit: this.speedLimitKmh() }), mounted && gs.noHelmet ? fmt('hud.noHelmet') : ''].filter(Boolean).join(' · '),
+      district: this.zone ? fmt(`zone.${this.zone.id}`) : [dist?.name, fmt('hud.road', { road: tierLabel(this.roadTier || 'normal'), limit: this.speedLimitKmh() }), mounted && gs.noHelmet ? fmt('hud.noHelmet') : ''].filter(Boolean).join(' · '),
       weather: `${weather} ${amb}°C`,
       money: gs.money,
       rating: gs.brand ? gs.rating : null, // chưa vào hãng: chưa có điểm đánh giá

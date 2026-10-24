@@ -16,8 +16,9 @@ const svg = (tag, attrs = {}, text = '') => {
   return e;
 };
 
-// def: việc ambush (story.json) · nb(i, j): ngã tư nối thẳng (cityLayout.neighbors) · onWin(blocks): đặt đúng, bấm chốt kế hoạch
-export function ambushPanel({ def, nb, onWin }) {
+// def: việc ambush (story.json) · nb(i, j): ngã tư nối thẳng (cityLayout.neighbors / roundNb) · onWin(blocks): đặt đúng, bấm chốt kế hoạch / sang màn sau
+// round: { i, n } — đang chơi màn thứ i (từ 0) trong n màn (bày trận nhiều màn khó dần) · không có = 1 màn như cũ
+export function ambushPanel({ def, nb, onWin, round = null }) {
   const all = [...ambushNodes(def), ...(def.exits || []), ...(def.trapTo ? [def.trapTo] : [])];
   const xs = all.map((n) => n[0]), ys = all.map((n) => n[1]);
   const i0 = Math.min(...xs), i1 = Math.max(...xs), j0 = Math.min(...ys), j1 = Math.max(...ys);
@@ -26,11 +27,13 @@ export function ambushPanel({ def, nb, onWin }) {
   const max = def.blocks ?? 3;
   const fixed = new Set((def.fixed || []).map(key)), cand = new Set(ambushCandidates(def).map(key));
   const isExit = (n) => (def.exits || []).some((e) => key(e) === key(n));
-  let mine = new Set(), busy = false, endAt = null; // endAt: chỗ Tí Sún dừng sau lần chạy thử
+  let mine = new Set(), busy = false, endAt = null, runId = 0; // endAt: chỗ Tí Sún dừng sau lần chạy thử · runId: lần chạy (dừng giữa chừng thì bỏ hoạt ảnh cũ)
 
   const root = document.createElement('div');
   root.className = 'amb';
-  root.innerHTML = `<p class="amb-help">${fmt('amb.help', { n: max })}</p>`;
+  root.innerHTML = (round ? `<div class="amb-head"><b>${fmt('amb.round', { i: round.i + 1, n: round.n })}</b><span class="amb-tag lv${round.i === 0 ? 0 : round.i === round.n - 1 ? 2 : 1}">${fmt(round.i === 0 ? 'amb.easy' : round.i === round.n - 1 ? 'amb.hard' : 'amb.mid')}</span>
+    <span class="amb-dots">${Array.from({ length: round.n }, (_, d) => `<i class="${d < round.i ? 'ok' : d === round.i ? 'on' : ''}"></i>`).join('')}</span></div>` : '')
+    + `<p class="amb-help">${fmt('amb.help', { n: max })}</p>`;
   const map = svg('svg', { viewBox: `0 0 ${W} ${H}`, class: 'amb-map' });
   root.append(map);
   const foot = document.createElement('div');
@@ -54,11 +57,17 @@ export function ambushPanel({ def, nb, onWin }) {
     const [x1, y1] = P(n), [x2, y2] = P(m);
     map.append(svg('line', { x1, y1, x2, y2, class: 'amb-road' }));
   }
+  // đoạn đường bị đứt (màn vẽ tự do): vạch đứt + ✕
+  for (const [a, b] of def.cut || []) {
+    const [x1, y1] = P(a), [x2, y2] = P(b);
+    map.append(svg('line', { x1, y1, x2, y2, class: 'amb-cut' }));
+    map.append(svg('text', { x: (x1 + x2) / 2, y: (y1 + y2) / 2 + 5, class: 'amb-cutx' }, '✕'));
+  }
   // đường cụt ngập (chỗ bẫy)
   if (def.trapTo) {
     const [x1, y1] = P(def.trap), [x2, y2] = P(def.trapTo);
     map.append(svg('line', { x1, y1, x2, y2, class: 'amb-flood' }));
-    map.append(svg('text', { x: (x1 + x2) / 2 + 8, y: (y1 + y2) / 2, class: 'amb-label flood' }, fmt('amb.flood')));
+    map.append(svg('text', { x: (x1 + x2) / 2, y: Math.min(y1, y2) - 16, 'text-anchor': 'middle', class: 'amb-label flood' }, fmt('amb.flood'))); // chữ nằm trên đường, không đè ngã tư
   }
   const pathLine = svg('polyline', { class: 'amb-path', points: '' });
   map.append(pathLine);
@@ -82,7 +91,7 @@ export function ambushPanel({ def, nb, onWin }) {
     for (const [k, d] of dots) {
       const kind = fixed.has(k) ? 'fixed' : mine.has(k) ? 'mine' : k === key(def.start) ? 'start' : k === key(def.trap) ? 'trap' : (def.exits || []).some((e) => key(e) === k) ? 'exit' : cand.has(k) ? 'free' : '';
       d.g.setAttribute('class', `amb-node ${kind}`);
-      d.t.textContent = kind === 'fixed' || kind === 'mine' ? '🛵' : kind === 'trap' ? '🌊' : '';
+      d.t.textContent = kind === 'fixed' || kind === 'mine' ? '🛵' : kind === 'trap' ? '🌊' : kind === 'exit' ? '🚪' : '';
     }
     const [sx, sy] = P(def.start);
     const [tx, ty] = endAt || [sx, sy];
@@ -96,8 +105,9 @@ export function ambushPanel({ def, nb, onWin }) {
     m.textContent = k ? fmt(k) : '';
     m.className = `amb-msg ${cls}`;
   };
+  const stop = () => { if (busy) { busy = false; runId += 1; } }; // đang chạy thử → dừng (bấm ngã tư / Đặt lại không bị bỏ qua)
   const toggle = (n) => {
-    if (busy) return;
+    stop();
     const k = key(n);
     if (mine.has(k)) mine.delete(k);
     else if (mine.size < max) mine.add(k);
@@ -116,10 +126,12 @@ export function ambushPanel({ def, nb, onWin }) {
     pathLine.setAttribute('points', pts.map((p) => p.join(',')).join(' '));
     pathLine.setAttribute('class', `amb-path ${r.result}`);
     busy = true;
+    const my = ++runId;
     draw();
     let t = 0, last = performance.now();
     const seg = 0.42; // giây mỗi đoạn
     const tick = (now) => {
+      if (my !== runId) return; // đã bấm Đặt lại / ngã tư khác giữa chừng
       t += (now - last) / 1000;
       last = now;
       const f = Math.min(pts.length - 1, t / seg), i = Math.floor(f), u = f - i;
@@ -132,7 +144,7 @@ export function ambushPanel({ def, nb, onWin }) {
       if (r.result === 'trap') {
         sound('progress.objective');
         say('amb.win', 'good');
-        foot.querySelector('[data-a="run"]').outerHTML = `<button class="btn primary" data-a="ok">${fmt('amb.ok')}</button>`;
+        foot.querySelector('[data-a="run"]').outerHTML = `<button class="btn primary" data-a="ok">${fmt(round && round.i < round.n - 1 ? 'amb.next' : 'amb.ok')}</button>`; // còn màn sau → "Màn tiếp theo"
         foot.querySelector('[data-a="ok"]').addEventListener('click', () => onWin([...mine].map((k) => k.split(',').map(Number))));
       } else {
         sound('ui.warn');
@@ -145,7 +157,8 @@ export function ambushPanel({ def, nb, onWin }) {
   foot.addEventListener('click', (e) => {
     const a = e.target.closest('[data-a]')?.dataset.a;
     if (a === 'run') run();
-    if (a === 'reset' && !busy) {
+    if (a === 'reset') {
+      stop();
       const ok = foot.querySelector('[data-a="ok"]'); // đã thắng mà muốn đặt lại → trả nút chạy thử
       if (ok) ok.outerHTML = `<button class="btn primary" data-a="run">${fmt('amb.run')}</button>`;
       mine = new Set();

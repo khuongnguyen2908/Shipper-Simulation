@@ -18,6 +18,7 @@ import { dist, npc } from './common.js';
 import { pickup, boardPassenger, dropoff, bom, returnParcel } from './delivery.js';
 import { placeAction } from './places.js';
 import { busDialog, landlord, talkPed } from './road.js';
+import { fightPrompts } from './fight.js';
 
 // ======================== DANH SÁCH TƯƠNG TÁC GẦN NGƯỜI CHƠI ========================
 export function gatherInteractions(g) {
@@ -125,6 +126,7 @@ export function gatherInteractions(g) {
     const ped = g.traffic.nearestPed(p.x, p.z, foot ? 2.6 : 3.5);
     if (ped) E.push({ label: fmt('act.talkPed', { name: ped.name }), dist: dist(p, ped) + 0.5, run: () => talkPed(g, ped) });
   }
+  if (foot) fightPrompts(g, E); // đánh nhau góc nhìn thứ 1: nhặt đồ / đập lén
   // việc của đơn hàng luôn ưu tiên (dist đã trừ 10), kể cả khi đang mờ để người chơi thấy hướng dẫn
   E.sort((a, b) => a.dist - b.dist);
   // đang chọn câu trả lời (phím 1/2/3) / người lạ sắp đáp lại: tạm không có nút E (khỏi bấm nhầm vào cửa bên cạnh)

@@ -125,8 +125,10 @@ export class Sky {
     this.dome.position.copy(camera.position);
     this.scene.background.copy(hor);
     this.scene.fog.color.copy(hor);
-    this.scene.fog.near = wet ? 30 : 70;
-    this.scene.fog.far = wet ? 150 : 260;
+    // đứng gần cửa sông mở ra ngoài biên (openAt do game gắn) → sương lùi xa, nhìn được ra tới chân trời
+    const op = this.openAt && focus ? this.openAt(focus.x, focus.z) : 0;
+    this.scene.fog.near = (wet ? 30 : 70) + op * (wet ? 20 : 60);
+    this.scene.fog.far = (wet ? 150 : 260) + op * (wet ? 110 : 300);
     // ánh sáng trời: trên mát hơi xanh, dưới đất hắt lên ấm
     this.hemi.intensity = 0.62 + 0.75 * day + this.flash * 2;
     this.hemi.color.copy(top).lerp(C(0xffffff), 0.55 + 0.2 * (1 - day));

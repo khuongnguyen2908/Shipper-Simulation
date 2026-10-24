@@ -45,16 +45,27 @@ export class PhoneDataPart {
       dogThief: recentThieves(now, this.worldSeed).filter((e) => e.street).map((e) => ({ street: e.street, at: { x: e.x, z: e.z, axis: e.side % 2 ? 'x' : 'z' } })),
       me: { name: gs.profile?.name || fmt('profile.defaultName'), orders: gs.stats.completed, stars: gs.rating, day: gs.day },
     };
-    const feed = [...this.storyTtFeed(), ...buildFeed({ facts, places: this.layout.places, seed: gs.day * 97 + Math.floor(tod(now) / 60) })]; // tin cốt truyện nằm đầu
+    const base = buildFeed({ facts, places: this.layout.places, seed: gs.day * 97 + Math.floor(tod(now) / 60) });
+    const feed = [...base.slice(0, 5), ...this.storyTtFeed(), ...base.slice(5)]; // tin cốt truyện nằm thứ 6: lướt vài tin mới tới
     this.feedCache = { key, feed };
     return feed;
   }
   // Chụp ảnh cho tin "photo" của app Tích Tắc: camera đặt bên kia đường nhìn vào mặt tiền địa điểm (hoặc nhìn dọc đoạn đường),
   // vẽ 1 khung vào canvas chính rồi cắt khung dọc 9:16, vẽ lại khung game ngay sau đó (không bị chớp). Trả về canvas 270×480.
+  // ảnh tin cốt truyện chụp được lúc hiện tin → giữ lại vào bản lưu (người lạ đi rồi vẫn còn ảnh)
   snapPhoto(post) {
+    const cv = this.snapPhotoRaw(post);
+    if (cv && post.story && post.media?.at?.story !== undefined && this.gs.story && !this.gs.story.ttShots?.[post.story] && cv.toDataURL) {
+      try { (this.gs.story.ttShots ||= {})[post.story] = cv.toDataURL('image/jpeg', 0.8); } catch { /* bỏ qua */ }
+    }
+    return cv;
+  }
+  snapPhotoRaw(post) {
     const at = post.media.at;
     if (!at) return null;
     let eye, look;
+    const kept = post.story && this.gs.story?.ttShots?.[post.story]; // tin cốt truyện: ảnh đã chụp sẵn lúc đăng
+    if (kept) { const img = new Image(); img.src = kept; return img; }
     if (at.story !== undefined) { // tin cốt truyện: chụp người lạ / chỗ đã định
       const shot = this.storyTtShot(at.story);
       if (!shot) return null;

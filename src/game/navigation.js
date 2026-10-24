@@ -12,6 +12,7 @@ import { objectives } from '../sim/objectives.js';
 import * as act from '../interactions.js';
 import { fmt } from '../content/index.js';
 import { routeShort, dist2 } from './shared.js';
+import { spotOf } from '../sim/story.js';
 
 export class NavigationPart {
   // ======================== MỤC TIÊU / CHỈ ĐƯỜNG ========================
@@ -19,6 +20,8 @@ export class NavigationPart {
   waypointPlace() {
     const w = this.waypoint;
     if (!w) return null;
+    const sp = spotOf(w); // chỗ hẹn theo tọa độ (cốt truyện)
+    if (sp) return { id: w, name: fmt(sp.name), door: { x: sp.at[0], z: sp.at[1] }, kind: 'spot' };
     if (w.startsWith('stop:')) {
       const st = this.bus?.byId?.[w.slice(5)];
       return st ? { id: w, name: st.name, door: st.wait, kind: 'busStop' } : null;

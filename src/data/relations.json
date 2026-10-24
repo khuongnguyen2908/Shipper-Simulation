@@ -467,6 +467,39 @@
       ],
       "x": -700,
       "y": 520
+    },
+    "tiDo": {
+      "icon": "💪",
+      "name": "Tí Đô",
+      "gender": "m",
+      "age": 34,
+      "role": "Đại ca cầm đầu chuyến tàu HẢI LONG của đường dây \"việc nhẹ lương cao\" — boss chính chương 6",
+      "personality": "Hung hăng, ít nói, khỏe như trâu",
+      "notes": "Chương 6: chặn dưới bến Kho 7, lao húc (né được → đâm container, choáng), còn nửa máu thì nổi điên gọi đàn em + ném gạch. Ngoại hình / tuổi / tên tạm — chủ game sửa.",
+      "story": "tiDo",
+      "place": "",
+      "from": 6,
+      "look": {
+        "gender": "m",
+        "hairStyle": "bald",
+        "hair": "#1b1b1b",
+        "skin": "#b07a4f",
+        "scale": 1.25,
+        "build": "chubby"
+      },
+      "outfits": [
+        {
+          "id": "danhNhau",
+          "name": "Áo ba lỗ",
+          "worn": {
+            "shirt": "aoBaLo_den",
+            "pants": "quanJean_den",
+            "shoes": "depLe_den"
+          }
+        }
+      ],
+      "x": -950,
+      "y": 300
     }
   },
   "links": [
@@ -1173,9 +1206,102 @@
       "to": null,
       "secret": false,
       "notes": "Dượng Hai giới thiệu người chơi tới gặp chú Tư."
+    },
+    {
+      "id": "l33",
+      "a": "tiDo",
+      "b": "tiSun",
+      "type": "gang",
+      "ab": {
+        "label": "đàn em",
+        "self": "anh",
+        "call": "mày",
+        "feel": 0
+      },
+      "ba": {
+        "label": "đại ca",
+        "self": "em",
+        "call": "anh Đô",
+        "feel": 1
+      },
+      "from": 6,
+      "to": null,
+      "secret": true,
+      "notes": "Tí Sún gọi \"anh Đô\"."
+    },
+    {
+      "id": "l34",
+      "a": "tiDo",
+      "b": "flyer",
+      "type": "gang",
+      "ab": {
+        "label": "đàn em đi dụ người",
+        "self": "anh",
+        "call": "mày",
+        "feel": 0
+      },
+      "ba": {
+        "label": "đại ca",
+        "self": "em",
+        "call": "anh Đô",
+        "feel": 0
+      },
+      "from": 6,
+      "to": null,
+      "secret": true,
+      "notes": ""
+    },
+    {
+      "id": "l35",
+      "a": "tiDo",
+      "b": "player",
+      "type": "enemy",
+      "ab": {
+        "label": "thằng nhóc lén lên tàu",
+        "self": "tao",
+        "call": "mày",
+        "feel": -2
+      },
+      "ba": {
+        "label": "đại ca bọn bắt người",
+        "self": "tôi",
+        "call": "ông",
+        "feel": -2
+      },
+      "from": 6,
+      "to": null,
+      "secret": false,
+      "notes": ""
+    },
+    {
+      "id": "l36",
+      "a": "tiDo",
+      "b": "man",
+      "type": "enemy",
+      "ab": {
+        "label": "thằng tò mò bị nhốt",
+        "self": "tao",
+        "call": "mày",
+        "feel": -2
+      },
+      "ba": {
+        "label": "kẻ nhốt mình",
+        "self": "tao",
+        "call": "mày",
+        "feel": -2
+      },
+      "from": 6,
+      "to": null,
+      "secret": false,
+      "notes": ""
     }
   ],
-  "notes": [],
+  "notes": [
+    {
+      "text": "Claude thêm Tí Đô (boss chính chương 6) + 4 dây quan hệ (Tí Sún, anh tờ rơi, người chơi, anh Đạt). Ngoại hình, tuổi, xưng hô là tạm — anh sửa lại giúp.",
+      "ref": "char:tiDo"
+    }
+  ],
   "ignore": [
     {
       "ref": "link:l2",

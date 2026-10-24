@@ -9,8 +9,10 @@ import { APP_DEFS } from '../../data/phoneApps.js';
 import relationsJson from '../../data/relations.json' with { type: 'json' }; // sơ đồ quan hệ (/?relationship) — chỉ đọc: bộ đồ nhân vật
 import { isPlaced } from '../../data/places.js';
 import { ID_RE } from '../../data/validate.js';
-import { ambushSolutions } from '../../sim/ambush.js';
+import { ambushSolutions, roundDef, roundNb } from '../../sim/ambush.js';
 import { neighbors } from '../../sim/cityLayout.js';
+import { ZONES } from '../../sim/zones.js';
+import { KIND_DEFAULT } from '../../sim/race.js';
 import { el, field, textInput, numInput, button, sideList, selectInput, emojiInput, areaInput, checkInput, explain, subTabs } from './ui.js';
 
 const TRAITS = [['fragile', '⚠️ Dễ vỡ'], ['hot', '🔥 Nóng'], ['cold', '❄️ Lạnh'], ['liquid', '💧 Nước']];
@@ -20,9 +22,9 @@ const TRAITS = [['fragile', '⚠️ Dễ vỡ'], ['hot', '🔥 Nóng'], ['cold',
 const ACTION_GROUPS = [
   ['💬 Thoại & tin nhắn', ['bubble', 'choose', 'msg', 'replies']],
   ['🧍 Người lạ', ['actor', 'approach', 'leave', 'board', 'alight', 'react', 'rename', 'dismount', 'helmetOff', 'helmetOn', 'wave', 'rideOff']],
-  ['🎬 Cảnh & hành động', ['title', 'cine', 'chase', 'prop', 'tackle', 'sneak', 'pursue', 'fade', 'phoneCall', 'traffic', 'sound', 'ambush', 'ambushCrew']],
+  ['🎬 Cảnh & hành động', ['title', 'cine', 'chase', 'prop', 'tackle', 'sneak', 'pursue', 'fade', 'phoneCall', 'traffic', 'sound', 'ambush', 'ambushCrew', 'ship', 'zone', 'tie', 'untie', 'fpv', 'fight', 'race']],
   ['📦 Đồ & đơn', ['item', 'drop', 'offer', 'pay', 'bike']],
-  ['📱 Điện thoại & khác', ['openPhone', 'closePhone', 'ttPost', 'block', 'toast', 'end']],
+  ['📱 Điện thoại & khác', ['openPhone', 'closePhone', 'phone', 'ttPost', 'block', 'toast', 'end']],
 ];
 // 3 việc người lạ rời cảnh (bộ chạy giữ nguyên 3 mã) → trong công cụ là 1 mục, chọn cách rời
 const LEAVE_KINDS = [['remove', 'Biến mất ngay'], ['leave', 'Bỏ chạy ra xa rồi biến mất'], ['goto', 'Đi / chạy vào địa điểm … rồi biến mất']];
@@ -32,7 +34,7 @@ const UNTIL_GROUPS = [
   ['💬 Tin nhắn & app', ['open', 'reply', 'routed', 'ttSeen']],
   ['🗺️ Di chuyển', ['arrive', 'reach', 'mount', 'away']],
   ['📦 Đơn & xe', ['ordersSince', 'order', 'switch', 'fuel', 'brand', 'wear', 'use']],
-  ['⏱️ Thời gian & cảnh', ['wait', 'clock', 'newDay', 'cine', 'tackled', 'sneaked', 'hidden', 'escaped', 'ambushed', 'ack']],
+  ['⏱️ Thời gian & cảnh', ['wait', 'clock', 'newDay', 'cine', 'tackled', 'sneaked', 'hidden', 'escaped', 'ambushed', 'untied', 'fightWon', 'raceWon', 'ack']],
   ['Khác', ['none', 'never']],
 ];
 const HIDDEN_GUIDES = ['reply']; // chưa chương nào dùng
@@ -59,7 +61,7 @@ function groupSelect(value, first, groups, onChange, allLabels = null) {
 // Mã lỗi (validate.js → ref) → mục cần mở bên trái
 export function selOf(ref) {
   const r = String(ref || '');
-  if (/^(contact|item|parcel):/.test(r)) return 'people';
+  if (/^(contact|item|parcel|spot):/.test(r)) return 'people';
   const [ch, st] = r.split('.');
   return st ? `${ch}/${st}` : ch ? `ch:${ch}` : 'people';
 }
@@ -70,6 +72,7 @@ export function render(root, ctx) {
   data.people = data.people || {};
   data.items = data.items || {};
   data.parcels = data.parcels || {};
+  data.spots = data.spots || {};
   data.chapters = data.chapters || [];
   const sel = (ctx.sel.story = ctx.sel.story || {});
   const C = ctx.data.content;
@@ -89,6 +92,8 @@ export function render(root, ctx) {
 
   // ---------- danh sách chọn ----------
   const placeOpts = ctx.data.places.places.filter((p) => isPlaced(p)).sort((a, b) => a.name.localeCompare(b.name)).map((p) => [p.id, `${p.name} (${p.id})`]);
+  // chỗ hẹn theo tọa độ (📍 trong tin nhắn, mũi tên, điều kiện "Đã bấm 📍") — mã 'spot:<mã>'
+  const spotOpts = () => Object.entries(data.spots || {}).map(([id, x]) => [`spot:${id}`, `📍 ${C[x.name] || id} (chỗ hẹn)`]);
   const contactOpts = Object.entries(data.contacts).map(([id, c]) => [id, `${c.icon || ''} ${C[c.name] || id}`]);
   // đạo cụ trong chương đang xem (mã) — mũi tên / dấu / điều kiện núp chỉ vào đạo cụ
   const propOpts = () => (data.chapters.find((c) => c.id === sel.ch)?.steps || []).flatMap((x) => (x.on || []).filter((a) => a.do === 'prop' && a.id)).map((a) => [a.id, `${PROP_KINDS[a.kind] || a.kind} (${a.id})`]);
@@ -113,7 +118,9 @@ export function render(root, ctx) {
   const parcelOpts = [['', '— Không —'], ...Object.entries(data.parcels).map(([id, p]) => [id, `${p.icon || ''} ${C[p.name] || id}`])];
 
   // ---------- bên trái ----------
-  const rows = [{ id: 'people', icon: '👥', title: 'Danh bạ · người nói · vật phẩm', sub: `${Object.keys(data.contacts).length} người nhắn`, fixed: true }];
+  const rows = [{ id: 'people', icon: '👥', title: 'Danh bạ · người nói · vật phẩm', sub: `${Object.keys(data.contacts).length} người nhắn`, fixed: true },
+    { id: 'fight', icon: '⚔️', title: 'Đánh nhau: vũ khí · kiểu địch · trận', sub: `${Object.keys(data.fights || {}).length} trận`, fixed: true },
+    { id: 'race', icon: '🏍️', title: 'Màn đua thoát thân', sub: `${Object.keys(data.races || {}).length} màn`, fixed: true }];
   for (const ch of data.chapters) {
     rows.push({ id: `ch:${ch.id}`, icon: '📖', title: `${C[ch.title] || ch.id}: ${C[ch.name] || ''}`, sub: `${(ch.steps || []).length} bước`, fixed: true });
     (ch.steps || []).forEach((st, i) => rows.push({ id: `${ch.id}/${st.id}`, icon: `${i + 1}.`, title: C[st.goal] || st.id, sub: `${st.id} · ${UNTIL[st.until?.type || 'none']?.split(' (')[0] || ''}${stepBadges(st)}`, fixed: true }));
@@ -126,7 +133,9 @@ export function render(root, ctx) {
       el('div', { class: 'side-head' }, el('b', {}, `${data.chapters.length} chương`), button('＋ Chương mới', addChapter, 'small')),
       sideList(rows, sel.id, (id) => ctx.select('story', { id }), {
         key: 'story',
-        issuesFor: (id) => (id === 'people' ? ctx.issues.filter((i) => i.tab === 'story' && /^(contact|item|parcel):/.test(i.ref))
+        issuesFor: (id) => (id === 'people' ? ctx.issues.filter((i) => i.tab === 'story' && /^(contact|item|parcel|spot):/.test(i.ref))
+          : id === 'fight' ? ctx.issues.filter((i) => i.tab === 'story' && /^(weapon|foe|fight):/.test(i.ref))
+          : id === 'race' ? ctx.issues.filter((i) => i.tab === 'story' && /^race:/.test(i.ref))
           : id.startsWith('ch:') ? issues(id.slice(3)) : issues(id.replace('/', '.'))),
       }),
     );
@@ -147,6 +156,8 @@ export function render(root, ctx) {
   }
 
   if (sel.id === 'people') return renderPeople();
+  if (sel.id === 'fight') return renderFight();
+  if (sel.id === 'race') return renderRace();
   if (sel.id.startsWith('ch:')) return renderChapter(data.chapters.find((c) => c.id === sel.id.slice(3)));
   const [chId, stId] = sel.id.split('/');
   const ch = data.chapters.find((c) => c.id === chId);
@@ -223,7 +234,7 @@ export function render(root, ctx) {
     // 3 thẻ con: 🎬 Diễn biến · 👀 Người chơi thấy gì · ⚙️ Luật trong bước (số = đã đặt bao nhiêu thứ)
     const nFlow = (st.on || []).length + (st.until?.type && st.until.type !== 'none' ? 1 : 0);
     const nShow = [st.goal, st.guide, st.mark, st.zone, st.talkLabel].filter(Boolean).length;
-    const nRules = [st.hold && !afterTitle, st.noFines, st.leash, st.deadline, st.music, st.onlyTrait, st.onlyBefore != null || st.onlyAfter != null, st.hideNpc?.length].filter(Boolean).length;
+    const nRules = [st.orders, st.hold && !afterTitle, st.noFines, st.leash, st.deadline, st.music, st.onlyTrait, st.onlyBefore != null || st.onlyAfter != null, st.hideNpc?.length].filter(Boolean).length;
     const T = subTabs('storyStep', [['flow', `🎬 Diễn biến (${nFlow})`], ['show', `👀 Người chơi thấy gì (${nShow})`], ['rules', `⚙️ Luật trong bước (${nRules})`]]);
     body.append(T.el);
     // khung hiếm dùng: chưa đặt gì thì thu gọn (bấm để mở)
@@ -236,6 +247,7 @@ export function render(root, ctx) {
         ? el('div', { class: 'story-auto' }, '📦 Đơn hàng: ', el('b', {}, 'tự động khóa'), ' — bước này ở sau tên chương (đang trong chương: chỉ có đơn của cốt truyện).')
         : field('', checkInput(st.hold, (v) => { if (v) st.hold = true; else delete st.hold; changed(); }, 'Chặn đơn thường trong bước này'), opt('hold', { hint: 'Bước trước tên chương: app chưa phát đơn mới trong lúc chờ bước này (để hướng dẫn / cuốc cốt truyện không bị đơn khác chen vào). Sau tên chương thì tự khóa.' })),
       el('div', { class: 'grid' },
+        field('', checkInput(!!st.orders, (v) => { if (v) st.orders = true; else delete st.orders; changed(); }, '🛵 Cho chạy đơn trong lúc chờ'), opt('orders', { hint: 'Bước chờ tới giờ (vd chờ 8h, chờ ngủ qua đêm): app vẫn phát đơn thường. Hết bước này mà đang chạy đơn thì cốt truyện chờ giao xong mới tiếp (nhắc mỗi 30 giây).' })),
         field('Nhạc riêng trong bước này', selectInput(st.music || '', [['', '— Nhạc ngày / đêm như thường —'], ...Object.values(SOUNDS).filter((x) => x.kind === 'music' && x.id !== 'music.menu').map((x) => [x.id, `${x.label} (${x.id})`])], (v) => { if (v) st.music = v; else delete st.music; changed(); }), opt('music', { hint: 'Thay nhạc ngày / đêm trong lúc chờ bước này. Các bước liền nhau cùng nhạc thì phát liền mạch. Gắn file ở thẻ 🔊 Âm thanh — mã chưa có file thì vẫn nhạc ngày / đêm. Mã nhạc mới: nhờ Claude thêm vào soundSpec.js.' })),
         field('Chỉ chạy trước giờ', numInput(st.onlyBefore ?? 0, (v) => { if (v > 0) st.onlyBefore = v; else delete st.onlyBefore; changed(); }, { step: 0.05, min: 0, max: 24 }), opt('onlyBefore', { hint: 'Vd 9.83 (= 9h50): tới bước này mà đã quá giờ thì bỏ qua bước. Dùng cặp với "chỉ chạy từ giờ" để có 2 câu: kịp giờ / trễ giờ. 0 = không.' })),
         field('Chỉ chạy từ giờ', numInput(st.onlyAfter ?? 0, (v) => { if (v > 0) st.onlyAfter = v; else delete st.onlyAfter; changed(); }, { step: 0.05, min: 0, max: 24 }), opt('onlyAfter', { hint: 'Tới bước này mà chưa tới giờ thì bỏ qua bước. 0 = không.' })),
@@ -260,6 +272,14 @@ export function render(root, ctx) {
       if (v === 'fade') Object.assign(a, { text: newKey(`${base}.fade`), t: 2 });
       if (v === 'phoneCall') a.on = true;
       if (v === 'traffic') a.clear = 40;
+      if (v === 'ship') Object.assign(a, { state: 'dock', at: [163, 265], heading: 0 });
+      if (v === 'zone') Object.assign(a, { id: 'ship', at: 'captive', gate: false, door: false });
+      if (v === 'phone') a.off = true;
+      if (v === 'tie') Object.assign(a, { who: 'player', on: true });
+      if (v === 'untie') Object.assign(a, { who: 'player', need: 14, text: 'story.qte.untie' });
+      if (v === 'fpv') a.on = true;
+      if (v === 'fight') a.id = Object.keys(data.fights || {})[0] || '';
+      if (v === 'race') a.id = Object.keys(data.races || {})[0] || '';
       if (v === 'pursue') Object.assign(a, { who: [Object.keys(data.people)[0] || ''], speed: 4.6, delay: 0.8, lose: 30 });
       if (v === 'sneak') Object.assign(a, { route: [{ at: [0, 0] }, { at: [0, 10], look: 2 }], speed: 1.3, see: 11, lose: 24 });
       if (v === 'react') Object.assign(a, { who: [Object.keys(data.people)[0] || 'player'], icon: '!' });
@@ -320,7 +340,7 @@ export function render(root, ctx) {
         rerender();
       }, UNTIL), opt('until')),
       (u.type === 'read' || u.type === 'reply' || u.type === 'open') ? field('Người nhắn', selectInput(u.who, contactOpts, (v) => { u.who = v; changed(); }), opt('until')) : null,
-      u.type === 'routed' ? field('Chỉ đường tới', selectInput(u.place, [['office', '🏢 Văn phòng hãng (bất kỳ)'], ['fuel', '⛽ Cây xăng / trụ sạc (bất kỳ)'], ...placeOpts], (v) => { u.place = v; changed(); }), opt('until')) : null,
+      u.type === 'routed' ? field('Chỉ đường tới', selectInput(u.place, [['office', '🏢 Văn phòng hãng (bất kỳ)'], ['fuel', '⛽ Cây xăng / trụ sạc (bất kỳ)'], ...spotOpts(), ...placeOpts], (v) => { u.place = v; changed(); }), opt('until')) : null,
       u.type === 'fuel' ? field('Xăng / pin ít nhất (%)', numInput(u.pct ?? 90, (v) => { u.pct = v; changed(); }, { step: 5, min: 1, max: 100 }), opt('until', { hint: 'Xe đạp: coi như xong ngay.' })) : null,
       u.type === 'order' ? field('Mốc', selectInput(u.stage, Object.entries(ORDER_STAGES), (v) => { u.stage = v; changed(); }), opt('until')) : null,
       u.type === 'ack' ? field('Tự sang sau (phút game, 0 = chờ bấm nút)', numInput(u.max ?? 0, (v) => { if (v > 0) u.max = v; else delete u.max; changed(); }, { step: 1, min: 0 }), opt('until', { hint: '1 phút game = 1 giây thật.' })) : null,
@@ -434,7 +454,7 @@ export function render(root, ctx) {
         st.goal && st.target ? (st.goTo
           ? el('div', {}, textBox('Chữ thanh chỉ đường giữa trên (riêng bước này)', st.goTo, 1, { ref, fieldKey: 'goTo', hint: 'Bỏ trống dùng mẫu chung "Đi đến {place}" (thẻ Chữ & hội thoại → goal.goTo).' }), button('✕ Dùng mẫu chung', () => { delete st.goTo; rerender(); }, 'small'))
           : button('＋ Chữ thanh "Đi đến …" riêng', () => { st.goTo = newKey(`${base}.goTo`); rerender(); }, 'small')) : null,
-        st.goal ? field('Mũi tên chỉ tới', selectInput(st.target || '', [['', '— Không —'], ['bike', '🚲 Xe của mình'], ['office', '🏢 Văn phòng hãng (đã chỉ đường / gần nhất)'], ['fuel', '⛽ Cây xăng / trụ sạc (đã chỉ đường / gần nhất)'], ...actorOpts().map(([id, l]) => [`actor:${id}`, `👤 ${l}`]), ...propOpts().map(([id, l]) => [`prop:${id}`, `🚛 ${l}`]), ...placeOpts], (v) => { if (v) st.target = v; else delete st.target; changed(); }), opt('target')) : null,
+        st.goal ? field('Mũi tên chỉ tới', selectInput(st.target || '', [['', '— Không —'], ['bike', '🚲 Xe của mình'], ['office', '🏢 Văn phòng hãng (đã chỉ đường / gần nhất)'], ['fuel', '⛽ Cây xăng / trụ sạc (đã chỉ đường / gần nhất)'], ...actorOpts().map(([id, l]) => [`actor:${id}`, `👤 ${l}`]), ...propOpts().map(([id, l]) => [`prop:${id}`, `🚛 ${l}`]), ...spotOpts(), ...placeOpts], (v) => { if (v) st.target = v; else delete st.target; changed(); }), opt('target')) : null,
         field('Hướng dẫn trên điện thoại', selectInput(g?.type || '', [['', '— Không —'], ...Object.entries(GUIDES).filter(([k]) => !HIDDEN_GUIDES.includes(k) || k === g?.type)], (v) => {
           if (!v) delete st.guide;
           else st.guide = { type: v, ...(['thread', 'route', 'reply'].includes(v) ? { who: contactOpts[0]?.[0] || '' } : {}), ...(v === 'app' ? { app: 'tictac' } : {}), ...(v === 'route' ? { place: st.target || 'office' } : {}), ...(v === 'switch' ? { which: 'food' } : {}),
@@ -503,6 +523,7 @@ export function render(root, ctx) {
           const outs = (c.outfits || []).map((x) => [x.id, x.name]);
           return field(`Bộ đồ của ${c.name}`, selectInput(a.outfit || '', [['', '— Bộ đầu tiên —'], ...outs], (v) => { if (v) a.outfit = v; else delete a.outfit; ctx.changed('story'); }), o);
         })() : null,
+        field('', checkInput(!!a.tied, (v) => { if (v) a.tied = true; else delete a.tied; ctx.changed('story'); }, '🪢 Bị trói (ngồi bệt, tay sau lưng)'), { ...o, hint: 'Cởi bằng việc "✂️ Cởi trói" (bấm E liên tục).' }),
         field('Chỗ đứng', selectInput(spot, Object.entries(ACTOR_SPOTS), (v) => {
           a.spot = v;
           if (v === 'xeOm') { a.place = a.place || xeOmPlaces[0]?.[0] || ''; delete a.dist; delete a.lat; }
@@ -616,6 +637,43 @@ export function render(root, ctx) {
           ? el('div', {}, textBox(label, a[k], 1, o), button('✕', () => { delete a[k]; rerender(); }, 'small'))
           : button(`＋ ${label}`, () => { a[k] = newKey(`${base}.${k}`); rerender(); }, 'small')));
     }
+    if (a.do === 'zone') {
+      const mode = a.id ? 'enter' : a.gate != null || a.door != null ? 'set' : 'leave';
+      const Z = ZONES[a.id || 'ship'];
+      const pts = Object.entries(Z.points).map(([k, p]) => [k, p.name]);
+      box.append(field('Làm gì', selectInput(mode, [['enter', '➡️ Vào bản đồ riêng'], ['set', '🔧 Chỉ mở / đóng cổng, cửa (đang ở trong)'], ['leave', '⬅️ Về thành phố']], (v) => {
+        for (const k of ['id', 'at', 'gate', 'door', 'heading']) delete a[k];
+        if (v === 'enter') Object.assign(a, { id: 'ship', at: Z.spawn, gate: false, door: false });
+        if (v === 'set') a.door = true;
+        if (v === 'leave') a.at = [146, 206];
+        rerender();
+      }), { ...o, hint: 'Bản đồ riêng nằm thật xa thành phố: vào thì người chơi bị dời tới đó (xe để lại thành phố), không đi ra ngoài được tới khi cốt truyện cho về. Đồng hồ vẫn chạy. Lưu trong bản lưu.' }));
+      if (mode === 'enter') box.append(
+        field('Bản đồ', selectInput(a.id, Object.entries(ZONES).map(([k, z]) => [k, z.name]), (v) => { a.id = v; rerender(); }), o),
+        field('Đứng ở', selectInput(String(a.at ?? Z.spawn), [...pts, ...spotOpts()], (v) => { a.at = v; ctx.changed('story'); }), { ...o, hint: 'Chỗ có tên trong bản đồ riêng, hoặc chỗ hẹn 📍 (thẻ Người & chỗ hẹn).' }));
+      if (mode === 'leave') box.append(field('Về chỗ [x, z] trong thành phố', el('div', { class: 'row' }, ...[0, 1].map((i) => numInput((Array.isArray(a.at) ? a.at : (a.at = [146, 206]))[i], (v) => { a.at[i] = v; ctx.changed('story'); }, { step: 1 }))), o));
+      if (mode !== 'leave') box.append(
+        field('', checkInput(!!a.gate, (v) => { a.gate = v; ctx.changed('story'); }, '🚪 Mở cổng đầu cầu thang mạn (xuống tàu được)'), o),
+        field('', checkInput(!!a.door, (v) => { a.door = v; ctx.changed('story'); }, '📦 Mở cửa container nhốt người'), { ...o, hint: 'Cửa mở có hoạt cảnh 2 cánh bật ra. Đóng = chắn lối ra.' }));
+    }
+    if (a.do === 'fpv') box.append(field('', checkInput(a.on !== false, (v) => { a.on = v; ctx.changed('story'); }, '👁️ Bật góc nhìn thứ 1 (bỏ tick = tắt, về camera sau lưng)'), { ...o, hint: 'Camera ở mắt người chơi, thấy 2 tay cầm đồ; chuột xoay nhìn. Lưu trong bản lưu — nhớ tắt khi xuống tàu.' }));
+    if (a.do === 'fight') box.append(field('Trận', selectInput(a.id || '', Object.entries(data.fights || {}).map(([id, f]) => [id, `⚔️ ${C[f.name] || id}`]), (v) => { a.id = v; ctx.changed('story'); }), { ...o, hint: 'Soạn trận ở mục ⚔️ Đánh nhau (bên trái). Tự bật góc nhìn thứ 1. Điều kiện xong của bước nên là "Đã thắng trận đánh". Thua → chơi lại từ đầu trận.' }));
+    if (a.do === 'race') box.append(field('Màn đua', selectInput(a.id || '', Object.entries(data.races || {}).map(([id, r]) => [id, `🏍️ ${C[r.name] || id}`]), (v) => { a.id = v; ctx.changed('story'); }), { ...o, hint: 'Soạn đường đua ở mục 🏍️ Màn đua (bên trái). Người chơi lái xe anh Đạt (ngồi sau), camera cố định sau lưng. Điều kiện xong của bước nên là "Đã chạy tới đích màn đua". Thua → chơi lại từ đầu đoạn đang chạy.' }));
+    if (a.do === 'phone') box.append(field('', checkInput(a.off !== false, (v) => { a.off = v; ctx.changed('story'); }, '📵 Tịch thu (bỏ tick = trả lại điện thoại)'), { ...o, hint: 'Tịch thu: ẩn hình điện thoại + thông báo, Tab / I không mở được. Lưu trong bản lưu — nhớ trả lại ở bước sau.' }));
+    if (a.do === 'tie' || a.do === 'untie') {
+      const whoOpts = [['player', '🙋 Người chơi'], ...Object.keys(data.people).map((id) => [id, `${data.people[id].icon || '🧍'} ${C[data.people[id].name] || id}`])];
+      box.append(field('Ai', selectInput(a.who || 'player', whoOpts, (v) => { a.who = v; ctx.changed('story'); }), o));
+      if (a.do === 'tie') box.append(field('', checkInput(a.on !== false, (v) => { a.on = v; ctx.changed('story'); }, '🪢 Trói (bỏ tick = thả ra ngay)'), { ...o, hint: 'Ngồi bệt dưới sàn, 2 tay quặt sau lưng. Người chơi bị trói thì không đi được. Người lạ: có thể tick "Bị trói" ngay ở việc "Người lạ xuất hiện".' }));
+      else box.append(
+        field('Số lần bấm E', numInput(a.need ?? 14, (v) => { a.need = v; ctx.changed('story'); }, { step: 1, min: 3, max: 60 }), { ...o, hint: 'Ngừng bấm thì dây lỏng lại chút (thanh tụt). Lúc cắt dây người chơi đứng yên.' }),
+        textBox('Chữ cạnh nút E', a.text || (a.text = 'story.qte.untie'), 1, o));
+    }
+    if (a.do === 'ship') {
+      box.append(field('Tàu', selectInput(a.state || 'dock', [['dock', '⚓ Cập bến (đậu ở chỗ dưới)'], ['leave', '🌊 Rời bến (chạy ra theo mũi tàu rồi mất)'], ['gone', '✖ Biến mất ngay']], (v) => { a.state = v; rerender(); }), { ...o, hint: 'Tàu dài 120 m, rộng 22 m, cầu thang mạn bên trái (theo hướng mũi tàu). Mặc định đậu sát bờ Kho 7, mũi chĩa ra cửa sông Ngân. Trạng thái lưu trong bản lưu: mở lại game vẫn thấy tàu.' }));
+      if ((a.state || 'dock') === 'dock') box.append(
+        field('Chỗ đậu [x, z] (giữa tàu)', el('div', { class: 'row' }, ...[0, 1].map((i) => numInput((a.at ||= [163, 265])[i], (v) => { a.at[i] = v; ctx.changed('story'); }, { step: 1 }))), o),
+        field('Hướng mũi tàu (độ, 0 = về nam)', numInput(a.heading ?? 0, (v) => { a.heading = v; ctx.changed('story'); }, { step: 90, min: -360, max: 360 }), o));
+    }
     if (a.do === 'traffic') box.append(field('Bán kính (0 = trả lại xe)', numInput(a.clear ?? 40, (v) => { a.clear = v; ctx.changed('story'); }, { step: 5, min: 0, max: 200 }), { ...o, hint: 'Tạm giấu xe máy, ô tô, xe buýt NPC quanh chỗ người chơi đang đứng — xe chạy vào vùng cũng bị giấu — tới khi có việc này với bán kính 0 (hoặc người lạ "lên xe chạy đi" xong). Chỉ máy người chơi này. Dùng cho cảnh đông người đứng giữa đường (vd triển lãm).' }));
     if (!['title', 'end', 'cine', 'chase'].includes(a.do)) box.append(field(a.do === 'bubble' ? 'Nói sau (giây)' : a.do === 'sound' ? 'Phát sau (giây)' : 'Làm sau (giây)', numInput(a.after ?? 0, (v) => { if (v > 0) a.after = v; else delete a.after; ctx.changed('story'); }, { step: 0.5, min: 0, max: 60 }), { ...o, hint: 'Đợi bấy nhiêu giây (đồng hồ game của người chơi, ~ giây thật) mới làm — vd trong cảnh phim mọi người nói lần lượt, tin nhắn nhóm tới lần lượt. 0 = ngay.' }));
     if (a.do === 'sneak') {
@@ -681,8 +739,8 @@ export function render(root, ctx) {
         a.as && !a.sys ? textBox('Tên người gửi', a.as, 1, o) : null);
       a.loc = a.loc || [];
       box.append(field('Kèm định vị (nút 📍 Chỉ đường)', el('div', { class: 'chips' },
-        a.loc.map((id, j) => button(`📍 ${placeOpts.find(([p]) => p === id)?.[1] || id} ✕`, () => { a.loc.splice(j, 1); if (!a.loc.length) delete a.loc; rerender(); }, 'small')),
-        selectInput('', [['', '＋ Thêm định vị…'], ...placeOpts], (v) => { if (v) { a.loc.push(v); rerender(); } })), o));
+        a.loc.map((id, j) => button(`📍 ${[...spotOpts(), ...placeOpts].find(([p]) => p === id)?.[1] || id} ✕`, () => { a.loc.splice(j, 1); if (!a.loc.length) delete a.loc; rerender(); }, 'small')),
+        selectInput('', [['', '＋ Thêm định vị…'], ...spotOpts(), ...placeOpts], (v) => { if (v) { a.loc.push(v); rerender(); } })), o));
     }
     if (a.do === 'replies') {
       box.append(field('Tin nhắn của', selectInput(a.who, contactOpts, (v) => { a.who = v; ctx.changed('story'); }), { ...o, hint: 'Gắn vào cuộc trò chuyện này; người chơi chọn 1 câu → xong điều kiện "Đã trả lời".' }));
@@ -704,9 +762,10 @@ export function render(root, ctx) {
     if (a.do === 'ttPost') box.append(ttPostEditor(a, base, rerender, o));
     if (a.do === 'block') box.append(field('Người chặn', selectInput(a.who || '', contactOpts, (v) => { a.who = v; ctx.changed('story'); }), { ...o, hint: 'Cuộc trò chuyện hiện "Bạn đã bị chặn", không trả lời được nữa; tin Tích Tắc của người này biến mất.' }));
     if (a.do === 'ambushCrew') box.append(
-      el('p', { class: 'muted' }, 'Ở mỗi chốt người chơi đã chốt trong "🗺️ Bày trận" (cộng các chốt giữ sẵn) có vài xe máy anh em đứng chặn, đầu xe quay vào giữa vùng vây. Chỉ để nhìn (máy người chơi này). Màn đen "dọn hết đạo cụ" thì dọn.'),
-      field('Số xe mỗi chốt', numInput(a.per ?? 2, (v) => { a.per = Math.max(1, Math.min(4, Math.round(v) || 1)); ctx.changed('story'); }, { step: 1, min: 1, max: 4 }), o));
-    if (a.do === 'ambush') box.append(ambushEditor(a, rerender, o));
+      el('p', { class: 'muted' }, 'Ở mỗi chốt có vài xe máy anh em đứng chặn, đầu xe quay vào giữa vùng vây. Chỉ để nhìn (máy người chơi này). Màn đen "dọn hết đạo cụ" thì dọn. Bày trận vẽ tự do (nhiều màn) không dính bản đồ thật → ghi các ngã tư thật đứng chốt ở dưới; bỏ trống = theo chốt người chơi đặt (bày trận 1 màn bản đồ thật).'),
+      field('Số xe mỗi chốt', numInput(a.per ?? 2, (v) => { a.per = Math.max(1, Math.min(4, Math.round(v) || 1)); ctx.changed('story'); }, { step: 1, min: 1, max: 4 }), o),
+      nodeList(a, 'nodes', 'Ngã tư thật đứng chốt [cột, hàng]', 'Cột 0 = đường dọc phía tây, hàng 0 = đường ngang phía bắc (sông ở hàng 7).', rerender, o, 0, 10));
+    if (a.do === 'ambush') box.append(a.rounds ? roundsEditor(a, rerender, o) : ambushEditor(a, rerender, o));
     if (a.do === 'fuel') box.append(field('Xăng / pin còn (%)', numInput(a.pct ?? 15, (v) => { a.pct = v; ctx.changed('story'); }, { step: 5, min: 0, max: 100 }), o));
     if (a.do === 'offer') {
       const foodPlaces = ctx.data.places.places.filter((p) => isPlaced(p) && p.kind === 'restaurant' && (p.menu || []).length).map((p) => [p.id, `${p.name} (${p.id})`]);
@@ -762,6 +821,46 @@ export function render(root, ctx) {
         field('', checkInput(!!a.customer, (v) => { if (v) a.customer = newKey(`${base}.customer`); else delete a.customer; rerender(); }, 'Tên khách riêng'), { ...o, hint: 'Không tick: tên người bình thường ngẫu nhiên.' })),
       a.customer ? textBox('Tên khách', a.customer, 1, o) : null,
       a.minStars ? (a.failText ? textBox('Câu khi chưa đủ sao ({stars} = số sao)', a.failText, 1, o) : button('＋ Câu khi chưa đủ sao', () => { a.failText = newKey(`${base}.fail`); rerender(); }, 'small')) : null);
+  }
+  // danh sách ngã tư [cột, hàng] (thêm / xóa) — dùng cho bày trận + anh em đứng chốt
+  function nodeList(obj, key, label, hint, rerender, o, min = -1, max = 12) {
+    obj[key] ||= [];
+    const nodeIn = (n, set) => el('span', { class: 'row' }, ...[0, 1].map((k) => numInput(n?.[k] ?? 0, (v) => { const m = [...(n || [0, 0])]; m[k] = Math.round(v); set(m); rerender(); }, { step: 1, min, max })));
+    return field(label, el('div', {},
+      ...obj[key].map((n, j) => el('div', { class: 'row' }, nodeIn(n, (m) => { obj[key][j] = m; }), button('✕', () => { obj[key].splice(j, 1); rerender(); }, 'small danger'))),
+      button('＋ Ngã tư', () => { obj[key].push([...(obj[key].at(-1) || [0, 0])]); rerender(); }, 'small')), { ...o, hint });
+  }
+  // 🗺️ Bày trận nhiều màn vẽ tự do (rounds): mỗi màn 1 lưới ngã tư, khó dần — thắng màn này mới sang màn sau
+  function roundsEditor(a, rerender, o) {
+    const nodeIn = (n, set, min = -1, max = 12) => el('span', { class: 'row' }, ...[0, 1].map((k) => numInput(n?.[k] ?? 0, (v) => { const m = [...(n || [0, 0])]; m[k] = Math.round(v); set(m); rerender(); }, { step: 1, min, max })));
+    const wrap = el('div', {}, el('p', { class: 'muted' }, 'Bản đồ vẽ tự do (không theo đường thật). Mỗi màn: lưới cột × hàng ngã tư, ngã tư [cột, hàng] tính từ góc trên trái = [0, 0]. Lối thoát và đường cụt ngập nằm NGOÀI lưới, sát 1 ngã tư mép (vd cột −1 hoặc = số cột). Tí Sún chạy đường ngắn nhất né chốt ra lối thoát gần nhất; chặn hết thì lao vào đường cụt = thắng màn. Thắng màn cuối → "Chốt kế hoạch" → điều kiện "Đã bày chốt đúng".'));
+    a.rounds.forEach((R, k) => {
+      let check;
+      try {
+        const n = ambushSolutions(roundDef(R), roundNb(R), R.blocks ?? 1).length, less = (R.blocks ?? 1) > 1 ? ambushSolutions(roundDef(R), roundNb(R), (R.blocks ?? 1) - 1).length : 0;
+        check = !n ? `❌ Không có cách đặt ${R.blocks ?? 1} chốt nào thắng — người chơi kẹt.` : less ? `⚠️ ${n} cách thắng, nhưng ít chốt hơn cũng thắng → dễ quá.` : `✅ Có ${n} cách đặt ${R.blocks ?? 1} chốt để thắng.`;
+      } catch { check = '❌ Màn này chưa đúng.'; }
+      R.cut ||= [];
+      wrap.append(el('div', { class: 'card' },
+        el('div', { class: 'row' }, el('b', {}, `Màn ${k + 1}`),
+          button('↑', () => { if (k > 0) { a.rounds.splice(k - 1, 0, a.rounds.splice(k, 1)[0]); rerender(); } }, 'small'),
+          button('↓', () => { if (k < a.rounds.length - 1) { a.rounds.splice(k + 1, 0, a.rounds.splice(k, 1)[0]); rerender(); } }, 'small'),
+          button('✕', () => { if (a.rounds.length > 1) { a.rounds.splice(k, 1); rerender(); } }, 'small danger')),
+        el('div', { class: 'grid' },
+          field('Lưới: số cột, số hàng', el('div', { class: 'row' }, numInput(R.cols, (v) => { R.cols = Math.max(2, Math.min(9, Math.round(v) || 2)); rerender(); }, { step: 1, min: 2, max: 9 }), numInput(R.rows, (v) => { R.rows = Math.max(2, Math.min(8, Math.round(v) || 2)); rerender(); }, { step: 1, min: 2, max: 8 })), o),
+          field('Tí Sún đứng ở', nodeIn(R.start, (m) => { R.start = m; }), o),
+          field('Ngã tư dẫn vào đường cụt ngập', nodeIn(R.trap, (m) => { R.trap = m; }), o),
+          field('Đường cụt ngập (ngoài lưới)', nodeIn(R.trapTo, (m) => { R.trapTo = m; }), o),
+          field('Số chốt người chơi đặt', numInput(R.blocks ?? 1, (v) => { R.blocks = Math.max(1, Math.min(6, Math.round(v) || 1)); rerender(); }, { step: 1, min: 1, max: 6 }), o)),
+        nodeList(R, 'exits', 'Lối thoát (ngoài lưới, sát ngã tư mép)', 'Tới đây là nó thoát.', rerender, o),
+        nodeList(R, 'fixed', 'Chốt chú Tư giữ sẵn', 'Người chơi không gỡ được.', rerender, o),
+        field('Đoạn đường bị đứt', el('div', {},
+          ...R.cut.map((c, j) => el('div', { class: 'row' }, nodeIn(c[0], (m) => { R.cut[j][0] = m; }), el('span', { class: 'muted' }, '—'), nodeIn(c[1], (m) => { R.cut[j][1] = m; }), button('✕', () => { R.cut.splice(j, 1); rerender(); }, 'small danger'))),
+          button('＋ Đoạn đứt', () => { R.cut.push([[0, 0], [1, 0]]); rerender(); }, 'small')), { ...o, hint: '2 ngã tư sát nhau — đoạn đường giữa chúng bị đứt (vẽ vạch đỏ ✕).' }),
+        el('p', { class: check.startsWith('✅') ? 'muted' : 'warn' }, check)));
+    });
+    wrap.append(button('＋ Thêm màn', () => { a.rounds.push(JSON.parse(JSON.stringify(a.rounds.at(-1)))); rerender(); }, 'small'));
+    return wrap;
   }
   // 🗺️ Bày trận: khung ngã tư, chỗ người bị vây, chỗ bẫy, lối thoát, chốt giữ sẵn + kiểm tra có lời giải
   function ambushEditor(a, rerender, o) {
@@ -964,6 +1063,135 @@ export function render(root, ctx) {
   }
 
   // ======================== DANH BẠ · NGƯỜI NÓI · VẬT PHẨM · GÓI HÀNG ========================
+  // ======================== ⚔️ ĐÁNH NHAU ========================
+  function renderFight() {
+    const rerender = () => { changed(); ctx.rerender(); };
+    data.weapons ||= {};
+    data.foes ||= {};
+    data.fights ||= {};
+    const num = (obj, k, label, opts = {}, ref = '', hint = '') => field(label, numInput(obj[k] ?? opts.def ?? 0, (v) => { if (v || opts.keep0) obj[k] = v; else delete obj[k]; changed(); }, { step: opts.step ?? 1, min: opts.min ?? 0, max: opts.max }), { ref, fieldKey: k, hint });
+    const xz = (obj, k, label, ref) => field(label, el('div', { class: 'row' }, ...[0, 1].map((i) => numInput((obj[k] ||= [0, 0])[i], (v) => { obj[k][i] = v; changed(); }, { step: 0.5 }))), { ref, fieldKey: k });
+    const weaponOpts = Object.entries(data.weapons).filter(([id]) => id !== 'fists').map(([id, w]) => [id, `${w.icon || ''} ${C[w.name] || id}`]);
+    const foeOpts = Object.entries(data.foes).map(([id, f]) => [id, `${C[f.name] || id}${f.boss ? ' 👑' : ''}`]);
+    body.append(el('div', { class: 'body-head' }, el('h2', {}, '⚔️ Đánh nhau (góc nhìn thứ 1)')),
+      el('p', { class: 'muted' }, 'Chương 6 trên tàu: chuột trái vung / ném · chuột phải giữ đỡ · Space né · E đập lén / nhặt đồ. Người chơi 100 máu, anh Đạt 120 máu, đánh sau lưng (hoặc đánh tên đang đánh anh Đạt) gấp đôi.'));
+    // --- vũ khí ---
+    const wBox = el('div', {});
+    for (const [id, w] of Object.entries(data.weapons)) {
+      const ref = `weapon:${id}`;
+      wBox.append(el('div', { class: 'act-card' }, el('div', { class: 'act-head' }, el('b', {}, `${w.icon || ''} ${C[w.name] || id} (${id})`), id === 'fists' ? null : button('🗑', () => { delete data.weapons[id]; rerender(); }, 'small danger')),
+        el('div', { class: 'grid tight' },
+          field('Biểu tượng', emojiInput(w.icon, (v) => { w.icon = v; changed(); }), { ref, fieldKey: 'icon' }),
+          textBox('Tên', w.name || (w.name = newKey(`story.wpn.${id}`)), 1, { ref, fieldKey: 'name' }),
+          num(w, 'dmg', 'Mất máu / cú', {}, ref),
+          w.throw ? null : num(w, 'cd', 'Chờ vung (giây)', { step: 0.1 }, ref, 'Vung xong phải chờ bấy nhiêu giây (vòng vàng quanh tâm ngắm).'),
+          w.throw ? null : num(w, 'reach', 'Tầm với (m)', { step: 0.1 }, ref),
+          num(w, 'dur', w.throw ? 'Ném được mấy lần' : 'Bền (số cú, 0 = không gãy)', {}, ref),
+          num(w, 'stun', 'Choáng (giây)', { step: 0.1 }, ref, 'Trúng thì địch đứng khựng; phá được thế đỡ của boss.'),
+          w.throw ? num(w, 'trap', 'Trùm kẹt (giây)', { step: 0.5 }, ref, 'Phao cứu sinh: địch kẹt không đánh được, bị đánh mất gấp rưỡi máu.') : num(w, 'block', 'Đỡ được mấy đòn', { def: 3 }, ref, 'Số nấc đỡ khi cầm món này (chảo: 4).'),
+          field('', checkInput(!!w.throw, (v) => { if (v) w.throw = true; else delete w.throw; rerender(); }, '🎯 Đồ ném (chuột trái để ném)'), { ref, fieldKey: 'throw' }))));
+    }
+    const wId = el('input', { placeholder: 'mã vũ khí mới (vd: ghe)' });
+    wBox.append(el('div', { class: 'row' }, wId, button('＋ Thêm vũ khí', () => { const id = wId.value.trim(); if (!ID_RE.test(id) || data.weapons[id]) return ctx.notify('Mã chỉ gồm chữ không dấu, số, gạch dưới và chưa có.', 'warn'); data.weapons[id] = { icon: '🪵', name: newKey(`story.wpn.${id}`), dmg: 8, cd: 1.1, reach: 1.6, dur: 6 }; rerender(); }, 'small')));
+    // --- kiểu địch ---
+    const fBox = el('div', {});
+    for (const [id, f] of Object.entries(data.foes)) {
+      const ref = `foe:${id}`;
+      fBox.append(el('div', { class: 'act-card' }, el('div', { class: 'act-head' }, el('b', {}, `${C[f.name] || id} (${id})${f.boss ? ' 👑' : ''}`), button('🗑', () => { delete data.foes[id]; rerender(); }, 'small danger')),
+        el('div', { class: 'grid tight' },
+          textBox('Tên hiện trên đầu', f.name || (f.name = newKey(`story.foe.${id}`)), 1, { ref, fieldKey: 'name' }),
+          num(f, 'hp', 'Máu', {}, ref), num(f, 'dmg', 'Mất máu / cú (đánh mình)', {}, ref), num(f, 'windup', 'Giơ tay bao lâu mới bổ (giây)', { step: 0.1 }, ref, 'Lúc nó giơ tay là lúc nên đỡ (chuột phải) / né.'),
+          num(f, 'cd', 'Nghỉ giữa 2 lần đánh (giây)', { step: 0.1 }, ref), num(f, 'speed', 'Chạy nhanh (m/giây)', { step: 0.1 }, ref), num(f, 'reach', 'Tầm với (m)', { step: 0.1 }, ref),
+          num(f, 'combo', 'Đánh liền mấy cú', {}, ref), num(f, 'recover', 'Sơ hở sau khi đánh (giây)', { step: 0.1 }, ref),
+          field('', checkInput(!!f.boss, (v) => { if (v) f.boss = true; else delete f.boss; rerender(); }, '👑 Boss (không đập lén được, anh Đạt đánh nhẹ)'), { ref, fieldKey: 'boss' }),
+          field('', checkInput(!!f.guard, (v) => { if (v) f.guard = true; else delete f.guard; changed(); }, '🛡 Tự đỡ đòn đánh trước mặt'), { ref, fieldKey: 'guard', hint: 'Chỉ trúng lúc nó đang giơ tay / vừa đánh xong / choáng / bị phao trùm, hoặc đánh sau lưng. Chảo, gạch phá thế đỡ.' }),
+          field('', checkInput(!!f.charge, (v) => { if (v) f.charge = { wind: 1, speed: 10, dmg: 25, stun: 3, dist: 14, cd: 5 }; else delete f.charge; rerender(); }, '🐂 Lao húc (như Tí Đô)'), { ref, fieldKey: 'charge' }),
+          ...(f.charge ? [num(f.charge, 'wind', 'Húc: lấy đà (giây)', { step: 0.1 }, ref), num(f.charge, 'speed', 'Húc: tốc độ', { step: 0.5 }, ref), num(f.charge, 'dmg', 'Húc: mất máu', {}, ref), num(f.charge, 'stun', 'Đâm container: choáng (giây)', { step: 0.5 }, ref), num(f.charge, 'cd', 'Húc: nghỉ giữa 2 lần (giây)', { step: 0.5 }, ref)] : []),
+          num(f, 'rage', 'Nổi điên khi còn (phần máu, 0 = không)', { step: 0.1, max: 1 }, ref, 'Vd 0,5: còn nửa máu thì nổi điên — gọi đàn em (người trong trận có "vào khi boss nổi điên") + ném gạch.'),
+          ...(f.rage ? [num(f.throw ||= { every: 4, dmg: 10 }, 'every', 'Nổi điên: ném gạch mỗi (giây)', { step: 0.5 }, ref), num(f.throw, 'dmg', 'Gạch ném: mất máu', {}, ref)] : []))));
+    }
+    const fId = el('input', { placeholder: 'mã kiểu địch mới' });
+    fBox.append(el('div', { class: 'row' }, fId, button('＋ Thêm kiểu địch', () => { const id = fId.value.trim(); if (!ID_RE.test(id) || data.foes[id]) return ctx.notify('Mã chỉ gồm chữ không dấu, số, gạch dưới và chưa có.', 'warn'); data.foes[id] = { name: newKey(`story.foe.${id}`), hp: 30, dmg: 8, windup: 0.6, cd: 1.4, speed: 3.6, reach: 1.6 }; rerender(); }, 'small')));
+    // --- trận ---
+    const tBox = el('div', {});
+    const allyOpts = [['', '— Không có —'], ...Object.keys(data.people).map((id) => [id, `${data.people[id].icon || ''} ${C[data.people[id].name] || id}`])];
+    for (const [id, t] of Object.entries(data.fights)) {
+      const ref = `fight:${id}`;
+      const foeRows = (t.foes ||= []).map((f, i) => el('div', { class: 'act-card' },
+        el('div', { class: 'act-head' }, el('b', {}, `#${i + 1} ${f.who}`), button('🗑', () => { t.foes.splice(i, 1); rerender(); }, 'small danger')),
+        el('div', { class: 'grid tight' },
+          field('Mã người (diễn viên)', textInput(f.who, (v) => { f.who = v.trim(); changed(); }), { ref, fieldKey: 'foes', hint: 'Mỗi người 1 mã (vd g1). Muốn nói thoại / có tên riêng thì thêm vào "Người nói".' }),
+          field('Kiểu địch', selectInput(f.foe || 'thug', foeOpts, (v) => { f.foe = v; changed(); }), { ref, fieldKey: 'foes' }),
+          field('Dáng', selectInput(f.look || 'jetjet', Object.entries(ACTOR_LOOKS), (v) => { f.look = v; changed(); }), { ref, fieldKey: 'foes' }),
+          xz(f, 'at', 'Đứng ở [x, z]', ref),
+          num(f, 'heading', 'Hướng mặt (độ)', { step: 45, min: -360, max: 360, def: 180, keep0: true }, ref),
+          field('Vào trận', selectInput(f.join == null ? '' : f.join === 'rage' ? 'rage' : 'sec', [['', 'Có mặt từ đầu'], ['sec', 'Chạy tới sau … giây'], ['rage', 'Khi boss nổi điên']], (v) => { if (!v) delete f.join; else f.join = v === 'rage' ? 'rage' : 6; rerender(); }), { ref, fieldKey: 'foes' }),
+          typeof f.join === 'number' ? num(f, 'join', 'Sau (giây)', { step: 1 }, ref) : null,
+          field('', checkInput(!!f.sneak, (v) => { if (v) f.sneak = true; else delete f.sneak; changed(); }, '🤫 Chưa phát hiện (đập lén được)'), { ref, fieldKey: 'foes', hint: 'Đứng gác, chưa biết người chơi tới — lén ra sau lưng bấm E là gục.' }))));
+      const lootRows = (t.loot ||= []).map((l, i) => el('div', { class: 'row' },
+        selectInput(l.id, weaponOpts, (v) => { l.id = v; changed(); }), ...[0, 1].map((k) => numInput((l.at ||= [0, 0])[k], (v) => { l.at[k] = v; changed(); }, { step: 0.5 })), button('✕', () => { t.loot.splice(i, 1); rerender(); }, 'small')));
+      tBox.append(el('div', { class: 'act-card' },
+        el('div', { class: 'act-head' }, el('b', {}, `⚔️ ${C[t.name] || id} (${id})`), button('🗑 Xóa trận', () => { if (confirm(`Xóa trận ${id}?`)) { delete data.fights[id]; rerender(); } }, 'small danger')),
+        el('div', { class: 'grid tight' },
+          textBox('Tên trận (hiện góc phải màn hình)', t.name || (t.name = newKey(`story.fight.${id}`)), 1, { ref, fieldKey: 'name' }),
+          field('Bản đồ', selectInput(t.zone || 'ship', Object.entries(ZONES).map(([k, z]) => [k, z.name]), (v) => { t.zone = v; changed(); }), { ref, fieldKey: 'zone', hint: 'Toạ độ trong trận tính theo gốc bản đồ riêng (tàu: giữa tàu, mũi về +z, mạn trái -x sát bến Kho 7; boong cao 6,2).' }),
+          xz(t, 'start', 'Người chơi bắt đầu ở [x, z]', ref),
+          field('Đồng đội', selectInput(t.ally || '', allyOpts, (v) => { if (v) t.ally = v; else delete t.ally; rerender(); }), { ref, fieldKey: 'ally' }),
+          t.ally ? xz(t, 'allyAt', 'Đồng đội đứng ở [x, z]', ref) : null),
+        el('h4', {}, `Địch (${t.foes.length})`), ...foeRows,
+        button('＋ Thêm địch', () => { t.foes.push({ who: `g${Date.now() % 1000}`, foe: 'thug', look: 'jetjet', at: [...(t.start || [0, 0])] }); rerender(); }, 'small'),
+        el('h4', {}, 'Đồ dưới đất (loại · x · z)'), ...lootRows,
+        button('＋ Thêm đồ', () => { t.loot.push({ id: weaponOpts[0]?.[0] || 'wood', at: [...(t.start || [0, 0])] }); rerender(); }, 'small')));
+    }
+    const tId = el('input', { placeholder: 'mã trận mới (vd: f1)' });
+    tBox.append(el('div', { class: 'row' }, tId, button('＋ Thêm trận', () => { const id = tId.value.trim(); if (!ID_RE.test(id) || data.fights[id]) return ctx.notify('Mã chỉ gồm chữ không dấu, số, gạch dưới và chưa có.', 'warn'); data.fights[id] = { zone: 'ship', name: newKey(`story.fight.${id}`), start: [-9.6, 0], ally: 'man', allyAt: [-9, -1.5], foes: [], loot: [] }; rerender(); }, 'small')));
+    body.append(el('h3', {}, '🗡 Vũ khí & đồ ném'), wBox, el('h3', {}, '👊 Kiểu địch'), fBox, el('h3', {}, '⚔️ Trận đánh'), el('p', { class: 'muted' }, 'Thử nhanh: ?cheat → 📖 → ⚔️ Thử trận.'), tBox);
+  }
+
+  // ======================== 🏍️ MÀN ĐUA ========================
+  function renderRace() {
+    const rerender = () => { changed(); ctx.rerender(); };
+    data.races ||= {};
+    const KINDS = { port: '🏗️ Bến cảng (container 2 bên)', gate: '🚧 Cổng cảng', industrial: '🏭 Khu công nghiệp', highway: '🛣️ Quốc lộ (4 làn, nhiều xe)', work: '🚧 Đường đang làm (hẹp, cọc)', dirt: '🟫 Đường đất ven ruộng', village: '🏘️ Xóm (đường hẹp)', canal: '🌴 Bờ kênh dừa nước', bridge: '🌉 Cầu tạm (nước 2 bên)', levee: '🌊 Bờ đê', drawbridge: '🌉 Cầu cất (cuối màn: bay qua cầu đang nâng)', deadend: '⛔ Đường cụt (cuối màn)' };
+    const EVENTS = { say: '💬 Anh Đạt hét (chỉ câu thoại)', container: '📦 2 container rơi chắn làn (lạng né)', barrier: '🚧 Barie hạ dần (phải chạy đủ nhanh lọt qua)', truck: '🛻 Bán tải Tí Đô áp sát lại sau lưng (nếu đang bị bỏ xa)', bus: '🚌 Xe khách xoay ngang chắn đường (chừa khe bên trái)', ram: '💥 Bán tải lên ngang hông, nháy đèn rồi tạt vào (phanh / lách xa để né; đường ≥ 9 m, đợi đường vắng)', throwers: '🧱 2 xe giang hồ vượt lên ném gạch rồi phóng đi (đợi đường vắng)', drawbridge: '🌉 Cầu cất đang nâng (giữa cầu ở đây; tới càng sớm cầu càng thấp)', potholes: '🕳 Ổ gà rải rác (xóc, chậm)', ducks: '🦆 Đàn vịt băng qua (chậm lại)', puddle: '💧 Vũng nước (trượt)', stall: '🛒 Sạp hàng đẩy ra chắn nửa phải', jump: '🌉 Cầu gãy (≥ 80 km/h mới bay qua; bán tải bị bỏ lại)',
+      drums: '🛢 3 thùng phuy lăn ra làn', cones: '🚧 Rào công trình chắn 1 làn', brokencar: '🚗 Xe hư đậu giữa làn (tam giác cảnh báo phía sau)', trunk: '🌴 Cây dừa ngã chắn hơn nửa đường',
+      buffalo: '🐃 Trâu đi băng ngang đường', forklift: '🚜 Xe nâng chạy ngang (bến cảng)', cart: '🛺 Xe ba gác đậu lấn ra đường' };
+    const num = (obj, k, label, opts = {}, ref = '', hint = '') => field(label, numInput(obj[k] ?? opts.def ?? 0, (v) => { if (v || opts.keep0) obj[k] = v; else delete obj[k]; changed(); }, { step: opts.step ?? 1, min: opts.min ?? 0, max: opts.max }), { ref, fieldKey: k, hint });
+    body.append(el('div', { class: 'body-head' }, el('h2', {}, '🏍️ Màn đua thoát thân')),
+      el('p', { class: 'muted' }, 'Đường đua tự dựng từ các đoạn nối nhau (mỗi đoạn: kiểu cảnh, dài bao nhiêu m, rẽ bao nhiêu độ). Ga W · phanh S / Space · lái A D — chướng ngại tự nhìn mà né, không có nút bấm. Té xe 3 lần trong 1 đoạn / bị bám sát 4 giây / rớt cầu / barie đóng → chơi lại từ đầu đoạn. Thử nhanh: ?cheat&race=<mã>.'));
+    for (const [id, r] of Object.entries(data.races)) {
+      const ref = `race:${id}`, total = (r.sections || []).reduce((a, s) => a + (s.len || 0), 0);
+      const secs = (r.sections ||= []).map((sec, i) => el('div', { class: 'act-card' },
+        el('div', { class: 'act-head' }, el('b', {}, `${i + 1}. ${C[sec.name] || sec.kind} · ${sec.len} m`),
+          i > 0 ? button('↑', () => { [r.sections[i - 1], r.sections[i]] = [r.sections[i], r.sections[i - 1]]; rerender(); }, 'small') : null,
+          button('🗑', () => { r.sections.splice(i, 1); rerender(); }, 'small danger')),
+        el('div', { class: 'grid tight' },
+          textBox('Tên đoạn', sec.name || (sec.name = newKey(`story.race.${id}.s${i}`)), 1, { ref, fieldKey: 'sections' }),
+          field('Kiểu', selectInput(sec.kind || 'highway', Object.entries(KINDS), (v) => { sec.kind = v; rerender(); }), { ref, fieldKey: 'sections' }),
+          num(sec, 'len', 'Dài (m)', { step: 50, min: 40 }, ref),
+          num(sec, 'turn', 'Rẽ (độ, + trái / − phải)', { step: 10, min: -180, max: 180, keep0: true }, ref),
+          num(sec, 'width', `Rộng (m, bỏ trống = ${KIND_DEFAULT[sec.kind]?.width ?? 12})`, { step: 0.5 }, ref),
+          num(sec, 'traffic', 'Xe cộ (0–1, bỏ trống = theo kiểu)', { step: 0.05, max: 1 }, ref),
+          sec.line ? el('div', {}, textBox('Anh Đạt hét khi vào đoạn', sec.line, 1, { ref, fieldKey: 'sections' }), button('✕', () => { delete sec.line; rerender(); }, 'small')) : button('＋ Câu anh Đạt hét khi vào đoạn', () => { sec.line = newKey(`story.race.${id}.l${i}`); rerender(); }, 'small')),
+        el('h4', {}, `Sự cố (${(sec.events ||= []).length})`),
+        ...sec.events.map((e, k) => el('div', { class: 'row' },
+          selectInput(e.type || 'say', Object.entries(EVENTS), (v) => { e.type = v; rerender(); }),
+          el('span', { class: 'muted' }, 'ở m'), numInput(e.at ?? 0, (v) => { e.at = v; changed(); }, { step: 10, min: 0 }),
+          e.line ? textInput(C[e.line] ?? '', (v) => { C[e.line] = v; ctx.changed('content'); }, { placeholder: 'câu anh Đạt hét' }) : button('＋ câu hét', () => { e.line = newKey(`story.race.${id}.e${i}_${k}`); rerender(); }, 'small'),
+          button('✕', () => { sec.events.splice(k, 1); rerender(); }, 'small'))),
+        button('＋ Thêm sự cố', () => { sec.events.push({ at: Math.round((sec.len || 100) / 2), type: 'say' }); rerender(); }, 'small')));
+      body.append(el('div', { class: 'act-card' },
+        el('div', { class: 'act-head' }, el('b', {}, `🏍️ ${C[r.name] || id} (${id}) · ${(total / 1000).toFixed(1)} km · ~${Math.round(total / ((r.bike?.maxSpeed || 29) * 0.8) / 60)} phút`)),
+        el('div', { class: 'grid tight' },
+          textBox('Tên màn', r.name || (r.name = newKey(`story.race.${id}.name`)), 1, { ref, fieldKey: 'name' }),
+          num(r, 'motos', 'Số xe giang hồ ném gạch (sự cố 🧱)', { min: 0, max: 4, keep0: true }, ref),
+          field('Đồng đội ngồi sau', selectInput(r.ally || '', [['', '— Không —'], ...Object.keys(data.people).map((p) => [p, C[data.people[p].name] || p])], (v) => { if (v) r.ally = v; else delete r.ally; changed(); }), { ref, fieldKey: 'ally' }),
+          field('Xe: tốc độ tối đa (km/h)', numInput(Math.round((r.bike?.maxSpeed ?? 29) * 3.6), (v) => { (r.bike ||= {}).maxSpeed = +(v / 3.6).toFixed(2); changed(); }, { step: 5, min: 60, max: 180 }), { ref, fieldKey: 'bike', hint: 'Kẻ rượt chỉ có bán tải Tí Đô (thanh khoảng cách). Qua cầu gãy cần ≥ 80 km/h.' })),
+        el('h3', {}, 'Các đoạn đường (theo thứ tự chạy)'), ...secs,
+        button('＋ Thêm đoạn', () => { r.sections.splice(Math.max(0, r.sections.length - 1), 0, { kind: 'highway', len: 800, turn: 0, events: [] }); rerender(); }, 'small')));
+    }
+  }
+
   function renderPeople() {
     const rerender = () => { changed(); ctx.rerender(); };
     const block = (title, table, prefix, hint, extra) => {
@@ -994,6 +1222,8 @@ export function render(root, ctx) {
         field('', checkInput(!!x.group, (v) => { if (v) x.group = true; else delete x.group; changed(); }, 'Nhóm chat'), { ref, fieldKey: 'group', hint: 'Tin nhắn của nhóm ghi được tên người gửi từng tin + dòng hệ thống (việc "Tin nhắn").' })]),
       block('🗣 Người nói (hội thoại, không nhắn tin)', data.people, 'people', 'Người lạ chỉ xuất hiện trong hộp thoại (vd anh phát tờ rơi).'),
       block('📄 Vật phẩm cốt truyện', data.items, 'item', 'Nằm trong túi đồ (mục Khác), vd tờ rơi.', (x, ref) => [textBox('Mô tả', x.desc || (x.desc = newKey(`${ref.replace(':', '.')}.desc`)), 2, { ref, fieldKey: 'desc' })]),
+      block('📍 Chỗ hẹn (định vị theo tọa độ)', data.spots, 'spot', 'Chỗ không phải địa điểm có cửa (vd gầm cầu): gửi kèm tin nhắn (＋ Thêm định vị), làm mũi tên chỉ tới, điều kiện "Đã bấm 📍". Tọa độ xem bằng ?debug → game.snapshot().pos.', (x, ref) => [
+        field('Tọa độ [x, z]', el('div', { class: 'row' }, ...[0, 1].map((i) => numInput((x.at ||= [0, 0])[i], (v) => { x.at[i] = v; changed(); }, { step: 0.5 }))), { ref, fieldKey: 'at' })]),
       block('📦 Gói hàng cốt truyện', data.parcels, 'parcel', 'Xếp vào túi khi nói chuyện (Xếp gói hàng), giao ở bước sau (Giao gói hàng).', (x, ref) => [
         textBox('Mô tả', x.desc || (x.desc = newKey(`${ref.replace(':', '.')}.desc`)), 2, { ref, fieldKey: 'desc' }),
         field('Đặc tính', el('div', { class: 'chips' }, TRAITS.map(([t, label]) => checkInput((x.traits || []).includes(t), (on) => {

@@ -170,5 +170,38 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [x] | `progress.collapse` | Ngất / suy sụp | Kiệt sức phải nằm nghỉ | tiếng ngắn | 🎧 có file |
 | [x] | `progress.gameOver` | Thua | Bị đuổi khỏi phòng trọ / khóa tài khoản | tiếng ngắn | 🔉 tổng hợp |
 
+## ⚔️ Đánh nhau & 🏍️ đua (chương 6)
+
+| Xong | Mã | Tên | Phát khi | Loại | Hiện tại |
+|---|---|---|---|---|---|
+| [ ] | `fight.start` | Bắt đầu trận đánh | Chương 6: trận đánh trên tàu bắt đầu (tiếng "keng" / trống ngắn báo hiệu) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.swing` | Vung (gió vụt) | Người chơi vung gỗ / gậy / chảo / tay không · địch vung hụt | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.hit` | Đánh trúng | Đòn trúng người (bịch) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.pan` | Chảo gang trúng đầu | Đánh trúng bằng chảo gang — "BOONG!" vang to | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.block` | Đỡ được đòn | Giữ chuột phải đỡ trúng đòn · boss tự đỡ đòn của mình (cạch) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.hurt` | Mình bị đánh trúng | Người chơi trúng đòn không đỡ (hự + bịch) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.ko` | Gục ngã | Địch gục · đập lén · Tí Đô đâm container choáng · mình gục | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.dodge` | Né | Bấm Space né (sột soạt chân trượt) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.throw` | Ném đồ | Ném gạch / phao cứu sinh · Tí Đô ném gạch | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.drop` | Đồ rơi xuống đất | Gạch / phao ném trượt rơi xuống sàn | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.pick` | Nhặt đồ | Bấm E nhặt vũ khí dưới đất | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.break` | Vũ khí gãy | Thanh gỗ / gậy / chảo hết độ bền (rắc) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.alert` | Địch phát hiện / la lên | Tên gác thấy mình · Tí Đô nổi điên gọi đàn em ("Ê!") | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.charge` | Tí Đô lao húc | Tí Đô lấy đà xong, lao tới (tiếng gầm + bước chân rầm rập) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.win` | Thắng trận | Hạ hết địch trong trận | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `race.start` | Bắt đầu màn đua | Chương 6: lên xe anh Đạt, bọn giang hồ rồ máy rượt theo | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `race.scrape` | Xe cạ lề / lan can | Màn đua: chạy sát mép đường, cạ vào lề (két két) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `race.bump` | Xe xóc / va nhẹ | Màn đua: sụp ổ gà · chạm nhẹ đuôi xe khác | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `race.crash` | Té xe | Màn đua: tông xe khác / chướng ngại / trúng gạch / bị bán tải húc · xe giang hồ bị mình tông té | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `race.barrier` | Barie cổng cảng hạ xuống | Màn đua đoạn cổng cảng: barie bắt đầu hạ (tiếng còi báo + mô-tơ) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `race.quack` | Vịt kêu | Màn đua: chạy trúng đàn vịt băng qua đường | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `race.splash` | Nước văng | Màn đua: chạy qua vũng nước · hụt cầu rớt xuống sông | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `race.jump` | Bay qua cầu | Màn đua: phóng lên dốc cầu cất đang nâng, bay qua khe giữa (gió vụt + máy gầm) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `race.whoosh` | Vật lớn lao tới | Màn đua: container rơi từ cẩu xuống đường · bán tải rồ máy lao tới húc | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `race.land` | Tiếp đất sau khi bay | Màn đua: xe đáp xuống bên kia cầu (rầm) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `race.brake` | Phanh rít | Màn đua: xe dừng ở cuối đường · bán tải Tí Đô phanh gấp trước cầu cất | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `race.gang` | Xe giang hồ rồ máy vượt lên | Màn đua: 2 xe giang hồ từ sau lưng rồ ga vượt lên để ném gạch (nghe là biết sắp có gạch bay) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `race.bridge` | Cầu cất bắt đầu nâng | Màn đua khúc cuối: chuông báo leng keng + máy kéo cầu kêu ầm ầm, 2 nửa cầu nâng dần lên | tiếng ngắn | 🔉 tổng hợp |
+
 ## Thêm chỗ phát tiếng mới
 Cần code: thêm mã vào `src/data/soundSpec.js` + gọi `sound('mã')` ở chỗ cần phát + thêm 1 dòng vào file này (bộ thử `npm test` sẽ nhắc nếu thiếu).

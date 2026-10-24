@@ -5,7 +5,7 @@
 import { ECONOMY } from '../data/balance.js';
 import { APP, ORDER_TYPES, RIDER_TYPES } from '../data/apps.js';
 import { GOODS, isAccessorySlot } from '../data/goods.js';
-import { stepOf, storyEvent, chapterOf, inChapter } from '../sim/story.js';
+import { stepOf, storyEvent, chapterOf, inChapter, spotOf } from '../sim/story.js';
 import { S } from '../sim/OrderManager.js';
 import { fmt } from '../content/index.js';
 import { sound } from '../audio.js';
@@ -90,7 +90,7 @@ export function phoneAction(g, a, ds) {
   else if (a === 'cancel') confirmCancel(g);
   else if (a === 'cancelFlood') confirmFloodCancel(g);
   else if (a === 'wallet') viewWallet(g);
-  else if (a === 'waypoint' && (g.layout.placeById[ds?.id] || g.bus?.byId?.[String(ds?.id).replace(/^stop:/, '')])) g.waypoint = ds.id; // bản đồ điện thoại: Chỉ đường (địa điểm hoặc 'stop:<trạm>')
+  else if (a === 'waypoint' && (g.layout.placeById[ds?.id] || g.bus?.byId?.[String(ds?.id).replace(/^stop:/, '')] || spotOf(ds?.id))) g.waypoint = ds.id; // bản đồ điện thoại: Chỉ đường (địa điểm hoặc 'stop:<trạm>')
   else if (a === 'waypointClear') g.waypoint = null;
   else if (a === 'wantFood' || a === 'wantRide') toggleWant(g, a === 'wantFood' ? 'food' : 'ride');
   else if (a === 'findBike') findBike(g);

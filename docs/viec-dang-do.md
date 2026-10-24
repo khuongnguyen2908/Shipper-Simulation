@@ -1,7 +1,7 @@
 # Việc đang dở — Shipper Simulation
 
 Ghi lại những việc đã bàn mà chưa làm / còn treo, để đổi máy hay đổi tài khoản Claude vẫn làm tiếp được.
-Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây"). Cập nhật lần cuối: 19/10/2026.
+Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây"). Cập nhật lần cuối: 24/10/2026.
 
 ## ⏸ Hoãn có chủ đích
 
@@ -138,6 +138,113 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
 - Sửa 17/10 (3): lúc chiếu cảnh dí lớn TẮT HẾT xe thường (cine.clearAll: xe NPC, xe buýt, xe nền — chỉ máy mình, hết cảnh chạy lại) · thay bằng 6 xe diễn viên
   (đạo cụ car / moto: xeW1–W3 đường trước nhà thờ, xeS1–S3 đường xuống bến cảng) chạy đúng làn, hiện khi tên cướp tới mốc west / south, có xe tấp lề dừng (keep) ·
   2 xe dí + xe người chơi tự chạy đều né xe diễn viên (sửa lỗi hàm né: đo lệch sai + bỏ né khi đang chạy ngang hàng). Đo: gần nhất 1,6 (tâm-tâm), không xuyên qua nhau.
+
+### 🚢 Chương 6 — con tàu (24/10 — ĐANG BÀN, chưa viết code game)
+- Mẫu tàu container "HẢI LONG" (dài 120, rộng 22) **chủ game duyệt**: `sketches/ship/` (mở `/sketches/ship/index.html`).
+  Có lối đi ~2 m sát lan can 2 bên + 2 khoang trống làm lối ngang (để lén đi trên tàu).
+- Luồng chủ game chốt: nhắn anh tờ rơi giả xin "việc nhẹ lương cao" → phải cải trang → hẹn ra bến tàu (Kho 7) → lên tàu bị bắt
+  → thấy anh Đạt cũng bị bắt → tìm cách mở trói anh Đạt → đánh nhau thoát xuống tàu → lên xe anh Đạt → màn đua (bản đồ riêng).
+- Đánh nhau: **cách B (đánh tự do)** nhưng người chơi cầm **cây gỗ**, người chơi tự điều khiển; anh Đạt là đồng đội máy, đánh mở đường.
+  Người chơi là shipper không có võ → vung chậm, sát thương ít, lực tay yếu. Thanh máu / HUD đánh nhau: phác thảo trước.
+- Màn đua: **người chơi lái** (anh Đạt ngồi sau), kiểu Wolverine bỏ phần đánh: lách xe, bấm phím nhanh né, bị ép rẽ, nhảy cầu gãy; bản đồ riêng. HUD: phác thảo trước.
+- Đề xuất chia đợt: (1) mở khúc sông cuối bản đồ + Kho 7 + tàu đậu (phác thảo `sketches/chuong6/dot1.png`)
+  → (2) cơ chế "bản đồ riêng" + bản đồ con tàu + mở trói → (3) đánh nhau → (4) bản đồ đua → (5) ráp cốt truyện.
+- **Đợt 1 XONG (24/10, CHƯA commit)** — chủ game duyệt: sương lùi xa chỉ khi gần cửa sông (a), tàu chỉ có khi cốt truyện cho cập bến (a):
+  - map.json sông Ngân `"mouth": "end"` (thẻ 🗺️ Bản đồ → Sông & cầu → "Chảy ra ngoài bản đồ"): `src/world/riverMouth.js` vẽ nước loe dần ~470 m,
+    bãi bùn, dừa nước, phao luồng, 3 cẩu cảng + bãi container bờ đông, đồi xa; bỏ nhà vùng ven chắn cửa sông; mặt đất nền 1800 m.
+  - Sương mù: đứng cách cửa sông < ~110 m thì sương lùi tới 560 m (mưa 260 m), xa dần về như cũ (sky.openAt).
+  - Địa điểm mới **Kho 7** (`kho7`, khối 7,9 cả khối, kiểu Kho hàng cảng, không có đơn) — cho phép kiểu "Kho hàng cảng" chọn cỡ "Cả khối" (WHOLE_BLOCK_LOOKS).
+  - Việc cốt truyện mới **🚢 ship** (cập bến [x, z] + hướng / rời bến / biến mất), lưu `gs.story.ship`; mặc định đậu [163, 265] mũi về nam,
+    cầu thang mạn bên trái xuống bờ Kho 7. Cheat: 📖 → "🚢 Tàu HẢI LONG". Mẫu tàu thật: `src/world/cargoShip.js`.
+- **Đợt 2 XONG (24/10, CHƯA commit)** — chủ game duyệt "theo đề xuất" (1 cảnh 3D, bản đồ riêng đặt thật xa; điện thoại bị tịch thu):
+  - Bản đồ riêng "Trên tàu HẢI LONG" (`src/sim/zones.js` mã + chỗ đứng có tên; `src/world/shipMap.js` dựng; `src/game/zone.js` vào / ra, lưu
+    `gs.story.zone`): tàu bản đi lại được (`cargoShip.js` walk: boong + lối đi 1,7 m sát lan can, 2 khoang trống đi ngang, sàn mũi có cầu thang,
+    tầng trệt lầu chỉ huy có cửa + bàn + tủ + cầu thang chắn, container nhốt người 2 cánh cửa mở được, cầu thang mạn có cổng chặn),
+    bến Kho 7 dưới chân thang (kho, container, cẩu khung, đèn, hàng rào), bờ bên kia có phố lên đèn. Biên đi lại: grid.zones (physics.js).
+    Ở bản đồ riêng: tắt giao thông / chướng ngại thành phố, ẩn bản đồ nhỏ, tên khu = "Tàu HẢI LONG · bến Kho 7"; đồng hồ, đơn, cốt truyện vẫn chạy.
+  - Việc cốt truyện mới: 🗺️ zone (vào / chỉ mở–đóng cổng, cửa / về phố) · 📵 phone (tịch thu / trả) · 🪢 tie · ✂️ untie (bấm E liên tục,
+    ngừng thì tụt) + điều kiện "untied"; người lạ có ô "🪢 Bị trói". Cheat 📖: Lên tàu (trói) / Cởi trói / Mở cửa / Về phố.
+  - Sửa chung (có ảnh hưởng cả cầu / dốc thành phố): elevated.js — bước lên dốc phải vào hẳn trong mép (hết kẹt khi bước lên mép dốc);
+    trượt dọc mép dốc thì độ cao theo chỗ mới (hết lệch dần rồi kẹt). Camera: chỗ hẹp cho lại gần tới 0,7 m (limit.min).
+- Đợt 3 đánh nhau — chủ game duyệt cách chơi (24/10): chuột trái vung gỗ (chậm, 3–4 cú hạ 1 tên, mệt thì chậm hơn, gỗ gãy → nhặt ván khác),
+  **chuột phải giữ = đỡ**, Space né, E đập lén sau lưng (không bị thấy → gục luôn); anh Đạt máy điều khiển đi trước mở đường (1–2 đòn),
+  đánh sau lưng tên đang đánh anh Đạt = gấp đôi; 3 chỗ: gác cửa container · rải rác trên boong · trận chính ở cầu thang mạn (3–4 tên);
+  hết máu → chơi lại từ đầu chỗ đánh đó. 24/10 tối: chủ game đổi sang **góc nhìn thứ 1**, lúc đánh không cần thể lực / tinh thần;
+  cần máu mình, máu anh Đạt, thời gian chờ vung, máu địch → phác thảo mới `sketches/chuong6/combat-fps.png` — CHỜ duyệt.
+- **Đợt 3 XONG phần lõi (24/10 khuya, CHƯA commit)** — góc nhìn thứ 1 từ lúc cắt dây tới khi xuống tàu (chủ game chọn a);
+  đồ chủ game chốt: thanh gỗ, gậy bóng chày, cục gạch (ném), chảo gang, phao cứu sinh (ném); Tí Sún boss phụ, **Tí Đô** boss chính (mới).
+  - `src/sim/fight.js` (luật: máu, đỡ 3 nấc / chảo 4, né, đánh sau lưng ×2, đập lén, AI địch + anh Đạt, Tí Sún tự đỡ + đánh 2 cú,
+    Tí Đô lao húc → đâm container choáng, còn nửa máu nổi điên gọi đàn em + ném gạch, đường đi vòng nav) · `src/game/fight.js` (camera mắt,
+    2 tay cầm đồ, chuột trái vung / ném, chuột phải giữ đỡ, Space né, E nhặt / đập lén, đồ bay, thua → Chơi lại từ đầu trận)
+    · `src/ui/fightHud.js` (theo phác thảo combat-fps.png) · `src/world/fightModels.js` · `src/interactions/fight.js` · input.js nút chuột.
+  - Dữ liệu story.json: `weapons`, `foes`, `fights` (3 trận thử: test, testSun, testDo) — ?editor 📖 → ⚔️ Đánh nhau; việc "👁️ fpv", "⚔️ fight",
+    điều kiện "fightWon"; 15 mã âm thanh fight.* (docs/am-thanh.md); cheat 📖 → ⚔️ Thử trận. relations.json: thêm Tí Đô + 4 dây (ghi chú cho chủ game).
+  - Chưa làm: xếp 6 trận thật lên tàu (cần đoạn mở đầu chương 6 + thoại) → làm cùng đợt 5 (ráp cốt truyện).
+  - 24/10: thêm `?cheat&fight=test|testSun|testDo` mở game vào thẳng trận (ván thử, không ghi bản lưu — g.noSave);
+    khung trình duyệt nhúng không khóa được con trỏ → di chuột là nhìn, con trỏ chạm mép thì quay tiếp, bấm chuột vẫn đánh.
+- **Đợt 4 màn đua XONG (25/10, CHƯA commit)** — chủ game: đường dài ~10 phút, camera cố định sát sau lưng (không xoay / phóng),
+  Tí Đô lái bán tải, cuối là đường cụt (xuống xe → trò khác, chưa nghĩ), bỏ thanh tiến độ trên cùng.
+  - `src/sim/race.js` (đường tự dựng từ đoạn, bọn rượt bám dai, sự cố) · `src/world/raceTrack.js` (hình) · `src/game/race.js` · `src/ui/raceHud.js`.
+  - story.json → `races.escape`: 11 đoạn, 14,65 km (bến → cổng → khu CN → quốc lộ → đường làm → đường đất → xóm → bờ kênh → cầu gãy → đê → đường cụt),
+    14 sự cố (container rơi, barie, bán tải vào / húc, xe khách xoay ngang, ổ gà, vịt, vũng nước, sạp hàng, cầu gãy); bot chạy hết 8,6 phút.
+  - Thua: té 3 lần trong 1 đoạn / bị bám sát 4 giây / rớt cầu (< 80 km/h) / barie đóng → chơi lại từ đầu đoạn. Việc "🏍️ race", điều kiện "raceWon".
+  - ?editor 📖 → 🏍️ Màn đua; `?cheat&race=escape`; cheat 📖 → 🏍️ Thử đua (Tới đoạn sau, Hết té). 10 mã âm thanh race.*.
+  - 25/10 sửa theo chơi thử: quốc lộ không có xe máy · có xe ngược chiều mọi đường (làn trái) · camera cao hơn (2,55 m, lùi 4,8 m)
+    · bỏ hết lời anh Đạt hét (21 câu) · quẹt hông xe cùng chiều chỉ bị xô ra (tông đuôi / đâm đầu mới té)
+    · ở bản đồ riêng (tàu, đua) thể lực / tinh thần không giảm (trước đó chạy lâu bị ngất giữa màn).
+  - 25/10 đợt 2: BỎ HẾT nút bấm nhanh → chướng ngại thật tự né: 2 container rơi chắn làn (so le), xe khách xoay ngang chừa khe trái,
+    sạp hàng đẩy ra chắn nửa phải, bán tải nháy đèn 1,4 giây rồi lao theo làn mình (đổi làn né). Sửa người chơi đạp chân như xe đạp
+    (xe mình là xe đạp → màn đua tính là mô tô: không đạp, có tiếng máy, không trừ xăng).
+  - 25/10 đợt 3: bỏ xe khách xoay ngang · thêm 7 loại chướng ngại (thùng phuy, rào công trình có đèn nháy, xe hư + tam giác + đèn khẩn cấp,
+    cây dừa ngã, trâu băng ngang, xe nâng chạy ngang, xe ba gác đậu lấn) — tổng 35 sự cố · giang hồ thỉnh thoảng vượt lên ném 3 cục gạch
+    (chỉ khi đường vắng 130 m, cách nhau ≥ 22 giây; gạch rơi nằm trên đường, cán qua thì xóc) · bọn rượt + bán tải né xe cộ (không xuyên xe),
+    kẹt thì chạy theo sau · tông xe giang hồ chạy cạnh → nó té · đua ban đêm: trời sáng trăng hơn + đèn pha rọi 70 m.
+    Bot chạy hết 9,6 phút, 5 lần té, không thua; 3 trận đánh bot thắng cả 3; ra khỏi đua trả xe đạp đúng chỗ.
+  - 25/10 đợt 4: gạch to gấp đôi, bay vòng cung cao ~3 m trong 1,5 giây · xe tối đa 130 km/h (bọn rượt 144, bán tải 137),
+    đường dài thêm 20% → 17,4 km (~10 phút) · 2 xe giang hồ cùng vượt lên 2 làn, mỗi xe 2 đứa (đứa sau quay ra ném, so le)
+    · sửa: xe giang hồ đang chạy phía trước không tính là bám lưng (trước bị "tóm" vô lý) · té xong 2 giây miễn đụng (xe nhấp nháy),
+    bọn đang ném thì thôi (trước bị gạch ném trúng liên tiếp lúc vừa té). Bot: hết đường 9,9 phút, không thua.
+  - 25/10 đợt 5: kẻ rượt chỉ còn bán tải Tí Đô (rượt từ đầu; thanh khoảng cách + "bị tóm" chỉ tính xe này; bị bỏ xa > 60 m thì rồ thêm,
+    chướng ngại thì húc văng, chỉ né xe cộ) · xe giang hồ ném gạch = sự cố "🧱 throwers" đặt trong đoạn (5 chỗ), tới nơi đợi đường vắng
+    (≤ 700 m), ném xong phóng đi mất; đường hẹp chạy nối đuôi · bán tải húc "💥 ram" kiểu mới: lên ngang hông (thấy rõ), nháy đèn + còi 1,2 giây
+    rồi tạt vào — phanh / lách xa là né; chỉ đường ≥ 9 m · mỗi đoạn rút còn 80% → 14,2 km (~8 phút) · bỏ cầu tạm + đường cụt,
+    đoạn cuối "🌉 Cầu cất" (drawbridge): 2 nửa cầu nâng dần từ lúc còn 450 m (2,2°/giây), hết ga tới nơi ~27°, dốc > 42° = thua,
+    bay ~55 m (trọng lực kiểu game 18), bán tải phanh dừng trước chân cầu; thua mới: "Cầu dựng đứng" / "Hụt mép cầu".
+    Âm thanh mới race.gang, race.bridge. Bot: thắng, thua 1 lần ở quốc lộ, ~8,4 phút.
+  - 25/10 đợt 6 — chương 6 đã có trong story.json (tên tạm "Chuyến tàu HẢI LONG"), tạm gồm: title → 🏍️ màn đua → kết chương.
+    Kết: xe dừng sau cầu cất, anh Đạt bước xuống ("Qua… qua rồi") → chọn 1/3 câu (tốt/thường/xấu) → anh Đạt bị dính dao lúc bị nhốt,
+    nhờ chở vô Bệnh Viện Quốc Tế, "đừng gọi Linh vội" → màn đen "Ít phút sau…" (+20 phút) → đứng trước cổng bệnh viện (chỗ hẹn spot:benhVien),
+    xe anh Đạt (đạo cụ datBike) đậu cạnh → Hết chương 6. Xe của người chơi vẫn ở chỗ cũ trong thành phố (màn đua trả về).
+    Sửa kèm: chỗ hẹn "spot:…" khi ra khỏi bản đồ riêng trước tra sai (luôn rỗng — lỗi của Claude) · màn đua không hiện túi giao hàng trên xe anh Đạt.
+    ⚠️ Ai chơi xong chương 5 lúc này sẽ vào thẳng màn đua (chưa có đầu chương 6). Chèn đoạn mở đầu / lên tàu / bị bắt / mở trói / đánh nhau
+    vào giữa bước "title" và "race" khi chủ game chốt.
+- Còn chờ chủ game: đoạn mở đầu chương 6.
+
+### 🔧 Chương 4–5 sửa đợt 2 (24/10 tối — XONG, CHƯA commit)
+- 🛵 Chạy đơn trong lúc chờ giờ: ô mới "Cho chạy đơn trong lúc chờ" (step.orders) — bật cho c4 sleep2 / wait8 / mingle / waitOpen, c5 waitMeet / addr / goMeet / waitNight.
+  Hết bước chờ mà đang chạy đơn → cốt truyện đứng chờ (sim/story.js orderGate), nhắc mỗi 30 giây "Giao xong đơn đang chạy rồi quay lại", đơn mời chưa nhận thì bỏ.
+- 📷 Máy ảnh 10 ô (PHOTO_SLOTS).
+- Tích Tắc: ảnh tin cốt truyện chụp sẵn lúc đăng (story.ttShots, lưu cùng bản lưu; chụp hụt thì thử lại mỗi giây) — trước bị 😎 vì Tí Sún đã đi trước khi ảnh chụp (lỗi của Claude đợt trước).
+  Tin cốt truyện nằm thứ 6 (lướt 5 tin mới tới). Tí Sún đi sau khi xem tin 2 giây.
+- Dấu ! trên đầu Tí Sún tới lúc bấm E "Hỏi chuyện mua xe" (bước ask).
+- Bong bóng thoại chia trang bằng [tiếp] (bấm E qua; câu tự tắt thì trang sau tự hiện). Đã chia: chị Linh nhờ hoa/bánh, chị Nhi đưa thiệp, anh Đại câu 2,
+  chú Tư nhờ chở thuốc, Dượng Hai chỉ chú Tư, + trang dài trong thoại Dì Hai / Dượng Hai / anh tờ rơi. validate cảnh báo đoạn > 100 chữ.
+- Chú Tư: người chơi kể đầu đuôi (3 câu) → chú đáp, thử bằng cuốc chở thuốc bà Năm → giao xong mới vô nhóm.
+- Đọc tin nhóm xong → chú Tư hẹn ra Công viên 29/8 khu B (📍 trong tin) → gặp chú Tư + Hùng + chị Mai (dấu !) → E "Bàn kế hoạch" → mới mở bày trận.
+  Bày trận: Đặt lại / bấm ngã tư dùng được cả lúc Tí Sún đang chạy thử (trước bị bỏ qua).
+
+### 🔧 Chương 5 sửa theo góp ý (24/10 — XONG, CHƯA commit; phác họa bày trận duyệt: sketches/bay-tran/sketch.png)
+- Không khung vàng từ chương 2 trở đi (gỡ c2 chuHaiMsg + 8 bước c5). Ghi nhớ đã lưu: chỉ chương 1 dạy chơi mới có guide.
+- Tí Sún: lúc lướt Tích Tắc đứng khoe xe trước Cà Phê Võng Ven Kênh (chỉ để chụp ảnh tin), xem tin xong thì đi mất (seeBike remove).
+  Chờ 20h (không mũi tên) → 20h nhắn "Chỗ này nè…" kèm 📍 Gầm cầu sắt ven kênh → bấm 📍 mới có đường → tới sớm thì chờ → 21h Tí Sún + 2 đàn em
+  xuất hiện (dấu ! trên đầu Tí Sún). 2 đàn em dời lên vỉa hè (trước: đàn em 2 đứng giữa lòng đường).
+- Mới: 📍 Chỗ hẹn theo tọa độ (story.json spots, mã 'spot:<mã>') — gửi kèm tin nhắn, mũi tên, điều kiện "Đã bấm 📍" (?editor: Danh bạ · người nói → 📍 Chỗ hẹn).
+- Lỗi bộ chạy (bay lên trời): người lạ "đứng đúng tọa độ" bị gán độ cao của NGƯỜI CHƠI mỗi khung hình → người chơi lên cầu thì cả đám nhấc theo
+  (chương 4 cũng dính). Sửa: đứng yên giữ chỗ đứng, đi lại bám mặt đất / mặt cầu dưới chân (game/story.js storyActorsTick).
+- Tin nhóm "Hội nhóm shipper" hiện sau khi chữ tên chương tắt (5,5 / 7 / 8,5 / 10 giây).
+- Bày trận 3 màn vẽ tự do, khó dần (ambush.rounds: lưới 4×3 đặt 1 chốt → 5×4 đặt 2 → 6×5 đặt 3, đoạn đường đứt ✕, lối thoát 🚪);
+  thắng màn mới qua màn sau (nhớ màn đang chơi: story.ambushRound), "Màn x/3" + chấm tiến độ. ?editor sửa từng màn + tự đếm lời giải
+  (sim/ambush.js roundDef / roundNb). Cảnh vây đêm: anh em đứng ở ngã tư thật cố định (ambushCrew.nodes), không theo màn vẽ.
 
 ### 📖 Chương 5 "Hội nhóm shipper" (19/10 — XONG bản đầu, đã đẩy lên GitHub d05cbe2; lời thoại nháp, chủ game tự sửa ở ?editor)
 - Cả chương đã duyệt (19/10): 4 giờ sáng ngủ dậy → chị Linh hỏi anh Đạt → gọi không được → nhiệm vụ "Lướt Tích Tắc" thấy Tí Sún khoe xe anh Đạt →

@@ -20,7 +20,7 @@ import { CityMap } from './cityMap.js';
 import { createAvatar } from './avatar.js';
 import { morph } from './morph.js';
 import { profileLook } from '../sim/people.js';
-import { STORY } from '../sim/story.js';
+import { STORY, spotOf } from '../sim/story.js';
 import { voiceOf, chapterNum } from '../data/relations.js';
 
 // [mã app, biểu tượng, màu, khóa chữ tên app] — APPS: app đang hiện (theo thứ tự, phím 1–9); app ẩn vẫn mở được qua liên kết
@@ -478,7 +478,7 @@ export class Phone {
     const t = this.thread && threads[this.thread];
     if (t) {
       const [ic, name] = who(this.thread);
-      const placeName = (id) => PLACES.find((pl) => pl.id === id)?.name || id;
+      const placeName = (id) => { const sp = spotOf(id); return sp ? fmt(sp.name) : PLACES.find((pl) => pl.id === id)?.name || id; }; // địa điểm hoặc chỗ hẹn theo tọa độ
       // nhóm chat: dòng hệ thống ở giữa (vd "… đã thêm bạn vào nhóm") · tin của thành viên có tên người gửi ở trên
       const bubbles = t.msgs.map((m) => (m.sys ? `<div class="msg-sys">${textOf(m)}</div>` : `<div class="bub ${m.me ? 'me' : 'them'}">${m.as && !m.me ? `<b class="bub-as">${esc(fmt(m.as))}</b>` : ''}<div>${textOf(m)}</div>
         ${(m.loc || []).map((id) => `<button class="msg-loc${d.waypoint === id ? ' on' : ''}" data-act="waypoint" data-id="${id}">📍 ${esc(placeName(id))}</button>`).join('')}

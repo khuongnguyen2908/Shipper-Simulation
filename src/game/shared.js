@@ -5,7 +5,7 @@ export const routeShort = (r) => String(r?.name || '').split(' · ')[0];
 
 export const SAVE_KEY = 'shipper-sim-save-v1';
 export const PHOTO_KEY = 'shipper-sim-photos-v1'; // app Máy ảnh: 3 ô ảnh = 3 bản lưu { save, img, day, time, where }
-export const PHOTO_SLOTS = 3;
+export const PHOTO_SLOTS = 10;
 // Tin nhóm Hội shipper (dự báo, quảng cáo, mẹo, kẹt xe…): TẮT theo yêu cầu chủ game (liên quan cốt truyện) — khi nào chủ game bảo thì bật lại
 export const GROUP_CHAT_ON = false;
 export const GARAGE_CAM = { dist: 3.2, pitch: 0.28 }; // camera khi đứng / chạy xe trong hầm xe phòng trọ

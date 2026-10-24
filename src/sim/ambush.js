@@ -64,3 +64,26 @@ export function ambushSolutions(def, nb, k = def.blocks ?? 3) {
   rec(0, []);
   return out;
 }
+
+// ---------- MÀN VẼ TỰ DO (việc ambush có rounds: chơi lần lượt nhiều màn, khó dần) ----------
+// R: { cols, rows (lưới ngã tư), cut: [[[i, j], [i, j]]…] (đoạn đường bị đứt), start, trap, trapTo (đường cụt ngập — ngoài lưới, sát chỗ bẫy),
+//      exits: [[i, j]…] (lối thoát — ngoài lưới, sát 1 ngã tư mép), fixed, blocks }
+// Không dính bản đồ thật: chỉ là hình vẽ cho mini game.
+export function roundDef(R) {
+  return { region: [0, R.cols - 1, 0, R.rows - 1], start: R.start, trap: R.trap, trapTo: R.trapTo, exits: R.exits || [], fixed: R.fixed || [], blocks: R.blocks ?? 1, cut: R.cut || [] };
+}
+// Ngã tư nối thẳng trong màn vẽ tự do (bỏ đoạn đứt; lối thoát / đường cụt ngoài lưới nối với ngã tư sát bên)
+export function roundNb(R) {
+  const cut = new Set((R.cut || []).map(([a, b]) => [key(a), key(b)].sort().join('|')));
+  const inG = (n) => n[0] >= 0 && n[1] >= 0 && n[0] < R.cols && n[1] < R.rows;
+  const outside = new Set([...(R.exits || []), ...(R.trapTo ? [R.trapTo] : [])].map(key));
+  return (i, j) => {
+    const out = [];
+    for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const m = [i + di, j + dj];
+      const ok = (inG([i, j]) && inG(m)) || (inG([i, j]) && outside.has(key(m))) || (inG(m) && outside.has(key([i, j])));
+      if (ok && !cut.has([key([i, j]), key(m)].sort().join('|'))) out.push(m);
+    }
+    return out;
+  };
+}

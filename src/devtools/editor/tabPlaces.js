@@ -7,7 +7,7 @@ import { moveInArray } from './order.js';
 import { rowMenu, addButton, entryButtons, doRemove, doCopyActivity, doPasteActivity } from './opsUi.js';
 import { personPreview } from './personPreview.js';
 import { housePreview } from './housePreview.js';
-import { LOOKS, guessLook, lookOf, looksFor, CAMPUS_LOOKS } from '../../data/looks.js';
+import { LOOKS, guessLook, lookOf, looksFor, CAMPUS_LOOKS, WHOLE_BLOCK_LOOKS } from '../../data/looks.js';
 import { personOf, HAIR_BY_GENDER, HAIR_EXTRA, LOOK_AGES, LOOK_BUILDS } from '../../sim/people.js';
 import { fmt } from '../../content/index.js';
 import { el, field, textInput, numInput, colorInput, selectInput, checkInput, button, sideList, areaInput, dragHandle, makeSortable, emojiInput, explain, openDayInput, subTabs, advanced } from './ui.js';
@@ -37,7 +37,7 @@ const sizesFor = (p) => {
   const court = lookOf(p) === 'pagodaCourtyard', campus = CAMPUS_LOOKS.includes(lookOf(p));
   return Object.entries(SIZE_LABEL).filter(([k]) => {
     if (k === 'join') return lookOf(p) === 'airport'; // lô gộp 2 khối: chỉ sân bay (cần gộp khối ở thẻ Bản đồ)
-    if (k === 'block') return p.kind === 'scenery' || court || campus; // trường đại học: cả khối → khuôn viên
+    if (k === 'block') return p.kind === 'scenery' || court || campus || WHOLE_BLOCK_LOOKS.includes(lookOf(p)); // trường đại học: cả khối → khuôn viên · kho hàng cảng: bản cả khối
     if (k === 'blockCut') return court;
     if (court) return false;
     return k !== 'one' || p.kind !== 'police';

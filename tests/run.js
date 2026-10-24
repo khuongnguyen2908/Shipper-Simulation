@@ -1147,6 +1147,28 @@ console.log('Bản đồ 8×8, hẻm trong khối (map.json)');
     pd.streetsX.pop();
     assert.ok(validateMap(MAPD, pd).some((i) => i.field === 'size' && i.level === 'error'));
   });
+  const RM = await import('../src/world/riverMouth.js');
+  const ZN = await import('../src/sim/zones.js');
+  test('Bản đồ riêng (trên tàu): chỗ đứng có tên → toạ độ thế giới ở xa thành phố; mã lạ → null', () => {
+    const p = ZN.zonePoint('ship', 'captive');
+    assert.ok(p && Math.hypot(p[0], p[1]) > HALF * 5, 'bản đồ riêng phải nằm thật xa thành phố');
+    assert.equal(ZN.zonePoint('ship', 'khongCo'), null);
+    assert.equal(ZN.zonePoint('khongCo', 'captive'), null);
+    assert.ok(ZN.ZONE_POINTS.includes(ZN.ZONES.ship.spawn));
+  });
+  test('Cửa sông ra ngoài bản đồ (mouth): mở đúng phía, nhà vùng ven chừa chỗ, đứng gần thì nhìn xa; giá trị lạ → lỗi', () => {
+    const map = { rivers: [{ axis: 'x', line: 8, from: 0, to: CITYLAYOUT.CITY.N, wide: true, bridges: [2], mouth: 'end' }] };
+    const [m, ...rest] = RM.riverMouths(map);
+    assert.equal(rest.length, 0);
+    assert.deepEqual([m.lo, m.hi, m.dir, m.cz], [150, 214, 1, HALF]);
+    assert.ok(RM.mouthBlocks([m], 182, HALF + 9) && !RM.mouthBlocks([m], 182, -HALF - 9) && !RM.mouthBlocks([m], 0, HALF + 9), 'chỉ bỏ nhà vùng ven chắn cửa sông');
+    assert.equal(RM.mouthOpen([m], 182, HALF), 1);
+    assert.equal(RM.mouthOpen([m], -200, -200), 0);
+    assert.equal(RM.riverMouths({ rivers: [{ ...map.rivers[0], to: 5 }] }).length, 0, 'sông chưa chạm biên thì không mở');
+    const bad = JSON.parse(JSON.stringify(MAPD));
+    bad.rivers[0].mouth = 'giua';
+    assert.ok(validateMap(bad, DATA.places).some((i) => i.field === 'mouth' && i.level === 'error'));
+  });
 }
 
 console.log('Đổi loại địa điểm (công cụ ?editor)');
@@ -4239,12 +4261,28 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     assert.equal(s.carry, null);
     assert.equal(s.carrySlots, undefined);
   });
+  test('Chờ tới giờ cho chạy đơn: hết giờ chờ mà đang chạy đơn thì cốt truyện chờ giao xong', () => {
+    const gs = new GameState({ carry: { flags: { story: 2 } } });
+    const c4 = STORY.chapters.find((c) => c.id === 'c4'), i = c4.steps.findIndex((x) => x.id === 'wait8');
+    assert.ok(c4.steps[i].orders && c4.steps.find((x) => x.id === 'waitOpen').orders, 'chờ 8h / chờ khai mạc cho chạy đơn');
+    Object.assign(gs.story, { ch: 'c4', step: i, fired: true, waited: 0, ev: {}, done: ['c1', 'c2', 'c3'] });
+    let busy = true, now = 3 * 1440 + 8 * 60;
+    const ctx = () => ({ now, busy: () => busy, near: () => false, actorNear: () => false });
+    storyTick(gs, 1, ctx()); // hết giờ chờ → sang bước sau (chưa chạy)
+    const next = stepOf(gs.story).id;
+    assert.ok(!stepOf(gs.story).orders && !gs.story.fired);
+    for (let k = 0; k < 5; k++) storyTick(gs, 1, ctx());
+    assert.ok(!gs.story.fired && stepOf(gs.story).id === next, 'đang chạy đơn → bước sau chưa chạy');
+    busy = false; storyTick(gs, 1, ctx());
+    assert.ok(gs.story.fired, 'giao xong đơn → cốt truyện chạy tiếp');
+  });
   test('Chương 5 "Hội nhóm shipper": Linh hỏi → gọi anh Đạt → Tích Tắc thấy xe → nhắn Tí Sún → 9h gầm cầu → đòi 100 triệu, bị nhận ra, đuổi về → Dượng Hai → chú Tư → chở thuốc (chấm thật) → vào nhóm → bày trận → đêm ngập → tiệm trà → hết chương', () => {
     const A = AMB5, L = CITYLAYOUT;
     const gs = new GameState({ carry: { flags: { story: 2 } } });
     Object.assign(gs.story, { ch: 'c5', step: 0, fired: false, waited: 0, ev: {}, done: ['c1', 'c2', 'c3', 'c4'] });
     let now = 7 * 60, closeTo = false, awayOk = false;
-    const ctx = () => ({ now, actorNear: () => closeTo, awayFrom: () => awayOk, near: () => false, threadOpen: () => false });
+    let routed = false;
+    const ctx = () => ({ now, actorNear: () => closeTo, awayFrom: () => awayOk, near: () => false, threadOpen: () => false, routed: () => routed });
     const acts = [];
     const tick = (n = 1) => { for (let i = 0; i < n; i++) { acts.push(...storyTick(gs, 1, ctx())); now += 1; } };
     const sid = () => stepOf(gs.story)?.id;
@@ -4260,14 +4298,33 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     assert.equal(run('ttNews', auto), 'ttNews');
     tick(1); // bước vừa tới: chạy việc của bước
     const post = acts.find((a) => a.do === 'ttPost');
-    assert.ok(post && post.photo.actor === 'tiSun' && acts.some((a) => a.do === 'actor' && a.who === 'tiSun' && a.vehicle === 'moto'), 'tin Tích Tắc chụp Tí Sún + xe anh Đạt');
+    assert.ok(post && post.photo.actor === 'tiSun', 'tin Tích Tắc chụp Tí Sún + xe anh Đạt');
+    const spotXZ = STORY.spots.gamCauSat.at, farFrom = (x) => Math.hypot(x.at[0] - spotXZ[0], x.at[1] - spotXZ[1]) > 30;
+    assert.ok(acts.filter((a) => a.do === 'actor' && a.who === 'tiSun').every(farFrom), 'Tí Sún chụp ảnh khoe xe chỗ khác, không đứng sẵn ở gầm cầu từ sáng');
     tick(5);
     assert.equal(sid(), 'ttNews', 'chưa lướt tới tin thì chưa qua');
     gs.story.ttSeen = ['tiSunXe']; tick(2);
     assert.equal(run('waitMeet', auto), 'waitMeet');
+    assert.ok(!stepOf(gs.story).target, 'chưa có chỗ hẹn thì không chỉ đường');
     tick(10);
-    assert.equal(sid(), 'waitMeet', 'chờ 9h tối');
+    assert.equal(sid(), 'waitMeet', 'chờ 8h tối Tí Sún nhắn chỗ hẹn');
+    now = Math.floor(now / 1440) * 1440 + 20 * 60; tick(2);
+    assert.equal(sid(), 'addr');
+    assert.ok(acts.some((a) => a.do === 'msg' && a.from === 'tiSun' && (a.loc || []).includes('spot:gamCauSat')), '8h Tí Sún nhắn chỗ hẹn kèm 📍');
+    assert.ok(STORY.spots.gamCauSat.at.length === 2, 'chỗ hẹn theo tọa độ');
+    tick(5);
+    assert.equal(sid(), 'addr', 'chưa bấm 📍 thì chưa có đường');
+    routed = true; tick(2);
+    assert.equal(sid(), 'goMeet');
+    assert.equal(stepOf(gs.story).target, 'spot:gamCauSat', 'bấm 📍 rồi mới chỉ đường tới gầm cầu');
+    tick(5);
+    assert.equal(sid(), 'goMeet', 'tới sớm thì chờ 9h');
+    assert.ok(acts.some((a) => a.do === 'remove' && a.who === 'tiSun'), 'xem tin xong Tí Sún rời chỗ chụp ảnh');
+    assert.ok(!acts.some((a) => a.do === 'actor' && a.who === 'tiSun' && !farFrom(a)), 'trước 9h Tí Sún chưa xuất hiện ở gầm cầu');
     now = Math.floor(now / 1440) * 1440 + 21 * 60; tick(2);
+    assert.equal(sid(), 'meet');
+    assert.ok(acts.some((a) => a.do === 'actor' && a.who === 'tiSun' && a.vehicle === 'moto'), '9h Tí Sún (có xe anh Đạt) xuất hiện');
+    assert.equal(stepOf(gs.story).mark?.actor, 'tiSun', 'dấu ! trên đầu Tí Sún');
     closeTo = true;
     assert.equal(run('leave', auto), 'leave');
     tick(1);
@@ -4283,14 +4340,24 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     storyEvent(gs.story, 'delivered'); tick(2);
     assert.equal(sid(), 'joined');
     assert.ok(acts.some((a) => a.do === 'title'), 'vào nhóm mới hiện tên chương');
+    assert.ok(stepOf(gs.story).on.filter((a) => a.do === 'msg').every((a) => (a.after || 0) >= 5), 'tin nhóm hiện sau khi tên chương tắt');
+    assert.equal(run('park', auto), 'park');
+    assert.equal(stepOf(gs.story).target, 'canhquan4', 'đọc tin nhóm xong → hẹn ra công viên, chưa mở bày trận');
+    assert.ok(!acts.some((a) => a.do === 'ambush'), 'chưa tới công viên thì chưa bày trận');
     assert.equal(run('plan', auto), 'plan');
     tick(1);
     const am = acts.find((a) => a.do === 'ambush');
-    const nb = (i, j) => L.neighbors(i, j);
-    assert.equal(A.ambushSolutions(am, nb).length, 2, 'bày trận: đúng 2 lời giải');
-    assert.equal(A.ambushSolutions(am, nb, 2).length, 0, '2 chốt không đủ');
-    assert.equal(A.ambushRun(am, new Set(['0,8', '2,10', '3,8', '4,9', '4,10']), nb).result, 'trap');
-    assert.equal(A.ambushRun(am, new Set(['0,8', '2,10']), nb).result, 'escape');
+    assert.equal(am.rounds.length, 3, 'bày trận 3 màn');
+    am.rounds.forEach((R, k) => {
+      const def = A.roundDef(R), nb = A.roundNb(R);
+      assert.ok(A.ambushSolutions(def, nb, R.blocks).length >= 1, `màn ${k + 1} giải được`);
+      if (R.blocks > 1) assert.equal(A.ambushSolutions(def, nb, R.blocks - 1).length, 0, `màn ${k + 1}: ít chốt hơn không thắng`);
+      assert.equal(A.ambushRun(def, new Set((R.fixed || []).map((n) => n.join(','))), nb).result, 'escape', `màn ${k + 1}: không chặn thì Tí Sún thoát`);
+    });
+    assert.ok(am.rounds.every((R, k) => k === 0 || (R.blocks >= am.rounds[k - 1].blocks && R.cols * R.rows > am.rounds[k - 1].cols * am.rounds[k - 1].rows)), 'khó dần: lưới lớn hơn, nhiều chốt hơn');
+    const crew = STORY.chapters.find((c) => c.id === 'c5').steps.flatMap((x) => x.on || []).find((a) => a.do === 'ambushCrew');
+    const realNb = (i, j) => L.neighbors(i, j), oldPlan = { region: [0, 5, 8, 10], start: [3, 10], trap: [2, 8], trapTo: [2, 7], exits: [[0, 7], [3, 7], [6, 8], [6, 9], [6, 10]] };
+    assert.equal(A.ambushRun(oldPlan, new Set(crew.nodes.map((n) => n.join(','))), realNb).result, 'trap', 'cảnh đêm: anh em đứng chốt đúng chỗ trên bản đồ thật');
     tick(5);
     assert.equal(sid(), 'plan', 'chưa bày xong');
     storyEvent(gs.story, 'ambushed'); tick(2);
@@ -4819,9 +4886,19 @@ console.log('Cốt truyện (story.json) + tin nhắn');
         { do: 'prop', id: '1x', kind: 'tau', when: 't:khongCoMoc' },
         { do: 'cine', ride: 'ai', shots: [{ eye: true, t: 2, slow: 3, until: 'khong co' }, { pos: [1, 2], t: 1 }, { at: 'prop:khongCo', t: 1, lookAt: 'actor:ai' }] },
         { do: 'helmetOff', who: 'ai' },
+        { do: 'ship', state: 'neo' }, { do: 'ship', state: 'dock', at: [1] },
       ], until: { type: 'cine' } },
     ] }] };
     const all = validateStory(bad, {});
+    for (const w of ['Tàu hàng: trạng thái', 'Tàu hàng cập bến: chỗ đậu']) assert.ok(all.some((i) => i.level === 'error' && i.msg.includes(w)), `thiếu lỗi: ${w}`);
+    // bản đồ riêng (trên tàu) · trói / cởi trói
+    const bad2 = { contacts: {}, people: { m: {} }, items: {}, parcels: {}, spots: {}, chapters: [{ id: 'c', title: 't', steps: [
+      { id: 'a', on: [{ do: 'zone', id: 'canoe', at: 'giuaBien' }, { do: 'zone', id: 'ship', at: 'captive', gate: 'mo' }, { do: 'tie', who: 'ai' }, { do: 'untie', who: 'm', need: 1 }], until: { type: 'none' } },
+      { id: 'b', on: [{ do: 'zone', id: 'ship', at: 'captive', gate: false, door: false }, { do: 'tie', who: 'player' }, { do: 'untie', who: 'player', need: 12 }], until: { type: 'untied' } },
+    ] }] };
+    const e2 = validateStory(bad2, {}).filter((i) => i.level === 'error').map((i) => i.msg).join(' | ');
+    for (const w of ['mã lạ "canoe"', 'chỗ đứng lạ "giuaBien"', 'gate phải là có / không', 'người lạ "ai" không có', 'số lần bấm E 3–60']) assert.ok(e2.includes(w), `thiếu lỗi: ${w}`);
+    assert.ok(!/\bb\b.*(Bản đồ riêng|Cởi trói)/.test(validateStory(bad2, {}).filter((i) => i.ref.endsWith('/b') && i.level === 'error').map((i) => i.msg).join(' ')), 'bước đúng không bị báo lỗi');
     const errs = all.filter((i) => i.level === 'error').map((i) => i.msg).join(' | ');
     for (const w of ['tọa độ phải là [x, z]', 'hành động lạ "bay"', 'lệch ngang', 'bay cao thêm', 'Tới chỗ: tọa độ', 'Tới chỗ: bán kính', '"đuổi theo" — "khongCo"', 'chỗ xuất hiện lạ', 'kiểu xe lạ',
       'Đạo cụ: mã', 'Đạo cụ: loại lạ "tau"', '"xe người chơi tự chạy theo" — "ai"', 'quay chậm 0,1–1', 'người:mốc', 'chỗ đặt máy quay', 'đạo cụ "khongCo"', '"nhìn theo" — "actor:ai"', 'Người lạ "ai"']) assert.ok(errs.includes(w), `thiếu lỗi: ${w}`);
@@ -5493,6 +5570,123 @@ console.log('CSGT tuần tra theo lịch chung (sim/patrol.js)');
       assert.ok(Math.hypot(p.x - last.x, p.z - last.z) <= team.speed * 0.5 + 1e-6, `nhảy ${Math.hypot(p.x - last.x, p.z - last.z)} m lúc ${m}`);
       last = p;
     }
+  });
+}
+
+console.log('Đánh nhau góc nhìn thứ 1 (sim/fight.js — chương 6)');
+{
+  const FT = await import('../src/sim/fight.js');
+  const { validateStory } = await import('../src/data/validate.js');
+  const STORYJ = readJson('src/data/story.json');
+  const mk = (kind, extra = {}) => FT.makeFoe({ who: 'x', foe: kind, ...extra }, { x: 0, z: 0, heading: 0 });
+  test('Vũ khí theo dữ liệu (mã lạ = tay không) · đánh sau lưng gấp đôi · boss đỡ đòn trước mặt, chảo phá thế đỡ', () => {
+    const bat = FT.weaponOf('bat'), fists = FT.weaponOf('khongCo');
+    assert.equal(fists.id, 'fists');
+    assert.ok(bat.dmg > fists.dmg && bat.dur > 0);
+    const front = { x: 0, z: 1, heading: Math.PI }, back = { x: 0, z: -1, heading: 0 };
+    assert.equal(FT.hitFoe(mk('thug'), bat, back).dmg, FT.hitFoe(mk('thug'), bat, front).dmg * 2, 'sau lưng gấp đôi');
+    const sun = mk('tiSun');
+    sun.state = 'guard';
+    assert.ok(FT.hitFoe(sun, bat, front).blocked, 'Tí Sún đỡ đòn trước mặt');
+    assert.ok(!FT.hitFoe(sun, bat, back).blocked, 'đánh sau lưng thì trúng');
+    const sun2 = mk('tiSun');
+    sun2.state = 'guard';
+    FT.hitFoe(sun2, FT.weaponOf('pan'), front);
+    assert.ok(sun2.stun > 0, 'chảo làm choáng → phá thế đỡ');
+    assert.ok(!FT.hitFoe(sun2, bat, front).blocked);
+  });
+  test('Người chơi: đỡ giảm phần lớn + mất 1 nấc · đang né thì trượt · cú húc phá hết nấc đỡ', () => {
+    const p = { hp: 100, pips: 3, maxPips: 3, blocking: true, dodgeT: 0 };
+    const r = FT.hitPlayer(p, 20);
+    assert.ok(r.blocked && r.dmg < 10 && p.pips === 2);
+    FT.hitPlayer(p, 25, { breakGuard: true });
+    assert.equal(p.pips, 0);
+    const q = { hp: 100, pips: 3, blocking: false, dodgeT: 0.2 };
+    assert.ok(FT.hitPlayer(q, 30).dodged && q.hp === 100);
+  });
+  test('Địch: đuổi → giơ tay → bổ trúng · đập lén chỉ khi chưa phát hiện + đứng sau lưng, boss thì không', () => {
+    const f = mk('thug'), P = { x: 0, z: 5, heading: Math.PI };
+    let strikes = 0;
+    for (let i = 0; i < 300 && !strikes; i++) for (const e of FT.foeTick(f, { player: P, ally: null, dt: 1 / 30 })) if (e.type === 'strike' && e.hit) strikes += 1;
+    assert.ok(strikes > 0, 'tới gần bổ trúng');
+    const g = mk('thug', { sneak: true });
+    assert.ok(FT.canTakedown(g, { x: 0, z: -1.4 }), 'sau lưng, chưa thấy → đập lén được');
+    assert.ok(!FT.canTakedown(g, { x: 0, z: 1.4 }), 'trước mặt thì không');
+    assert.ok(!FT.canTakedown(mk('tiDo', { sneak: true }), { x: 0, z: -1.4 }), 'boss không đập lén được');
+    assert.ok(!FT.sees(mk('thug', { sneak: true }), { x: 0, z: -1.5 }), 'đi bộ sau lưng 1,5 m: không bị nghe');
+    assert.ok(FT.sees(mk('thug', { sneak: true }), { x: 0, z: -1.5, loud: true }), 'chạy thì bị nghe');
+  });
+  test('Tí Đô: đứng xa thì lấy đà lao húc; đâm vật cản → choáng; còn nửa máu → nổi điên', () => {
+    const d = mk('tiDo');
+    d.chargeCd = 0;
+    const evs = [];
+    for (let i = 0; i < 200; i++) evs.push(...FT.foeTick(d, { player: { x: 0, z: 8, heading: Math.PI, dodgeT: 1 }, ally: null, dt: 1 / 30, blocked: (x, z) => z > 9 }));
+    assert.ok(evs.some((e) => e.type === 'charge') && evs.some((e) => e.type === 'dazed'), evs.map((e) => e.type).join(','));
+    d.hp = d.max * 0.45;
+    d.state = 'chase';
+    assert.ok(FT.foeTick(d, { player: { x: 0, z: 1, heading: 0 }, ally: null, dt: 1 / 30 }).some((e) => e.type === 'rage'));
+  });
+  test('Đường đi vòng: nhìn thẳng được thì đi thẳng, bị chặn thì đi theo lưới điểm', () => {
+    const nav = { nodes: [[0, 0], [10, 0], [10, 10]], edges: [[0, 1], [1, 2]] };
+    const to = { x: 0, z: 10 };
+    assert.equal(FT.navNext(nav, { x: 0, z: 0 }, to, () => true), to);
+    const blockedX0 = (a, b) => !(Math.abs(a.x) < 1 && Math.abs(b.x) < 1 && Math.abs(a.z - b.z) > 3); // không đi dọc trục x = 0 được
+    const n = FT.navNext(nav, { x: 0, z: 0 }, to, blockedX0); // đi vòng: tới điểm xa nhất trên đường mà nhìn thẳng thấy
+    assert.ok(n !== to && nav.nodes.some(([x, z]) => x === n.x && z === n.z), JSON.stringify(n));
+  });
+  test('Dữ liệu đánh nhau hiện tại hợp lệ; trận sai → bộ kiểm tra báo', () => {
+    const errs = validateStory(STORYJ, {}).filter((i) => i.level === 'error' && /^(weapon|foe|fight):/.test(i.ref));
+    assert.equal(errs.length, 0, errs.map((e) => e.msg).join(' | '));
+    const bad = JSON.parse(JSON.stringify(STORYJ));
+    bad.fights.x = { zone: 'tauNgam', name: 'story.fight.test', start: [0], foes: [{ who: 'g1', foe: 'rong', at: [0, 0] }, { who: 'g1', foe: 'thug', at: [0, 0] }], loot: [{ id: 'bomb', at: [0, 0] }] };
+    const e = validateStory(bad, {}).filter((i) => i.ref === 'fight:x' && i.level === 'error').map((i) => i.msg).join(' | ');
+    for (const w of ['bản đồ lạ', 'chỗ người chơi bắt đầu', 'kiểu địch lạ', 'bị trùng', 'đồ dưới đất lạ']) assert.ok(e.includes(w), `thiếu lỗi: ${w}`);
+  });
+}
+
+console.log('Màn đua thoát thân (sim/race.js — chương 6)');
+{
+  const RC = await import('../src/sim/race.js');
+  const { validateStory } = await import('../src/data/validate.js');
+  const STORYJ = readJson('src/data/story.json');
+  const def = STORYJ.races.escape;
+  test('Đường đua: đủ dài (~8 phút), nối liền đoạn này sang đoạn kia; tìm lại được chỗ trên đường từ toạ độ', () => {
+    const T = RC.buildTrack(def);
+    assert.equal(T.total, def.sections.reduce((a, s) => a + s.len, 0));
+    assert.ok(T.total / ((def.bike?.maxSpeed || 29) * 0.85) > 7 * 60, 'chạy hết đường ít nhất ~7 phút ở tốc độ cao');
+    for (let i = 1; i < T.pts.length; i++) assert.ok(Math.hypot(T.pts[i].x - T.pts[i - 1].x, T.pts[i].z - T.pts[i - 1].z) < T.step + 0.01, 'đường liền mạch');
+    const p = RC.trackAt(T, 5000, 2), n = RC.nearestOnTrack(T, p.x, p.z, 4990);
+    assert.ok(Math.abs(n.s - 5000) < 1 && Math.abs(n.lat - 2) < 0.2, JSON.stringify(n));
+    assert.equal(T.secStart.length, def.sections.length);
+  });
+  test('Bọn rượt: bị bỏ xa thì tăng tốc đuổi, sát quá thì chạy chậm lại; sự cố xếp theo thứ tự quãng đường', () => {
+    assert.ok(RC.chaseSpeed(60, 25, 34) > 25, 'xa thì nhanh hơn mình');
+    assert.ok(RC.chaseSpeed(3, 25, 34) < 25, 'sát thì chậm lại');
+    assert.ok(RC.chaseSpeed(60, 0, 34) <= 34);
+    const T = RC.buildTrack(def), ev = RC.raceEvents(def, T);
+    for (let i = 1; i < ev.length; i++) assert.ok(ev[i].s >= ev[i - 1].s);
+    assert.ok(ev.some((e) => e.type === 'drawbridge') && ev.some((e) => e.type === 'barrier') && ev.some((e) => e.type === 'throwers'));
+  });
+  test('Cầu cất: tới sớm (cầu thấp) + chạy nhanh thì bay qua; cầu dựng đứng / chạy chậm thì rớt', () => {
+    assert.equal(RC.drawbridgeAngle(0), 0);
+    assert.ok(RC.drawbridgeAngle(RC.RACE.bridgeOpen / 36) < 30, 'chạy hết ga tới cầu: cầu còn thấp');
+    assert.ok(RC.drawbridgeAngle(RC.RACE.bridgeOpen / 36 + 8) > RC.RACE.bridgeSteep, 'té 2 lần (~8 giây) ở khúc cuối: cầu dựng đứng');
+    assert.equal(RC.drawbridgeAngle(9999), RC.RACE.bridgeMax);
+    assert.ok(RC.drawbridgeJump(36, 21).ok, 'hết ga, cầu thấp: qua');
+    assert.ok(RC.drawbridgeJump(25, 35).ok, '90 km/h, cầu 35 độ: vẫn qua');
+    assert.equal(RC.drawbridgeJump(36, RC.RACE.bridgeSteep + 1).why, 'steep');
+    const slow = RC.drawbridgeJump(8, 35);
+    assert.ok(!slow.ok && slow.why === 'short', JSON.stringify(slow));
+    const last = def.sections[def.sections.length - 1];
+    assert.equal(last.kind, 'drawbridge', 'đoạn cuối là cầu cất');
+  });
+  test('Dữ liệu màn đua hợp lệ; dữ liệu sai → bộ kiểm tra báo', () => {
+    const errs = validateStory(STORYJ, {}).filter((i) => i.level === 'error' && /^race:/.test(i.ref));
+    assert.equal(errs.length, 0, errs.map((e) => e.msg).join(' | '));
+    const bad = JSON.parse(JSON.stringify(STORYJ));
+    bad.races.x = { name: 'story.race.name', sections: [{ kind: 'phiThuyen', len: 10, events: [{ type: 'ufo', at: 999 }] }] };
+    const e = validateStory(bad, {}).filter((i) => i.ref === 'race:x' && i.level === 'error').map((i) => i.msg).join(' | ');
+    for (const w of ['ít nhất 2 đoạn', 'kiểu lạ', 'dài phải ≥ 40', 'sự cố lạ', 'nằm trong đoạn']) assert.ok(e.includes(w), `thiếu lỗi: ${w}`);
   });
 }
 

@@ -4700,6 +4700,32 @@
         7
       ],
       "lot": "E1"
+    },
+    {
+      "id": "kho7",
+      "name": "Kho 7",
+      "short": "Kho 7",
+      "kind": "service",
+      "icon": "🏭",
+      "block": [
+        7,
+        9
+      ],
+      "lot": "B",
+      "face": "N",
+      "look": "portWarehouse",
+      "color": "#8a8f86",
+      "sign": "KHO 7 – BẾN CẢNG",
+      "signBg": "#7b2d26",
+      "hours": "caNgay",
+      "npc": {
+        "name": "Chú bảo vệ kho",
+        "shirt": "#5d6d7e",
+        "pants": "#2c3e50",
+        "hat": null,
+        "portrait": "💂",
+        "gender": "m"
+      }
     }
   ]
 }

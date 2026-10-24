@@ -298,6 +298,9 @@ export const SYNTH = {
   rev() { tone(90, 0.25, { type: 'sawtooth', vol: 0.12, slide: 160 }); tone(140, 0.35, { type: 'sawtooth', vol: 0.1, slide: 220, at: 0.28 }); tone(120, 0.4, { type: 'square', vol: 0.06, slide: -60, at: 0.65 }); },
   bark() { tone(520, 0.08, { type: 'sawtooth', vol: 0.15, slide: -200 }); tone(520, 0.08, { type: 'sawtooth', vol: 0.15, slide: -200, at: 0.18 }); },
   whistle() { tone(2400, 0.5, { type: 'sine', vol: 0.15, slide: 200 }); },
+  swish() { noise(0.16, { vol: 0.22, freq: 2600 }); }, // gió vụt (vung / né / ném)
+  thud() { tone(110, 0.12, { type: 'sine', vol: 0.35, slide: -50 }); noise(0.08, { vol: 0.3, freq: 400 }); }, // bịch (đánh trúng)
+  clang() { tone(820, 0.4, { type: 'triangle', vol: 0.18, slide: -60 }); tone(1230, 0.3, { type: 'sine', vol: 0.1 }); noise(0.05, { vol: 0.2, freq: 3000 }); }, // keng (chảo, đỡ đòn)
   phone() { for (let i = 0; i < 3; i++) tone(440, 0.3, { type: 'sine', vol: 0.12, at: i * 0.6 }); },
   step() { tone(180, 0.05, { type: 'triangle', vol: 0.05 }); },
   win() { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.25, { type: 'triangle', vol: 0.2, at: i * 0.15 })); },

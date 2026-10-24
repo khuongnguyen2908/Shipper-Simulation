@@ -142,3 +142,5 @@ export function lookFloors(p) {
 
 // Kiểu nhà trường đại học: được chọn cỡ "Cả khối" (lô B) → dựng khuôn viên (world/placeBuildings.js artCampus / uniCampus)
 export const CAMPUS_LOOKS = ['university', 'artSchool'];
+// Kiểu nhà có bản dựng riêng cho cả khối (lô 'B'): kho hàng cảng → nhà kho + bãi container + cẩu khung
+export const WHOLE_BLOCK_LOOKS = ['portWarehouse'];

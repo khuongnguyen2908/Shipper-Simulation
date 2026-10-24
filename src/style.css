@@ -653,6 +653,8 @@ b.plus { color: #58d68d; }
 @keyframes cineBar { from { transform: scaleY(0); } }
 body.cine #cine { display: block; }
 /* Nút bấm nhanh (việc "tackle" — game/scene.js qteShow): phím E trong vòng đếm ngược vàng + chữ "Chặn lại!" giữa dưới màn hình */
+/* bản đồ riêng (trên tàu): ẩn bản đồ nhỏ · bị tịch thu điện thoại: ẩn hình điện thoại + thông báo */
+.in-zone .hud-br, .no-phone #phoneIcon, .no-phone #phoneNote { display: none !important; }
 #qte { position: fixed; left: 50%; bottom: 20vh; transform: translateX(-50%) scale(0.6); display: flex; align-items: center; gap: 14px; z-index: 30; pointer-events: none; opacity: 0; transition: opacity 0.15s, transform 0.15s; }
 #qte.on { opacity: 1; transform: translateX(-50%) scale(1); }
 #qte svg { width: 92px; height: 92px; transform: rotate(-90deg); }
@@ -689,6 +691,17 @@ body.cine #hud, body.cine #minimap, body.cine #phoneIcon, body.cine #phoneNote, 
 .amb-map { width: 100%; max-height: 52vh; background: #142030; border-radius: 10px; }
 .amb-road { stroke: #4a5a70; stroke-width: 9; stroke-linecap: round; }
 .amb-flood { stroke: #4fa3d1; stroke-width: 11; stroke-linecap: round; stroke-dasharray: 3 7; }
+/* bày trận nhiều màn: thanh "Màn x/n" + mức khó + chấm tiến độ · đoạn đường đứt */
+.amb-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.amb-tag { font-size: 12px; padding: 2px 8px; border-radius: 9px; background: #2b3a2f; color: #8fe3a7; }
+.amb-tag.lv1 { background: #3b3524; color: #f4d03f; }
+.amb-tag.lv2 { background: #3d2626; color: #ff8a80; }
+.amb-dots { margin-left: auto; display: flex; gap: 5px; }
+.amb-dots i { width: 12px; height: 12px; border-radius: 50%; background: #3a3f4b; display: inline-block; }
+.amb-dots i.on { background: #f4d03f; }
+.amb-dots i.ok { background: #2ecc71; }
+.amb-cut { stroke: #4a2a2a; stroke-width: 8; stroke-dasharray: 4 7; }
+.amb-cutx { fill: #e74c3c; font-size: 15px; text-anchor: middle; pointer-events: none; }
 .amb-path { fill: none; stroke: #f4d03f; stroke-width: 4; stroke-dasharray: 8 6; opacity: 0.9; }
 .amb-path.escape, .amb-path.boxed { stroke: #e74c3c; }
 .amb-path.trap { stroke: #2ecc71; }
@@ -710,3 +723,83 @@ body.cine #hud, body.cine #minimap, body.cine #phoneIcon, body.cine #phoneNote, 
 .amb-msg { flex: 1; min-width: 160px; font-size: 13px; }
 .amb-msg.good { color: #58d68d; } .amb-msg.bad { color: #f1948a; } .amb-msg.warn { color: #f4d03f; }
 .amb-legend { font-size: 12px; color: var(--muted); }
+
+/* ===== ĐÁNH NHAU góc nhìn thứ 1 (chương 6 — ui/fightHud.js) ===== */
+.in-fight .hud-tl, .in-fight .hud-obj, .in-fight .hud-goal, .in-fpv .hud-keys, .in-fight #prompt:empty { display: none !important; }
+body:has(.in-fight) #chat { display: none; } /* đang đánh nhau: ẩn tin nhóm chat cho khỏi rối */
+.fh { position: fixed; inset: 0; pointer-events: none; z-index: 20; font-family: inherit; color: #fff; }
+.fh.hidden { display: none; }
+.fh-panel { background: #10161fd9; border: 1px solid #ffffff1f; border-radius: 12px; }
+.fh-track { flex: 1; height: 12px; background: #ffffff1c; border-radius: 7px; overflow: hidden; }
+.fh-fill { height: 100%; width: 100%; border-radius: 7px; background: #e74c3c; transition: width 0.15s; }
+.fh-fill.me { background: linear-gradient(90deg, #d63031, #ff7675); }
+.fh-fill.ally { background: linear-gradient(90deg, #00b894, #55efc4); }
+.fh-bars { position: absolute; left: 16px; top: 14px; width: 320px; padding: 10px 14px; }
+.fh-row { display: flex; align-items: center; gap: 10px; margin: 3px 0; font-size: 14px; }
+.fh-row label { width: 92px; color: #dfe6ee; }
+.fh-num { width: 58px; text-align: right; font-size: 13px; color: #b9c3cf; }
+@media (max-width: 1100px) { .fh-target { top: 136px !important; } } /* màn hẹp: thanh máu tên đang nhắm xuống dưới, khỏi đè bảng máu */
+.fh-target { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); width: 300px; padding: 7px 14px; text-align: center; font-size: 13px; }
+.fh-target .fh-track { height: 9px; margin-top: 4px; }
+.fh-goal { position: absolute; right: 16px; top: 14px; max-width: 300px; padding: 9px 14px; font-size: 14px; }
+.fh-goal b { color: #ffd54a; display: block; }
+.fh-xh { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); opacity: 0.9; }
+.fh-xh .cdring { transition: stroke-dashoffset 0.05s linear; }
+.fh-xh.ready .cdring { stroke: #ffe680; }
+.fh-xh .pips rect { fill: #ffffff33; }
+.fh-xh .pips rect.on { fill: #74b9ff; }
+.fh-xh.blocking .pips rect.on { fill: #a8d8ff; filter: drop-shadow(0 0 3px #74b9ff); }
+.fh-wpn { position: absolute; right: 16px; bottom: 56px; padding: 7px 12px; font-size: 13px; color: #dfe6ee; }
+.fh-wpn .wpips { display: flex; gap: 4px; margin-top: 5px; }
+.fh-wpn .wpips i { width: 16px; height: 9px; border-radius: 3px; background: #c0874e; display: block; }
+.fh-wpn .wpips i.off { background: #ffffff22; }
+.fh-keys { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); padding: 6px 14px; font-size: 13px; color: #cfd6e0; white-space: nowrap; }
+.fh-keys b { background: #fff2; padding: 1px 7px; border-radius: 5px; color: #fff; font-weight: 600; }
+.fh.fpv .fh-bars, .fh.fpv .fh-target, .fh.fpv .fh-goal, .fh.fpv .fh-xh .cdring, .fh.fpv .fh-xh circle:first-child, .fh.fpv .fh-xh .pips { display: none; }
+.fh-tag { position: absolute; left: 0; top: 0; width: 68px; text-align: center; font-size: 11px; color: #ffd0c8; text-shadow: 0 1px 2px #000; }
+.fh-tag .fh-track { height: 6px; border: 1px solid #000; background: #0009; border-radius: 0; }
+.fh-tag .fh-fill { border-radius: 0; }
+.fh-tag.lock .fh-track { outline: 2px solid #ffd54a; }
+.fh-tag.ally { color: #c9ffe9; }
+.fh-tag.ally .fh-fill { background: #00b894; }
+.fh-float { position: absolute; transform: translate(-50%, -50%); font-weight: 900; font-size: 26px; color: #ffeaa7; text-shadow: 0 2px 0 #000, 0 0 10px #000; animation: fhUp 0.9s ease-out forwards; }
+.fh-float.block { color: #74b9ff; font-size: 22px; }
+.fh-float.big { color: #ff7675; font-size: 30px; }
+.fh-float.hurt { color: #ff4d4d; font-size: 22px; }
+@keyframes fhUp { from { opacity: 1; margin-top: 0; } to { opacity: 0; margin-top: -48px; } }
+.fh-edge { position: absolute; opacity: 0; }
+.fh-edge.l { left: 0; top: 0; bottom: 0; width: 26%; background: linear-gradient(90deg, rgba(220,30,30,.6), transparent); }
+.fh-edge.r { right: 0; top: 0; bottom: 0; width: 26%; background: linear-gradient(270deg, rgba(220,30,30,.6), transparent); }
+.fh-edge.t { left: 0; right: 0; top: 0; height: 28%; background: linear-gradient(180deg, rgba(220,30,30,.55), transparent); }
+.fh-edge.b { left: 0; right: 0; bottom: 0; height: 30%; background: linear-gradient(0deg, rgba(220,30,30,.6), transparent); }
+.fh-edge.on { animation: fhEdge 0.55s ease-out; }
+@keyframes fhEdge { from { opacity: 1; } to { opacity: 0; } }
+
+/* ===== MÀN ĐUA (chương 6 — ui/raceHud.js) ===== */
+.in-race .hud-tl, .in-race .hud-obj, .in-race .hud-goal, .in-race #speedo, .in-race .hud-keys, .in-race #phoneIcon, .in-race #phoneNote { display: none !important; }
+body:has(.in-race) #chat { display: none; }
+.rh { position: fixed; inset: 0; pointer-events: none; z-index: 20; color: #fff; }
+.rh.hidden { display: none; }
+.rh-panel { background: #10161fd9; border: 1px solid #ffffff1f; border-radius: 12px; }
+.rh-crash { position: absolute; left: 16px; top: 14px; padding: 9px 14px; font-size: 14px; }
+.rh-crash .pips { display: inline-flex; gap: 5px; vertical-align: middle; margin-left: 6px; }
+.rh-crash .pips i { width: 22px; height: 11px; border-radius: 3px; background: #ffffff22; display: block; }
+.rh-crash .pips i.on { background: #e67e22; }
+.rh-crash small, .rh-gap small { color: #aab6c4; font-size: 11px; }
+.rh-gap { position: absolute; right: 16px; top: 14px; width: 250px; padding: 9px 14px; font-size: 13px; }
+.rh-gap .gauge { position: relative; height: 14px; border-radius: 7px; margin: 6px 0 3px; background: linear-gradient(90deg, #e74c3c 0 12%, #f39c12 12% 35%, #2ecc71 35%); }
+.rh-gap .gauge i { position: absolute; top: -5px; width: 4px; height: 24px; margin-left: -2px; background: #fff; border-radius: 2px; box-shadow: 0 0 6px #000; transition: left 0.15s; }
+.rh.danger .rh-gap { border-color: #e74c3c; box-shadow: 0 0 18px #e74c3c88; }
+.rh.danger::after { content: ''; position: fixed; inset: 0; background: radial-gradient(ellipse at center, transparent 55%, rgba(200,0,0,.35)); }
+.rh-speed { position: absolute; left: 18px; bottom: 18px; width: 128px; height: 128px; border-radius: 50%; background: #10161fd9; border: 1px solid #ffffff22; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.rh-speed b { font-size: 38px; line-height: 1; } .rh-speed small { color: #aab6c4; }
+.rh-qte { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(0.6); display: flex; align-items: center; gap: 16px; opacity: 0; transition: opacity 0.12s, transform 0.12s; }
+.rh-qte.on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.rh-qte svg { width: 96px; height: 96px; transform: rotate(-90deg); }
+.rh-qte svg .bg { fill: #10161fe0; stroke: #ffffff33; stroke-width: 6; }
+.rh-qte svg .ring { fill: none; stroke: #ffd54a; stroke-width: 6; stroke-dasharray: 276.5; stroke-linecap: round; }
+.rh-qte .key { position: absolute; left: 0; width: 96px; text-align: center; font-size: 34px; font-weight: 900; }
+.rh-qte .txt { font-size: 32px; font-weight: 900; text-shadow: 0 2px 0 #000, 0 0 12px #000; }
+.rh-flash { position: fixed; inset: 0; background: #fff; opacity: 0; }
+.rh-flash.on { animation: rhFlash 0.4s ease-out; }
+@keyframes rhFlash { from { opacity: 0.55; } to { opacity: 0; } }

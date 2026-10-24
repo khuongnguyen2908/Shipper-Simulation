@@ -24,6 +24,7 @@ import { mat } from './models.js';
 import { tierOf, TIER_GEO, allSegments } from '../sim/roads.js';
 import { buildBusSystem } from '../sim/bus.js';
 import { floodMap, segOfId } from '../sim/flood.js';
+import { riverMouths, buildRiverMouths, mouthBlocks } from './riverMouth.js';
 
 // màu sơn tường nhà phố: vàng, xanh ngọc, hồng phai, trắng ngà, xanh dương nhạt, cam đất… (phố Việt Nam mỗi căn một màu)
 const WALL_COLORS = [0xe8d5b7, 0xf4c095, 0x9fd8cb, 0xf6e27f, 0xe7a9a9, 0xb8d8e8, 0xd9c3e8, 0xf2f2f2, 0xc9e4a6, 0xf7b267, 0xffe0b5, 0xa9cce3, 0xe3b23c, 0x7fb8a4, 0xd98a6c, 0xf0d58c, 0x8fb3d9, 0xe9c2d0];
@@ -54,7 +55,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   const W = LOT_W;
 
   // ---------- mặt đất, đường ----------
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), mat(0x5d6e4e));
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(1800, 1800), mat(0x5d6e4e)); // rộng hơn tầm nhìn xa nhất (đứng cạnh cửa sông)
   ground.rotation.x = -Math.PI / 2;
   ground.position.y = -0.03;
   ground.receiveShadow = true;
@@ -219,6 +220,9 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     flat(b, 0.03, waterMat);
     addBox(b.x0, b.z0, b.x1, b.z1, 0.3, 'water');
   }
+  // cửa sông mở ra ngoài biên (map.json → sông có "mouth"): nước, bờ dừa nước, cảng xa — chỉ để nhìn
+  const mouths = riverMouths(mapData);
+  buildRiverMouths(scene, mouths, waterMat, seed);
   for (const id of G.highSegs) {
     const m = /^([xz])(\d+):(\d+)$/.exec(id);
     const r = segmentRect({ axis: m[1], line: +m[2], from: +m[3] });
@@ -495,6 +499,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   // nhà vùng ven (ngoài biên bản đồ, chỉ để nhìn): ít chi tiết, quay mặt vào thành phố
   for (let a = -HALF - 6; a <= HALF + 6; a += 12) {
     for (const [x, z, face] of [[a, -HALF - 9, 'S'], [a, HALF + 9, 'N'], [-HALF - 9, a, 'E'], [HALF + 9, a, 'W']]) {
+      if (mouthBlocks(mouths, x, z)) continue; // chừa chỗ sông chảy ra
       addLotHouses({ x0: x - 5.5, x1: x + 5.5, z0: z - 5.5, z1: z + 5.5 }, face, rng.int(3, 8), { low: true });
     }
   }
@@ -946,6 +951,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   const dryColor = new THREE.Color(0xffffff), wetColor = new THREE.Color(0x9fa4ad);
   return {
     grid,
+    mouths, // cửa sông mở ra ngoài biên (sky.js: đứng gần thì sương mù lùi xa)
     elev, // mặt đi trên cao (xe / người chạy lên dốc sân bay)
     loops, // đường vòng cho xe bot (traffic.addLoop)
     barriers, // barie chân dốc sân bay (giữa cần chắn: x, z)
