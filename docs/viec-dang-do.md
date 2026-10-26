@@ -27,7 +27,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   - Chủ game tự tạo dự án Firebase (Claude hướng dẫn từng bước), dán cấu hình vào code.
 
 ## 💬 Đang bàn
-### 🙂 Mặt anime pixel cho người (21–26/10 — XONG trong game, CHƯA commit)
+### 🙂 Mặt anime pixel cho người (21–26/10 — XONG, đã đẩy lên GitHub 8c5db8f)
 - Chủ game chốt 26/10: **KHÔNG làm bộ lọc PS1, KHÔNG texture bẩn** (quần áo / tường / nhà / xe giữ nguyên) — **chỉ đổi mặt người**.
   Cách A: bộ kiểu mặt có sẵn · **giữ nguyên mũi** của mô hình · **người chơi không chọn mặt** (nam chinhNam / nữ chinhNu).
 - Code: `src/data/faces.js` (FACES 12 kiểu, EYE_COLORS, defaultFace, playerFace — dữ liệu thuần) · `src/world/faces.js` (vẽ mặt 64×64 nét pixel,
@@ -233,7 +233,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
     ⚠️ Ai chơi xong chương 5 lúc này sẽ vào thẳng màn đua (chưa có đầu chương 6). Chèn đoạn mở đầu / lên tàu / bị bắt / mở trói / đánh nhau
     vào giữa bước "title" và "race" khi chủ game chốt.
   - Đã commit + push 470b4eb (25/10): toàn bộ chương 6 tới giờ (tàu, đánh nhau, màn đua, kết chương).
-- **Đợt 5 — mở đầu chương 6 XONG (26/10, CHƯA commit)**. Chủ game chốt: người chơi TỰ suy ra (anh tờ rơi dắt em sinh viên vô hẻm ở chương 4 ↔ Kho 7)
+- **Đợt 5 — mở đầu chương 6 XONG (26/10, đã đẩy lên GitHub 8c5db8f)**. Chủ game chốt: người chơi TỰ suy ra (anh tờ rơi dắt em sinh viên vô hẻm ở chương 4 ↔ Kho 7)
   → nhắn số trên tờ rơi → hẹn 22h bến Kho 7 → đưa tin nhắn + tờ rơi cho công an (1b) → công an tới kiểm tra, Tí Đô đưa giấy tờ "chở gạo",
   không bằng chứng, công an về → giao đồ ăn cho thủy thủ (lấy tiền xong bị đuổi về) → lén vào sâu (2) → chìa khóa Kho 7 mở **tủ thuyền trưởng**
   dưới lầu chỉ huy lấy tài liệu (3b) → Tí Sún nhận ra → bị nhốt chung container với anh Đạt → cọ đứt dây, cởi trói anh Đạt → 3 trận
