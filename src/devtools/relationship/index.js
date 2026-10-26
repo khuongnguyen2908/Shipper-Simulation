@@ -17,6 +17,7 @@ import { validateRelations, ID_RE, findOldName, swapName, PLACE_TEXT } from '../
 import { DEFAULT_TYPES, LOOK_SLOTS, lookOfChar, PLAYER } from '../../data/relations.js';
 import { OUTFIT_SLOTS, canWearOutfit } from '../../data/goods.js';
 import { isPlaced } from '../../data/places.js';
+import { faceOptions, eyeOptions } from '../../data/faces.js';
 import { HAIR_BY_GENDER, HAIR_EXTRA, HAIR_COLORS, PLAYER_SKINS, LOOK_AGES, LOOK_BUILDS } from '../../sim/people.js';
 import { colorsToNumbers } from '../../data/balance.js';
 import { npcLook } from '../../world/models.js';
@@ -739,7 +740,9 @@ export function startRelationship(root) {
       field('Màu da', el('div', {}, sw(PLAYER_SKINS, L.skin, (v) => setL('skin', v, true)), colorInput(L.skin, (v) => /^#[0-9a-f]{6}$/i.test(v) && setL('skin', v)))),
       field('Vóc người', numInput(L.scale ?? 1, (v) => Number.isFinite(v) && setL('scale', Math.max(0.6, Math.min(1.4, v))), { min: 0.6, max: 1.4, step: 0.05 }), { hint: '1 = bình thường · 0,85 thấp nhỏ · 1,1 cao to.' }),
       field('Vóc dáng', selectInput(L.build || '', [['', 'Vừa'], ...Object.entries(LOOK_BUILDS)], (v) => { if (v) setL('build', v); else { delete L.build; changed({}); show(); } }), { hint: 'Gầy / đầy đặn / mập (bề ngang người).' }),
-      field('Tuổi', selectInput(L.age || '', [['', 'Bình thường'], ...Object.entries(LOOK_AGES)], (v) => { if (v) setL('age', v); else { delete L.age; changed({}); show(); } }), { hint: 'Lớn tuổi: đứng hơi khom lưng. Tóc bạc chọn ở "Màu tóc".' }))));
+      field('Tuổi', selectInput(L.age || '', [['', 'Bình thường'], ...Object.entries(LOOK_AGES)], (v) => { if (v) setL('age', v); else { delete L.age; changed({}); show(); } }), { hint: 'Lớn tuổi: đứng hơi khom lưng. Tóc bạc chọn ở "Màu tóc".' }),
+      field('Kiểu mặt', selectInput(L.faceStyle || '', [['', 'Tự lấy theo giới tính + tuổi'], ...faceOptions(L.gender === 'f' ? 'f' : 'm')], (v) => { if (v) setL('faceStyle', v); else { delete L.faceStyle; changed({}); show(); } }), { hint: 'Mặt anime vẽ pixel. Lông mày theo màu tóc.' }),
+      field('Màu mắt', selectInput(L.eyeColor || '', [['', 'Theo kiểu mặt'], ...eyeOptions()], (v) => { if (v) setL('eyeColor', v); else { delete L.eyeColor; changed({}); show(); } })))));
     // bộ đồ
     side.append(el('h4', {}, '👕 Bộ đồ'),
       el('div', { class: 'rl-chips' },

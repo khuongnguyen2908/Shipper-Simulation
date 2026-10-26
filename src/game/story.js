@@ -1352,7 +1352,7 @@ export class StoryPart {
   storyOffer(a = {}) {
     this.storyOfferAt = performance.now();
     if (this.om.order || this.om.state === S.OFFERED) return false;
-    const o = a.kind === 'food' ? this.om.storyFood(a.place, this.playerPos, this.clockMin)
+    const o = a.kind === 'food' ? this.om.storyFood(a.place, this.playerPos, this.clockMin, { to: a.to || null, customer: a.customer ? fmt(a.customer) : null })
       : a.kind === 'parcel' ? this.om.storyParcel({ place: a.place, item: a.item, customer: a.customer ? fmt(a.customer) : null, to: a.to || null, strict: !!a.strict }, this.playerPos, this.clockMin)
       : this.om.storyRide(this.playerPos, this.clockMin, a.customer || null);
     return this.om.forceOffer(o);

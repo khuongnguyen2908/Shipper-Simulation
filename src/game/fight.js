@@ -4,6 +4,8 @@
 // Luật thuần ở sim/fight.js (máu, đỡ, né, AI địch + anh Đạt); đây lo: góc nhìn thứ 1 (camera ở mắt, 2 tay cầm đồ),
 // phím chuột, đồ nhặt dưới đất, đồ ném bay, hình địch (giơ tay, ngã), giao diện (ui/fightHud.js), âm thanh, thắng / thua / chơi lại.
 // Việc cốt truyện: "fpv" (bật / tắt góc nhìn thứ 1) · "fight" (bắt đầu trận — story.json → fights) · điều kiện "fightWon".
+// Màn LẺN (trận có stealth: { goal: [x, z], r }): người gác đi tuần / đứng gác, container / vách che tầm nhìn; bị thấy → màn đen,
+// làm lại từ đầu màn · tới chỗ goal (không bị thấy) = thắng. Đập lén sau lưng (E) vẫn được.
 // Chỉ máy người chơi này (cốt truyện riêng); đồng hồ chung vẫn chạy.
 // =============================================================
 import * as THREE from 'three';
@@ -21,6 +23,7 @@ const EYE = 1.62; // mắt cao bao nhiêu so với chân (người cao 1,7 m)
 const SWING_T = 0.45; // thời gian 1 cú vung (giây) — trúng ở giữa cú
 const THROW_T = 0.4;
 const tmp = new THREE.Vector3();
+const W2 = (F, p) => F.W(p || [0, 0]); // toạ độ trong bản đồ riêng → thế giới
 
 export class FightPart {
   // ---------- GÓC NHÌN THỨ 1 ----------
@@ -104,6 +107,11 @@ export class FightPart {
     const st = W(def.start || [0, 0]), heldAt = this.gs.story.held ? { ...this.gs.story.held } : null;
     this.fight = { id, def, W, t: 0, start: { ...st, held: heldAt }, foes: [], ally: null, loot: [], proj: [], won: false, lost: false };
     this.fightSetup();
+    if (def.stealth) { // màn lẻn: không hiện thanh máu, nhắc cách chơi
+      this.fightHud.show('fpv');
+      this.hud.toast(fmt('story.fight.sneakHint'), 'info', 7000);
+      return;
+    }
     this.fightHud.show('fight');
     this.hud.el.classList.add('in-fight');
     sound('fight.start');
@@ -225,11 +233,18 @@ export class FightPart {
     const A = F.ally;
     const blocked = (x, z) => { for (const c of this.city.grid.query(x, z, 0.8)) if (c.tag === 'house' && x > c.x0 - 0.5 && x < c.x1 + 0.5 && z > c.z0 - 0.5 && z < c.z1 + 0.5) return true; return false; };
     const route = (o, t) => this.fightRoute(o, t);
+    // tầm nhìn: dò từng 0,4 m từ mắt địch tới người chơi, đụng khối cao (container, vách lầu) là bị che
+    const eyeY = w.mesh.position.y + 1.45, HOUSE = new Set(['house']);
+    const los = (a, b) => {
+      const n = Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 0.4);
+      for (let i = 1; i < n; i++) { const t = i / n; if (this.city.grid.inside(a.x + (b.x - a.x) * t, eyeY, a.z + (b.z - a.z) * t, HOUSE)) return false; }
+      return true;
+    };
     for (const foe of F.foes) {
       const ac = this.storyActors?.[foe.who];
       if (!ac) continue;
       if (foe.state === 'wait' && typeof foe.join === 'number' && F.t >= foe.join) this.fightJoin(foe);
-      const evs = foeTick(foe, { player: fp, ally: A && A.hp > 0 ? A : null, dt, blocked, route });
+      const evs = foeTick(foe, { player: fp, ally: A && A.hp > 0 ? A : null, dt, blocked, route, los });
       for (const e of evs) this.fightFoeEvent(e);
       this.fightPlace(ac, foe, dt);
     }
@@ -246,6 +261,19 @@ export class FightPart {
     // ---- đồ bay ----
     this.fightProjTick(dt);
     // ---- thắng / thua ----
+    // màn lẻn: bị thấy (có tên đã biết mình mà chưa gục) → làm lại · tới chỗ cần tới → thắng
+    const S = F.def.stealth;
+    if (S && !F.won && !F.lost) {
+      if (F.foes.some((f) => f.alert && f.state !== 'ko')) return this.fightSeen();
+      const g = W2(F, S.goal);
+      if (Math.hypot(fp.x - g.x, fp.z - g.z) < (S.r ?? 2)) {
+        F.won = true;
+        storyEvent(this.gs.story, 'fightWon');
+        sound('progress.objective');
+        this.fightStop(); // xong màn lẻn: dọn người gác (vẫn giữ góc nhìn thứ 1)
+      }
+      return;
+    }
     const left = F.foes.filter((f) => f.state !== 'ko' && !(f.state === 'wait' && f.join === 'rage')).length;
     if (!F.won && !F.lost && left === 0 && !F.foes.some((f) => f.state === 'wait' && typeof f.join === 'number')) {
       F.won = true;
@@ -503,6 +531,19 @@ export class FightPart {
     setTimeout(() => {
       if (this.fight !== F) return;
       this.storyLoseShow({ failText: why === 'me' ? 'story.fight.lose' : 'story.fight.allyDown', failHint: why === 'me' ? 'story.fight.loseHint' : 'story.fight.allyHint' });
+    }, 900);
+  }
+  // Màn lẻn: bị phát hiện → tên đó la lên, màn đen ngắn rồi làm lại từ đầu màn (không có màn thua)
+  fightSeen() {
+    const F = this.fight;
+    F.lost = true;
+    const who = F.foes.find((f) => f.alert && f.state !== 'ko');
+    if (who) this.storyBubble(who.who, 'story.fight.seenShout');
+    sound('fight.alert');
+    setTimeout(() => {
+      if (this.fight !== F) return;
+      this.storyFade({ text: 'story.fight.seen', t: 1.2 });
+      setTimeout(() => { if (this.fight === F) { this.bubbles.remove(`story:${who?.who}`); this.fightSetup(); } }, 900);
     }, 900);
   }
   fightRetry() {

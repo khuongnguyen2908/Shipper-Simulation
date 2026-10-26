@@ -205,20 +205,22 @@ export class OrderManager {
   // Đơn giao đồ ăn hướng dẫn (story.json → việc "offer" kind food): lấy ở quán placeId (vd Bún Mọc Cô Yến), món đầu thực đơn,
   // giao tới nhà dân (không chung cư), không sự cố: không hết món, khách nghe máy, không khó tính, địa chỉ rõ. Quán nấu riêng cho đơn này
   // nên không xét giờ mở cửa. Chơi nhiều người: đơn cốt truyện chỉ mời riêng người đang ở bước đó (không lấy đơn chung của thế giới).
-  storyFood(placeId, pos, now = 0) {
+  // to: giao tới địa điểm này (vd Kho 7) thay vì nhà dân gần quán · customer: tên khách riêng
+  storyFood(placeId, pos, now = 0, { to = null, customer = null } = {}) {
     const r = this.layout.placeById?.[placeId] || this.layout.places.find((p) => p.id === placeId);
     const menu = (r?.menu || []).filter((id) => ITEMS[id] && this.canCarry(ITEMS[id]));
     if (!r || !menu.length) return null;
     const type = ORDER_TYPES.food || Object.values(ORDER_TYPES).find((t) => t.kind === 'food') || { id: 'food', kind: 'food', fareMult: 1, deadlineMult: 1 };
     const pickup = { placeId: r.id, name: r.name, address: r.address, door: r.door };
-    const dropoff = this.pickDropoff(r.door, false, now, null, r.id);
+    const tp = to && (this.layout.placeById?.[to] || this.layout.places.find((p) => p.id === to));
+    const dropoff = tp ? { placeId: tp.id, name: tp.name, address: tp.address || tp.name, door: tp.door } : this.pickDropoff(r.door, false, now, null, r.id);
     const o = this.buildOrder({ type, pickup, dropoff, itemIds: [menu[0]], pos, now });
     Object.assign(o.flags, { noAnswer: false, picky: false, outOfStock: false, liftBroken: false, vague: false });
     o.revealed = true;
     o.zone = null;
-    o.story = 'tutorial';
+    o.story = to ? 'storyFood' : 'tutorial'; // tutorial: đơn giao thử chương 1 (thẻ đơn ghi "🎓 Đơn giao thử")
     o.forced = true;
-    o.customer = this.plainName(o.id);
+    o.customer = customer || this.plainName(o.id);
     return o;
   }
   // Đơn cốt truyện CHỞ HÀNG (vd chú Tư nhờ chở thuốc cho bà cụ): lấy ở địa điểm placeId, món itemId (items.json), giao nhà dân gần đó

@@ -102,6 +102,7 @@ export const UNTIL = {
   ttSeen: 'Người chơi đã lướt tới tin Tích Tắc … (việc "📱 Tin Tích Tắc")',
   away: 'Người chơi đã đi xa người lạ … (hoặc chỗ [x, z]) hơn … đơn vị (vd bị đuổi về)',
   ambushed: 'Đã bày chốt đúng trong mini game "🗺️ Bày trận" (việc ambush ở bước này)',
+  useAt: 'Người chơi bấm E tại chỗ … (vd mở tủ, lục ngăn kéo) — chỗ đứng có tên trong bản đồ riêng / [x, z]',
   raceWon: 'Đã chạy tới đích màn đua (việc "🏍️ Màn đua" ở bước này: tới đường cụt, xe dừng)',
   fightWon: 'Đã thắng trận đánh (việc "⚔️ Trận đánh" ở bước này: hạ hết địch)',
   untied: 'Đã cởi trói xong (việc "✂️ Cởi trói" ở bước này: bấm E liên tục tới khi đứt dây)',
@@ -278,6 +279,7 @@ export function untilMet(u, gs, ctx) {
     case 'ttSeen': return !!s.ev[`tt:${u.id}`] || !!(s.ttSeen || []).includes(u.id);
     case 'away': return !!ctx.awayFrom?.(u, u.r || 30);
     case 'ambushed': return !!s.ev.ambushed;
+    case 'useAt': return !!s.ev.used;
     case 'tackled': return !!s.ev.tackled;
     case 'untied': return !!s.ev.untied;
     case 'fightWon': return !!s.ev.fightWon;

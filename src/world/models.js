@@ -287,7 +287,8 @@ export function makePerson(opts = {}) {
   const { shirtStyle = null, shirt2 = null, pantsStyle = null, pants2 = null, shoe2 = null, wrist = null, wristColor = 0x222222, carry = null, carryColor = 0x34495e } = opts;
   // build: vóc dáng gầy / đầy đặn / mập · age: tuổi → dáng đứng (sim/people.js AGES, BUILDS)
   const g = buildPerson({ shirt, pants, skin, hat, hatColor, hair, bag, gender, style: hairStyle || (female ? 'long' : 'short'), skirt, sleeves, shorts, helmetStyle, overlay, shoe, shoeStyle, face, faceColor, gloves, gloveColor, uniform,
-    shirtStyle, shirt2, pantsStyle, pants2, shoe2, wrist, wristColor, carry, carryColor, build: opts.build || null, bend: AGE_BEND[opts.age] || 0 });
+    shirtStyle, shirt2, pantsStyle, pants2, shoe2, wrist, wristColor, carry, carryColor, build: opts.build || null, bend: AGE_BEND[opts.age] || 0,
+    faceStyle: opts.faceStyle || null, eyeColor: opts.eyeColor ?? null }); // kiểu mặt anime + màu mắt (data/faces.js; bỏ trống = tự lấy)
   g.scale.setScalar(scale);
   if (AGE_HUNCH[opts.age]) {
     const p = g.userData.parts;
@@ -420,7 +421,7 @@ export function csgtLook(rng, sitting = false) {
 export function npcLook(id, npc) {
   const gender = personOf(npc.name, { gender: npc.gender }).gender; // không đoán được theo tên → cố định theo tên (khớp với xưng hô trong lời thoại)
   const o = { ...randomPersonOpts(makeRng(hashStr(id)), gender), hairStyle: gender === 'f' ? 'long' : 'short', skirt: false, hair: 0x1b1b1b };
-  for (const k of ['shirt', 'pants', 'hat', 'hatColor', 'scale', 'hairStyle', 'hair', 'skin', 'skirt', 'age', 'build']) if (npc[k] !== undefined) o[k] = npc[k];
+  for (const k of ['shirt', 'pants', 'hat', 'hatColor', 'scale', 'hairStyle', 'hair', 'skin', 'skirt', 'age', 'build', 'faceStyle', 'eyeColor']) if (npc[k] !== undefined) o[k] = npc[k];
   o.gender = gender;
   return o;
 }

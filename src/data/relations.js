@@ -103,6 +103,8 @@ export function lookOfChar(c, outfitId = null, goods = GOODS) {
     scale: Number.isFinite(L.scale) && L.scale > 0 ? L.scale : 1,
     age: L.age || null, // tuổi → dáng đứng (sim/people.js AGES)
     build: L.build || null, // vóc dáng (BUILDS)
+    faceStyle: L.faceStyle || null, // kiểu mặt anime (data/faces.js FACES) — bỏ trống = tự lấy theo giới tính + tuổi
+    eyeColor: L.eyeColor || null, // màu mắt riêng (mã EYE_COLORS) — bỏ trống = màu của kiểu mặt
   };
 }
 

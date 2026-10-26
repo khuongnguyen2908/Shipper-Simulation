@@ -12,6 +12,7 @@ import { personOf, HAIR_BY_GENDER, HAIR_EXTRA, LOOK_AGES, LOOK_BUILDS } from '..
 import { fmt } from '../../content/index.js';
 import { el, field, textInput, numInput, colorInput, selectInput, checkInput, button, sideList, areaInput, dragHandle, makeSortable, emojiInput, explain, openDayInput, subTabs, advanced } from './ui.js';
 import { openDayOf } from '../../sim/placeRules.js';
+import { faceOptions, eyeOptions } from '../../data/faces.js';
 import { isPlaced } from '../../data/places.js';
 import { findSpot } from './ops.js';
 import { rentFor } from '../../data/balance.js';
@@ -204,6 +205,8 @@ export function render(root, ctx) {
           field('Vóc người', numInput(n.scale ?? 1, (v) => { if (v === 1) delete n.scale; else n.scale = v; changedN(); }, { step: 0.05, min: 0.6, max: 1.3 }), opt('npc.scale', { hint: HINT.npc.scale })),
           field('Vóc dáng', optSel('build', [['', 'Vừa'], ...Object.entries(LOOK_BUILDS)]), opt('npc.build', { hint: 'Người gầy / đầy đặn / mập (bề ngang thân, tay chân). Cao thấp chỉnh ở "Vóc người".' })),
           field('Tuổi', optSel('age', [['', 'Bình thường'], ...Object.entries(LOOK_AGES)]), opt('npc.age', { hint: 'Người lớn tuổi đứng hơi khom lưng. Tóc bạc chọn ở "Màu tóc".' })),
+          field('Kiểu mặt', optSel('faceStyle', [['', 'Tự lấy theo giới tính + tuổi (cố định)'], ...faceOptions()]), opt('npc.faceStyle', { hint: 'Mặt anime vẽ pixel (data/faces.js). Lông mày theo màu tóc.' })),
+          field('Màu mắt', optSel('eyeColor', [['', 'Theo kiểu mặt'], ...eyeOptions()]), opt('npc.eyeColor')),
         ),
         prev.el,
       ),

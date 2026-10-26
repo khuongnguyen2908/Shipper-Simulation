@@ -162,7 +162,8 @@
         "gender": "f",
         "hairStyle": "bun",
         "hair": "#8d8d8d",
-        "age": "old"
+        "age": "old",
+        "faceStyle": "baHien"
       }
     },
     {
@@ -182,7 +183,8 @@
         "hat": null,
         "portrait": "🧓",
         "hair": "#8d8d8d",
-        "age": "old"
+        "age": "old",
+        "faceStyle": "ongXoiLoi"
       },
       "hours": [
         6,
@@ -740,7 +742,8 @@
         "pants": "#dadafb",
         "hat": null,
         "portrait": "👩",
-        "skin": "#f1c27d"
+        "skin": "#f1c27d",
+        "faceStyle": "diuDang"
       },
       "hours": "anSang",
       "icon": "🍵",
@@ -1382,7 +1385,8 @@
         "hairStyle": "long",
         "gender": "f",
         "skin": "#ffdbac",
-        "skirt": true
+        "skirt": true,
+        "faceStyle": "treTrung"
       },
       "hours": "hanhChinh",
       "activities": [

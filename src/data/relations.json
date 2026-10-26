@@ -235,7 +235,8 @@
         "hairStyle": "part",
         "hair": "#1b1b1b",
         "skin": "#e0ac69",
-        "scale": 1.05
+        "scale": 1.05,
+        "faceStyle": "ngau"
       },
       "outfits": [
         {
@@ -332,7 +333,8 @@
         "hairStyle": "curlyLong",
         "hair": "#5a3825",
         "skin": "#ffdbac",
-        "scale": 1
+        "scale": 1,
+        "faceStyle": "tuoiTan"
       },
       "outfits": [
         {
@@ -367,7 +369,8 @@
         "hair": "#1b1b1b",
         "skin": "#e0ac69",
         "scale": 1.05,
-        "build": "thin"
+        "build": "thin",
+        "faceStyle": "khoTinh"
       },
       "outfits": [
         {
@@ -452,7 +455,8 @@
         "hair": "#8d8d8d",
         "skin": "#c68642",
         "scale": 1,
-        "age": "old"
+        "age": "old",
+        "faceStyle": "ongBongDua"
       },
       "outfits": [
         {
@@ -485,7 +489,8 @@
         "hair": "#1b1b1b",
         "skin": "#b07a4f",
         "scale": 1.25,
-        "build": "chubby"
+        "build": "chubby",
+        "faceStyle": "duTon"
       },
       "outfits": [
         {

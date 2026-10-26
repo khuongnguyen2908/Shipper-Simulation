@@ -6,6 +6,7 @@
 // =============================================================
 import { validateSounds, SOUNDS } from './soundSpec.js';
 import { ambushSolutions, roundDef, roundNb } from '../sim/ambush.js';
+import { FACES, EYE_COLORS } from './faces.js';
 import { CITY, LOT_IDS, MULTI_LOTS, lotParts, lotFaces, blockPlan, blockLotIds, roadGraph, neighbors, cutCell, joinList, joinSeg, joinPartner, isJoinLot, riverInfo, BRIDGE_STYLES } from '../sim/cityLayout.js';
 import { ALLEY_TEMPLATES } from '../sim/blockPlan.js';
 import { EFFECTS, CONSUMABLE_FIELDS, OUTFIT_SLOTS, FEMALE_STYLES } from './goods.js';
@@ -396,6 +397,8 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null, m
       if (p.npc.skirt != null && typeof p.npc.skirt !== 'boolean') add('error', p.id, 'npc.skirt', 'Mặc váy phải là true/false.');
       if (p.npc.age != null && !LOOK_AGES[p.npc.age]) add('error', p.id, 'npc.age', `Tuổi phải là: ${Object.keys(LOOK_AGES).join(', ')} (bỏ trống = bình thường).`);
       if (p.npc.build != null && !LOOK_BUILDS[p.npc.build]) add('error', p.id, 'npc.build', `Vóc dáng phải là: ${Object.keys(LOOK_BUILDS).join(', ')} (bỏ trống = vừa).`);
+      if (p.npc.faceStyle != null && !FACES[p.npc.faceStyle]) add('error', p.id, 'npc.faceStyle', `Kiểu mặt lạ "${p.npc.faceStyle}" (${Object.keys(FACES).join(', ')}).`);
+      if (p.npc.eyeColor != null && !EYE_COLORS[p.npc.eyeColor]) add('error', p.id, 'npc.eyeColor', `Màu mắt lạ "${p.npc.eyeColor}" (${Object.keys(EYE_COLORS).join(', ')}).`);
     }
     if (p.kind === 'restaurant') {
       if (!p.menu || !p.menu.length) add('error', p.id, 'menu', 'Quán chưa bán món nào.');
@@ -857,7 +860,7 @@ export function storyGifts(story) {
   }
   return out;
 }
-const STORY_UNTIL = ['none', 'wait', 'read', 'open', 'reply', 'routed', 'ack', 'use', 'arrive', 'talk', 'mount', 'brand', 'wear', 'switch', 'fuel', 'order', 'near', 'talkActor', 'chosen', 'ordersSince', 'newDay', 'clock', 'bring', 'cine', 'chased', 'reach', 'tackled', 'sneaked', 'hidden', 'escaped', 'never', 'ttSeen', 'away', 'ambushed', 'untied', 'fightWon', 'raceWon'];
+const STORY_UNTIL = ['none', 'wait', 'read', 'open', 'reply', 'routed', 'ack', 'use', 'arrive', 'talk', 'mount', 'brand', 'wear', 'switch', 'fuel', 'order', 'near', 'talkActor', 'chosen', 'ordersSince', 'newDay', 'clock', 'bring', 'cine', 'chased', 'reach', 'tackled', 'sneaked', 'hidden', 'escaped', 'never', 'ttSeen', 'away', 'ambushed', 'untied', 'fightWon', 'raceWon', 'useAt'];
 const STORY_DO = ['title', 'say', 'actor', 'bubble', 'approach', 'leave', 'remove', 'choose', 'board', 'alight', 'drop', 'msg', 'replies', 'item', 'bike', 'give', 'toast', 'openPhone', 'closePhone', 'offer', 'fuel', 'end', 'goto', 'react', 'cine', 'chase', 'sound', 'prop', 'dismount', 'helmetOff', 'helmetOn', 'tackle', 'wave', 'rideOff', 'phoneCall', 'fade', 'sneak', 'traffic', 'pursue', 'pay', 'rename', 'ttPost', 'block', 'ambush', 'ambushCrew', 'ship', 'zone', 'phone', 'tie', 'untie', 'fpv', 'fight', 'race'];
 const STORY_ACTOR_LOOKS = ['jetjet', 'normal', 'girl', 'student', 'gentleman', 'char']; // = ACTOR_LOOKS (sim/story.js)
 const STORY_ACTOR_SPOTS = ['xeOm', 'place', 'near', 'at']; // = ACTOR_SPOTS (sim/story.js)
@@ -951,6 +954,11 @@ export function validateStory(story, { places = null, goods = null, content = nu
     if (t.ally && !people[t.ally]) add('error', ref, 'ally', `Trận: đồng đội "${t.ally}" không có trong "Người nói".`);
     if (t.ally && !xy(t.allyAt)) add('error', ref, 'allyAt', 'Trận: chỗ đồng đội đứng phải là [x, z].');
     if (!Array.isArray(t.foes) || !t.foes.length) add('error', ref, 'foes', 'Trận chưa có địch nào.');
+    if (t.stealth) { // màn lẻn: tới chỗ goal mà không bị thấy
+      if (!xy(t.stealth.goal)) add('error', ref, 'stealth', 'Màn lẻn: chỗ cần tới phải là [x, z].');
+      if (t.stealth.r != null && !(num(t.stealth.r) && t.stealth.r > 0.3)) add('error', ref, 'stealth', 'Màn lẻn: bán kính phải > 0,3.');
+      if (!(t.foes || []).some((f) => f.patrol?.length || f.sneak)) add('warn', ref, 'stealth', 'Màn lẻn mà không ai đi tuần / đứng gác chưa phát hiện → vừa vào đã bị thấy.');
+    }
     const seen = new Set();
     for (const f of t.foes || []) {
       if (!ID_RE.test(f.who || '')) add('error', ref, 'foes', `Trận: mã người "${f.who}" chỉ gồm chữ không dấu, số, gạch dưới.`);
@@ -961,6 +969,7 @@ export function validateStory(story, { places = null, goods = null, content = nu
       if (!xy(f.at)) add('error', ref, 'foes', `Trận: chỗ đứng của "${f.who}" phải là [x, z].`);
       if (f.join != null && f.join !== 'rage' && !(num(f.join) && f.join >= 0)) add('error', ref, 'foes', `Trận: "${f.who}" vào trận sau … giây (số ≥ 0) hoặc khi boss nổi điên.`);
       if (f.join === 'rage' && !(t.foes || []).some((x) => foes[x.foe]?.rage)) add('warn', ref, 'foes', `Trận: "${f.who}" chờ boss nổi điên mà trận không có boss nào nổi điên → không bao giờ vào.`);
+      if (f.patrol != null && !(Array.isArray(f.patrol) && f.patrol.length >= 2 && f.patrol.every(xy))) add('error', ref, 'foes', `Trận: đường đi tuần của "${f.who}" cần ≥ 2 điểm [x, z].`);
     }
     for (const l of t.loot || []) {
       if (!weapons[l.id] || l.id === 'fists') add('error', ref, 'loot', `Trận: đồ dưới đất lạ "${l.id}".`);
@@ -1074,6 +1083,11 @@ export function validateStory(story, { places = null, goods = null, content = nu
       if (u.type === 'tackled' && !(st.on || []).some((a) => a.do === 'tackle')) add('error', ref, 'until', 'Chờ vật ngã xong mà bước này không có việc "🤼 Vật ngã" → kẹt.');
       if (u.type === 'raceWon' && !(st.on || []).some((a) => a.do === 'race')) add('error', ref, 'until', 'Chờ tới đích màn đua mà bước này không có việc "🏍️ Màn đua" → kẹt.');
       if (u.type === 'fightWon' && !(st.on || []).some((a) => a.do === 'fight')) add('error', ref, 'until', 'Chờ thắng trận mà bước này không có việc "⚔️ Trận đánh" → kẹt.');
+      if (u.type === 'useAt') {
+        if (!(Array.isArray(u.at) ? u.at.length === 2 && u.at.every(num) : ZONE_POINTS.includes(u.at))) add('error', ref, 'until', `Bấm E tại chỗ: chỗ lạ "${u.at}" (chỗ đứng có tên trong bản đồ riêng hoặc [x, z]).`);
+        if (u.r != null && !(num(u.r) && u.r > 0.3 && u.r <= 20)) add('error', ref, 'until', 'Bấm E tại chỗ: bán kính 0,3 – 20.');
+        if (u.label) text(ref, 'until', u.label, 'chữ trên nút E');
+      }
       if (u.type === 'escaped' && !(st.on || []).some((a) => a.do === 'pursue')) add('error', ref, 'until', 'Chờ chạy thoát mà bước này không có việc "🏃 Bị rượt" → kẹt.');
       if (u.type === 'sneaked' && !(st.on || []).some((a) => a.do === 'sneak')) add('error', ref, 'until', 'Chờ bám theo lén xong mà bước này không có việc "🕵️ Bám theo lén" → kẹt.');
       if (u.type === 'chased') {
@@ -1438,6 +1452,8 @@ export function validateStory(story, { places = null, goods = null, content = nu
         if (a.do === 'offer' && a.customer != null && (typeof a.customer !== 'string' || !a.customer.trim())) add('error', ref, 'on', 'Mời đơn: tên khách phải là chữ (hoặc bỏ trống).');
         if (a.do === 'offer' && a.kind === 'food') {
           place(ref, 'on', a.place);
+          if (a.to) place(ref, 'on', a.to);
+          if (a.customer) text(ref, 'on', a.customer, 'tên khách');
           const pl = (places?.places || []).find((p) => p.id === a.place);
           if (pl && (pl.kind !== 'restaurant' || !(pl.menu || []).length)) add('error', ref, 'on', `Mời đơn giao đồ ăn: "${a.place}" không phải quán ăn có thực đơn.`);
         }
@@ -1529,6 +1545,9 @@ export function validateRelations(rel, { story = null, places = null, goods = nu
       if (L.scale != null && !(num(L.scale) && L.scale >= 0.6 && L.scale <= 1.4)) add('error', ref, 'look', 'Vóc người: 0,6 – 1,4.');
       if (L.age != null && !LOOK_AGES[L.age]) add('error', ref, 'look', `Tuổi lạ "${L.age}".`);
       if (L.build != null && !LOOK_BUILDS[L.build]) add('error', ref, 'look', `Vóc dáng lạ "${L.build}".`);
+      if (L.faceStyle != null && !FACES[L.faceStyle]) add('error', ref, 'look', `Kiểu mặt lạ "${L.faceStyle}".`);
+      else if (L.faceStyle && FACES[L.faceStyle].g && L.gender && FACES[L.faceStyle].g !== L.gender) add('warn', ref, 'look', `Kiểu mặt "${FACES[L.faceStyle].label}" dành cho ${FACES[L.faceStyle].g === 'f' ? 'nữ' : 'nam'}.`);
+      if (L.eyeColor != null && !EYE_COLORS[L.eyeColor]) add('error', ref, 'look', `Màu mắt lạ "${L.eyeColor}".`);
       const oids = new Set();
       for (const o of c.outfits || []) {
         if (!o.id || oids.has(o.id)) add('error', ref, 'outfits', `Bộ đồ "${o.name || o.id}": mã trống hoặc trùng.`);

@@ -106,7 +106,9 @@ export function foeTick(foe, ctx) {
   if (foe.stun > 0 && foe.state !== 'dazed') return ev;
   // chưa phát hiện: đi tuần / đứng gác, nhìn thấy người chơi thì la lên
   if (!foe.alert) {
-    if (sees(foe, P)) { foe.alert = true; ev.push({ type: 'alert', foe }); }
+    // ctx.los(foe, P): game kiểm tra có vật che giữa 2 người không (container, vách) — sát bên (nghe thấy) thì không cần
+    const heard = dist(foe, P) < (P.loud ? PLAYER.hearRun : PLAYER.hear);
+    if (sees(foe, P) && (heard || !ctx.los || ctx.los(foe, P))) { foe.alert = true; ev.push({ type: 'alert', foe }); }
     else if (foe.patrol?.length) {
       const g = foe.patrol[foe.pi % foe.patrol.length], d = Math.hypot(g[0] - foe.x, g[1] - foe.z);
       if (d < 0.4) { foe.pi += 1; foe.t = 0; foe.state = 'look'; }

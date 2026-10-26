@@ -35,6 +35,15 @@
       "icon": "🛵",
       "name": "story.contact.hoiShipper",
       "group": true
+    },
+    "toRoi": {
+      "icon": "📄",
+      "name": "story.contact.toRoi"
+    },
+    "congAn": {
+      "icon": "👮",
+      "name": "story.contact.congAn",
+      "place": "congan1"
     }
   },
   "people": {
@@ -182,6 +191,11 @@
       "icon": "🔑",
       "name": "story.item.keyKho7",
       "desc": "story.item.keyKho7Desc"
+    },
+    "taiLieu": {
+      "icon": "📁",
+      "name": "story.item.taiLieu",
+      "desc": "story.item.taiLieu.desc"
     }
   },
   "parcels": {
@@ -7242,6 +7256,103 @@
       "name": "story.c6.name",
       "steps": [
         {
+          "id": "sleep",
+          "until": {
+            "type": "newDay"
+          },
+          "on": [],
+          "guide": null,
+          "goal": "story.c6.sleep.goal",
+          "hint": "story.c6.sleep.hint",
+          "target": "home"
+        },
+        {
+          "id": "think",
+          "delay": 1,
+          "on": [
+            {
+              "do": "bubble",
+              "who": "player",
+              "text": "story.c6.think.b1"
+            },
+            {
+              "do": "bubble",
+              "who": "player",
+              "text": "story.c6.think.b2",
+              "after": 4
+            },
+            {
+              "do": "msg",
+              "from": "toRoi",
+              "text": "story.c6.tr.sys",
+              "loc": [],
+              "after": 6,
+              "sys": true
+            },
+            {
+              "do": "replies",
+              "who": "toRoi",
+              "texts": [
+                "story.c6.tr.r1",
+                "story.c6.tr.r2",
+                "story.c6.tr.r3"
+              ],
+              "gains": [
+                {
+                  "trait": "neutral",
+                  "pts": 1
+                },
+                {
+                  "trait": "good",
+                  "pts": 1
+                },
+                {
+                  "trait": "bad",
+                  "pts": 1
+                }
+              ],
+              "after": 6
+            }
+          ],
+          "until": {
+            "type": "reply",
+            "who": "toRoi"
+          },
+          "guide": {
+            "type": "thread",
+            "who": "toRoi"
+          },
+          "goal": "story.c6.think.goal",
+          "hold": true
+        },
+        {
+          "id": "flyerReply",
+          "on": [
+            {
+              "do": "msg",
+              "from": "toRoi",
+              "text": "story.c6.tr.m1",
+              "loc": [],
+              "after": 2
+            },
+            {
+              "do": "msg",
+              "from": "toRoi",
+              "text": "story.c6.tr.m2",
+              "loc": [
+                "kho7"
+              ],
+              "after": 5
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 7
+          },
+          "guide": null,
+          "hold": true
+        },
+        {
           "id": "title",
           "on": [
             {
@@ -7251,6 +7362,693 @@
           "until": {
             "type": "wait",
             "min": 5.3
+          },
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "toPolice",
+          "on": [
+            {
+              "do": "bubble",
+              "who": "player",
+              "text": "story.c6.police.think"
+            }
+          ],
+          "until": {
+            "type": "talk",
+            "place": "congan1"
+          },
+          "talk": {
+            "place": "congan1",
+            "label": "story.c6.police.label",
+            "text": "story.c6.police.text"
+          },
+          "guide": null,
+          "goal": "story.c6.police.goal",
+          "target": "congan1",
+          "mark": {
+            "place": "congan1",
+            "icon": "!"
+          },
+          "hold": true
+        },
+        {
+          "id": "waitNight",
+          "on": [
+            {
+              "do": "ship",
+              "state": "dock",
+              "at": [
+                163,
+                265
+              ],
+              "heading": 0
+            }
+          ],
+          "until": {
+            "type": "clock",
+            "from": 21.5,
+            "to": 23.5
+          },
+          "guide": null,
+          "goal": "story.c6.wait.goal",
+          "hint": "story.c6.wait.hint",
+          "target": "kho7",
+          "orders": true
+        },
+        {
+          "id": "hideKho",
+          "on": [
+            {
+              "do": "actor",
+              "who": "tiDo",
+              "look": "char",
+              "spot": "at",
+              "at": [
+                131,
+                217.6
+              ],
+              "heading": 180,
+              "outfit": "danhNhau"
+            },
+            {
+              "do": "actor",
+              "who": "thug1",
+              "look": "jetjet",
+              "spot": "at",
+              "at": [
+                127.4,
+                217.4
+              ],
+              "heading": 180
+            },
+            {
+              "do": "prop",
+              "id": "binKho7",
+              "kind": "bin",
+              "at": [
+                110,
+                200.6
+              ],
+              "heading": 0
+            }
+          ],
+          "until": {
+            "type": "hidden",
+            "prop": "binKho7"
+          },
+          "guide": null,
+          "goal": "story.c6.hide.goal",
+          "target": "prop:binKho7",
+          "mark": {
+            "prop": "binKho7",
+            "icon": "!"
+          },
+          "hold": true,
+          "hideNpc": [
+            "kho7"
+          ]
+        },
+        {
+          "id": "policeCome",
+          "on": [
+            {
+              "do": "prop",
+              "id": "xeCongAn",
+              "kind": "police",
+              "route": [
+                {
+                  "at": [
+                    40,
+                    205
+                  ]
+                },
+                {
+                  "at": [
+                    116,
+                    205
+                  ]
+                },
+                {
+                  "at": [
+                    123,
+                    205.5
+                  ]
+                }
+              ],
+              "speed": 11,
+              "keep": true,
+              "cops": 2,
+              "copsTo": "actor:tiDo",
+              "sound": "city.siren"
+            },
+            {
+              "do": "bubble",
+              "who": "prop:xeCongAn",
+              "text": "story.c6.pc.c1",
+              "after": 11
+            },
+            {
+              "do": "bubble",
+              "who": "tiDo",
+              "text": "story.c6.pc.d1",
+              "after": 14
+            },
+            {
+              "do": "bubble",
+              "who": "prop:xeCongAn",
+              "text": "story.c6.pc.c2",
+              "after": 17.5
+            },
+            {
+              "do": "bubble",
+              "who": "tiDo",
+              "text": "story.c6.pc.d2",
+              "after": 20.5
+            },
+            {
+              "do": "bubble",
+              "who": "prop:xeCongAn",
+              "text": "story.c6.pc.c3",
+              "after": 25
+            },
+            {
+              "do": "bubble",
+              "who": "prop:xeCongAn",
+              "text": "story.c6.pc.c4",
+              "after": 29
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 34
+          },
+          "guide": null,
+          "noFines": true,
+          "hold": true,
+          "hideNpc": [
+            "kho7"
+          ]
+        },
+        {
+          "id": "policeGo",
+          "on": [
+            {
+              "do": "fade",
+              "text": "story.c6.pc.fade",
+              "t": 2.5,
+              "props": true,
+              "remove": [
+                "tiDo"
+              ],
+              "skip": 10
+            },
+            {
+              "do": "msg",
+              "from": "congAn",
+              "text": "story.c6.pc.m1",
+              "loc": [],
+              "after": 4
+            },
+            {
+              "do": "msg",
+              "from": "toRoi",
+              "text": "story.c6.pc.m2",
+              "loc": [],
+              "after": 7
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 9
+          },
+          "guide": null,
+          "hold": true,
+          "hideNpc": [
+            "kho7"
+          ]
+        },
+        {
+          "id": "thinkShip",
+          "on": [
+            {
+              "do": "bubble",
+              "who": "player",
+              "text": "story.c6.ship.think"
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 4
+          },
+          "guide": null,
+          "hold": true,
+          "hideNpc": [
+            "kho7"
+          ]
+        },
+        {
+          "id": "order",
+          "on": [
+            {
+              "do": "offer",
+              "kind": "food",
+              "place": "nhauBenTau",
+              "to": "kho7",
+              "customer": "story.c6.order.customer"
+            }
+          ],
+          "until": {
+            "type": "order",
+            "stage": "deliver"
+          },
+          "guide": null,
+          "goal": "story.c6.order.goal",
+          "hint": "story.c6.order.hint",
+          "hold": true,
+          "hideNpc": [
+            "kho7"
+          ]
+        },
+        {
+          "id": "paid",
+          "on": [
+            {
+              "do": "bubble",
+              "who": "thug1",
+              "text": "story.c6.paid.b",
+              "hold": true
+            }
+          ],
+          "until": {
+            "type": "away",
+            "who": "thug1",
+            "r": 25
+          },
+          "guide": null,
+          "goal": "story.c6.paid.goal",
+          "hold": true,
+          "hideNpc": [
+            "kho7"
+          ]
+        },
+        {
+          "id": "sneakIn",
+          "on": [
+            {
+              "do": "bubble",
+              "who": "player",
+              "text": "story.c6.sneak.think"
+            },
+            {
+              "do": "fade",
+              "text": "story.c6.sneak.fade",
+              "t": 2.5,
+              "remove": [
+                "thug1"
+              ],
+              "after": 2
+            },
+            {
+              "do": "zone",
+              "id": "ship",
+              "at": "quay",
+              "gate": true,
+              "door": false,
+              "after": 3
+            },
+            {
+              "do": "fpv",
+              "on": true,
+              "after": 3.1
+            },
+            {
+              "do": "fight",
+              "id": "c6Sneak1",
+              "after": 3.2
+            }
+          ],
+          "until": {
+            "type": "fightWon"
+          },
+          "guide": null,
+          "goal": "story.c6.sneak1.goal",
+          "hint": "story.c6.sneak1.hint",
+          "hold": true,
+          "noFines": true
+        },
+        {
+          "id": "locker",
+          "on": [],
+          "until": {
+            "type": "useAt",
+            "at": "captainLocker",
+            "r": 1.6,
+            "label": "story.c6.locker.label"
+          },
+          "guide": null,
+          "goal": "story.c6.locker.goal",
+          "hold": true
+        },
+        {
+          "id": "docs",
+          "on": [
+            {
+              "do": "item",
+              "id": "taiLieu"
+            },
+            {
+              "do": "toast",
+              "text": "story.c6.docs.toast"
+            },
+            {
+              "do": "bubble",
+              "who": "player",
+              "text": "story.c6.docs.think",
+              "after": 1
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 4
+          },
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "sneak2",
+          "on": [
+            {
+              "do": "fight",
+              "id": "c6Sneak2"
+            }
+          ],
+          "until": {
+            "type": "fightWon"
+          },
+          "guide": null,
+          "goal": "story.c6.sneak2.goal",
+          "hint": "story.c6.sneak2.hint",
+          "hold": true
+        },
+        {
+          "id": "caught",
+          "on": [
+            {
+              "do": "fpv",
+              "on": false
+            },
+            {
+              "do": "actor",
+              "who": "tiSun",
+              "look": "jetjet",
+              "spot": "at",
+              "at": [
+                -9.75,
+                -2395.8
+              ],
+              "heading": 0
+            },
+            {
+              "do": "react",
+              "who": [
+                "player"
+              ],
+              "icon": "!"
+            },
+            {
+              "do": "bubble",
+              "who": "tiSun",
+              "text": "story.c6.caught.b",
+              "after": 0.6
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 3.5
+          },
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "knock",
+          "on": [
+            {
+              "do": "fade",
+              "text": "story.c6.knock.fade",
+              "t": 2.5,
+              "remove": [
+                "tiSun"
+              ]
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 3.5
+          },
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "cell",
+          "on": [
+            {
+              "do": "zone",
+              "id": "ship",
+              "at": "captive",
+              "heading": 90,
+              "door": false,
+              "gate": false
+            },
+            {
+              "do": "tie",
+              "who": "player",
+              "on": true
+            },
+            {
+              "do": "actor",
+              "who": "man",
+              "look": "char",
+              "spot": "at",
+              "at": [
+                -4.6,
+                -2362.4
+              ],
+              "heading": 270,
+              "outfit": "thuongNgay"
+            },
+            {
+              "do": "tie",
+              "who": "man",
+              "on": true
+            },
+            {
+              "do": "phone",
+              "off": true
+            },
+            {
+              "do": "bubble",
+              "who": "man",
+              "text": "story.c6.cell.b1",
+              "hold": true
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "man"
+          },
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "cell2",
+          "on": [
+            {
+              "do": "bubble",
+              "who": "man",
+              "text": "story.c6.cell.b2",
+              "hold": true
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "man"
+          },
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "cell3",
+          "on": [
+            {
+              "do": "bubble",
+              "who": "man",
+              "text": "story.c6.cell.b3",
+              "hold": true
+            }
+          ],
+          "until": {
+            "type": "talkActor",
+            "who": "man"
+          },
+          "guide": null,
+          "hold": true
+        },
+        {
+          "id": "untieMe",
+          "on": [
+            {
+              "do": "untie",
+              "who": "player",
+              "need": 16,
+              "text": "story.c6.untie.me"
+            }
+          ],
+          "until": {
+            "type": "untied"
+          },
+          "guide": null,
+          "goal": "story.c6.untie.meGoal",
+          "hold": true
+        },
+        {
+          "id": "untieDat",
+          "on": [
+            {
+              "do": "untie",
+              "who": "man",
+              "need": 14,
+              "text": "story.c6.untie.dat"
+            }
+          ],
+          "until": {
+            "type": "untied"
+          },
+          "guide": null,
+          "goal": "story.c6.untie.datGoal",
+          "hold": true
+        },
+        {
+          "id": "breakout",
+          "on": [
+            {
+              "do": "bubble",
+              "who": "man",
+              "text": "story.c6.out.b"
+            },
+            {
+              "do": "fpv",
+              "on": true,
+              "after": 1.5
+            },
+            {
+              "do": "zone",
+              "door": true,
+              "after": 1.5
+            },
+            {
+              "do": "fight",
+              "id": "c6Container",
+              "after": 1.6
+            }
+          ],
+          "until": {
+            "type": "fightWon"
+          },
+          "guide": null,
+          "goal": "story.c6.out.goal",
+          "hold": true
+        },
+        {
+          "id": "toDeck",
+          "on": [
+            {
+              "do": "bubble",
+              "who": "man",
+              "text": "story.c6.deck.b"
+            },
+            {
+              "do": "fade",
+              "t": 0.8,
+              "after": 1.5
+            },
+            {
+              "do": "fight",
+              "id": "c6Deck",
+              "after": 2.3
+            }
+          ],
+          "until": {
+            "type": "fightWon"
+          },
+          "guide": null,
+          "goal": "story.c6.deck.goal",
+          "hold": true
+        },
+        {
+          "id": "toQuay",
+          "on": [
+            {
+              "do": "bubble",
+              "who": "man",
+              "text": "story.c6.quay.b"
+            },
+            {
+              "do": "zone",
+              "gate": true
+            },
+            {
+              "do": "fade",
+              "t": 0.8,
+              "after": 1.5
+            },
+            {
+              "do": "fight",
+              "id": "c6Quay",
+              "after": 2.3
+            }
+          ],
+          "until": {
+            "type": "fightWon"
+          },
+          "guide": null,
+          "goal": "story.c6.quay.goal",
+          "hold": true
+        },
+        {
+          "id": "toBike",
+          "on": [
+            {
+              "do": "bubble",
+              "who": "man",
+              "text": "story.c6.bike.b"
+            },
+            {
+              "do": "fade",
+              "text": "story.c6.bike.fade",
+              "t": 2,
+              "after": 1.5
+            },
+            {
+              "do": "fpv",
+              "on": false,
+              "after": 2.2
+            },
+            {
+              "do": "phone",
+              "off": false,
+              "after": 2.2
+            },
+            {
+              "do": "toast",
+              "text": "story.c6.bike.phone",
+              "after": 3
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 4.5
           },
           "guide": null,
           "hold": true
@@ -7378,6 +8176,10 @@
               "text": "story.c6.end.later",
               "t": 3,
               "skip": 20
+            },
+            {
+              "do": "ship",
+              "state": "gone"
             }
           ],
           "until": {
@@ -7720,6 +8522,373 @@
     "testDo": {
       "zone": "ship",
       "name": "story.fight.testDo",
+      "start": [
+        -17,
+        -20.9
+      ],
+      "ally": "man",
+      "allyAt": [
+        -17,
+        -23
+      ],
+      "foes": [
+        {
+          "who": "tiDo",
+          "foe": "tiDo",
+          "look": "char",
+          "at": [
+            -30,
+            -2
+          ]
+        },
+        {
+          "who": "g7",
+          "foe": "thug",
+          "look": "jetjet",
+          "at": [
+            -40,
+            12
+          ],
+          "join": "rage"
+        },
+        {
+          "who": "g8",
+          "foe": "thug",
+          "look": "normal",
+          "at": [
+            -28,
+            30
+          ],
+          "join": "rage"
+        }
+      ],
+      "loot": [
+        {
+          "id": "bat",
+          "at": [
+            -19,
+            -18
+          ]
+        },
+        {
+          "id": "brick",
+          "at": [
+            -22,
+            -16
+          ]
+        },
+        {
+          "id": "brick",
+          "at": [
+            -25,
+            -24
+          ]
+        },
+        {
+          "id": "brick",
+          "at": [
+            -20,
+            -6
+          ]
+        },
+        {
+          "id": "buoy",
+          "at": [
+            -16,
+            -14
+          ]
+        },
+        {
+          "id": "pan",
+          "at": [
+            -24,
+            -30
+          ]
+        }
+      ]
+    },
+    "c6Sneak1": {
+      "zone": "ship",
+      "name": "story.fight.c6Sneak1",
+      "start": [
+        -42,
+        20
+      ],
+      "stealth": {
+        "goal": [
+          0,
+          -47.5
+        ],
+        "r": 1.6
+      },
+      "foes": [
+        {
+          "who": "g1",
+          "foe": "thug",
+          "look": "jetjet",
+          "at": [
+            -20,
+            6
+          ],
+          "heading": 180,
+          "patrol": [
+            [
+              -20,
+              6
+            ],
+            [
+              -20,
+              -14
+            ]
+          ]
+        },
+        {
+          "who": "g2",
+          "foe": "thug",
+          "look": "normal",
+          "at": [
+            -9.75,
+            -40
+          ],
+          "heading": 0,
+          "patrol": [
+            [
+              -9.75,
+              -40
+            ],
+            [
+              -9.75,
+              -14
+            ]
+          ]
+        },
+        {
+          "who": "g3",
+          "foe": "thug",
+          "look": "jetjet",
+          "at": [
+            9.75,
+            -30
+          ],
+          "heading": 180,
+          "patrol": [
+            [
+              9.75,
+              -30
+            ],
+            [
+              9.75,
+              -44
+            ]
+          ]
+        }
+      ],
+      "loot": []
+    },
+    "c6Sneak2": {
+      "zone": "ship",
+      "name": "story.fight.c6Sneak2",
+      "start": [
+        0,
+        -50
+      ],
+      "stealth": {
+        "goal": [
+          -9.75,
+          8
+        ],
+        "r": 2
+      },
+      "foes": [
+        {
+          "who": "g2",
+          "foe": "thug",
+          "look": "normal",
+          "at": [
+            -9.75,
+            -28
+          ],
+          "heading": 0,
+          "patrol": [
+            [
+              -9.75,
+              -28
+            ],
+            [
+              -9.75,
+              -3
+            ]
+          ]
+        },
+        {
+          "who": "g4",
+          "foe": "thug",
+          "look": "jetjet",
+          "at": [
+            9.75,
+            -12.6
+          ],
+          "heading": 270,
+          "patrol": [
+            [
+              9.75,
+              -12.6
+            ],
+            [
+              0,
+              -12.6
+            ]
+          ]
+        }
+      ],
+      "loot": []
+    },
+    "c6Container": {
+      "zone": "ship",
+      "name": "story.fight.c6Container",
+      "start": [
+        2.2,
+        37.6
+      ],
+      "ally": "man",
+      "allyAt": [
+        1.0,
+        37.0
+      ],
+      "foes": [
+        {
+          "who": "g1",
+          "foe": "thug",
+          "look": "jetjet",
+          "at": [
+            7.5,
+            34.5
+          ],
+          "heading": 270
+        },
+        {
+          "who": "g2",
+          "foe": "thug",
+          "look": "normal",
+          "at": [
+            8.5,
+            40
+          ],
+          "heading": 270
+        },
+        {
+          "who": "g3",
+          "foe": "thug",
+          "look": "jetjet",
+          "at": [
+            9.75,
+            20
+          ],
+          "join": 6
+        }
+      ],
+      "loot": [
+        {
+          "id": "wood",
+          "at": [
+            1.6,
+            37.1
+          ]
+        },
+        {
+          "id": "pan",
+          "at": [
+            0.2,
+            38.2
+          ]
+        },
+        {
+          "id": "brick",
+          "at": [
+            4.2,
+            36.6
+          ]
+        },
+        {
+          "id": "brick",
+          "at": [
+            4.6,
+            38.6
+          ]
+        }
+      ]
+    },
+    "c6Deck": {
+      "zone": "ship",
+      "name": "story.fight.c6Deck",
+      "start": [
+        -9.75,
+        13.4
+      ],
+      "ally": "man",
+      "allyAt": [
+        -9.1,
+        15.2
+      ],
+      "foes": [
+        {
+          "who": "tiSun",
+          "foe": "tiSun",
+          "look": "jetjet",
+          "at": [
+            -9.75,
+            -8
+          ],
+          "heading": 0
+        },
+        {
+          "who": "g5",
+          "foe": "thug",
+          "look": "jetjet",
+          "at": [
+            -9.3,
+            -4
+          ],
+          "heading": 0
+        },
+        {
+          "who": "g6",
+          "foe": "thug",
+          "look": "normal",
+          "at": [
+            9.75,
+            -12.6
+          ],
+          "join": 6
+        }
+      ],
+      "loot": [
+        {
+          "id": "bat",
+          "at": [
+            -9.5,
+            11
+          ]
+        },
+        {
+          "id": "brick",
+          "at": [
+            -9.9,
+            9.5
+          ]
+        },
+        {
+          "id": "buoy",
+          "at": [
+            -9.2,
+            6
+          ]
+        }
+      ]
+    },
+    "c6Quay": {
+      "zone": "ship",
+      "name": "story.fight.c6Quay",
       "start": [
         -17,
         -20.9

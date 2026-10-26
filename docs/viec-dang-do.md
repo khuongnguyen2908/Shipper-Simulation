@@ -27,6 +27,20 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   - Chủ game tự tạo dự án Firebase (Claude hướng dẫn từng bước), dán cấu hình vào code.
 
 ## 💬 Đang bàn
+### 🙂 Mặt anime pixel cho người (21–26/10 — XONG trong game, CHƯA commit)
+- Chủ game chốt 26/10: **KHÔNG làm bộ lọc PS1, KHÔNG texture bẩn** (quần áo / tường / nhà / xe giữ nguyên) — **chỉ đổi mặt người**.
+  Cách A: bộ kiểu mặt có sẵn · **giữ nguyên mũi** của mô hình · **người chơi không chọn mặt** (nam chinhNam / nữ chinhNu).
+- Code: `src/data/faces.js` (FACES 12 kiểu, EYE_COLORS, defaultFace, playerFace — dữ liệu thuần) · `src/world/faces.js` (vẽ mặt 64×64 nét pixel,
+  miếng mặt = chép nửa trước headGeo, phóng 2–3 %, người già uốn theo AGE_BEND, trán + 2 bên trong suốt cho thấy mái tóc; polygonOffset chống lấm tấm
+  ở xa; khẩu trang vẽ lên mặt) · `world/person.js` buildPerson gắn miếng mặt vào parts.body, người ở xa (bản đơn giản) bỏ miếng mặt.
+- Dữ liệu: `faceStyle` + `eyeColor` (mã) ở relations.json → look và places.json → npc; sửa ở /?relationship (thẻ Ngoại hình) và ?editor
+  (Địa điểm & NPC → NPC). validate.js báo kiểu / màu lạ. Đã gán: anh Đạt ngau · chị Nhi tuoiTan · anh Hoàng khoTinh · chú Tư ongBongDua · Tí Đô duTon ·
+  chị Linh diuDang · Dì Hai baHien · Dượng Hai ongXoiLoi · em Minh treTrung. Người không đặt: tự lấy kiểu hợp giới tính + tuổi, cố định theo màu áo / quần / tóc / da
+  (không gọi thêm số ngẫu nhiên → ngoại hình người cũ không đổi). Mặt "dữ tợn" không phát cho người đi đường.
+- Nét mặt KHÔNG cute (chủ game dặn). Phác họa giữ ở `sketches/ps1-nhan-vat/` (có cả bản PS1 cũ để tham khảo).
+- Còn để ý: mỗi người thêm 1 khối vẽ (~400 người quanh người chơi) — máy yếu thấy chậm thì cho người ở gần hơn mới có mặt.
+  Tí Sún chưa có ngoại hình riêng (dùng dáng "dân chơi" chung → mặt tự lấy).
+
 ### 🏗️ Chuẩn bị dự án nặng hơn + làm gọn tool cốt truyện (16/10 — chủ game duyệt thứ tự: Đợt 1 → tool cốt truyện → Đợt 2 → Đợt 3)
 - **Đợt 1 (xong)**: nén âm thanh (cài ffmpeg; 8,9 MB → 3,9 MB, bản đăng 14,8 MB → 7,9 MB) + lệnh `npm run nen-am-thanh` cho file mới.
   Giữ editor trong bản đăng (README ghi chủ game có dùng "editor online"; bỏ thì nhẹ thêm ~0,9 MB — chủ game chốt 16/10: GIỮ editor).
@@ -219,7 +233,21 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
     ⚠️ Ai chơi xong chương 5 lúc này sẽ vào thẳng màn đua (chưa có đầu chương 6). Chèn đoạn mở đầu / lên tàu / bị bắt / mở trói / đánh nhau
     vào giữa bước "title" và "race" khi chủ game chốt.
   - Đã commit + push 470b4eb (25/10): toàn bộ chương 6 tới giờ (tàu, đánh nhau, màn đua, kết chương).
-- Còn chờ chủ game: đoạn mở đầu chương 6.
+- **Đợt 5 — mở đầu chương 6 XONG (26/10, CHƯA commit)**. Chủ game chốt: người chơi TỰ suy ra (anh tờ rơi dắt em sinh viên vô hẻm ở chương 4 ↔ Kho 7)
+  → nhắn số trên tờ rơi → hẹn 22h bến Kho 7 → đưa tin nhắn + tờ rơi cho công an (1b) → công an tới kiểm tra, Tí Đô đưa giấy tờ "chở gạo",
+  không bằng chứng, công an về → giao đồ ăn cho thủy thủ (lấy tiền xong bị đuổi về) → lén vào sâu (2) → chìa khóa Kho 7 mở **tủ thuyền trưởng**
+  dưới lầu chỉ huy lấy tài liệu (3b) → Tí Sún nhận ra → bị nhốt chung container với anh Đạt → cọ đứt dây, cởi trói anh Đạt → 3 trận
+  (phá cửa container · boong tàu Tí Sún · bến Kho 7 Tí Đô) → lên xe anh Đạt → màn đua (đã có). Không có chị Linh (4).
+  - 35 bước mới trong c6 (sleep → … → toBike, rồi race / safe / … như cũ). Danh bạ mới: toRoi (số trên tờ rơi), congAn (Anh công an, ở congan1).
+    Vật phẩm taiLieu. Tàu cập bến ở bước waitNight, rời bến (gone) ở màn đen "later". NPC Kho 7 (chú bảo vệ) vắng từ lúc núp tới lúc bị đuổi về.
+  - Minigame LẺN (Claude thiết kế, chủ game cho "theo ý bạn"): trận có `stealth: { goal, r }` — người gác đi tuần (`patrol`, có sẵn trong sim/fight.js),
+    tầm nhìn ~11 m bị container / vách che (dò tầm nhìn ở game/fight.js), sát bên thì nghe; bị thấy → "Ê! Đứa nào đó?!" → màn đen, làm lại từ đầu màn;
+    tới goal = thắng (dọn người gác). Đập lén sau lưng (E) vẫn được. c6Sneak1: bãi container → cầu thang mạn → lầu chỉ huy (3 người gác) ·
+    c6Sneak2: lầu chỉ huy → lối mạn trái tới giữa tàu (2 người gác) rồi bị bắt (cảnh có sẵn, không thua).
+  - Mới: điều kiện "useAt" (bấm E tại chỗ — chỗ đứng có tên / [x, z]) · chỗ đứng `captainLocker` · đơn đồ ăn cốt truyện có `to` (giao tới địa điểm) + tên khách.
+    ?editor: ô cho cả 3 + "🤫 Màn lẻn" và "Đi tuần" trong ⚔️ Đánh nhau; validate.js kiểm tra hết.
+  - Đã chơi thử bằng trình duyệt cả chuỗi (đánh nhau thật chưa đánh tay — dùng hạ nhanh để kiểm tra chuyển cảnh). Cần chủ game chơi thật: độ khó 2 màn lẻn,
+    vị trí người gác, lời thoại nháp.
 
 ### 🔧 Chương 4–5 sửa đợt 2 (24/10 tối — XONG, CHƯA commit)
 - 🛵 Chạy đơn trong lúc chờ giờ: ô mới "Cho chạy đơn trong lúc chờ" (step.orders) — bật cho c4 sleep2 / wait8 / mingle / waitOpen, c5 waitMeet / addr / goMeet / waitNight.

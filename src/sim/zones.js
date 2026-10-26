@@ -13,6 +13,7 @@ export const ZONES = {
       deckMid: { at: [-9.6, 0], name: 'Lối đi mạn trái, giữa tàu' },
       bridgeDoor: { at: [0, -43.5], name: 'Trước cửa lầu chỉ huy' },
       bridgeIn: { at: [0, -50], name: 'Trong lầu chỉ huy (tầng trệt)' },
+      captainLocker: { at: [7.3, -54.9], name: 'Trước tủ thuyền trưởng (lầu chỉ huy, vách phải)' },
       bow: { at: [0, 50], name: 'Sàn mũi tàu' },
       gangTop: { at: [-11.6, -34.8], name: 'Bục đầu cầu thang mạn' },
       gangFoot: { at: [-15.5, -20.9], name: 'Chân cầu thang mạn (trên bến)' },

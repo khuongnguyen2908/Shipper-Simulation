@@ -127,6 +127,14 @@ export function gatherInteractions(g) {
     if (ped) E.push({ label: fmt('act.talkPed', { name: ped.name }), dist: dist(p, ped) + 0.5, run: () => talkPed(g, ped) });
   }
   if (foot) fightPrompts(g, E); // đánh nhau góc nhìn thứ 1: nhặt đồ / đập lén
+  // cốt truyện: bấm E tại chỗ (điều kiện "useAt" — vd mở tủ thuyền trưởng bằng chìa khóa)
+  {
+    const s6 = g.gs.story, st = s6?.ch && s6.fired ? stepOf(s6) : null, u = st?.until;
+    if (u?.type === 'useAt' && !s6.ev.used) {
+      const at = g.zoneAt(u.at), d = at ? Math.hypot(at[0] - p.x, at[1] - p.z) : Infinity;
+      if (d < (u.r ?? 1.6)) E.push({ label: fmt(u.label || 'act.useHere'), dist: d - 15, run: () => { storyEvent(s6, 'used'); sound('ui.interact'); } });
+    }
+  }
   // việc của đơn hàng luôn ưu tiên (dist đã trừ 10), kể cả khi đang mờ để người chơi thấy hướng dẫn
   E.sort((a, b) => a.dist - b.dist);
   // đang chọn câu trả lời (phím 1/2/3) / người lạ sắp đáp lại: tạm không có nút E (khỏi bấm nhầm vào cửa bên cạnh)

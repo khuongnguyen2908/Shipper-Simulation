@@ -1,5 +1,6 @@
 // Ngoại hình người: đoán nam/nữ theo cách xưng hô đầu tên ("Chị Lan" → nữ, "Chú Bảy" → nam).
 // Chỉ dùng để chọn hình 3D, không hiển thị chữ. Không đoán được (Bé, Em, Bác…) → null.
+import { playerFace } from '../data/faces.js';
 
 const FEMALE = ['chị', 'cô', 'bà', 'dì', 'thím', 'mợ', 'má', 'mẹ', 'nàng'];
 const MALE = ['anh', 'chú', 'ông', 'cậu', 'dượng', 'ba', 'bố', 'cha', 'chàng'];
@@ -35,7 +36,8 @@ export function hairFor(gender, style) {
 export const HAIR_COLORS = [0x1b1b1b, 0x4a2c1a, 0x7b3f1d, 0xc9a050, 0xe8dcb5, 0x5d6d7e, 0xe75b8d, 0xb8b8b8];
 export const PLAYER_SKINS = [0xffdbac, 0xf1c27d, 0xe0ac69, 0xc68642, 0x9c6b3c, 0x6b4423];
 // Ngoại hình người chơi theo hồ sơ (dùng cho nhân vật trong game, hình xem trước, avatar trong túi đồ)
-export const profileLook = (p) => ({ gender: p?.gender === 'f' ? 'f' : 'm', hairStyle: p?.hairStyle, hair: p?.hair, skin: p?.skin });
+// người chơi không chọn mặt: kiểu mặt nhân vật chính theo giới tính (data/faces.js)
+export const profileLook = (p) => ({ gender: p?.gender === 'f' ? 'f' : 'm', hairStyle: p?.hairStyle, hair: p?.hair, skin: p?.skin, faceStyle: playerFace(p?.gender) });
 
 export function guessGender(name) {
   const w = String(name || '').trim().split(/\s+/)[0]?.toLowerCase() || '';

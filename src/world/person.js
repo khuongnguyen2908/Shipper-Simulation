@@ -6,6 +6,8 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
+import { makeFaceMesh, FACE_LOD_EMPTY } from './faces.js';
+import { defaultFace } from '../data/faces.js';
 
 const HIP_Y = 0.88, SHOULDER_Y = 1.405, THIGH = 0.44, UPPER_ARM = 0.29, HEAD_Y = 1.6;
 const PI = Math.PI;
@@ -1018,6 +1020,14 @@ export function buildPerson(o) {
     thick(mesh(foreArmGeo, { cloth, skin: o.skin, sl, f, s, glove, gloveLong, rings, wrist: s < 0 ? o.wrist || null : null, wristColor: s < 0 && o.wrist ? o.wristColor : null }, el), 0.5);
     return [sh, el];
   });
+  // mặt anime pixel (world/faces.js): kiểu mặt đặt sẵn (nhân vật cốt truyện / NPC / người chơi), không thì tự lấy hợp giới tính + tuổi,
+  // cố định theo ngoại hình. Người ở xa (bản đơn giản) bỏ miếng mặt
+  const faceStyle = o.faceStyle || defaultFace({ gender: f ? 'f' : 'm', old: (o.bend || 0) > 0, key: (o.shirt ?? 0) * 31 + (o.pants ?? 0) * 7 + (o.hair ?? 0) * 3 + (o.skin ?? 0) });
+  const fm = makeFaceMesh({ style: faceStyle, female: f, bend: o.bend || 0, skin: o.skin, hair: o.hair, eyeColor: o.eyeColor ?? null, mask: o.face === 'mask' ? o.faceColor ?? 0x5dade2 : null });
+  if (fm) {
+    fm.userData.lodMake = () => FACE_LOD_EMPTY;
+    body.add(fm);
+  }
   g.userData.parts = { legL: legParts[0][0], legR: legParts[1][0], kneeL: legParts[0][1], kneeR: legParts[1][1], armL: arms[0][0], armR: arms[1][0], elbowL: arms[0][1], elbowR: arms[1][1], body, torso, overlay: coat, ta, female: f, armZ };
   PEOPLE.add(g);
   if (PEOPLE_MODE === 'simple') setPersonDetail(g, true);

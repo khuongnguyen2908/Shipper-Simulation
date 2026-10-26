@@ -1996,6 +1996,39 @@ console.log('Ngoại hình nam/nữ');
     assert.equal(normSettings({ people: 'simple' }).people, 'simple');
     assert.equal(normSettings({ people: 'xyz' }).people, 'auto');
   });
+  const { FACES, EYE_COLORS, MOUTHS, defaultFace, playerFace } = await import('../src/data/faces.js');
+  const { lookOfChar } = await import('../src/data/relations.js');
+  const { colorsToNumbers } = await import('../src/data/balance.js');
+  test('Mặt anime (data/faces.js): kiểu mặt hợp lệ, người đi đường tự lấy theo giới tính + tuổi, người chơi / nhân vật / NPC đúng kiểu, bộ kiểm tra bắt lỗi', () => {
+    for (const [id, f] of Object.entries(FACES)) {
+      assert.ok(f.label && [null, 'm', 'f'].includes(f.g ?? null), id);
+      assert.ok(f.eye.rx > 0 && f.eye.ry > 0 && MOUTHS.includes(f.mouth) && EYE_COLORS[f.iris], id);
+      assert.ok(f.pool == null || ['young', 'old'].includes(f.pool), id);
+    }
+    // cố định theo ngoại hình, đúng giới tính / tuổi
+    for (let k = 0; k < 5000; k += 7) {
+      const m = defaultFace({ gender: 'm', key: k }), f = defaultFace({ gender: 'f', key: k }), o = defaultFace({ gender: 'f', old: true, key: k });
+      assert.equal(m, defaultFace({ gender: 'm', key: k }));
+      assert.ok(FACES[m].g !== 'f' && FACES[m].pool === 'young');
+      assert.ok(FACES[f].g !== 'm' && FACES[f].pool === 'young');
+      assert.ok(FACES[o].pool === 'old' && FACES[o].g !== 'm');
+    }
+    assert.ok(!Object.values(FACES).some((f) => f.label.includes('Tí Đô') && f.pool), 'mặt dữ tợn không phát cho người đi đường');
+    assert.equal(playerFace('m'), 'chinhNam');
+    assert.equal(PE.profileLook({ gender: 'f' }).faceStyle, 'chinhNu');
+    const rel = readJson('src/data/relations.json');
+    assert.equal(lookOfChar(rel.characters.man).faceStyle, 'ngau');
+    const tra = DATA.places.places.find((p) => p.id === 'tra');
+    assert.equal(npcLook('tra', colorsToNumbers(tra.npc)).faceStyle, tra.npc.faceStyle);
+    // bộ kiểm tra: kiểu mặt / màu mắt lạ → lỗi
+    const bad = structuredClone(DATA.places);
+    Object.assign(bad.places.find((p) => p.id === 'tra').npc, { faceStyle: 'xyz', eyeColor: 'tim' });
+    const errs = VALIDATE.validatePlaces(bad, DATA.items).filter((i) => i.level === 'error' && i.ref === 'tra').map((i) => i.field);
+    assert.ok(errs.includes('npc.faceStyle') && errs.includes('npc.eyeColor'), errs.join());
+    const rel2 = structuredClone(rel);
+    rel2.characters.man.look.faceStyle = 'xyz';
+    assert.ok(VALIDATE.validateRelations(rel2).some((i) => i.level === 'error' && /Kiểu mặt lạ/.test(i.msg)));
+  });
   test('Dựng hình 3D: tóc dài, búi, váy có đủ phần', () => {
     const skin = 0xf1c27d, pants = 0x2c3e50;
     const skirt = makePerson({ gender: 'f', hairStyle: 'long', skirt: true, skin, pants });
@@ -5579,6 +5612,25 @@ console.log('Đánh nhau góc nhìn thứ 1 (sim/fight.js — chương 6)');
   const { validateStory } = await import('../src/data/validate.js');
   const STORYJ = readJson('src/data/story.json');
   const mk = (kind, extra = {}) => FT.makeFoe({ who: 'x', foe: kind, ...extra }, { x: 0, z: 0, heading: 0 });
+  test('Màn lẻn (chương 6): người gác đi tuần thấy người chơi trước mặt; container che (los = false) thì không thấy, sát bên vẫn nghe', () => {
+    const P = { x: 0, z: 5, heading: Math.PI, loud: false };
+    const guard = () => FT.makeFoe({ who: 'g', foe: 'thug', patrol: [[0, 0], [0, -10]] }, { x: 0, z: 0, heading: 0 });
+    const a = guard();
+    assert.ok(!a.alert && a.state === 'patrol', 'đi tuần: chưa phát hiện');
+    assert.ok(FT.foeTick(a, { player: P, dt: 0.1, los: () => true }).some((e) => e.type === 'alert'), 'đứng trước mặt, không bị che → thấy');
+    const b = guard();
+    FT.foeTick(b, { player: P, dt: 0.1, los: () => false });
+    assert.ok(!b.alert, 'bị container che → không thấy');
+    const c = guard();
+    FT.foeTick(c, { player: { x: 0, z: 0.6, heading: 0 }, dt: 0.1, los: () => false });
+    assert.ok(c.alert, 'sát bên (nghe tiếng) → biết dù bị che');
+    // dữ liệu: 2 màn lẻn chương 6 có chỗ cần tới + người đi tuần, bộ kiểm tra không báo gì
+    for (const id of ['c6Sneak1', 'c6Sneak2']) {
+      const f = STORYJ.fights[id];
+      assert.ok(f.stealth?.goal?.length === 2 && f.foes.every((x) => x.patrol?.length >= 2), id);
+    }
+    assert.ok(!validateStory(STORYJ).some((i) => /fight:c6|^c6\./.test(i.ref)), 'chương 6 không có lỗi / cảnh báo');
+  });
   test('Vũ khí theo dữ liệu (mã lạ = tay không) · đánh sau lưng gấp đôi · boss đỡ đòn trước mặt, chảo phá thế đỡ', () => {
     const bat = FT.weaponOf('bat'), fists = FT.weaponOf('khongCo');
     assert.equal(fists.id, 'fists');

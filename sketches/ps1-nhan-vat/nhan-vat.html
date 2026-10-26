@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Anh Đạt và nhân vật chính</title>
+<style>
+  body { margin: 0; background: #14161b; color: #e8e4dc; font: 14px/1.4 system-ui, sans-serif; }
+  .wrap { display: flex; flex-wrap: wrap; gap: 14px; padding: 14px; justify-content: center; }
+  figure { margin: 0; text-align: center; }
+  canvas { display: block; width: 300px; height: 420px; border-radius: 10px; image-rendering: pixelated; background: #000; }
+  figcaption { margin-top: 6px; font-weight: 600; }
+  figcaption small { display: block; font-weight: 400; color: #a9a39a; }
+  .bar { text-align: center; padding: 6px; color: #a9a39a; }
+  label { margin: 0 8px; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="bar">
+  <label><input type="checkbox" id="spin" checked /> Xoay chậm</label>
+  <label>Khung: <select id="shot"><option value="face">Cận mặt</option><option value="close" selected>Nửa người</option><option value="full">Toàn thân</option></select></label>
+  <label>Độ phân giải PS1: <select id="res"><option value="260">260</option><option value="320" selected>320</option><option value="400">400</option></select></label>
+  <label><input type="checkbox" id="raw" /> Xem bản gốc (không PS1)</label>
+</div>
+<div class="wrap"></div>
+<script type="module" src="./nhan-vat.js"></script>
+</body>
+</html>
