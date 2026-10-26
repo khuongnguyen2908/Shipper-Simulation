@@ -238,9 +238,11 @@ export class Walker {
     }
     if (this.crouch) {
       const c = this.crouch;
-      // bị dời đi chỗ khác (làm lại, dịch chuyển…) / bấm đi → đứng dậy
-      if (Math.hypot(this.pos.x - c.x, this.pos.z - c.z) > 0.3 || input.forward || input.back || input.left || input.right) this.leaveCrouch();
+      // bị dời đi chỗ khác (làm lại, dịch chuyển…) / bấm đi → đứng dậy · bị người đi đường va lệch chút → về lại đúng chỗ ngồi
+      const off = Math.hypot(this.pos.x - c.x, this.pos.z - c.z);
+      if (off > 1.5 || input.forward || input.back || input.left || input.right) this.leaveCrouch();
       else {
+        if (off > 0.01) this.pos.set(c.x, this.pos.y, c.z);
         const floorY = blockAt(c.x, c.z) ? SW_H : 0;
         const el = ctx.elev ? ctx.elev.settle(this, 0.35, floorY, 2.0) : { y: floorY };
         if (c.dy == null) {

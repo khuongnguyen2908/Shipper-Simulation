@@ -97,9 +97,9 @@ export function render(root, ctx) {
   const contactOpts = Object.entries(data.contacts).map(([id, c]) => [id, `${c.icon || ''} ${C[c.name] || id}`]);
   // đạo cụ trong chương đang xem (mã) — mũi tên / dấu / điều kiện núp chỉ vào đạo cụ
   const propOpts = () => (data.chapters.find((c) => c.id === sel.ch)?.steps || []).flatMap((x) => (x.on || []).filter((a) => a.do === 'prop' && a.id)).map((a) => [a.id, `${PROP_KINDS[a.kind] || a.kind} (${a.id})`]);
-  const binOpts = () => (data.chapters.find((c) => c.id === sel.ch)?.steps || []).flatMap((x) => (x.on || []).filter((a) => a.do === 'prop' && a.kind === 'bin' && a.id)).map((a) => [a.id, `🗑️ ${a.id}`]);
+  const binOpts = () => (data.chapters.find((c) => c.id === sel.ch)?.steps || []).flatMap((x) => (x.on || []).filter((a) => a.do === 'prop' && (a.kind === 'bin' || a.kind === 'mark') && a.id)).map((a) => [a.id, `${a.kind === 'bin' ? '🗑️' : '📍'} ${a.id}`]);
   const ttOpts = () => (data.chapters.find((c) => c.id === sel.ch)?.steps || []).flatMap((x) => (x.on || []).filter((a) => a.do === 'ttPost' && a.id)).map((a) => [a.id, `📱 ${a.id}`]);
-  const FIXED_PROPS = ['ramp', 'easel', 'bin', 'can', 'water', 'bigbike']; // đạo cụ đặt cố định (không chạy theo đường)
+  const FIXED_PROPS = ['ramp', 'easel', 'bin', 'can', 'water', 'bigbike', 'mark']; // đạo cụ đặt cố định (không chạy theo đường)
   const actorOpts = () => Object.entries(data.people).map(([id, c]) => [id, `${c.icon || ''} ${C[c.name] || id}`]); // người lạ (story.json → people)
   // người nói được: người lạ + NPC đứng ở địa điểm ('place:<mã>', vd sư cô ở chùa, bảo vệ trường)
   const policeOpts = () => (data.chapters.find((c) => c.id === sel.ch)?.steps || []).flatMap((x) => x.on || []).filter((y) => y.do === 'prop' && y.kind === 'police' && y.id).map((y) => [`prop:${y.id}`, `👮 Công an (xe ${y.id})`]);
@@ -352,12 +352,14 @@ export function render(root, ctx) {
       u.type === 'cine' ? el('p', { class: 'muted' }, 'Thêm việc "🎬 Cảnh phim" ở phần "Khi vào bước" — chiếu hết các cảnh quay thì sang bước sau.') : null,
       u.type === 'reach' ? field('Tọa độ x', numInput(u.at?.[0] ?? 0, (v) => { u.at = [v, u.at?.[1] ?? 0]; changed(); }, { step: 1 }), opt('until', { hint: 'Chỗ trên bản đồ (đơn vị bản đồ). Đường dọc thứ i ở x = (i − 5) × 52, đường ngang thứ j ở z = (j − 5) × 52 · xem vị trí đang đứng: mở game ?debug, gõ game.snapshot().pos. Vd giữa cầu Sông Ngân hàng 5: [182, 0].' })) : null,
       u.type === 'reach' ? field('Tọa độ z', numInput(u.at?.[1] ?? 0, (v) => { u.at = [u.at?.[0] ?? 0, v]; changed(); }, { step: 1 }), opt('until')) : null,
-      u.type === 'hidden' ? field('Thùng rác', selectInput(u.prop || '', [['', '— Thùng nào cũng được —'], ...binOpts()], (v) => { if (v) u.prop = v; else delete u.prop; changed(); }), opt('until', { hint: 'Thùng rác đặt bằng việc "🚛 Đạo cụ" (loại thùng rác) ở bước này hoặc bước trước. Người chơi đứng sát thùng bấm E ngồi núp → xong bước (vd núp rồi mới nghe lén).' })) : null,
+      u.type === 'hidden' ? field('Chỗ núp', selectInput(u.prop || '', [['', '— Chỗ nào cũng được —'], ...binOpts()], (v) => { if (v) u.prop = v; else delete u.prop; changed(); }), opt('until', { hint: 'Thùng rác (🗑️) hoặc điểm đánh dấu (📍) đặt ngay chiếc xe hàng rong bên đường — đạo cụ ở bước này hoặc bước trước. Người chơi đứng sát bấm E ngồi núp → xong bước (vd núp rồi mới nghe lén).' })) : null,
+      u.type === 'hidden' ? field('Lúc núp quay mặt về', selectInput(u.watch || '', [['', '— Quay vào chỗ núp —'], ...actorOpts()], (v) => { if (v) u.watch = v; else delete u.watch; changed(); }), opt('until', { hint: 'Người chơi ngồi phía bên kia chỗ núp, ló mắt nhìn về người này → camera thấy cảnh + lời thoại phía đó.' })) : null,
       u.type === 'reach' ? field('Bán kính', numInput(u.r ?? 8, (v) => { u.r = v; changed(); }, { step: 1, min: 2, max: 60 }), opt('until', { hint: 'Người chơi tới cách chỗ này ít hơn bao nhiêu thì xong (1 ≈ 10 m trên màn hình). Đường rộng ~15 → bán kính 9 là chạy ngang qua chỗ đó.' })) : null,
       u.type === 'ttSeen' ? field('Tin Tích Tắc', selectInput(u.id || '', ttOpts(), (v) => { u.id = v; changed(); }), opt('until', { hint: 'Tin đăng bằng việc "📱 Tin Tích Tắc" ở bước này / bước trước. Người chơi mở app Tích Tắc lướt tới tin đó → xong bước. Nên kèm hướng dẫn "Mở app …" (Tích Tắc).' })) : null,
       u.type === 'away' ? field('Đi xa khỏi', selectInput(u.who ? u.who : 'at', [...actorOpts(), ['at', '📍 Chỗ [x, z]']], (v) => { if (v === 'at') { delete u.who; u.at = u.at || [0, 0]; } else { u.who = v; delete u.at; } rerender(); }), opt('until', { hint: 'Vd bị đuổi về: người chơi đi xa người lạ này hơn bán kính thì xong bước (người lạ không còn ở cảnh cũng tính là xong).' })) : null,
       u.type === 'away' && !u.who ? field('Tọa độ x, z', el('div', { class: 'row' }, ...[0, 1].map((k) => numInput((u.at ||= [0, 0])[k], (v) => { u.at[k] = v; changed(); }, { step: 1 }))), opt('until')) : null,
       u.type === 'away' ? field('Xa hơn (đơn vị bản đồ · 1 ≈ 10 m)', numInput(u.r ?? 30, (v) => { u.r = v; changed(); }, { step: 5, min: 5, max: 300 }), opt('until')) : null,
+      u.type === 'parked' ? field('Bãi giữ xe', selectInput(u.place || '', [['', '— Bãi nào cũng được —'], ...placeOpts.filter(([id]) => ctx.data.places.places.find((p) => p.id === id)?.look === 'parkingLot')], (v) => { if (v) u.place = v; else delete u.place; changed(); }), opt('until', { hint: 'Người chơi chạy xe vào bãi, xuống xe (trả tiền gửi) → xong bước. Vd gửi xe rồi mới đi bộ vào giao.' })) : null,
       u.type === 'useAt' ? field('Chỗ bấm E', selectInput(Array.isArray(u.at) ? 'xz' : u.at, [...Object.entries(ZONES).flatMap(([zid, z]) => Object.entries(z.points).map(([k, p]) => [k, `${z.name.split(' (')[0]} · ${p.name}`])), ['xz', '📍 Chỗ [x, z] (thành phố)']], (v) => { u.at = v === 'xz' ? [0, 0] : v; rerender(); }), opt('until', { hint: 'Người chơi tới gần chỗ này hiện nút E (chữ ở dưới) — bấm là xong bước. Vd mở tủ, lục ngăn kéo.' })) : null,
       u.type === 'useAt' && Array.isArray(u.at) ? field('Tọa độ x, z', el('div', { class: 'row' }, ...[0, 1].map((k) => numInput(u.at[k], (v) => { u.at[k] = v; changed(); }, { step: 0.5 }))), opt('until')) : null,
       u.type === 'useAt' ? field('Cách bao nhiêu thì hiện nút E', numInput(u.r ?? 1.6, (v) => { u.r = v; changed(); }, { step: 0.2, min: 0.4, max: 10 }), opt('until')) : null,
@@ -771,6 +773,16 @@ export function render(root, ctx) {
       field('Số xe mỗi chốt', numInput(a.per ?? 2, (v) => { a.per = Math.max(1, Math.min(4, Math.round(v) || 1)); ctx.changed('story'); }, { step: 1, min: 1, max: 4 }), o),
       nodeList(a, 'nodes', 'Ngã tư thật đứng chốt [cột, hàng]', 'Cột 0 = đường dọc phía tây, hàng 0 = đường ngang phía bắc (sông ở hàng 7).', rerender, o, 0, 10));
     if (a.do === 'ambush') box.append(a.rounds ? roundsEditor(a, rerender, o) : ambushEditor(a, rerender, o));
+    if (a.do === 'borrow') {
+      const storyBikes = Object.values(ctx.data.gear?.vehicles || {}).filter((v) => v.story).map((v) => [v.id, `${v.name} (${v.id})`]);
+      box.append(
+        field('', checkInput(!!a.off, (v) => { if (v) { a.off = true; for (const k of ['vehicle', 'from', 'fuel']) delete a[k]; } else delete a.off; rerender(); }, 'Trả xe mượn (xe mình nằm trong hầm nhà trọ)'), o),
+        ...(a.off ? [] : [
+          field('Xe mượn', selectInput(a.vehicle || '', [['', '— chọn —'], ...storyBikes], (v) => { a.vehicle = v; ctx.changed('story'); }), { ...o, hint: 'Xe có đánh dấu "Xe cốt truyện" ở thẻ Xe/Túi/Đồ nghề (không bán, không có ở cửa hàng).' }),
+          field('Lấy ở đạo cụ', selectInput(a.from || '', [['', '— ngay chỗ xe mình đang đậu —'], ...propOpts()], (v) => { if (v) a.from = v; else delete a.from; ctx.changed('story'); }), { ...o, hint: 'Đạo cụ xe dựng sẵn (vd 🏍️ mô tô anh Đạt): xe mượn hiện đúng chỗ đó, đạo cụ biến mất.' }),
+          field('Xăng lúc nhận (%)', numInput(a.fuel ?? 60, (v) => { a.fuel = v; ctx.changed('story'); }, { step: 5, min: 0, max: 100 }), o),
+        ]));
+    }
     if (a.do === 'fuel') box.append(field('Xăng / pin còn (%)', numInput(a.pct ?? 15, (v) => { a.pct = v; ctx.changed('story'); }, { step: 5, min: 0, max: 100 }), o));
     if (a.do === 'offer') {
       const foodPlaces = ctx.data.places.places.filter((p) => isPlaced(p) && p.kind === 'restaurant' && (p.menu || []).length).map((p) => [p.id, `${p.name} (${p.id})`]);
@@ -1137,8 +1149,14 @@ export function render(root, ctx) {
           field('Vào trận', selectInput(f.join == null ? '' : f.join === 'rage' ? 'rage' : 'sec', [['', 'Có mặt từ đầu'], ['sec', 'Chạy tới sau … giây'], ['rage', 'Khi boss nổi điên']], (v) => { if (!v) delete f.join; else f.join = v === 'rage' ? 'rage' : 6; rerender(); }), { ref, fieldKey: 'foes' }),
           typeof f.join === 'number' ? num(f, 'join', 'Sau (giây)', { step: 1 }, ref) : null,
           field('', checkInput(!!f.sneak, (v) => { if (v) f.sneak = true; else delete f.sneak; changed(); }, '🤫 Chưa phát hiện (đập lén được)'), { ref, fieldKey: 'foes', hint: 'Đứng gác, chưa biết người chơi tới — lén ra sau lưng bấm E là gục.' }),
+          num(f, 'sweep', 'Quét đèn ± (độ)', { step: 5, min: 0, max: 90 }, ref),
+          num(f, 'sweepT', 'Chu kỳ quét (giây)', { step: 1, min: 2, max: 30 }, ref),
+          num(f, 'sight', 'Nhìn xa (m, bỏ trống = 11)', { step: 1, min: 3, max: 25 }, ref),
+          num(f, 'phase', 'Lệch nhịp đi tuần (giây đã đi trước)', { step: 1, min: 0, max: 300 }, ref),
           field('Đi tuần qua lại các điểm [x, z]', el('div', {},
-            ...(f.patrol || []).map((q, k) => el('div', { class: 'row' }, ...[0, 1].map((j) => numInput(q[j], (v) => { q[j] = v; changed(); }, { step: 0.5 })), button('✕', () => { f.patrol.splice(k, 1); if (!f.patrol.length) delete f.patrol; rerender(); }, 'small'))),
+            ...(f.patrol || []).map((q, k) => el('div', { class: 'row' }, ...[0, 1].map((j) => numInput(q[j], (v) => { q[j] = v; changed(); }, { step: 0.5 })),
+              el('span', { class: 'muted' }, 'dừng'), numInput(q[2] ?? 2.2, (v) => { q[2] = v; changed(); }, { step: 0.5, min: 0, max: 30 }),
+              el('span', { class: 'muted' }, 'nhìn (độ)'), textInput(q[3] ?? '', (v) => { if (v.trim() === '') { q.length = Math.min(q.length, 3); } else { q[2] ??= 2.2; q[3] = +v; } changed(); }, { placeholder: 'giữ hướng' }), button('✕', () => { f.patrol.splice(k, 1); if (!f.patrol.length) delete f.patrol; rerender(); }, 'small'))),
             button('＋ Điểm đi tuần', () => { (f.patrol ||= []).push([...(f.patrol?.at(-1) || f.at || [0, 0])]); rerender(); }, 'small')), { ref, fieldKey: 'foes', hint: 'Chưa phát hiện người chơi: đi lần lượt các điểm (tới mỗi điểm đứng nhìn ~2 giây). Thấy (trong tầm nhìn ~11 m, không bị container / vách che) thì la lên.' }))));
       const lootRows = (t.loot ||= []).map((l, i) => el('div', { class: 'row' },
         selectInput(l.id, weaponOpts, (v) => { l.id = v; changed(); }), ...[0, 1].map((k) => numInput((l.at ||= [0, 0])[k], (v) => { l.at[k] = v; changed(); }, { step: 0.5 })), button('✕', () => { t.loot.splice(i, 1); rerender(); }, 'small')));
@@ -1152,7 +1170,10 @@ export function render(root, ctx) {
           t.ally ? xz(t, 'allyAt', 'Đồng đội đứng ở [x, z]', ref) : null,
           field('', checkInput(!!t.stealth, (v) => { if (v) t.stealth = { goal: [...(t.start || [0, 0])], r: 2 }; else delete t.stealth; rerender(); }, '🤫 Màn lẻn (không đánh)'), { ref, fieldKey: 'stealth', hint: 'Tới chỗ cần tới mà không bị ai thấy = thắng. Bị thấy → màn đen, làm lại từ đầu màn. Địch nên có đường đi tuần / chưa phát hiện. Đập lén sau lưng (E) vẫn được.' }),
           t.stealth ? xz(t.stealth, 'goal', 'Màn lẻn: tới chỗ [x, z]', ref) : null,
-          t.stealth ? field('Bán kính (m)', numInput(t.stealth.r ?? 2, (v) => { t.stealth.r = v; changed(); }, { step: 0.5, min: 0.5, max: 20 }), { ref, fieldKey: 'stealth' }) : null),
+          t.stealth ? field('Bán kính (m)', numInput(t.stealth.r ?? 2, (v) => { t.stealth.r = v; changed(); }, { step: 0.5, min: 0.5, max: 20 }), { ref, fieldKey: 'stealth' }) : null,
+          t.stealth ? field('Chốt làm lại [x, z] (theo thứ tự)', el('div', {},
+            ...(t.stealth.checkpoints || []).map((q, k) => el('div', { class: 'row' }, ...[0, 1].map((j) => numInput(q[j], (v) => { q[j] = v; changed(); }, { step: 0.5 })), button('✕', () => { t.stealth.checkpoints.splice(k, 1); if (!t.stealth.checkpoints.length) delete t.stealth.checkpoints; rerender(); }, 'small'))),
+            button('＋ Chốt', () => { (t.stealth.checkpoints ||= []).push([...(t.stealth.checkpoints?.at(-1) || t.start || [0, 0])]); rerender(); }, 'small')), { ref, fieldKey: 'stealth', hint: 'Đi qua chốt (cách ~2 m) → bị phát hiện thì làm lại từ chốt đó, không phải từ đầu màn.' }) : null),
         el('h4', {}, `Địch (${t.foes.length})`), ...foeRows,
         button('＋ Thêm địch', () => { t.foes.push({ who: `g${Date.now() % 1000}`, foe: 'thug', look: 'jetjet', at: [...(t.start || [0, 0])] }); rerender(); }, 'small'),
         el('h4', {}, 'Đồ dưới đất (loại · x · z)'), ...lootRows,

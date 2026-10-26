@@ -451,7 +451,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
   const nearDrive = (x, z, d = 4) => driveways.some(([a, b]) => Math.hypot(a - x, b - z) < d) || nearStop(x, z, 2.8);
   // trang trí đường phố theo khu (dây đèn lồng, đèn lồng giấy, xe hàng rong)
   const doors = layout.places.map((p) => p.door).filter(Boolean);
-  buildStreetDecor(scene, {
+  const vendorCarts = buildStreetDecor(scene, {
     map: mapData, rng: styleRng, addBox, blockStyle, swH: SW_H,
     isPlaceDoor: (x, z) => doors.some((d) => Math.hypot(d.x - x, d.z - z) < 2.4) || nearDrive(x, z),
   });
@@ -957,6 +957,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     barriers, // barie chân dốc sân bay (giữa cần chắn: x, z)
     bus, // xe buýt: tuyến + trạm (src/sim/bus.js)
     seats, // chỗ ngồi được (ghế quán, ghế đá công viên, ghế trạm xe buýt…)
+    vendorCarts, // xe hàng rong trên vỉa hè [{ x, z, along }] — núp sau được (cốt truyện)
     trees, // gốc cây trên vỉa hè / dải phân cách: [[x, z], …] (cốt truyện: người lạ đứng cạnh gốc cây)
     parked, // xe máy đậu (lề đường, bãi giữ xe…): parked.update(x, z) hiện các ô gần
     // mỗi khung hình: nâng / hạ cần barie theo xe bot gần đó

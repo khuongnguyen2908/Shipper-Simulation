@@ -13,6 +13,8 @@ export const SHIP_ZONE = { id: 'ship', origin: ZONES.ship.origin };
 // Biên bản đồ (toạ độ tàu): bến cảng phía tây tới x = -70, dọc bến z ±64; phía đông tới mép tàu
 const BOUNDS = { x0: -70, x1: 12, z0: -64, z1: 64 };
 const QUAY_X = -13; // mép bến (từ đây ra phía tàu là nước)
+// chỗ núp trên bến (màn lẻn chương 6): [x, z, rộng (x), sâu (z), loại] — cont: container nằm ngang · crate: chồng thùng gỗ · drums: pallet phuy (cao ≥ 2,2 m)
+export const COVER = [[-28, -6, 6.06, 2.44, 'cont'], [-21, -19, 2.2, 1.6, 'crate'], [-30, -24, 1.8, 1.8, 'drums']];
 export const shipPoint = (k) => zonePoint('ship', k);
 
 const mats = new Map();
@@ -95,6 +97,23 @@ export function buildShipZone(scene, grid, elev, waterMat) {
     const w = rot ? 6.06 : 2.44, d = rot ? 2.44 : 6.06;
     for (let t = 0; t < n; t++) box(Q, w, 2.6, d, CC[k++ % CC.length], x, 1.3 + t * 2.62, z);
     col(x - w / 2, z - d / 2, x + w / 2, z + d / 2, n * 2.62);
+  }
+  // chỗ núp màn lẻn (chương 6): chồng thùng gỗ / pallet phuy giữa bãi container và chân cầu thang — cao hơn đầu người, che được tầm nhìn
+  for (const [x, z, w, d, kind] of COVER) {
+    if (kind === 'cont') box(Q, w, 2.6, d, 0x2e7d4f, x, 1.3, z);
+    else if (kind === 'crate') {
+      box(Q, w, 1.1, d, 0x9a7446, x, 0.55, z);
+      box(Q, w * 0.9, 1.1, d * 0.9, 0x8a6a3a, x - 0.05, 1.65, z + 0.04);
+      for (const y of [0.55, 1.65]) box(Q, w + 0.02, 0.1, d + 0.02, 0x5c4424, x, y, z);
+    } else { // pallet + phuy xếp 2 tầng
+      box(Q, w, 0.15, d, 0x7a5a32, x, 0.08, z);
+      for (const [i, j] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) for (const y of [0.6, 1.5]) {
+        const m = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.88, 10), mat([0x2471a3, 0xc0392b][(i + j + 2) % 2]));
+        m.position.set(x + i * w * 0.24, y, z + j * d * 0.24);
+        Q.add(m);
+      }
+    }
+    col(x - w / 2, z - d / 2, x + w / 2, z + d / 2, kind === 'cont' ? 2.6 : 2.2, { tall: true });
   }
   // cẩu khung vàng bắc ngang bãi container
   for (const x of [-22, -42]) for (const z of [8, 44]) { box(Q, 0.7, 14, 0.7, 0xf1c40f, x, 7, z, { metalness: 0.3 }); col(x - 0.4, z - 0.4, x + 0.4, z + 0.4, 14); }

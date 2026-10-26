@@ -417,7 +417,7 @@ function shopDialog(g, pl) {
   // Xe: mua xe tiệm bán (xe mới chạy luôn, xe đang dùng chở về hầm nhà trọ) + bán xe cũ (50% giá xe mới).
   // Xe đang có mà không dùng thì nằm trong hầm nhà trọ — muốn đổi xe phải về hầm lấy (không đổi ở tiệm nữa)
   if ((sells.vehicles || []).length) {
-    const list = [...new Set([...(sells.vehicles || []), ...gs.owned.vehicles])].filter((id) => VEHICLES[id]);
+    const list = [...new Set([...(sells.vehicles || []), ...gs.owned.vehicles])].filter((id) => VEHICLES[id] && !VEHICLES[id].story); // xe cốt truyện (mượn) không bày
     for (const id of list) {
       const v = VEHICLES[id];
       const owned = gs.owned.vehicles.includes(id);

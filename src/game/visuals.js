@@ -26,7 +26,7 @@ import { roundMapData } from '../roundMap.js';
 import { sound } from '../audio.js';
 import { fmt, has } from '../content/index.js';
 import { fmtK } from '../sim/economy.js';
-import { GARAGE_CAM, SW_H, TALK_CAM_GROUP, TALK_CAM, fmtTime, dist2 } from './shared.js';
+import { GARAGE_CAM, SW_H, TALK_CAM_GROUP, TALK_CAM, WATCH_CAM, fmtTime, dist2 } from './shared.js';
 
 // Biểu tượng mục tiêu trong danh sách góc phải, theo màu của mục tiêu (game/navigation.js currentTarget)
 const GOAL_ICON = { '#f39c12': '📦', '#2ecc71': '📦', '#9b59b6': '📦', '#e67e22': '📦', '#1e90ff': '🧭', '#5dade2': '🛵', '#e74c3c': '⚠️', '#8e7cc3': '😴', '#16a085': '🚌', '#f4d03f': '⭐' };
@@ -65,12 +65,16 @@ export class VisualsPart {
       if (this.rig.manualTimer <= 0) this.rig.yaw = lerpAngle(this.rig.yaw, want, 1 - Math.exp(-2.5 * dt));
       this.talkFocus = (this.talkFocus || new THREE.Vector3()).set((focus.x + m.x) / 2, focus.y, (focus.z + m.z) / 2);
     }
+    // đang ngồi núp, bước núp có "quay mặt về" người lạ: camera nhìn qua chỗ núp về phía người đó (thấy cảnh + thoại) · xoay chuột vẫn được
+    if (!this.walker.crouch) this.hideWatch = null;
+    const wt = !mounted && !talk && this.hideWatch && this.storyActors?.[this.hideWatch]?.mesh.position;
+    if (wt && this.rig.manualTimer <= 0) this.rig.yaw = lerpAngle(this.rig.yaw, Math.atan2(wt.x - focus.x, wt.z - focus.z) + Math.PI, 1 - Math.exp(-3 * dt));
     // đứng yên quá 0,6 giây → camera né cả cột điện / biển / cây (đang chạy thì chỉ né nhà, khỏi giật camera liên tục)
     const moving = mounted ? Math.abs(this.bike.speed) > 0.5 : this.walker.mesh.position.distanceTo(this.lastFocus || focus) > 0.01;
     this.lastFocus = (this.lastFocus || new THREE.Vector3()).copy(focus);
     this.stillT = moving ? 0 : (this.stillT || 0) + dt;
     // đang nói chuyện: chỉ né nhà (né cây / cột lúc này kéo camera sát quá, mất khung cả nhóm) · nhóm 3 người → lùi xa hơn
-    this.rig.update(dt, talk ? this.talkFocus : focus, mounted && Math.abs(this.bike.speed) > 1 ? this.bike.heading : null, this.city.grid, inG ? GARAGE_CAM : this.zone?.camLimit?.(focus) || (talk ? (this.talkGroup > 1 ? TALK_CAM_GROUP : TALK_CAM) : null), !talk && this.stillT > 0.6);
+    this.rig.update(dt, talk ? this.talkFocus : focus, mounted && Math.abs(this.bike.speed) > 1 ? this.bike.heading : null, this.city.grid, inG ? GARAGE_CAM : this.zone?.camLimit?.(focus) || (talk ? (this.talkGroup > 1 ? TALK_CAM_GROUP : TALK_CAM) : wt ? WATCH_CAM : null), !talk && this.stillT > 0.6);
     if (this.shake > 0) {
       this.camera.position.x += (Math.random() - 0.5) * this.shake;
       this.camera.position.y += (Math.random() - 0.5) * this.shake;

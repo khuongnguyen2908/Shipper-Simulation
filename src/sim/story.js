@@ -49,7 +49,7 @@ export const REACT_ICONS = { '?': '? Ngạc nhiên', '!': '! Giật mình' };
 // Cảnh phim: camera nhìn vào đâu
 export const CINE_TARGETS = { place: 'Địa điểm …', actor: 'Người lạ …', prop: 'Đạo cụ …', player: 'Người chơi' };
 // Đạo cụ cảnh phim (việc "prop"): xe tải chạy ra chặn đường · tấm ván làm dốc · chó chạy ngang
-export const PROP_KINDS = { truck: '🚛 Xe tải container dài', ramp: '🪵 Tấm ván dựng làm dốc', dog: '🐕 Chó chạy ngang', car: '🚗 Ô tô diễn viên (chạy theo đường, 2 xe dí né)', moto: '🛵 Xe máy diễn viên (chạy theo đường, 2 xe dí né)', police: '🚓 Xe công an (đèn chớp; dừng ở cuối đường → các anh công an bước xuống)', easel: '🖼️ Giá vẽ + tranh (đặt cố định)', bin: '🗑️ Thùng rác (chỗ núp khi bám theo lén)', can: '🥫 Lon nước nằm dưới đất', water: '🌊 Nước ngập (chỉ vẽ trên máy người chơi này, không đổi luật lái xe)', bigbike: '🏍️ Mô tô anh Đạt dựng sẵn (không người)' };
+export const PROP_KINDS = { truck: '🚛 Xe tải container dài', ramp: '🪵 Tấm ván dựng làm dốc', dog: '🐕 Chó chạy ngang', car: '🚗 Ô tô diễn viên (chạy theo đường, 2 xe dí né)', moto: '🛵 Xe máy diễn viên (chạy theo đường, 2 xe dí né)', police: '🚓 Xe công an (đèn chớp; dừng ở cuối đường → các anh công an bước xuống)', easel: '🖼️ Giá vẽ + tranh (đặt cố định)', bin: '🗑️ Thùng rác (chỗ núp khi bám theo lén)', can: '🥫 Lon nước nằm dưới đất', water: '🌊 Nước ngập (chỉ vẽ trên máy người chơi này, không đổi luật lái xe)', bigbike: '🏍️ Mô tô anh Đạt dựng sẵn (không người)', mark: '📍 Điểm đánh dấu vô hình (chỗ hiện dấu "!" / chỉ đường, vd ngay chiếc xe hàng rong để núp)' };
 // Hành động ở điểm lộ trình chạy trốn (act): drift quẹo gắt · crash té xe → bỏ xe chạy bộ
 export const ROUTE_ACTS = { drift: '💨 Drift (quẹo gắt, đuôi văng, khói lốp)', crash: '💥 Té xe → bỏ xe chạy bộ', stall: '🌊 Chết máy giữa nước (văng nước, khựng lại, dừng hẳn — vẫn ngồi trên xe)' };
 // Kiểu xe người lạ chạy trốn / đuổi theo
@@ -97,12 +97,13 @@ export const UNTIL = {
   chased: 'Người lạ … (việc "🏍️ Chạy trốn") đã chạy hết lộ trình, người chơi đang bám theo',
   reach: 'Người chơi tới gần chỗ [x, z] trên bản đồ (vd giữa cầu)',
   tackled: 'Việc "🤼 Vật ngã" ở bước này đã xong (người kia bị ghì nằm sấp)',
-  hidden: 'Người chơi đang ngồi núp sau thùng rác … (đạo cụ 🗑️ — bấm E cạnh thùng)',
+  hidden: 'Người chơi đang ngồi núp sau thùng rác / xe hàng rong … (đạo cụ 🗑️ / 📍 ngay chỗ núp — bấm E cạnh thùng, xe)',
   escaped: 'Người chơi đã chạy thoát (việc "🏃 Bị rượt" ở bước này: lên xe chạy đi / bỏ xa · chỉ bằng xe: chạy xe bỏ xa, bọn kia biến mất)',
   ttSeen: 'Người chơi đã lướt tới tin Tích Tắc … (việc "📱 Tin Tích Tắc")',
   away: 'Người chơi đã đi xa người lạ … (hoặc chỗ [x, z]) hơn … đơn vị (vd bị đuổi về)',
   ambushed: 'Đã bày chốt đúng trong mini game "🗺️ Bày trận" (việc ambush ở bước này)',
   useAt: 'Người chơi bấm E tại chỗ … (vd mở tủ, lục ngăn kéo) — chỗ đứng có tên trong bản đồ riêng / [x, z]',
+  parked: 'Đã gửi xe ở bãi giữ xe … rồi xuống đi bộ (bỏ trống = bãi nào cũng được)',
   raceWon: 'Đã chạy tới đích màn đua (việc "🏍️ Màn đua" ở bước này: tới đường cụt, xe dừng)',
   fightWon: 'Đã thắng trận đánh (việc "⚔️ Trận đánh" ở bước này: hạ hết địch)',
   untied: 'Đã cởi trói xong (việc "✂️ Cởi trói" ở bước này: bấm E liên tục tới khi đứt dây)',
@@ -132,6 +133,7 @@ export const ACTIONS = {
   replies: 'Gắn 3 câu trả lời nhanh vào tin nhắn',
   item: 'Cho vật phẩm cốt truyện (nằm trong túi đồ)',
   bike: 'Cô Hai cho xe đạp (đặt trong hầm xe)',
+  borrow: '🏍️ Mượn xe cốt truyện … (lấy ngay chỗ đạo cụ xe dựng sẵn; xe mình để trong hầm nhà trọ) / trả lại xe mượn',
   give: 'Tặng đồ dùng (goods.json)',
   toast: 'Thông báo nhỏ',
   rename: 'Đổi tên hiển thị của người lạ … (vd sau khi tự giới thiệu: "Người đàn ông chạy xe moto" → "Anh Đạt") — giữ qua các chương sau',
@@ -280,6 +282,7 @@ export function untilMet(u, gs, ctx) {
     case 'away': return !!ctx.awayFrom?.(u, u.r || 30);
     case 'ambushed': return !!s.ev.ambushed;
     case 'useAt': return !!s.ev.used;
+    case 'parked': return !!ctx.parkedAt?.(u.place);
     case 'tackled': return !!s.ev.tackled;
     case 'untied': return !!s.ev.untied;
     case 'fightWon': return !!s.ev.fightWon;

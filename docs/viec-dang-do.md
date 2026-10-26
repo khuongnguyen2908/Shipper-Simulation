@@ -248,6 +248,27 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
     ?editor: ô cho cả 3 + "🤫 Màn lẻn" và "Đi tuần" trong ⚔️ Đánh nhau; validate.js kiểm tra hết.
   - Đã chơi thử bằng trình duyệt cả chuỗi (đánh nhau thật chưa đánh tay — dùng hạ nhanh để kiểm tra chuyển cảnh). Cần chủ game chơi thật: độ khó 2 màn lẻn,
     vị trí người gác, lời thoại nháp.
+- **Đợt 6 — sửa theo góp ý chơi thử (27/10, CHƯA commit)**. Chủ game chốt 27/10: điểm 1–4 theo đề xuất · màn lẻn: mọi khúc đường đều có lính quét tới,
+  phải canh giờ + núp, không chạy 1 mạch được, Claude tự mô phỏng + chơi lại · xe: cách A (chương 6 chạy xe anh Đạt), giao đồ ăn thì gửi xe ở bãi gần nhất
+  rồi đi bộ vào, chạy xuống tàu xong màn đen tới lúc ngồi lên xe (vốn đã vậy).
+  - Núp: bỏ thùng rác Kho 7 → núp sau XE HÀNG RONG bên kia đường (mọi xe hàng rong núp được lúc bước cốt truyện đang chờ núp / bám theo lén:
+    city.vendorCarts từ streetDecor) · đạo cụ mới "📍 Điểm đánh dấu vô hình" (kind mark) đặt ngay chiếc xe (121,5; 200,9) để hiện "!" + chỉ đường ·
+    điều kiện núp có "quay mặt về" (until.watch): ngồi phía bên kia chỗ núp, camera tự nhìn về người đó (WATCH_CAM thấp, ngang) → thấy cảnh + thoại.
+    Ngồi núp bị người đi đường va lệch không còn tự đứng dậy (chỉ đứng khi dời > 1,5 m / bấm đi).
+  - Thoại công an không hiện: LỖI THẬT ở speakerOf('prop:…') lấy nhầm cops[0] (object) thay vì cops[0].mesh → đã sửa. Xe công an dừng (136; 207,5) cho khỏi che.
+  - Màn lẻn: không hiện tên / máu trên đầu lính (kể cả lúc vừa bị thấy) · đang ở bản đồ riêng (tàu, đường đua) không bị phạt / cẩu xe + noFines từ hideKho tới hết c6.
+  - Màn lẻn làm lại: VÙNG SÁNG (quạt tầm nhìn từng lính, cắt theo vật cản, cộng sáng) + đèn pin · lính khác tầng không thấy nhau (PLAYER.level 2,2 m: dưới bến
+    ↔ boong; nửa dưới cầu thang khuất) · điểm tuần [x, z, dừng, hướng nhìn] + quét đèn (sweep / sweepT) + nhìn xa (sight) + lệch nhịp (phase) · chốt làm lại
+    (stealth.checkpoints — phải là chỗ an toàn lúc làm lại) · chỗ núp mới trên bến (shipMap COVER: container nằm ngang, chồng thùng gỗ, pallet phuy).
+    c6Sneak1: 5 lính (3 dưới bến, 2 trên boong), chốt giữa cầu thang · c6Sneak2: 3 lính (trước cửa lầu, mạn trái, khe ngang), chốt trong khe ngang.
+  - Kiểm bằng bộ mô phỏng (sketches/stealthPlan.js: tính trước đường tuần, tìm cách đi canh giờ, bản đồ an toàn, thử "đợi rồi chạy 1 mạch") + bot chơi thật
+    (đi bằng phím, va chạm thật): màn 1 qua 30 giây, màn 2 qua 39,7 giây; chạy 1 mạch từ đầu luôn bị bắt. Còn: vài khe hẹp (~3 giây) nếu đứng đợi đúng lúc ở
+    chỗ bắt đầu rồi chạy 1 mạch theo 2 đường vòng (vẫn là canh giờ) — nhịp tuần lặp lại nên không bịt tuyệt đối được.
+  - Xe anh Đạt: xe cốt truyện xeDat trong gear.json (story: true — không bán, không có ở cửa hàng; ô "Xe cốt truyện" ở thẻ Xe) · việc mới "🏍️ Mượn xe"
+    (borrow: lấy ngay đạo cụ xe dựng sẵn, xe mình vào hầm nhà trọ / off: trả) · bước mới takeBikeGo (bấm E ở tiệm trà) → takeBike · điều kiện mới
+    "parked" (gửi xe ở bãi …) → bước parkLot (Bãi Giữ Xe Khách canhquan2_2, đi bộ ~250 m; bãi gần hơn ở bên kia sông phải vòng cầu ~700 m) → deliver ·
+    atHospital trả xe (xe mình trong hầm nhà trọ, xe anh Đạt dựng trước bệnh viện). Đang mượn xe: không đổi xe trong hầm.
+  - Bộ thử 327 đạt (thêm: tầng / quét / dừng / lệch nhịp, mượn – trả xe, bộ kiểm tra mượn xe + gửi xe + ô màn lẻn sai).
 
 ### 🔧 Chương 4–5 sửa đợt 2 (24/10 tối — XONG, CHƯA commit)
 - 🛵 Chạy đơn trong lúc chờ giờ: ô mới "Cho chạy đơn trong lúc chờ" (step.orders) — bật cho c4 sleep2 / wait8 / mingle / waitOpen, c5 waitMeet / addr / goMeet / waitNight.

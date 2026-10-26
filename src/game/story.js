@@ -27,6 +27,7 @@ import * as act from '../interactions.js';
 import { sound, soundPick, loopSound } from '../audio.js';
 import { fmt, has, pick } from '../content/index.js';
 import { headOf } from '../ui/bubbles.js';
+import { parkingLotAt } from '../sim/parking.js';
 import { SW_H, NORMAL, dist2 } from './shared.js';
 
 export class StoryPart {
@@ -79,7 +80,8 @@ export class StoryPart {
       actorNear: (who, r) => { const a = this.storyActors?.[who]; return !a || a.leaving || dist2(this.playerPos, a.mesh.position) < r; }, // người lạ không còn (mở lại game giữa cảnh) → coi như xong
       actorBoarded: (who) => !!this.storyActors?.[who]?.seated, // người lạ đang ngồi sau xe người chơi
       chased: (who) => !!this.storyActors?.[who]?.chase?.done, // tên cướp đã chạy hết lộ trình (người chơi bám theo)
-      hiddenAt: (id) => { const b = this.mode === 'foot' && this.walker.crouch && this.storyHideSpot(this.playerPos, 1.4); return !!b && (!id || b.id === id); }, // đang núp sau thùng rác (id: đúng thùng này)
+      parkedAt: (place) => this.mode === 'foot' && !!this.gs.parked && this.gs.parked.kind === 'lot' && (!place || parkingLotAt(this.layout.places, this.bike.pos.x, this.bike.pos.z)?.id === place), // đã gửi xe ở bãi (đang đi bộ)
+      hiddenAt: (id) => this.storyHiddenAt(id), // đang núp sau thùng rác / xe hàng rong (id: đúng thùng / điểm đánh dấu này)
       reachAt: (at, r) => Array.isArray(at) && Math.hypot(this.playerPos.x - at[0], this.playerPos.z - at[1]) < r, // tới chỗ [x, z] (vd giữa cầu)
       // đi xa người lạ who (hoặc chỗ at) hơn r — người lạ không còn thì coi như xong
       awayFrom: (u, r) => { const p = u.who ? this.storyActors?.[u.who]?.mesh.position : Array.isArray(u.at) ? { x: u.at[0], z: u.at[1] } : null; return !p || Math.hypot(this.playerPos.x - p.x, this.playerPos.z - p.z) > r; },
@@ -170,6 +172,7 @@ export class StoryPart {
       } else if (a.do === 'msg') this.storyMessage(a.from, { key: a.text, loc: a.loc, ...(a.as ? { as: a.as } : {}), ...(a.sys ? { sys: true } : {}) }); // nhóm chat: as = tên người gửi · sys = dòng hệ thống (vd "… đã thêm bạn vào nhóm")
       else if (a.do === 'replies') gs.setReplies(a.who, a.texts || [], a.gains);
       else if (a.do === 'item') { if (!gs.story.items.includes(a.id)) gs.story.items.push(a.id); }
+      else if (a.do === 'borrow') this.storyBorrow(a);
       else if (a.do === 'bike') {
         gs.flags.story = Math.max(1, gs.flags.story ?? 0);
         this.placeAtHomeBike();
@@ -370,7 +373,7 @@ export class StoryPart {
       return m ? { mesh: m, name: this.layout.placeById[id]?.npc?.name || '', up: 1.95 } : null;
     }
     if (String(who).startsWith('prop:')) {
-      const p = this.storyProps?.[who.slice(5)], m = p?.cops?.[0];
+      const p = this.storyProps?.[who.slice(5)], m = p?.cops?.[0]?.mesh; // anh công an bước xuống xe (cops: [{ mesh, … }])
       return m ? { mesh: m, name: fmt(p.def.name || 'story.people.cop'), up: 1.95 } : null;
     }
     const ac = this.storyActors?.[who];
@@ -1120,6 +1123,32 @@ export class StoryPart {
   storyActorBoard(who) {
     const ac = this.storyActors?.[who];
     if (ac && !ac.seated) ac.mode = 'board';
+  }
+  // Mượn xe cốt truyện (story.json → borrow): xe dựng sẵn (đạo cụ from) thành xe mình đang chạy, đúng chỗ đó; xe của mình để trong hầm nhà trọ.
+  // off: trả xe mượn → xe của mình ở trong hầm nhà trọ (người chơi đi bộ / xe buýt về lấy)
+  storyBorrow(a) {
+    const gs = this.gs, b = this.bike;
+    if (this.mode === 'bike') act.dismount(this);
+    if (a.off) {
+      if (!gs.returnVehicle()) return;
+      b.setSpec(gs.vehicleSpec);
+      this.placeAtHomeBike();
+      this.hud.toast(fmt('toast.borrowBack', { name: gs.vehicleSpec.name }), 'info', 6000);
+      return;
+    }
+    const pr = a.from && this.storyProps?.[a.from], at = pr?.mesh.position || b.pos, h = pr ? pr.mesh.rotation.y : b.heading;
+    if (!gs.borrowVehicle(a.vehicle, a.fuel ?? 60)) return;
+    b.setSpec(gs.vehicleSpec);
+    b.pos.set(at.x, 0, at.z);
+    b.heading = h;
+    b.speed = 0;
+    b.vel?.set(0, 0);
+    b.mesh.position.set(at.x, 0, at.z);
+    b.mesh.rotation.set(0, h, 0);
+    if (pr) this.storyPropRemove(a.from);
+    this.startParking(true);
+    sound('place.gotBike');
+    this.hud.toast(fmt('toast.borrowGot', { name: gs.vehicleSpec.name }), 'big', 6000);
   }
   storyActorSeat(ac) {
     const m = makePerson(this.storyHelmetLook(ac, { hat: 'helmet', hatColor: 0xff8fb1 })); // mũ bảo hiểm của mình

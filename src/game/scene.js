@@ -7,7 +7,7 @@
 import * as THREE from 'three';
 import { makeDog, makePerson, makeCar, makeNpcMoto, bikeSeatZ, animatePerson } from '../world/models.js';
 import { makeRng } from '../sim/rng.js';
-import { storyEvent } from '../sim/story.js';
+import { storyEvent, stepOf } from '../sim/story.js';
 import { makeHelmetMesh, HEAD_CENTER_Y } from '../world/person.js';
 import { makeLongTruck, makeRamp, makeEasel, makeBin, makeCan, makeWater, makeParkedBigBike } from '../world/storyProps.js';
 import { makeCsgtCar, seatRider } from '../world/npcVehicles.js';
@@ -49,7 +49,8 @@ export class ScenePart {
       : a.kind === 'bin' ? makeBin() // thùng rác (chỗ núp)
       : a.kind === 'can' ? makeCan()
       : a.kind === 'water' ? makeWater({ w: a.w ?? 9, l: a.len ?? 30, depth: a.depth ?? 0.45 }) // nước ngập chỉ vẽ trên máy mình (không ngập thật cả thành phố)
-      : a.kind === 'bigbike' ? makeParkedBigBike() : null;
+      : a.kind === 'bigbike' ? makeParkedBigBike()
+      : a.kind === 'mark' ? new THREE.Group() : null; // điểm đánh dấu vô hình: chỗ gắn dấu "!" / chỉ đường
     if (!mesh) return;
     const route = (a.route || []).filter((r) => Array.isArray(r?.at)).map((r) => ({ x: r.at[0], z: r.at[1], wait: r.wait || 0, speed: r.speed }));
     const start = route[0] || (Array.isArray(a.at) ? { x: a.at[0], z: a.at[1] } : null);
@@ -890,7 +891,8 @@ export class ScenePart {
       animatePerson(ac.mesh, ac.phase, v ? 0.55 : 0);
     }
   }
-  // Thùng rác cốt truyện (đạo cụ "bin", không tắt "Núp được") gần điểm p nhất trong bán kính r → { x, z, d }
+  // Chỗ núp gần điểm p nhất trong bán kính r → { x, z, d, id, cart }: thùng rác cốt truyện (đạo cụ "bin", không tắt "Núp được")
+  // + xe hàng rong trên vỉa hè (city.vendorCarts — chỉ lúc bước cốt truyện đang chờ núp / đang bám theo lén; xe to nên tính rộng hơn 0,5 m)
   storyHideSpot(p, r = 1.3) {
     let best = null;
     for (const pr of Object.values(this.storyProps || {})) {
@@ -898,13 +900,31 @@ export class ScenePart {
       const m = pr.mesh.position, d = Math.hypot(p.x - m.x, p.z - m.z);
       if (d <= r && (!best || d < best.d)) best = { x: m.x, z: m.z, d, id: pr.def.id };
     }
+    const st = this.gs.story?.ch && stepOf(this.gs.story);
+    if (st?.until?.type === 'hidden' || this.sneak) for (const c of this.city.vendorCarts || []) {
+      const d = Math.hypot(p.x - c.x, p.z - c.z) - 0.5;
+      if (d <= r && (!best || d < best.d)) best = { x: c.x, z: c.z, d, id: null, cart: true };
+    }
     return best;
   }
-  // Bấm E cạnh thùng rác: ngồi thụp xuống sát thùng (phía người chơi đang đứng), quay mặt vào thùng
+  // Đang núp đúng chỗ đạo cụ id (thùng rác đó / điểm đánh dấu 📍 ngay chiếc xe hàng rong đó)
+  storyHiddenAt(id) {
+    const b = this.mode === 'foot' && this.walker.crouch && this.storyHideSpot(this.playerPos, 1.4);
+    if (!b || !id || b.id === id) return !!b;
+    const m = this.storyProps?.[id]?.mesh.position;
+    return !!m && Math.hypot(m.x - b.x, m.z - b.z) < 2.5;
+  }
+  // Bấm E cạnh thùng rác / xe hàng rong: ngồi thụp xuống sát chỗ núp, quay mặt vào chỗ núp.
+  // Bước đang chờ núp có "watch" (người lạ cần theo dõi) → ngồi phía bên kia chỗ núp, ló mắt nhìn về phía đó (camera thấy cảnh, thấy thoại)
   storyHide(b) {
-    const p = this.walker.pos, dx = p.x - b.x, dz = p.z - b.z, l = Math.hypot(dx, dz) || 1;
-    const x = b.x + (dx / l) * 0.85, z = b.z + (dz / l) * 0.85;
-    this.walker.crouchAt({ x, z, ry: Math.atan2(b.x - x, b.z - z) });
+    const st = stepOf(this.gs.story), wk = st?.until?.watch || st?.watch;
+    const T = wk && (this.storyActors?.[wk]?.mesh.position || (String(wk).startsWith('prop:') && this.storyProps?.[wk.slice(5)]?.mesh.position));
+    const p = this.walker.pos, off = b.cart ? 1.15 : 0.85;
+    let dx = p.x - b.x, dz = p.z - b.z;
+    if (T) { dx = b.x - T.x; dz = b.z - T.z; } // phía bên kia chỗ núp so với chỗ cần nhìn
+    const l = Math.hypot(dx, dz) || 1, x = b.x + (dx / l) * off, z = b.z + (dz / l) * off;
+    this.walker.crouchAt({ x, z, ry: T ? Math.atan2(T.x - x, T.z - z) : Math.atan2(b.x - x, b.z - z) });
+    this.hideWatch = T ? wk : null; // camera nhìn theo người này tới lúc đứng dậy (game/visuals.js)
   }
   // Bị phát hiện / mất dấu: (câu "Ai đó?!") → màn đen ngắn → làm lại từ đầu lộ trình
   sneakFail(text, who = null) {

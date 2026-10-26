@@ -5686,13 +5686,68 @@ console.log('Đánh nhau góc nhìn thứ 1 (sim/fight.js — chương 6)');
     const n = FT.navNext(nav, { x: 0, z: 0 }, to, blockedX0); // đi vòng: tới điểm xa nhất trên đường mà nhìn thẳng thấy
     assert.ok(n !== to && nav.nodes.some(([x, z]) => x === n.x && z === n.z), JSON.stringify(n));
   });
+  test('Màn lẻn: lính khác tầng không thấy (dưới bến ↔ trên boong) · dừng ở điểm tuần đúng số giây, quay đúng hướng, quét đèn qua lại', () => {
+    const g = FT.makeFoe({ who: 'g', foe: 'thug', patrol: [[0, 0, 4, 90], [0, 10]], sweep: 30, sweepT: 4 }, { x: 0, z: 0, heading: 0 });
+    g.y = 6.2;
+    const low = { x: 0, z: 4, y: 0, loud: true }, same = { ...low, y: 6.2, loud: false };
+    assert.ok(!FT.sees(g, low), 'người dưới bến (thấp hơn 6 m): không thấy, kể cả đang chạy sát');
+    assert.ok(FT.sees(g, same), 'cùng tầng, trước mặt: thấy');
+    const far = { x: 1e6, z: 1e6 }, hs = [];
+    for (let t = 0; t < 3.9; t += 0.1) { FT.foeTick(g, { player: far, dt: 0.1 }); hs.push(g.heading); }
+    assert.equal(g.state, 'look', 'đang dừng ở điểm tuần (4 giây)');
+    const deg = hs.slice(10).map((h) => (h * 180) / Math.PI);
+    assert.ok(Math.max(...deg) - Math.min(...deg) > 30, 'quét đèn qua lại: hướng nhìn đổi ' + Math.round(Math.max(...deg) - Math.min(...deg)) + '°');
+    assert.ok(deg.every((d) => Math.abs(d - 90) <= 31), 'quét quanh hướng đã định (90°)');
+    for (let t = 0; t < 0.4; t += 0.1) FT.foeTick(g, { player: far, dt: 0.1 });
+    assert.equal(g.state, 'patrol', 'hết 4 giây → đi tiếp');
+  });
+  test('Màn lẻn: lệch nhịp (phase) = đi trước … giây; tầm nhìn đọc từ dữ liệu (sight)', () => {
+    const d = { who: 'g', foe: 'thug', patrol: [[0, 0, 0], [0, 20, 0]], sight: 6 };
+    const a = FT.makeFoe(d, { x: 0, z: 0, heading: 0 }), b = FT.makeFoe(d, { x: 0, z: 0, heading: 0 });
+    FT.prewarm(a, 5);
+    for (let t = 0; t < 5; t += 0.1) FT.foeTick(b, { player: { x: 1e6, z: 1e6 }, dt: 0.1 });
+    assert.ok(Math.abs(a.z - b.z) < 0.01 && a.z > 4, `lệch nhịp 5 giây = đi trước 5 giây (z ${a.z.toFixed(2)})`);
+    assert.equal(FT.sightOf(a).r, 6);
+    assert.ok(!FT.sees(a, { x: a.x, z: a.z + 8 }) && FT.sees(a, { x: a.x, z: a.z + 5 }), 'nhìn xa 6 m');
+  });
   test('Dữ liệu đánh nhau hiện tại hợp lệ; trận sai → bộ kiểm tra báo', () => {
     const errs = validateStory(STORYJ, {}).filter((i) => i.level === 'error' && /^(weapon|foe|fight):/.test(i.ref));
     assert.equal(errs.length, 0, errs.map((e) => e.msg).join(' | '));
     const bad = JSON.parse(JSON.stringify(STORYJ));
-    bad.fights.x = { zone: 'tauNgam', name: 'story.fight.test', start: [0], foes: [{ who: 'g1', foe: 'rong', at: [0, 0] }, { who: 'g1', foe: 'thug', at: [0, 0] }], loot: [{ id: 'bomb', at: [0, 0] }] };
+    bad.fights.x = { zone: 'tauNgam', name: 'story.fight.test', start: [0], stealth: { goal: [0, 0], checkpoints: [[1]] }, foes: [{ who: 'g1', foe: 'rong', at: [0, 0] }, { who: 'g1', foe: 'thug', at: [0, 0], sweep: 200, sweepT: 1, sight: 99, phase: -3, patrol: [[0, 0, 99], [1, 1]] }], loot: [{ id: 'bomb', at: [0, 0] }] };
     const e = validateStory(bad, {}).filter((i) => i.ref === 'fight:x' && i.level === 'error').map((i) => i.msg).join(' | ');
-    for (const w of ['bản đồ lạ', 'chỗ người chơi bắt đầu', 'kiểu địch lạ', 'bị trùng', 'đồ dưới đất lạ']) assert.ok(e.includes(w), `thiếu lỗi: ${w}`);
+    for (const w of ['bản đồ lạ', 'chỗ người chơi bắt đầu', 'kiểu địch lạ', 'bị trùng', 'đồ dưới đất lạ', 'quét đèn 0–90', 'chu kỳ quét', 'nhìn xa 3–25', 'lệch nhịp', 'đường đi tuần', 'chốt làm lại']) assert.ok(e.includes(w), `thiếu lỗi: ${w}`);
+  });
+}
+
+console.log('Mượn xe anh Đạt (chương 6) · gửi xe ở bãi');
+{
+  const { validateStory } = await import('../src/data/validate.js');
+  const STORYJ = readJson('src/data/story.json'), GEAR = readJson('src/data/gear.json');
+  test('Mượn xe cốt truyện: chạy xe mượn (có xăng sẵn), xe mình vào hầm; trả lại thì về xe mình, xe mượn biến mất; xe cốt truyện không bán được', () => {
+    const gs = new GameState({ carry: { money: 100 } });
+    gs.story = { ch: 'c6', ev: {} };
+    const own = gs.vehicle;
+    assert.ok(gs.borrowVehicle('xeDat', 50));
+    assert.equal(gs.vehicle, 'xeDat');
+    assert.ok(gs.fuel > 0, 'có xăng sẵn');
+    assert.ok(gs.parkedVehicles.includes(own), 'xe mình trong hầm');
+    assert.ok(!gs.canSell('xeDat'), 'xe cốt truyện không bán được');
+    assert.ok(!gs.borrowVehicle('xeDat'), 'đang mượn thì không mượn chồng');
+    assert.ok(gs.returnVehicle());
+    assert.equal(gs.vehicle, own);
+    assert.ok(!gs.owned.vehicles.includes('xeDat') && !gs.vstate.xeDat, 'trả rồi: không còn xe mượn');
+    assert.ok(!gs.returnVehicle(), 'không mượn gì thì không trả');
+  });
+  test('Bộ kiểm tra: mượn xe lạ / đạo cụ lạ, gửi xe ở chỗ không phải bãi giữ xe → báo lỗi; dữ liệu hiện tại không lỗi', () => {
+    const PLACES = readJson('src/data/places.json');
+    const ok = validateStory(STORYJ, { gear: GEAR, places: PLACES }).filter((i) => i.level === 'error' && /borrow|Mượn xe|Gửi xe/.test(i.msg));
+    assert.equal(ok.length, 0, ok.map((x) => x.msg).join(' | '));
+    const bad = JSON.parse(JSON.stringify(STORYJ)), st = bad.chapters.find((c) => c.id === 'c6').steps.find((x) => x.id === 'takeBike');
+    st.on = [{ do: 'borrow', vehicle: 'xeBay', from: 'khongCo' }];
+    bad.chapters.find((c) => c.id === 'c6').steps.find((x) => x.id === 'parkLot').until = { type: 'parked', place: 'kho7' };
+    const e = validateStory(bad, { gear: GEAR, places: PLACES }).filter((i) => i.level === 'error').map((i) => i.msg).join(' | ');
+    for (const w of ['xe "xeBay" không có', 'đạo cụ "khongCo"', 'không phải bãi giữ xe']) assert.ok(e.includes(w), `thiếu lỗi: ${w}`);
   });
 }
 

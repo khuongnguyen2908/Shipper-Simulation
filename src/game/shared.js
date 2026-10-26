@@ -13,6 +13,7 @@ export const SW_H = 0.15;
 export const NO_MOVE = { forward: false, back: false, left: false, right: false, run: false, brake: false }; // đứng yên (đang nói chuyện)
 export const TALK_CAM_GROUP = { dist: 7.5, pitch: 0.36 }; // nói chuyện với 2 người cùng lúc
 export const TALK_CAM = { dist: 5.5, pitch: 0.3 }; // camera lúc nói chuyện với người lạ (cốt truyện)
+export const WATCH_CAM = { dist: 6, pitch: 0.14 }; // ngồi núp theo dõi: camera thấp, nhìn ngang qua chỗ núp ra xa
 export const fmtTime = (m) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}`;
 export const NORMAL = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] };
 export const dist2 = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);

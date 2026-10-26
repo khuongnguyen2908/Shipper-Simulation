@@ -60,7 +60,9 @@ function chochinPost(k, x, z, red, addBox) {
 }
 
 // blockStyle(bx, bz) → kiểu nhà chủ đạo của khối (chochin chỉ dựng ở khối phố Nhật)
+// Trả về danh sách xe hàng rong [{ x, z, along }] — cốt truyện cho núp sau xe (game/scene.js storyHideSpot)
 export function buildStreetDecor(scene, { map, rng, addBox, blockStyle, isPlaceDoor, swH = 0 }) {
+  const carts = [];
   const k = makeKit();
   const { waterSegs } = riverInfo(map);
   const inMap = (bx, bz) => bx >= 0 && bz >= 0 && bx < CITY.N && bz < CITY.N;
@@ -115,6 +117,7 @@ export function buildStreetDecor(scene, { map, rng, addBox, blockStyle, isPlaceD
             vendorCart(k, x, z, along, UMBRELLA[Math.floor(rng.next() * UMBRELLA.length)]);
             const [hx, hz] = along === 'x' ? [0.8, 0.45] : [0.45, 0.8];
             addBox(x - hx, z - hz, x + hx, z + hz, 1.2, 'decor');
+            carts.push({ x, z, along });
             count++;
           }
         }
@@ -122,5 +125,5 @@ export function buildStreetDecor(scene, { map, rng, addBox, blockStyle, isPlaceD
     }
   }
   if (count) mergeKits([{ kit: k, matrix: new THREE.Matrix4().makeTranslation(0, swH, 0) }], scene);
-  return count;
+  return carts;
 }

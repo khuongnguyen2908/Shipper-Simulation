@@ -9,7 +9,10 @@ import storyData from '../data/story.json' with { type: 'json' };
 // Số mặc định (dữ liệu thiếu ô nào thì lấy ô đó ở đây)
 export const WEAPON_DEFAULT = { dmg: 4, cd: 0.9, reach: 1.4, dur: 0, stun: 0, block: 3 };
 export const FOE_DEFAULT = { hp: 30, dmg: 8, windup: 0.6, cd: 1.4, speed: 3.6, reach: 1.6 };
-export const PLAYER = { hp: 100, blockCut: 0.8, pipRegen: 3, dodgeCd: 0.8, dodgeTime: 0.28, dodgeDist: 3, backMul: 2, sight: 11, fov: 1.2, hear: 1.0, hearRun: 4 }; // hear: đi bộ sát sau lưng mới bị nghe (đập lén được) · chạy thì nghe xa
+export const PLAYER = { hp: 100, blockCut: 0.8, pipRegen: 3, dodgeCd: 0.8, dodgeTime: 0.28, dodgeDist: 3, backMul: 2, sight: 11, fov: 1.2, hear: 1.0, hearRun: 4, level: 2.2 }; // hear: đi bộ sát sau lưng mới bị nghe (đập lén được) · chạy thì nghe xa
+// level: chênh cao quá … m thì không thấy (lính dưới bến không thấy lên boong; lính trên boong không thấy nửa dưới cầu thang mạn)
+// Tầm nhìn của 1 tên (màn lẻn: vùng sáng vẽ ra đúng bằng này): xa sight m (dữ liệu ghi đè được), nửa góc nhìn (radian)
+export const sightOf = (foe) => ({ r: foe.sight ?? PLAYER.sight, half: PLAYER.fov / 2 + 0.35 });
 export const ALLY = { hp: 120, dmg: 16, cd: 2.1, speed: 4.4, reach: 1.7, takeMul: 0.6, bossMul: 0.3 };
 
 export const weaponOf = (id, data = storyData) => ({ ...WEAPON_DEFAULT, ...(data.weapons?.fists || {}), ...(data.weapons?.[id] || {}), id: data.weapons?.[id] ? id : 'fists' });
@@ -27,7 +30,15 @@ export const behind = (foe, p) => angDiff(foe.heading, headingTo(foe, p)) > 1.9;
 // cd lệch nhau theo thứ tự (khỏi cả đám cùng vung một lúc)
 export function makeFoe(def, pos, data = storyData, idx = 0) {
   const f = foeOf(def.foe || 'thug', data);
-  return { who: def.who, kind: f.kind, f, x: pos.x, z: pos.z, heading: pos.heading ?? 0, hp: f.hp, max: f.hp, state: def.join != null ? 'wait' : def.patrol?.length ? 'patrol' : 'idle', t: 0, cd: 0.5 + (idx % 3) * 0.35, alert: !def.patrol?.length && !def.sneak, join: def.join ?? null, patrol: def.patrol || null, pi: 0, target: null, engagedBy: null, combo: 0, chargeCd: 2, rage: false, throwT: 0, stun: 0, trap: 0 };
+  // patrol: [[x, z, dừng (giây), hướng nhìn lúc dừng (độ)], …] · sweep: quét đèn qua lại ±… độ (chu kỳ sweepT giây) lúc đứng gác / dừng ở điểm tuần
+  return { who: def.who, kind: f.kind, f, x: pos.x, z: pos.z, heading: pos.heading ?? 0, hp: f.hp, max: f.hp, state: def.join != null ? 'wait' : def.patrol?.length ? 'patrol' : 'idle', t: 0, cd: 0.5 + (idx % 3) * 0.35, alert: !def.patrol?.length && !def.sneak, join: def.join ?? null, patrol: def.patrol || null, pi: 0, target: null, engagedBy: null, combo: 0, chargeCd: 2, rage: false, throwT: 0, stun: 0, trap: 0,
+    sweep: def.sweep ? (def.sweep * Math.PI) / 180 : 0, sweepT: def.sweepT || 6, base: pos.heading ?? 0, st: (idx * 1.7) % 6, sight: def.sight ?? null };
+}
+
+// Lệch nhịp (dữ liệu "phase" giây): người đi tuần coi như đã đi trước … giây lúc trận bắt đầu (màn lẻn: các nhịp tuần chồng lên nhau, không có khe đi thẳng)
+export function prewarm(foe, sec) {
+  const far = { x: 1e9, z: 1e9 };
+  for (let t = 0; t < sec; t += 0.1) foeTick(foe, { player: far, dt: 0.1 });
 }
 
 // Vung trúng ai: địch còn đứng trong tầm + trong góc trước mặt người đánh (gần tâm nhất trước)
@@ -71,11 +82,12 @@ export function hitFoe(foe, wpn, att, by = 'player') {
 // Đập lén: địch chưa phát hiện, mình ở sau lưng, sát bên → gục ngay (boss không đập lén được)
 export const canTakedown = (foe, p) => foe.state !== 'ko' && foe.state !== 'wait' && !foe.alert && !foe.f.boss && dist(foe, p) < 1.8 && behind(foe, p);
 
-// Địch có thấy người chơi không (trong tầm nhìn + góc nhìn, hoặc sát bên)
+// Địch có thấy người chơi không (trong tầm nhìn + góc nhìn, hoặc sát bên) — khác tầng (chênh cao > PLAYER.level) thì không
 export function sees(foe, p) {
-  const d = dist(foe, p);
+  if (foe.y != null && p.y != null && Math.abs(foe.y - p.y) > PLAYER.level) return false;
+  const d = dist(foe, p), S = sightOf(foe);
   if (d < (p.loud ? PLAYER.hearRun : PLAYER.hear)) return true;
-  return d < PLAYER.sight && angDiff(foe.heading, headingTo(foe, p)) < PLAYER.fov / 2 + 0.35;
+  return d < S.r && angDiff(foe.heading, headingTo(foe, p)) < S.half;
 }
 
 // Đòn của địch trúng người (người chơi / anh Đạt): đỡ (chuột phải) giảm phần lớn, mất 1 nấc đỡ; đang né → trượt
@@ -107,14 +119,19 @@ export function foeTick(foe, ctx) {
   // chưa phát hiện: đi tuần / đứng gác, nhìn thấy người chơi thì la lên
   if (!foe.alert) {
     // ctx.los(foe, P): game kiểm tra có vật che giữa 2 người không (container, vách) — sát bên (nghe thấy) thì không cần
-    const heard = dist(foe, P) < (P.loud ? PLAYER.hearRun : PLAYER.hear);
+    const heard = dist(foe, P) < (P.loud ? PLAYER.hearRun : PLAYER.hear) && (foe.y == null || P.y == null || Math.abs(foe.y - P.y) <= PLAYER.level);
     if (sees(foe, P) && (heard || !ctx.los || ctx.los(foe, P))) { foe.alert = true; ev.push({ type: 'alert', foe }); }
     else if (foe.patrol?.length) {
       const g = foe.patrol[foe.pi % foe.patrol.length], d = Math.hypot(g[0] - foe.x, g[1] - foe.z);
-      if (d < 0.4) { foe.pi += 1; foe.t = 0; foe.state = 'look'; }
-      else if (foe.state !== 'look' || foe.t > 2.2) { foe.state = 'patrol'; step(foe, g[0], g[1], 1.3, dt); }
+      if (foe.state === 'look') { // đứng ở điểm tuần: (quay nhìn hướng đã định) + quét đèn, hết giờ dừng thì đi tiếp
+        const at = foe.patrol[(foe.pi - 1 + foe.patrol.length) % foe.patrol.length];
+        if (at?.[3] != null) foe.base = (at[3] * Math.PI) / 180;
+        sweepTick(foe, dt, foe.t < 0.6 ? 3 : 0);
+        if (foe.t > (at?.[2] ?? 2.2)) foe.state = 'patrol';
+      } else if (d < 0.4) { foe.pi += 1; foe.t = 0; foe.state = 'look'; foe.base = foe.heading; foe.st = 0; }
+      else { foe.state = 'patrol'; step(foe, g[0], g[1], foe.f.walk ?? 1.3, dt); }
       return ev;
-    } else return ev;
+    } else { if (foe.sweep) sweepTick(foe, dt, 0); return ev; } // đứng gác: quét đèn qua lại
   }
   // chọn người để đánh: thường là người chơi, anh Đạt đang đánh mình thì quay sang anh Đạt
   const tgt = A && A.hp > 0 && foe.engagedBy === 'ally' && !foe.f.boss && dist(foe, A) < dist(foe, P) + 1.5 ? A : P;
@@ -243,6 +260,12 @@ export function navNext(nav, from, to, clear) {
 }
 
 function setState(o, s) { o.state = s; o.t = 0; }
+// Quét đèn: hướng nhìn lắc qua lại quanh hướng gốc (base) ±sweep, chu kỳ sweepT giây · turnFirst: đang quay về hướng gốc (vừa tới điểm tuần)
+function sweepTick(o, dt, turnFirst = 0) {
+  o.st = (o.st || 0) + dt;
+  const want = o.base + (o.sweep ? Math.sin((o.st / o.sweepT) * Math.PI * 2) * o.sweep : 0);
+  turn(o, want, dt, turnFirst || 4);
+}
 function turn(o, want, dt, rate) { o.heading += Math.atan2(Math.sin(want - o.heading), Math.cos(want - o.heading)) * Math.min(1, dt * rate); }
 // đi tới (x, z) với tốc độ sp, dừng khi còn cách `stopAt`
 function step(o, x, z, sp, dt, left = Infinity) {

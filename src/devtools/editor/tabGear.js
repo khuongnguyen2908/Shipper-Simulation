@@ -114,6 +114,7 @@ export function render(root, ctx) {
         ? field('Biểu tượng (emoji)', emojiInput(s.icon, (v) => { s.icon = v; changed(); }), opt('icon'))
         : field('Màu', colorInput(s.color, (v) => { s.color = v; changed(); drawBike(); }), opt('color', { hint: cat === 'vehicles' ? 'Màu thân xe' : 'Màu túi trên baga' })),
       cat === 'vehicles' ? field('Kiểu dáng', selectInput(s.model || 'underbone', Object.entries(VEHICLE_MODELS), (v) => { s.model = v; changed(); drawBike(); }), opt('model', { hint: 'Chỉ đổi hình dáng; tốc độ, xăng… chỉnh ở các ô bên dưới.' })) : null,
+      cat === 'vehicles' ? field('', checkInput(!!s.story, (v) => { if (v) s.story = true; else delete s.story; changed(); }, 'Xe cốt truyện (chỉ mượn trong truyện)'), opt('story', { hint: 'Không bán được, không có ở cửa hàng. Cốt truyện cho mượn bằng việc "🏍️ Mượn xe".' })) : null,
       cat === 'vehicles' ? field('Loại xe', selectInput(s.power || 'gas', Object.entries(POWER_LABELS), (v) => { s.power = v; changed(); ctx.rerender(); }), opt('power', { hint: 'Xe xăng: đổ xăng ở cây xăng, thay nhớt ở tiệm sửa xe, chạy cho hãng xe xăng (GoShip). Xe điện: sạc ở trụ sạc, đổi pin ở trạm đổi pin, chạy cho hãng xe điện (HồngSM). Xe đạp: không xăng, không nhận đơn.' })) : null,
       cat === 'goods' ? field('Giá (k)', numInput(s.price, (v) => { s.price = v; changed(); }, { step: 5, min: 0 }), opt('price', { hint: HINT.goods.price })) : null,
       ...(FIELDS[cat] || []).map(([k, label, o]) => field(label, numInput(s[k], (v) => { s[k] = v; changed(); }, o), opt(k, { hint: HINT[cat][k] }))),

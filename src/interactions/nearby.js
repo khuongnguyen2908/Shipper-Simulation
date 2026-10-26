@@ -40,7 +40,7 @@ export function gatherInteractions(g) {
   // hầm xe nhà trọ: tới gần xe để dành, bấm E lấy ra chạy (xe đang dùng phải dựng trong hầm, không có đơn).
   // Xe đang dùng bị giữ ở ĐỒN (thiếu tiền chuộc) → vẫn lấy được xe khác, xe kia để lại đồn chờ chuộc (gs.impound)
   const stuck = g.gs.towed && towedAtStation(g);
-  if (foot && (g.bikeReady() || stuck) && (!g.gs.towed || stuck) && !om.order) {
+  if (foot && (g.bikeReady() || stuck) && (!g.gs.towed || stuck) && !om.order && !g.gs.story?.borrow) { // đang mượn xe cốt truyện: không đổi xe
     const home = g.layout.placeById.home, slots = parkSlots(home);
     g.gs.parkedVehicles.slice(0, slots.length).forEach((id, i) => {
       const d = dist(p, slots[i]);
@@ -113,7 +113,7 @@ export function gatherInteractions(g) {
   if (foot && g.walker.crouch) E.push({ label: fmt('act.standUp'), dist: -5, run: () => g.walker.leaveCrouch() });
   else if (foot) {
     const b = g.storyHideSpot(p, 1.3);
-    if (b) E.push({ label: fmt('act.hideBin'), dist: b.d - 1, run: () => g.storyHide(b) });
+    if (b) E.push({ label: fmt(b.cart ? 'act.hideCart' : 'act.hideBin'), dist: b.d - 1, run: () => g.storyHide(b) });
   }
   // ghế (quán, công viên, trạm xe buýt…): đứng sát ghế bấm E ngồi · đang ngồi thì E đứng dậy (bấm đi cũng đứng dậy)
   if (foot && g.walker.seat) E.push({ label: fmt('act.standUp'), dist: -5, seatAct: true, run: () => g.walker.leaveSeat() });

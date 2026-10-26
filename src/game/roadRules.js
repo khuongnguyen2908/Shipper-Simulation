@@ -77,10 +77,10 @@ export class RoadRulesPart {
     const alt = MUSIC_FALLBACK[id]; // chưa gắn file → tạm phát nhạc dự phòng (vd nhạc bị rượt → nhạc dí cướp)
     return alt && hasMusic(alt) ? alt : null;
   }
-  // Bước cốt truyện có noFines (vd đang đuổi theo tên cướp) → cũng không phạt
+  // Bước cốt truyện có noFines (vd đang đuổi theo tên cướp) / đang ở bản đồ riêng (trên tàu, đường đua) → cũng không phạt
   noFines() {
     const s = this.gs?.story, st = s?.ch && s.fired ? stepOf(s) : null;
-    if (st?.noFines) return true;
+    if (st?.noFines || this.zone) return true;
     return (ECONOMY.pedalNoFines ?? 1) > 0 && this.gs?.power === 'pedal';
   }
 

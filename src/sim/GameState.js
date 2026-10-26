@@ -328,7 +328,7 @@ export class GameState {
   }
   canSell(id) {
     const v = VEHICLES[id];
-    return !!v && this.owned.vehicles.includes(id) && id !== START_VEHICLE && id !== this.companyVehicle && v.power !== 'pedal' && this.sellPrice(id) > 0 && !this.impounded(id);
+    return !!v && !v.story && this.owned.vehicles.includes(id) && id !== START_VEHICLE && id !== this.companyVehicle && v.power !== 'pedal' && this.sellPrice(id) > 0 && !this.impounded(id);
   }
   // Xe đang để trong hầm nhà trọ = mọi xe đang có trừ xe đang dùng (thứ tự = chỗ dựng trong hầm)
   get parkedVehicles() {
@@ -362,6 +362,27 @@ export class GameState {
     return this.parkedVehicles.length >= PARK_SLOTS;
   }
   // Lấy xe trong hầm ra dùng: xe đang dùng dựng vào đúng chỗ của xe vừa lấy (đổi chỗ trong danh sách)
+  // Mượn xe cốt truyện (vd xe anh Đạt chương 6): thêm vào xe đang có, chạy xe đó; xe của mình để trong hầm nhà trọ tới lúc trả.
+  // Lưu ở story.borrow (theo bản lưu). fuelPct: xăng lúc nhận (xe mượn chưa từng có số liệu riêng)
+  borrowVehicle(id, fuelPct = 60) {
+    if (!VEHICLES[id] || this.story?.borrow || !this.story) return false;
+    this.story.borrow = { id, own: this.vehicle };
+    if (!this.owned.vehicles.includes(id)) this.owned.vehicles.push(id);
+    const v = this.vs(id);
+    if (!v.fuel) v.fuel = ((VEHICLES[id].tank || 0) * fuelPct) / 100;
+    this.vehicle = id;
+    return true;
+  }
+  // Trả xe mượn: bỏ khỏi xe đang có, lấy lại xe của mình (đang nằm trong hầm)
+  returnVehicle() {
+    const b = this.story?.borrow;
+    if (!b) return false;
+    this.owned.vehicles = this.owned.vehicles.filter((v) => v !== b.id);
+    delete this.vstate[b.id];
+    this.vehicle = this.owned.vehicles.includes(b.own) ? b.own : this.owned.vehicles[0] || START_VEHICLE;
+    delete this.story.borrow;
+    return true;
+  }
   swapVehicle(id) {
     const list = this.owned.vehicles, i = list.indexOf(id), j = list.indexOf(this.vehicle);
     if (i < 0 || id === this.vehicle || !VEHICLES[id] || this.impounded(id)) return { ok: false, msg: fmt('gs.noSuchItem') }; // xe đang ở đồn: phải chuộc trước

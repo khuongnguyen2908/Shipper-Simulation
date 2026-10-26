@@ -159,6 +159,23 @@
       "model": "scooter",
       "power": "electric",
       "desc": "Mạnh, pin rất lớn, giảm xóc tốt."
+    },
+    "xeDat": {
+      "id": "xeDat",
+      "name": "Mô tô anh Đạt (mượn)",
+      "maxSpeed": 27.777778,
+      "accel": 10,
+      "brake": 14,
+      "steer": 2.1,
+      "suspension": 0.4,
+      "fuelPer100km": 6,
+      "tank": 12,
+      "price": 0,
+      "color": "#15171c",
+      "model": "supersport",
+      "desc": "Sport bike đen sọc xanh lá của anh Đạt — mượn tạm trong cốt truyện, không bán được.",
+      "power": "gas",
+      "story": true
     }
   },
   "bags": {

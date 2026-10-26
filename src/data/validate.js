@@ -295,7 +295,8 @@ export function validateGear(gear, apps = null) {
         if (s.model == null) add('warn', key, 'model', 'Chưa chọn kiểu dáng → hiện như xe số.');
         else if (!(s.model in VEHICLE_MODELS)) add('error', key, 'model', `Kiểu dáng phải là: ${Object.keys(VEHICLE_MODELS).join(', ')}.`);
       }
-      if (s.price === 0 && !PROTECTED[cat].includes(key) && !brandVehicles.has(key)) add('warn', key, 'price', 'Giá 0 → người chơi lấy miễn phí ngay từ đầu.');
+      if (s.story != null && typeof s.story !== 'boolean') add('error', key, 'story', 'Xe cốt truyện: có / không.');
+      if (s.price === 0 && !PROTECTED[cat].includes(key) && !brandVehicles.has(key) && !s.story) add('warn', key, 'price', 'Giá 0 → người chơi lấy miễn phí ngay từ đầu.');
     }
     if (cat === 'bags' && table.nylon && table.nylon.price !== 0) add('warn', 'nylon', 'price', 'Túi nylon là túi khởi đầu, nên để giá 0.');
     if (cat === 'vehicles' && table.xeDap && table.xeDap.power !== 'pedal') add('warn', 'xeDap', 'power', 'Xe khởi đầu nên là xe đạp (chưa vào hãng thì chưa chạy đơn).');
@@ -815,7 +816,7 @@ export function validateBalance(b) {
 
 export function validateAll({ items, gear, goods, places, content, baseContent, apps = null, map = undefined, balance = null, phone = null, sounds = null, story = null, relations = null }) {
   return [
-    ...(story ? validateStory(story, { places, goods, content, apps, relations, orderItems: items }) : []),
+    ...(story ? validateStory(story, { places, goods, content, apps, relations, orderItems: items, gear }) : []),
     ...(relations ? validateRelations(relations, { story, places, goods, content }).filter((i) => i.level === 'error') : []), // chỉ lỗi; cảnh báo xem ở /?relationship
     ...(sounds ? validateSounds(sounds) : []),
     ...(phone ? validatePhone(phone) : []),
@@ -860,8 +861,8 @@ export function storyGifts(story) {
   }
   return out;
 }
-const STORY_UNTIL = ['none', 'wait', 'read', 'open', 'reply', 'routed', 'ack', 'use', 'arrive', 'talk', 'mount', 'brand', 'wear', 'switch', 'fuel', 'order', 'near', 'talkActor', 'chosen', 'ordersSince', 'newDay', 'clock', 'bring', 'cine', 'chased', 'reach', 'tackled', 'sneaked', 'hidden', 'escaped', 'never', 'ttSeen', 'away', 'ambushed', 'untied', 'fightWon', 'raceWon', 'useAt'];
-const STORY_DO = ['title', 'say', 'actor', 'bubble', 'approach', 'leave', 'remove', 'choose', 'board', 'alight', 'drop', 'msg', 'replies', 'item', 'bike', 'give', 'toast', 'openPhone', 'closePhone', 'offer', 'fuel', 'end', 'goto', 'react', 'cine', 'chase', 'sound', 'prop', 'dismount', 'helmetOff', 'helmetOn', 'tackle', 'wave', 'rideOff', 'phoneCall', 'fade', 'sneak', 'traffic', 'pursue', 'pay', 'rename', 'ttPost', 'block', 'ambush', 'ambushCrew', 'ship', 'zone', 'phone', 'tie', 'untie', 'fpv', 'fight', 'race'];
+const STORY_UNTIL = ['none', 'wait', 'read', 'open', 'reply', 'routed', 'ack', 'use', 'arrive', 'talk', 'mount', 'brand', 'wear', 'switch', 'fuel', 'order', 'near', 'talkActor', 'chosen', 'ordersSince', 'newDay', 'clock', 'bring', 'cine', 'chased', 'reach', 'tackled', 'sneaked', 'hidden', 'escaped', 'never', 'ttSeen', 'away', 'ambushed', 'untied', 'fightWon', 'raceWon', 'useAt', 'parked'];
+const STORY_DO = ['title', 'say', 'actor', 'bubble', 'approach', 'leave', 'remove', 'choose', 'board', 'alight', 'drop', 'msg', 'replies', 'item', 'bike', 'give', 'toast', 'openPhone', 'closePhone', 'offer', 'fuel', 'end', 'goto', 'react', 'cine', 'chase', 'sound', 'prop', 'dismount', 'helmetOff', 'helmetOn', 'tackle', 'wave', 'rideOff', 'phoneCall', 'fade', 'sneak', 'traffic', 'pursue', 'pay', 'rename', 'ttPost', 'block', 'ambush', 'ambushCrew', 'ship', 'zone', 'phone', 'tie', 'untie', 'fpv', 'fight', 'race', 'borrow'];
 const STORY_ACTOR_LOOKS = ['jetjet', 'normal', 'girl', 'student', 'gentleman', 'char']; // = ACTOR_LOOKS (sim/story.js)
 const STORY_ACTOR_SPOTS = ['xeOm', 'place', 'near', 'at']; // = ACTOR_SPOTS (sim/story.js)
 const STORY_ACTOR_VEHICLES = ['moto']; // = ACTOR_VEHICLES (sim/story.js)
@@ -882,7 +883,7 @@ export function tooNewEmoji(s) {
   return false;
 }
 const NEW_EMOJI_MSG = 'Biểu tượng này mới quá (emoji 2020 trở lên) → máy Windows 10 hiện ô vuông. Chọn emoji khác (vd 👨‍🍳 thay 🧑‍🍳, 🍯 thay 🫙, 🥤 thay 🧋).';
-export function validateStory(story, { places = null, goods = null, content = null, apps = null, relations = null, orderItems = null } = {}) {
+export function validateStory(story, { places = null, goods = null, content = null, apps = null, relations = null, orderItems = null, gear = null } = {}) {
   const out = [];
   const add = (level, ref, field, msg) => out.push({ level, tab: 'story', ref, field, msg });
   const placeIds = new Set((places?.places || []).filter((p) => isPlaced(p)).map((p) => p.id));
@@ -957,6 +958,7 @@ export function validateStory(story, { places = null, goods = null, content = nu
     if (t.stealth) { // màn lẻn: tới chỗ goal mà không bị thấy
       if (!xy(t.stealth.goal)) add('error', ref, 'stealth', 'Màn lẻn: chỗ cần tới phải là [x, z].');
       if (t.stealth.r != null && !(num(t.stealth.r) && t.stealth.r > 0.3)) add('error', ref, 'stealth', 'Màn lẻn: bán kính phải > 0,3.');
+      if (t.stealth.checkpoints != null && !(Array.isArray(t.stealth.checkpoints) && t.stealth.checkpoints.every(xy))) add('error', ref, 'stealth', 'Màn lẻn: chốt làm lại là danh sách [x, z].');
       if (!(t.foes || []).some((f) => f.patrol?.length || f.sneak)) add('warn', ref, 'stealth', 'Màn lẻn mà không ai đi tuần / đứng gác chưa phát hiện → vừa vào đã bị thấy.');
     }
     const seen = new Set();
@@ -969,7 +971,12 @@ export function validateStory(story, { places = null, goods = null, content = nu
       if (!xy(f.at)) add('error', ref, 'foes', `Trận: chỗ đứng của "${f.who}" phải là [x, z].`);
       if (f.join != null && f.join !== 'rage' && !(num(f.join) && f.join >= 0)) add('error', ref, 'foes', `Trận: "${f.who}" vào trận sau … giây (số ≥ 0) hoặc khi boss nổi điên.`);
       if (f.join === 'rage' && !(t.foes || []).some((x) => foes[x.foe]?.rage)) add('warn', ref, 'foes', `Trận: "${f.who}" chờ boss nổi điên mà trận không có boss nào nổi điên → không bao giờ vào.`);
-      if (f.patrol != null && !(Array.isArray(f.patrol) && f.patrol.length >= 2 && f.patrol.every(xy))) add('error', ref, 'foes', `Trận: đường đi tuần của "${f.who}" cần ≥ 2 điểm [x, z].`);
+      const pt = (q) => Array.isArray(q) && q.length >= 2 && q.length <= 4 && xy(q.slice(0, 2)) && (q[2] == null || (num(q[2]) && q[2] >= 0 && q[2] <= 30)) && (q[3] == null || (num(q[3]) && Math.abs(q[3]) <= 360));
+      if (f.patrol != null && !(Array.isArray(f.patrol) && f.patrol.length >= 2 && f.patrol.every(pt))) add('error', ref, 'foes', `Trận: đường đi tuần của "${f.who}" cần ≥ 2 điểm [x, z, (dừng 0–30 giây), (hướng nhìn lúc dừng, độ)].`);
+      if (f.sweep != null && !(num(f.sweep) && f.sweep >= 0 && f.sweep <= 90)) add('error', ref, 'foes', `Trận: "${f.who}" quét đèn 0–90 độ.`);
+      if (f.sweepT != null && !(num(f.sweepT) && f.sweepT >= 2 && f.sweepT <= 30)) add('error', ref, 'foes', `Trận: "${f.who}" chu kỳ quét 2–30 giây.`);
+      if (f.sight != null && !(num(f.sight) && f.sight >= 3 && f.sight <= 25)) add('error', ref, 'foes', `Trận: "${f.who}" nhìn xa 3–25 m.`);
+      if (f.phase != null && !(num(f.phase) && f.phase >= 0 && f.phase <= 300)) add('error', ref, 'foes', `Trận: "${f.who}" lệch nhịp 0–300 giây.`);
     }
     for (const l of t.loot || []) {
       if (!weapons[l.id] || l.id === 'fists') add('error', ref, 'loot', `Trận: đồ dưới đất lạ "${l.id}".`);
@@ -1051,7 +1058,8 @@ export function validateStory(story, { places = null, goods = null, content = nu
       if (u.type === 'ttSeen' && !(ch.steps || []).slice(0, i + 1).some((x) => (x.on || []).some((y) => y.do === 'ttPost' && y.id === u.id))) add('error', ref, 'until', `Đã lướt tới tin Tích Tắc: chưa có tin "${u.id}" (việc "📱 Tin Tích Tắc" ở bước này / trước) → người chơi kẹt.`);
       if (u.type === 'away' && !(u.who ? people[u.who] : Array.isArray(u.at) && u.at.length === 2 && u.at.every(num))) add('error', ref, 'until', 'Đi xa khỏi: chưa chọn người lạ / chỗ [x, z].');
       if (u.type === 'ambushed' && !(st.on || []).some((y) => y.do === 'ambush')) add('error', ref, 'until', 'Đã bày chốt đúng: bước này chưa có việc "🗺️ Bày trận" → người chơi kẹt.');
-      if (u.type === 'hidden' && u.prop != null && !(ch.steps || []).some((x) => (x.on || []).some((a) => a.do === 'prop' && a.kind === 'bin' && a.id === u.prop))) add('error', ref, 'until', `Núp sau thùng rác: chương này không có thùng rác "${u.prop}".`);
+      if (u.type === 'hidden' && u.prop != null && !(ch.steps || []).some((x) => (x.on || []).some((a) => a.do === 'prop' && (a.kind === 'bin' || a.kind === 'mark') && a.id === u.prop))) add('error', ref, 'until', `Núp: chương này không có thùng rác / điểm đánh dấu "${u.prop}".`);
+      if (u.type === 'hidden' && u.watch != null && !people[u.watch]) add('error', ref, 'until', `Núp: "quay mặt về" "${u.watch}" không có trong "Người nói".`);
       for (const mk of [].concat(st.mark || [])) { // một hoặc nhiều dấu
         if (mk.prop) { if (!chProps.has(mk.prop)) add('error', ref, 'mark', `Dấu: chương này không có đạo cụ "${mk.prop}".`); }
         else if (mk.actor) { if (!people[mk.actor]) add('error', ref, 'mark', `Dấu trên đầu: người lạ "${mk.actor}" không có.`); }
@@ -1083,6 +1091,7 @@ export function validateStory(story, { places = null, goods = null, content = nu
       if (u.type === 'tackled' && !(st.on || []).some((a) => a.do === 'tackle')) add('error', ref, 'until', 'Chờ vật ngã xong mà bước này không có việc "🤼 Vật ngã" → kẹt.');
       if (u.type === 'raceWon' && !(st.on || []).some((a) => a.do === 'race')) add('error', ref, 'until', 'Chờ tới đích màn đua mà bước này không có việc "🏍️ Màn đua" → kẹt.');
       if (u.type === 'fightWon' && !(st.on || []).some((a) => a.do === 'fight')) add('error', ref, 'until', 'Chờ thắng trận mà bước này không có việc "⚔️ Trận đánh" → kẹt.');
+      if (u.type === 'parked' && u.place) { place(ref, 'until', u.place); const pl = (places?.places || []).find((p) => p.id === u.place); if (pl && pl.look !== 'parkingLot') add('error', ref, 'until', `Gửi xe ở bãi: "${u.place}" không phải bãi giữ xe.`); }
       if (u.type === 'useAt') {
         if (!(Array.isArray(u.at) ? u.at.length === 2 && u.at.every(num) : ZONE_POINTS.includes(u.at))) add('error', ref, 'until', `Bấm E tại chỗ: chỗ lạ "${u.at}" (chỗ đứng có tên trong bản đồ riêng hoặc [x, z]).`);
         if (u.r != null && !(num(u.r) && u.r > 0.3 && u.r <= 20)) add('error', ref, 'until', 'Bấm E tại chỗ: bán kính 0,3 – 20.');
@@ -1383,7 +1392,7 @@ export function validateStory(story, { places = null, goods = null, content = nu
         }
         if (a.do === 'prop') {
           if (!ID_RE.test(String(a.id || ''))) add('error', ref, 'on', 'Đạo cụ: mã chỉ gồm chữ không dấu, số (vd truck1).');
-          if (!['truck', 'ramp', 'dog', 'car', 'moto', 'police', 'easel', 'bin', 'can', 'water', 'bigbike'].includes(a.kind)) add('error', ref, 'on', `Đạo cụ: loại lạ "${a.kind}" (truck / ramp / dog / car / moto / police / easel / bin / can / water / bigbike).`);
+          if (!['truck', 'ramp', 'dog', 'car', 'moto', 'police', 'easel', 'bin', 'can', 'water', 'bigbike', 'mark'].includes(a.kind)) add('error', ref, 'on', `Đạo cụ: loại lạ "${a.kind}" (truck / ramp / dog / car / moto / police / easel / bin / can / water / bigbike / mark).`);
           if (a.kind === 'water' && [a.w, a.len, a.depth].some((v) => v != null && !(num(v) && v > 0 && v <= 200))) add('error', ref, 'on', 'Nước ngập: rộng / dài / sâu phải là số dương.');
           if (a.hide != null && (a.kind !== 'bin' || typeof a.hide !== 'boolean')) add('error', ref, 'on', 'Đạo cụ: "núp được" chỉ cho thùng rác, phải là có / không.');
           if (a.cops != null && !(Number.isInteger(a.cops) && a.cops >= 1 && a.cops <= 4)) add('error', ref, 'on', 'Xe công an: 1–4 anh công an.');
@@ -1396,7 +1405,7 @@ export function validateStory(story, { places = null, goods = null, content = nu
           if (rt.some((r) => !(Array.isArray(r?.at) && r.at.length === 2 && r.at.every(num)))) add('error', ref, 'on', 'Đạo cụ: điểm đường chạy phải là [x, z].');
           if (rt.some((r) => r?.wait != null && !(num(r.wait) && r.wait >= 0 && r.wait <= 30))) add('error', ref, 'on', 'Đạo cụ: dừng chờ 0–30 giây.');
           if (!rt.length && !(Array.isArray(a.at) && a.at.length === 2 && a.at.every(num))) add('error', ref, 'on', 'Đạo cụ: chưa có chỗ đặt [x, z] (hoặc đường chạy).');
-          if (!['ramp', 'easel', 'bin', 'can', 'water', 'bigbike'].includes(a.kind) && rt.length < 2) add('warn', ref, 'on', 'Đạo cụ xe tải / chó nên có đường chạy ≥ 2 điểm.');
+          if (!['ramp', 'easel', 'bin', 'can', 'water', 'bigbike', 'mark'].includes(a.kind) && rt.length < 2) add('warn', ref, 'on', 'Đạo cụ xe tải / chó nên có đường chạy ≥ 2 điểm.');
           if (a.speed != null && !(num(a.speed) && a.speed > 0 && a.speed <= 30)) add('error', ref, 'on', 'Đạo cụ: tốc độ 0–30.');
           if (a.when != null && !MARK_RE.test(String(a.when))) add('error', ref, 'on', 'Đạo cụ: "chạy khi" phải dạng người:mốc (vd thief:truck).');
           else if (a.when != null && !chMarks.has(a.when)) add('warn', ref, 'on', `Đạo cụ: mốc "${a.when}" không thấy trong lộ trình chạy trốn nào của chương → không bao giờ chạy.`);
@@ -1460,6 +1469,12 @@ export function validateStory(story, { places = null, goods = null, content = nu
         if (a.do === 'openPhone' && a.who && !contacts[a.who]) add('error', ref, 'on', `Mở điện thoại: người nhắn "${a.who}" không có.`);
         if (a.do === 'openPhone' && a.app && !STORY_APPS.includes(a.app)) add('error', ref, 'on', `Mở điện thoại: app lạ "${a.app}".`);
         if (a.do === 'fuel' && a.pct != null && !(num(a.pct) && a.pct >= 0 && a.pct <= 100)) add('error', ref, 'on', 'Đặt xăng / pin: 0–100 %.');
+        if (a.do === 'borrow' && !a.off) {
+          if (gear && !gear.vehicles?.[a.vehicle]) add('error', ref, 'on', `Mượn xe: xe "${a.vehicle}" không có (thẻ Xe/Túi/Đồ nghề).`);
+          else if (gear && !gear.vehicles[a.vehicle].story) add('warn', ref, 'on', `Mượn xe: "${a.vehicle}" chưa đánh dấu "Xe cốt truyện" → bán được / có trong cửa hàng.`);
+          if (a.from && !(ch.steps || []).some((x) => (x.on || []).some((b) => b.do === 'prop' && b.id === a.from))) add('error', ref, 'on', `Mượn xe: chương này không có đạo cụ "${a.from}" (xe dựng sẵn).`);
+          if (a.fuel != null && !(num(a.fuel) && a.fuel >= 0 && a.fuel <= 100)) add('error', ref, 'on', 'Mượn xe: xăng lúc nhận 0–100 %.');
+        }
         if (a.do === 'drop') for (const pid of [].concat(a.id || [])) if (!parcels[pid]) add('error', ref, 'on', `Giao gói hàng: "${pid}" không có.`);
         if (a.do === 'item' && !items[a.id]) add('error', ref, 'on', `Vật phẩm "${a.id}" không có.`);
         if (a.do === 'give' && goods && !goods[a.goods]) add('error', ref, 'on', `Đồ tặng "${a.goods}" không có.`);
