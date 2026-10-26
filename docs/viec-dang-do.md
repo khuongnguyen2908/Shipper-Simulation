@@ -248,7 +248,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
     ?editor: ô cho cả 3 + "🤫 Màn lẻn" và "Đi tuần" trong ⚔️ Đánh nhau; validate.js kiểm tra hết.
   - Đã chơi thử bằng trình duyệt cả chuỗi (đánh nhau thật chưa đánh tay — dùng hạ nhanh để kiểm tra chuyển cảnh). Cần chủ game chơi thật: độ khó 2 màn lẻn,
     vị trí người gác, lời thoại nháp.
-- **Đợt 6 — sửa theo góp ý chơi thử (27/10, CHƯA commit)**. Chủ game chốt 27/10: điểm 1–4 theo đề xuất · màn lẻn: mọi khúc đường đều có lính quét tới,
+- **Đợt 6 — sửa theo góp ý chơi thử (27/10, đã đẩy lên GitHub 006b801)**. Chủ game chốt 27/10: điểm 1–4 theo đề xuất · màn lẻn: mọi khúc đường đều có lính quét tới,
   phải canh giờ + núp, không chạy 1 mạch được, Claude tự mô phỏng + chơi lại · xe: cách A (chương 6 chạy xe anh Đạt), giao đồ ăn thì gửi xe ở bãi gần nhất
   rồi đi bộ vào, chạy xuống tàu xong màn đen tới lúc ngồi lên xe (vốn đã vậy).
   - Núp: bỏ thùng rác Kho 7 → núp sau XE HÀNG RONG bên kia đường (mọi xe hàng rong núp được lúc bước cốt truyện đang chờ núp / bám theo lén:
