@@ -34,6 +34,7 @@ export class RoadRulesPart {
       const fee = PARKING.fee ?? 5;
       if (gs.spend(fee, 'parking')) {
         safe = true;
+        if (!quiet) sound('money.pay');
         if (!quiet) this.hud.toast(fmt('toast.parkLot', { place: lot.name, fee }), 'good', 4000);
       } else if (!quiet) this.hud.toast(fmt('toast.parkNoMoney', { fee }), 'warn', 4000);
     }

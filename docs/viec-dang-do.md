@@ -269,6 +269,44 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
     "parked" (gửi xe ở bãi …) → bước parkLot (Bãi Giữ Xe Khách canhquan2_2, đi bộ ~250 m; bãi gần hơn ở bên kia sông phải vòng cầu ~700 m) → deliver ·
     atHospital trả xe (xe mình trong hầm nhà trọ, xe anh Đạt dựng trước bệnh viện). Đang mượn xe: không đổi xe trong hầm.
   - Bộ thử 327 đạt (thêm: tầng / quét / dừng / lệch nhịp, mượn – trả xe, bộ kiểm tra mượn xe + gửi xe + ô màn lẻn sai).
+- **Đợt 7 — góp ý chơi thử lần 2 (27/10, đã đẩy lên GitHub — xem mã ở đợt 9)**
+  - Lỗi "Đi đến [[story.propName.bigbike]]": thiếu tên đạo cụ → thêm tên cho MỌI loại đạo cụ + bài thử canh.
+  - Trước khi nhận đơn giao tới Kho 7: người chơi nói "Ủa… nhắc Tào Tháo là Tào Tháo tới liền — có đơn giao tới Kho 7 kìa!" (story.c6.order.think).
+  - Bãi gửi xe: chủ game thêm bãi canhquan2_6 (khối 6,8 — cách Kho 7 ~43 m, places.json sửa bằng ?editor) → chỉ đường tới bãi này; bước gửi xe nhận BÃI NÀO CŨNG ĐƯỢC.
+  - Chưa gửi xe mà chạy tới Kho 7: luật mới "⛔ Chặn lại gần địa điểm" (step.keepOut { place, r, text }: đẩy ra mép vùng + nhắc, như leash ngược lại) —
+    bước parkLot chặn 30 m quanh Kho 7. ?editor + validate.
+  - Âm thanh chương 6 (mã mới, có trong soundSpec + docs/am-thanh.md): fight.sneak (vào màn lẻn) · fight.locker (mở tủ thuyền trưởng — gắn bằng ô
+    "Tiếng lúc bấm E" mới của điều kiện bấm E tại chỗ) · fight.rope (cọ dây trói) · fight.door (cửa container bật mở) · city.shipHorn (tàu cập / rời bến) ·
+    city.hide (ngồi núp). Dùng lại: money.pay (trả tiền gửi xe), place.takeVehicle (trả xe mượn), progress.objective (lấy được tài liệu), fight.alert (bị Tí Sún
+    bắt), fight.ko (bị đánh ngất).
+- **Đợt 8 — góp ý chơi thử lần 3 (27/10, đã đẩy lên GitHub — xem mã ở đợt 9)**
+  - Bị trói ngồi bệt chìm dưới sàn container (đùi nằm dưới sàn gỗ): hông nâng thêm TIED_SEAT 0,16 m (models.js) — cả người chơi lẫn anh Đạt.
+  - Không đi tới cởi trói anh Đạt được: việc untie người khác giờ cho đi lại tới sát (≤ 1,5 m, nhắc "Lại gần …") rồi mới hiện thanh bấm E + đứng yên.
+  - Mở lại game giữa trận đánh / màn lẻn / màn đua: trước bị kẹt (trận bị bỏ mà bước vẫn "đã chạy") + đứng dưới đất trong thân tàu → dựng lại trận / đua
+    từ đầu; đang ở trên tàu thì đặt lên đúng mặt boong / cầu thang (zoneApply restore).
+  - Dòng phím xe / điện thoại / túi đồ ẩn khi ở trên tàu, đường đua (.in-zone .hud-keys).
+  - "Tới mũi tàu không thấy anh Đạt": đích màn lẻn 2 thật ra ở GIỮA tàu (mạn trái) mà chữ ghi "phía mũi" → sửa chữ + VÒNG SÁNG XANH đánh dấu đích mọi màn lẻn.
+  - "Không trong vùng sáng mà vẫn bị phát hiện": do bị NGHE tiếng chân (đi bộ sát 1 m, chạy 4 m — không vẽ) → vẽ VÒNG TAI NGHE màu cam quanh chân từng lính
+    (chạy thì to ra) + câu nhắc.
+  - "Bấm chơi không vào được": bản lưu đang ở trên tàu → bấm Tiếp tục văng lỗi (zoneApply: this.zone & this.zones đều rỗng lúc mới mở game nên
+    "khác nhau" = sai → không dựng bản đồ tàu → this.zone.setGate lỗi) — lỗi có từ lúc làm bản đồ tàu, đã sửa. Dựng lại trận / màn đua khi mở game
+    dời xuống cuối lúc tải (storyResumeRun) — làm sớm thì bị đặt xe / loại xe ghi đè (đua mà đi bộ, xe đạp). Đã thử bản lưu: màn lẻn 1, 2, container, màn đua.
+  - Màn lẻn khó hơn: lính nhìn xa 13 m (trừ 2 lính canh phía cầu thang 11 m — 13 m thì không còn đường lên), màn 1 thêm g8 (giữa container – chồng thùng),
+    màn 2 thêm g5 (mạn trái phía mũi, nhìn về đích); lệch nhịp dò lại bằng bộ mô phỏng (bước 1/30 giây như game, chừa 0,4 giây) + bot chơi thật.
+- **Đợt 9 — góp ý chơi thử lần 4 (28/10, đã đẩy lên GitHub)**
+  - Vùng sáng lấn vào chỗ khuất: tia dò thưa (20 tia, bước 0,5 m) nên lấn ra sau góc container + thùng gỗ / phuy (cao 2,2 m) không được tính là che.
+    Giờ: 36 tia, bước 0,25 m, chia thêm 7 tia ở mép vật che · vật nào cao hơn tầm mắt đều che (luật "thấy" cũng vậy — SEE_BLOCK) · lính trên boong:
+    vùng sáng dừng ở mép boong (khác tầng không thấy). Tính lại mỗi 3 khung hình, chia lượt giữa các lính. Bot chơi thật màn lẻn 1: qua 56,7 giây, chạy 1 mạch vẫn bị bắt.
+  - Bị Tí Sún bắt: bỏ màn lẻn thứ 2 (c6Sneak2) → lấy tài liệu xong bước ra cửa lầu chỉ huy (đuôi tàu) là bị chặn ngay (bước leaveBridge → caught).
+  - Đánh nhau liền mạch: ô mới "🚶 Đánh tại chỗ" (fights.keepPos — không dịch chuyển, anh Đạt đứng đâu đánh đó, thua thì làm lại từ chỗ bắt đầu).
+    container → đi bộ ra lối mạn trái (toDeck) → tới giữa tàu thì Tí Sún chặn (deckFight) → đi xuống cầu thang mạn (toQuay) → chân cầu thang thì đánh
+    Tí Đô (quayFight) → màn đen tới lúc ngồi lên xe (như cũ). Giữa các trận anh Đạt tự đi theo. ?editor + validate.
+  - Tí Đô "bị cắt người": thân trên xoay quanh gót chân thay vì quanh hông (lúc cúi lấy đà / húc) và không được trả về → trượt khỏi chân. Hàm chung
+    hipBend (models.js — gập / vặn thân quanh hông) dùng cho đánh nhau, NPC lưng còng, cảnh vật ngã.
+  - Dáng đánh mới (world/fightModels.js fighterPose): thủ 2 nắm tay trước mặt · đỡ che mặt · đòn: jab (thẳng tay trước) · cross (thẳng tay sau) · hook (móc ngang)
+    · upper (móc lên) · over (bổ — cầm đồ) · side (quét ngang — cầm đồ); vặn mình + nhoài người theo cú đấm. Kiểu địch có ô "Đòn đánh (lần lượt)" (foes.moves —
+    Tí Đô jab → hook → upper → cross, Tí Sún bổ / quét ống tuýp, đàn em jab / cross / hook); anh Đạt đổi đòn mỗi cú. 2 tay người chơi: tay không thì thủ 2 nắm tay,
+    đấm thẳng trái → thẳng phải → móc; cầm đồ thì bổ / quét xen kẽ. Chỉ khác dáng, sát thương / thời gian như cũ. Trang soi dáng: sketches/fight-poses.html.
 
 ### 🔧 Chương 4–5 sửa đợt 2 (24/10 tối — XONG, CHƯA commit)
 - 🛵 Chạy đơn trong lúc chờ giờ: ô mới "Cho chạy đơn trong lúc chờ" (step.orders) — bật cho c4 sleep2 / wait8 / mingle / waitOpen, c5 waitMeet / addr / goMeet / waitNight.

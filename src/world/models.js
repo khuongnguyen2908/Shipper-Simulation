@@ -44,6 +44,8 @@ export const HIP_Y = 0.88; // độ cao khớp háng khi đứng (mét, chưa nh
 const SHOULDER_Y = 1.405, HEAD_Y = 1.6, THIGH = 0.44, UPPER_ARM = 0.29;
 // Độ cao (so với gốc xe) đặt người ngồi trên yên: háng nằm ở độ cao `seat`
 export const sitY = (scale = 1, seat = 0.98) => seat - HIP_Y * scale;
+// Ngồi bệt (bị trói): hông cao hơn mặt đứng chừng này — đùi duỗi ra trước nằm TRÊN sàn (sàn gỗ container dày hơn mặt đứng), không chìm dưới sàn
+export const TIED_SEAT = 0.16;
 
 const PERSON_MAT = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.78, metalness: 0.03 });
 const RAINCOAT_MAT = new THREE.MeshStandardMaterial({ color: RAINCOAT_COLOR, roughness: 0.45, metalness: 0.02, transparent: true, opacity: 0.84, side: THREE.DoubleSide, flatShading: true });
@@ -449,6 +451,14 @@ export function animatePerson(g, phase, amount) {
 //         lift: { arm: 'R' | 'L', to: [vai, khuỷu], every, hold, rest? } giơ tay định kỳ (chụp ảnh, xem đồng hồ, tạo dáng; rest: góc hạ tay về cho người đứng yên)
 //         pet: con chó dắt theo (chân vẫy theo bước người) }
 const HIP_H = HIP_Y; // chiều cao hông (gốc gập lưng)
+// Gập thân trên quanh hông: a = cúi tới (rad, âm = ngửa ra sau) · rz = nghiêng ngang · ry = vặn mình (quanh trục dọc, không cần bù).
+// Xoay thân rồi dời lại cho hông đứng yên — không thì thân trên trượt khỏi chân (trông như người bị cắt đôi). Cộng thêm vào position.y đang có.
+export function hipBend(p, a = 0, rz = 0, ry = 0) {
+  p.body.rotation.set(a, ry, rz, 'YXZ');
+  p.body.position.x = HIP_H * Math.sin(rz);
+  p.body.position.z = -Math.cos(rz) * Math.sin(a) * HIP_H;
+  p.body.position.y += HIP_H * (1 - Math.cos(rz) * Math.cos(a));
+}
 const GROUND_DROP = HIP_Y - 0.12; // ngồi bệt: hông hạ xuống sát đất (đùi nằm ngang)
 export function applyPose(p, phase = 0, amount = 0) {
   const P = p.pose, t = performance.now() / 1000;
@@ -471,13 +481,8 @@ export function applyPose(p, phase = 0, amount = 0) {
   }
   // gập lưng quanh hông (không quanh gót chân): xoay thân rồi dời lại cho hông đứng yên
   const a = (P.hunch || 0) + (P.slump ? 0.22 + Math.sin(t * 0.7) * 0.06 : 0);
-  p.body.rotation.x = a;
-  p.body.rotation.z = (P.sway ? Math.sin(t * 1.6) * P.sway : 0) + (P.swagger ? Math.sin(phase) * 0.07 * Math.max(0.4, amount) : 0);
-  // giữ hông đứng yên khi thân xoay (gập trước a, nghiêng ngang rz): dời thân bù lại, không thì thân trên trượt khỏi chân
-  const rz = p.body.rotation.z;
-  p.body.position.x = HIP_H * Math.sin(rz);
-  p.body.position.z = -Math.cos(rz) * Math.sin(a) * HIP_H;
-  p.body.position.y += HIP_H * (1 - Math.cos(rz) * Math.cos(a)) + (P.ground ? -GROUND_DROP : 0);
+  hipBend(p, a, (P.sway ? Math.sin(t * 1.6) * P.sway : 0) + (P.swagger ? Math.sin(phase) * 0.07 * Math.max(0.4, amount) : 0));
+  if (P.ground) p.body.position.y -= GROUND_DROP;
   if (P.ground) {
     // ngồi bệt: hông (gốc 2 chân) hạ xuống theo thân
     p.legY0 ??= p.legL.position.y;

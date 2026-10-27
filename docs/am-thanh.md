@@ -120,6 +120,8 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [ ] | `city.applause` | Vỗ tay | Chương 4: khai mạc triển lãm, mọi người vỗ tay sau khi chị Linh phát biểu (~3 giây) | tiếng ngắn | 🔇 im |
 | [ ] | `city.canKick` | Vấp lon | Chương 4: núp trong hẻm, lùi lại vấp cái lon kêu "keng" lăn lóc | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `city.caught` | Bị tóm (thua) | Bị rượt mà bị tụi giang hồ tóm → màn "Bị tụi nó tóm rồi…" + nút Chơi lại — tiếng thua ngắn, nặng | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `city.shipHorn` | Còi tàu thủy | Chương 6: tàu HẢI LONG cập bến Kho 7 / rời bến (còi trầm, dài) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `city.hide` | Ngồi thụp núp | Bấm E núp sau thùng rác / xe hàng rong (sột soạt, ngồi xuống) | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `city.sneakCaught` | Bị phát hiện | Bám theo lén: người phía trước quay lại thấy người chơi ("Ai đó?!") — tiếng giật mình ngắn | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `loop.motoChase` | Máy xe anh mô tô (cảnh phim) | Tiếng lặp: sport bike anh mô tô lúc dí cướp — to nhỏ theo khoảng cách tới camera, cao độ theo tốc độ | tiếng lặp | 🔉 tạm dùng file máy xe chakong |
 | [ ] | `city.thiefShout` | La "Cướp!" | Chương 3: người trong chợ la lên "Cướp cướp!" | tiếng ngắn | 🔇 im |
@@ -189,6 +191,10 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [ ] | `fight.alert` | Địch phát hiện / la lên | Tên gác thấy mình · Tí Đô nổi điên gọi đàn em ("Ê!") | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `fight.charge` | Tí Đô lao húc | Tí Đô lấy đà xong, lao tới (tiếng gầm + bước chân rầm rập) | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `fight.win` | Thắng trận | Hạ hết địch trong trận | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.sneak` | Bắt đầu màn lẻn | Chương 6: vào màn lẻn trên bến / trong tàu (nhịp hồi hộp ngắn, nín thở) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.locker` | Mở tủ thuyền trưởng | Chương 6: tra chìa khóa mở tủ sắt, lục giấy tờ (cạch, kẽo kẹt, sột soạt) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.rope` | Cọ đứt dây trói | Chương 6: bấm E cọ dây vào mép sắt (sột soạt) — cởi xong dây đứt "phựt" | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.door` | Cửa container bật mở | Chương 6: phá cửa container nhốt người — cửa sắt bật mở rầm | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `race.start` | Bắt đầu màn đua | Chương 6: lên xe anh Đạt, bọn giang hồ rồ máy rượt theo | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `race.scrape` | Xe cạ lề / lan can | Màn đua: chạy sát mép đường, cạ vào lề (két két) | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `race.bump` | Xe xóc / va nhẹ | Màn đua: sụp ổ gà · chạm nhẹ đuôi xe khác | tiếng ngắn | 🔉 tổng hợp |

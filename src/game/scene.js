@@ -5,7 +5,7 @@
 // Chỉ để nhìn, chỉ máy người chơi này vẽ (cốt truyện riêng); đồng hồ chung vẫn chạy (quay chậm chỉ làm chậm diễn viên + camera).
 // =============================================================
 import * as THREE from 'three';
-import { makeDog, makePerson, makeCar, makeNpcMoto, bikeSeatZ, animatePerson } from '../world/models.js';
+import { makeDog, makePerson, makeCar, makeNpcMoto, bikeSeatZ, animatePerson, hipBend } from '../world/models.js';
 import { makeRng } from '../sim/rng.js';
 import { storyEvent, stepOf } from '../sim/story.js';
 import { makeHelmetMesh, HEAD_CENTER_Y } from '../world/person.js';
@@ -83,6 +83,7 @@ export class ScenePart {
     const s = this.gs.story;
     if (a.state === 'dock') s.ship = { state: 'dock', at: [...(a.at || [163, 265])], heading: a.heading ?? 0 };
     else if (s.ship) s.ship.state = a.state === 'leave' ? 'leave' : 'gone';
+    if (a.state === 'dock' || a.state === 'leave') sound('city.shipHorn'); // cập bến / rời bến: còi tàu
     this.storyShipShow(false);
   }
   // Đặt tàu theo trạng thái đã lưu · restore: mở lại game giữa lúc tàu đang rời bến → coi như đã đi
@@ -722,7 +723,7 @@ export class ScenePart {
       if (!stop) B.mesh.rotation.y = lerpAngle(B.mesh.rotation.y, Math.atan2(gx, gz), 1 - Math.exp(-10 * sdt));
       B.phase += sdt * (5 + vB);
       this.animateRunner(B.mesh, B.phase, stop ? 0 : 1);
-      if (stop) B.mesh.userData.parts.body.rotation.x = -0.25; // khựng lại, ngửa người ra sau
+      if (stop) hipBend(B.mesh.userData.parts, -0.25); // khựng lại, ngửa người ra sau (quanh hông — không tách khỏi chân)
       // người vật: lao theo, nhanh hơn
       T.vA = Math.min(6.5, T.vA + sdt * 9);
       const ax = bm.x - am.x, az = bm.z - am.z, ad = Math.hypot(ax, az) || 1;
@@ -733,7 +734,7 @@ export class ScenePart {
       this.animateRunner(A.mesh, A.phase, 1);
       // túm được: bắt đầu quật xuống (quay chậm, máy quay ngang hông)
       if (ad < 1.0 && T.hit != null) {
-        B.mesh.userData.parts.body.rotation.x = 0;
+        hipBend(B.mesh.userData.parts, 0);
         Object.assign(T, { phase: 'fall', t: 0, h: B.mesh.rotation.y, x0: bm.x, z0: bm.z, ax0: am.x, az0: am.z });
         sound('city.tackle');
         if (T.a.cine !== false) this.storyCineStart({ shots: [{ at: `actor:${T.B}`, t: 2.4, dist: 4.4, height: 1.1, angle: 90, lookY: 0.6, slow: 0.35 }] });
@@ -925,6 +926,7 @@ export class ScenePart {
     const l = Math.hypot(dx, dz) || 1, x = b.x + (dx / l) * off, z = b.z + (dz / l) * off;
     this.walker.crouchAt({ x, z, ry: T ? Math.atan2(T.x - x, T.z - z) : Math.atan2(b.x - x, b.z - z) });
     this.hideWatch = T ? wk : null; // camera nhìn theo người này tới lúc đứng dậy (game/visuals.js)
+    sound('city.hide');
   }
   // Bị phát hiện / mất dấu: (câu "Ai đó?!") → màn đen ngắn → làm lại từ đầu lộ trình
   sneakFail(text, who = null) {

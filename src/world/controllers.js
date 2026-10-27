@@ -5,7 +5,7 @@ import { blockAt } from '../sim/cityLayout.js';
 import { DRIVING } from '../data/balance.js';
 const D = (k, def) => (Number.isFinite(DRIVING[k]) ? DRIVING[k] : def);
 import { resolveCircle } from './physics.js';
-import { makeBike, makePerson, animatePerson, setSitting, setCrouch, setTied, setBikeColor, sitY, gripBar, bikeSeatZ } from './models.js';
+import { makeBike, makePerson, animatePerson, setSitting, setCrouch, setTied, setBikeColor, sitY, TIED_SEAT, gripBar, bikeSeatZ } from './models.js';
 
 const SW_H = 0.15;
 export const lerpAngle = (a, b, t) => {
@@ -231,7 +231,7 @@ export class Walker {
       const floorY = blockAt(this.pos.x, this.pos.z) ? SW_H : 0;
       const el = ctx.elev ? ctx.elev.settle(this, 0.35, floorY, 2.0) : { y: floorY };
       setTied(this.mesh, true);
-      this.mesh.position.set(this.pos.x, sitY(this.mesh.scale.x, el.y), this.pos.z);
+      this.mesh.position.set(this.pos.x, sitY(this.mesh.scale.x, el.y + TIED_SEAT), this.pos.z);
       this.mesh.rotation.set(0, this.heading, 0);
       this.speed = 0;
       return 'idle';

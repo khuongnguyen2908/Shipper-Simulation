@@ -1086,7 +1086,7 @@
         6,
         8
       ],
-      "lot": "E",
+      "lot": "E01",
       "floors": 2,
       "color": "#c8a27a",
       "sign": "CÀ PHÊ VÕNG",
@@ -2256,6 +2256,25 @@
       "orders": {
         "rideWeight": 1
       }
+    },
+    {
+      "id": "canhquan2_6",
+      "name": "Bãi Giữ Xe",
+      "short": "Bãi xe",
+      "kind": "scenery",
+      "icon": "🅿️",
+      "look": "parkingLot",
+      "color": "#91e36d",
+      "block": [
+        6,
+        8
+      ],
+      "lot": "S2",
+      "hours": "caNgay",
+      "orders": {
+        "rideWeight": 1
+      },
+      "face": "E"
     },
     {
       "id": "canhquan2_2",

@@ -234,7 +234,7 @@ export function render(root, ctx) {
     // 3 thẻ con: 🎬 Diễn biến · 👀 Người chơi thấy gì · ⚙️ Luật trong bước (số = đã đặt bao nhiêu thứ)
     const nFlow = (st.on || []).length + (st.until?.type && st.until.type !== 'none' ? 1 : 0);
     const nShow = [st.goal, st.guide, st.mark, st.zone, st.talkLabel].filter(Boolean).length;
-    const nRules = [st.orders, st.hold && !afterTitle, st.noFines, st.leash, st.deadline, st.music, st.onlyTrait, st.onlyBefore != null || st.onlyAfter != null, st.hideNpc?.length].filter(Boolean).length;
+    const nRules = [st.orders, st.hold && !afterTitle, st.noFines, st.leash, st.keepOut, st.deadline, st.music, st.onlyTrait, st.onlyBefore != null || st.onlyAfter != null, st.hideNpc?.length].filter(Boolean).length;
     const T = subTabs('storyStep', [['flow', `🎬 Diễn biến (${nFlow})`], ['show', `👀 Người chơi thấy gì (${nShow})`], ['rules', `⚙️ Luật trong bước (${nRules})`]]);
     body.append(T.el);
     // khung hiếm dùng: chưa đặt gì thì thu gọn (bấm để mở)
@@ -364,6 +364,7 @@ export function render(root, ctx) {
       u.type === 'useAt' && Array.isArray(u.at) ? field('Tọa độ x, z', el('div', { class: 'row' }, ...[0, 1].map((k) => numInput(u.at[k], (v) => { u.at[k] = v; changed(); }, { step: 0.5 }))), opt('until')) : null,
       u.type === 'useAt' ? field('Cách bao nhiêu thì hiện nút E', numInput(u.r ?? 1.6, (v) => { u.r = v; changed(); }, { step: 0.2, min: 0.4, max: 10 }), opt('until')) : null,
       u.type === 'useAt' ? textBox('Chữ trên nút E', u.label || (u.label = newKey(`${base}.useLabel`)), 1, { ref, fieldKey: 'until' }) : null,
+      u.type === 'useAt' ? field('Tiếng lúc bấm E', selectInput(u.sound || '', [['', 'ui.interact — Tương tác (E)'], ...Object.values(SOUNDS).filter((x) => x.kind === 'sfx').map((x) => [x.id, `${x.id} — ${x.label}`])], (v) => { if (v) u.sound = v; else delete u.sound; changed(); }), opt('until')) : null,
       u.type === 'ambushed' ? el('p', { class: 'muted' }, 'Thêm việc "🗺️ Bày trận" ở phần "Khi vào bước" — người chơi đặt chốt đúng, bấm "Chốt kế hoạch" thì sang bước sau.') : null,
       u.type === 'never' ? el('p', { class: 'muted' }, 'Người chơi dừng ở bước này (chơi tiếp bình thường, chỉ là cốt truyện chưa đi tiếp). Dùng làm chỗ "còn tiếp" khi chương chưa viết xong.') : null,
       u.type === 'talkActor' ? field('Người nói', selectInput(u.who, speakerOpts2(), (v) => { u.who = v; changed(); }), opt('until', { hint: 'Người chơi đứng gần bấm E → sang bước sau (câu tiếp theo). Người lạ phải xuất hiện ở bước này hoặc bước trước; NPC địa điểm thì luôn có.' })) : null,
@@ -448,6 +449,16 @@ export function render(root, ctx) {
         st.leash ? field('Quanh địa điểm', selectInput(st.leash.place, placeOpts, (v) => { st.leash.place = v; changed(); }), opt('leash')) : null,
         st.leash ? field('Bán kính (đơn vị bản đồ · 1 ≈ 10 m)', numInput(st.leash.r ?? 30, (v) => { st.leash.r = v; changed(); }, { step: 5, min: 10, max: 200 }), opt('leash')) : null),
       st.leash ? textBox('Câu nhắc khi đi ra khỏi vùng', st.leash.text, 1, { ref, fieldKey: 'leash' }) : null));
+    T.pane('rules').append(fold('⛔ Chặn lại gần địa điểm (trong lúc chờ bước này)', st.keepOut,
+      el('div', { class: 'grid' },
+        field('Chặn', checkInput(!!st.keepOut, (v) => {
+          if (v) st.keepOut = { place: placeOpts[0]?.[0] || '', r: 30, text: newKey(`${base}.keepOut`) };
+          else delete st.keepOut;
+          rerender();
+        }, 'Tới gần quá thì bị đẩy ra + nhắc'), opt('keepOut', { hint: 'Vd chưa gửi xe ở bãi thì không cho tới Kho 7 (phải gửi xe rồi đi bộ vào).' })),
+        st.keepOut ? field('Quanh địa điểm', selectInput(st.keepOut.place, placeOpts, (v) => { st.keepOut.place = v; changed(); }), opt('keepOut')) : null,
+        st.keepOut ? field('Bán kính (m)', numInput(st.keepOut.r ?? 30, (v) => { st.keepOut.r = v; changed(); }, { step: 5, min: 5, max: 200 }), opt('keepOut')) : null),
+      st.keepOut ? textBox('Câu nhắc khi lại gần', st.keepOut.text, 1, { ref, fieldKey: 'keepOut' }) : null));
 
     // ---------- mục tiêu + hướng dẫn ----------
     const g = (st.guide = st.guide || null);
@@ -1124,6 +1135,7 @@ export function render(root, ctx) {
           num(f, 'hp', 'Máu', {}, ref), num(f, 'dmg', 'Mất máu / cú (đánh mình)', {}, ref), num(f, 'windup', 'Giơ tay bao lâu mới bổ (giây)', { step: 0.1 }, ref, 'Lúc nó giơ tay là lúc nên đỡ (chuột phải) / né.'),
           num(f, 'cd', 'Nghỉ giữa 2 lần đánh (giây)', { step: 0.1 }, ref), num(f, 'speed', 'Chạy nhanh (m/giây)', { step: 0.1 }, ref), num(f, 'reach', 'Tầm với (m)', { step: 0.1 }, ref),
           num(f, 'combo', 'Đánh liền mấy cú', {}, ref), num(f, 'recover', 'Sơ hở sau khi đánh (giây)', { step: 0.1 }, ref),
+          field('Đòn đánh (lần lượt)', textInput((f.moves || []).join(', '), (v) => { const L = v.split(/[s,]+/).filter(Boolean); if (L.length) f.moves = L; else delete f.moves; changed(); }, { placeholder: 'tự chọn' }), { ref, fieldKey: 'moves', hint: 'Chỉ khác dáng ra đòn (sát thương như nhau): jab = đấm thẳng tay trước · cross = đấm thẳng tay sau · hook = đấm móc ngang · upper = móc lên cằm · over = bổ từ trên xuống (cầm đồ) · side = quét ngang (cầm đồ). Bỏ trống: cầm đồ → over, side · tay không → jab, cross, hook.' }),
           field('', checkInput(!!f.boss, (v) => { if (v) f.boss = true; else delete f.boss; rerender(); }, '👑 Boss (không đập lén được, anh Đạt đánh nhẹ)'), { ref, fieldKey: 'boss' }),
           field('', checkInput(!!f.guard, (v) => { if (v) f.guard = true; else delete f.guard; changed(); }, '🛡 Tự đỡ đòn đánh trước mặt'), { ref, fieldKey: 'guard', hint: 'Chỉ trúng lúc nó đang giơ tay / vừa đánh xong / choáng / bị phao trùm, hoặc đánh sau lưng. Chảo, gạch phá thế đỡ.' }),
           field('', checkInput(!!f.charge, (v) => { if (v) f.charge = { wind: 1, speed: 10, dmg: 25, stun: 3, dist: 14, cd: 5 }; else delete f.charge; rerender(); }, '🐂 Lao húc (như Tí Đô)'), { ref, fieldKey: 'charge' }),
@@ -1165,9 +1177,10 @@ export function render(root, ctx) {
         el('div', { class: 'grid tight' },
           textBox('Tên trận (hiện góc phải màn hình)', t.name || (t.name = newKey(`story.fight.${id}`)), 1, { ref, fieldKey: 'name' }),
           field('Bản đồ', selectInput(t.zone || 'ship', Object.entries(ZONES).map(([k, z]) => [k, z.name]), (v) => { t.zone = v; changed(); }), { ref, fieldKey: 'zone', hint: 'Toạ độ trong trận tính theo gốc bản đồ riêng (tàu: giữa tàu, mũi về +z, mạn trái -x sát bến Kho 7; boong cao 6,2).' }),
-          xz(t, 'start', 'Người chơi bắt đầu ở [x, z]', ref),
+          field('', checkInput(!!t.keepPos, (v) => { if (v) t.keepPos = true; else delete t.keepPos; rerender(); }, '🚶 Đánh tại chỗ (không dịch chuyển)'), { ref, fieldKey: 'keepPos', hint: 'Bắt đầu trận ngay chỗ người chơi / đồng đội đang đứng (đi bộ tới là đánh, không màn đen). Thua thì làm lại từ chỗ đó. Bỏ trống: dịch tới "Người chơi bắt đầu ở".' }),
+          t.keepPos ? null : xz(t, 'start', 'Người chơi bắt đầu ở [x, z]', ref),
           field('Đồng đội', selectInput(t.ally || '', allyOpts, (v) => { if (v) t.ally = v; else delete t.ally; rerender(); }), { ref, fieldKey: 'ally' }),
-          t.ally ? xz(t, 'allyAt', 'Đồng đội đứng ở [x, z]', ref) : null,
+          t.ally ? xz(t, 'allyAt', t.keepPos ? 'Đồng đội đứng ở [x, z] (chỉ khi chưa có mặt)' : 'Đồng đội đứng ở [x, z]', ref) : null,
           field('', checkInput(!!t.stealth, (v) => { if (v) t.stealth = { goal: [...(t.start || [0, 0])], r: 2 }; else delete t.stealth; rerender(); }, '🤫 Màn lẻn (không đánh)'), { ref, fieldKey: 'stealth', hint: 'Tới chỗ cần tới mà không bị ai thấy = thắng. Bị thấy → màn đen, làm lại từ đầu màn. Địch nên có đường đi tuần / chưa phát hiện. Đập lén sau lưng (E) vẫn được.' }),
           t.stealth ? xz(t.stealth, 'goal', 'Màn lẻn: tới chỗ [x, z]', ref) : null,
           t.stealth ? field('Bán kính (m)', numInput(t.stealth.r ?? 2, (v) => { t.stealth.r = v; changed(); }, { step: 0.5, min: 0.5, max: 20 }), { ref, fieldKey: 'stealth' }) : null,

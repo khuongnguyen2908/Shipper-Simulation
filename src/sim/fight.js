@@ -13,7 +13,12 @@ export const PLAYER = { hp: 100, blockCut: 0.8, pipRegen: 3, dodgeCd: 0.8, dodge
 // level: chênh cao quá … m thì không thấy (lính dưới bến không thấy lên boong; lính trên boong không thấy nửa dưới cầu thang mạn)
 // Tầm nhìn của 1 tên (màn lẻn: vùng sáng vẽ ra đúng bằng này): xa sight m (dữ liệu ghi đè được), nửa góc nhìn (radian)
 export const sightOf = (foe) => ({ r: foe.sight ?? PLAYER.sight, half: PLAYER.fov / 2 + 0.35 });
-export const ALLY = { hp: 120, dmg: 16, cd: 2.1, speed: 4.4, reach: 1.7, takeMul: 0.6, bossMul: 0.3 };
+// Đòn đánh (chỉ khác dáng ra đòn — sát thương / thời gian như nhau): kiểu địch đánh lần lượt theo danh sách "moves" trong dữ liệu
+// (không có: cầm đồ → bổ / quét · tay không → đấm thẳng / đấm móc). Anh Đạt: ALLY.moves
+export const MOVES = ['jab', 'cross', 'hook', 'upper', 'over', 'side'];
+export const movesOf = (f) => (f.moves?.length ? f.moves : f.weapon ? ['over', 'side'] : ['jab', 'cross', 'hook']);
+const nextMove = (o, list) => (o.move = list[(o.n = (o.n ?? -1) + 1) % list.length]);
+export const ALLY = { hp: 120, dmg: 16, cd: 2.1, speed: 4.4, reach: 1.7, takeMul: 0.6, bossMul: 0.3, moves: ['jab', 'cross', 'hook', 'upper'] };
 
 export const weaponOf = (id, data = storyData) => ({ ...WEAPON_DEFAULT, ...(data.weapons?.fists || {}), ...(data.weapons?.[id] || {}), id: data.weapons?.[id] ? id : 'fists' });
 export const foeOf = (kind, data = storyData) => ({ ...FOE_DEFAULT, ...(data.foes?.[kind] || {}), kind });
@@ -145,9 +150,9 @@ export function foeTick(foe, ctx) {
       turn(foe, want, dt, 4);
       if (foe.t >= foe.f.windup) {
         const hit = d <= foe.f.reach + 0.35 && angDiff(foe.heading, want) < 0.9;
-        ev.push({ type: 'strike', foe, who: foe.target, hit, dmg: foe.f.dmg });
+        ev.push({ type: 'strike', foe, who: foe.target, hit, dmg: foe.f.dmg, move: foe.move });
         foe.combo += 1;
-        if (foe.f.combo && foe.combo < foe.f.combo) { foe.state = 'windup'; foe.t = foe.f.windup - 0.32; } // đánh liền 2 cú
+        if (foe.f.combo && foe.combo < foe.f.combo) { foe.state = 'windup'; foe.t = foe.f.windup - 0.32; nextMove(foe, movesOf(foe.f)); } // đánh liền 2 cú (đòn kế tiếp)
         else { foe.combo = 0; setState(foe, 'recover'); foe.cd = foe.f.cd; }
       }
       return ev;
@@ -183,7 +188,7 @@ export function foeTick(foe, ctx) {
     step(foe, g.x, g.z, foe.f.speed, dt, g === tgt ? d - foe.f.reach * 0.8 : Infinity);
   } else {
     turn(foe, want, dt, 5);
-    if (foe.cd <= 0) setState(foe, 'windup');
+    if (foe.cd <= 0) { setState(foe, 'windup'); nextMove(foe, movesOf(foe.f)); }
     else foe.state = 'guard';
   }
   return ev;
@@ -216,7 +221,7 @@ export function allyTick(A, foes, P, dt, route = null) {
     return ev;
   }
   if (d > ALLY.reach) { A.state = 'run'; const g = route ? route(A, tgt) : tgt; step(A, g.x, g.z, ALLY.speed, dt, g === tgt ? d - ALLY.reach * 0.8 : Infinity); }
-  else { A.state = 'fight'; turn(A, want, dt, 6); if (A.cd <= 0) { A.state = 'swing'; A.t = 0; A.cd = ALLY.cd; } }
+  else { A.state = 'fight'; turn(A, want, dt, 6); if (A.cd <= 0) { A.state = 'swing'; A.t = 0; A.cd = ALLY.cd; nextMove(A, ALLY.moves); } }
   return ev;
 }
 

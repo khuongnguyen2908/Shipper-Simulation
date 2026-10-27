@@ -10,8 +10,8 @@
 // Chỉ máy người chơi này (cốt truyện riêng); đồng hồ chung vẫn chạy.
 // =============================================================
 import * as THREE from 'three';
-import { makeViewArms, makeLootMesh, makeWeaponMesh } from '../world/fightModels.js';
-import { animatePerson } from '../world/models.js';
+import { makeViewArms, makeLootMesh, makeWeaponMesh, fighterPose } from '../world/fightModels.js';
+import { animatePerson, hipBend } from '../world/models.js';
 import { resolveCircle } from '../world/physics.js';
 import { FightHud } from '../ui/fightHud.js';
 import { weaponOf, fightOf, makeFoe, meleeTargets, hitFoe, hitPlayer, foeTick, allyTick, playerTick, canTakedown, navNext, dist, sightOf, prewarm, PLAYER, ALLY } from '../sim/fight.js';
@@ -25,6 +25,7 @@ const SWING_T = 0.45; // thời gian 1 cú vung (giây) — trúng ở giữa c�
 const THROW_T = 0.4;
 const tmp = new THREE.Vector3();
 const W2 = (F, p) => F.W(p || [0, 0]); // toạ độ trong bản đồ riêng → thế giới
+const SEE_BLOCK = new Set(['house', 'post']); // vật che tầm nhìn: khối nào cao hơn tầm mắt đều che (không chỉ khối > 2,3 m)
 
 export class FightPart {
   // ---------- GÓC NHÌN THỨ 1 ----------
@@ -90,7 +91,7 @@ export class FightPart {
     // 2 tay
     const fp = this.fp, A = this.viewArms?.userData;
     if (A && fp) {
-      if (fp.swing > 0) A.pose('swing', fp.swing / SWING_T, this.fpBob);
+      if (fp.swing > 0) A.pose('swing', fp.swing / SWING_T, this.fpBob, fp.move);
       else if (fp.throwT > 0) A.pose('throw', fp.throwT / THROW_T, this.fpBob);
       else if (fp.blocking) A.pose('block', 0, this.fpBob);
       else A.pose(fp.hurtT > 0 ? 'hurt' : 'idle', 0, this.fpBob);
@@ -105,11 +106,16 @@ export class FightPart {
     this.fightStop();
     if (!this.fpvOn) this.fpvSet(true);
     const [ox, oz] = ZONES[def.zone]?.origin || [0, 0], W = (p) => ({ x: p[0] + ox, z: p[1] + oz });
-    const st = W(def.start || [0, 0]), heldAt = this.gs.story.held ? { ...this.gs.story.held } : null;
-    this.fight = { id, def, W, t: 0, start: { ...st, held: heldAt }, foes: [], ally: null, loot: [], proj: [], won: false, lost: false, cp: 0 };
-    this.fightSetup();
+    // keepPos: đánh ngay chỗ đang đứng (đi bộ tới là đánh, không màn đen dịch chuyển) — thua thì làm lại từ chỗ này
+    const here = def.keepPos ? { x: this.walker.pos.x, z: this.walker.pos.z } : null;
+    const st = here || W(def.start || [0, 0]), heldAt = this.gs.story.held ? { ...this.gs.story.held } : null;
+    const am = def.keepPos && def.ally && this.storyActors?.[def.ally]?.mesh.position;
+    this.fight = { id, def, W, t: 0, start: { ...st, held: heldAt }, allyAt: am ? { x: am.x, z: am.z } : null, foes: [], ally: null, loot: [], proj: [], won: false, lost: false, cp: 0 };
+    this.fightSetup(!!here);
     if (def.stealth) { // màn lẻn: không hiện thanh máu, nhắc cách chơi
+      this.fightGoalMark(W(def.stealth.goal), def.stealth.r ?? 2);
       this.fightHud.show('fpv');
+      sound('fight.sneak');
       this.hud.toast(fmt('story.fight.sneakHint'), 'info', 7000);
       return;
     }
@@ -117,8 +123,8 @@ export class FightPart {
     this.hud.el.classList.add('in-fight');
     sound('fight.start');
   }
-  // dựng (lại) mọi thứ của trận — lúc bắt đầu và lúc chơi lại
-  fightSetup() {
+  // dựng (lại) mọi thứ của trận — lúc bắt đầu và lúc chơi lại · stay: lúc bắt đầu trận "đánh tại chỗ" (không dịch chuyển, không xoay camera)
+  fightSetup(stay = false) {
     const F = this.fight, def = F.def, W = F.W;
     // lưới đường đi của bản đồ (toạ độ thế giới)
     const nav = ZONES[def.zone]?.nav;
@@ -128,12 +134,12 @@ export class FightPart {
     for (const p of F.proj) this.scene.remove(p.mesh);
     F.loot = []; F.proj = []; F.t = 0; F.won = false; F.lost = false;
     const cpAt = F.cp > 0 && def.stealth?.checkpoints?.[F.cp - 1]; // màn lẻn: đã qua chốt → làm lại từ chốt đó
-    this.zoneTeleport(cpAt ? (() => { const p = W(cpAt); return [p.x, p.z]; })() : [F.start.x, F.start.z]);
+    if (!stay) this.zoneTeleport(cpAt ? (() => { const p = W(cpAt); return [p.x, p.z]; })() : [F.start.x, F.start.z]);
     if (F.start.held) this.heldSet(F.start.held.id, F.start.held.dur); else this.heldSet('fists');
     this.fp = this.fpNew();
     // nhìn về phía tên địch gần nhất lúc bắt đầu
     const near = (def.foes || []).filter((d) => d.join == null).map((d) => W(d.at || [0, 0])).sort((p, q) => Math.hypot(p.x - F.start.x, p.z - F.start.z) - Math.hypot(q.x - F.start.x, q.z - F.start.z))[0];
-    if (near) { this.fpvYaw = Math.atan2(-(near.x - F.start.x), -(near.z - F.start.z)); this.fpvPitch = 0; }
+    if (near && !stay) { this.fpvYaw = Math.atan2(-(near.x - F.start.x), -(near.z - F.start.z)); this.fpvPitch = 0; }
     // địch: người lạ cốt truyện (hình theo "look"), đứng đúng chỗ; người vào sau (join) ẩn tới lúc chạy tới
     F.foes = (def.foes || []).map((d, i) => {
       const p = W(d.at || [0, 0]);
@@ -154,7 +160,7 @@ export class FightPart {
     });
     // anh Đạt
     if (def.ally) {
-      const p = W(def.allyAt || def.start || [0, 0]);
+      const p = F.allyAt || W(def.allyAt || def.start || [0, 0]); // đánh tại chỗ: anh Đạt đứng đâu đánh đó
       if (!this.storyActors?.[def.ally]) this.storyActorSpawn({ do: 'actor', who: def.ally, look: 'char', spot: 'at', at: [p.x, p.z], heading: 0 });
       else { const m = this.storyActors[def.ally].mesh; m.position.set(p.x, this.city.elev?.topAt(p.x, p.z) ?? 0, p.z); }
       const ac = this.storyActors?.[def.ally];
@@ -180,10 +186,25 @@ export class FightPart {
     el.add(m);
     ac.weaponMesh = m;
   }
+  // Màn lẻn: đánh dấu chỗ cần tới (vòng sáng xanh trên sàn + cột sáng mờ, thấy từ xa) — dọn khi xong / bỏ trận
+  fightGoalMark(p, r) {
+    if (this.goalMark) { this.scene.remove(this.goalMark); this.goalMark = null; }
+    if (!p) return;
+    const g = new THREE.Group(), y = this.city.elev?.topAt(p.x, p.z) ?? 0;
+    const mat = (o) => new THREE.MeshBasicMaterial({ color: 0x3ddc84, transparent: true, opacity: o, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+    const ring = new THREE.Mesh(new THREE.RingGeometry(Math.max(0.5, r - 0.25), r, 32).rotateX(-Math.PI / 2), mat(0.75));
+    ring.position.y = 0.05;
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.9, r * 0.9, 6, 24, 1, true).translate(0, 3, 0), mat(0.12));
+    g.add(ring, beam);
+    g.position.set(p.x, y, p.z);
+    this.scene.add(g);
+    this.goalMark = g;
+  }
   fightStop() {
     const F = this.fight;
     if (!F) return;
     this.fightCones(F, null);
+    this.fightGoalMark(null);
     for (const l of F.loot) this.scene.remove(l.mesh);
     for (const p of F.proj) this.scene.remove(p.mesh);
     for (const f of F.foes) if (f.state !== 'ko' || !F.won) this.storyActorRemove(f.who);
@@ -214,7 +235,7 @@ export class FightPart {
     fp.blocking = free && !!this.input.mouse[2] && fp.pips > 0 && fp.swing === 0 && fp.throwT === 0;
     if (free && this.input.was('Mouse0') && fp.cd <= 0 && !fp.blocking) {
       if (wpn.throw) { fp.throwT = 0.001; fp.cd = 0.6; this.fightThrowSoon = THROW_T * 0.45; }
-      else { fp.swing = 0.001; fp.cd = wpn.cd; fp.hitDone = false; sound('fight.swing'); }
+      else { fp.swing = 0.001; fp.cd = wpn.cd; fp.hitDone = false; sound('fight.swing'); const L = wpn.id === 'fists' ? ['jab', 'cross', 'hook'] : ['over', 'side']; fp.move = L[(fp.n = (fp.n ?? -1) + 1) % L.length]; } // đòn lần lượt (chỉ khác dáng)
     }
     if (fp.swing > SWING_T * 0.42 && !fp.hitDone) { fp.hitDone = true; this.fightSwingHit(wpn); }
     if (this.fightThrowSoon > 0 && (this.fightThrowSoon -= dt) <= 0) this.fightThrow(wpn);
@@ -240,8 +261,8 @@ export class FightPart {
     const A = F.ally;
     const blocked = (x, z) => { for (const c of this.city.grid.query(x, z, 0.8)) if (c.tag === 'house' && x > c.x0 - 0.5 && x < c.x1 + 0.5 && z > c.z0 - 0.5 && z < c.z1 + 0.5) return true; return false; };
     const route = (o, t) => this.fightRoute(o, t);
-    // tầm nhìn: dò từng 0,4 m từ mắt địch tới người chơi, đụng khối cao (container, vách lầu) là bị che
-    const HOUSE = new Set(['house']);
+    // tầm nhìn: dò từng 0,4 m từ mắt địch tới người chơi, đụng khối cao hơn tầm mắt (container, vách lầu, thùng gỗ, chồng phuy) là bị che
+    const HOUSE = SEE_BLOCK;
     const los = (a, b) => {
       const eyeY = (a.y ?? w.mesh.position.y) + 1.45; // ngang mắt người đứng ở tầng của tên lính (dưới bến / trên boong)
       const n = Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 0.4);
@@ -301,7 +322,9 @@ export class FightPart {
     this.fightHud.update(this.fightHudData());
   }
   // ---------- VÙNG SÁNG (màn lẻn): hình quạt tầm nhìn từng tên trên mặt đất / boong, bị vật cản che thì cắt ----------
-  // los = null → dọn hết. Mỗi tia dò từ mắt tên đó ra xa tới khi đụng vật cao (cùng cách tính "thấy" của luật) · đèn pin nhỏ trên tay cho thấy hướng từ xa
+  // los = null → dọn hết. Mỗi tia dò từ mắt tên đó ra xa (từng 0,25 m) tới khi đụng vật cao — cùng cách tính "thấy" của luật (los) —
+  // hoặc tới chỗ sàn khác tầng (đứng trên boong nhìn xuống bến: luật không tính là thấy). Mép vật che: chia nhỏ thêm tia cho
+  // vùng sáng không lấn ra sau góc container. Đèn pin nhỏ trên tay cho thấy hướng từ xa
   fightCones(F, los) {
     F.cones ||= new Map();
     const keep = new Set();
@@ -312,10 +335,10 @@ export class FightPart {
       keep.add(foe.who);
       let C = F.cones.get(foe.who);
       if (!C) {
-        const N = 20, geo = new THREE.BufferGeometry();
-        geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array((N + 2) * 3), 3));
+        const N = 36, MAX = N * 8 + 2, geo = new THREE.BufferGeometry(); // N tia gốc, mỗi khe chia thêm tối đa 7 tia
+        geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX * 3), 3));
         const idx = [];
-        for (let i = 0; i < N; i++) idx.push(0, i + 1, i + 2);
+        for (let i = 0; i < MAX - 2; i++) idx.push(0, i + 1, i + 2);
         geo.setIndex(idx);
         const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffc94a, transparent: true, opacity: 0.42, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })); // cộng sáng như đèn rọi: ban đêm thấy rõ
         mesh.frustumCulled = false;
@@ -324,23 +347,49 @@ export class FightPart {
         const beam = new THREE.Mesh(new THREE.ConeGeometry(0.9, 5, 12, 1, true).translate(0, -2.5, 0).rotateX(-Math.PI / 2 + 0.25), new THREE.MeshBasicMaterial({ color: 0xfff2b0, transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
         beam.position.set(0.2, 1.25, 0.25);
         ac.mesh.add(beam);
-        C = { mesh, N, beam, t: 0 };
+        const ear = new THREE.Mesh(new THREE.RingGeometry(0.92, 1, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xff7a45, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
+        ear.renderOrder = 6;
+        this.scene.add(ear);
+        C = { mesh, N, beam, ear, t: 0, k: F.cones.size % 3 }; // k: lượt tính lại (chia đều các lính ra 3 khung hình)
         F.cones.set(foe.who, C);
       }
-      if ((C.t = (C.t || 0) - 1) > 0) continue; // tính lại mỗi 2 khung hình
-      C.t = 2;
-      const S = sightOf(foe), y = ac.mesh.position.y + 0.06, a = C.mesh.geometry.attributes.position;
-      a.setXYZ(0, foe.x, y, foe.z);
-      for (let i = 0; i <= C.N; i++) {
-        const ang = foe.heading - S.half + (2 * S.half * i) / C.N, sx = Math.sin(ang), sz = Math.cos(ang);
-        let r = S.r;
-        for (let d = 0.5; d < S.r; d += 0.5) if (!los(foe, { x: foe.x + sx * d, z: foe.z + sz * d })) { r = d; break; }
-        a.setXYZ(i + 1, foe.x + sx * r, y, foe.z + sz * r);
+      // vòng tai nghe: bán kính bị nghe tiếng chân (đang chạy thì to ra)
+      const hr = this.fp?.loud ? PLAYER.hearRun : PLAYER.hear;
+      C.ear.position.set(foe.x, ac.mesh.position.y + 0.07, foe.z);
+      C.ear.scale.set(hr, 1, hr);
+      if (C.k > 0) { C.k -= 1; continue; } // lần đầu: lệch lượt theo thứ tự lính
+      if ((C.t = (C.t || 0) - 1) > 0) continue; // tính lại mỗi 3 khung hình (mỗi khung chỉ ~1/3 số lính)
+      C.t = 3;
+      const S = sightOf(foe), fy = ac.mesh.position.y, y = fy + 0.06, eyeY = fy + 1.45, a = C.mesh.geometry.attributes.position;
+      const grid = this.city.grid, elev = this.city.elev, HOUSE = SEE_BLOCK;
+      // 1 tia: đi tới khi đụng vật cao ngang mắt / ra khỏi tầng đang đứng (trên cao mà dưới chân không còn sàn cùng tầng)
+      const ray = (ang) => {
+        const sx = Math.sin(ang), sz = Math.cos(ang);
+        for (let d = 0.25; d < S.r; d += 0.25) {
+          const x = foe.x + sx * d, z = foe.z + sz * d;
+          if (grid.inside(x, eyeY, z, HOUSE)) return Math.max(0.3, d - 0.15);
+          if (fy > 0.5 && elev && elev.heightAt(x, z, fy, 0) == null) return d;
+        }
+        return S.r;
+      };
+      const A0 = foe.heading - S.half, step = (2 * S.half) / C.N, pts = [];
+      let prev = [A0, ray(A0)];
+      pts.push(prev);
+      for (let i = 1; i <= C.N; i++) {
+        const cur = [A0 + step * i, 0];
+        cur[1] = ray(cur[0]);
+        // 2 tia cạnh nhau dài ngắn khác xa = có mép vật che ở giữa → chia nhỏ khe đó (7 tia thêm)
+        if (Math.abs(cur[1] - prev[1]) > 0.6) for (let k = 1; k < 8; k++) { const g = prev[0] + (step * k) / 8; pts.push([g, ray(g)]); }
+        pts.push(cur);
+        prev = cur;
       }
+      a.setXYZ(0, foe.x, y, foe.z);
+      pts.forEach(([g, r], i) => a.setXYZ(i + 1, foe.x + Math.sin(g) * r, y, foe.z + Math.cos(g) * r));
+      C.mesh.geometry.setDrawRange(0, (pts.length - 1) * 3);
       a.needsUpdate = true;
       C.mesh.geometry.computeBoundingSphere();
     }
-    for (const [who, C] of F.cones) if (!keep.has(who)) { this.scene.remove(C.mesh); C.mesh.geometry.dispose(); C.beam.parent?.remove(C.beam); F.cones.delete(who); }
+    for (const [who, C] of F.cones) if (!keep.has(who)) { this.scene.remove(C.mesh); this.scene.remove(C.ear); C.mesh.geometry.dispose(); C.beam.parent?.remove(C.beam); F.cones.delete(who); }
   }
   // Đi vòng qua vật cản: nhìn thẳng thấy thì đi thẳng, không thì theo lưới đường (tính lại mỗi ~0,4 giây)
   fightRoute(o, t) {
@@ -373,26 +422,40 @@ export class FightPart {
     m.rotation.y = o.heading;
     const parts = m.userData.parts;
     ac.phase = (ac.phase || 0) + dt * (o.moving ? 9 : 0);
+    // tay về chỗ buông thường (dáng đánh có vặn / dang tay — world/fightModels.js), thân thẳng
+    if (parts) { parts.armR.rotation.set(0, 0, parts.armZ ?? 0); parts.armL.rotation.set(0, 0, -(parts.armZ ?? 0)); }
     if (o.state === 'ko') {
       // ngã ngửa nằm im
       o.koT = Math.min(1, (o.koT || 0) + dt * 3);
       m.rotation.x = -o.koT * 1.45;
       p.y = (top ?? p.y) + o.koT * 0.15;
       animatePerson(m, 0, 0);
+      if (parts) hipBend(parts, 0);
       return;
     }
     m.rotation.x = 0;
     animatePerson(m, ac.phase, o.moving ? 1 : 0);
     if (!parts) return;
-    const swingUp = (o.state === 'windup' || o.state === 'swing') && !ally ? o.t / (o.f?.windup || 0.6) : ally && o.state === 'swing' ? Math.min(1, o.t / 0.2) : 0;
-    if (o.state === 'windup' || (ally && o.state === 'swing')) { parts.armR.rotation.x = -2.6 * Math.min(1, swingUp); parts.elbowR.rotation.x = -0.5; }
-    else if (o.state === 'recover' && o.t < 0.25) { parts.armR.rotation.x = -1.1; parts.elbowR.rotation.x = -0.2; } // vừa bổ xuống
-    if (o.state === 'stagger') m.rotation.x = 0.18; // khựng ngửa ra sau
-    if (o.state === 'chargeWind') { parts.body.rotation.x = 0.35; parts.armL.rotation.x = parts.armR.rotation.x = -0.6; } // cúi đầu lấy đà
-    if (o.state === 'charge') { parts.body.rotation.x = 0.45; parts.armL.rotation.x = parts.armR.rotation.x = -1.2; }
-    if (o.state === 'dazed') m.rotation.z = Math.sin(o.t * 6) * 0.08; else m.rotation.z = 0;
-    if (o.state === 'guard' && o.f?.guard) { parts.armL.rotation.x = -1.3; parts.elbowL.rotation.x = -1.6; } // boss thủ thế
+    // dáng đánh: thủ 2 nắm tay trước mặt · lấy đà · ra đòn (đấm thẳng / đấm móc / móc lên / bổ / quét — đòn nào do luật chọn, o.move)
+    // địch: lúc trúng (sự kiện strike) bắt đầu đếm ac.hit · anh Đạt: vung 0,35 giây rồi ra đòn (o.t tính tiếp sau đó)
+    if (ac.hit) ac.hit.t += dt;
+    const busy = ['stagger', 'dazed', 'chargeWind', 'charge', 'throwWind'].includes(o.state) || o.trap > 0;
+    const fighting = !busy && (ally ? o.state !== 'follow' : o.alert && o.state !== 'patrol' && o.state !== 'look');
+    const wind = ally ? (o.state === 'swing' ? { move: o.move, k: o.t / 0.3 } : null) : o.state === 'windup' ? { move: o.move, k: o.t / (o.f?.windup || 0.6) } : null;
+    const hit = ally ? (o.move && o.state !== 'swing' ? { move: o.move, t: o.t - 0.35 } : null) : ac.hit;
+    const pose = fighterPose(parts, { stance: fighting && (ally || dist(o, this.fp) < 7) ? (o.f?.weapon ? 'weapon' : 'fists') : false, block: !ally && o.state === 'guard' && o.f?.guard, wind, hit });
+    let bend = 0, twist = 0;
+    if (pose) {
+      bend = pose.bend; twist = pose.twist;
+      if (pose.lunge) { p.x += Math.sin(o.heading) * pose.lunge; p.z += Math.cos(o.heading) * pose.lunge; } // nhoài người theo cú đấm
+    }
+    if (o.state === 'stagger') { bend = -0.3; parts.armL.rotation.x = parts.armR.rotation.x = 0.45; } // trúng đòn: ngửa ra sau, tay văng
+    if (o.state === 'chargeWind') { bend = 0.38; parts.armL.rotation.x = parts.armR.rotation.x = -0.6; p.y += Math.abs(Math.sin(o.t * 12)) * 0.05; } // cúi đầu, dậm chân lấy đà
+    if (o.state === 'charge') { bend = 0.55; parts.armL.rotation.x = parts.armR.rotation.x = -1.25; parts.elbowL.rotation.x = parts.elbowR.rotation.x = -0.5; } // cắm đầu lao tới
+    if (o.state === 'throwWind') { const k = Math.min(1, o.t / 0.55); bend = -0.15 * k; twist = 0.5 * k; parts.armR.rotation.x = -2.7 * k; parts.elbowR.rotation.x = -1.1 * k; } // vác gạch ra sau đầu
+    m.rotation.z = o.state === 'dazed' ? Math.sin(o.t * 6) * 0.08 : 0;
     if (o.trap > 0) { parts.armL.rotation.x = parts.armR.rotation.x = 0; animatePerson(m, ac.phase * 3, 0.3); }
+    hipBend(parts, bend, 0, twist); // gập / vặn thân quanh hông — chân đứng yên, thân trên không bị tách khỏi chân
     if (ac.buoy) ac.buoy.visible = o.trap > 0;
   }
   // đẩy các người ra cho khỏi chồng lên nhau (địch – địch – anh Đạt – người chơi)
@@ -424,6 +487,8 @@ export class FightPart {
       for (const f of F.foes) if (!f.alert && f.state !== 'wait' && dist(f, e.foe) < 14) f.alert = true; // la lên → cả đám biết
       sound('fight.alert');
     } else if (e.type === 'strike') {
+      const ac = this.storyActors?.[e.foe?.who];
+      if (ac && e.move) ac.hit = { move: e.move, t: 0 }; // dáng ra đòn (fightPlace)
       if (!e.hit) return sound('fight.swing');
       if (e.who === 'ally' && F.ally) {
         F.ally.hp = Math.max(0, F.ally.hp - e.dmg * ALLY.takeMul);

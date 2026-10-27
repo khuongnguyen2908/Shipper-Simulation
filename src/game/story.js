@@ -68,6 +68,7 @@ export class StoryPart {
     if (offerAct && !this.om.order && this.om.state !== S.OFFERED && !s.ev.delivered && performance.now() - (this.storyOfferAt || 0) > 1500) this.storyOffer(offerAct);
     if (!s?.ch || s.step < 0 || this.modal.open) return;
     this.storyLeash(st);
+    this.storyKeepOut(st);
     const om = this.om;
     const orderStage = om.state === S.OFFERED ? 'offer' : !om.order ? null : om.state === S.TO_PICKUP || om.state === S.WAITING_FOOD || om.state === S.OUT_OF_STOCK || om.state === S.PACKING ? 'accept' : 'pickup';
     const acts = storyTick(this.gs, dMin, {
@@ -103,6 +104,22 @@ export class StoryPart {
     if (now - (this.leashAt || 0) > 4000) {
       this.leashAt = now;
       this.hud.toast(fmt(L.text, { name: this.gs.profile.name }), 'big', 3500);
+    }
+  }
+  // Bước có "keepOut": chưa xong thì không cho lại gần địa điểm hơn r m (vd chưa gửi xe ở bãi thì không cho tới Kho 7) — đẩy ra mép vùng + nhắc
+  storyKeepOut(st) {
+    const K = st?.keepOut, c = K && this.layout.placeById[K.place]?.door;
+    if (!c || !this.gs.story.fired) return;
+    const P = this.playerPos, dx = P.x - c.x, dz = P.z - c.z, d = Math.hypot(dx, dz) || 0.01, r = K.r || 30;
+    if (d >= r) return;
+    P.x = c.x + (dx / d) * r;
+    P.z = c.z + (dz / d) * r;
+    if (this.mode === 'bike') { this.bike.speed = 0; this.bike.vel.set(0, 0); }
+    const now = performance.now();
+    if (now - (this.keepOutAt || 0) > 4000) {
+      this.keepOutAt = now;
+      this.hud.toast(fmt(K.text, { name: this.gs.profile.name }), 'big', 3500);
+      sound('ui.warn');
     }
   }
   // Làm các việc của bước (story.json → on)
@@ -364,6 +381,17 @@ export class StoryPart {
     // … lúc đang bày trận → mở lại bản đồ bày chốt
     const am = s?.fired && !s.ev?.ambushed && (st?.on || []).find((a) => a.do === 'ambush');
     if (am) this.storyAmbushOpen(am);
+    // … lúc đang đánh nhau / lẻn (trận đã bị bỏ ở trên) → dựng lại trận từ đầu · đang đua → đua lại từ đầu (không thì bước kẹt mãi)
+    // làm ở CUỐI lúc mở game (storyResumeRun — game.js), sau khi đã đặt xe, chỗ đứng, loại xe (làm sớm thì bị các bước đó ghi đè)
+    const fi = s?.fired && !s.ev?.fightWon && (st?.on || []).find((a) => a.do === 'fight');
+    const ra = s?.fired && !s.ev?.raceWon && (st?.on || []).find((a) => a.do === 'race');
+    this.storyResume = fi || ra ? { fight: fi?.id, race: ra?.id } : null;
+  }
+  storyResumeRun() {
+    const r = this.storyResume;
+    this.storyResume = null;
+    if (r?.fight) { this.gs.story.fpv = true; this.fightStart(r.fight); }
+    if (r?.race) this.raceStart(r.race);
   }
   // Người nói: 'player' · mã người lạ · 'place:<mã địa điểm>' (NPC đứng ở địa điểm) → { mesh, name, up (độ cao đỉnh đầu) }
   speakerOf(who) {
@@ -1133,6 +1161,7 @@ export class StoryPart {
       if (!gs.returnVehicle()) return;
       b.setSpec(gs.vehicleSpec);
       this.placeAtHomeBike();
+      sound('place.takeVehicle');
       this.hud.toast(fmt('toast.borrowBack', { name: gs.vehicleSpec.name }), 'info', 6000);
       return;
     }

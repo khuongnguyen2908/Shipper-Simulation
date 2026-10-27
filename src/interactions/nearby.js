@@ -132,7 +132,7 @@ export function gatherInteractions(g) {
     const s6 = g.gs.story, st = s6?.ch && s6.fired ? stepOf(s6) : null, u = st?.until;
     if (u?.type === 'useAt' && !s6.ev.used) {
       const at = g.zoneAt(u.at), d = at ? Math.hypot(at[0] - p.x, at[1] - p.z) : Infinity;
-      if (d < (u.r ?? 1.6)) E.push({ label: fmt(u.label || 'act.useHere'), dist: d - 15, run: () => { storyEvent(s6, 'used'); sound('ui.interact'); } });
+      if (d < (u.r ?? 1.6)) E.push({ label: fmt(u.label || 'act.useHere'), dist: d - 15, run: () => { storyEvent(s6, 'used'); sound(u.sound || 'ui.interact'); } }); // u.sound: tiếng riêng (vd mở tủ)
     }
   }
   // việc của đơn hàng luôn ưu tiên (dist đã trừ 10), kể cả khi đang mờ để người chơi thấy hướng dẫn

@@ -23,6 +23,7 @@ const ROAD_TIER_IDS = ['big', 'normal', 'small']; // cấp đường (giống TI
 import { isPlaced } from './places.js';
 import { lightable } from '../sim/lights.js';
 import { ZONE_LIST, ZONE_POINTS } from '../sim/zones.js';
+import { MOVES as FIGHT_MOVES } from '../sim/fight.js';
 
 const MAX_OPEN_DAY = 60;
 // "Mở từ ngày" / "Có đơn từ ngày": số nguyên 1–60, bỏ trống = ngày 1
@@ -944,6 +945,7 @@ export function validateStory(story, { places = null, goods = null, content = nu
     if (!(num(f.hp) && f.hp > 0)) add('error', ref, 'hp', 'Kiểu địch: máu phải > 0.');
     for (const k of ['dmg', 'windup', 'cd', 'speed', 'reach', 'combo', 'recover']) if (!nonNeg(f[k])) add('error', ref, k, `Kiểu địch: ${k} phải là số ≥ 0.`);
     if (f.rage != null && !(num(f.rage) && f.rage >= 0 && f.rage < 1)) add('error', ref, 'rage', 'Nổi điên khi còn: phần máu 0–1 (vd 0,5).');
+    if (f.moves != null && !(Array.isArray(f.moves) && f.moves.length && f.moves.every((m) => FIGHT_MOVES.includes(m)))) add('error', ref, 'moves', `Đòn đánh: danh sách gồm ${FIGHT_MOVES.join(', ')}.`);
   }
   for (const [id, t] of Object.entries(fights)) {
     const ref = `fight:${id}`;
@@ -951,7 +953,9 @@ export function validateStory(story, { places = null, goods = null, content = nu
     text(ref, 'name', t.name, 'tên trận');
     if (!ZONE_LIST.includes(t.zone)) add('error', ref, 'zone', `Trận: bản đồ lạ "${t.zone}".`);
     const xy = (v) => Array.isArray(v) && v.length === 2 && v.every(num);
-    if (!xy(t.start)) add('error', ref, 'start', 'Trận: chỗ người chơi bắt đầu phải là [x, z].');
+    if (!t.keepPos && !xy(t.start)) add('error', ref, 'start', 'Trận: chỗ người chơi bắt đầu phải là [x, z].');
+    if (t.keepPos != null && typeof t.keepPos !== 'boolean') add('error', ref, 'keepPos', 'Trận: "đánh tại chỗ" phải là true / false.');
+    if (t.keepPos && t.stealth) add('warn', ref, 'keepPos', 'Màn lẻn mà "đánh tại chỗ": người gác đứng sẵn quanh chỗ người chơi bước vào → dễ bị thấy ngay.');
     if (t.ally && !people[t.ally]) add('error', ref, 'ally', `Trận: đồng đội "${t.ally}" không có trong "Người nói".`);
     if (t.ally && !xy(t.allyAt)) add('error', ref, 'allyAt', 'Trận: chỗ đồng đội đứng phải là [x, z].');
     if (!Array.isArray(t.foes) || !t.foes.length) add('error', ref, 'foes', 'Trận chưa có địch nào.');
@@ -1092,6 +1096,7 @@ export function validateStory(story, { places = null, goods = null, content = nu
       if (u.type === 'raceWon' && !(st.on || []).some((a) => a.do === 'race')) add('error', ref, 'until', 'Chờ tới đích màn đua mà bước này không có việc "🏍️ Màn đua" → kẹt.');
       if (u.type === 'fightWon' && !(st.on || []).some((a) => a.do === 'fight')) add('error', ref, 'until', 'Chờ thắng trận mà bước này không có việc "⚔️ Trận đánh" → kẹt.');
       if (u.type === 'parked' && u.place) { place(ref, 'until', u.place); const pl = (places?.places || []).find((p) => p.id === u.place); if (pl && pl.look !== 'parkingLot') add('error', ref, 'until', `Gửi xe ở bãi: "${u.place}" không phải bãi giữ xe.`); }
+      if (u.type === 'useAt' && u.sound != null && !SOUNDS[u.sound]) add('error', ref, 'until', `Bấm E tại chỗ: tiếng lạ "${u.sound}".`);
       if (u.type === 'useAt') {
         if (!(Array.isArray(u.at) ? u.at.length === 2 && u.at.every(num) : ZONE_POINTS.includes(u.at))) add('error', ref, 'until', `Bấm E tại chỗ: chỗ lạ "${u.at}" (chỗ đứng có tên trong bản đồ riêng hoặc [x, z]).`);
         if (u.r != null && !(num(u.r) && u.r > 0.3 && u.r <= 20)) add('error', ref, 'until', 'Bấm E tại chỗ: bán kính 0,3 – 20.');
@@ -1121,6 +1126,11 @@ export function validateStory(story, { places = null, goods = null, content = nu
       if (st.onlyTrait != null && !STORY_TRAITS.includes(st.onlyTrait)) add('error', ref, 'onlyTrait', `Chỉ chạy khi tính cách: tính cách lạ "${st.onlyTrait}".`);
       for (const k of ['onlyBefore', 'onlyAfter']) if (st[k] != null && !(num(st[k]) && st[k] >= 0 && st[k] <= 24)) add('error', ref, k, 'Chỉ chạy trước / từ giờ: 0–24.');
       if (st.onlyTrait && ['talkActor', 'chosen'].includes(u.type)) add('warn', ref, 'onlyTrait', 'Bước chỉ dành cho 1 tính cách mà chờ nói chuyện / chọn câu: người chơi tính cách khác sẽ bỏ qua cả bước này — nhớ bước sau không phụ thuộc vào nó.');
+      if (st.keepOut) {
+        place(ref, 'keepOut', st.keepOut.place);
+        if (!(num(st.keepOut.r) && st.keepOut.r >= 5 && st.keepOut.r <= 200)) add('error', ref, 'keepOut', 'Vùng chặn lại gần: bán kính 5–200 m.');
+        text(ref, 'keepOut', st.keepOut.text, 'câu nhắc khi lại gần');
+      }
       if (st.leash) {
         place(ref, 'leash', st.leash.place);
         if (!(num(st.leash.r) && st.leash.r >= 10 && st.leash.r <= 200)) add('error', ref, 'leash', 'Vùng giữ người chơi: bán kính 10–200 m.');

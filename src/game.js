@@ -443,6 +443,7 @@ export class Game {
     this.clearTempNpcs();
     this.traffic.setPolice([]);
     this.traffic.setJams([]);
+    this.storyResumeRun(); // mở game giữa trận đánh / màn lẻn / màn đua: dựng lại từ đầu (sau khi đã đặt xe, chỗ đứng)
 
     this.joinGroupChat(); // đã vào hãng (bản lưu): tin nhóm đầu ngày; chưa vào hãng thì chưa có
     this.state = 'play';
@@ -816,7 +817,7 @@ export class Game {
         if (!this.cine?.ride) for (const h of this.traffic.collidePlayer(bike.pos, 0.75, bike.vel, true, bike.mesh.position.y)) this.onTrafficHit(h, env); // xe tự chạy trong cảnh phim: không va chạm
       } else {
         // đang nói chuyện với người lạ (cốt truyện): đứng yên tới khi nói xong (phím đi bị bỏ qua; đồng hồ vẫn chạy)
-        activity = this.walker.update(dt, this.storyTalkActor() || this.cine || this.tackle || this.untie || this.storyLose ? NO_MOVE : inp.state, this.rig.yaw, { grid: this.city.grid, elev: this.city.elev, phys: this.pursue && this.pursue.phase !== 'lost' ? 100 : gs.phys, speedMul: floodBand(water) >= 2 ? floodNum('walkMul') : 1 }); // đang bị rượt: chạy được bất kể thể lực
+        activity = this.walker.update(dt, this.storyTalkActor() || this.cine || this.tackle || (this.untie && !this.untie.go) || this.storyLose ? NO_MOVE : inp.state, this.rig.yaw, { grid: this.city.grid, elev: this.city.elev, phys: this.pursue && this.pursue.phase !== 'lost' ? 100 : gs.phys, speedMul: floodBand(water) >= 2 ? floodNum('walkMul') : 1 }); // đang bị rượt: chạy được bất kể thể lực
         const talk = this.storyTalkActor(); // đang nói chuyện với người lạ, đứng yên → quay mặt về phía người đó
         if (talk && activity === 'idle' && !this.walker.seat) {
           const m = talk.mesh.position, w = this.walker.pos;

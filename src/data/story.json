@@ -7672,6 +7672,11 @@
           "id": "order",
           "on": [
             {
+              "do": "bubble",
+              "who": "player",
+              "text": "story.c6.order.think"
+            },
+            {
               "do": "offer",
               "kind": "food",
               "place": "nhauBenTau",
@@ -7703,18 +7708,22 @@
             }
           ],
           "until": {
-            "type": "parked",
-            "place": "canhquan2_2"
+            "type": "parked"
           },
           "guide": null,
           "goal": "story.c6.park.goal",
           "hint": "story.c6.park.hint",
-          "target": "canhquan2_2",
+          "target": "canhquan2_6",
           "hold": true,
           "hideNpc": [
             "kho7"
           ],
-          "noFines": true
+          "noFines": true,
+          "keepOut": {
+            "place": "kho7",
+            "r": 30,
+            "text": "story.c6.park.keep"
+          }
         },
         {
           "id": "deliver",
@@ -7807,7 +7816,8 @@
             "type": "useAt",
             "at": "captainLocker",
             "r": 1.6,
-            "label": "story.c6.locker.label"
+            "label": "story.c6.locker.label",
+            "sound": "fight.locker"
           },
           "guide": null,
           "goal": "story.c6.locker.goal",
@@ -7830,6 +7840,10 @@
               "who": "player",
               "text": "story.c6.docs.think",
               "after": 1
+            },
+            {
+              "do": "sound",
+              "code": "progress.objective"
             }
           ],
           "until": {
@@ -7841,21 +7855,20 @@
           "noFines": true
         },
         {
-          "id": "sneak2",
-          "on": [
-            {
-              "do": "fight",
-              "id": "c6Sneak2"
-            }
-          ],
+          "id": "leaveBridge",
+          "on": [],
           "until": {
-            "type": "fightWon"
+            "type": "reach",
+            "at": [
+              0,
+              -2442.2
+            ],
+            "r": 2
           },
           "guide": null,
-          "goal": "story.c6.sneak2.goal",
-          "hint": "story.c6.sneak2.hint",
           "hold": true,
-          "noFines": true
+          "noFines": true,
+          "goal": "story.c6.leave.goal"
         },
         {
           "id": "caught",
@@ -7870,10 +7883,10 @@
               "look": "jetjet",
               "spot": "at",
               "at": [
-                -9.75,
-                -2395.8
+                0.6,
+                -2439.6
               ],
-              "heading": 0
+              "heading": 180
             },
             {
               "do": "react",
@@ -7887,6 +7900,11 @@
               "who": "tiSun",
               "text": "story.c6.caught.b",
               "after": 0.6
+            },
+            {
+              "do": "sound",
+              "code": "fight.alert",
+              "after": 0.3
             }
           ],
           "until": {
@@ -7907,6 +7925,10 @@
               "remove": [
                 "tiSun"
               ]
+            },
+            {
+              "do": "sound",
+              "code": "fight.ko"
             }
           ],
           "until": {
@@ -8080,25 +8102,42 @@
               "do": "bubble",
               "who": "man",
               "text": "story.c6.deck.b"
-            },
+            }
+          ],
+          "until": {
+            "type": "reach",
+            "at": [
+              -9.75,
+              -2386.2
+            ],
+            "r": 3.5
+          },
+          "guide": null,
+          "goal": "story.c6.deck.walk",
+          "hold": true,
+          "noFines": true
+        },
+        {
+          "id": "deckFight",
+          "on": [
             {
-              "do": "fade",
-              "t": 0.8,
-              "after": 1.5
+              "do": "bubble",
+              "who": "tiSun",
+              "text": "story.c6.deck.sun",
+              "after": 0.3
             },
             {
               "do": "fight",
-              "id": "c6Deck",
-              "after": 2.3
+              "id": "c6Deck"
             }
           ],
           "until": {
             "type": "fightWon"
           },
           "guide": null,
-          "goal": "story.c6.deck.goal",
           "hold": true,
-          "noFines": true
+          "noFines": true,
+          "goal": "story.c6.deck.goal"
         },
         {
           "id": "toQuay",
@@ -8106,30 +8145,46 @@
             {
               "do": "bubble",
               "who": "man",
-              "text": "story.c6.quay.b"
+              "text": "story.c6.quay.walkB"
             },
             {
               "do": "zone",
               "gate": true
-            },
+            }
+          ],
+          "until": {
+            "type": "reach",
+            "at": [
+              -15.5,
+              -2420.9
+            ],
+            "r": 2.6
+          },
+          "guide": null,
+          "goal": "story.c6.quay.walk",
+          "hold": true,
+          "noFines": true
+        },
+        {
+          "id": "quayFight",
+          "on": [
             {
-              "do": "fade",
-              "t": 0.8,
-              "after": 1.5
+              "do": "bubble",
+              "who": "man",
+              "text": "story.c6.quay.b"
             },
             {
               "do": "fight",
-              "id": "c6Quay",
-              "after": 2.3
+              "id": "c6Quay"
             }
           ],
           "until": {
             "type": "fightWon"
           },
           "guide": null,
-          "goal": "story.c6.quay.goal",
           "hold": true,
-          "noFines": true
+          "noFines": true,
+          "goal": "story.c6.quay.goal"
         },
         {
           "id": "toBike",
@@ -8444,7 +8499,12 @@
       "windup": 0.6,
       "cd": 1.4,
       "speed": 3.6,
-      "reach": 1.6
+      "reach": 1.6,
+      "moves": [
+        "jab",
+        "cross",
+        "hook"
+      ]
     },
     "tiSun": {
       "name": "story.foe.tiSun",
@@ -8458,7 +8518,11 @@
       "guard": true,
       "combo": 2,
       "recover": 1.2,
-      "weapon": "pipe"
+      "weapon": "pipe",
+      "moves": [
+        "over",
+        "side"
+      ]
     },
     "tiDo": {
       "name": "story.foe.tiDo",
@@ -8483,7 +8547,13 @@
       "throw": {
         "every": 4,
         "dmg": 10
-      }
+      },
+      "moves": [
+        "jab",
+        "hook",
+        "upper",
+        "cross"
+      ]
     }
   },
   "fights": {
@@ -8794,7 +8864,8 @@
               0
             ]
           ],
-          "phase": 36
+          "phase": 6,
+          "sight": 13
         },
         {
           "who": "g2",
@@ -8820,7 +8891,8 @@
               90
             ]
           ],
-          "phase": 46
+          "phase": 34,
+          "sight": 13
         },
         {
           "who": "g3",
@@ -8846,7 +8918,8 @@
               270
             ]
           ],
-          "phase": 46
+          "phase": 28,
+          "sight": 11
         },
         {
           "who": "g4",
@@ -8872,7 +8945,8 @@
               180
             ]
           ],
-          "phase": 26
+          "phase": 32,
+          "sight": 13
         },
         {
           "who": "g5",
@@ -8898,104 +8972,33 @@
               270
             ]
           ],
-          "phase": 28
-        }
-      ],
-      "loot": []
-    },
-    "c6Sneak2": {
-      "zone": "ship",
-      "name": "story.fight.c6Sneak2",
-      "start": [
-        0,
-        -50
-      ],
-      "stealth": {
-        "goal": [
-          -9.75,
-          8
-        ],
-        "r": 2,
-        "checkpoints": [
-          [
-            -6,
-            -12.6
-          ]
-        ]
-      },
-      "foes": [
+          "phase": 36,
+          "sight": 13
+        },
         {
-          "who": "g6",
+          "who": "g8",
           "foe": "thug",
-          "look": "jetjet",
+          "look": "normal",
           "at": [
-            -6,
-            -41
+            -27,
+            -12
           ],
-          "heading": 90,
-          "sweep": 20,
+          "heading": 180,
+          "sight": 11,
+          "sweep": 25,
+          "phase": 28,
           "patrol": [
             [
-              -6,
-              -41,
+              -27,
+              -12,
               2,
               90
             ],
             [
-              6,
-              -41,
+              -24,
+              -24,
               2,
-              270
-            ]
-          ]
-        },
-        {
-          "who": "g4",
-          "foe": "thug",
-          "look": "normal",
-          "at": [
-            -9.75,
-            -36
-          ],
-          "heading": 0,
-          "sweep": 25,
-          "patrol": [
-            [
-              -9.75,
-              -36,
-              2.5,
               0
-            ],
-            [
-              -9.75,
-              -2,
-              2.5,
-              180
-            ]
-          ]
-        },
-        {
-          "who": "g7",
-          "foe": "thug",
-          "look": "jetjet",
-          "at": [
-            9.75,
-            -10
-          ],
-          "heading": 270,
-          "sweep": 25,
-          "patrol": [
-            [
-              9.75,
-              -10,
-              2,
-              270
-            ],
-            [
-              5,
-              -10,
-              2,
-              270
             ]
           ]
         }
@@ -9075,7 +9078,8 @@
             38.6
           ]
         }
-      ]
+      ],
+      "keepPos": true
     },
     "c6Deck": {
       "zone": "ship",
@@ -9143,7 +9147,8 @@
             6
           ]
         }
-      ]
+      ],
+      "keepPos": true
     },
     "c6Quay": {
       "zone": "ship",
@@ -9231,7 +9236,8 @@
             -30
           ]
         }
-      ]
+      ],
+      "keepPos": true
     }
   },
   "races": {

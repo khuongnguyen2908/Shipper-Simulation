@@ -654,7 +654,7 @@ b.plus { color: #58d68d; }
 body.cine #cine { display: block; }
 /* Nút bấm nhanh (việc "tackle" — game/scene.js qteShow): phím E trong vòng đếm ngược vàng + chữ "Chặn lại!" giữa dưới màn hình */
 /* bản đồ riêng (trên tàu): ẩn bản đồ nhỏ · bị tịch thu điện thoại: ẩn hình điện thoại + thông báo */
-.in-zone .hud-br, .no-phone #phoneIcon, .no-phone #phoneNote { display: none !important; }
+.in-zone .hud-br, .in-zone .hud-keys, .no-phone #phoneIcon, .no-phone #phoneNote { display: none !important; } /* trên tàu / đường đua: không minimap, không dòng phím xe – điện thoại */
 #qte { position: fixed; left: 50%; bottom: 20vh; transform: translateX(-50%) scale(0.6); display: flex; align-items: center; gap: 14px; z-index: 30; pointer-events: none; opacity: 0; transition: opacity 0.15s, transform 0.15s; }
 #qte.on { opacity: 1; transform: translateX(-50%) scale(1); }
 #qte svg { width: 92px; height: 92px; transform: rotate(-90deg); }

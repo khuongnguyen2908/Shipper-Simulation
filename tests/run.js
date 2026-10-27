@@ -3767,7 +3767,7 @@ console.log('Âm thanh: mã từng chỗ phát tiếng, file gắn trong sounds.
     for (const id of used) assert.ok(SP.SOUNDS[id], `sound('${id}') chưa có trong soundSpec.js`);
     // mã phát từ dữ liệu cốt truyện (story.json → việc "Phát tiếng") cũng tính là có dùng
     // (+ tiếng đi kèm cảnh quay "sound" và tiếng đạo cụ lúc bắt đầu chạy)
-    const storyCodes = readJson('src/data/story.json').chapters.flatMap((c) => c.steps.flatMap((st) => [...(st.on || []).filter((x) => x.do === 'sound').map((x) => x.code), ...(st.music ? [st.music] : []),
+    const storyCodes = readJson('src/data/story.json').chapters.flatMap((c) => c.steps.flatMap((st) => [...(st.on || []).filter((x) => x.do === 'sound').map((x) => x.code), ...(st.music ? [st.music] : []), ...(st.until?.sound ? [st.until.sound] : []),
       ...(st.on || []).filter((x) => x.do === 'cine').flatMap((x) => (x.shots || []).map((sh) => sh.sound).filter(Boolean)), ...(st.on || []).filter((x) => x.do === 'prop' && x.sound).map((x) => x.sound),
       ...(st.on || []).filter((x) => x.do === 'chase').flatMap((x) => [x.nearSound, x.loop, ...(x.route || []).flatMap((r) => [].concat(r.sound || []))].filter(Boolean))]));
     for (const id of storyCodes) assert.ok(SP.SOUNDS[id], `story.json: mã âm thanh "${id}" chưa có trong soundSpec.js`);
@@ -5624,12 +5624,46 @@ console.log('Đánh nhau góc nhìn thứ 1 (sim/fight.js — chương 6)');
     const c = guard();
     FT.foeTick(c, { player: { x: 0, z: 0.6, heading: 0 }, dt: 0.1, los: () => false });
     assert.ok(c.alert, 'sát bên (nghe tiếng) → biết dù bị che');
-    // dữ liệu: 2 màn lẻn chương 6 có chỗ cần tới + người đi tuần, bộ kiểm tra không báo gì
-    for (const id of ['c6Sneak1', 'c6Sneak2']) {
+    // dữ liệu: màn lẻn chương 6 có chỗ cần tới + người đi tuần, bộ kiểm tra không báo gì
+    for (const id of ['c6Sneak1']) {
       const f = STORYJ.fights[id];
       assert.ok(f.stealth?.goal?.length === 2 && f.foes.every((x) => x.patrol?.length >= 2), id);
     }
     assert.ok(!validateStory(STORYJ).some((i) => /fight:c6|^c6\./.test(i.ref)), 'chương 6 không có lỗi / cảnh báo');
+  });
+  test('Đòn đánh lần lượt theo dữ liệu (jab → hook → …), sự kiện trúng mang tên đòn · anh Đạt đổi đòn mỗi cú · dữ liệu đòn sai → bộ kiểm tra báo', () => {
+    const f = mk('tiDo'), P = { x: 0, z: 1.2, heading: Math.PI };
+    f.chargeCd = 99; f.cd = 0;
+    const seen = [];
+    for (let i = 0; i < 400 && seen.length < 5; i++) for (const e of FT.foeTick(f, { player: P, dt: 0.05 })) if (e.type === 'strike') seen.push(e.move);
+    assert.deepEqual(seen, ['jab', 'hook', 'upper', 'cross', 'jab'], 'đánh lần lượt theo danh sách moves rồi quay vòng');
+    assert.deepEqual(FT.movesOf({ weapon: 'pipe' }), ['over', 'side'], 'cầm đồ mà không ghi: bổ / quét');
+    assert.deepEqual(FT.movesOf({}), ['jab', 'cross', 'hook'], 'tay không mà không ghi: đấm thẳng / móc');
+    const A = { x: 0, z: 0, heading: 0, hp: 120, cd: 0, state: 'fight', t: 0 }, foe = mk('thug');
+    Object.assign(foe, { x: 0, z: 1, alert: true, state: 'chase' });
+    const moves = [];
+    for (let i = 0; i < 200; i++) { FT.allyTick(A, [foe], { x: 0, z: -3 }, 0.05); if (A.state === 'swing' && A.t === 0) moves.push(A.move); foe.hp = 30; }
+    assert.ok(new Set(moves).size >= 2, 'anh Đạt đổi đòn');
+    const bad = JSON.parse(JSON.stringify(STORYJ));
+    bad.foes.thug.moves = ['jab', 'xoay360'];
+    bad.fights.c6Deck.keepPos = 'có';
+    delete bad.fights.c6Container.start;
+    const iss = validateStory(bad);
+    assert.ok(iss.some((i) => i.ref === 'foe:thug' && i.field === 'moves'), 'đòn lạ → lỗi');
+    assert.ok(iss.some((i) => i.ref === 'fight:c6Deck' && i.field === 'keepPos'), 'đánh tại chỗ phải là true/false');
+    assert.ok(!iss.some((i) => i.ref === 'fight:c6Container' && i.field === 'start'), 'đánh tại chỗ thì không cần chỗ bắt đầu');
+  });
+  test('Chương 6: lấy tài liệu xong ra khỏi lầu chỉ huy là bị Tí Sún bắt ngay đuôi tàu · 3 trận nối liền (đánh tại chỗ, đi bộ tới là đánh — không màn đen)', () => {
+    const ch = STORYJ.chapters.find((c) => c.id === 'c6'), ids = ch.steps.map((s) => s.id), st = (id) => ch.steps[ids.indexOf(id)];
+    assert.ok(!ids.includes('sneak2') && !STORYJ.fights.c6Sneak2, 'bỏ màn lẻn thứ 2');
+    assert.deepEqual(ids.slice(ids.indexOf('docs'), ids.indexOf('caught') + 1), ['docs', 'leaveBridge', 'caught']);
+    const sun = st('caught').on.find((a) => a.who === 'tiSun');
+    assert.ok(sun.at[1] + 2400 < -38, 'Tí Sún đứng ở đuôi tàu (trước cửa lầu chỉ huy)');
+    assert.deepEqual(ids.slice(ids.indexOf('breakout'), ids.indexOf('toBike')), ['breakout', 'toDeck', 'deckFight', 'toQuay', 'quayFight']);
+    for (const id of ['c6Container', 'c6Deck', 'c6Quay']) assert.equal(STORYJ.fights[id].keepPos, true, id);
+    for (const id of ['toDeck', 'deckFight', 'toQuay', 'quayFight']) assert.ok(!st(id).on.some((a) => a.do === 'fade' || a.do === 'tp'), `${id}: không màn đen dịch chuyển`);
+    assert.equal(st('toDeck').until.type, 'reach');
+    assert.equal(st('toQuay').until.type, 'reach');
   });
   test('Vũ khí theo dữ liệu (mã lạ = tay không) · đánh sau lưng gấp đôi · boss đỡ đòn trước mặt, chảo phá thế đỡ', () => {
     const bat = FT.weaponOf('bat'), fists = FT.weaponOf('khongCo');
@@ -5717,6 +5751,14 @@ console.log('Đánh nhau góc nhìn thứ 1 (sim/fight.js — chương 6)');
     bad.fights.x = { zone: 'tauNgam', name: 'story.fight.test', start: [0], stealth: { goal: [0, 0], checkpoints: [[1]] }, foes: [{ who: 'g1', foe: 'rong', at: [0, 0] }, { who: 'g1', foe: 'thug', at: [0, 0], sweep: 200, sweepT: 1, sight: 99, phase: -3, patrol: [[0, 0, 99], [1, 1]] }], loot: [{ id: 'bomb', at: [0, 0] }] };
     const e = validateStory(bad, {}).filter((i) => i.ref === 'fight:x' && i.level === 'error').map((i) => i.msg).join(' | ');
     for (const w of ['bản đồ lạ', 'chỗ người chơi bắt đầu', 'kiểu địch lạ', 'bị trùng', 'đồ dưới đất lạ', 'quét đèn 0–90', 'chu kỳ quét', 'nhìn xa 3–25', 'lệch nhịp', 'đường đi tuần', 'chốt làm lại']) assert.ok(e.includes(w), `thiếu lỗi: ${w}`);
+  });
+}
+
+console.log('Tên đạo cụ cốt truyện');
+{
+  const SS = await import('../src/sim/story.js'), VI = readJson('src/content/vi.json');
+  test('Mọi loại đạo cụ đều có tên (thanh "Đi đến …" khi bước chỉ đường tới đạo cụ) — không hiện [[story.propName.…]]', () => {
+    for (const kind of Object.keys(SS.PROP_KINDS)) assert.ok(VI[`story.propName.${kind}`], `thiếu story.propName.${kind}`);
   });
 }
 
