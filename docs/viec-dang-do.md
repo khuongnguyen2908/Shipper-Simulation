@@ -293,7 +293,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
     dời xuống cuối lúc tải (storyResumeRun) — làm sớm thì bị đặt xe / loại xe ghi đè (đua mà đi bộ, xe đạp). Đã thử bản lưu: màn lẻn 1, 2, container, màn đua.
   - Màn lẻn khó hơn: lính nhìn xa 13 m (trừ 2 lính canh phía cầu thang 11 m — 13 m thì không còn đường lên), màn 1 thêm g8 (giữa container – chồng thùng),
     màn 2 thêm g5 (mạn trái phía mũi, nhìn về đích); lệch nhịp dò lại bằng bộ mô phỏng (bước 1/30 giây như game, chừa 0,4 giây) + bot chơi thật.
-- **Đợt 9 — góp ý chơi thử lần 4 (28/10, đã đẩy lên GitHub)**
+- **Đợt 9 — góp ý chơi thử lần 4 (28/10, đã đẩy lên GitHub d74e660 — gồm cả đợt 7, 8)**
   - Vùng sáng lấn vào chỗ khuất: tia dò thưa (20 tia, bước 0,5 m) nên lấn ra sau góc container + thùng gỗ / phuy (cao 2,2 m) không được tính là che.
     Giờ: 36 tia, bước 0,25 m, chia thêm 7 tia ở mép vật che · vật nào cao hơn tầm mắt đều che (luật "thấy" cũng vậy — SEE_BLOCK) · lính trên boong:
     vùng sáng dừng ở mép boong (khác tầng không thấy). Tính lại mỗi 3 khung hình, chia lượt giữa các lính. Bot chơi thật màn lẻn 1: qua 56,7 giây, chạy 1 mạch vẫn bị bắt.
