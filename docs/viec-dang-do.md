@@ -308,7 +308,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
     Tí Đô jab → hook → upper → cross, Tí Sún bổ / quét ống tuýp, đàn em jab / cross / hook); anh Đạt đổi đòn mỗi cú. 2 tay người chơi: tay không thì thủ 2 nắm tay,
     đấm thẳng trái → thẳng phải → móc; cầm đồ thì bổ / quét xen kẽ. Chỉ khác dáng, sát thương / thời gian như cũ. Trang soi dáng: sketches/fight-poses.html.
     (⚠️ fight-poses.html KHÔNG có trên GitHub — máy này dựng lại trang khác: sketches/chuong6/ti-do.html.)
-- **Đợt 10 — chơi thử lần 5 (28/10, làm ở máy này; CHƯA commit)**. Sơ đồ duyệt: `sketches/chuong6/so-do-tau.html`.
+- **Đợt 10 — chơi thử lần 5 (28/10, làm ở máy này; đã đẩy lên GitHub a4bb296)**. Sơ đồ duyệt: `sketches/chuong6/so-do-tau.html`.
   - Chủ game chốt: bị bắt **sau container nhốt** (mũi tàu) · đợt 2 chạm **mạn trái HOẶC mạn phải** · thêm **đợt ở lầu chỉ huy** (anh Đạt lấy đồ) ·
     **tủ** làm lại cho giống tủ, có mở cửa · **cảnh phim Tí Đô + đàn em** trước khi đánh · lên xe ở **góc bến sau Kho 7** · **từng giai đoạn tuần tự,
     không bỏ qua được** (chạy thẳng tới xe cũng không được). Đoạn tủ → container: đi tự do (chưa có lính). Đợt 4: Tí Đô + 2 đàn em từ đầu (bỏ 2 tên vào khi nổi điên).
