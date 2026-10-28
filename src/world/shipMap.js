@@ -5,6 +5,7 @@
 // Biên đi lại: grid.zones (world/physics.js). Toạ độ tàu: gốc ở ORIGIN, mũi về +z, mạn trái (-x) sát bến.
 // =============================================================
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeCargoShip, SHIP } from './cargoShip.js';
 import { makeSignTexture } from './textures.js';
 import { ZONES, zonePoint } from '../sim/zones.js';
@@ -163,6 +164,11 @@ export function buildShipZone(scene, grid, elev, waterMat) {
   hall.position.set(0, SHIP.DECK + 2.4, -51.5);
   g.add(bulb, hall);
 
+  // GỘP KHỐI: tàu + bến dựng từ ~330 khối rời (mỗi container, lan can, cột… 1 lần vẽ, lại đổ bóng → vẽ 2 lần) → gộp các khối
+  // đứng yên cùng vật liệu thành 1 khối. Chừa phần còn động: cổng cầu thang, cửa container nhốt người, cánh tủ (userData.dynamic)
+  for (const h of ud.captive.doors) h.userData.dynamic = true;
+  ud.gate.mesh.userData.dynamic = true;
+  mergeStatic(g);
   scene.add(g);
   const gateCol = W(ud.gate.box), doorCol = W(ud.captive.door);
   const zone = {
@@ -187,6 +193,17 @@ export function buildShipZone(scene, grid, elev, waterMat) {
       const e = this.doorT * this.doorT * (3 - 2 * this.doorT);
       for (const h of ud.captive.doors) h.rotation.y = -h.userData.s * e * 1.75;
     },
+    // tủ sắt trong lầu chỉ huy (0 = tủ anh Đạt, 1 = tủ thuyền trưởng…): mở 2 cánh ra (instant: mở lại game → mở sẵn)
+    lockerT: [0, 0, 0, 0], lockerOpen: [false, false, false, false],
+    setLocker(i, open, instant = false) {
+      if (!ud.lockers?.[i]) return;
+      this.lockerOpen[i] = !!open;
+      if (instant) { this.lockerT[i] = open ? 1 : 0; this.poseLocker(i); }
+    },
+    poseLocker(i) {
+      const e = this.lockerT[i] * this.lockerT[i] * (3 - 2 * this.lockerT[i]);
+      for (const h of ud.lockers[i].doors) h.rotation.y = h.userData.s * e * 1.9;
+    },
     // camera trong chỗ hẹp: trong container nhốt người / trong lầu chỉ huy → kéo sát, nhìn ngang
     camLimit(p) {
       const x = p.x - ox, z = p.z - oz, C = SHIP.CAPTIVE;
@@ -198,11 +215,63 @@ export function buildShipZone(scene, grid, elev, waterMat) {
     tick(dt) {
       const want = this.doorOpen ? 1 : 0;
       if (this.doorT !== want) { this.doorT = want > this.doorT ? Math.min(1, this.doorT + dt * 0.8) : Math.max(0, this.doorT - dt * 1.5); this.poseDoors(); }
+      for (let i = 0; i < this.lockerT.length; i++) {
+        const w = this.lockerOpen[i] ? 1 : 0;
+        if (this.lockerT[i] !== w) { this.lockerT[i] = w > this.lockerT[i] ? Math.min(1, this.lockerT[i] + dt * 1.6) : Math.max(0, this.lockerT[i] - dt * 2); this.poseLocker(i); }
+      }
     },
   };
   zone.setGate(false);
   zone.setDoor(false, true);
   return zone;
+}
+
+// Gộp mọi khối đứng yên trong nhóm g theo vật liệu (giữ nguyên hình, vị trí) → ít lần vẽ hơn hẳn. Bỏ qua: nhánh có userData.dynamic,
+// nhiều vật liệu / không phải khối thường. Khối gộp to (> 6 m) mới đổ bóng (đỡ vẽ bóng cho vụn vặt: cột, tay nắm, đèn…)
+const VC_MATS = new Map(); // vật liệu màu theo đỉnh (dùng chung)
+function mergeStatic(g, isRoot = false) {
+  g.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(g.matrixWorld).invert();
+  const groups = new Map(), drop = [];
+  const dyn = [];
+  const walk = (o) => {
+    if (o.userData?.dynamic && !(isRoot && o === g)) { dyn.push(o); return; }
+    if (o.isMesh && !o.isInstancedMesh && !Array.isArray(o.material) && o.geometry?.attributes?.position) {
+      const geo = (o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone()).applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
+      for (const k of Object.keys(geo.morphAttributes || {})) delete geo.morphAttributes[k];
+      const M = o.material;
+      // khối màu trơn (không ảnh dán, không tự sáng, không trong suốt): ghi màu vào từng đỉnh → mọi màu gộp chung 1 khối
+      // (container trên tàu + bến mỗi cái 1 màu → trước đây vẫn còn ~110 khối sau khi gộp)
+      const plain = M.isMeshStandardMaterial && !M.map && !M.transparent && !M.vertexColors && (!M.emissive || M.emissive.getHex() === 0 || !M.emissiveIntensity);
+      let sig, mat = M;
+      if (plain) {
+        const n = geo.attributes.position.count, col = new Float32Array(n * 3);
+        for (let i = 0; i < n; i++) { col[i * 3] = M.color.r; col[i * 3 + 1] = M.color.g; col[i * 3 + 2] = M.color.b; }
+        geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+        sig = `vc:${M.roughness.toFixed(2)}:${M.metalness.toFixed(2)}:${M.flatShading ? 1 : 0}:${M.side}`;
+        mat = VC_MATS.get(sig) || VC_MATS.set(sig, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: M.roughness, metalness: M.metalness, flatShading: M.flatShading, side: M.side })).get(sig);
+      } else sig = [M.type, M.color?.getHexString(), M.emissive?.getHexString(), M.emissiveIntensity, M.roughness, M.metalness, M.map?.uuid, M.transparent, M.opacity, M.side, M.flatShading].join(':');
+      const keys = Object.keys(geo.attributes).sort().join(',');
+      const key = `${sig}|${keys}|${o.castShadow ? 1 : 0}`;
+      if (!groups.has(key)) groups.set(key, { mat, geos: [], shadow: o.castShadow, recv: o.receiveShadow });
+      groups.get(key).geos.push(geo);
+      drop.push(o);
+    }
+    for (const c of o.children) walk(c);
+  };
+  walk(g);
+  for (const o of drop) o.parent?.remove(o);
+  for (const { mat, geos, shadow, recv } of groups.values()) {
+    const geo = mergeGeometries(geos, false);
+    if (!geo) continue;
+    const m = new THREE.Mesh(geo, mat);
+    geo.computeBoundingSphere();
+    m.castShadow = shadow && geo.boundingSphere.radius > 3;
+    m.receiveShadow = recv;
+    g.add(m);
+  }
+  // phần còn động (cánh tủ, cửa container, cổng): gộp các mảnh bên trong mỗi phần (cả phần vẫn quay / ẩn được)
+  if (!isRoot) for (const d of dyn) mergeStatic(d, true);
 }
 
 // Cửa sổ phố đêm: ô sáng vàng / tối xen kẽ (vẽ canvas)

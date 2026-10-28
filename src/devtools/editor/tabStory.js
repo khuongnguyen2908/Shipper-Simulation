@@ -350,8 +350,13 @@ export function render(root, ctx) {
       u.type === 'chosen' ? field('Lựa chọn', selectInput(u.id, chooseIds().map((id) => [id, id]), (v) => { u.id = v; changed(); }), opt('until', { hint: 'Mã của việc "Chọn câu trả lời" ở bước này hoặc bước trước.' })) : null,
       u.type === 'near' || u.type === 'bring' || u.type === 'chased' ? field('Người lạ', selectInput(u.who, actorOpts(), (v) => { u.who = v; changed(); }), opt('until', u.type === 'chased' ? { hint: 'Người có việc "🏍️ Chạy trốn" ở bước này / bước trước. Xong khi người đó chạy tới điểm cuối lộ trình mà người chơi đang ở gần (≤ 60 m).' } : {})) : null,
       u.type === 'cine' ? el('p', { class: 'muted' }, 'Thêm việc "🎬 Cảnh phim" ở phần "Khi vào bước" — chiếu hết các cảnh quay thì sang bước sau.') : null,
-      u.type === 'reach' ? field('Tọa độ x', numInput(u.at?.[0] ?? 0, (v) => { u.at = [v, u.at?.[1] ?? 0]; changed(); }, { step: 1 }), opt('until', { hint: 'Chỗ trên bản đồ (đơn vị bản đồ). Đường dọc thứ i ở x = (i − 5) × 52, đường ngang thứ j ở z = (j − 5) × 52 · xem vị trí đang đứng: mở game ?debug, gõ game.snapshot().pos. Vd giữa cầu Sông Ngân hàng 5: [182, 0].' })) : null,
-      u.type === 'reach' ? field('Tọa độ z', numInput(u.at?.[1] ?? 0, (v) => { u.at = [u.at?.[0] ?? 0, v]; changed(); }, { step: 1 }), opt('until')) : null,
+      u.type === 'reach' && Array.isArray(u.at?.[0]) ? field('Các chỗ (chạm chỗ nào cũng được)', el('div', {},
+        ...u.at.map((q, k) => el('div', { class: 'row' }, ...[0, 1].map((j) => numInput(q[j], (v) => { q[j] = v; changed(); }, { step: 0.5 })),
+          button('✕', () => { u.at.splice(k, 1); if (u.at.length === 1) u.at = u.at[0]; rerender(); }, 'small'))),
+        button('＋ Thêm chỗ', () => { u.at.push([...u.at.at(-1)]); rerender(); }, 'small')), opt('until', { hint: 'Vd 2 lối mạn trái / mạn phải của tàu: đi lối nào cũng kích hoạt.' })) : null,
+      u.type === 'reach' && !Array.isArray(u.at?.[0]) ? field('', button('＋ Thêm chỗ khác (chạm chỗ nào cũng được)', () => { u.at = [[...(u.at || [0, 0])], [...(u.at || [0, 0])]]; rerender(); }, 'small'), opt('until')) : null,
+      u.type === 'reach' && !Array.isArray(u.at?.[0]) ? field('Tọa độ x', numInput(u.at?.[0] ?? 0, (v) => { u.at = [v, u.at?.[1] ?? 0]; changed(); }, { step: 1 }), opt('until', { hint: 'Chỗ trên bản đồ (đơn vị bản đồ). Đường dọc thứ i ở x = (i − 5) × 52, đường ngang thứ j ở z = (j − 5) × 52 · xem vị trí đang đứng: mở game ?debug, gõ game.snapshot().pos. Vd giữa cầu Sông Ngân hàng 5: [182, 0].' })) : null,
+      u.type === 'reach' && !Array.isArray(u.at?.[0]) ? field('Tọa độ z', numInput(u.at?.[1] ?? 0, (v) => { u.at = [u.at?.[0] ?? 0, v]; changed(); }, { step: 1 }), opt('until')) : null,
       u.type === 'hidden' ? field('Chỗ núp', selectInput(u.prop || '', [['', '— Chỗ nào cũng được —'], ...binOpts()], (v) => { if (v) u.prop = v; else delete u.prop; changed(); }), opt('until', { hint: 'Thùng rác (🗑️) hoặc điểm đánh dấu (📍) đặt ngay chiếc xe hàng rong bên đường — đạo cụ ở bước này hoặc bước trước. Người chơi đứng sát bấm E ngồi núp → xong bước (vd núp rồi mới nghe lén).' })) : null,
       u.type === 'hidden' ? field('Lúc núp quay mặt về', selectInput(u.watch || '', [['', '— Quay vào chỗ núp —'], ...actorOpts()], (v) => { if (v) u.watch = v; else delete u.watch; changed(); }), opt('until', { hint: 'Người chơi ngồi phía bên kia chỗ núp, ló mắt nhìn về người này → camera thấy cảnh + lời thoại phía đó.' })) : null,
       u.type === 'reach' ? field('Bán kính', numInput(u.r ?? 8, (v) => { u.r = v; changed(); }, { step: 1, min: 2, max: 60 }), opt('until', { hint: 'Người chơi tới cách chỗ này ít hơn bao nhiêu thì xong (1 ≈ 10 m trên màn hình). Đường rộng ~15 → bán kính 9 là chạy ngang qua chỗ đó.' })) : null,
@@ -438,6 +443,14 @@ export function render(root, ctx) {
         field('Chữ riêng trên nút E', checkInput(!!st.talkLabel, (v) => { if (v) st.talkLabel = newKey(`${base}.label`); else delete st.talkLabel; rerender(); }, 'Đổi chữ nút E ở bước này'), opt('talkLabel', { hint: 'Ở bước chờ bấm E nói chuyện / mở lời. Vd "Chở chị Linh về", "Hỏi chú bảo vệ".' }))),
       st.talkLabel ? textBox('Chữ trên nút E', st.talkLabel, 1, { ref, fieldKey: 'talkLabel' }) : null));
 
+    // tâm vùng giữ / chặn: địa điểm thành phố · hoặc chỗ đứng có tên trên bản đồ riêng / [x, z] (vd giữ trong khu đang đánh trên tàu)
+    const zoneSpots = Object.entries(ZONES).flatMap(([, z]) => Object.entries(z.points).map(([k, q]) => [`zp:${k}`, `${z.name.split(' (')[0]} · ${q.name}`]));
+    const regionField = (R, key) => el('div', { class: 'grid' },
+      field('Quanh', selectInput(R.at == null ? R.place : Array.isArray(R.at) ? 'xz' : `zp:${R.at}`, [...placeOpts, ...zoneSpots, ['xz', '📍 Chỗ [x, z]']], (v) => {
+        if (v === 'xz') { R.at = [0, 0]; delete R.place; } else if (v.startsWith('zp:')) { R.at = v.slice(3); delete R.place; } else { R.place = v; delete R.at; }
+        rerender();
+      }), opt(key)),
+      Array.isArray(R.at) ? field('Tọa độ x, z', el('div', { class: 'row' }, ...[0, 1].map((k) => numInput(R.at[k], (v) => { R.at[k] = v; changed(); }, { step: 0.5 }))), opt(key)) : null);
     // ---------- giữ người chơi trong một vùng ----------
     T.pane('rules').append(fold('🚧 Giữ người chơi trong vùng (trong lúc chờ bước này)', st.leash,
       el('div', { class: 'grid' },
@@ -446,7 +459,7 @@ export function render(root, ctx) {
           else delete st.leash;
           rerender();
         }, 'Đi xa quá thì bị giữ lại + nhắc'), opt('leash', { hint: 'Vd chưa nói chuyện với anh phát tờ rơi thì không cho rời bến xe.' })),
-        st.leash ? field('Quanh địa điểm', selectInput(st.leash.place, placeOpts, (v) => { st.leash.place = v; changed(); }), opt('leash')) : null,
+        st.leash ? regionField(st.leash, 'leash') : null,
         st.leash ? field('Bán kính (đơn vị bản đồ · 1 ≈ 10 m)', numInput(st.leash.r ?? 30, (v) => { st.leash.r = v; changed(); }, { step: 5, min: 10, max: 200 }), opt('leash')) : null),
       st.leash ? textBox('Câu nhắc khi đi ra khỏi vùng', st.leash.text, 1, { ref, fieldKey: 'leash' }) : null));
     T.pane('rules').append(fold('⛔ Chặn lại gần địa điểm (trong lúc chờ bước này)', st.keepOut,
@@ -456,7 +469,7 @@ export function render(root, ctx) {
           else delete st.keepOut;
           rerender();
         }, 'Tới gần quá thì bị đẩy ra + nhắc'), opt('keepOut', { hint: 'Vd chưa gửi xe ở bãi thì không cho tới Kho 7 (phải gửi xe rồi đi bộ vào).' })),
-        st.keepOut ? field('Quanh địa điểm', selectInput(st.keepOut.place, placeOpts, (v) => { st.keepOut.place = v; changed(); }), opt('keepOut')) : null,
+        st.keepOut ? regionField(st.keepOut, 'keepOut') : null,
         st.keepOut ? field('Bán kính (m)', numInput(st.keepOut.r ?? 30, (v) => { st.keepOut.r = v; changed(); }, { step: 5, min: 5, max: 200 }), opt('keepOut')) : null),
       st.keepOut ? textBox('Câu nhắc khi lại gần', st.keepOut.text, 1, { ref, fieldKey: 'keepOut' }) : null));
 

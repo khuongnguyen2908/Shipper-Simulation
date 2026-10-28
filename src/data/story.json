@@ -174,6 +174,18 @@
     "g8": {
       "icon": "🧢",
       "name": "story.foe.thug"
+    },
+    "g9": {
+      "icon": "🧢",
+      "name": "story.foe.thug"
+    },
+    "g10": {
+      "icon": "🧢",
+      "name": "story.foe.thug"
+    },
+    "g11": {
+      "icon": "🧢",
+      "name": "story.foe.thug"
     }
   },
   "items": {
@@ -7828,6 +7840,10 @@
           "id": "docs",
           "on": [
             {
+              "do": "zone",
+              "locker": 1
+            },
+            {
               "do": "item",
               "id": "taiLieu"
             },
@@ -7856,19 +7872,35 @@
         },
         {
           "id": "leaveBridge",
-          "on": [],
+          "on": [
+            {
+              "do": "prop",
+              "id": "markCaught",
+              "kind": "mark",
+              "at": [
+                -4,
+                -2358.5
+              ],
+              "heading": 0
+            }
+          ],
           "until": {
             "type": "reach",
             "at": [
-              0,
-              -2442.2
+              -4,
+              -2358.5
             ],
-            "r": 2
+            "r": 2.5
           },
           "guide": null,
           "hold": true,
           "noFines": true,
-          "goal": "story.c6.leave.goal"
+          "goal": "story.c6.leave.goal",
+          "target": "prop:markCaught",
+          "mark": {
+            "prop": "markCaught",
+            "icon": "!"
+          }
         },
         {
           "id": "caught",
@@ -7883,10 +7915,10 @@
               "look": "jetjet",
               "spot": "at",
               "at": [
-                0.6,
-                -2439.6
+                -8.6,
+                -2358.5
               ],
-              "heading": 180
+              "heading": 90
             },
             {
               "do": "react",
@@ -7924,6 +7956,9 @@
               "t": 2.5,
               "remove": [
                 "tiSun"
+              ],
+              "props": [
+                "markCaught"
               ]
             },
             {
@@ -8093,7 +8128,15 @@
           "guide": null,
           "goal": "story.c6.out.goal",
           "hold": true,
-          "noFines": true
+          "noFines": true,
+          "leash": {
+            "at": [
+              4.5,
+              -2369
+            ],
+            "r": 26,
+            "text": "story.c6.leash.fight"
+          }
         },
         {
           "id": "toDeck",
@@ -8107,8 +8150,14 @@
           "until": {
             "type": "reach",
             "at": [
-              -9.75,
-              -2386.2
+              [
+                -9.75,
+                -2386.2
+              ],
+              [
+                9.75,
+                -2386.2
+              ]
             ],
             "r": 3.5
           },
@@ -8137,7 +8186,119 @@
           "guide": null,
           "hold": true,
           "noFines": true,
-          "goal": "story.c6.deck.goal"
+          "goal": "story.c6.deck.goal",
+          "leash": {
+            "at": [
+              0,
+              -2398
+            ],
+            "r": 30,
+            "text": "story.c6.leash.fight"
+          }
+        },
+        {
+          "id": "toBridge",
+          "on": [
+            {
+              "do": "bubble",
+              "who": "man",
+              "text": "story.c6.bridge.go"
+            },
+            {
+              "do": "prop",
+              "id": "markBridge",
+              "kind": "mark",
+              "at": [
+                0,
+                -2441
+              ],
+              "heading": 0
+            }
+          ],
+          "until": {
+            "type": "reach",
+            "at": [
+              0,
+              -2441
+            ],
+            "r": 3
+          },
+          "guide": null,
+          "goal": "story.c6.bridge.goal",
+          "target": "prop:markBridge",
+          "hold": true,
+          "noFines": true
+        },
+        {
+          "id": "bridgeFight",
+          "on": [
+            {
+              "do": "bubble",
+              "who": "g9",
+              "text": "story.c6.bridge.shout",
+              "after": 0.3
+            },
+            {
+              "do": "fight",
+              "id": "c6Bridge"
+            }
+          ],
+          "until": {
+            "type": "fightWon"
+          },
+          "guide": null,
+          "goal": "story.c6.bridge.fightGoal",
+          "hold": true,
+          "noFines": true,
+          "leash": {
+            "at": [
+              0,
+              -2446
+            ],
+            "r": 24,
+            "text": "story.c6.leash.fight"
+          }
+        },
+        {
+          "id": "datGear",
+          "on": [
+            {
+              "do": "fade",
+              "t": 1.2,
+              "text": "story.c6.gear.fade",
+              "props": [
+                "markBridge"
+              ]
+            },
+            {
+              "do": "zone",
+              "locker": 0,
+              "after": 1
+            },
+            {
+              "do": "bubble",
+              "who": "man",
+              "text": "story.c6.gear.b",
+              "after": 2
+            },
+            {
+              "do": "phone",
+              "off": false,
+              "after": 2.2
+            },
+            {
+              "do": "toast",
+              "text": "story.c6.gear.phone",
+              "after": 2.4
+            }
+          ],
+          "until": {
+            "type": "wait",
+            "min": 5
+          },
+          "guide": null,
+          "hold": true,
+          "noFines": true
         },
         {
           "id": "toQuay",
@@ -8166,6 +8327,104 @@
           "noFines": true
         },
         {
+          "id": "quayCine",
+          "on": [
+            {
+              "do": "fpv",
+              "on": false
+            },
+            {
+              "do": "actor",
+              "who": "tiDo",
+              "look": "char",
+              "spot": "at",
+              "at": [
+                -25,
+                -2412
+              ],
+              "heading": 133,
+              "outfit": "danhNhau"
+            },
+            {
+              "do": "actor",
+              "who": "g7",
+              "look": "jetjet",
+              "spot": "at",
+              "at": [
+                -27.5,
+                -2415.5
+              ],
+              "heading": 133
+            },
+            {
+              "do": "actor",
+              "who": "g8",
+              "look": "normal",
+              "spot": "at",
+              "at": [
+                -22.5,
+                -2408.8
+              ],
+              "heading": 133
+            },
+            {
+              "do": "cine",
+              "shots": [
+                {
+                  "pos": [
+                    -13.5,
+                    6.5,
+                    -2427
+                  ],
+                  "lookAt": "actor:tiDo",
+                  "t": 3.2,
+                  "fov": 52
+                },
+                {
+                  "pos": [
+                    -21.8,
+                    1.55,
+                    -2415.0
+                  ],
+                  "lookAt": "actor:tiDo",
+                  "lookY": 1.45,
+                  "t": 4.2,
+                  "fov": 46
+                },
+                {
+                  "pos": [
+                    -16.5,
+                    1.8,
+                    -2421.5
+                  ],
+                  "lookAt": "actor:tiDo",
+                  "t": 3.6,
+                  "fov": 55,
+                  "lookY": 1.4
+                }
+              ]
+            },
+            {
+              "do": "bubble",
+              "who": "tiDo",
+              "text": "story.c6.cine.d1",
+              "after": 3.6
+            },
+            {
+              "do": "bubble",
+              "who": "tiDo",
+              "text": "story.c6.cine.d2",
+              "after": 7.6
+            }
+          ],
+          "until": {
+            "type": "cine"
+          },
+          "guide": null,
+          "hold": true,
+          "noFines": true
+        },
+        {
           "id": "quayFight",
           "on": [
             {
@@ -8184,7 +8443,53 @@
           "guide": null,
           "hold": true,
           "noFines": true,
-          "goal": "story.c6.quay.goal"
+          "goal": "story.c6.quay.goal",
+          "leash": {
+            "at": [
+              -22,
+              -2414
+            ],
+            "r": 30,
+            "text": "story.c6.leash.fight"
+          }
+        },
+        {
+          "id": "toExit",
+          "on": [
+            {
+              "do": "bubble",
+              "who": "man",
+              "text": "story.c6.exit.b"
+            },
+            {
+              "do": "prop",
+              "id": "datBikeQuay",
+              "kind": "bigbike",
+              "at": [
+                -56,
+                -2452
+              ],
+              "heading": 90
+            }
+          ],
+          "until": {
+            "type": "useAt",
+            "at": [
+              -56,
+              -2452
+            ],
+            "r": 2.8,
+            "label": "story.c6.exit.label"
+          },
+          "guide": null,
+          "goal": "story.c6.exit.goal",
+          "target": "prop:datBikeQuay",
+          "mark": {
+            "prop": "datBikeQuay",
+            "icon": "!"
+          },
+          "hold": true,
+          "noFines": true
         },
         {
           "id": "toBike",
@@ -8198,22 +8503,15 @@
               "do": "fade",
               "text": "story.c6.bike.fade",
               "t": 2,
-              "after": 1.5
+              "after": 1.5,
+              "props": [
+                "datBikeQuay"
+              ]
             },
             {
               "do": "fpv",
               "on": false,
               "after": 2.2
-            },
-            {
-              "do": "phone",
-              "off": false,
-              "after": 2.2
-            },
-            {
-              "do": "toast",
-              "text": "story.c6.bike.phone",
-              "after": 3
             }
           ],
           "until": {
@@ -8249,7 +8547,8 @@
           },
           "guide": null,
           "hold": true,
-          "noFines": true
+          "noFines": true,
+          "music": "music.race"
         },
         {
           "id": "safe",
@@ -9168,29 +9467,30 @@
           "foe": "tiDo",
           "look": "char",
           "at": [
-            -30,
-            -2
-          ]
+            -25,
+            -12
+          ],
+          "heading": 133
         },
         {
           "who": "g7",
           "foe": "thug",
           "look": "jetjet",
           "at": [
-            -40,
-            12
+            -27.5,
+            -15.5
           ],
-          "join": "rage"
+          "heading": 133
         },
         {
           "who": "g8",
           "foe": "thug",
           "look": "normal",
           "at": [
-            -28,
-            30
+            -22.5,
+            -8.8
           ],
-          "join": "rage"
+          "heading": 133
         }
       ],
       "loot": [
@@ -9238,6 +9538,68 @@
         }
       ],
       "keepPos": true
+    },
+    "c6Bridge": {
+      "zone": "ship",
+      "name": "story.fight.c6Bridge",
+      "start": [
+        0,
+        -40
+      ],
+      "keepPos": true,
+      "ally": "man",
+      "allyAt": [
+        -1.6,
+        -38.6
+      ],
+      "foes": [
+        {
+          "who": "g9",
+          "foe": "thug",
+          "look": "jetjet",
+          "at": [
+            -4,
+            -48
+          ],
+          "heading": 0
+        },
+        {
+          "who": "g10",
+          "foe": "thug",
+          "look": "normal",
+          "at": [
+            4,
+            -48
+          ],
+          "heading": 0
+        },
+        {
+          "who": "g11",
+          "foe": "thug",
+          "look": "jetjet",
+          "at": [
+            9.75,
+            -42
+          ],
+          "heading": 270
+        }
+      ],
+      "loot": [
+        {
+          "id": "pan",
+          "at": [
+            2,
+            -53
+          ]
+        },
+        {
+          "id": "wood",
+          "at": [
+            -6,
+            -41
+          ]
+        }
+      ]
     }
   },
   "races": {

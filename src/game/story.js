@@ -83,7 +83,8 @@ export class StoryPart {
       chased: (who) => !!this.storyActors?.[who]?.chase?.done, // tên cướp đã chạy hết lộ trình (người chơi bám theo)
       parkedAt: (place) => this.mode === 'foot' && !!this.gs.parked && this.gs.parked.kind === 'lot' && (!place || parkingLotAt(this.layout.places, this.bike.pos.x, this.bike.pos.z)?.id === place), // đã gửi xe ở bãi (đang đi bộ)
       hiddenAt: (id) => this.storyHiddenAt(id), // đang núp sau thùng rác / xe hàng rong (id: đúng thùng / điểm đánh dấu này)
-      reachAt: (at, r) => Array.isArray(at) && Math.hypot(this.playerPos.x - at[0], this.playerPos.z - at[1]) < r, // tới chỗ [x, z] (vd giữa cầu)
+      // tới chỗ [x, z] (vd giữa cầu) · hoặc nhiều chỗ [[x, z], …] — chạm chỗ nào cũng được (vd 2 lối mạn trái / mạn phải của tàu)
+      reachAt: (at, r) => Array.isArray(at) && (Array.isArray(at[0]) ? at : [at]).some((q) => Math.hypot(this.playerPos.x - q[0], this.playerPos.z - q[1]) < r),
       // đi xa người lạ who (hoặc chỗ at) hơn r — người lạ không còn thì coi như xong
       awayFrom: (u, r) => { const p = u.who ? this.storyActors?.[u.who]?.mesh.position : Array.isArray(u.at) ? { x: u.at[0], z: u.at[1] } : null; return !p || Math.hypot(this.playerPos.x - p.x, this.playerPos.z - p.z) > r; },
       now: this.clockMin, // giờ chung (điều kiện "trong khung giờ")
@@ -91,9 +92,14 @@ export class StoryPart {
     });
     if (acts.length) this.runStoryActions(acts);
   }
+  // Tâm vùng giữ / chặn: địa điểm (place) · hoặc chỗ đứng trên bản đồ riêng / [x, z] (at — vd giữ người chơi trong khu đang đánh trên tàu)
+  storyRegionCenter(L) {
+    if (L.at != null) { const p = this.zoneAt(L.at); return p ? { x: p[0], z: p[1] } : null; }
+    return this.layout.placeById[L.place]?.door || null;
+  }
   // Bước có "leash": chưa xong thì không cho đi xa địa điểm quá r m — giữ người chơi lại ở mép vùng + nhắc (mỗi ~4 giây một lần)
   storyLeash(st) {
-    const L = st?.leash, c = L && this.layout.placeById[L.place]?.door;
+    const L = st?.leash, c = L && this.storyRegionCenter(L);
     if (!c || !this.gs.story.fired) return;
     const P = this.playerPos, dx = P.x - c.x, dz = P.z - c.z, d = Math.hypot(dx, dz), r = L.r || 30;
     if (d <= r) return;
@@ -108,7 +114,7 @@ export class StoryPart {
   }
   // Bước có "keepOut": chưa xong thì không cho lại gần địa điểm hơn r m (vd chưa gửi xe ở bãi thì không cho tới Kho 7) — đẩy ra mép vùng + nhắc
   storyKeepOut(st) {
-    const K = st?.keepOut, c = K && this.layout.placeById[K.place]?.door;
+    const K = st?.keepOut, c = K && this.storyRegionCenter(K);
     if (!c || !this.gs.story.fired) return;
     const P = this.playerPos, dx = P.x - c.x, dz = P.z - c.z, d = Math.hypot(dx, dz) || 0.01, r = K.r || 30;
     if (d >= r) return;

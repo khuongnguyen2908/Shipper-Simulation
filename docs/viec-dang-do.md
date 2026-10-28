@@ -307,6 +307,22 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
     · upper (móc lên) · over (bổ — cầm đồ) · side (quét ngang — cầm đồ); vặn mình + nhoài người theo cú đấm. Kiểu địch có ô "Đòn đánh (lần lượt)" (foes.moves —
     Tí Đô jab → hook → upper → cross, Tí Sún bổ / quét ống tuýp, đàn em jab / cross / hook); anh Đạt đổi đòn mỗi cú. 2 tay người chơi: tay không thì thủ 2 nắm tay,
     đấm thẳng trái → thẳng phải → móc; cầm đồ thì bổ / quét xen kẽ. Chỉ khác dáng, sát thương / thời gian như cũ. Trang soi dáng: sketches/fight-poses.html.
+    (⚠️ fight-poses.html KHÔNG có trên GitHub — máy này dựng lại trang khác: sketches/chuong6/ti-do.html.)
+- **Đợt 10 — chơi thử lần 5 (28/10, làm ở máy này; CHƯA commit)**. Sơ đồ duyệt: `sketches/chuong6/so-do-tau.html`.
+  - Chủ game chốt: bị bắt **sau container nhốt** (mũi tàu) · đợt 2 chạm **mạn trái HOẶC mạn phải** · thêm **đợt ở lầu chỉ huy** (anh Đạt lấy đồ) ·
+    **tủ** làm lại cho giống tủ, có mở cửa · **cảnh phim Tí Đô + đàn em** trước khi đánh · lên xe ở **góc bến sau Kho 7** · **từng giai đoạn tuần tự,
+    không bỏ qua được** (chạy thẳng tới xe cũng không được). Đoạn tủ → container: đi tự do (chưa có lính). Đợt 4: Tí Đô + 2 đàn em từ đầu (bỏ 2 tên vào khi nổi điên).
+  - Thứ tự mới: docs → leaveBridge (dấu "!" + mũi tên tới sau container) → caught → … → breakout (đợt 1) → toDeck (2 chỗ) → deckFight (đợt 2) → toBridge →
+    bridgeFight (đợt 3: g9–g11, c6Bridge) → datGear (anh Đạt mở tủ 0, trả điện thoại — bỏ chỗ trả ở toBike) → toQuay (mở cổng cầu thang) → quayCine
+    (cảnh phim 3 khung, Tí Đô 2 câu) → quayFight (đợt 4) → toExit (xe datBikeQuay hiện ở [-56, -52], bấm E "Lên xe anh Đạt") → toBike → race (nhạc music.race).
+  - Không bỏ qua được: mỗi trận có "giữ trong vùng" (leash — mới nhận chỗ trên tàu `at`), cổng cầu thang khóa tới hết đợt 3, xe chỉ hiện sau đợt 4.
+  - Mới: điều kiện "tới chỗ" nhận nhiều chỗ ([[x, z], …]) · leash / keepOut có `at` (chỗ đứng có tên / [x, z]) · việc zone { locker: số tủ } + tủ sắt 2 cánh
+    (cargoShip.js, zone.setLocker, lưu gs.story.zone.lockers) · nhạc music.race (chưa gắn file → tạm music.chase; ghi ở docs/am-thanh.md).
+  - Sửa lỗi: **Tí Đô bay lên trời** (lấy đà nhún mà trên bến không có mặt đứng → độ cao cộng dồn mỗi lần, đo được tới 11 m; giờ giữ nền cũ, cao nhất 0,3 m) ·
+    **lag trên tàu**: gộp khối tàu + bến (326 khối → ~90; màu ghi vào đỉnh để mọi màu gộp chung; phần động — cánh tủ / cửa / cổng — gộp bên trong),
+    chỉ khối lớn đổ bóng, vùng sáng tính lại mỗi 5 khung (chỉ để nhìn): 852 → 168 lần vẽ, khung hình ~48 → ~23 ms (khung trình duyệt ẩn) ·
+    vào màn đua không còn còi bán tải (raceTruckOn quiet).
+  - Còn: cần chủ game chơi thật (độ khó đợt 3 lầu chỉ huy, góc máy cảnh phim Tí Đô).
 
 ### 🔧 Chương 4–5 sửa đợt 2 (24/10 tối — XONG, CHƯA commit)
 - 🛵 Chạy đơn trong lúc chờ giờ: ô mới "Cho chạy đơn trong lúc chờ" (step.orders) — bật cho c4 sleep2 / wait8 / mingle / waitOpen, c5 waitMeet / addr / goMeet / waitNight.

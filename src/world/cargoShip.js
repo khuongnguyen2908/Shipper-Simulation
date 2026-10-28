@@ -85,8 +85,8 @@ export function makeCargoShip({ name = 'HẢI LONG', seed = 7, walk = false } = 
     for (const zf of [SZ1 + 0.02, SZ0 - 0.02]) box(g, w - 2, 0.7, 0.1, 0x22313f, 0, y + FL * 0.62, zf); // dải cửa sổ trước + sau
     for (const s of [-1, 1]) box(g, 0.1, 0.7, SZ1 - SZ0 - 3, 0x22313f, s * (w / 2 + 0.02), y + FL * 0.62, (SZ0 + SZ1) / 2);
   }
-  if (walk) hollowFloor(g, col);
-  else col(-9, SZ0, 9, SZ1, DECK + 5 * FL);
+  const lockers = walk ? hollowFloor(g, col) : null;
+  if (!walk) col(-9, SZ0, 9, SZ1, DECK + 5 * FL);
   const top = DECK + 5 * FL;
   col(-9, SZ0, 9, SZ1, top + 7, { y0: DECK + FL, cam: true }); // các tầng trên: chỉ chặn camera
   box(g, 24, 0.35, 4, 0xece8de, 0, top - FL + 0.2, SZ1 - 1.5); // cánh gà buồng lái
@@ -184,7 +184,7 @@ export function makeCargoShip({ name = 'HẢI LONG', seed = 7, walk = false } = 
   col(-RAIL_X - 0.4, -60, -RAIL_X + 0.15, gap0, DECK + 1.1);
   col(-RAIL_X - 0.4, gap1, -RAIL_X + 0.15, 44, DECK + 1.1);
   col(-10.5, -60.2, 10.5, -59.4, DECK + 1.1);
-  const ud = { len: 120, beam: 22, deck: DECK, cols, pads: [], ramps: [] };
+  const ud = { len: 120, beam: 22, deck: DECK, cols, pads: [], ramps: [], lockers };
   if (walk) walkExtras(g, col, ud);
   g.userData = ud;
   return g;
@@ -213,8 +213,32 @@ function hollowFloor(g, col) {
   for (let i = 0; i < 8; i++) box(g, 1.4, 0.3 * (i + 1), 0.35, 0x8a8f94, -7.5, DECK + 0.15 * (i + 1), -56.8 + i * 0.36);
   box(g, 0.08, 1.0, 3, 0xb0aa9c, -6.75, DECK + 1.3, -55.4);
   col(-8.9, -57.9, -6.7, -53.6, DECK + FL);
-  // tủ đồ dọc vách phải, bàn giữa, ghế
-  for (let i = 0; i < 4; i++) box(g, 1.0, 2.0, 0.6, 0x7f8c8d, 8.4, DECK + 1.0, -56.5 + i * 1.05);
+  // 4 tủ sắt dọc vách phải (cửa quay vào trong lầu, -x): thân + 2 cánh có bản lề, tay nắm, khe thông gió, ổ khóa · bàn giữa, ghế
+  // lockers[i].doors: 2 bản lề (game quay mở — zone.setLocker) · tủ 1 (z ≈ −54,95) = tủ thuyền trưởng, tủ 0 = tủ anh Đạt lấy lại đồ
+  const lockers = [];
+  for (let i = 0; i < 4; i++) {
+    const z = -56.5 + i * 1.05, x = 8.4, W = 0.98, H = 2.0, D = 0.58, fx = x - D / 2; // fx: mặt trước tủ
+    box(g, D, H, W, 0x6f7b7d, x, DECK + H / 2, z); // thân
+    box(g, D + 0.04, 0.06, W + 0.04, 0x55605f, x, DECK + H + 0.03, z); // nắp
+    box(g, D - 0.06, 0.08, W - 0.06, 0x2b2f30, x + 0.02, DECK + 0.04, z); // chân đế
+    box(g, 0.02, H - 0.2, W - 0.1, 0x2f3536, fx + 0.03, DECK + H / 2, z); // lòng tủ tối (thấy khi mở cửa)
+    for (const k of [0.45, 1.05, 1.6]) box(g, 0.02, 0.025, W - 0.16, 0x9aa3a5, fx + 0.06, DECK + k, z); // ngăn kệ
+    const doors = [];
+    for (const s of [-1, 1]) {
+      const hinge = new THREE.Group();
+      hinge.position.set(fx - 0.01, DECK + 0.08, z + s * (W / 2 - 0.02));
+      hinge.userData.s = s;
+      hinge.userData.dynamic = true; // không gộp khối (còn quay mở)
+      const dw = W / 2 - 0.03;
+      box(hinge, 0.03, H - 0.18, dw, 0x7f8c8d, 0, (H - 0.18) / 2, -s * dw / 2); // cánh
+      for (const k of [0.25, 0.32, 0.39]) box(hinge, 0.012, 0.025, dw * 0.6, 0x4f5859, -0.02, H - 0.18 - k, -s * dw / 2); // khe thông gió
+      box(hinge, 0.04, 0.24, 0.035, 0xd5d8d8, -0.03, (H - 0.18) * 0.5, -s * (dw - 0.07), { metalness: 0.6 }); // tay nắm
+      if (s > 0) box(hinge, 0.035, 0.07, 0.05, 0xd4a017, -0.03, (H - 0.18) * 0.5 + 0.2, -s * (dw - 0.07), { metalness: 0.7 }); // ổ khóa
+      g.add(hinge);
+      doors.push(hinge);
+    }
+    lockers.push({ doors, at: [fx - 0.6, z] });
+  }
   col(7.8, -57.0, 8.95, -52.4, DECK + 2.0);
   box(g, 3, 0.1, 1.4, 0x8d6e4f, 2, DECK + 0.8, -53);
   for (const [x, z] of [[0.8, -53.8], [3.2, -53.8], [0.8, -52.2], [3.2, -52.2]]) box(g, 0.08, 0.8, 0.08, 0x5d4a38, x, DECK + 0.4, z);
@@ -222,6 +246,7 @@ function hollowFloor(g, col) {
   // đèn trần (tự sáng) + cửa phòng (trang trí) dọc vách sau
   for (const z of [-55, -48.5]) box(g, 2.4, 0.06, 0.5, 0xfff6d5, 0, DECK + H - 0.05, z, { emissive: 0xfff0c0, emissiveIntensity: 1.2 });
   for (const x of [-2.5, 2.5, 5.5]) box(g, 1.0, 2.1, 0.06, 0x6e5a46, x, DECK + 1.05, SZ0 + 0.12);
+  return lockers;
 }
 
 // Bản đi lại: container nhốt người (2 cánh cửa), cầu thang lên sàn mũi, mặt đi (pads / ramps)

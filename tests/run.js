@@ -5653,17 +5653,38 @@ console.log('Đánh nhau góc nhìn thứ 1 (sim/fight.js — chương 6)');
     assert.ok(iss.some((i) => i.ref === 'fight:c6Deck' && i.field === 'keepPos'), 'đánh tại chỗ phải là true/false');
     assert.ok(!iss.some((i) => i.ref === 'fight:c6Container' && i.field === 'start'), 'đánh tại chỗ thì không cần chỗ bắt đầu');
   });
-  test('Chương 6: lấy tài liệu xong ra khỏi lầu chỉ huy là bị Tí Sún bắt ngay đuôi tàu · 3 trận nối liền (đánh tại chỗ, đi bộ tới là đánh — không màn đen)', () => {
+  test('Chương 6: bị Tí Sún bắt sau container nhốt (mũi tàu) · 4 đợt tuần tự: container → boong (chạm mạn nào cũng được) → lầu chỉ huy (anh Đạt lấy đồ) → cảnh phim Tí Đô → bến · lên xe ở góc bến', () => {
     const ch = STORYJ.chapters.find((c) => c.id === 'c6'), ids = ch.steps.map((s) => s.id), st = (id) => ch.steps[ids.indexOf(id)];
     assert.ok(!ids.includes('sneak2') && !STORYJ.fights.c6Sneak2, 'bỏ màn lẻn thứ 2');
     assert.deepEqual(ids.slice(ids.indexOf('docs'), ids.indexOf('caught') + 1), ['docs', 'leaveBridge', 'caught']);
-    const sun = st('caught').on.find((a) => a.who === 'tiSun');
-    assert.ok(sun.at[1] + 2400 < -38, 'Tí Sún đứng ở đuôi tàu (trước cửa lầu chỉ huy)');
-    assert.deepEqual(ids.slice(ids.indexOf('breakout'), ids.indexOf('toBike')), ['breakout', 'toDeck', 'deckFight', 'toQuay', 'quayFight']);
-    for (const id of ['c6Container', 'c6Deck', 'c6Quay']) assert.equal(STORYJ.fights[id].keepPos, true, id);
-    for (const id of ['toDeck', 'deckFight', 'toQuay', 'quayFight']) assert.ok(!st(id).on.some((a) => a.do === 'fade' || a.do === 'tp'), `${id}: không màn đen dịch chuyển`);
-    assert.equal(st('toDeck').until.type, 'reach');
-    assert.equal(st('toQuay').until.type, 'reach');
+    const at = st('leaveBridge').until.at;
+    assert.ok(at[1] + 2400 > 39 && at[1] + 2400 < 44, 'chỗ bị bắt: sau container nhốt (phía mũi)');
+    assert.equal(st('leaveBridge').target, 'prop:markCaught', 'có mũi tên chỉ tới chỗ bị bắt');
+    // thứ tự các đợt — không bỏ qua được
+    assert.deepEqual(ids.slice(ids.indexOf('breakout'), ids.indexOf('race') + 1),
+      ['breakout', 'toDeck', 'deckFight', 'toBridge', 'bridgeFight', 'datGear', 'toQuay', 'quayCine', 'quayFight', 'toExit', 'toBike', 'race']);
+    for (const id of ['c6Container', 'c6Deck', 'c6Bridge', 'c6Quay']) assert.equal(STORYJ.fights[id].keepPos, true, id);
+    for (const id of ['breakout', 'deckFight', 'bridgeFight', 'quayFight']) assert.ok(st(id).leash?.at && st(id).leash.r > 0, `${id}: giữ trong khu đang đánh`);
+    // đợt 2: 2 mạn
+    assert.equal(st('toDeck').until.at.length, 2, 'chạm mạn trái hoặc mạn phải');
+    assert.ok(st('toDeck').until.at.some((q) => q[0] > 0) && st('toDeck').until.at.some((q) => q[0] < 0));
+    // cổng cầu thang chỉ mở sau đợt lầu chỉ huy; điện thoại trả ở lầu chỉ huy
+    assert.ok(st('toQuay').on.some((a) => a.do === 'zone' && a.gate === true));
+    assert.ok(!['breakout', 'toDeck', 'deckFight', 'toBridge', 'bridgeFight'].some((id) => st(id).on.some((a) => a.do === 'zone' && a.gate === true)), 'cổng còn khóa trước đó');
+    assert.ok(st('datGear').on.some((a) => a.do === 'phone' && a.off === false));
+    // cảnh phim Tí Đô cùng 2 đàn em, đứng đúng chỗ trận đánh sẽ dựng
+    assert.equal(st('quayCine').until.type, 'cine');
+    const q = STORYJ.fights.c6Quay;
+    assert.equal(q.foes.length, 3);
+    for (const f of q.foes) {
+      const a = st('quayCine').on.find((x) => x.do === 'actor' && x.who === f.who);
+      assert.ok(a && Math.abs(a.at[0] - f.at[0]) < 0.01 && Math.abs(a.at[1] + 2400 - f.at[1]) < 0.01, `${f.who} đứng đúng chỗ`);
+    }
+    // xe chỉ hiện sau khi hạ Tí Đô · bấm E mới lên xe · màn đua có nhạc riêng
+    assert.ok(st('toExit').on.some((a) => a.do === 'prop' && a.kind === 'bigbike'));
+    assert.ok(!ids.slice(0, ids.indexOf('toExit')).some((id) => st(id).on.some((a) => a.do === 'prop' && a.id === 'datBikeQuay')));
+    assert.equal(st('toExit').until.type, 'useAt');
+    assert.equal(st('race').music, 'music.race');
   });
   test('Vũ khí theo dữ liệu (mã lạ = tay không) · đánh sau lưng gấp đôi · boss đỡ đòn trước mặt, chảo phá thế đỡ', () => {
     const bat = FT.weaponOf('bat'), fists = FT.weaponOf('khongCo');

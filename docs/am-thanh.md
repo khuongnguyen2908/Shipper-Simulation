@@ -21,6 +21,7 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [x] | `music.day` | Nhạc trong game (ban ngày) | Đang chơi, trời sáng | bài nhạc | 🔇 im |
 | [x] | `music.night` | Nhạc trong game (ban đêm) | Đang chơi, trời tối | bài nhạc | 🔇 im |
 | [ ] | `music.flee` | Nhạc bị rượt | Chương 4: bị giang hồ rượt ra khỏi hẻm, từ lúc vấp lon tới lúc về tới trọ. Nên: căng thẳng, dồn dập 150–170 bpm, lặp liền, 1–2 phút, 96–128 kbps | bài nhạc | ↪ chưa gắn → tạm phát `music.chase` |
+| [ ] | `music.race` | Nhạc màn đua | Chương 6: màn đua thoát thân trên xe anh Đạt, từ lúc lên xe tới khi bay qua cầu cất. Nên: tốc độ cao, gay cấn 160–175 bpm, lặp liền, 2–3 phút, 96–128 kbps | bài nhạc | ↪ chưa gắn → tạm phát `music.chase` |
 | [ ] | `music.chase` | Nhạc dí cướp | Chương 3: từ cảnh cướp tới qua cầu (bước có "Nhạc riêng"). Nên: nhịp nhanh 140–160 bpm, lặp liền, 1–2 phút, 96–128 kbps | bài nhạc | 🔇 im (chưa gắn → nhạc ngày / đêm) |
 
 ## 🖱️ Giao diện

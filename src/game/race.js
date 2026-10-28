@@ -133,7 +133,7 @@ export class RacePart {
       R.motos.push({ mesh, back, s: 0, lat: 0, alive: true, fallT: 0, mode: null, k: i });
     }
     // bán tải Tí Đô: kẻ rượt duy nhất, bám sau lưng từ đầu tới cuối
-    this.raceTruckOn(-18);
+    this.raceTruckOn(-18, true); // quiet: vừa vào màn đua không kêu còi (đã có nhạc đua)
     this.raceTraffic();
     this.raceCheckpoint(0);
     this.raceHud ||= new RaceHud(document.body);
@@ -448,7 +448,7 @@ export class RacePart {
   }
   // ---------- KẺ RƯỢT: BÁN TẢI TÍ ĐÔ (+ 2 xe giang hồ ném gạch theo sự cố) ----------
   // Bán tải ra / áp sát lại sau lưng (at: quãng đặt xe, bỏ trống = sau lưng mình 60 m nếu đang bị bỏ xa hơn)
-  raceTruckOn(at = null) {
+  raceTruckOn(at = null, quiet = false) {
     const R = this.race;
     if (!R.truck) {
       const mesh = makeCar(0x5b1f1f, 'truck'), mat = new THREE.MeshStandardMaterial({ color: 0xffa000, emissive: 0xffa000, emissiveIntensity: 2.4 });
@@ -464,7 +464,7 @@ export class RacePart {
     if (at != null) T.s = at;
     else T.s = Math.max(T.s, R.s - 60);
     T.mesh.visible = true;
-    sound('city.truckHorn');
+    if (!quiet) sound('city.truckHorn');
   }
   raceMotoFall(m, river = false) {
     if (!m.alive) return;

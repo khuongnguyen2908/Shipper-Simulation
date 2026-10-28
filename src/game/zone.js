@@ -25,10 +25,11 @@ export class ZonePart {
       s.zone = { id: a.id, gate: a.gate ?? s.zone?.gate ?? false, door: a.door ?? s.zone?.door ?? false };
       this.zoneEnter(a.id);
       if (a.at != null) this.zoneTeleport(this.zoneAt(a.at), a.heading);
-    } else if (a.gate != null || a.door != null) { // chỉ mở / đóng cổng, cửa (đang ở trên tàu)
+    } else if (a.gate != null || a.door != null || a.locker != null) { // chỉ mở / đóng cổng, cửa, tủ (đang ở trên tàu)
       if (!s.zone) return;
       if (a.gate != null) s.zone.gate = !!a.gate;
       if (a.door != null) s.zone.door = !!a.door;
+      if (a.locker != null) { s.zone.lockers = [...new Set([...(s.zone.lockers || []), a.locker])]; this.zone?.setLocker?.(a.locker, true); }
     } else {
       delete s.zone;
       this.zoneExit();
@@ -90,6 +91,7 @@ export class ZonePart {
       if (!this.zone) { delete s.zone; return this.zoneApply(restore); } // bản đồ không dựng được → về thành phố cho khỏi kẹt
       this.zone.setGate?.(!!zs.gate);
       this.zone.setDoor?.(!!zs.door, restore);
+      for (let i = 0; i < 4; i++) this.zone.setLocker?.(i, (zs.lockers || []).includes(i), restore); // tủ đã mở
       const p = this.playerPos, b = this.zone.bounds;
       if (restore && !(p.x >= b.x0 && p.x <= b.x1 && p.z >= b.z0 && p.z <= b.z1)) this.zoneTeleport(zonePoint(zs.id, ZONES[zs.id].spawn));
       else if (restore && this.mode !== 'bike' && !this.race) { const h = this.walker.heading; this.zoneTeleport([p.x, p.z]); this.walker.heading = h; } // đứng lên đúng mặt boong / cầu thang

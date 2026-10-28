@@ -350,7 +350,7 @@ export class FightPart {
         const ear = new THREE.Mesh(new THREE.RingGeometry(0.92, 1, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xff7a45, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
         ear.renderOrder = 6;
         this.scene.add(ear);
-        C = { mesh, N, beam, ear, t: 0, k: F.cones.size % 3 }; // k: lượt tính lại (chia đều các lính ra 3 khung hình)
+        C = { mesh, N, beam, ear, t: 0, k: F.cones.size % 5 }; // k: lượt tính lại (chia đều các lính ra 5 khung hình)
         F.cones.set(foe.who, C);
       }
       // vòng tai nghe: bán kính bị nghe tiếng chân (đang chạy thì to ra)
@@ -358,8 +358,8 @@ export class FightPart {
       C.ear.position.set(foe.x, ac.mesh.position.y + 0.07, foe.z);
       C.ear.scale.set(hr, 1, hr);
       if (C.k > 0) { C.k -= 1; continue; } // lần đầu: lệch lượt theo thứ tự lính
-      if ((C.t = (C.t || 0) - 1) > 0) continue; // tính lại mỗi 3 khung hình (mỗi khung chỉ ~1/3 số lính)
-      C.t = 3;
+      if ((C.t = (C.t || 0) - 1) > 0) continue; // tính lại mỗi 5 khung hình (chỉ để nhìn — luật "bị thấy" tính riêng ở sim/fight.js)
+      C.t = 5;
       const S = sightOf(foe), fy = ac.mesh.position.y, y = fy + 0.06, eyeY = fy + 1.45, a = C.mesh.geometry.attributes.position;
       const grid = this.city.grid, elev = this.city.elev, HOUSE = SEE_BLOCK;
       // 1 tia: đi tới khi đụng vật cao ngang mắt / ra khỏi tầng đang đứng (trên cao mà dưới chân không còn sàn cùng tầng)
@@ -417,8 +417,12 @@ export class FightPart {
     p.x = o.x; p.z = o.z;
     resolveCircle(p, 0.35, this.city.grid, p.y);
     o.x = p.x; o.z = p.z;
-    const top = this.city.elev?.heightAt(p.x, p.z, p.y, 0.3);
-    if (top != null) p.y = top;
+    // độ cao nền: mặt đứng gần nhất (boong, cầu thang) · không có (bến = mặt đất bằng) → nền cũ. KHÔNG lấy p.y của khung trước
+    // (đã cộng cú nhún lấy đà / nằm ngã) → trước đây cộng dồn mỗi khung, Tí Đô lấy đà vài lần là bay lên trời
+    const found = this.city.elev?.heightAt(p.x, p.z, o.baseY ?? p.y, 0.3);
+    if (found != null) o.baseY = found;
+    const top = o.baseY ?? 0;
+    p.y = top;
     m.rotation.y = o.heading;
     const parts = m.userData.parts;
     ac.phase = (ac.phase || 0) + dt * (o.moving ? 9 : 0);

@@ -1053,7 +1053,8 @@ export function validateStory(story, { places = null, goods = null, content = nu
       if (u.type === 'fuel' && u.pct != null && !(num(u.pct) && u.pct > 0 && u.pct <= 100)) add('error', ref, 'until', 'Xăng / pin: 1–100 %.');
       if (st.hold != null && typeof st.hold !== 'boolean') add('error', ref, 'hold', 'Ô "chặn đơn thường" phải là có / không.');
       if (u.type === 'reach') {
-        if (!(Array.isArray(u.at) && u.at.length === 2 && u.at.every(num))) add('error', ref, 'until', 'Tới chỗ: tọa độ phải là [x, z] (số).');
+        const xz2 = (v) => Array.isArray(v) && v.length === 2 && v.every(num);
+        if (!(xz2(u.at) || (Array.isArray(u.at) && u.at.length >= 1 && u.at.every(xz2)))) add('error', ref, 'until', 'Tới chỗ: tọa độ phải là [x, z] (hoặc nhiều chỗ [[x, z], …]).');
         if (u.r != null && !(num(u.r) && u.r >= 2 && u.r <= 60)) add('error', ref, 'until', 'Tới chỗ: bán kính 2–60.');
       }
       if (u.type === 'use' && goods && !goods[u.goods]) add('error', ref, 'until', `Món "${u.goods}" không có trong đồ dùng.`);
@@ -1127,12 +1128,14 @@ export function validateStory(story, { places = null, goods = null, content = nu
       for (const k of ['onlyBefore', 'onlyAfter']) if (st[k] != null && !(num(st[k]) && st[k] >= 0 && st[k] <= 24)) add('error', ref, k, 'Chỉ chạy trước / từ giờ: 0–24.');
       if (st.onlyTrait && ['talkActor', 'chosen'].includes(u.type)) add('warn', ref, 'onlyTrait', 'Bước chỉ dành cho 1 tính cách mà chờ nói chuyện / chọn câu: người chơi tính cách khác sẽ bỏ qua cả bước này — nhớ bước sau không phụ thuộc vào nó.');
       if (st.keepOut) {
-        place(ref, 'keepOut', st.keepOut.place);
+        if (st.keepOut.at == null) place(ref, 'keepOut', st.keepOut.place);
+        else if (!(Array.isArray(st.keepOut.at) ? st.keepOut.at.length === 2 : ZONE_POINTS.includes(st.keepOut.at))) add('error', ref, 'keepOut', `Vùng chặn: chỗ lạ "${st.keepOut.at}".`);
         if (!(num(st.keepOut.r) && st.keepOut.r >= 5 && st.keepOut.r <= 200)) add('error', ref, 'keepOut', 'Vùng chặn lại gần: bán kính 5–200 m.');
         text(ref, 'keepOut', st.keepOut.text, 'câu nhắc khi lại gần');
       }
       if (st.leash) {
-        place(ref, 'leash', st.leash.place);
+        if (st.leash.at == null) place(ref, 'leash', st.leash.place);
+        else if (!(Array.isArray(st.leash.at) ? st.leash.at.length === 2 : ZONE_POINTS.includes(st.leash.at))) add('error', ref, 'leash', `Vùng giữ: chỗ lạ "${st.leash.at}".`);
         if (!(num(st.leash.r) && st.leash.r >= 10 && st.leash.r <= 200)) add('error', ref, 'leash', 'Vùng giữ người chơi: bán kính 10–200 m.');
         text(ref, 'leash', st.leash.text, 'câu nhắc khi đi ra khỏi vùng');
       }

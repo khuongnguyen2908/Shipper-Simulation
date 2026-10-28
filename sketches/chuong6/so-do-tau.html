@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sơ đồ tàu HẢI LONG</title>
+<style>
+  body { margin: 0; background: #12141a; color: #e8e4dc; font: 14px/1.45 system-ui, sans-serif; }
+  h1 { font-size: 18px; margin: 12px 16px 4px; }
+  p.sub { margin: 0 16px 8px; color: #a9a39a; }
+  svg { display: block; width: 100%; max-width: 1180px; height: auto; margin: 0 auto; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 8px 16px 16px; max-width: 1180px; margin: 0 auto; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+  text { font-family: system-ui, sans-serif; }
+</style>
+</head>
+<body>
+<h1>🚢 Tàu HẢI LONG + bến Kho 7 — nhìn từ trên xuống (toạ độ thật trong game)</h1>
+<p class="sub"><b>Bản đề xuất 28/10</b> — đường đi + 4 đợt địch. Đuôi tàu bên trái (lầu chỉ huy), mũi tàu bên phải. Mạn trái tàu sát bến (dưới hình). 1 ô lưới = 10 m.</p>
+<svg id="map"></svg>
+<div class="legend" id="legend"></div>
+<script>
+// vật cản lấy từ lưới va chạm của bản đồ tàu (x0, z0, x1, z1, cao, y0, loại) — toạ độ tàu
+const COLS = [[-68,-41,-42,5,9.5,0,"house"],[-49.2,27,-46.8,33,7.9,0,"house"],[-57.2,27,-54.8,33,2.6,0,"house"],[-49.2,35,-46.8,41,5.2,0,"house"],[-37,-49.2,-31,-46.8,2.6,0,"house"],[-37.2,11,-34.8,17,7.9,0,"house"],[-37.2,19,-34.8,25,5.2,0,"house"],[-34,32.8,-28,35.2,5.2,0,"house"],[-29,-49.2,-23,-46.8,5.2,0,"house"],[-23.2,-33,-20.8,-27,2.6,0,"house"],[-22.1,-19.8,-19.9,-18.2,2.2,0,"house"],[-30.9,-24.9,-29.1,-23.1,2.2,0,"house"],[-31,-7.2,-25,-4.8,2.6,0,"house"],[-31.2,11,-28.8,17,5.2,0,"house"],[-31.2,19,-28.8,25,2.6,0,"house"],[-27,32.8,-21,35.2,2.6,0,"house"],
+  [-8.7,-39,-6.3,-32.9,9.3],[-6.2,-39,-3.8,-32.9,11.9],[-3.7,-39,-1.3,-32.9,9.3],[-1.2,-39,1.2,-32.9,11.9],[-8.7,-32.5,-6.3,-26.4],[-6.2,-32.5,-3.8,-26.4],[-3.7,-32.5,-1.3,-26.4],[-1.2,-32.5,1.2,-26.4],[-8.7,-26,-6.3,-19.9],[-6.2,-26,-3.8,-19.9],[-3.7,-26,-1.3,-19.9],[-1.2,-26,1.2,-19.9],[-8.7,-19.5,-6.3,-13.4],[-6.2,-19.5,-3.8,-13.4],[-3.7,-19.5,-1.3,-13.4],[-1.2,-19.5,1.2,-13.4],[-8.7,-6.5,-6.3,-0.4],[-6.2,-6.5,-3.8,-0.4],[-3.7,-6.5,-1.3,-0.4],[-1.2,-6.5,1.2,-0.4],[-1.6,-11.6,1.6,-8.4],[-8.7,0,-6.3,6.1],[-6.2,0,-3.8,6.1],[-3.7,0,-1.3,6.1],[-1.2,0,1.2,6.1],[-8.7,6.5,-6.3,12.6],[-6.2,6.5,-3.8,12.6],[-3.7,6.5,-1.3,12.6],[-1.2,6.5,1.2,12.6],[-1.6,14.4,1.6,17.6],[-8.7,19.5,-6.3,25.6],[-6.2,19.5,-3.8,25.6],[-3.7,19.5,-1.3,25.6],[-1.2,19.5,1.2,25.6],[-8.7,26,-6.3,32.1],[-6.2,26,-3.8,32.1],[-3.7,26,-1.3,32.1],[-1.2,26,1.2,32.1],
+  [1.3,-39,3.7,-32.9],[3.8,-39,6.2,-32.9],[6.3,-39,8.7,-32.9],[1.3,-32.5,3.7,-26.4],[3.8,-32.5,6.2,-26.4],[6.3,-32.5,8.7,-26.4],[1.3,-26,3.7,-19.9],[3.8,-26,6.2,-19.9],[6.3,-26,8.7,-19.9],[1.3,-19.5,3.7,-13.4],[3.8,-19.5,6.2,-13.4],[6.3,-19.5,8.7,-13.4],[1.3,-6.5,3.7,-0.4],[3.8,-6.5,6.2,-0.4],[6.3,-6.5,8.7,-0.4],[1.3,0,3.7,6.1],[3.8,0,6.2,6.1],[6.3,0,8.7,6.1],[1.3,6.5,3.7,12.6],[3.8,6.5,6.2,12.6],[6.3,6.5,8.7,12.6],[1.3,19.5,3.7,25.6],[3.8,19.5,6.2,25.6],[6.3,19.5,8.7,25.6],[1.3,26,3.7,32.1],[3.8,26,6.2,32.1],[6.3,26,8.7,32.1],[-4.1,48.9,-1.9,51.1],[1.9,48.9,4.1,51.1]];
+// hình: ngang = z (đuôi -64 → mũi 64), dọc = x (mạn phải 14 ở trên → bến -70 ở dưới)
+const S = 8.4, Z0 = -66, Z1 = 64, X0 = -70, X1 = 16, W = (Z1 - Z0) * S, H = (X1 - X0) * S;
+const px = (z) => (z - Z0) * S, py = (x) => (X1 - x) * S;
+const svg = document.getElementById('map');
+svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+let html = '';
+const rect = (x0, z0, x1, z1, fill, extra = '') => { html += `<rect x="${px(Math.min(z0, z1))}" y="${py(Math.max(x0, x1))}" width="${Math.abs(z1 - z0) * S}" height="${Math.abs(x1 - x0) * S}" fill="${fill}" ${extra}/>`; };
+const txt = (x, z, s, opt = {}) => { html += `<text x="${px(z)}" y="${py(x)}" fill="${opt.c || '#fff'}" font-size="${opt.f || 13}" font-weight="${opt.w || 600}" text-anchor="${opt.a || 'middle'}" dominant-baseline="middle">${s}</text>`; };
+// nước + bến
+rect(-13, Z0, X1, Z1, '#1d4f66');
+rect(X0, Z0, -13, Z1, '#5f6268');
+for (let z = -60; z <= 60; z += 10) html += `<line x1="${px(z)}" y1="0" x2="${px(z)}" y2="${H}" stroke="#ffffff10"/>`;
+for (let x = -70; x <= 10; x += 10) html += `<line x1="0" y1="${py(x)}" x2="${W}" y2="${py(x)}" stroke="#ffffff10"/>`;
+// thân tàu (mũi nhọn ở +z)
+html += `<polygon points="${[[-11, -60], [11, -60], [11, 44], [5, 56], [-5, 56], [-11, 44]].map(([x, z]) => `${px(z)},${py(x)}`).join(' ')}" fill="#7d7a72" stroke="#2c2c2c" stroke-width="3"/>`;
+rect(-11, 44, 11, 56, '#8e8a80'); // sàn mũi
+// lầu chỉ huy
+rect(-9, -58, 9, -45, '#ece8de', 'stroke="#333" stroke-width="2"');
+txt(0, -51.5, 'LẦU CHỈ HUY', { c: '#333', f: 14, w: 800 });
+txt(-3.5, -51.5, '(cửa trước →)', { c: '#555', f: 11 });
+// vật cản
+for (const c of COLS) {
+  const [x0, z0, x1, z1] = c, onShip = x0 > -11.5;
+  rect(x0, z0, x1, z1, onShip ? '#b5523b' : '#3d6fa8', 'stroke="#0005" stroke-width="1"');
+}
+rect(-9.1, 36.4, 3.1, 38.8, '#e67e22', 'stroke="#fff" stroke-width="2"'); // container nhốt
+txt(-3, 37.6, 'container nhốt', { f: 11 });
+rect(-68, -41, -42, 5, '#8b5a3c', 'stroke="#000" stroke-width="2"');
+txt(-55, -18, 'KHO 7', { f: 20, w: 900 });
+// cầu thang mạn
+html += `<line x1="${px(-34)}" y1="${py(-11.75)}" x2="${px(-22)}" y2="${py(-11.75)}" stroke="#f1c40f" stroke-width="7"/>`;
+txt(-14.6, -28, 'cầu thang mạn', { c: '#f1c40f', f: 11 });
+// mũi tên hướng
+txt(12.8, -60, '◀ ĐUÔI TÀU', { a: 'start', f: 13, w: 800, c: '#ffd' });
+txt(12.8, 60, 'MŨI TÀU ▶', { a: 'end', f: 13, w: 800, c: '#ffd' });
+txt(-12.2, 0, 'mạn trái (sát bến)', { c: '#cfe', f: 11 });
+txt(10, -20, 'mạn phải', { c: '#cfe', f: 11 });
+// ---------- đánh dấu ----------
+const pin = (x, z, label, color, opt = {}) => {
+  html += `<circle cx="${px(z)}" cy="${py(x)}" r="${opt.r || 9}" fill="${color}" stroke="#fff" stroke-width="2.5"/>`;
+  if (opt.ring) html += `<circle cx="${px(z)}" cy="${py(x)}" r="${opt.ring * S}" fill="none" stroke="${color}" stroke-width="2.5" stroke-dasharray="6 4"/>`;
+  if (label) { const dx = opt.dx ?? 0, dy = opt.dy ?? -18; html += `<g><rect x="${px(z) + dx - label.length * 3.4 - 6}" y="${py(x) + dy - 11}" width="${label.length * 6.8 + 12}" height="22" rx="6" fill="${color}" stroke="#fff" stroke-width="1.5"/><text x="${px(z) + dx}" y="${py(x) + dy}" fill="#fff" font-size="12" font-weight="700" text-anchor="middle" dominant-baseline="middle">${label}</text></g>`; }
+};
+const foe = (x, z, c = '#2c3e50') => { html += `<circle cx="${px(z)}" cy="${py(x)}" r="6" fill="${c}" stroke="#fff" stroke-width="1.5"/>`; };
+// đường đi (đề xuất mới) — vẽ trước để nằm dưới các điểm
+const path = (pts, color, dash = '') => { html += `<polyline points="${pts.map(([x, z]) => `${px(z)},${py(x)}`).join(' ')}" fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" ${dash ? `stroke-dasharray="${dash}"` : ''} opacity="0.85"/>`; };
+path([[-42, 20], [-24, 2], [-15.5, -20.9], [-11.75, -34], [-9.75, -40], [0, -44], [0, -50], [7.3, -54.9]], '#bdc3c7', '8 6'); // lẻn lên tàu → tủ
+path([[0, -50], [0, -44], [-9.75, -40], [-9.75, 13.4], [-9.75, 34], [-6, 41.5]], '#f39c12', '8 6'); // tủ → sau container nhốt (bị bắt)
+path([[2.2, 37.6], [9.75, 34], [9.75, 13.4], [9.75, -12.6], [9.75, -40], [0, -44], [-9.75, -40], [-11.75, -34], [-15.5, -20.9], [-35, -30], [-56, -52]], '#e74c3c', ''); // thoát: container → mạn phải → lầu → cầu thang → bến → xe
+// màn lẻn (như cũ)
+pin(-42, 20, 'Bắt đầu lẻn', '#7f8c8d', { r: 7, dy: 18 });
+pin(7.3, -54.9, '🔑 tủ (làm lại hình, mở cửa)', '#d35400', { r: 7, dy: 20, dx: 30 });
+// 1. chỗ bị bắt MỚI: sau container nhốt (phía mũi)
+pin(-4, 41.5, 'MỚI · BỊ BẮT: sau container nhốt', '#e74c3c', { ring: 2.5, dy: -24, dx: -60 });
+// đợt 1
+pin(2.2, 37.6, 'ĐỢT 1 · phá container: 3 tên', '#2980b9', { dy: 26, dx: -70 });
+foe(7.5, 34.5); foe(8.5, 40); foe(9.75, 20, '#5d6d7e');
+// đợt 2: chạm 1 trong 2 mạn
+pin(-9.75, 13.8, '▶ chạm (mạn trái) → ĐỢT 2', '#16a085', { ring: 3.5, dy: 26, dx: 40 });
+pin(9.75, 13.8, '▶ MỚI · chạm (mạn phải) → ĐỢT 2', '#16a085', { ring: 3.5, dy: -24, dx: 40 });
+pin(-9.75, -8, 'ĐỢT 2 · Tí Sún + 2 tên', '#2980b9', { dy: 26, dx: -50 });
+foe(-9.3, -4); foe(9.75, -12.6, '#5d6d7e');
+// đợt 3 MỚI: lầu chỉ huy
+pin(0, -41, '▶ MỚI · tới trước lầu → ĐỢT 3', '#16a085', { ring: 3, dy: -24, dx: 70 });
+pin(0, -48, 'MỚI · ĐỢT 3 lầu chỉ huy: 3 tên → anh Đạt lấy đồ', '#2980b9', { dy: 24, dx: 120 });
+foe(-5, -43); foe(5, -43); foe(0, -55);
+// đợt 4: bến Kho 7
+pin(-15.5, -20.9, '▶ chân cầu thang → 🎬 cảnh Tí Đô → ĐỢT 4', '#16a085', { ring: 2.6, dy: 26, dx: 90 });
+pin(-25, -12, 'ĐỢT 4 · Tí Đô + 2 đàn em', '#c0392b', { dy: -22, dx: -20 });
+foe(-27, -15.5); foe(-22.5, -9);
+// lên xe
+pin(-56, -52, '🏍️ xe anh Đạt — E lên xe → màn đua', '#27ae60', { ring: 3, dy: -24, dx: 60 });
+svg.innerHTML = html;
+document.getElementById('legend').innerHTML = [
+  ['#bdc3c7', '- - Lẻn lên tàu → tủ thuyền trưởng'], ['#f39c12', '- - Tủ → sau container nhốt (bị Tí Sún bắt)'], ['#e74c3c', '── Đường thoát: container → mạn → lầu → cầu thang → bến → xe'],
+  ['#16a085', 'Chỗ chạm để ra đợt kế'], ['#2980b9', 'Đợt địch'], ['#2c3e50', 'Địch có mặt từ đầu'], ['#5d6d7e', 'Địch vào sau 6 giây'], ['#27ae60', 'Xe anh Đạt (lên xe)'],
+].map(([c, t]) => `<span><i style="background:${c}"></i>${t}</span>`).join('');
+</script>
+</body>
+</html>
