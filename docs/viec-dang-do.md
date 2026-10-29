@@ -335,6 +335,54 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
     Tiếng mới fight.roar / fight.stomp / fight.parry (chưa có file → tổng hợp, ghi ở docs/am-thanh.md). ?editor: thẻ ⚔️ Đánh nhau → kiểu địch có "🎚 Chia giai đoạn",
     trận có "👀 Đứng xem". Sửa kèm lỗi cũ ở ô "Đòn đánh" của editor (tách theo chữ "s").
   - Còn: chủ game chơi thật để chỉnh độ khó (máu 220, cửa đỡ 0,35 giây…) — mọi số sửa ở ?editor.
+- **Đợt 12 — Claude tự chơi lại chương 6, sửa lỗi kẹt góc / mất người (29/10, đã đẩy lên GitHub — xem mã ở đợt 13)**. Bot tự chơi: sketches/c6bot.js (__c6run).
+  - **Tường vô hình ở mũi tàu** (đúng chỗ bị Tí Sún bắt, sau container nhốt): boong chính và boong phía mũi chỉ chồng nhau 0,4 m, luật mặt đi bắt người nằm lọt
+    hẳn trong 1 mặt (cách mép 1 bán kính thân, cần ~0,7 m) → không đi qua được. Sửa chung (world/elevated.js seamAt): cả vòng thân đứng trên các mặt cùng độ cao là đi được.
+    Quét toàn boong (ô 25 cm): trước có 2 vùng mũi tàu đứng được mà không tới được, giờ cả boong liền 1 khối.
+  - **Kẹt khi đi sát lan can** (vd mạn trái qua đầu cầu thang mạn): lan can đẩy người ra đúng sát mép mặt đi, lệch vài mm là "ra ngoài mép" → không trượt
+    dọc được. Mép mặt đi giờ nới hơn thân 6 cm (lan can mới là thứ chặn). Thử đi sát lan can 2 mạn, 2 chiều: qua hết (luật cũ kẹt ở -10,2; -35,7).
+  - Lối mạn trái cạnh container nhốt chỉ rộng 1 m → dời container sang phải 0,8 m (cargoShip CAPTIVE; chỗ cửa / đồ dưới đất dời theo) · lưới đường tàu thêm
+    3 điểm ở mũi tàu (anh Đạt / địch trước không tìm được đường ra sau container).
+  - **Mất anh Đạt khi mở lại game** (lưu bằng app Máy ảnh sau khi lấy lại điện thoại): anh Đạt bị dựng lại trong container nhốt ở mũi tàu, cách 60–80 m.
+    Giờ đồng đội đã đánh chung (từ lúc xuất hiện) đứng ngay sau lưng người chơi khi mở game, và vẫn đi theo ở các đoạn đi bộ (fightFollow).
+  - **Hết chương đứng sai chỗ**: bước atHospital đưa người chơi về (146; 206) — chỗ mặc định "về phố" cạnh Kho 7 — trong khi bệnh viện + xe anh Đạt ở (78; -201).
+    Sửa: đứng trước cửa bệnh viện (78; -201,8), quay ra đường.
+  - Bot chơi trọn: màn lẻn → tủ → bị bắt → cởi trói → 4 đợt đánh → cảnh phim Tí Đô → lên xe → màn đua → hết chương: không kẹt, anh Đạt luôn ≤ 8 m.
+    Trận Tí Đô đủ 3 giai đoạn, không ai kẹt / bay / biến mất. Đoạn Kho 7 (núp, công an) chạy đúng. Chưa cho bot chạy: nhận đơn / gửi xe / giao đồ ăn (đã thử ở đợt 6–7).
+- **Đợt 13 — góp ý 29/10 tối (đã đẩy lên GitHub)**
+  - Cảnh phim Tí Đô bị bong bóng che mặt: bong bóng neo ở độ cao cố định (người thường) mà Tí Đô to 1,25 lần → giờ neo nhân theo vóc người (ui/bubbles headOf,
+    áp cho mọi người: trẻ em thấp hơn, người to cao hơn) + góc máy thứ 2 đặt ngang mặt (cao 2,05 m, nhìn 1,85 m).
+  - Tí Đô 220 → 400 máu (bot cùng cách đánh: ~36 → ~60 giây).
+  - Thanh máu boss chỉ còn tên + máu: bỏ tên giai đoạn, bỏ vạch mốc; bỏ cả thông báo "Tí Đô — Giai đoạn …" lúc đổi giai đoạn (vẫn gầm + nói 1 câu).
+    Tên giai đoạn vẫn để trong dữ liệu (?editor) cho chủ game đọc.
+  - **Anh Đạt bay lên trời lúc đánh Tí Đô**: đi xuống cầu thang mạn lệch tâm 0,3 m là luật tìm mặt đứng (game/fight.js fightPlace) không thấy cầu thang
+    → giữ độ cao boong 6,2 m mãi, lơ lửng suốt trận dưới bến. Giờ lấy mặt cao nhất không cao hơn chân quá 0,6 m (đất bến = 0) → lệch / bước khỏi mép thì rơi xuống.
+    Bot chơi lại cả đoạn tàu: không còn lơ lửng (bot có thêm kiểm tra "anh Đạt LƠ LỬNG").
+  - **Đánh nhau kiểu shipper — XONG (chủ game duyệt phác thảo sketches/chuong6/do-shipper.png, đổi áo mưa → bao ni lông)**:
+    · Túi đồ (gs.story.kit, lưu trong bản lưu; luật sim/fight.js kitGive / kitTake / kitNext): thanh 10 ô dưới màn hình (phím 1–0 / lăn chuột), dòng mô tả món đang cầm,
+      vệt chấm trắng đường bay. KHÔNG còn tay không đánh (chuột trái không có đồ: "Hết đồ rồi — kiếm gì quăng đi!"). Đỡ (chuột phải) chỉ khi có ⛑️ trong túi (giơ nón lên).
+    · 11 món (story.json weapons — sửa ở ?editor thẻ ⚔️ Đánh nhau): 🥤 trà sữa (lóa mắt 2 s + vũng trân châu) · 🍱 hộp cơm (choáng, cơm dính tóc) · 💧 chai nước (nhặt lại)
+      · 🧊 đá viên (vũng trơn 6 s — Tí Đô húc / bay qua là ngã sấp) · 🌶️ tương ớt (cay chạy vòng) · ⛑️ nón (đập cốp + đỡ) · 📯 kèn (tên đang lấy đà trong 4 m giật mình khựng, chờ 8 s)
+      · 🥚 trứng ×4 (giữ chuột ném liên tiếp) · 📦 gói COD (nặng, ngã; móp 3 lần bung ra 🔋 cục sạc) · 🛍️ bao ni lông (trùm đầu 3 s) · 🔋 cục sạc.
+      Dính đồ: không đánh được, trúng đau gấp rưỡi; boss "dính đồ lâu ×0,6" (Tí Đô) / ×0,8 (Tí Sún) và bỏ đòn đang ra.
+    · Ném xong: món "nhặt lại" rơi xuống (E nhặt — cả lúc đi giữa các trận; đồ dưới đất mang sang trận sau), món vỡ thì mất. Thua → túi + đồ dưới đất trở lại như lúc bắt đầu trận.
+      Hết đồ ném (cả trong 12 m quanh mình): anh Đạt quăng 1 chai nước "Nè, chụp!" mỗi ~8 giây.
+    · Truyện: thùng giao hàng nằm góc container nhốt (đạo cụ mới "bag") → cởi trói xong anh Đạt "kiếm gì đó đại đi" → bước mới grabBag (E "Lục túi giao hàng")
+      → việc mới "🎒 Túi đồ" (kit: give / clear) cho 10 món → đánh. datGear: anh Đạt đưa thêm thùng đồ tụi nó giật của shipper khác. toBike: dọn túi.
+      Bỏ hết gỗ / gậy / chảo / phao (+ đồ nằm sẵn trên tàu); Tí Đô vẫn ném gạch. Tiếng mới: fight.bonk (thay fight.pan) / splash / box / horn / slip / bag; bỏ fight.break.
+    · Bot ném đồ (god): container 11 s · boong 24 s · lầu chỉ huy 9 s · Tí Đô 52 s (ném 74, nhặt 54). Anh Đạt bị bỏ xa > 8 m thì chạy nhanh đuổi kịp.
+    · Còn: chủ game chơi thật để chỉnh số (số món, sát thương, giây tác dụng — ?editor). Soi hình 3D: sketches/chuong6/do-3d.html.
+  - **Góp ý 29/10 đêm (chủ game duyệt phác thảo sketches/chuong6/tui-do-ui.png) — XONG, đã đẩy lên GitHub**:
+    · Bớt đồ: 8 món (bỏ hộp cơm, trứng) · món nhặt lại / giữ trên tay chỉ 1 cái (💧 📦 🛍️ ⛑️ 📯) · món vỡ 🥤×2 🧊×2 🌶️×1 · trước Tí Đô anh Đạt chỉ bù 🥤1 🧊1 🌶️1.
+    · Thẻ "Trong túi có gì" (bước mới bagRead, điều kiện mới kitCard, việc 🎒 Túi đồ có ô "hiện thẻ"): tác dụng + "Dùng khi" từng món, ♻ / 💥; bấm E cất (chặn 1 giây đầu
+      để bấm E lục túi 2 lần không lỡ cất) rồi mới đánh. Phím I (đang góc nhìn thứ 1 + có túi): thẻ nhỏ góc trái, bật / tắt — không mở túi đồ điện thoại.
+    · Thanh ô: chữ tác dụng ngắn dưới ô, dấu ♻, số còn ở góc trên; dòng xanh "Dùng khi: …" dưới tên món đang cầm. Dữ liệu: weapons.<mã>.short / when (?editor).
+    · Gợi ý đúng lúc (game/fight.js fightHint): địch lóe đỏ → ô món khắc chế sáng xanh + 1 dòng (húc / bay → 🧊 · sắp ra đòn → 🥤 · bị vây → 🌶️ · né không kịp → 📯),
+      mỗi kiểu tối đa 3 lần (gs.story.hintN). Ném trúng lúc địch lóe đỏ / lấy đà = "ĐÚNG LÚC! ×2" (sát thương + tác dụng ×2 — sim/fight.js timedItem).
+    · Lỗi tìm ra khi bot chơi lại: (1) bị Tí Đô húc / đạp văng 0,75 m/đoạn → xuyên cột lan can mỏng 0,2 m vào TRONG thân tàu → chia đoạn ≤ 12 cm (cả cú né);
+      người trong trận đi từng đoạn ≤ 15 cm. (2) Tí Đô / anh Đạt đi lệch khỏi cầu thang mạn → rơi xuống khe nước rồi bị đẩy vào trong thân tàu, đứng dưới boong đánh
+      xuyên sàn (một phần do lần sửa "lơ lửng" trước của Claude) → không cho bước hụt xuống > 0,8 m (đứng lại ở mép như người chơi), tìm đường không đi đường
+      phải bước hụt. (3) Tấm ván chân cầu thang mạn rộng 1,2 → 2 m (đi xiên ra / vào hay vướng góc).
 
 ### 🔧 Chương 4–5 sửa đợt 2 (24/10 tối — XONG, CHƯA commit)
 - 🛵 Chạy đơn trong lúc chờ giờ: ô mới "Cho chạy đơn trong lúc chờ" (step.orders) — bật cho c4 sleep2 / wait8 / mingle / waitOpen, c5 waitMeet / addr / goMeet / waitNight.

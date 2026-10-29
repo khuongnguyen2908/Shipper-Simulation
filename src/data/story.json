@@ -7986,6 +7986,16 @@
               "gate": false
             },
             {
+              "do": "prop",
+              "id": "shipperBag",
+              "kind": "bag",
+              "at": [
+                -7.6,
+                -2363.1
+              ],
+              "heading": 30
+            },
+            {
               "do": "tie",
               "who": "player",
               "on": true
@@ -8099,17 +8109,66 @@
           "noFines": true
         },
         {
+          "id": "grabBag",
+          "on": [
+            {
+              "do": "bubble",
+              "who": "man",
+              "text": "story.c6.bag.b"
+            },
+            {
+              "do": "fpv",
+              "on": true,
+              "after": 1.2
+            }
+          ],
+          "until": {
+            "type": "useAt",
+            "at": [
+              -7.6,
+              -2363.1
+            ],
+            "r": 1.6,
+            "label": "story.c6.bag.label",
+            "sound": "fight.bag"
+          },
+          "guide": null,
+          "hold": true,
+          "noFines": true,
+          "goal": "story.c6.bag.goal"
+        },
+        {
+          "id": "bagRead",
+          "on": [
+            {
+              "do": "kit",
+              "give": {
+                "water": 1,
+                "cod": 1,
+                "nylon": 1,
+                "helmet": 1,
+                "horn": 1,
+                "cup": 2,
+                "ice": 2,
+                "chili": 1
+              },
+              "card": true
+            }
+          ],
+          "until": {
+            "type": "kitCard"
+          },
+          "guide": null,
+          "hold": true,
+          "noFines": true
+        },
+        {
           "id": "breakout",
           "on": [
             {
               "do": "bubble",
               "who": "man",
               "text": "story.c6.out.b"
-            },
-            {
-              "do": "fpv",
-              "on": true,
-              "after": 1.5
             },
             {
               "do": "zone",
@@ -8290,6 +8349,26 @@
               "do": "toast",
               "text": "story.c6.gear.phone",
               "after": 2.4
+            },
+            {
+              "do": "kit",
+              "give": {
+                "cup": 1,
+                "ice": 1,
+                "chili": 1
+              },
+              "after": 3.2
+            },
+            {
+              "do": "bubble",
+              "who": "man",
+              "text": "story.c6.gear.kit",
+              "after": 3.4
+            },
+            {
+              "do": "toast",
+              "text": "story.c6.gear.kitToast",
+              "after": 3.6
             }
           ],
           "until": {
@@ -8382,14 +8461,14 @@
                 },
                 {
                   "pos": [
-                    -21.8,
-                    1.55,
-                    -2415
+                    -21.2,
+                    2.05,
+                    -2415.6
                   ],
                   "lookAt": "actor:tiDo",
-                  "lookY": 1.45,
+                  "lookY": 1.85,
                   "t": 4.2,
-                  "fov": 46
+                  "fov": 42
                 },
                 {
                   "pos": [
@@ -8400,7 +8479,7 @@
                   "lookAt": "actor:tiDo",
                   "t": 3.6,
                   "fov": 55,
-                  "lookY": 1.4
+                  "lookY": 1.8
                 }
               ]
             },
@@ -8512,6 +8591,10 @@
               "do": "fpv",
               "on": false,
               "after": 2.2
+            },
+            {
+              "do": "kit",
+              "clear": true
             }
           ],
           "until": {
@@ -8671,10 +8754,10 @@
             {
               "do": "zone",
               "at": [
-                146,
-                206
+                78,
+                -201.8
               ],
-              "heading": 0
+              "heading": 180
             },
             {
               "do": "remove",
@@ -8741,37 +8824,139 @@
   "weapons": {
     "fists": {
       "name": "story.wpn.fists",
-      "icon": "✊",
-      "dmg": 4,
-      "cd": 0.9,
+      "icon": "✋",
+      "dmg": 0,
+      "cd": 0.6,
       "reach": 1.4,
-      "dur": 0
+      "dur": 0,
+      "block": 0
     },
-    "wood": {
-      "name": "story.wpn.wood",
-      "icon": "🪵",
+    "cup": {
+      "icon": "🥤",
+      "throw": true,
+      "dmg": 4,
+      "cd": 0.55,
+      "v": 15,
+      "blind": 2,
+      "slip": {
+        "r": 1.1,
+        "t": 4,
+        "fall": 1.2
+      },
+      "name": "story.wpn.cup",
+      "tip": "story.wpnTip.cup",
+      "sfx": "fight.splash",
+      "short": "story.wpnShort.cup",
+      "when": "story.wpnWhen.cup"
+    },
+    "water": {
+      "icon": "💧",
+      "throw": true,
+      "dmg": 9,
+      "cd": 0.55,
+      "v": 16,
+      "keep": true,
+      "name": "story.wpn.water",
+      "tip": "story.wpnTip.water",
+      "short": "story.wpnShort.water",
+      "when": "story.wpnWhen.water"
+    },
+    "ice": {
+      "icon": "🧊",
+      "throw": true,
+      "dmg": 2,
+      "cd": 0.7,
+      "v": 13,
+      "slip": {
+        "r": 1.7,
+        "t": 6,
+        "fall": 2.5
+      },
+      "name": "story.wpn.ice",
+      "tip": "story.wpnTip.ice",
+      "short": "story.wpnShort.ice",
+      "when": "story.wpnWhen.ice"
+    },
+    "chili": {
+      "icon": "🌶️",
+      "throw": true,
+      "dmg": 3,
+      "cd": 0.6,
+      "v": 15,
+      "spicy": 2.5,
+      "name": "story.wpn.chili",
+      "tip": "story.wpnTip.chili",
+      "sfx": "fight.splash",
+      "short": "story.wpnShort.chili",
+      "when": "story.wpnWhen.chili"
+    },
+    "helmet": {
+      "icon": "⛑️",
       "dmg": 8,
-      "cd": 1.1,
+      "cd": 0.8,
       "reach": 1.7,
-      "dur": 6
+      "stun": 0.5,
+      "block": 4,
+      "name": "story.wpn.helmet",
+      "tip": "story.wpnTip.helmet",
+      "sfx": "fight.bonk",
+      "short": "story.wpnShort.helmet",
+      "when": "story.wpnWhen.helmet"
     },
-    "bat": {
-      "name": "story.wpn.bat",
-      "icon": "🏏",
-      "dmg": 12,
+    "horn": {
+      "icon": "📯",
+      "horn": {
+        "r": 4,
+        "startle": 1,
+        "cd": 8
+      },
+      "name": "story.wpn.horn",
+      "tip": "story.wpnTip.horn",
+      "short": "story.wpnShort.horn",
+      "when": "story.wpnWhen.horn"
+    },
+    "cod": {
+      "icon": "📦",
+      "throw": true,
+      "dmg": 22,
       "cd": 1,
-      "reach": 1.9,
-      "dur": 10
+      "v": 10,
+      "fall": 1.2,
+      "keep": true,
+      "hits": 3,
+      "breakTo": "powerbank",
+      "name": "story.wpn.cod",
+      "tip": "story.wpnTip.cod",
+      "sfx": "fight.box",
+      "short": "story.wpnShort.cod",
+      "when": "story.wpnWhen.cod"
     },
-    "pan": {
-      "name": "story.wpn.pan",
-      "icon": "🍳",
-      "dmg": 10,
-      "cd": 1.2,
-      "reach": 1.5,
-      "dur": 12,
-      "stun": 1,
-      "block": 4
+    "nylon": {
+      "icon": "🛍️",
+      "throw": true,
+      "dmg": 0,
+      "cd": 0.7,
+      "v": 13,
+      "trap": 3,
+      "keep": true,
+      "name": "story.wpn.nylon",
+      "tip": "story.wpnTip.nylon",
+      "sfx": "fight.bag",
+      "short": "story.wpnShort.nylon",
+      "when": "story.wpnWhen.nylon"
+    },
+    "powerbank": {
+      "icon": "🔋",
+      "throw": true,
+      "dmg": 14,
+      "cd": 0.6,
+      "v": 15,
+      "stun": 0.5,
+      "keep": true,
+      "name": "story.wpn.powerbank",
+      "tip": "story.wpnTip.powerbank",
+      "short": "story.wpnShort.powerbank",
+      "when": "story.wpnWhen.powerbank"
     },
     "brick": {
       "name": "story.wpn.brick",
@@ -8779,14 +8964,6 @@
       "throw": true,
       "dmg": 15,
       "stun": 1.5,
-      "dur": 1
-    },
-    "buoy": {
-      "name": "story.wpn.buoy",
-      "icon": "🛟",
-      "throw": true,
-      "dmg": 0,
-      "trap": 4,
       "dur": 1
     }
   },
@@ -8821,12 +8998,13 @@
       "moves": [
         "over",
         "side"
-      ]
+      ],
+      "ccMul": 0.8
     },
     "tiDo": {
       "name": "story.foe.tiDo",
       "boss": true,
-      "hp": 220,
+      "hp": 400,
       "dmg": 18,
       "windup": 0.8,
       "cd": 1.6,
@@ -8884,7 +9062,8 @@
           "clinch": true,
           "flee": true
         }
-      ]
+      ],
+      "ccMul": 0.6
     }
   },
   "fights": {
@@ -8939,50 +9118,7 @@
           "join": 8
         }
       ],
-      "loot": [
-        {
-          "id": "wood",
-          "at": [
-            -9.8,
-            -18
-          ]
-        },
-        {
-          "id": "bat",
-          "at": [
-            -9.3,
-            -24
-          ]
-        },
-        {
-          "id": "brick",
-          "at": [
-            -9.9,
-            -16
-          ]
-        },
-        {
-          "id": "brick",
-          "at": [
-            -9.6,
-            -15.4
-          ]
-        },
-        {
-          "id": "pan",
-          "at": [
-            -9.2,
-            -26
-          ]
-        },
-        {
-          "id": "buoy",
-          "at": [
-            -10.1,
-            -19.5
-          ]
-        }
-      ]
+      "loot": []
     },
     "testSun": {
       "zone": "ship",
@@ -9026,29 +9162,7 @@
           "join": 6
         }
       ],
-      "loot": [
-        {
-          "id": "bat",
-          "at": [
-            -9.6,
-            -16
-          ]
-        },
-        {
-          "id": "pan",
-          "at": [
-            -9.2,
-            -18
-          ]
-        },
-        {
-          "id": "brick",
-          "at": [
-            -9.9,
-            -19
-          ]
-        }
-      ]
+      "loot": []
     },
     "testDo": {
       "zone": "ship",
@@ -9095,50 +9209,7 @@
           "watch": true
         }
       ],
-      "loot": [
-        {
-          "id": "bat",
-          "at": [
-            -19,
-            -18
-          ]
-        },
-        {
-          "id": "brick",
-          "at": [
-            -22,
-            -16
-          ]
-        },
-        {
-          "id": "brick",
-          "at": [
-            -25,
-            -24
-          ]
-        },
-        {
-          "id": "brick",
-          "at": [
-            -20,
-            -6
-          ]
-        },
-        {
-          "id": "buoy",
-          "at": [
-            -16,
-            -14
-          ]
-        },
-        {
-          "id": "pan",
-          "at": [
-            -24,
-            -30
-          ]
-        }
-      ]
+      "loot": []
     },
     "c6Sneak1": {
       "zone": "ship",
@@ -9342,7 +9413,7 @@
       "zone": "ship",
       "name": "story.fight.c6Container",
       "start": [
-        2.2,
+        3,
         37.6
       ],
       "ally": "man",
@@ -9382,36 +9453,7 @@
           "join": 6
         }
       ],
-      "loot": [
-        {
-          "id": "wood",
-          "at": [
-            1.6,
-            37.1
-          ]
-        },
-        {
-          "id": "pan",
-          "at": [
-            0.2,
-            38.2
-          ]
-        },
-        {
-          "id": "brick",
-          "at": [
-            4.2,
-            36.6
-          ]
-        },
-        {
-          "id": "brick",
-          "at": [
-            4.6,
-            38.6
-          ]
-        }
-      ],
+      "loot": [],
       "keepPos": true
     },
     "c6Deck": {
@@ -9458,29 +9500,7 @@
           "join": 6
         }
       ],
-      "loot": [
-        {
-          "id": "bat",
-          "at": [
-            -9.5,
-            11
-          ]
-        },
-        {
-          "id": "brick",
-          "at": [
-            -9.9,
-            9.5
-          ]
-        },
-        {
-          "id": "buoy",
-          "at": [
-            -9.2,
-            6
-          ]
-        }
-      ],
+      "loot": [],
       "keepPos": true
     },
     "c6Quay": {
@@ -9531,50 +9551,7 @@
           "watch": true
         }
       ],
-      "loot": [
-        {
-          "id": "bat",
-          "at": [
-            -19,
-            -18
-          ]
-        },
-        {
-          "id": "brick",
-          "at": [
-            -22,
-            -16
-          ]
-        },
-        {
-          "id": "brick",
-          "at": [
-            -25,
-            -24
-          ]
-        },
-        {
-          "id": "brick",
-          "at": [
-            -20,
-            -6
-          ]
-        },
-        {
-          "id": "buoy",
-          "at": [
-            -16,
-            -14
-          ]
-        },
-        {
-          "id": "pan",
-          "at": [
-            -24,
-            -30
-          ]
-        }
-      ],
+      "loot": [],
       "keepPos": true
     },
     "c6Bridge": {
@@ -9622,22 +9599,7 @@
           "heading": 270
         }
       ],
-      "loot": [
-        {
-          "id": "pan",
-          "at": [
-            2,
-            -53
-          ]
-        },
-        {
-          "id": "wood",
-          "at": [
-            -6,
-            -41
-          ]
-        }
-      ]
+      "loot": []
     }
   },
   "races": {

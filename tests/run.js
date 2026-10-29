@@ -2403,6 +2403,17 @@ console.log('Gộp 2 khối (sân bay)');
     const small = buildPlace({ look: 'airport', W: 10.8, D: 10.8, color: '#e0e0e0', sign: 'SB', kind: 'service', seed: 3 });
     assert.equal(small.ramp, null);
   });
+  test('Mặt đi: 2 mặt cùng độ cao chồng nhau ít hơn bề ngang thân người vẫn đi qua được (trước: tường vô hình — boong chính ↔ boong mũi tàu) · mép thật vẫn giữ lại', () => {
+    const el = new Elevated();
+    el.addPad([[-5, -10], [5, -10], [5, 0.2], [-5, 0.2]], 6.2); // boong chính tới z 0,2
+    el.addPad([[-5, -0.2], [5, -0.2], [5, 8], [-5, 8]], 6.2); // boong mũi từ z -0,2 (chồng 0,4 m)
+    const body = { pos: { x: 0, z: -3 }, deckY: 6.2 };
+    for (let z = -3; z <= 4; z += 0.1) { body.pos.z = z; el.settle(body, 0.35, 0, 2.2); }
+    assert.ok(body.pos.z > 3.9 && body.deckY === 6.2, `đi qua chỗ nối (tới z ${body.pos.z.toFixed(2)})`);
+    for (let x = 0; x <= 5.6; x += 0.1) { body.pos.x = x; el.settle(body, 0.35, 0, 2.2); } // bước ra ngoài mép thật → bị giữ lại
+    assert.ok(body.pos.x < 5, 'mép ngoài vẫn chặn');
+    assert.equal(el.heightAt(4.9, 0, 6.2, 0.35), null, 'sát mép ngoài ở chỗ nối: không đứng được');
+  });
   test('Mặt đi trên cao: vào đầu dốc lên cao dần, lan can giữ lại, gầm thấp chắn, gầm cao đi qua, ra cuối dốc xuống đất', () => {
     const el = new Elevated();
     // dốc thẳng dọc trục x: 0 → 20 m lên 0 → 5 m, rồi sàn phẳng 20 → 40 m, rồi xuống 40 → 60 m
@@ -3771,6 +3782,8 @@ console.log('Âm thanh: mã từng chỗ phát tiếng, file gắn trong sounds.
       ...(st.on || []).filter((x) => x.do === 'cine').flatMap((x) => (x.shots || []).map((sh) => sh.sound).filter(Boolean)), ...(st.on || []).filter((x) => x.do === 'prop' && x.sound).map((x) => x.sound),
       ...(st.on || []).filter((x) => x.do === 'chase').flatMap((x) => [x.nearSound, x.loop, ...(x.route || []).flatMap((r) => [].concat(r.sound || []))].filter(Boolean))]));
     for (const id of storyCodes) assert.ok(SP.SOUNDS[id], `story.json: mã âm thanh "${id}" chưa có trong soundSpec.js`);
+    // tiếng trúng của từng món đồ ném (story.json → weapons.<mã>.sfx)
+    for (const w of Object.values(readJson('src/data/story.json').weapons || {})) if (w.sfx) { storyCodes.push(w.sfx); assert.ok(SP.SOUNDS[w.sfx], `story.json: tiếng trúng "${w.sfx}" chưa có trong soundSpec.js`); }
     for (const id of SP.SOUND_IDS) assert.ok(code.includes(`'${id}'`) || storyCodes.includes(id), `mã ${id} không chỗ nào dùng`);
     assert.ok(!/\bsfx\.\w+\(\)/.test(code), 'còn chỗ gọi sfx.xxx() kiểu cũ');
     for (const s2 of Object.values(SP.SOUNDS)) assert.ok(SP.SOUND_CATS[s2.cat] && ['sfx', 'loop', 'music'].includes(s2.kind), s2.id);
@@ -5633,6 +5646,15 @@ console.log('Đánh nhau góc nhìn thứ 1 (sim/fight.js — chương 6)');
     }
     assert.ok(!validateStory(STORYJ).some((i) => /fight:c6|^c6\./.test(i.ref)), 'chương 6 không có lỗi / cảnh báo');
   });
+  test('Chương 6: lưới đường tàu có mũi tàu (sau container nhốt) · container nhốt chừa lối mạn trái ≥ 1,5 m · hết chương đứng trước cửa bệnh viện', async () => {
+    const { ZONES } = await import('../src/sim/zones.js'), { SHIP } = await import('../src/world/cargoShip.js');
+    const nav = ZONES.ship.nav;
+    assert.ok(nav.nodes.some(([x, z]) => z > 40 && x < -5) && nav.nodes.some(([x, z]) => z > 40 && x > 5), 'có điểm lưới phía mũi');
+    assert.ok(SHIP.CAPTIVE.x0 - 0.45 - -10.55 >= 1.5, 'lối mạn trái cạnh container nhốt rộng ≥ 1,5 m');
+    const end = STORYJ.chapters.find((c) => c.id === 'c6').steps.find((s) => s.id === 'atHospital').on.find((a) => a.do === 'zone');
+    const bike = STORYJ.chapters.find((c) => c.id === 'c6').steps.find((s) => s.id === 'atHospital').on.find((a) => a.id === 'datBike');
+    assert.ok(Math.hypot(end.at[0] - bike.at[0], end.at[1] - bike.at[1]) < 10, 'người chơi đứng cạnh xe anh Đạt trước bệnh viện');
+  });
   test('Đòn đánh lần lượt theo dữ liệu (jab → hook → …), sự kiện trúng mang tên đòn · anh Đạt đổi đòn mỗi cú · dữ liệu đòn sai → bộ kiểm tra báo', () => {
     const f = mkOld(), P = { x: 0, z: 1.2, heading: Math.PI };
     f.chargeCd = 99; f.cd = 0;
@@ -5688,10 +5710,10 @@ console.log('Đánh nhau góc nhìn thứ 1 (sim/fight.js — chương 6)');
     assert.equal(st('toExit').until.type, 'useAt');
     assert.equal(st('race').music, 'music.race');
   });
-  test('Vũ khí theo dữ liệu (mã lạ = tay không) · đánh sau lưng gấp đôi · boss đỡ đòn trước mặt, chảo phá thế đỡ', () => {
-    const bat = FT.weaponOf('bat'), fists = FT.weaponOf('khongCo');
+  test('Đồ shipper theo dữ liệu (mã lạ = tay không, không đánh được) · đánh sau lưng gấp đôi · boss đỡ đòn trước mặt, cục sạc (choáng) phá thế đỡ', () => {
+    const bat = FT.weaponOf('helmet'), fists = FT.weaponOf('khongCo');
     assert.equal(fists.id, 'fists');
-    assert.ok(bat.dmg > fists.dmg && bat.dur > 0);
+    assert.ok(bat.dmg > 0 && fists.dmg === 0, 'tay không: 0 sát thương');
     const front = { x: 0, z: 1, heading: Math.PI }, back = { x: 0, z: -1, heading: 0 };
     assert.equal(FT.hitFoe(mk('thug'), bat, back).dmg, FT.hitFoe(mk('thug'), bat, front).dmg * 2, 'sau lưng gấp đôi');
     const sun = mk('tiSun');
@@ -5700,9 +5722,88 @@ console.log('Đánh nhau góc nhìn thứ 1 (sim/fight.js — chương 6)');
     assert.ok(!FT.hitFoe(sun, bat, back).blocked, 'đánh sau lưng thì trúng');
     const sun2 = mk('tiSun');
     sun2.state = 'guard';
-    FT.hitFoe(sun2, FT.weaponOf('pan'), front);
-    assert.ok(sun2.stun > 0, 'chảo làm choáng → phá thế đỡ');
+    FT.hitFoe(sun2, FT.weaponOf('powerbank'), front);
+    assert.ok(sun2.stun > 0, 'cục sạc làm choáng → phá thế đỡ');
     assert.ok(!FT.hitFoe(sun2, bat, front).blocked);
+  });
+  test('Túi đồ shipper: cho đồ → cầm món đầu · ném hết món đang cầm tự đổi món kế · lăn chuột bỏ qua ô đã hết · nhặt lại được', () => {
+    const k = FT.kitGive(FT.kitNew(), { cup: 1, water: 2, horn: 1 });
+    assert.deepEqual(k.order, ['cup', 'water', 'horn']);
+    assert.equal(k.sel, 'cup');
+    assert.ok(FT.kitTake(k, 'cup') && k.sel === 'water', 'hết trà sữa → cầm chai nước');
+    assert.ok(!FT.kitTake(k, 'cup'), 'hết thì không ném được');
+    assert.equal(FT.kitNext(k, 1), 'horn');
+    assert.equal(FT.kitNext(k, 1), 'water', 'bỏ qua ô trà sữa đã hết');
+    FT.kitGive(k, { cup: 1 });
+    assert.equal(k.n.cup, 1, 'nhặt lại');
+    // dữ liệu chương 6: túi 8 món · món nhặt lại / giữ trên tay chỉ 1 cái · món nào cũng có chữ tác dụng + "dùng khi" + chữ dưới ô
+    const c6 = STORYJ.chapters.find((c) => c.id === 'c6'), kitA = c6.steps.flatMap((s) => s.on || []).find((a) => a.do === 'kit' && a.give), give = kitA.give;
+    assert.equal(Object.keys(give).length, 8);
+    for (const [id, n] of Object.entries(give)) {
+      const w = STORYJ.weapons[id];
+      assert.ok(w && w.tip && w.when && w.short, id);
+      if (w.keep || !w.throw) assert.equal(n, 1, `${id}: món nhặt lại chỉ 1`);
+    }
+    // lục túi xong: thẻ "Trong túi có gì", đọc xong (E) mới tới trận container
+    const ids = c6.steps.map((s) => s.id), bag = c6.steps[ids.indexOf('bagRead')];
+    assert.ok(kitA.card && bag.until.type === 'kitCard' && ids.indexOf('bagRead') === ids.indexOf('breakout') - 1);
+    assert.ok(!Object.values(STORYJ.fights).some((f) => (f.loot || []).length), 'không còn đồ nhặt sẵn trên tàu');
+  });
+  test('Tác dụng đồ: trà sữa lóa mắt · tương ớt cay chạy vòng · bao ni lông trùm đầu · gói COD ngã — không đánh được, trúng đau gấp rưỡi · boss ngắn hơn (ccMul) và bỏ đòn đang ra', () => {
+    const P = { x: 0, z: 1.2, heading: Math.PI };
+    for (const [id, c] of [['cup', 'blind'], ['chili', 'spicy'], ['nylon', 'trap'], ['cod', 'fall']]) {
+      const f = mk('thug'); f.alert = true;
+      assert.deepEqual(FT.applyItem(f, FT.weaponOf(id)), [c], id);
+      let strikes = 0;
+      for (let i = 0; i < 30; i++) for (const e of FT.foeTick(f, { player: P, dt: 1 / 30 })) if (e.type === 'strike') strikes += 1;
+      assert.equal(strikes, 0, `${id}: 1 giây đầu không đánh được`);
+      assert.equal(f.cc, c);
+      const hp = f.hp; FT.hitFoe(f, { dmg: 10 }, P); assert.equal(hp - f.hp, 15, `${id}: trúng đau gấp rưỡi`);
+    }
+    const s = mk('thug'); s.alert = true; FT.applyItem(s, FT.weaponOf('chili'));
+    const x0 = s.x; for (let i = 0; i < 20; i++) FT.foeTick(s, { player: P, dt: 1 / 30 });
+    assert.ok(Math.abs(s.x - x0) > 0.1, 'cay: chạy lòng vòng');
+    const b = mk('tiDo'); b.state = 'windup'; b.li = 0;
+    FT.applyItem(b, FT.weaponOf('nylon'));
+    assert.ok(b.state === 'recover' && b.li === 1, 'boss: bỏ đòn đang ra');
+    assert.ok(Math.abs(b.trap - FT.weaponOf('nylon').trap * STORYJ.foes.tiDo.ccMul) < 1e-9, 'boss: trùm ngắn hơn');
+  });
+  test('ĐÚNG LÚC: ném trúng lúc địch lóe đỏ / lấy đà → sát thương + tác dụng ×2; lúc nó đang đi thì như thường', () => {
+    const cup = FT.weaponOf('cup'), T = FT.timedItem(cup);
+    assert.equal(T.dmg, cup.dmg * 2);
+    assert.equal(T.blind, cup.blind * 2);
+    assert.equal(cup.blind, FT.weaponOf('cup').blind, 'không đổi dữ liệu gốc');
+    const a = mk('thug'); a.state = 'windup';
+    const b = mk('tiDo'); b.state = 'chargeWind';
+    const c = mk('thug'); c.state = 'chase';
+    assert.ok(FT.telegraphing(a) && FT.telegraphing(b) && !FT.telegraphing(c));
+    const d = mk('tiDo'); d.state = 'roar';
+    assert.ok(!FT.telegraphing(d), 'đang gầm đổi giai đoạn: không tính');
+  });
+  test('Kèn bóp: tên đang lấy đà trong 4 m thì giật mình khựng, đứng ngoài / đang đi thì không · vũng trơn: húc qua thì ngã, chạy qua thì trượt, mỗi vũng 1 lần', () => {
+    const H = FT.weaponOf('horn').horn;
+    const a = mk('thug'); a.alert = true; a.state = 'windup'; a.x = 0; a.z = 2;
+    const b = mk('thug'); b.alert = true; b.state = 'windup'; b.x = 0; b.z = 9;
+    const c = mk('thug'); c.alert = true; c.state = 'chase'; c.x = 1; c.z = 1;
+    const hit = FT.hornBlast([a, b, c], { x: 0, z: 0 }, H);
+    assert.deepEqual(hit.map((f) => f.who), [a.who]);
+    assert.equal(a.state, 'stagger');
+    let strikes = 0;
+    for (let i = 0; i < 24; i++) for (const e of FT.foeTick(a, { player: { x: 0, z: 0.8, heading: 0 }, dt: 1 / 30 })) if (e.type === 'strike') strikes += 1;
+    assert.equal(strikes, 0, 'giật mình: ~1 giây không đánh');
+    const d = mk('tiDo'); d.state = 'charge'; d.moving = true;
+    const pud = { x: 0, z: 0, r: 1.7, t: 6, fall: 2.5 };
+    assert.equal(FT.slipFoe(d, pud), 'fall');
+    assert.ok(d.fall >= 2.5 * 0.8 - 1e-9, 'húc qua vũng đá: ngã lâu');
+    assert.equal(FT.slipFoe(d, pud), null, 'mỗi vũng 1 lần');
+    const e = mk('thug'); e.state = 'chase'; e.moving = true;
+    assert.equal(FT.slipFoe(e, pud), 'slip');
+    const v = JSON.parse(JSON.stringify(STORYJ)); v.weapons.ice.slip = { r: 0, t: 6 }; v.weapons.cod.breakTo = 'khongCo';
+    const ch = v.chapters.find((x) => x.id === 'c6'); ch.steps.flatMap((s2) => s2.on || []).find((x) => x.do === 'kit' && x.give).give.xoai = 2;
+    const iss = validateStory(v);
+    assert.ok(iss.some((i) => i.ref === 'weapon:ice' && i.field === 'slip'), 'vũng trơn sai');
+    assert.ok(iss.some((i) => i.ref === 'weapon:cod' && i.field === 'breakTo'), 'móp thành món lạ');
+    assert.ok(iss.some((i) => /món lạ "xoai"/.test(i.msg || i.text || '')), 'túi đồ có món lạ');
   });
   test('Người chơi: đỡ giảm phần lớn + mất 1 nấc · đang né thì trượt · cú húc phá hết nấc đỡ', () => {
     const p = { hp: 100, pips: 3, maxPips: 3, blocking: true, dodgeT: 0 };
@@ -5788,7 +5889,7 @@ console.log('Đánh nhau góc nhìn thứ 1 (sim/fight.js — chương 6)');
     assert.ok(FT.hitFoe(b, big, P).ko, 'giai đoạn cuối: hết máu thì gục');
   });
   test('Tí Đô: giai đoạn 1 không đỡ · giai đoạn 2 đỡ trước mặt (sau lưng / lúc nó khựng thì trúng) · không khựng khi trúng đòn (vòng đòn chạy đúng nhịp)', () => {
-    const bat = FT.weaponOf('bat'), front = { x: 0, z: 1, heading: Math.PI }, back = { x: 0, z: -1, heading: 0 };
+    const bat = FT.weaponOf('water'), front = { x: 0, z: 1, heading: Math.PI }, back = { x: 0, z: -1, heading: 0 };
     const b = mk('tiDo');
     b.state = 'guard';
     assert.ok(!FT.hitFoe(b, bat, front).blocked && b.state === 'guard', 'giai đoạn 1: trúng, không bị khựng');

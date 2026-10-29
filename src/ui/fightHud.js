@@ -17,7 +17,7 @@ export class FightHud {
         <div class="fh-row"><label>${fmt('hud.fight.me')}</label><div class="fh-track"><div class="fh-fill me"></div></div><span class="fh-num me"></span></div>
         <div class="fh-row ally"><label class="aname"></label><div class="fh-track"><div class="fh-fill ally"></div></div><span class="fh-num ally"></span></div>
       </div>
-      <div class="fh-boss fh-panel"><div class="bh"><span class="bname"></span><span class="bph"></span></div><div class="fh-track"><div class="fh-fill"></div></div></div>
+      <div class="fh-boss fh-panel"><div class="bh"><span class="bname"></span></div><div class="fh-track"><div class="fh-fill"></div></div></div>
       <div class="fh-target fh-panel"><span class="tname"></span><div class="fh-track"><div class="fh-fill foe"></div></div></div>
       <div class="fh-goal fh-panel"><div class="gtext"></div><b class="gleft"></b></div>
       <svg class="fh-xh" width="120" height="120" viewBox="0 0 120 120">
@@ -28,15 +28,18 @@ export class FightHud {
       </svg>
       <div class="fh-wpn fh-panel"><div class="wname"></div><div class="wpips"></div></div>
       <div class="fh-keys fh-panel">${fmt('hud.fight.keys')}</div>
+      <div class="fh-kit"><div class="fh-tip fh-panel"></div><div class="fh-slots fh-panel"></div></div>
+      <div class="fh-hint"><b></b><small></small></div>
+      <div class="fh-card fh-panel"></div>
       <div class="fh-tags"></div>
       <div class="fh-floats"></div>
       ${['l', 'r', 't', 'b'].map((s) => `<div class="fh-edge ${s}"></div>`).join('')}`;
     root.append(this.el);
     const q = (s) => this.el.querySelector(s);
     this.$ = { meFill: q('.fh-fill.me'), meNum: q('.fh-num.me'), allyRow: q('.fh-row.ally'), allyName: q('.aname'), allyFill: q('.fh-fill.ally'), allyNum: q('.fh-num.ally'),
-      boss: q('.fh-boss'), bname: q('.bname'), bph: q('.bph'), btrack: q('.fh-boss .fh-track'), bfill: q('.fh-boss .fh-fill'),
+      boss: q('.fh-boss'), bname: q('.bname'), bfill: q('.fh-boss .fh-fill'),
       target: q('.fh-target'), tname: q('.tname'), tfill: q('.fh-fill.foe'), goal: q('.fh-goal'), gtext: q('.gtext'), gleft: q('.gleft'), xh: q('.fh-xh'), cd: q('.cdring'), pips: q('.pips'),
-      wpn: q('.fh-wpn'), wname: q('.wname'), wpips: q('.wpips'), keys: q('.fh-keys'), tags: q('.fh-tags'), floats: q('.fh-floats'), edges: Object.fromEntries(['l', 'r', 't', 'b'].map((s) => [s, q(`.fh-edge.${s}`)])) };
+      wpn: q('.fh-wpn'), wname: q('.wname'), wpips: q('.wpips'), keys: q('.fh-keys'), kit: q('.fh-kit'), tip: q('.fh-tip'), slots: q('.fh-slots'), hint: q('.fh-hint'), card: q('.fh-card'), tags: q('.fh-tags'), floats: q('.fh-floats'), edges: Object.fromEntries(['l', 'r', 't', 'b'].map((s) => [s, q(`.fh-edge.${s}`)])) };
     this.tagEls = new Map();
     this.on = false;
   }
@@ -55,20 +58,12 @@ export class FightHud {
     $.meNum.textContent = `${Math.ceil(d.me.hp)}/${d.me.max}`;
     $.allyRow.style.display = d.ally ? '' : 'none';
     if (d.ally) { $.allyName.textContent = d.ally.name; $.allyFill.style.width = pct(d.ally.hp, d.ally.max); $.allyNum.textContent = `${Math.ceil(d.ally.hp)}/${d.ally.max}`; }
-    // boss nhiều giai đoạn: tên + giai đoạn đang đánh + máu, vạch trắng ở mốc đổi giai đoạn
+    // boss nhiều giai đoạn: chỉ tên + máu (chủ game chốt 29/10: ẩn giai đoạn đang đánh + vạch mốc đổi giai đoạn — người chơi tự đọc qua dáng đòn)
     $.boss.style.display = d.boss ? '' : 'none';
     this.el.classList.toggle('has-boss', !!d.boss);
     if (d.boss) {
       $.bname.textContent = d.boss.name;
-      $.bph.textContent = d.boss.phase;
-      $.bph.className = `bph p${d.boss.n}`;
       $.bfill.style.width = pct(d.boss.hp, d.boss.max);
-      const key = d.boss.marks.join(',');
-      if ($.btrack.dataset.marks !== key) {
-        $.btrack.dataset.marks = key;
-        $.btrack.querySelectorAll('.bmark').forEach((e) => e.remove());
-        for (const m of d.boss.marks) { const e = h('i', 'bmark'); e.style.left = `${m * 100}%`; $.btrack.append(e); }
-      }
     }
     $.target.style.display = d.target ? '' : 'none';
     if (d.target) { $.tname.textContent = fmt('hud.fight.target', { name: d.target.name }); $.tfill.style.width = pct(d.target.hp, d.target.max); }
@@ -81,6 +76,21 @@ export class FightHud {
     if ($.pips.childElementCount !== n) $.pips.innerHTML = Array.from({ length: n }, (_, i) => `<rect x="${60 - n * 8.5 + i * 17 + 2}" y="96" width="13" height="6" rx="2"/>`).join('');
     [...$.pips.children].forEach((r, i) => r.setAttribute('class', i < d.pips.n ? 'on' : ''));
     $.xh.classList.toggle('blocking', !!d.blocking);
+    // túi đồ shipper: 10 ô (phím 1–0 / lăn chuột) — số = còn mấy món, ô đang cầm nổi lên viền vàng, ô hết thì mờ · kèn đang chờ: số giây
+    $.kit.style.display = d.kit ? '' : 'none';
+    $.wpn.style.display = d.kit ? 'none' : '';
+    if (d.kit) {
+      const key = d.kit.slots.map((s) => `${s.id}:${s.n}:${s.sel ? 1 : 0}:${s.wait}:${s.pulse ? 1 : 0}`).join('|');
+      if ($.slots.dataset.k !== key) {
+        $.slots.dataset.k = key;
+        // ô: phím · biểu tượng · số còn (món vỡ) · ♻ (món nhặt lại) · chữ tác dụng ngắn · sáng xanh = món gợi ý dùng ngay
+        $.slots.innerHTML = d.kit.slots.map((s) => `<div class="slot${s.sel ? ' on' : ''}${s.n ? '' : ' empty'}${s.pulse ? ' pulse' : ''}${s.re ? ' re' : ''}"><span class="k">${s.key}</span>${s.icon || ''}${!s.re && s.n > 0 ? `<span class="n">×${s.n}</span>` : ''}<span class="e">${s.short || ''}</span>${s.wait ? `<span class="w">${s.wait}</span>` : ''}</div>`).join('');
+      }
+      if ($.tip.dataset.t !== d.kit.tip) { $.tip.dataset.t = d.kit.tip; $.tip.innerHTML = d.kit.tip; }
+    }
+    // gợi ý đúng lúc (địch lóe đỏ → món khắc chế)
+    $.hint.style.display = d.hint ? '' : 'none';
+    if (d.hint && $.hint.dataset.t !== d.hint.text + d.hint.sub) { $.hint.dataset.t = d.hint.text + d.hint.sub; $.hint.firstChild.textContent = d.hint.text; $.hint.lastChild.textContent = d.hint.sub; }
     // món đang cầm
     $.wname.textContent = fmt(d.weapon.throw ? 'hud.fight.throw' : 'hud.fight.weapon', { icon: d.weapon.icon || '', name: d.weapon.name });
     const m = d.weapon.max || 0;
@@ -99,6 +109,14 @@ export class FightHud {
       e.lastChild.firstChild.style.width = pct(t.hp, t.max);
     }
     for (const [id, e] of this.tagEls) if (!seen.has(id)) { e.remove(); this.tagEls.delete(id); }
+  }
+  // Thẻ "Trong túi có gì": mode 'big' (giữa màn hình, đọc xong bấm E) · 'mini' (góc trái, đang đánh — phím I) · 'off'
+  // items: [{ icon, name, tag, re (nhặt lại), fx, when }]
+  card(mode, items = [], foot = '') {
+    const $ = this.$;
+    $.card.className = `fh-card fh-panel ${mode}`;
+    if (mode === 'off') return;
+    $.card.innerHTML = `<h3>${fmt('hud.kit.title')}</h3><div class="lg">${fmt('hud.kit.legend')}</div><div class="grid">${items.map((it) => `<div class="it"><div class="ic">${it.icon}</div><div><b>${it.name}</b><i class="tag ${it.re ? 're' : 'br'}">${it.tag}</i><div class="fx">${it.fx}</div><div class="when">${it.when}</div></div></div>`).join('')}</div><div class="foot">${foot}</div>`;
   }
   // số / chữ bay lên ở chỗ (x, y) màn hình: kind 'dmg' | 'block' | 'big'
   float(text, x, y, kind = 'dmg') {

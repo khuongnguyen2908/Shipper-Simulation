@@ -59,7 +59,7 @@ export function buildShipZone(scene, grid, elev, waterMat) {
   col(QUAY_X, BOUNDS.z0, -10.9, fz0, 1.0, { tag: 'water' });
   col(QUAY_X, fz1, -10.9, BOUNDS.z1, 1.0, { tag: 'water' });
   // rào quanh bục chân thang + 2 mép tấm ván (đứng trên đó không rớt xuống nước)
-  const bx0 = GANG.x - 0.8, bx1 = GANG.x + 0.8, bz0 = GANG.z1 - 0.2, bz1 = GANG.z1 + 2.2, pz0 = GANG.z1 + 1.1 - 0.62, pz1 = GANG.z1 + 1.1 + 0.62;
+  const bx0 = GANG.x - 0.8, bx1 = GANG.x + 0.8, bz0 = GANG.z1 - 0.2, bz1 = GANG.z1 + 2.2, pz0 = GANG.z1 + 1.1 - 1.0, pz1 = GANG.z1 + 1.1 + 1.0; // tấm ván rộng 2 m (trước 1,24 m: đi xiên ra / vào hay vướng góc)
   col(bx1, fz0, bx1 + 0.2, fz1, 1.2); // phía thân tàu
   col(bx0, bz1, bx1, fz1, 1.2); // phía mũi
   col(QUAY_X, fz0, GANG.x - 0.62, bz0, 1.0); // nước bên trái chân cầu thang

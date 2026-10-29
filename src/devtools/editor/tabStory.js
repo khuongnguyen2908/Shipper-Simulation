@@ -35,7 +35,7 @@ const UNTIL_GROUPS = [
   ['💬 Tin nhắn & app', ['open', 'reply', 'routed', 'ttSeen']],
   ['🗺️ Di chuyển', ['arrive', 'reach', 'mount', 'away', 'useAt']],
   ['📦 Đơn & xe', ['ordersSince', 'order', 'switch', 'fuel', 'brand', 'wear', 'use']],
-  ['⏱️ Thời gian & cảnh', ['wait', 'clock', 'newDay', 'cine', 'tackled', 'sneaked', 'hidden', 'escaped', 'ambushed', 'untied', 'fightWon', 'raceWon', 'ack']],
+  ['⏱️ Thời gian & cảnh', ['wait', 'clock', 'newDay', 'cine', 'tackled', 'sneaked', 'hidden', 'escaped', 'ambushed', 'untied', 'fightWon', 'raceWon', 'kitCard', 'ack']],
   ['Khác', ['none', 'never']],
 ];
 const HIDDEN_GUIDES = ['reply']; // chưa chương nào dùng
@@ -100,7 +100,7 @@ export function render(root, ctx) {
   const propOpts = () => (data.chapters.find((c) => c.id === sel.ch)?.steps || []).flatMap((x) => (x.on || []).filter((a) => a.do === 'prop' && a.id)).map((a) => [a.id, `${PROP_KINDS[a.kind] || a.kind} (${a.id})`]);
   const binOpts = () => (data.chapters.find((c) => c.id === sel.ch)?.steps || []).flatMap((x) => (x.on || []).filter((a) => a.do === 'prop' && (a.kind === 'bin' || a.kind === 'mark') && a.id)).map((a) => [a.id, `${a.kind === 'bin' ? '🗑️' : '📍'} ${a.id}`]);
   const ttOpts = () => (data.chapters.find((c) => c.id === sel.ch)?.steps || []).flatMap((x) => (x.on || []).filter((a) => a.do === 'ttPost' && a.id)).map((a) => [a.id, `📱 ${a.id}`]);
-  const FIXED_PROPS = ['ramp', 'easel', 'bin', 'can', 'water', 'bigbike', 'mark']; // đạo cụ đặt cố định (không chạy theo đường)
+  const FIXED_PROPS = ['ramp', 'easel', 'bin', 'can', 'water', 'bigbike', 'mark', 'bag']; // đạo cụ đặt cố định (không chạy theo đường)
   const actorOpts = () => Object.entries(data.people).map(([id, c]) => [id, `${c.icon || ''} ${C[c.name] || id}`]); // người lạ (story.json → people)
   // người nói được: người lạ + NPC đứng ở địa điểm ('place:<mã>', vd sư cô ở chùa, bảo vệ trường)
   const policeOpts = () => (data.chapters.find((c) => c.id === sel.ch)?.steps || []).flatMap((x) => x.on || []).filter((y) => y.do === 'prop' && y.kind === 'police' && y.id).map((y) => [`prop:${y.id}`, `👮 Công an (xe ${y.id})`]);
@@ -808,6 +808,15 @@ export function render(root, ctx) {
           field('Xăng lúc nhận (%)', numInput(a.fuel ?? 60, (v) => { a.fuel = v; ctx.changed('story'); }, { step: 5, min: 0, max: 100 }), o),
         ]));
     }
+    if (a.do === 'kit') {
+      const ws = Object.entries(ctx.data.story?.weapons || {}).filter(([id]) => id !== 'fists' && id !== 'brick');
+      box.append(
+        field('', checkInput(!!a.clear, (v) => { if (v) { a.clear = true; delete a.give; delete a.card; } else { delete a.clear; a.give ||= {}; } rerender(); }, '🧹 Dọn sạch túi (hết đoạn đánh nhau)'), o),
+        a.clear ? null : field('', checkInput(!!a.card, (v) => { if (v) a.card = true; else delete a.card; ctx.changed('story'); }, '📋 Hiện thẻ "Trong túi có gì" (tác dụng + dùng khi từng món)'), { ...o, hint: 'Bấm E cất thẻ. Bước chờ "Đã đọc xong thẻ túi đồ" thì trận bắt đầu sau khi cất. Phím I xem lại lúc nào cũng được.' }),
+        ...(a.clear ? [] : [field('Cho vào túi (số món · thứ tự = ô 1–0)', el('div', {},
+          ...Object.entries(a.give ||= {}).map(([id, c]) => el('div', { class: 'row' }, el('span', {}, `${ctx.data.story?.weapons?.[id]?.icon || '❓'} ${id}`), numInput(c, (v) => { a.give[id] = Math.max(1, Math.round(v) || 1); ctx.changed('story'); }, { step: 1, min: 1, max: 20 }), button('✕', () => { delete a.give[id]; rerender(); }, 'small'))),
+          el('div', { class: 'row' }, selectInput('', [['', '＋ Thêm món…'], ...ws.filter(([id]) => !(id in a.give)).map(([id, w]) => [id, `${w.icon || ''} ${id}`])], (v) => { if (v) { a.give[v] = 1; rerender(); } }))), { ...o, hint: 'Đồ shipper dùng đánh nhau (thẻ ⚔️ Đánh nhau → Vũ khí & đồ ném). Túi lưu trong bản lưu; trận thua thì túi trở lại như lúc bắt đầu trận.' })]));
+    }
     if (a.do === 'fuel') box.append(field('Xăng / pin còn (%)', numInput(a.pct ?? 15, (v) => { a.pct = v; ctx.changed('story'); }, { step: 5, min: 0, max: 100 }), o));
     if (a.do === 'offer') {
       const foodPlaces = ctx.data.places.places.filter((p) => isPlaced(p) && p.kind === 'restaurant' && (p.menu || []).length).map((p) => [p.id, `${p.name} (${p.id})`]);
@@ -1129,16 +1138,33 @@ export function render(root, ctx) {
         el('div', { class: 'grid tight' },
           field('Biểu tượng', emojiInput(w.icon, (v) => { w.icon = v; changed(); }), { ref, fieldKey: 'icon' }),
           textBox('Tên', w.name || (w.name = newKey(`story.wpn.${id}`)), 1, { ref, fieldKey: 'name' }),
-          num(w, 'dmg', 'Mất máu / cú', {}, ref),
-          w.throw ? null : num(w, 'cd', 'Chờ vung (giây)', { step: 0.1 }, ref, 'Vung xong phải chờ bấy nhiêu giây (vòng vàng quanh tâm ngắm).'),
-          w.throw ? null : num(w, 'reach', 'Tầm với (m)', { step: 0.1 }, ref),
-          num(w, 'dur', w.throw ? 'Ném được mấy lần' : 'Bền (số cú, 0 = không gãy)', {}, ref),
-          num(w, 'stun', 'Choáng (giây)', { step: 0.1 }, ref, 'Trúng thì địch đứng khựng; phá được thế đỡ của boss.'),
-          w.throw ? num(w, 'trap', 'Trùm kẹt (giây)', { step: 0.5 }, ref, 'Phao cứu sinh: địch kẹt không đánh được, bị đánh mất gấp rưỡi máu.') : num(w, 'block', 'Đỡ được mấy đòn', { def: 3 }, ref, 'Số nấc đỡ khi cầm món này (chảo: 4).'),
-          field('', checkInput(!!w.throw, (v) => { if (v) w.throw = true; else delete w.throw; rerender(); }, '🎯 Đồ ném (chuột trái để ném)'), { ref, fieldKey: 'throw' }))));
+          textBox('Tác dụng (thẻ túi đồ + dòng trên thanh đồ lúc cầm)', w.tip || (w.tip = newKey(`story.wpnTip.${id}`)), 1, { ref, fieldKey: 'tip' }),
+          textBox('Dùng khi (gợi ý chiến thuật)', w.when || (w.when = newKey(`story.wpnWhen.${id}`)), 1, { ref, fieldKey: 'when' }),
+          textBox('Chữ ngắn dưới ô (1–2 từ)', w.short || (w.short = newKey(`story.wpnShort.${id}`)), 1, { ref, fieldKey: 'short' }),
+          w.horn ? null : num(w, 'dmg', 'Mất máu / lần trúng', {}, ref),
+          w.horn ? null : num(w, 'cd', w.throw ? 'Chờ giữa 2 lần ném (giây)' : 'Chờ vung (giây)', { step: 0.05 }, ref, 'Ném / vung xong phải chờ bấy nhiêu giây (vòng vàng quanh tâm ngắm).'),
+          w.throw ? num(w, 'v', 'Tốc độ ném (m/giây, bỏ trống = 15)', { step: 1 }, ref, 'Món nặng ném chậm, bay gần (gói COD 10) · món nhẹ nhanh, xa (trứng 17).') : w.horn ? null : num(w, 'reach', 'Tầm với (m)', { step: 0.1 }, ref),
+          w.horn ? null : num(w, 'stun', 'Choáng (giây)', { step: 0.1 }, ref, 'Trúng thì địch đứng khựng; phá được thế đỡ của boss.'),
+          ...(w.throw ? [
+            num(w, 'blind', '🧋 Lóa mắt (giây)', { step: 0.5 }, ref, 'Đứng dụi mắt, không đánh được; bị đánh mất gấp rưỡi máu.'),
+            num(w, 'spicy', '🌶️ Cay chạy vòng (giây)', { step: 0.5 }, ref, 'Ôm mặt chạy lòng vòng, không đánh được.'),
+            num(w, 'trap', '🛍️ Trùm đầu (giây)', { step: 0.5 }, ref, 'Quơ quào không đánh được, bị đánh mất gấp rưỡi máu.'),
+            num(w, 'fall', '📦 Ngã (giây)', { step: 0.1 }, ref, 'Ngã xuống rồi chống dậy.'),
+            field('', checkInput(!!w.slip, (v) => { if (v) w.slip = { r: 1.5, t: 5, fall: 2 }; else delete w.slip; rerender(); }, '🧊 Thành vũng trơn chỗ rơi / chỗ trúng'), { ref, fieldKey: 'slip', hint: 'Địch chạy qua thì trượt khựng; Tí Đô lao húc / bay qua thì ngã sấp lâu. Mỗi vũng 1 lần / tên.' }),
+            ...(w.slip ? [num(w.slip, 'r', 'Vũng: bán kính (m)', { step: 0.1 }, ref), num(w.slip, 't', 'Vũng: còn bao lâu (giây)', { step: 0.5 }, ref), num(w.slip, 'fall', 'Vũng: húc qua thì ngã (giây)', { step: 0.1 }, ref)] : []),
+            field('', checkInput(!!w.keep, (v) => { if (v) w.keep = true; else { delete w.keep; delete w.hits; delete w.breakTo; } rerender(); }, '♻️ Ném xong rơi xuống, nhặt lại được (không vỡ)'), { ref, fieldKey: 'keep' }),
+            ...(w.keep ? [num(w, 'hits', 'Trúng mấy lần thì móp bung ra (0 = không)', {}, ref),
+              w.hits ? field('Bung ra thành', selectInput(w.breakTo || '', [['', '— chọn —'], ...weaponOpts.filter(([k]) => k !== id)], (v) => { if (v) w.breakTo = v; else delete w.breakTo; changed(); }), { ref, fieldKey: 'breakTo', hint: 'Gói COD móp 3 lần → bung ra cục sạc dự phòng (ném tiếp được).' }) : null] : []),
+            field('', checkInput(!!w.rapid, (v) => { if (v) w.rapid = true; else delete w.rapid; changed(); }, '🥚 Giữ chuột ném liên tiếp'), { ref, fieldKey: 'rapid' }),
+          ] : w.horn ? [
+            num(w.horn, 'r', 'Kèn: bán kính (m)', { step: 0.5 }, ref), num(w.horn, 'startle', 'Kèn: giật mình khựng (giây)', { step: 0.1 }, ref, 'Tên nào trong bán kính đang lấy đà / ra đòn thì bỏ đòn đó, khựng lại.'), num(w.horn, 'cd', 'Kèn: chờ bóp lại (giây)', { step: 0.5 }, ref),
+          ] : [num(w, 'block', 'Đỡ được mấy đòn', { def: 3 }, ref, 'Có món này trong túi thì giữ chuột phải đỡ được (nón bảo hiểm: 4 nấc). Không món nào có nấc đỡ → không đỡ được.')]),
+          field('Tiếng trúng', selectInput(w.sfx || '', [['', 'fight.hit (bịch)'], ...Object.keys(SOUNDS).filter((k) => k.startsWith('fight.')).map((k) => [k, `${k} — ${SOUNDS[k].label}`])], (v) => { if (v) w.sfx = v; else delete w.sfx; changed(); }), { ref, fieldKey: 'sfx' }),
+          field('', checkInput(!!w.throw, (v) => { if (v) { w.throw = true; delete w.horn; } else delete w.throw; rerender(); }, '🎯 Đồ ném (chuột trái để ném)'), { ref, fieldKey: 'throw' }),
+          w.throw ? null : field('', checkInput(!!w.horn, (v) => { if (v) w.horn = { r: 4, startle: 1, cd: 8 }; else delete w.horn; rerender(); }, '📯 Kèn bóp (không ném, không sát thương)'), { ref, fieldKey: 'horn' }))));
     }
     const wId = el('input', { placeholder: 'mã vũ khí mới (vd: ghe)' });
-    wBox.append(el('div', { class: 'row' }, wId, button('＋ Thêm vũ khí', () => { const id = wId.value.trim(); if (!ID_RE.test(id) || data.weapons[id]) return ctx.notify('Mã chỉ gồm chữ không dấu, số, gạch dưới và chưa có.', 'warn'); data.weapons[id] = { icon: '🪵', name: newKey(`story.wpn.${id}`), dmg: 8, cd: 1.1, reach: 1.6, dur: 6 }; rerender(); }, 'small')));
+    wBox.append(el('div', { class: 'row' }, wId, button('＋ Thêm vũ khí', () => { const id = wId.value.trim(); if (!ID_RE.test(id) || data.weapons[id]) return ctx.notify('Mã chỉ gồm chữ không dấu, số, gạch dưới và chưa có.', 'warn'); data.weapons[id] = { icon: '📦', name: newKey(`story.wpn.${id}`), tip: newKey(`story.wpnTip.${id}`), throw: true, dmg: 8, cd: 0.6 }; rerender(); }, 'small')));
     // --- boss nhiều giai đoạn: mỗi giai đoạn 1 VÒNG ĐÒN CỐ ĐỊNH (lặp đúng thứ tự, không ngẫu nhiên → chơi vài lần là thuộc) ---
     const STEP_NAMES = { combo: '👊 Combo đấm → khựng', teep: '🦵 Đạp đẩy (chỉ khi đứng gần)', charge: '🐂 Lao húc', charge2: '🐂🐂 Húc liền 2 lần', slam: '🔴 Đòn bổ 2 tay (không đỡ được)', stompSuper: '🌊 Dậm đất → 🦸 Superman', stompFeint: '🌊 Dậm đất → 🎭 Nhử → 🦸 Superman' };
     const SKILL_NAMES = { combo: '👊 Combo', teep: '🦵 Đạp đẩy', charge2: '🐂🐂 Húc lần 2', slam: '🔴 Đòn bổ', stomp: '🌊 Dậm đất', superman: '🦸 Superman punch', clinch: '🤼 Ôm cổ + gối', throw: '🧱 Ném gạch', roar: '‼ Gầm đổi giai đoạn' };
@@ -1167,7 +1193,7 @@ export function render(root, ctx) {
           el('div', { class: 'act-head' }, el('b', {}, `Giai đoạn ${i + 1}: ${C[p.name] || ''}`), i === 0 ? null : button('🗑', () => { f.phases.splice(i, 1); rerender(); }, 'small danger')),
           el('div', { class: 'grid tight' },
             i === 0 ? field('Từ máu', el('span', { class: 'muted' }, 'đầy máu (1)'), { ref, fieldKey: 'phases' }) : num(p, 'at', 'Từ khi máu còn (phần, vd 0,65)', { step: 0.05, max: 1 }, ref, 'Máu chạm mốc này thì gầm lên, chậm cảnh rồi sang giai đoạn này.'),
-            textBox('Tên giai đoạn (hiện trên thanh máu)', p.name || (p.name = newKey(`story.foe.${id}P${i + 1}`)), 1, { ref, fieldKey: 'phases' }),
+            textBox('Tên giai đoạn (chỉ để đọc ở đây — game không hiện)', p.name || (p.name = newKey(`story.foe.${id}P${i + 1}`)), 1, { ref, fieldKey: 'phases' }),
             p.say ? textBox('Câu nói lúc vào giai đoạn (bong bóng)', p.say, 1, { ref, fieldKey: 'phases' }) : field('', button('＋ Câu nói lúc vào giai đoạn', () => { p.say = newKey(`story.foe.${id}Say${i + 1}`); rerender(); }, 'small'), { ref, fieldKey: 'phases' }),
             field('', checkInput(!!p.guard, (v) => { if (v) p.guard = true; else delete p.guard; changed(); }, '🛡 Đỡ đòn trước mặt (đánh sau lưng / lúc nó ra đòn, khựng mới trúng)'), { ref, fieldKey: 'phases' }),
             field('', checkInput(!!p.throw, (v) => { if (v) { p.throw = true; f.throw ||= { dmg: 10 }; } else delete p.throw; rerender(); }, '🧱 Đứng xa quá lâu → ném gạch'), { ref, fieldKey: 'phases' }),
@@ -1193,6 +1219,7 @@ export function render(root, ctx) {
           num(f, 'hp', 'Máu', {}, ref), num(f, 'dmg', 'Mất máu / cú (đánh mình)', {}, ref), num(f, 'windup', 'Giơ tay bao lâu mới bổ (giây)', { step: 0.1 }, ref, 'Lúc nó giơ tay là lúc nên đỡ (chuột phải) / né.'),
           num(f, 'cd', 'Nghỉ giữa 2 lần đánh (giây)', { step: 0.1 }, ref), num(f, 'speed', 'Chạy nhanh (m/giây)', { step: 0.1 }, ref), num(f, 'reach', 'Tầm với (m)', { step: 0.1 }, ref),
           num(f, 'combo', 'Đánh liền mấy cú', {}, ref), num(f, 'recover', 'Sơ hở sau khi đánh (giây)', { step: 0.1 }, ref),
+          num(f, 'ccMul', 'Dính đồ lâu (nhân, bỏ trống = 1)', { step: 0.1, max: 2 }, ref, 'Trùm bao / lóa mắt / cay / ngã / giật mình kèn kéo dài bằng số giây của món × số này (Tí Đô 0,6 = ngắn hơn).'),
           field('Đòn đánh (lần lượt)', textInput((f.moves || []).join(', '), (v) => { const L = v.split(/[\s,]+/).filter(Boolean); if (L.length) f.moves = L; else delete f.moves; changed(); }, { placeholder: 'tự chọn' }), { ref, fieldKey: 'moves', hint: 'Chỉ khác dáng ra đòn (sát thương như nhau): jab = đấm thẳng tay trước · cross = đấm thẳng tay sau · hook = đấm móc ngang · upper = móc lên cằm · over = bổ từ trên xuống (cầm đồ) · side = quét ngang (cầm đồ). Bỏ trống: cầm đồ → over, side · tay không → jab, cross, hook.' }),
           field('', checkInput(!!f.boss, (v) => { if (v) f.boss = true; else delete f.boss; rerender(); }, '👑 Boss (không đập lén được, anh Đạt đánh nhẹ)'), { ref, fieldKey: 'boss' }),
           f.phases?.length ? null : field('', checkInput(!!f.guard, (v) => { if (v) f.guard = true; else delete f.guard; changed(); }, '🛡 Tự đỡ đòn đánh trước mặt'), { ref, fieldKey: 'guard', hint: 'Chỉ trúng lúc nó đang giơ tay / vừa đánh xong / choáng / bị phao trùm, hoặc đánh sau lưng. Chảo, gạch phá thế đỡ.' }),

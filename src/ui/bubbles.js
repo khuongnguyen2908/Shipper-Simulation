@@ -144,10 +144,11 @@ function span(cls, text) {
   return e;
 }
 
-// Vị trí đỉnh đầu của một người (mesh) — dùng làm điểm bám bong bóng
+// Vị trí đỉnh đầu của một người (mesh) — dùng làm điểm bám bong bóng. Nhân theo vóc người (Tí Đô to 1,25 lần: không nhân thì bong bóng đè lên mặt, trẻ em thì lơ lửng)
+const _s = new THREE.Vector3();
 export function headOf(mesh, up = 2.05) {
   if (!mesh || !mesh.parent || !mesh.visible) return null;
   const v = mesh.getWorldPosition(new THREE.Vector3());
-  v.y += up;
+  v.y += up * Math.min(1.6, Math.max(0.6, mesh.getWorldScale(_s).y));
   return v;
 }

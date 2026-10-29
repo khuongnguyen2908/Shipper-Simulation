@@ -49,7 +49,7 @@ export const REACT_ICONS = { '?': '? Ngạc nhiên', '!': '! Giật mình' };
 // Cảnh phim: camera nhìn vào đâu
 export const CINE_TARGETS = { place: 'Địa điểm …', actor: 'Người lạ …', prop: 'Đạo cụ …', player: 'Người chơi' };
 // Đạo cụ cảnh phim (việc "prop"): xe tải chạy ra chặn đường · tấm ván làm dốc · chó chạy ngang
-export const PROP_KINDS = { truck: '🚛 Xe tải container dài', ramp: '🪵 Tấm ván dựng làm dốc', dog: '🐕 Chó chạy ngang', car: '🚗 Ô tô diễn viên (chạy theo đường, 2 xe dí né)', moto: '🛵 Xe máy diễn viên (chạy theo đường, 2 xe dí né)', police: '🚓 Xe công an (đèn chớp; dừng ở cuối đường → các anh công an bước xuống)', easel: '🖼️ Giá vẽ + tranh (đặt cố định)', bin: '🗑️ Thùng rác (chỗ núp khi bám theo lén)', can: '🥫 Lon nước nằm dưới đất', water: '🌊 Nước ngập (chỉ vẽ trên máy người chơi này, không đổi luật lái xe)', bigbike: '🏍️ Mô tô anh Đạt dựng sẵn (không người)', mark: '📍 Điểm đánh dấu vô hình (chỗ hiện dấu "!" / chỉ đường, vd ngay chiếc xe hàng rong để núp)' };
+export const PROP_KINDS = { truck: '🚛 Xe tải container dài', ramp: '🪵 Tấm ván dựng làm dốc', dog: '🐕 Chó chạy ngang', car: '🚗 Ô tô diễn viên (chạy theo đường, 2 xe dí né)', moto: '🛵 Xe máy diễn viên (chạy theo đường, 2 xe dí né)', police: '🚓 Xe công an (đèn chớp; dừng ở cuối đường → các anh công an bước xuống)', easel: '🖼️ Giá vẽ + tranh (đặt cố định)', bin: '🗑️ Thùng rác (chỗ núp khi bám theo lén)', can: '🥫 Lon nước nằm dưới đất', water: '🌊 Nước ngập (chỉ vẽ trên máy người chơi này, không đổi luật lái xe)', bigbike: '🏍️ Mô tô anh Đạt dựng sẵn (không người)', bag: '🎒 Thùng giao hàng của người chơi (ngã nghiêng, đồ lòi ra)', mark: '📍 Điểm đánh dấu vô hình (chỗ hiện dấu "!" / chỉ đường, vd ngay chiếc xe hàng rong để núp)' };
 // Hành động ở điểm lộ trình chạy trốn (act): drift quẹo gắt · crash té xe → bỏ xe chạy bộ
 export const ROUTE_ACTS = { drift: '💨 Drift (quẹo gắt, đuôi văng, khói lốp)', crash: '💥 Té xe → bỏ xe chạy bộ', stall: '🌊 Chết máy giữa nước (văng nước, khựng lại, dừng hẳn — vẫn ngồi trên xe)' };
 // Kiểu xe người lạ chạy trốn / đuổi theo
@@ -105,6 +105,7 @@ export const UNTIL = {
   useAt: 'Người chơi bấm E tại chỗ … (vd mở tủ, lục ngăn kéo) — chỗ đứng có tên trong bản đồ riêng / [x, z]',
   parked: 'Đã gửi xe ở bãi giữ xe … rồi xuống đi bộ (bỏ trống = bãi nào cũng được)',
   raceWon: 'Đã chạy tới đích màn đua (việc "🏍️ Màn đua" ở bước này: tới đường cụt, xe dừng)',
+  kitCard: 'Đã đọc xong thẻ "Trong túi có gì" (việc 🎒 Túi đồ có bật "hiện thẻ" ở bước này — bấm E cất túi)',
   fightWon: 'Đã thắng trận đánh (việc "⚔️ Trận đánh" ở bước này: hạ hết địch)',
   untied: 'Đã cởi trói xong (việc "✂️ Cởi trói" ở bước này: bấm E liên tục tới khi đứt dây)',
   sneaked: 'Việc "🕵️ Bám theo lén" ở bước này đã xong (người bị bám theo tới điểm cuối mà không phát hiện người chơi)',
@@ -133,6 +134,7 @@ export const ACTIONS = {
   replies: 'Gắn 3 câu trả lời nhanh vào tin nhắn',
   item: 'Cho vật phẩm cốt truyện (nằm trong túi đồ)',
   bike: 'Cô Hai cho xe đạp (đặt trong hầm xe)',
+  kit: '🎒 Túi đồ shipper (đánh nhau): cho đồ vào túi … / dọn sạch túi',
   borrow: '🏍️ Mượn xe cốt truyện … (lấy ngay chỗ đạo cụ xe dựng sẵn; xe mình để trong hầm nhà trọ) / trả lại xe mượn',
   give: 'Tặng đồ dùng (goods.json)',
   toast: 'Thông báo nhỏ',
@@ -286,6 +288,7 @@ export function untilMet(u, gs, ctx) {
     case 'tackled': return !!s.ev.tackled;
     case 'untied': return !!s.ev.untied;
     case 'fightWon': return !!s.ev.fightWon;
+    case 'kitCard': return !!s.ev.kitCard;
     case 'raceWon': return !!s.ev.raceWon;
     case 'sneaked': return !!s.ev.sneaked;
     case 'escaped': return !!s.ev.escaped;

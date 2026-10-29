@@ -5,6 +5,7 @@
 // Danh sách xe, túi, đồ, địa điểm, loại đơn, loại khách đọc từ dữ liệu JSON → thêm trong ?editor là bảng có theo.
 // =============================================================
 import { S } from '../sim/OrderManager.js';
+import { ZONES } from '../sim/zones.js';
 import { ORDER_TYPES, RIDER_TYPES, BRANDS } from '../data/apps.js';
 import { VEHICLES, BAGS, ORDER } from '../data/balance.js';
 import { GOODS } from '../data/goods.js';
@@ -98,6 +99,9 @@ export function mountCheat(g) {
     const def = STORY.fights?.[id];
     g.storyZone({ id: def?.zone || 'ship', gate: true, door: true });
     gs.story.fpv = true;
+    const kit = STORY.chapters.flatMap((c) => c.steps).flatMap((s) => s.on || []).find((a) => a.do === 'kit' && a.give); // túi đồ shipper như trong chương 6
+    if (kit) g.storyKit(kit);
+    if (def?.keepPos && def.start) { const [ox, oz] = ZONES[def.zone]?.origin || [0, 0]; g.zoneTeleport([def.start[0] + ox, def.start[1] + oz]); } // trận đánh tại chỗ: đứng ở chỗ bắt đầu trên tàu
     if (id === null) return; // (dùng chung cho ?race)
     g.fightStart(def ? id : Object.keys(STORY.fights || {})[0]);
     say('Bấm vào màn hình để khóa chuột · chuột trái vung · chuột phải đỡ · Space né · E nhặt / đập lén · ` mở bảng cheat (⚔️ Thử trận: đổi trận / đánh lại)');

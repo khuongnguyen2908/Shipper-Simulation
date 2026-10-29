@@ -66,7 +66,20 @@ export class Elevated {
   heightAt(x, z, near, margin = 0) {
     let best = null;
     for (const s of this.hits(x, z, margin)) if (Math.abs(s.h - near) <= NEAR && (best == null || Math.abs(s.h - near) < Math.abs(best - near))) best = s.h;
+    if (best == null && margin > 0) best = this.seamAt(x, z, near, margin);
     return best;
+  }
+  // Chỗ nối 2 mặt cùng độ cao (vd boong chính ↔ boong phía mũi chồng lên nhau ít hơn bề ngang thân người): không lọt hẳn trong mặt nào
+  // nhưng cả vòng thân (8 điểm quanh, bán kính margin) vẫn đứng trên mặt cùng độ cao → coi là đứng được (không thì thành tường vô hình)
+  seamAt(x, z, near, margin) {
+    const on = (px, pz, h) => this.hits(px, pz, 0).some((s) => Math.abs(s.h - h) < 0.05);
+    for (const s of this.hits(x, z, 0)) {
+      if (Math.abs(s.h - near) > NEAR) continue;
+      let ok = true;
+      for (let i = 0; i < 8 && ok; i++) { const a = (i * Math.PI) / 4; ok = on(x + Math.cos(a) * margin, z + Math.sin(a) * margin, s.h); }
+      if (ok) return s.h;
+    }
+    return null;
   }
 
   // Cập nhật thân sau khi đã di chuyển ngang: lên / xuống dốc, giữ trong lan can, chặn chui gầm thấp.
@@ -80,13 +93,15 @@ export class Elevated {
     let y = floorY;
     if (!this.empty) {
       if (body.deckY != null) {
-        const h = this.heightAt(p.x, p.z, body.deckY, r);
+        // mép mặt đi nới hơn thân 6 cm: sát lan can thì lan can (vật cản) chặn, không bị "ra ngoài mép" vì lệch vài mm rồi đứng kẹt không trượt được
+        const rp = Math.max(0, r - 0.06);
+        const h = this.heightAt(p.x, p.z, body.deckY, rp);
         if (h != null) y = body.deckY = h;
         else if (body.deckY - floorY < STEP && this.heightAt(p.x, p.z, body.deckY, -r - 0.5) == null) body.deckY = null; // ra khỏi đầu dốc → xuống đất
         else {
           // chạm mép (lan can): giữ lại, trượt dọc mép nếu được
-          slide(p, px, pz, (x, z) => this.heightAt(x, z, body.deckY, r) != null, normals);
-          const h2 = this.heightAt(p.x, p.z, body.deckY, r); // trượt dọc mép dốc: độ cao theo chỗ mới (không thì lệch dần → kẹt)
+          slide(p, px, pz, (x, z) => this.heightAt(x, z, body.deckY, rp) != null, normals);
+          const h2 = this.heightAt(p.x, p.z, body.deckY, rp); // trượt dọc mép dốc: độ cao theo chỗ mới (không thì lệch dần → kẹt)
           y = body.deckY = h2 ?? body.deckY;
         }
       } else {

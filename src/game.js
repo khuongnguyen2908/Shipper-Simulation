@@ -701,7 +701,11 @@ export class Game {
       if (this.phone.open) this.phone.visibleApps(this.gs).forEach(([id], i) => inp.was(`Digit${i + 1}`) && this.phone.openApp(id)); // phím 1–9 mở app (thứ tự ở phone.json; chưa vào hãng thì không có app hãng)
       else if (this.storyChoice) this.storyChoice.options.forEach((_, i) => (inp.was(`Digit${i + 1}`) || inp.was(`Numpad${i + 1}`)) && this.storyChoose(i)); // cất máy: phím 1/2/3 = chọn câu trả lời
       if (inp.was('KeyM')) this.setMute(!this.muted);
-      if (inp.was('KeyI')) this.toggleBag();
+      // thẻ "Trong túi có gì" (đánh nhau chương 6): E cất thẻ lớn · I bật / tắt thẻ nhỏ lúc đánh — không mở túi đồ điện thoại
+      if (this.kitCard === 'big' && (inp.was('KeyE') || inp.was('Escape') || inp.was('KeyI'))) { // vừa hiện < 1 giây: bỏ qua (bấm E lục túi 2 lần liền không lỡ cất thẻ)
+        if (performance.now() - (this.kitCardAt || 0) < 1000) { inp.pressed.delete('KeyE'); inp.pressed.delete('KeyI'); } else { this.kitCardClose(); inp.pressed.delete('KeyE'); inp.pressed.delete('KeyI'); } }
+      else if (inp.was('KeyI') && this.fpvOn && this.gs.story?.kit) this.kitCardShow(this.kitCard ? 'off' : 'mini');
+      else if (inp.was('KeyI')) this.toggleBag();
       if (inp.was('KeyY')) act.acceptOffer(this);
       if (inp.was('KeyN')) act.declineOffer(this);
       if (inp.was('KeyH') && this.mode === 'bike') {

@@ -180,7 +180,12 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [ ] | `fight.start` | Bắt đầu trận đánh | Chương 6: trận đánh trên tàu bắt đầu (tiếng "keng" / trống ngắn báo hiệu) | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `fight.swing` | Vung (gió vụt) | Người chơi vung gỗ / gậy / chảo / tay không · địch vung hụt | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `fight.hit` | Đánh trúng | Đòn trúng người (bịch) | tiếng ngắn | 🔉 tổng hợp |
-| [ ] | `fight.pan` | Chảo gang trúng đầu | Đánh trúng bằng chảo gang — "BOONG!" vang to | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.bonk` | Nón bảo hiểm cốp đầu | Đập trúng bằng nón bảo hiểm — "CỐP!" giòn, vui tai | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.splash` | Ly / trứng / tương vỡ tung tóe | Ném trúng hoặc rơi vỡ: trà sữa, trứng vịt lộn, gói tương ớt (bẹp + nước văng) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.box` | Hộp nặng trúng người | Hộp cơm / gói hàng COD trúng người (bịch giấy cứng) · gói COD móp bung ra | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.horn` | Kèn bóp "pót pót" | Bóp kèn xe trong trận — địch đang lấy đà thì giật mình (vui, to) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.slip` | Trượt ngã vũng trơn | Địch chạy / lao qua vũng đá viên, trân châu (trượt ken két + ngã bịch) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.bag` | Lục túi giao hàng / bao ni lông | Lục thùng giao hàng lấy đồ · bao ni lông trùm đầu (sột soạt ni lông) | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `fight.block` | Đỡ được đòn | Giữ chuột phải đỡ trúng đòn · boss tự đỡ đòn của mình (cạch) | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `fight.hurt` | Mình bị đánh trúng | Người chơi trúng đòn không đỡ (hự + bịch) | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `fight.ko` | Gục ngã | Địch gục · đập lén · Tí Đô đâm container choáng · mình gục | tiếng ngắn | 🔉 tổng hợp |
@@ -188,7 +193,6 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [ ] | `fight.throw` | Ném đồ | Ném gạch / phao cứu sinh · Tí Đô ném gạch | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `fight.drop` | Đồ rơi xuống đất | Gạch / phao ném trượt rơi xuống sàn | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `fight.pick` | Nhặt đồ | Bấm E nhặt vũ khí dưới đất | tiếng ngắn | 🔉 tổng hợp |
-| [ ] | `fight.break` | Vũ khí gãy | Thanh gỗ / gậy / chảo hết độ bền (rắc) | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `fight.alert` | Địch phát hiện / la lên | Tên gác thấy mình · Tí Đô nổi điên gọi đàn em ("Ê!") | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `fight.charge` | Tí Đô lao húc | Tí Đô lấy đà xong, lao tới (tiếng gầm + bước chân rầm rập) | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `fight.roar` | Tí Đô gầm (đổi giai đoạn) | Trận Tí Đô: máu chạm mốc → nó gầm lên, chậm cảnh, nói 1 câu (giai đoạn 2 · giai đoạn 3) | tiếng ngắn | 🔉 tổng hợp |

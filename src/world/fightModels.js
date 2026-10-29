@@ -18,52 +18,135 @@ function part(g, geo, color, x, y, z, opts) {
   return m;
 }
 
-// Hình 1 món (trục dài theo +y, gốc ở chỗ cầm tay). Dùng cho đồ dưới đất (nằm ngang), trên tay, bay khi ném
+// Hình 1 món (trục dài theo +y, gốc ở chỗ cầm tay; đồ nhỏ thì tâm món ở gốc). Dùng cho đồ dưới đất, trên tay, bay khi ném.
+// Đồ shipper (chương 6): trà sữa, hộp cơm, chai nước, bịch đá, tương ớt, nón bảo hiểm, kèn, trứng vịt lộn, gói COD, bao ni lông, cục sạc
 export function makeWeaponMesh(id) {
   const g = new THREE.Group();
-  if (id === 'wood') {
-    part(g, new THREE.BoxGeometry(0.09, 0.95, 0.045), 0xa87443, 0, 0.38, 0);
-    part(g, new THREE.BoxGeometry(0.092, 0.04, 0.047), 0x7d5330, 0, 0.62, 0); // vết nứt sẫm
-  } else if (id === 'bat') {
-    part(g, new THREE.CylinderGeometry(0.042, 0.018, 0.82, 8), 0xd9b77e, 0, 0.36, 0);
-    part(g, new THREE.CylinderGeometry(0.021, 0.021, 0.22, 8), 0x222222, 0, -0.02, 0); // quấn băng cán
-    part(g, new THREE.CylinderGeometry(0.03, 0.03, 0.02, 8), 0x222222, 0, -0.14, 0);
-  } else if (id === 'pan') {
-    part(g, new THREE.CylinderGeometry(0.035, 0.035, 0.3, 6), 0x2b2b2b, 0, 0.1, 0, { metalness: 0.5 }); // cán
-    const pan = part(g, new THREE.CylinderGeometry(0.16, 0.13, 0.05, 14), 0x34373b, 0, 0.4, 0, { metalness: 0.6, roughness: 0.4 });
-    pan.rotation.x = Math.PI / 2;
+  const cyl = (rt, rb, h, c, x, y, z, o, seg = 10) => part(g, new THREE.CylinderGeometry(rt, rb, h, seg), c, x, y, z, o);
+  if (id === 'cup') { // ly trà sữa: ly nhựa trong, trân châu đen dưới đáy, nắp vòm, ống hút hồng
+    cyl(0.045, 0.036, 0.15, 0xe2c9a4, 0, 0.075, 0, { transparent: true, opacity: 0.9 });
+    cyl(0.038, 0.035, 0.035, 0x2a1a10, 0, 0.022, 0);
+    part(g, new THREE.SphereGeometry(0.046, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2), 0xf4f4f4, 0, 0.15, 0, { transparent: true, opacity: 0.6 });
+    cyl(0.007, 0.007, 0.12, 0xff6fa2, 0.012, 0.2, 0, null, 6).rotation.z = -0.15;
+  } else if (id === 'bento') { // hộp cơm xốp trắng, dây thun đỏ
+    part(g, new THREE.BoxGeometry(0.2, 0.06, 0.15), 0xf6f3ea, 0, 0.03, 0);
+    part(g, new THREE.BoxGeometry(0.205, 0.008, 0.02), 0xd63031, 0, 0.062, 0);
+  } else if (id === 'water') { // chai nước suối 1,5 lít: thân xanh trong, nhãn xanh, nắp
+    cyl(0.04, 0.042, 0.24, 0xbfe6ff, 0, 0.12, 0, { transparent: true, opacity: 0.75 });
+    cyl(0.043, 0.043, 0.07, 0x1e88e5, 0, 0.12, 0);
+    cyl(0.018, 0.035, 0.05, 0xbfe6ff, 0, 0.265, 0, { transparent: true, opacity: 0.75 });
+    cyl(0.016, 0.016, 0.02, 0x1565c0, 0, 0.3, 0);
+  } else if (id === 'ice') { // bịch đá viên: túi trong buộc nút, đá trắng xanh bên trong
+    part(g, new THREE.SphereGeometry(0.09, 8, 6).scale(1, 0.85, 1), 0xd8f3ff, 0, 0.075, 0, { transparent: true, opacity: 0.55 });
+    for (const [x, y, z] of [[-0.03, 0.05, 0.02], [0.03, 0.06, -0.02], [0, 0.1, 0.01], [0.02, 0.04, 0.04]]) part(g, new THREE.BoxGeometry(0.04, 0.04, 0.04), 0xf2fbff, x, y, z);
+    cyl(0.006, 0.02, 0.04, 0xd8f3ff, 0, 0.16, 0, { transparent: true, opacity: 0.7 }, 6);
+  } else if (id === 'chili') { // gói tương ớt: gói nhựa dẹt đỏ, chữ vàng
+    part(g, new THREE.BoxGeometry(0.07, 0.1, 0.015), 0xd62a1e, 0, 0.05, 0);
+    part(g, new THREE.BoxGeometry(0.05, 0.02, 0.017), 0xffd54a, 0, 0.06, 0);
+  } else if (id === 'helmet') { // nón bảo hiểm nửa đầu xanh lá (màu hãng), kính trong
+    part(g, new THREE.SphereGeometry(0.13, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), 0x27ae60, 0, 0.02, 0);
+    cyl(0.135, 0.135, 0.02, 0x1e8449, 0, 0.02, 0, null, 14);
+    part(g, new THREE.BoxGeometry(0.16, 0.06, 0.02), 0x9fd4ff, 0, 0.0, 0.125, { transparent: true, opacity: 0.5 });
+  } else if (id === 'horn') { // kèn bóp: bầu cao su đen + loa đồng
+    part(g, new THREE.SphereGeometry(0.045, 10, 8), 0x222222, 0, 0.04, 0);
+    cyl(0.012, 0.012, 0.09, 0xc9a227, 0, 0.12, 0, { metalness: 0.6, roughness: 0.35 });
+    cyl(0.05, 0.012, 0.06, 0xc9a227, 0, 0.19, 0, { metalness: 0.6, roughness: 0.35 });
+  } else if (id === 'egg') { // trứng vịt lộn: vỏ trắng ngà hơi xanh
+    part(g, new THREE.SphereGeometry(0.03, 10, 8).scale(1, 1.3, 1), 0xeef2e6, 0, 0.04, 0);
+  } else if (id === 'cod') { // gói hàng COD: hộp giấy nâu, băng keo, tem trắng
+    part(g, new THREE.BoxGeometry(0.28, 0.18, 0.22), 0xb98a55, 0, 0.09, 0);
+    part(g, new THREE.BoxGeometry(0.285, 0.185, 0.05), 0xd9c28f, 0, 0.09, 0);
+    part(g, new THREE.BoxGeometry(0.1, 0.07, 0.005), 0xffffff, 0.06, 0.1, 0.113);
+  } else if (id === 'nylon') { // bao ni lông xanh (bao xốp chợ) phồng gió, 2 quai
+    part(g, new THREE.SphereGeometry(0.12, 8, 6).scale(1, 1.2, 0.7), 0x4fc3f7, 0, 0.12, 0, { transparent: true, opacity: 0.8 });
+    for (const x of [-0.05, 0.05]) part(g, new THREE.TorusGeometry(0.035, 0.008, 4, 8, Math.PI), 0x4fc3f7, x, 0.26, 0);
+  } else if (id === 'powerbank') { // cục sạc dự phòng đen, đèn xanh
+    part(g, new THREE.BoxGeometry(0.07, 0.13, 0.025), 0x2b2b2b, 0, 0.065, 0);
+    part(g, new THREE.BoxGeometry(0.012, 0.012, 0.027), 0x2ecc71, 0.02, 0.11, 0, { emissive: 0x2ecc71, emissiveIntensity: 1 });
   } else if (id === 'brick') {
     part(g, new THREE.BoxGeometry(0.1, 0.2, 0.065), 0xb5532f, 0, 0.05, 0);
     for (const y of [0, 0.1]) part(g, new THREE.CylinderGeometry(0.015, 0.015, 0.067, 6), 0x7a3218, 0, y, 0).rotation.x = Math.PI / 2; // lỗ gạch
-  } else if (id === 'buoy') {
-    const ring = new THREE.Group();
-    for (let i = 0; i < 8; i++) {
-      const seg = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.07, 6, 4, Math.PI / 4), mat(i % 2 ? 0xffffff : 0xe8541a));
-      seg.rotation.z = (i * Math.PI) / 4;
-      ring.add(seg);
-    }
-    ring.position.y = 0.24;
-    g.add(ring);
   } else if (id === 'pipe') {
     part(g, new THREE.CylinderGeometry(0.026, 0.026, 0.95, 8), 0x8a8f94, 0, 0.36, 0, { metalness: 0.6, roughness: 0.4 });
-  } else { // tay không / lạ: không có gì
-    return g;
   }
-  return g;
+  return g; // tay không / lạ: rỗng
 }
 
 // Đồ nằm dưới đất chờ nhặt: nằm nghiêng + vòng sáng mờ dưới chân cho dễ thấy
 export function makeLootMesh(id) {
   const g = new THREE.Group(), m = makeWeaponMesh(id);
-  m.rotation.z = Math.PI / 2;
-  m.position.set(id === 'buoy' ? 0 : -0.3, id === 'buoy' ? 0.02 : 0.05, 0);
-  if (id === 'buoy') m.rotation.set(Math.PI / 2, 0, 0);
+  if (id === 'water' || id === 'powerbank' || id === 'cup') m.rotation.z = Math.PI / 2; // đồ dài: nằm ngang
+  m.position.y = id === 'water' ? 0.04 : 0.01;
   g.add(m);
   const glow = new THREE.Mesh(new THREE.CircleGeometry(0.55, 18), new THREE.MeshBasicMaterial({ color: 0xffd54a, transparent: true, opacity: 0.22, depthWrite: false }));
   glow.rotation.x = -Math.PI / 2;
   glow.position.y = 0.02;
   g.add(glow);
   g.userData.glow = glow;
+  return g;
+}
+
+// Vũng trơn dưới sàn: đá viên (nước loang xanh + vài cục đá) · trà sữa (vũng nâu + trân châu đen). userData.fade(k): mờ dần
+export function makePuddle(id, r = 1.5) {
+  const g = new THREE.Group(), ice = id === 'ice', mats = [];
+  const flat = (rad, color, op, y, x = 0, z = 0) => {
+    const m = new THREE.Mesh(new THREE.CircleGeometry(rad, 20), new THREE.MeshStandardMaterial({ color, transparent: true, opacity: op, roughness: 0.15, metalness: 0.1, depthWrite: false }));
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(x, y, z);
+    m.material.userData.op = op;
+    mats.push(m.material);
+    g.add(m);
+  };
+  flat(r, ice ? 0x9fdcff : 0x8a5a35, ice ? 0.45 : 0.55, 0);
+  flat(r * 0.6, ice ? 0xe6f7ff : 0xa8794f, 0.35, 0.004, r * 0.15, -r * 0.1);
+  const n = ice ? 7 : 16;
+  for (let i = 0; i < n; i++) {
+    const a = i * 2.39, d = r * (0.2 + ((i * 37) % 10) / 13);
+    const geo = ice ? new THREE.BoxGeometry(0.06, 0.05, 0.06) : new THREE.SphereGeometry(0.025, 6, 4);
+    const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: ice ? 0xf2fbff : 0x1b120c, transparent: true, opacity: ice ? 0.85 : 1, roughness: 0.3 }));
+    m.material.userData.op = m.material.opacity;
+    mats.push(m.material);
+    m.position.set(Math.cos(a) * d, 0.025, Math.sin(a) * d);
+    m.rotation.y = a;
+    g.add(m);
+  }
+  g.userData.fade = (k) => { for (const m of mats) m.opacity = m.userData.op * Math.max(0, Math.min(1, k)); };
+  return g;
+}
+
+// Đồ dính trên người địch (gắn vào thân, theo đầu): bao ni lông trùm đầu · cơm dính tóc · trứng / trà sữa văng mặt
+export function makeStuck(id) {
+  const g = new THREE.Group();
+  if (id === 'nylon') { // bao ni lông xanh trùm kín đầu, 2 quai lủng lẳng
+    part(g, new THREE.SphereGeometry(0.2, 10, 8).scale(1, 1.25, 1), 0x4fc3f7, 0, 0.05, 0, { transparent: true, opacity: 0.75 });
+    for (const x of [-0.08, 0.08]) part(g, new THREE.TorusGeometry(0.05, 0.01, 4, 8, Math.PI), 0x4fc3f7, x, -0.2, 0.05).rotation.x = Math.PI;
+  } else if (id === 'bento') { // hạt cơm trắng + miếng sườn dính trên tóc
+    for (let i = 0; i < 14; i++) { const a = i * 2.4, r = 0.06 + (i % 4) * 0.02; part(g, new THREE.BoxGeometry(0.018, 0.012, 0.03), 0xffffff, Math.cos(a) * r, 0.13 + (i % 3) * 0.01, Math.sin(a) * r); }
+    part(g, new THREE.BoxGeometry(0.07, 0.025, 0.04), 0x8e4a1c, 0.03, 0.15, -0.02);
+  } else if (id === 'egg' || id === 'cup' || id === 'chili') { // vệt văng trên mặt: vàng (trứng) · nâu (trà sữa) · đỏ (tương ớt)
+    const c = id === 'egg' ? 0xffd23f : id === 'cup' ? 0xb98a5a : 0xd62a1e;
+    for (const [x, y, s] of [[0, 0.02, 0.07], [0.05, -0.03, 0.04], [-0.05, 0.05, 0.035], [0.02, 0.08, 0.03]]) part(g, new THREE.SphereGeometry(s, 8, 6).scale(1, 1, 0.3), c, x, y, 0.13);
+  }
+  return g;
+}
+
+// Thùng giao hàng của người chơi (bị quăng vào container nhốt): thùng xanh lá ngã nghiêng, nắp bung, vài món lòi ra
+export function makeShipperBag() {
+  const g = new THREE.Group(), box = new THREE.Group();
+  part(box, new THREE.BoxGeometry(0.46, 0.42, 0.4), 0x27ae60, 0, 0.21, 0);
+  part(box, new THREE.BoxGeometry(0.47, 0.06, 0.41), 0x1e8449, 0, 0.36, 0);
+  part(box, new THREE.BoxGeometry(0.3, 0.1, 0.005), 0xffffff, 0, 0.24, 0.203); // logo trắng
+  box.rotation.z = 1.25; // ngã nghiêng
+  box.position.set(0.12, 0.05, 0);
+  g.add(box);
+  const lid = part(g, new THREE.BoxGeometry(0.46, 0.03, 0.4), 0x1e8449, -0.36, 0.02, 0.05);
+  lid.rotation.y = 0.5;
+  for (const [id, x, z, r] of [['cup', -0.3, 0.32, 1.3], ['bento', -0.42, -0.2, 0.4], ['egg', -0.2, 0.15, 0], ['chili', -0.5, 0.1, 0.8]]) {
+    const m = makeWeaponMesh(id);
+    m.position.set(x, 0.02, z);
+    m.rotation.set(id === 'cup' ? Math.PI / 2 : 0, r, 0);
+    g.add(m);
+  }
   return g;
 }
 
@@ -90,12 +173,14 @@ export function makeViewArms(skin = 0xd9a066, sleeve = 0x2d3436) {
   g.userData = {
     R, L, hold,
     setItem(id) {
+      if (item && id === item.userData.id) return; // đang cầm đúng món này rồi
       if (item) hold.remove(item);
       item = makeWeaponMesh(id);
+      item.userData.id = id;
       bare = !id || id === 'fists';
       item.traverse((o) => { o.castShadow = false; o.renderOrder = 10; });
-      // cầm dựng lên chếch ra trước (chảo: mặt chảo hướng ra trước)
-      item.rotation.set(-0.55, 0, 0.15);
+      // cầm dựng lên chếch ra trước · nón bảo hiểm: úp mặt nón ra trước (đỡ như cái khiên)
+      if (id === 'helmet') { item.rotation.set(-1.4, 0, 0); item.position.set(0, 0.02, -0.04); } else { item.rotation.set(-0.55, 0, 0.15); item.position.set(0, 0, 0); }
       hold.add(item);
     },
     // t: 0..1 trong cú vung / ném; bob: lắc nhẹ theo bước đi

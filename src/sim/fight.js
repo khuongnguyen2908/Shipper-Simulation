@@ -18,6 +18,90 @@ export const sightOf = (foe) => ({ r: foe.sight ?? PLAYER.sight, half: PLAYER.fo
 export const MOVES = ['jab', 'cross', 'hook', 'upper', 'over', 'side'];
 export const movesOf = (f) => (f.moves?.length ? f.moves : f.weapon ? ['over', 'side'] : ['jab', 'cross', 'hook']);
 const nextMove = (o, list) => (o.move = list[(o.n = (o.n ?? -1) + 1) % list.length]);
+// ---------- ĐỒ SHIPPER (chương 6: túi giao hàng = kho đạn, không còn tay không đánh) ----------
+// Túi (gs.story.kit): { n: { mã: số còn }, order: [mã theo thứ tự ô 1–0], sel: mã đang cầm }. Món "keep" (nón, kèn) không mất khi dùng.
+// Tác dụng lên địch (dữ liệu weapons.<mã>, giây): stun choáng · trap trùm đầu (bao ni lông) · blind lóa mắt (trà sữa) · spicy cay chạy vòng (tương ớt)
+// · fall ngã (gói COD) · slip { r, t } vũng trơn chỗ rơi (đá viên, trân châu) · horn { r, startle, cd } bóp kèn: địch quanh r m đang lấy đà thì giật mình khựng.
+// Kiểu địch có ccMul (boss: tác dụng ngắn hơn). Cùng dữ liệu + cùng thao tác → cùng kết quả.
+export const CC_KEYS = ['trap', 'blind', 'spicy', 'fall'];
+// Đang lóe đỏ / lấy đà / ra đòn (boss bật foe.tele; đàn em đang giơ tay) → ném trúng lúc này = "ĐÚNG LÚC!": sát thương + tác dụng ×2
+const TELE_STATES = ['windup', 'chargeWind', 'charge', 'throwWind', 'superWind', 'fly', 'clinchWind', 'slam', 'teep', 'stomp'];
+export const telegraphing = (foe) => foe.state !== 'ko' && foe.state !== 'roar' && (!!foe.tele || TELE_STATES.includes(foe.state));
+export function timedItem(w) {
+  const o = { ...w, dmg: (w.dmg || 0) * 2 };
+  for (const k of [...CC_KEYS, 'stun']) if (w[k]) o[k] = w[k] * 2;
+  return o;
+}
+export const kitNew = () => ({ n: {}, order: [], sel: null });
+export function kitGive(kit, items) {
+  for (const [id, c] of Object.entries(items || {})) {
+    kit.n[id] = (kit.n[id] || 0) + c;
+    if (!kit.order.includes(id)) kit.order.push(id);
+  }
+  if (!kitHas(kit, kit.sel)) kit.sel = kit.order.find((id) => kitHas(kit, id)) || null;
+  return kit;
+}
+export const kitHas = (kit, id) => !!id && (kit?.n?.[id] || 0) > 0;
+// dùng 1 món (ném / ăn): trả true nếu có · hết món đang cầm → tự cầm món kế (theo thứ tự ô)
+export function kitTake(kit, id) {
+  if (!kitHas(kit, id)) return false;
+  kit.n[id] -= 1;
+  if (!kitHas(kit, kit.sel)) kitNext(kit, 1);
+  return true;
+}
+// đổi món: dir = +1 / -1 (lăn chuột) · bỏ qua ô đã hết
+export function kitNext(kit, dir = 1) {
+  const L = kit.order.filter((id) => kitHas(kit, id));
+  if (!L.length) { kit.sel = null; return null; }
+  const i = L.indexOf(kit.sel);
+  kit.sel = L[(i < 0 ? 0 : i + dir + L.length) % L.length];
+  return kit.sel;
+}
+// Món trúng địch (không bị đỡ): gắn tác dụng (nhân ccMul của kiểu địch) · boss đang ra đòn thì bỏ đòn đó. Trả mã tác dụng đã gắn (để game vẽ)
+export function applyItem(foe, wpn) {
+  if (foe.state === 'ko' || foe.state === 'roar') return [];
+  const k = foe.f.ccMul ?? 1, out = [];
+  for (const c of CC_KEYS) if (wpn[c] > 0) { foe[c] = Math.max(foe[c] || 0, wpn[c] * k); out.push(c); }
+  if (out.length) {
+    foe.alert = true;
+    if (foe.state === 'charge' || foe.state === 'fly') foe.hitThisCharge = true; // đang lao / bay: không trúng mình nữa
+    if (foe.f.phases?.length) { setState(foe, 'recover'); foe.recT = 0.2; foe.li += 1; foe.combo = 0; } // boss: bỏ đòn đang ra
+    else if (foe.state !== 'ko') setState(foe, 'chase');
+  }
+  return out;
+}
+// Bóp kèn: địch trong r m đang lấy đà / ra đòn → giật mình khựng (bỏ đòn đó). Trả danh sách tên bị giật mình
+const STARTLE = ['windup', 'chargeWind', 'charge', 'teep', 'slam', 'stomp', 'superWind', 'fly', 'throwWind', 'clinchWind'];
+export function hornBlast(foes, at, H) {
+  const out = [];
+  for (const f of foes) {
+    if (f.state === 'ko' || f.state === 'wait' || f.state === 'roar' || dist(f, at) > (H.r ?? 4)) continue;
+    f.alert = true;
+    if (!STARTLE.includes(f.state)) continue;
+    out.push(f);
+    f.hitThisCharge = true;
+    if (f.f.phases?.length) { setState(f, 'recover'); f.recT = (H.startle ?? 1) * (f.f.ccMul ?? 1); f.li += 1; f.combo = 0; }
+    else { setState(f, 'stagger'); f.t = 0.35 - (H.startle ?? 1); f.combo = 0; } // khựng (stagger hết sau 0,35 giây → đếm lùi)
+  }
+  return out; // những tên bị giật mình
+}
+// Đạp lên vũng trơn (đá viên / trân châu): đang lao húc / bay → ngã sấp lâu · đang chạy → trượt khựng. Mỗi vũng 1 lần / tên
+export function slipFoe(foe, puddle) {
+  if (foe.state === 'ko' || foe.state === 'wait' || foe.state === 'roar' || (foe.fall || 0) > 0) return null;
+  puddle.hit ||= new Set();
+  if (puddle.hit.has(foe)) return null;
+  const k = foe.f.ccMul ?? 1;
+  if (foe.state === 'charge' || foe.state === 'fly') { puddle.hit.add(foe); foe.hitThisCharge = true; foe.fall = (puddle.fall ?? 2.5) * Math.max(k, 0.8); if (foe.f.phases?.length) { setState(foe, 'recover'); foe.recT = 0.2; foe.li += 1; } else setState(foe, 'chase'); return 'fall'; }
+  if (foe.moving) { puddle.hit.add(foe); foe.fall = 0.6; return 'slip'; }
+  return null;
+}
+// Đang dính tác dụng (trùm / lóa / cay / ngã): đứng giãy, không đánh — game vẽ dáng theo foe.cc. Trả true = bỏ qua AI khung này
+function ccTick(foe, dt) {
+  foe.cc = null;
+  for (const c of CC_KEYS) if (foe[c] > 0) { foe[c] = Math.max(0, foe[c] - dt); if (!foe.cc) foe.cc = c; }
+  if (foe.cc === 'spicy') { foe.heading += dt * 5; const sp = 1.6 * dt; foe.x += Math.sin(foe.heading) * sp; foe.z += Math.cos(foe.heading) * sp; foe.moving = true; } // cay: ôm mặt chạy vòng
+  return !!foe.cc;
+}
 export const ALLY = { hp: 120, dmg: 16, cd: 2.1, speed: 4.4, reach: 1.7, takeMul: 0.6, bossMul: 0.3, moves: ['jab', 'cross', 'hook', 'upper'] };
 
 export const weaponOf = (id, data = storyData) => ({ ...WEAPON_DEFAULT, ...(data.weapons?.fists || {}), ...(data.weapons?.[id] || {}), id: data.weapons?.[id] ? id : 'fists' });
@@ -70,7 +154,7 @@ export function hitFoe(foe, wpn, att, by = 'player') {
   const back = behind(foe, att);
   // boss tự đỡ: đánh trước mặt lúc nó không sơ hở (đang vung / vừa vung hụt / choáng / bị trùm phao) → đỡ hết
   // (boss nhiều giai đoạn: đỡ hay không theo từng giai đoạn; chỉ đỡ lúc đang đi / thủ — đang ra đòn, khựng là sơ hở)
-  const open = PH ? bossOpen(foe) : foe.state === 'windup' || foe.state === 'recover' || foe.state === 'dazed' || foe.stun > 0 || foe.trap > 0;
+  const open = PH ? bossOpen(foe) : foe.state === 'windup' || foe.state === 'recover' || foe.state === 'dazed' || foe.stun > 0 || !!foe.cc;
   if ((PH ? PH.guard : foe.f.guard) && !back && !open && by === 'player') {
     if (PH) { foe.spam += 1; foe.spamT = 0; } // đấm liền vào thế đỡ (giai đoạn có "ôm cổ": đủ số cú thì bị ôm)
     if (wpn.stun > 0) { foe.stun = wpn.stun; foe.state = 'recover'; foe.t = 0; foe.recT = wpn.stun; } // chảo / gạch phá thế đỡ
@@ -80,7 +164,7 @@ export function hitFoe(foe, wpn, att, by = 'player') {
   if (by === 'player' && (back || foe.engagedBy === 'ally')) dmg *= PLAYER.backMul; // đánh lén sau lưng / lúc nó đang đánh anh Đạt
   if (foe.state === 'dazed') dmg *= 1.5;
   if (foe.state === 'parried') dmg *= 2; // vừa bị gạt superman: loạng choạng
-  if (foe.trap > 0) dmg *= 1.5;
+  if (foe.cc) dmg *= 1.5; // đang bị trùm / lóa / cay / ngã: trúng đau hơn
   const before = foe.hp;
   foe.hp = Math.max(0, foe.hp - Math.round(dmg));
   if (PH) { const a = nextAt(foe); if (a != null) foe.hp = Math.max(foe.hp, a); } // dừng ở mốc giai đoạn sau — không đánh vọt qua giai đoạn
@@ -136,7 +220,7 @@ export function foeTick(foe, ctx) {
   foe.cd = Math.max(0, foe.cd - dt);
   foe.chargeCd = Math.max(0, foe.chargeCd - dt);
   if (foe.stun > 0) foe.stun = Math.max(0, foe.stun - dt);
-  if (foe.trap > 0) { foe.trap = Math.max(0, foe.trap - dt); return ev; } // bị phao cứu sinh trùm: đứng giãy
+  if (ccTick(foe, dt)) return ev; // trùm bao / lóa mắt / cay / ngã: đứng giãy, không đánh
   if (foe.stun > 0 && foe.state !== 'dazed') return ev;
   // chưa phát hiện: đi tuần / đứng gác, nhìn thấy người chơi thì la lên
   if (!foe.alert) {
@@ -235,7 +319,7 @@ export const skillOf = (f, id) => ({ ...SKILL_DEFAULT[id], ...(id === 'throw' ? 
 export const phaseOf = (foe) => (foe.f.phases?.length ? foe.f.phases[foe.ph] || null : null);
 export const bossStep = (foe) => { const L = phaseOf(foe)?.loop || []; return L.length ? L[foe.li % L.length] : null; };
 // boss nhiều giai đoạn: chỉ đỡ được lúc đang đi / thủ; đang ra đòn, khựng, choáng = sơ hở
-export const bossOpen = (foe) => !['chase', 'guard', 'roar'].includes(foe.state) || foe.stun > 0 || foe.trap > 0;
+export const bossOpen = (foe) => !['chase', 'guard', 'roar'].includes(foe.state) || foe.stun > 0 || !!foe.cc;
 // máu ở mốc giai đoạn kế (null: đang giai đoạn cuối)
 const nextAt = (foe) => { const n = foe.f.phases?.[foe.ph + 1]; return n ? Math.ceil(foe.max * n.at) : null; };
 
@@ -261,7 +345,7 @@ export function bossTick(foe, ctx) {
   foe.t += dt;
   foe.alert = true;
   if (foe.stun > 0) foe.stun = Math.max(0, foe.stun - dt);
-  if (foe.trap > 0) { foe.trap = Math.max(0, foe.trap - dt); return ev; }
+  if (ccTick(foe, dt)) return ev; // trùm bao / lóa mắt / cay / ngã
   if ((foe.spamT += dt) > 3) foe.spam = 0; // 3 giây không đấm vào thế đỡ: đếm lại
   // chạm mốc → sang giai đoạn sau
   const at = nextAt(foe);
@@ -425,7 +509,7 @@ export function allyTick(A, foes, P, dt, route = null) {
     A.state = 'follow';
     const d = dist(A, P);
     const g = route ? route(A, P) : P;
-    if (d > 2.4) step(A, g.x, g.z, Math.min(ALLY.speed, 1.5 + d * 0.6), dt, g === P ? d - 2 : Infinity);
+    if (d > 2.4) step(A, g.x, g.z, d > 8 ? ALLY.speed * 1.6 : Math.min(ALLY.speed, 1.5 + d * 0.6), dt, g === P ? d - 2 : Infinity); // bị bỏ xa > 8 m: chạy nhanh đuổi kịp
     return ev;
   }
   tgt.engagedBy = 'ally';

@@ -17,7 +17,7 @@ export const SHIP = {
   FORE_Z: 44, FORE_H: 2.2, // sàn mũi: bắt đầu từ z, cao hơn boong
   RAIL_X: 10.7, // lan can 2 bên
   GANG: { z0: -34, z1: -22, x: -11.75, y1: 0.3 }, // cầu thang mạn: đỉnh (boong) → chân (bục sát bờ)
-  CAPTIVE: { x0: -9.1, x1: 3.1, z0: 36.38, z1: 38.82, h: 2.6 }, // container 40 feet nhốt người (cửa ở đầu +x)
+  CAPTIVE: { x0: -8.3, x1: 3.9, z0: 36.38, z1: 38.82, h: 2.6 }, // container 40 feet nhốt người (cửa ở đầu +x) — chừa lối mạn trái ~1,8 m (trước 1 m: dễ kẹt góc)
   STAIR_X: 6.6, // cầu thang lên sàn mũi (mạn phải)
 };
 
@@ -177,7 +177,7 @@ export function makeCargoShip({ name = 'HẢI LONG', seed = 7, walk = false } = 
     col(x - 1.35, z0 - 1.85, x - 1.2, z0 + 0.4, DECK + 1.1);
     col(x - 1.35, z0 - 1.9, RAIL_X * -1, z0 - 1.75, DECK + 1.1);
     box(g, 1.6, 0.15, 2.2, 0x8a8f94, x, y1 - 0.07, z1 + 1.1, { metalness: 0.4 }); // bục chân thang
-    box(g, 2.6, 0.1, 1.2, 0x9c7b52, x - 1.9, 0.12, z1 + 1.1); // tấm ván gác lên bờ
+    box(g, 2.6, 0.1, 2.0, 0x9c7b52, x - 1.9, 0.12, z1 + 1.1); // tấm ván gác lên bờ (rộng 2 m)
   }
   // lan can = vật cản (chừa chỗ đầu cầu thang mạn)
   col(RAIL_X - 0.15, -60, RAIL_X + 0.4, 44, DECK + 1.1);
@@ -266,7 +266,7 @@ function walkExtras(g, col, ud) {
   pad(GANG.x - 1.2, GANG.z0 - 1.75, -9.6, GANG.z0 + 0.8, DECK); // bục đầu cầu thang mạn (gối lên boong qua chỗ hở lan can)
   ud.ramps.push({ pts: [{ x: GANG.x, y: DECK, z: GANG.z0 - 0.6 }, { x: GANG.x, y: GANG.y1, z: GANG.z1 }, { x: GANG.x, y: GANG.y1, z: GANG.z1 + 1.0 }], w: 0.55 }); // cầu thang mạn
   pad(GANG.x - 0.75, GANG.z1 - 0.2, GANG.x + 0.75, GANG.z1 + 2.2, GANG.y1); // bục chân thang
-  ud.ramps.push({ pts: [{ x: GANG.x - 0.1, y: GANG.y1, z: GANG.z1 + 1.1 }, { x: GANG.x - 0.6, y: GANG.y1, z: GANG.z1 + 1.1 }, { x: GANG.x - 3.4, y: 0, z: GANG.z1 + 1.1 }], w: 0.55 }); // tấm ván xuống bờ
+  ud.ramps.push({ pts: [{ x: GANG.x - 0.1, y: GANG.y1, z: GANG.z1 + 1.1 }, { x: GANG.x - 0.6, y: GANG.y1, z: GANG.z1 + 1.1 }, { x: GANG.x - 3.4, y: 0, z: GANG.z1 + 1.1 }], w: 0.95 }); // tấm ván xuống bờ (rộng 2 m)
   ud.ramps.push({ pts: [{ x: STAIR_X, y: DECK, z: FORE_Z - 5.8 }, { x: STAIR_X, y: DECK, z: FORE_Z - 5.4 }, { x: STAIR_X, y: DECK + FORE_H, z: FORE_Z + 0.6 }, { x: STAIR_X, y: DECK + FORE_H, z: FORE_Z + 1.2 }], w: 0.6 }); // cầu thang lên sàn mũi
   // vách trước sàn mũi (chừa chỗ cầu thang)
   col(-10.6, FORE_Z - 0.1, STAIR_X - 0.75, FORE_Z + 0.2, DECK + FORE_H);

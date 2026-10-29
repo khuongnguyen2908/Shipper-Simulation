@@ -17,6 +17,7 @@ import { CITY, roadPos } from '../sim/cityLayout.js';
 import * as act from '../interactions.js';
 import { sound, loopSound } from '../audio.js';
 import { fmt } from '../content/index.js';
+import { makeShipperBag } from '../world/fightModels.js';
 
 const ease = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 
@@ -50,6 +51,7 @@ export class ScenePart {
       : a.kind === 'can' ? makeCan()
       : a.kind === 'water' ? makeWater({ w: a.w ?? 9, l: a.len ?? 30, depth: a.depth ?? 0.45 }) // nước ngập chỉ vẽ trên máy mình (không ngập thật cả thành phố)
       : a.kind === 'bigbike' ? makeParkedBigBike()
+      : a.kind === 'bag' ? makeShipperBag() // thùng giao hàng của mình (bị quăng vào container nhốt)
       : a.kind === 'mark' ? new THREE.Group() : null; // điểm đánh dấu vô hình: chỗ gắn dấu "!" / chỉ đường
     if (!mesh) return;
     const route = (a.route || []).filter((r) => Array.isArray(r?.at)).map((r) => ({ x: r.at[0], z: r.at[1], wait: r.wait || 0, speed: r.speed }));

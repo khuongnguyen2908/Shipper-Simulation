@@ -17,6 +17,7 @@ import { uniformOf } from '../sim/GameState.js';
 import { S } from '../sim/OrderManager.js';
 import { STORY, spotOf, HUD_PARTS, stepOf, chapterOf, storyTick, beginChapter, finishChapter, brandHelmet, storyEvent, actorsPresent, storyPick, REACT_ICONS, inChapter, titleNext, orderGate } from '../sim/story.js';
 import { lerpAngle } from '../world/controllers.js';
+import { kitGive, kitNew } from '../sim/fight.js';
 import { resolveCircle } from '../world/physics.js';
 import { makePerson, setSitting, randomPersonOpts, npcLook, sitY, makeBike, animatePerson, bikeSeatZ } from '../world/models.js';
 import { jetjetLook, seatRider } from '../world/npcVehicles.js';
@@ -196,6 +197,7 @@ export class StoryPart {
       else if (a.do === 'replies') gs.setReplies(a.who, a.texts || [], a.gains);
       else if (a.do === 'item') { if (!gs.story.items.includes(a.id)) gs.story.items.push(a.id); }
       else if (a.do === 'borrow') this.storyBorrow(a);
+      else if (a.do === 'kit') this.storyKit(a);
       else if (a.do === 'bike') {
         gs.flags.story = Math.max(1, gs.flags.story ?? 0);
         this.placeAtHomeBike();
@@ -387,15 +389,46 @@ export class StoryPart {
     // … lúc đang bày trận → mở lại bản đồ bày chốt
     const am = s?.fired && !s.ev?.ambushed && (st?.on || []).find((a) => a.do === 'ambush');
     if (am) this.storyAmbushOpen(am);
+    this.kitCardShow?.('off');
+    if (s?.fired && !s.ev?.kitCard && (st?.on || []).some((a) => a.do === 'kit' && a.card)) this.kitCardShow('big'); // đang chờ đọc thẻ túi đồ
     // … lúc đang đánh nhau / lẻn (trận đã bị bỏ ở trên) → dựng lại trận từ đầu · đang đua → đua lại từ đầu (không thì bước kẹt mãi)
     // làm ở CUỐI lúc mở game (storyResumeRun — game.js), sau khi đã đặt xe, chỗ đứng, loại xe (làm sớm thì bị các bước đó ghi đè)
     const fi = s?.fired && !s.ev?.fightWon && (st?.on || []).find((a) => a.do === 'fight');
     const ra = s?.fired && !s.ev?.raceWon && (st?.on || []).find((a) => a.do === 'race');
-    this.storyResume = fi || ra ? { fight: fi?.id, race: ra?.id } : null;
+    // đồng đội đang đi theo (đã đánh chung 1 trận từ lúc xuất hiện — vd anh Đạt trên tàu): mở game thì đứng ngay sau lưng người chơi,
+    // không thì bị dựng lại ở chỗ xuất hiện đầu tiên (anh Đạt về lại trong container nhốt)
+    const follow = [], spawnAt = {};
+    (ch1 ? ch1.steps.slice(0, Math.max(0, s1.step + (s1.fired ? 1 : 0))) : []).forEach((st2, i) => {
+      for (const a of st2.on || []) {
+        if (a.do === 'actor') spawnAt[a.who] = i;
+        if (a.do === 'fight') { const d = STORY.fights?.[a.id]; if (d?.ally && i >= (spawnAt[d.ally] ?? 0) && !follow.includes(d.ally)) follow.push(d.ally); }
+      }
+    });
+    this.storyResume = fi || ra || follow.length ? { fight: fi?.id, race: ra?.id, follow: follow.filter((w) => this.storyActors?.[w]) } : null;
+  }
+  // Túi đồ shipper (đánh nhau chương 6): give = { mã món: số } cho thêm vào túi · clear = dọn sạch (hết đoạn đánh nhau)
+  storyKit(a) {
+    const s = this.gs.story;
+    if (a.clear) { delete s.kit; this.heldRefresh?.(); return; }
+    s.kit = kitGive(s.kit || kitNew(), a.give || {});
+    this.heldRefresh?.();
+    sound('fight.bag');
+    if (a.card) this.kitCardShow('big'); // thẻ "Trong túi có gì" (bấm E cất)
   }
   storyResumeRun() {
     const r = this.storyResume;
     this.storyResume = null;
+    if (r?.follow?.length && this.zone && !r.race) {
+      // đồng đội: đặt sau lưng người chơi, cùng tầng (boong / bến) · không có trận thì vẫn đi theo (fightFollow)
+      const w = this.walker, h = w.heading, wy = w.mesh.position.y;
+      r.follow.forEach((who, i) => {
+        const m = this.storyActors[who].mesh, x = w.pos.x - Math.sin(h) * 1.6 + (i ? 0.8 : 0), z = w.pos.z - Math.cos(h) * 1.6;
+        m.position.set(x, this.city.elev?.heightAt(x, z, wy, 0) ?? wy, z);
+        resolveCircle(m.position, 0.35, this.city.grid, m.position.y);
+        this.storyTie?.({ who, on: false });
+      });
+      if (!r.fight) this.fightFollow?.(r.follow[0]);
+    }
     if (r?.fight) { this.gs.story.fpv = true; this.fightStart(r.fight); }
     if (r?.race) this.raceStart(r.race);
   }
