@@ -323,7 +323,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
     chỉ khối lớn đổ bóng, vùng sáng tính lại mỗi 5 khung (chỉ để nhìn): 852 → 168 lần vẽ, khung hình ~48 → ~23 ms (khung trình duyệt ẩn) ·
     vào màn đua không còn còi bán tải (raceTruckOn quiet).
   - Còn: cần chủ game chơi thật (độ khó đợt 3 lầu chỉ huy, góc máy cảnh phim Tí Đô).
-- **Đợt 11 — Tí Đô 3 giai đoạn (29/10, XONG, CHƯA commit)**. Phác họa duyệt: `sketches/chuong6/ti-do-phase.html`.
+- **Đợt 11 — Tí Đô 3 giai đoạn (29/10, XONG, đã đẩy lên GitHub 00c4a97)**. Phác họa duyệt: `sketches/chuong6/ti-do-phase.html`.
   - Chủ game chốt: mỗi đòn 1 **vòng cố định, điều kiện cố định** (chơi vài lần là thuộc, không quá khó) · **chỉ 1 màu đỏ** cho mọi cảnh báo
     (đòn nào thì nhìn dáng) · thêm **superman punch** (giai đoạn 3, sau dậm đất, đỡ đúng lúc) · giữ **húc liền 2 lần**.
   - Vòng đòn (story.json foes.tiDo.phases): ① 100%→65% combo thẳng→móc, khựng 1,5 giây · ② 65%→30% đạp đẩy (chỉ khi gần ≤ 2 m) → lao húc → combo, đỡ trước mặt,
