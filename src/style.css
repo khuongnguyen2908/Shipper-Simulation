@@ -741,6 +741,17 @@ body:has(.in-fight) #chat { display: none; } /* đang đánh nhau: ẩn tin nhó
 @media (max-width: 1100px) { .fh-target { top: 136px !important; } } /* màn hẹp: thanh máu tên đang nhắm xuống dưới, khỏi đè bảng máu */
 .fh-target { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); width: 300px; padding: 7px 14px; text-align: center; font-size: 13px; }
 .fh-target .fh-track { height: 9px; margin-top: 4px; }
+/* thanh máu boss nhiều giai đoạn (Tí Đô): trên cùng giữa, vạch trắng = mốc đổi giai đoạn · có boss thì thanh tên đang nhắm xuống dưới */
+.fh-boss { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); width: min(440px, calc(100vw - 32px)); padding: 7px 14px; font-size: 13px; }
+.fh-boss .bh { display: flex; justify-content: space-between; gap: 10px; font-weight: 700; }
+.fh-boss .bph { color: #ffd54a; }
+.fh-boss .bph.p1 { color: #ff9f43; } .fh-boss .bph.p2 { color: #ff5a4f; }
+.fh-boss .fh-track { position: relative; height: 12px; margin-top: 5px; }
+.fh-boss .fh-fill { background: linear-gradient(90deg, #b3261e, #ff5a4f); }
+.fh-boss .bmark { position: absolute; top: -2px; bottom: -2px; width: 3px; background: #fff; box-shadow: 0 0 3px #000; }
+.fh.has-boss .fh-target { top: 74px; }
+@media (max-width: 1100px) { .fh-boss { top: 136px; } .fh.has-boss .fh-target { top: 196px !important; } }
+.fh.fpv .fh-boss { display: none; }
 .fh-goal { position: absolute; right: 16px; top: 14px; max-width: 300px; padding: 9px 14px; font-size: 14px; }
 .fh-goal b { color: #ffd54a; display: block; }
 .fh-xh { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); opacity: 0.9; }

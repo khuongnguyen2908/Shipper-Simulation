@@ -5612,6 +5612,8 @@ console.log('Đánh nhau góc nhìn thứ 1 (sim/fight.js — chương 6)');
   const { validateStory } = await import('../src/data/validate.js');
   const STORYJ = readJson('src/data/story.json');
   const mk = (kind, extra = {}) => FT.makeFoe({ who: 'x', foe: kind, ...extra }, { x: 0, z: 0, heading: 0 });
+  const OLD = { foes: { bull: { name: 'x', boss: true, hp: 220, dmg: 18, windup: 0.8, cd: 1.6, speed: 3.2, reach: 1.8, guard: true, recover: 1, charge: { wind: 1, speed: 10, dmg: 25, stun: 3, dist: 14, cd: 5 }, rage: 0.5, throw: { every: 4, dmg: 10 }, moves: ['jab', 'hook', 'upper', 'cross'] } } };
+  const mkOld = () => FT.makeFoe({ who: 'x', foe: 'bull' }, { x: 0, z: 0, heading: 0 }, OLD);
   test('Màn lẻn (chương 6): người gác đi tuần thấy người chơi trước mặt; container che (los = false) thì không thấy, sát bên vẫn nghe', () => {
     const P = { x: 0, z: 5, heading: Math.PI, loud: false };
     const guard = () => FT.makeFoe({ who: 'g', foe: 'thug', patrol: [[0, 0], [0, -10]] }, { x: 0, z: 0, heading: 0 });
@@ -5632,7 +5634,7 @@ console.log('Đánh nhau góc nhìn thứ 1 (sim/fight.js — chương 6)');
     assert.ok(!validateStory(STORYJ).some((i) => /fight:c6|^c6\./.test(i.ref)), 'chương 6 không có lỗi / cảnh báo');
   });
   test('Đòn đánh lần lượt theo dữ liệu (jab → hook → …), sự kiện trúng mang tên đòn · anh Đạt đổi đòn mỗi cú · dữ liệu đòn sai → bộ kiểm tra báo', () => {
-    const f = mk('tiDo'), P = { x: 0, z: 1.2, heading: Math.PI };
+    const f = mkOld(), P = { x: 0, z: 1.2, heading: Math.PI };
     f.chargeCd = 99; f.cd = 0;
     const seen = [];
     for (let i = 0; i < 400 && seen.length < 5; i++) for (const e of FT.foeTick(f, { player: P, dt: 0.05 })) if (e.type === 'strike') seen.push(e.move);
@@ -5723,8 +5725,8 @@ console.log('Đánh nhau góc nhìn thứ 1 (sim/fight.js — chương 6)');
     assert.ok(!FT.sees(mk('thug', { sneak: true }), { x: 0, z: -1.5 }), 'đi bộ sau lưng 1,5 m: không bị nghe');
     assert.ok(FT.sees(mk('thug', { sneak: true }), { x: 0, z: -1.5, loud: true }), 'chạy thì bị nghe');
   });
-  test('Tí Đô: đứng xa thì lấy đà lao húc; đâm vật cản → choáng; còn nửa máu → nổi điên', () => {
-    const d = mk('tiDo');
+  test('Boss kiểu cũ (lao húc + nổi điên): đứng xa thì lấy đà lao húc; đâm vật cản → choáng; còn nửa máu → nổi điên', () => {
+    const d = mkOld();
     d.chargeCd = 0;
     const evs = [];
     for (let i = 0; i < 200; i++) evs.push(...FT.foeTick(d, { player: { x: 0, z: 8, heading: Math.PI, dodgeT: 1 }, ally: null, dt: 1 / 30, blocked: (x, z) => z > 9 }));
@@ -5732,6 +5734,126 @@ console.log('Đánh nhau góc nhìn thứ 1 (sim/fight.js — chương 6)');
     d.hp = d.max * 0.45;
     d.state = 'chase';
     assert.ok(FT.foeTick(d, { player: { x: 0, z: 1, heading: 0 }, ally: null, dt: 1 / 30 }).some((e) => e.type === 'rage'));
+  });
+  // Tí Đô 3 giai đoạn: chạy luật với người chơi giả đứng trước mặt (dist m) — trả các bước đã ra (theo thứ tự) + sự kiện
+  const bossRun = (ph, sec, P = {}, opt = {}) => {
+    const b = mk('tiDo');
+    FT.bossPhaseSet(b, ph);
+    const pl = { x: 0, z: opt.dist ?? 1.6, heading: Math.PI, hp: 100, pips: 3, maxPips: 3, blocking: false, dodgeT: 0, ...P };
+    const states = [], evs = [];
+    for (let i = 0; i < sec * 30; i++) {
+      for (const e of FT.foeTick(b, { player: pl, dt: 1 / 30, blocked: opt.blocked })) evs.push(e);
+      if (states.at(-1) !== b.state) states.push(b.state);
+      if (opt.follow !== false) { pl.x = b.x + Math.sin(b.heading) * (opt.dist ?? 1.6); pl.z = b.z + Math.cos(b.heading) * (opt.dist ?? 1.6); }
+      opt.each?.(b, pl, i);
+    }
+    return { b, pl, states, evs };
+  };
+  test('Tí Đô 3 giai đoạn (dữ liệu): mốc 65% / 30%, vòng đòn cố định đúng thiết kế · đàn em đứng xem tới giai đoạn 2 · đàn em bỏ chạy ở giai đoạn 3', () => {
+    const T = STORYJ.foes.tiDo;
+    assert.deepEqual(T.phases.map((p) => p.at), [1, 0.65, 0.3]);
+    assert.deepEqual(T.phases.map((p) => p.loop), [['combo'], ['teep', 'charge', 'combo'], ['slam', 'stompSuper', 'charge2', 'stompFeint']]);
+    assert.ok(!T.phases[0].guard && T.phases[1].guard && T.phases[2].guard, 'giai đoạn 1 không đỡ, 2–3 đỡ đòn trước mặt');
+    assert.ok(T.phases[2].throw && T.phases[2].clinch && T.phases[2].flee, 'giai đoạn 3: ném gạch / ôm cổ theo điều kiện, đánh tay đôi');
+    for (const f of STORYJ.fights.c6Quay.foes.filter((x) => x.who !== 'tiDo')) assert.ok(f.join === 'rage' && f.watch, `${f.who}: đứng xem tới giai đoạn 2`);
+  });
+  test('Tí Đô: mỗi giai đoạn lặp đúng vòng đòn (không ngẫu nhiên — chạy 2 lần ra y hệt) · combo luôn đấm thẳng → móc', () => {
+    const a = bossRun(0, 12), seq = a.evs.filter((e) => e.type === 'strike').map((e) => e.move);
+    assert.ok(seq.length >= 6 && seq.every((m, i) => m === (i % 2 ? 'hook' : 'jab')), seq.join(','));
+    const b2 = bossRun(1, 20).states.filter((s) => ['teep', 'chargeWind', 'windup'].includes(s));
+    assert.deepEqual(b2.slice(0, 6), ['teep', 'chargeWind', 'windup', 'teep', 'chargeWind', 'windup'], 'giai đoạn 2: đạp đẩy → húc → combo → lặp');
+    const far = bossRun(1, 8, {}, { dist: 5 }).states;
+    assert.ok(!far.includes('teep') && far.includes('chargeWind'), 'đứng xa: bỏ bước đạp đẩy');
+    const c3 = bossRun(2, 30).states.filter((s) => ['slam', 'stomp', 'superWind', 'chargeWind'].includes(s));
+    assert.deepEqual(c3.slice(0, 7), ['slam', 'stomp', 'superWind', 'chargeWind', 'chargeWind', 'stomp', 'superWind'], 'giai đoạn 3: bổ → dậm+superman → húc 2 lần → dậm+nhử+superman');
+    const r1 = bossRun(2, 15), r2 = bossRun(2, 15);
+    assert.deepEqual(r1.evs.map((e) => e.type + (e.move || '')), r2.evs.map((e) => e.type + (e.move || '')), 'cùng thao tác → cùng kết quả (máy chủ chạy lại được)');
+  });
+  test('Tí Đô: đánh không vọt qua giai đoạn (dừng ở mốc) → gầm (không trúng đòn) → giai đoạn mới · đánh hết máu ở giai đoạn cuối mới gục', () => {
+    const b = mk('tiDo'), P = { x: 0, z: 1.4, heading: Math.PI };
+    const big = { dmg: 500, stun: 0 };
+    FT.hitFoe(b, big, P);
+    assert.equal(b.hp, Math.ceil(b.max * 0.65), 'một cú cực mạnh cũng chỉ xuống tới mốc 65%');
+    const ev = FT.foeTick(b, { player: P, dt: 1 / 30 });
+    assert.ok(ev.some((e) => e.type === 'phase' && e.n === 1) && b.state === 'roar');
+    assert.equal(FT.hitFoe(b, big, P).dmg, 0, 'đang gầm: không trúng');
+    for (let i = 0; i < 60; i++) FT.foeTick(b, { player: P, dt: 1 / 30 });
+    b.state = 'recover'; b.t = 0; b.recT = 9; // đang khựng (sơ hở)
+    FT.hitFoe(b, big, P);
+    assert.equal(b.hp, Math.ceil(b.max * 0.3), 'xuống tới mốc 30%');
+    FT.foeTick(b, { player: P, dt: 1 / 30 });
+    assert.equal(b.ph, 2);
+    for (let i = 0; i < 60; i++) FT.foeTick(b, { player: P, dt: 1 / 30 });
+    b.state = 'recover'; b.t = 0; b.recT = 9;
+    assert.ok(FT.hitFoe(b, big, P).ko, 'giai đoạn cuối: hết máu thì gục');
+  });
+  test('Tí Đô: giai đoạn 1 không đỡ · giai đoạn 2 đỡ trước mặt (sau lưng / lúc nó khựng thì trúng) · không khựng khi trúng đòn (vòng đòn chạy đúng nhịp)', () => {
+    const bat = FT.weaponOf('bat'), front = { x: 0, z: 1, heading: Math.PI }, back = { x: 0, z: -1, heading: 0 };
+    const b = mk('tiDo');
+    b.state = 'guard';
+    assert.ok(!FT.hitFoe(b, bat, front).blocked && b.state === 'guard', 'giai đoạn 1: trúng, không bị khựng');
+    FT.bossPhaseSet(b, 1);
+    b.state = 'guard';
+    assert.ok(FT.hitFoe(b, bat, front).blocked, 'giai đoạn 2: đỡ trước mặt');
+    assert.ok(!FT.hitFoe(b, bat, back).blocked, 'sau lưng thì trúng');
+    b.state = 'recover';
+    assert.ok(!FT.hitFoe(b, bat, front).blocked, 'đang khựng (cửa đánh) thì trúng');
+  });
+  test('Tí Đô: superman — đỡ đúng lúc (mới bấm ≤ 0,35 giây) → gạt, loạng choạng, trúng ×2 · đỡ sớm → mất hết nấc đỡ · bước 4 có nhử (khựng thêm rồi mới bay)', () => {
+    // đứng xa 4 m (ngoài vòng sóng) — bấm đỡ lúc nó bay tới: đỡ đúng lúc
+    const good = bossRun(2, 6, {}, { follow: false, each: (b, pl) => {
+      if (b.state === 'stomp' && !pl.set) { pl.set = true; pl.x = b.x + Math.sin(b.heading) * 4; pl.z = b.z + Math.cos(b.heading) * 4; }
+      const near = b.state === 'fly' && Math.hypot(b.x - pl.x, b.z - pl.z) < 2.6;
+      pl.blockT = near ? (pl.blocking ? pl.blockT + 1 / 30 : 0) : 0; pl.blocking = near;
+    } });
+    // bắt đầu ở bước 2 (dậm đất → superman)
+    assert.ok(good.evs.some((e) => e.type === 'parried'), good.states.join(','));
+    assert.ok(good.states.includes('parried'));
+    const b = mk('tiDo'); FT.bossPhaseSet(b, 2); b.state = 'parried';
+    const n = FT.hitFoe(b, { dmg: 10, stun: 0 }, { x: 0, z: 1, heading: Math.PI }).dmg;
+    assert.equal(n, 20, 'đang loạng choạng: trúng gấp đôi');
+    // đỡ từ sớm (giữ đỡ suốt) → đỡ được nhưng phá hết nấc
+    const early = bossRun(2, 6, { blocking: true, blockT: 5 }, { follow: false, each: (bb, pl) => { if (bb.state === 'stomp' && !pl.set) { pl.set = true; pl.x = bb.x + Math.sin(bb.heading) * 4; pl.z = bb.z + Math.cos(bb.heading) * 4; } pl.blockT += 1 / 30; } });
+    const hit = early.evs.find((e) => e.type === 'strike' && e.move === 'superman');
+    assert.ok(hit && hit.breakGuard && !early.evs.some((e) => e.type === 'parried'), 'đỡ sớm: không gạt được, đòn phá thế đỡ');
+    // bước 4 (stompFeint): lấy đà + khựng nhử lâu hơn bước 2
+    const S = FT.skillOf(STORYJ.foes.tiDo, 'superman');
+    const len = (step) => { const x = mk('tiDo'); FT.bossPhaseSet(x, 2); x.li = STORYJ.foes.tiDo.phases[2].loop.indexOf(step); x.state = 'superWind'; x.t = 0; let t = 0; while (x.state === 'superWind' && t < 5) { FT.foeTick(x, { player: { x: 0, z: 4, heading: Math.PI }, dt: 1 / 30 }); t += 1 / 30; } return t; };
+    assert.ok(Math.abs(len('stompFeint') - len('stompSuper') - S.feint) < 0.1, `nhử khựng thêm ${S.feint} giây`);
+  });
+  test('Tí Đô: ném gạch khi đứng xa > 7 m quá 2 giây · đấm liền 4 cú vào thế đỡ → ôm cổ, bấm 6 lần thoát (nó khựng) · không thoát → ăn gối', () => {
+    const far = bossRun(2, 4, { z: 9 }, { follow: false, each: (b, pl) => { pl.x = b.x; pl.z = b.z + 9; } });
+    assert.ok(far.evs.some((e) => e.type === 'throw'), 'đứng xa → ném gạch');
+    const mkClinch = () => { const b = mk('tiDo'); FT.bossPhaseSet(b, 2); b.state = 'guard'; const P = { x: 0, z: 1, heading: Math.PI }; for (let i = 0; i < 4; i++) FT.hitFoe(b, FT.weaponOf('fists'), P); return [b, { ...P, hp: 100, pips: 3 }]; };
+    const [b, P] = mkClinch();
+    assert.equal(b.spam, 4);
+    let ev = [];
+    for (let i = 0; i < 20; i++) ev.push(...FT.foeTick(b, { player: P, dt: 1 / 30 }));
+    assert.ok(ev.some((e) => e.type === 'clinch' && e.on) && b.state === 'clinch', 'bị ôm cổ');
+    for (let i = 0; i < 6; i++) FT.bossMash(b);
+    ev = FT.foeTick(b, { player: P, dt: 1 / 30 });
+    assert.ok(ev.some((e) => e.type === 'clinch' && !e.on && e.free) && b.state === 'recover', 'thoát → nó khựng (cửa đánh)');
+    const [b2, P2] = mkClinch();
+    const ev2 = [];
+    for (let i = 0; i < 30 * 5; i++) ev2.push(...FT.foeTick(b2, { player: P2, dt: 1 / 30 }));
+    assert.equal(ev2.filter((e) => e.type === 'strike' && e.move === 'knee').length, 3, 'không bấm: ăn 3 cú gối rồi được buông');
+    assert.ok(ev2.some((e) => e.type === 'clinch' && !e.on && !e.free));
+  });
+  test('Tí Đô: đạp đẩy — né được thì nó khựng lâu hơn · lao húc đâm vật cản → choáng · dữ liệu sai (bước lạ, mốc không giảm dần) → bộ kiểm tra báo', () => {
+    const dodge = bossRun(1, 1.2, { dodgeT: 1 });
+    assert.ok(!dodge.evs.some((e) => e.move === 'teep') && dodge.b.recT === FT.skillOf(STORYJ.foes.tiDo, 'teep').miss, 'né đạp: hụt, khựng');
+    const hit = bossRun(1, 1.2);
+    assert.ok(hit.evs.some((e) => e.move === 'teep' && e.knock > 0 && e.wallStun > 0), 'đạp trúng: đẩy lùi (đập lưng vật cản thì choáng)');
+    const wall = bossRun(1, 4, {}, { dist: 5, blocked: (x, z) => z > 3 || z < -3 });
+    assert.ok(wall.evs.some((e) => e.type === 'dazed'), 'húc vào container: choáng');
+    const bad = JSON.parse(JSON.stringify(STORYJ));
+    bad.foes.tiDo.phases[1].loop = ['combo', 'xoayVong'];
+    bad.foes.tiDo.phases[2].at = 0.8;
+    bad.foes.tiDo.skills = { superman: { parry: 'nhanh' } };
+    const iss = validateStory(bad).filter((i) => i.ref === 'foe:tiDo');
+    assert.ok(iss.some((i) => /vòng đòn/.test(i.msg)), 'bước lạ');
+    assert.ok(iss.some((i) => /nhỏ hơn giai đoạn trước/.test(i.msg)), 'mốc phải giảm dần');
+    assert.ok(iss.some((i) => i.field === 'skills'), 'số đòn sai');
   });
   test('Đường đi vòng: nhìn thẳng được thì đi thẳng, bị chặn thì đi theo lưới điểm', () => {
     const nav = { nodes: [[0, 0], [10, 0], [10, 10]], edges: [[0, 1], [1, 2]] };

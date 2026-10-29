@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tí Đô 3 giai đoạn</title>
+<style>
+  body { margin: 0; background: #12141a; color: #e8e4dc; font: 14px/1.4 system-ui, sans-serif; }
+  h1 { font-size: 18px; margin: 12px 16px 2px; }
+  p.sub { margin: 0 16px 10px; color: #a9a39a; }
+  .boss { max-width: 760px; margin: 6px auto 14px; padding: 10px 16px; background: #0b0c10cc; border: 1px solid #333; border-radius: 10px; }
+  .boss .top { display: flex; justify-content: space-between; font-weight: 800; }
+  .boss .track { position: relative; height: 16px; background: #2a1414; border-radius: 6px; overflow: hidden; margin-top: 6px; }
+  .boss .fill { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #b3261e, #ff5a4f); }
+  .boss .mark { position: absolute; top: -2px; bottom: -2px; width: 3px; background: #fff; box-shadow: 0 0 4px #000; }
+  .boss .lbl { display: flex; justify-content: space-between; font-size: 11px; color: #a9a39a; margin-top: 3px; }
+  .phase { padding: 8px 14px 18px; }
+  .phase h2 { font-size: 16px; margin: 8px 6px; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; }
+  figure { margin: 0; width: min(300px, 100%); position: relative; }
+  canvas { display: block; width: 100%; height: auto; aspect-ratio: 6 / 5; border-radius: 10px; }
+  .tag { position: absolute; left: 8px; top: 8px; font: 800 13px system-ui; background: #000a; padding: 3px 8px; border-radius: 6px; }
+  figcaption { margin-top: 6px; }
+  figcaption small { display: block; color: #a9a39a; }
+  .loop { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 6px 10px; font-size: 13px; }
+  .loop b { background: #262a33; border: 1px solid #3a3f4a; padding: 3px 9px; border-radius: 14px; font-weight: 600; }
+  .loop i { color: #8a857c; font-style: normal; }
+  .loop .cond { background: #3a1d1d; border-color: #6b2c2c; }
+  .p1 h2 { color: #ffd54a; } .p2 h2 { color: #ff9f43; } .p3 h2 { color: #ff5a4f; }
+</style>
+</head>
+<body>
+<h1>💪 Tí Đô — 3 giai đoạn (phác họa, chưa vào game)</h1>
+<p class="sub">Mỗi giai đoạn = 1 vòng đòn CỐ ĐỊNH, lặp đúng thứ tự (không bốc ngẫu nhiên) → chơi vài lần là thuộc. Mọi cảnh báo đòn đều 1 màu ĐỎ (lóe đỏ / vệt đỏ / vòng đỏ); đòn nào thì nhìn DÁNG ra đòn. Xám = người chơi minh họa. Chữ góc trên mỗi ô = lúc đó người chơi nên làm gì. Thanh máu dưới đây chạy thử từ đầy tới hết để thấy đổi giai đoạn.</p>
+<div class="boss">
+  <div class="top"><span>💪 Tí Đô</span><span id="phName">Giai đoạn 1 · Đấm thường</span></div>
+  <div class="track"><div class="fill" id="hp"></div><div class="mark" style="left:65%"></div><div class="mark" style="left:30%"></div></div>
+  <div class="lbl"><span>0</span><span style="margin-left:22%">30% · nổi điên</span><span>65% · húc trâu</span><span>100%</span></div>
+</div>
+<section class="phase p1"><h2>① Giai đoạn 1 · Đấm thường (100% → 65%) — dễ: học đỡ + đánh trả</h2><div class="loop">Vòng đòn: <b>① Combo thẳng → móc</b><i>→</i><b>② Khựng 1,5 giây (đánh)</b><i>↺ lặp</i></div><div class="row" id="p1"></div></section>
+<section class="phase p2"><h2>② Giai đoạn 2 · Húc trâu (65% → 30%) — biết cơ chế: dụ húc vào container, đánh sau lưng</h2><div class="loop">Vòng đòn: <b>① Đạp đẩy (nếu đứng gần ≤ 2 m)</b><i>→</i><b>② Lao húc</b><i>→</i><b>③ Combo + khựng</b><i>↺ lặp</i> · Luôn: đỡ đòn trước mặt · đàn em vào đánh</div><div class="row" id="p2"></div></section>
+<section class="phase p3"><h2>③ Giai đoạn 3 · Nổi điên (30% → 0) — khó: phân biệt đỡ / né, canh khoảng hở</h2><div class="loop">Vòng đòn: <b>① Đòn bổ</b><i>→</i><b>② Dậm đất → Superman</b><i>→</i><b>③ Húc liền 2 lần</b><i>→</i><b>④ Dậm đất → Nhử → Superman</b><i>↺ lặp</i></div>
+<div class="loop">Chỉ khi: <b class="cond">Đứng xa &gt; 7 m quá 2 giây → ném gạch</b><b class="cond">Đứng sát đấm liền 4 cú → ôm cổ</b></div><div class="row" id="p3"></div></section>
+<script type="module" src="./ti-do-phase.js"></script>
+</body>
+</html>

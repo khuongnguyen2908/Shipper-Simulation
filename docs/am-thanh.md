@@ -191,6 +191,9 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [ ] | `fight.break` | Vũ khí gãy | Thanh gỗ / gậy / chảo hết độ bền (rắc) | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `fight.alert` | Địch phát hiện / la lên | Tên gác thấy mình · Tí Đô nổi điên gọi đàn em ("Ê!") | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `fight.charge` | Tí Đô lao húc | Tí Đô lấy đà xong, lao tới (tiếng gầm + bước chân rầm rập) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.roar` | Tí Đô gầm (đổi giai đoạn) | Trận Tí Đô: máu chạm mốc → nó gầm lên, chậm cảnh, nói 1 câu (giai đoạn 2 · giai đoạn 3) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.stomp` | Tí Đô dậm đất | Trận Tí Đô giai đoạn 3: dậm chân xuống boong / bến, vòng sóng đỏ loang ra (rầm + rung) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.parry` | Gạt được superman punch | Trận Tí Đô giai đoạn 3: bấm đỡ đúng lúc nó bay tới đấm → gạt đòn, nó loạng choạng (cạch mạnh, đã tai) | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `fight.win` | Thắng trận | Hạ hết địch trong trận | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `fight.sneak` | Bắt đầu màn lẻn | Chương 6: vào màn lẻn trên bến / trong tàu (nhịp hồi hộp ngắn, nín thở) | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `fight.locker` | Mở tủ thuyền trưởng | Chương 6: tra chìa khóa mở tủ sắt, lục giấy tờ (cạch, kẽo kẹt, sột soạt) | tiếng ngắn | 🔉 tổng hợp |

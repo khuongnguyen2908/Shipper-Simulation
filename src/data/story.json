@@ -8384,7 +8384,7 @@
                   "pos": [
                     -21.8,
                     1.55,
-                    -2415.0
+                    -2415
                   ],
                   "lookAt": "actor:tiDo",
                   "lookY": 1.45,
@@ -8832,7 +8832,6 @@
       "cd": 1.6,
       "speed": 3.2,
       "reach": 1.8,
-      "guard": true,
       "recover": 1,
       "charge": {
         "wind": 1,
@@ -8842,16 +8841,49 @@
         "dist": 14,
         "cd": 5
       },
-      "rage": 0.5,
       "throw": {
-        "every": 4,
-        "dmg": 10
+        "dmg": 10,
+        "far": 7,
+        "after": 2
       },
       "moves": [
         "jab",
-        "hook",
-        "upper",
-        "cross"
+        "hook"
+      ],
+      "phases": [
+        {
+          "at": 1,
+          "name": "story.foe.tiDoP1",
+          "loop": [
+            "combo"
+          ]
+        },
+        {
+          "at": 0.65,
+          "name": "story.foe.tiDoP2",
+          "guard": true,
+          "loop": [
+            "teep",
+            "charge",
+            "combo"
+          ],
+          "say": "story.c6.boss.p2"
+        },
+        {
+          "at": 0.3,
+          "name": "story.foe.tiDoP3",
+          "guard": true,
+          "loop": [
+            "slam",
+            "stompSuper",
+            "charge2",
+            "stompFeint"
+          ],
+          "say": "story.c6.boss.p3",
+          "throw": true,
+          "clinch": true,
+          "flee": true
+        }
       ]
     }
   },
@@ -9048,7 +9080,8 @@
             -40,
             12
           ],
-          "join": "rage"
+          "join": "rage",
+          "watch": true
         },
         {
           "who": "g8",
@@ -9058,7 +9091,8 @@
             -28,
             30
           ],
-          "join": "rage"
+          "join": "rage",
+          "watch": true
         }
       ],
       "loot": [
@@ -9480,7 +9514,9 @@
             -27.5,
             -15.5
           ],
-          "heading": 133
+          "heading": 133,
+          "join": "rage",
+          "watch": true
         },
         {
           "who": "g8",
@@ -9490,7 +9526,9 @@
             -22.5,
             -8.8
           ],
-          "heading": 133
+          "heading": 133,
+          "join": "rage",
+          "watch": true
         }
       ],
       "loot": [

@@ -14,7 +14,7 @@ import { makeViewArms, makeLootMesh, makeWeaponMesh, fighterPose } from '../worl
 import { animatePerson, hipBend } from '../world/models.js';
 import { resolveCircle } from '../world/physics.js';
 import { FightHud } from '../ui/fightHud.js';
-import { weaponOf, fightOf, makeFoe, meleeTargets, hitFoe, hitPlayer, foeTick, allyTick, playerTick, canTakedown, navNext, dist, sightOf, prewarm, PLAYER, ALLY } from '../sim/fight.js';
+import { weaponOf, fightOf, makeFoe, meleeTargets, hitFoe, hitPlayer, foeTick, allyTick, playerTick, canTakedown, navNext, dist, sightOf, prewarm, PLAYER, ALLY, phaseOf, skillOf, bossMash, bossPhaseSet } from '../sim/fight.js';
 import { ZONES } from '../sim/zones.js';
 import { storyEvent } from '../sim/story.js';
 import { sound } from '../audio.js';
@@ -132,7 +132,8 @@ export class FightPart {
     for (const f of F.foes) this.storyActorRemove(f.who);
     for (const l of F.loot) this.scene.remove(l.mesh);
     for (const p of F.proj) this.scene.remove(p.mesh);
-    F.loot = []; F.proj = []; F.t = 0; F.won = false; F.lost = false;
+    this.fightTele(F, true);
+    F.loot = []; F.proj = []; F.t = 0; F.won = false; F.lost = false; F.slow = 0;
     const cpAt = F.cp > 0 && def.stealth?.checkpoints?.[F.cp - 1]; // màn lẻn: đã qua chốt → làm lại từ chốt đó
     if (!stay) this.zoneTeleport(cpAt ? (() => { const p = W(cpAt); return [p.x, p.z]; })() : [F.start.x, F.start.z]);
     if (F.start.held) this.heldSet(F.start.held.id, F.start.held.dur); else this.heldSet('fists');
@@ -152,12 +153,21 @@ export class FightPart {
       if (ac) {
         if (d.phase > 0) { ac.mesh.position.x = foe.x; ac.mesh.position.z = foe.z; ac.mesh.rotation.y = foe.heading; }
         ac.fightFoe = foe;
-        if (foe.state === 'wait') ac.mesh.visible = false;
+        if (foe.state === 'wait' && !foe.watch) ac.mesh.visible = false; // đứng xem (watch): vẫn hiện, hò hét tới lúc vào trận
         if (foe.f.weapon) this.fightArm(ac, foe.f.weapon);
         if (foe.f.boss) ac.mesh.scale.multiplyScalar(foe.kind === 'tiDo' ? 1 : 1.04);
       }
       return foe;
     });
+    // boss nhiều giai đoạn: thua giữa chừng → chơi lại từ đầu giai đoạn đang dở (đàn em vào sẵn / đã bỏ chạy đúng như lúc đó)
+    if (F.bossCp > 0) for (const boss of F.foes.filter((f) => f.f.phases?.length)) {
+      bossPhaseSet(boss, F.bossCp);
+      const fled = boss.f.phases.slice(1, F.bossCp + 1).some((p) => p.flee);
+      for (const f of F.foes) if (f.state === 'wait' && f.join === 'rage') {
+        if (fled) this.fightGone(f);
+        else this.fightJoin(f);
+      }
+    }
     // anh Đạt
     if (def.ally) {
       const p = F.allyAt || W(def.allyAt || def.start || [0, 0]); // đánh tại chỗ: anh Đạt đứng đâu đánh đó
@@ -204,6 +214,7 @@ export class FightPart {
     const F = this.fight;
     if (!F) return;
     this.fightCones(F, null);
+    this.fightTele(F, true);
     this.fightGoalMark(null);
     for (const l of F.loot) this.scene.remove(l.mesh);
     for (const p of F.proj) this.scene.remove(p.mesh);
@@ -229,10 +240,21 @@ export class FightPart {
     if (!F) { this.fightHud?.update(this.fightHudData()); return; }
     F.t += dt;
     playerTick(fp, dt);
-    const free = !this.storyLose && !this.cine && !this.modal.open && !this.phone.open && !F.won;
+    const free0 = !this.storyLose && !this.cine && !this.modal.open && !this.phone.open && !F.won;
+    // bị đạp đập lưng vào vật cản (choáng) / bị ôm cổ: đứng yên, không đánh / đỡ / né được · đang bị ôm: bấm chuột trái liên tục để giãy
+    fp.stunT = Math.max(0, (fp.stunT || 0) - dt);
+    const locked = fp.stunT > 0 || !!fp.held;
+    if (locked && fp.lock) { w.pos.x = fp.lock.x; w.pos.z = fp.lock.z; fp.x = w.pos.x; fp.z = w.pos.z; }
+    if (fp.held && free0 && this.input.was('Mouse0')) {
+      const n = bossMash(fp.held);
+      if (n != null) { this.fightFloat(`${Math.min(n, skillOf(fp.held.f, 'clinch').mash)}/${skillOf(fp.held.f, 'clinch').mash}`, null, 'block'); sound('fight.swing'); }
+    }
+    const free = free0 && !locked;
     const wpn = weaponOf(this.heldId());
     // ---- người chơi: đỡ (giữ chuột phải) · vung / ném (chuột trái) · né (Space) ----
+    const wasBlocking = fp.blocking;
     fp.blocking = free && !!this.input.mouse[2] && fp.pips > 0 && fp.swing === 0 && fp.throwT === 0;
+    fp.blockT = fp.blocking ? (wasBlocking ? (fp.blockT || 0) + dt : 0) : 0; // mới bấm đỡ được bao lâu (đỡ đúng lúc: gạt superman)
     if (free && this.input.was('Mouse0') && fp.cd <= 0 && !fp.blocking) {
       if (wpn.throw) { fp.throwT = 0.001; fp.cd = 0.6; this.fightThrowSoon = THROW_T * 0.45; }
       else { fp.swing = 0.001; fp.cd = wpn.cd; fp.hitDone = false; sound('fight.swing'); const L = wpn.id === 'fists' ? ['jab', 'cross', 'hook'] : ['over', 'side']; fp.move = L[(fp.n = (fp.n ?? -1) + 1) % L.length]; } // đòn lần lượt (chỉ khác dáng)
@@ -269,27 +291,31 @@ export class FightPart {
       for (let i = 1; i < n; i++) { const t = i / n; if (this.city.grid.inside(a.x + (b.x - a.x) * t, eyeY, a.z + (b.z - a.z) * t, HOUSE)) return false; }
       return true;
     };
+    // boss đổi giai đoạn: chậm cảnh một chút (chỉ phần đánh nhau của mình — đồng hồ chung vẫn chạy bình thường)
+    const fdt = F.slow > 0 ? dt * 0.35 : dt;
+    F.slow = Math.max(0, F.slow - dt);
     for (const foe of F.foes) {
       const ac = this.storyActors?.[foe.who];
       if (!ac) continue;
       if (foe.state === 'wait' && typeof foe.join === 'number' && F.t >= foe.join) this.fightJoin(foe);
       foe.y = ac.mesh.position.y;
-      const evs = foeTick(foe, { player: fp, ally: A && A.hp > 0 ? A : null, dt, blocked, route, los });
+      const evs = foeTick(foe, { player: fp, ally: A && A.hp > 0 ? A : null, dt: fdt, blocked, route, los });
       for (const e of evs) this.fightFoeEvent(e);
-      this.fightPlace(ac, foe, dt);
+      this.fightPlace(ac, foe, fdt);
     }
     this.fightSeparate();
+    this.fightTele(F);
     // ---- anh Đạt ----
     if (A) {
       const ac = this.storyActors?.[A.who];
-      for (const e of allyTick(A, F.foes, fp, dt, route)) if (e.type === 'allyHit') {
+      for (const e of allyTick(A, F.foes, fp, fdt, route)) if (e.type === 'allyHit') {
         const r = hitFoe(e.foe, { dmg: ALLY.dmg, stun: 0 }, A, 'ally');
         this.fightHitFx(e.foe, r, 'ally');
       }
-      if (ac) this.fightPlace(ac, A, dt, true);
+      if (ac) this.fightPlace(ac, A, fdt, true);
     }
     // ---- đồ bay ----
-    this.fightProjTick(dt);
+    this.fightProjTick(fdt);
     // ---- thắng / thua ----
     // màn lẻn: bị thấy (có tên đã biết mình mà chưa gục) → làm lại · tới chỗ cần tới → thắng
     const S = F.def.stealth;
@@ -412,7 +438,8 @@ export class FightPart {
   // Đặt hình người theo vị trí luật (độ cao theo mặt đất / boong), dáng: đi, giơ tay, đánh, khựng, gục, bị phao trùm
   fightPlace(ac, o, dt, ally = false) {
     const m = ac.mesh;
-    if (o.state === 'wait') return;
+    if (o.state === 'wait') { if (o.watch) this.fightWatch(ac); return; }
+    if (o.gone) { m.visible = false; return; } // đàn em đã bỏ chạy
     const p = m.position;
     p.x = o.x; p.z = o.z;
     resolveCircle(p, 0.35, this.city.grid, p.y);
@@ -443,11 +470,12 @@ export class FightPart {
     // dáng đánh: thủ 2 nắm tay trước mặt · lấy đà · ra đòn (đấm thẳng / đấm móc / móc lên / bổ / quét — đòn nào do luật chọn, o.move)
     // địch: lúc trúng (sự kiện strike) bắt đầu đếm ac.hit · anh Đạt: vung 0,35 giây rồi ra đòn (o.t tính tiếp sau đó)
     if (ac.hit) ac.hit.t += dt;
-    const busy = ['stagger', 'dazed', 'chargeWind', 'charge', 'throwWind'].includes(o.state) || o.trap > 0;
+    const busy = ['stagger', 'dazed', 'chargeWind', 'charge', 'throwWind', 'teep', 'slam', 'stomp', 'wave', 'superWind', 'fly', 'parried', 'clinchWind', 'clinch', 'roar'].includes(o.state) || o.trap > 0;
     const fighting = !busy && (ally ? o.state !== 'follow' : o.alert && o.state !== 'patrol' && o.state !== 'look');
     const wind = ally ? (o.state === 'swing' ? { move: o.move, k: o.t / 0.3 } : null) : o.state === 'windup' ? { move: o.move, k: o.t / (o.f?.windup || 0.6) } : null;
     const hit = ally ? (o.move && o.state !== 'swing' ? { move: o.move, t: o.t - 0.35 } : null) : ac.hit;
-    const pose = fighterPose(parts, { stance: fighting && (ally || dist(o, this.fp) < 7) ? (o.f?.weapon ? 'weapon' : 'fists') : false, block: !ally && o.state === 'guard' && o.f?.guard, wind, hit });
+    const guard = !ally && (o.f?.phases?.length ? phaseOf(o)?.guard : o.f?.guard); // boss nhiều giai đoạn: đỡ hay không theo giai đoạn
+    const pose = fighterPose(parts, { stance: fighting && (ally || dist(o, this.fp) < 7) ? (o.f?.weapon ? 'weapon' : 'fists') : false, block: !ally && o.state === 'guard' && guard, wind, hit });
     let bend = 0, twist = 0;
     if (pose) {
       bend = pose.bend; twist = pose.twist;
@@ -457,10 +485,112 @@ export class FightPart {
     if (o.state === 'chargeWind') { bend = 0.38; parts.armL.rotation.x = parts.armR.rotation.x = -0.6; p.y += Math.abs(Math.sin(o.t * 12)) * 0.05; } // cúi đầu, dậm chân lấy đà
     if (o.state === 'charge') { bend = 0.55; parts.armL.rotation.x = parts.armR.rotation.x = -1.25; parts.elbowL.rotation.x = parts.elbowR.rotation.x = -0.5; } // cắm đầu lao tới
     if (o.state === 'throwWind') { const k = Math.min(1, o.t / 0.55); bend = -0.15 * k; twist = 0.5 * k; parts.armR.rotation.x = -2.7 * k; parts.elbowR.rotation.x = -1.1 * k; } // vác gạch ra sau đầu
-    m.rotation.z = o.state === 'dazed' ? Math.sin(o.t * 6) * 0.08 : 0;
+    const bp = !ally && o.f?.phases?.length ? this.fightBossPose(ac, o, parts, p, dt) : null; // Tí Đô: dáng từng đòn
+    if (bp) { bend = bp.bend; twist = bp.twist ?? 0; }
+    m.rotation.z = o.state === 'dazed' || o.state === 'parried' ? Math.sin(o.t * 6) * 0.08 : 0;
     if (o.trap > 0) { parts.armL.rotation.x = parts.armR.rotation.x = 0; animatePerson(m, ac.phase * 3, 0.3); }
     hipBend(parts, bend, 0, twist); // gập / vặn thân quanh hông — chân đứng yên, thân trên không bị tách khỏi chân
     if (ac.buoy) ac.buoy.visible = o.trap > 0;
+  }
+  // Tí Đô (boss nhiều giai đoạn): dáng từng đòn — mọi đòn cùng lóe đỏ, người chơi nhìn DÁNG để biết né hay đỡ
+  // (giơ 2 tay qua đầu = bổ, phải né · nhún lùi kéo tay = superman, đỡ đúng lúc · nhấc gối = đạp · nhấc chân cao = dậm đất)
+  fightBossPose(ac, o, P, p, dt) {
+    const ease = (x) => x * x * (3 - 2 * x), k = (len) => ease(Math.min(1, o.t / len)), f = o.f;
+    const arms = (l, r, el = 0, er = 0) => { P.armL.rotation.x = l; P.armR.rotation.x = r; P.elbowL.rotation.x = el; P.elbowR.rotation.x = er; };
+    switch (o.state) {
+      case 'teep': {
+        const S = skillOf(f, 'teep');
+        arms(-0.9, -0.7, -1.7, -1.7); // 2 tay thủ trước mặt
+        if (o.t < S.wind) { const q = k(S.wind); P.legR.rotation.x = -1.3 * q; P.kneeR.rotation.x = 1.6 * q; return { bend: 0 }; }
+        P.legR.rotation.x = -1.45; P.kneeR.rotation.x = 0.1; // duỗi thẳng chân đạp
+        return { bend: -0.25 };
+      }
+      case 'slam': { const q = k(skillOf(f, 'slam').wind); arms(-2.9 * q, -2.9 * q, -0.3 * q, -0.3 * q); return { bend: -0.1 * q }; }
+      case 'stomp': { const q = k(skillOf(f, 'stomp').wind); P.legR.rotation.x = -1.2 * q; P.kneeR.rotation.x = 1.5 * q; arms(-0.9 * q, -0.9 * q); return { bend: -0.15 * q }; }
+      case 'wave': arms(0.2, 0.2); return { bend: 0.4 };
+      case 'superWind': // nhún lùi, kéo tay phải ra sau, tay trái che cằm
+        arms(-0.9, 0.9, -1.4, -1.3);
+        P.legL.rotation.x = P.legR.rotation.x = -0.3; P.kneeL.rotation.x = P.kneeR.rotation.x = 0.6;
+        p.y -= 0.1;
+        return { bend: -0.12 };
+      case 'fly': { // bay ngang người, tay phải đấm thẳng
+        const q = 1 - Math.max(0, o.flyLeft ?? 0) / skillOf(f, 'superman').dist;
+        arms(-0.7, -1.6, -1.9, 0);
+        P.legL.rotation.x = 0.6; P.kneeL.rotation.x = 0.8; P.legR.rotation.x = 0.2;
+        p.y += Math.sin(Math.min(1, q) * Math.PI) * 0.55;
+        return { bend: 0.5 };
+      }
+      case 'parried': arms(0.35, 0.35); return { bend: 0.3 };
+      case 'clinchWind': case 'clinch':
+        arms(-1.9, -1.9, -1.1, -1.1);
+        if (o.state === 'clinch' && o.cl?.knee > 0 && Math.floor(o.t * 5) % 2) { P.legR.rotation.x = -0.9; P.kneeR.rotation.x = 1.3; } // lên gối
+        return { bend: 0.25 };
+      case 'roar': arms(-2.4, -2.4, -0.6, -0.6); return { bend: -0.35 };
+      case 'recover':
+        if (ac.slamT > 0) { ac.slamT -= dt; arms(-0.9, -0.9); return { bend: 0.45 }; } // vừa bổ xuống: cúi người, tay chạm đất
+        return null;
+      default: return null;
+    }
+  }
+  // Cảnh báo đòn của boss — 1 màu ĐỎ cho mọi đòn: lóe đỏ quanh người lúc lấy đà · vệt đỏ đường húc · vòng sóng dậm đất. clear: dọn hết
+  fightTele(F, clear = false) {
+    F.tele ||= new Map();
+    if (clear) {
+      for (const T of F.tele.values()) { T.aura.parent?.remove(T.aura); this.scene.remove(T.strip, T.ring); for (const m of [T.aura, T.strip, T.ring]) m.geometry.dispose(); }
+      F.tele.clear();
+      return;
+    }
+    for (const foe of F.foes) {
+      if (!foe.f.phases?.length) continue;
+      const ac = this.storyActors?.[foe.who];
+      if (!ac) continue;
+      let T = F.tele.get(foe.who);
+      if (!T) {
+        const mat = () => new THREE.MeshBasicMaterial({ color: 0xff2a1f, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+        const aura = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 2.3, 20, 1, true).translate(0, 1.15, 0), mat());
+        const strip = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2).translate(0, 0, 0.5), mat()); // dài 1 m về phía trước, kéo dài theo đường húc
+        const ring = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 48).rotateX(-Math.PI / 2), mat());
+        strip.renderOrder = ring.renderOrder = 6;
+        ac.mesh.add(aura);
+        this.scene.add(strip, ring);
+        T = { aura, strip, ring };
+        F.tele.set(foe.who, T);
+      }
+      const live = foe.state !== 'ko', pulse = Math.abs(Math.sin(F.t * 14)), y = (foe.baseY ?? ac.mesh.position.y) + 0.06;
+      T.aura.material.opacity = live && foe.tele ? 0.16 + 0.22 * pulse : 0;
+      T.strip.visible = live && foe.state === 'chargeWind';
+      if (T.strip.visible) {
+        T.strip.position.set(foe.x, y, foe.z);
+        T.strip.rotation.y = foe.heading;
+        T.strip.scale.set(1.1, 1, foe.f.charge?.dist ?? 14);
+        T.strip.material.opacity = 0.22 + 0.3 * pulse;
+      }
+      const S = skillOf(foe.f, 'stomp');
+      T.ring.visible = live && (foe.state === 'stomp' || foe.state === 'wave');
+      if (T.ring.visible) {
+        const q = foe.state === 'wave' ? Math.min(1, foe.t / S.wave) : 0, R = 0.7 + (S.r - 0.7) * q;
+        T.ring.position.set(foe.x, y, foe.z);
+        T.ring.scale.set(R, 1, R);
+        T.ring.material.opacity = foe.state === 'stomp' ? 0.35 + 0.35 * pulse : 0.9 - 0.5 * q;
+      }
+    }
+  }
+  // Đàn em đứng xem (chờ vào trận): quay mặt về phía người chơi, giơ tay hò hét
+  fightWatch(ac) {
+    const m = ac.mesh, P = m.userData.parts, fp = this.fp;
+    m.rotation.y = Math.atan2(fp.x - m.position.x, fp.z - m.position.z);
+    if (!P) return;
+    animatePerson(m, 0, 0);
+    const t = this.fight.t * 5 + m.position.x;
+    P.armR.rotation.set(Math.sin(t) > 0.2 ? -2.6 : -0.4, 0, P.armZ ?? 0);
+    P.elbowR.rotation.x = -0.5;
+  }
+  // đàn em bỏ chạy hẳn (khỏi đếm trong trận)
+  fightGone(f) {
+    f.state = 'ko';
+    f.gone = true;
+    const ac = this.storyActors?.[f.who];
+    if (ac) ac.mesh.visible = false;
   }
   // đẩy các người ra cho khỏi chồng lên nhau (địch – địch – anh Đạt – người chơi)
   fightSeparate() {
@@ -493,24 +623,54 @@ export class FightPart {
     } else if (e.type === 'strike') {
       const ac = this.storyActors?.[e.foe?.who];
       if (ac && e.move) ac.hit = { move: e.move, t: 0 }; // dáng ra đòn (fightPlace)
+      if (ac && e.move === 'slam') ac.slamT = 0.45;
       if (!e.hit) return sound('fight.swing');
       if (e.who === 'ally' && F.ally) {
         F.ally.hp = Math.max(0, F.ally.hp - e.dmg * ALLY.takeMul);
         sound('fight.hit');
         return;
       }
-      const r = hitPlayer(fp, e.dmg, { breakGuard: e.breakGuard });
+      const r = hitPlayer(fp, e.dmg, { breakGuard: e.breakGuard, unblockable: e.unblockable });
       const fo = e.foe, s = this.fightSide(fo);
       if (r.dodged) { this.fightFloat(fmt('story.fight.dodge'), null, 'block'); return; }
       if (r.blocked) { this.fightFloat(fmt('story.fight.blocked'), null, 'block'); sound('fight.block'); }
       else { fp.hurtT = 0.35; sound('fight.hurt'); }
       if (r.dmg > 0) this.fightHud.flash(s);
-      if (e.knock) { // Tí Đô húc trúng: văng ra sau
-        const k = e.knock, hx = Math.sin(fo.heading), hz = Math.cos(fo.heading);
-        this.walker.pos.x += hx * k; this.walker.pos.z += hz * k;
-        resolveCircle(this.walker.pos, 0.35, this.city.grid, this.walker.mesh.position.y);
+      if (e.knock) { // Tí Đô húc / đạp / dậm đất trúng: văng ra (dậm đất: văng ra xa khỏi nó) — đi từng đoạn ngắn để không xuyên tường
+        const k = e.knock, W = this.walker.pos;
+        let hx = e.from ? W.x - e.from.x : Math.sin(fo.heading), hz = e.from ? W.z - e.from.z : Math.cos(fo.heading), moved = 0;
+        const l = Math.hypot(hx, hz) || 1;
+        hx /= l; hz /= l;
+        for (let i = 0; i < 4; i++) {
+          const bx = W.x, bz = W.z;
+          W.x += (hx * k) / 4; W.z += (hz * k) / 4;
+          resolveCircle(W, 0.35, this.city.grid, this.walker.mesh.position.y);
+          moved += Math.hypot(W.x - bx, W.z - bz);
+        }
+        // bị đạp mà sau lưng là container / thành tàu: đập lưng, choáng (đứng yên) — vòng đòn kế là húc tới
+        if (e.wallStun && moved < k * 0.7) { fp.stunT = e.wallStun; fp.lock = { x: W.x, z: W.z }; this.fightFloat(fmt('story.fight.wall'), null, 'big'); sound('fight.ko'); }
       }
     } else if (e.type === 'charge') sound('fight.charge');
+    else if (e.type === 'phase') { // boss sang giai đoạn mới: gầm lên, chậm cảnh, nói 1 câu
+      const PH = phaseOf(e.foe);
+      F.bossCp = e.n; // thua từ đây: chơi lại từ đầu giai đoạn này
+      F.slow = 0.7;
+      this.hud.toast(`${fmt(e.foe.f.name)} — ${fmt(PH.name)}`, 'warn', 3500);
+      if (PH.say) this.storyBubble(e.foe.who, PH.say);
+      this.fightFloat('‼', e.foe, 'big');
+      sound('fight.roar');
+      if (e.n === 1) for (const f of F.foes) if (f.state === 'wait' && f.join === 'rage') this.fightJoin(f); // giai đoạn 2: đàn em xông vào
+      if (PH.flee) for (const f of F.foes) if (f !== e.foe && !f.f.boss && f.state !== 'ko') { // giai đoạn có "đàn em bỏ chạy": đánh tay đôi
+        if (f.state === 'wait') this.fightGone(f);
+        else { f.state = 'flee'; f.t = 0; f.engagedBy = null; }
+      }
+    } else if (e.type === 'stomp') sound('fight.stomp');
+    else if (e.type === 'leap') sound('fight.swing');
+    else if (e.type === 'parried') { this.fightFloat(fmt('story.fight.parry'), e.foe, 'big'); sound('fight.parry'); }
+    else if (e.type === 'clinch') {
+      if (e.on) { fp.held = e.foe; fp.lock = { x: fp.x, z: fp.z }; this.hud.toast(fmt('story.fight.clinch'), 'warn', 2500); sound('fight.hurt'); }
+      else { fp.held = null; if (e.free) { this.fightFloat(fmt('story.fight.free'), null, 'big'); sound('fight.block'); } }
+    }
     else if (e.type === 'dazed') { this.fightFloat(fmt('story.fight.dazed'), e.foe, 'big'); sound('fight.ko'); }
     else if (e.type === 'rage') {
       this.hud.toast(fmt('story.fight.rage'), 'warn', 3500);
@@ -634,7 +794,10 @@ export class FightPart {
     d.left = F.foes.filter((f) => f.state !== 'ko').length;
     // tên đang nhắm: gần tâm ngắm nhất trong 8 m
     const near = meleeTargets(fp, F.foes, 8, 0.45)[0];
-    if (near) d.target = { name: fmt(near.f.name || 'story.foe.thug'), hp: near.hp, max: near.max };
+    // boss nhiều giai đoạn: thanh máu riêng ở trên cùng, chia vạch theo mốc giai đoạn
+    const boss = F.foes.find((f) => f.f.phases?.length && f.state !== 'wait');
+    if (boss) d.boss = { name: fmt(boss.f.name || 'story.foe.thug'), phase: fmt(phaseOf(boss)?.name || ''), n: boss.ph, hp: boss.hp, max: boss.max, marks: boss.f.phases.slice(1).map((p) => p.at) };
+    if (near && near !== boss) d.target = { name: fmt(near.f.name || 'story.foe.thug'), hp: near.hp, max: near.max };
     const W = innerWidth, H = innerHeight;
     const tag = (who, o, name, ally) => {
       const m = this.storyActors?.[who]?.mesh;
@@ -656,7 +819,8 @@ export class FightPart {
     sound('fight.ko');
     setTimeout(() => {
       if (this.fight !== F) return;
-      this.storyLoseShow({ failText: why === 'me' ? 'story.fight.lose' : 'story.fight.allyDown', failHint: why === 'me' ? 'story.fight.loseHint' : 'story.fight.allyHint' });
+      const boss = F.foes.some((f) => f.f.phases?.length); // trận boss nhiều giai đoạn: nhắc cách đọc dáng đòn + chơi lại từ giai đoạn đang dở
+      this.storyLoseShow({ failText: why === 'me' ? 'story.fight.lose' : 'story.fight.allyDown', failHint: why === 'me' ? (boss ? 'story.fight.loseBoss' : 'story.fight.loseHint') : 'story.fight.allyHint' });
     }, 900);
   }
   // Màn lẻn: bị phát hiện → tên đó la lên, màn đen ngắn rồi làm lại từ đầu màn (không có màn thua)

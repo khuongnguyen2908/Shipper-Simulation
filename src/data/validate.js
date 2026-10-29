@@ -23,7 +23,7 @@ const ROAD_TIER_IDS = ['big', 'normal', 'small']; // cấp đường (giống TI
 import { isPlaced } from './places.js';
 import { lightable } from '../sim/lights.js';
 import { ZONE_LIST, ZONE_POINTS } from '../sim/zones.js';
-import { MOVES as FIGHT_MOVES } from '../sim/fight.js';
+import { MOVES as FIGHT_MOVES, BOSS_STEPS, SKILL_DEFAULT } from '../sim/fight.js';
 
 const MAX_OPEN_DAY = 60;
 // "Mở từ ngày" / "Có đơn từ ngày": số nguyên 1–60, bỏ trống = ngày 1
@@ -946,6 +946,26 @@ export function validateStory(story, { places = null, goods = null, content = nu
     for (const k of ['dmg', 'windup', 'cd', 'speed', 'reach', 'combo', 'recover']) if (!nonNeg(f[k])) add('error', ref, k, `Kiểu địch: ${k} phải là số ≥ 0.`);
     if (f.rage != null && !(num(f.rage) && f.rage >= 0 && f.rage < 1)) add('error', ref, 'rage', 'Nổi điên khi còn: phần máu 0–1 (vd 0,5).');
     if (f.moves != null && !(Array.isArray(f.moves) && f.moves.length && f.moves.every((m) => FIGHT_MOVES.includes(m)))) add('error', ref, 'moves', `Đòn đánh: danh sách gồm ${FIGHT_MOVES.join(', ')}.`);
+    // boss nhiều giai đoạn: mốc máu giảm dần (giai đoạn 1 = 1), mỗi giai đoạn 1 vòng đòn cố định
+    if (f.phases != null) {
+      if (!Array.isArray(f.phases) || !f.phases.length) add('error', ref, 'phases', 'Giai đoạn: danh sách ít nhất 1 giai đoạn.');
+      else f.phases.forEach((p, i) => {
+        const n = `Giai đoạn ${i + 1}`;
+        if (i === 0 && p.at !== 1) add('error', ref, 'phases', `${n}: phải bắt đầu từ đầy máu (1).`);
+        if (i > 0 && !(num(p.at) && p.at > 0 && p.at < f.phases[i - 1].at)) add('error', ref, 'phases', `${n}: "từ máu" phải nhỏ hơn giai đoạn trước và > 0 (vd 0,65 rồi 0,3).`);
+        text(ref, 'phases', p.name, `tên ${n.toLowerCase()}`);
+        if (p.say) text(ref, 'phases', p.say, `câu nói lúc vào ${n.toLowerCase()}`);
+        if (!(Array.isArray(p.loop) && p.loop.length && p.loop.every((x) => BOSS_STEPS.includes(x)))) add('error', ref, 'phases', `${n}: vòng đòn gồm ${BOSS_STEPS.join(', ')}.`);
+        for (const k of ['guard', 'throw', 'clinch', 'flee']) if (p[k] != null && typeof p[k] !== 'boolean') add('error', ref, 'phases', `${n}: "${k}" phải là true / false.`);
+        if ((p.loop || []).some((x) => x === 'charge' || x === 'charge2') && !f.charge) add('error', ref, 'phases', `${n}: vòng đòn có húc mà kiểu địch chưa bật "Lao húc".`);
+        if (p.throw && !f.throw) add('error', ref, 'phases', `${n}: bật ném gạch mà chưa có số gạch ném (throw).`);
+      });
+    }
+    for (const [k, v] of Object.entries(f.skills || {})) {
+      if (!SKILL_DEFAULT[k]) { add('error', ref, 'skills', `Đòn lạ "${k}".`); continue; }
+      for (const [kk, x] of Object.entries(v || {})) if (!(kk in SKILL_DEFAULT[k]) || !(num(x) && x >= 0)) add('error', ref, 'skills', `Đòn ${k}: ô "${kk}" lạ / phải là số ≥ 0.`);
+    }
+    if (f.skills?.superman?.parry != null && f.skills.superman.parry < 0.15) add('warn', ref, 'skills', 'Đỡ đúng lúc dưới 0,15 giây: rất khó, người chơi dễ nản.');
   }
   for (const [id, t] of Object.entries(fights)) {
     const ref = `fight:${id}`;
@@ -974,7 +994,9 @@ export function validateStory(story, { places = null, goods = null, content = nu
       if (f.look && !STORY_ACTOR_LOOKS.includes(f.look)) add('error', ref, 'foes', `Trận: dáng lạ "${f.look}".`);
       if (!xy(f.at)) add('error', ref, 'foes', `Trận: chỗ đứng của "${f.who}" phải là [x, z].`);
       if (f.join != null && f.join !== 'rage' && !(num(f.join) && f.join >= 0)) add('error', ref, 'foes', `Trận: "${f.who}" vào trận sau … giây (số ≥ 0) hoặc khi boss nổi điên.`);
-      if (f.join === 'rage' && !(t.foes || []).some((x) => foes[x.foe]?.rage)) add('warn', ref, 'foes', `Trận: "${f.who}" chờ boss nổi điên mà trận không có boss nào nổi điên → không bao giờ vào.`);
+      if (f.join === 'rage' && !(t.foes || []).some((x) => foes[x.foe]?.rage || foes[x.foe]?.phases?.length > 1)) add('warn', ref, 'foes', `Trận: "${f.who}" chờ boss nổi điên / sang giai đoạn 2 mà trận không có boss nào như vậy → không bao giờ vào.`);
+      if (f.watch != null && typeof f.watch !== 'boolean') add('error', ref, 'foes', `Trận: "${f.who}" đứng xem phải là true / false.`);
+      if (f.watch && f.join == null) add('warn', ref, 'foes', `Trận: "${f.who}" đứng xem nhưng có mặt từ đầu (đánh luôn) → bỏ "đứng xem" hoặc chọn lúc vào trận.`);
       const pt = (q) => Array.isArray(q) && q.length >= 2 && q.length <= 4 && xy(q.slice(0, 2)) && (q[2] == null || (num(q[2]) && q[2] >= 0 && q[2] <= 30)) && (q[3] == null || (num(q[3]) && Math.abs(q[3]) <= 360));
       if (f.patrol != null && !(Array.isArray(f.patrol) && f.patrol.length >= 2 && f.patrol.every(pt))) add('error', ref, 'foes', `Trận: đường đi tuần của "${f.who}" cần ≥ 2 điểm [x, z, (dừng 0–30 giây), (hướng nhìn lúc dừng, độ)].`);
       if (f.sweep != null && !(num(f.sweep) && f.sweep >= 0 && f.sweep <= 90)) add('error', ref, 'foes', `Trận: "${f.who}" quét đèn 0–90 độ.`);

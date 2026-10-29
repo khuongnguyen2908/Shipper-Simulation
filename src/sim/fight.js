@@ -37,7 +37,9 @@ export function makeFoe(def, pos, data = storyData, idx = 0) {
   const f = foeOf(def.foe || 'thug', data);
   // patrol: [[x, z, dừng (giây), hướng nhìn lúc dừng (độ)], …] · sweep: quét đèn qua lại ±… độ (chu kỳ sweepT giây) lúc đứng gác / dừng ở điểm tuần
   return { who: def.who, kind: f.kind, f, x: pos.x, z: pos.z, heading: pos.heading ?? 0, hp: f.hp, max: f.hp, state: def.join != null ? 'wait' : def.patrol?.length ? 'patrol' : 'idle', t: 0, cd: 0.5 + (idx % 3) * 0.35, alert: !def.patrol?.length && !def.sneak, join: def.join ?? null, patrol: def.patrol || null, pi: 0, target: null, engagedBy: null, combo: 0, chargeCd: 2, rage: false, throwT: 0, stun: 0, trap: 0,
-    sweep: def.sweep ? (def.sweep * Math.PI) / 180 : 0, sweepT: def.sweepT || 6, base: pos.heading ?? 0, st: (idx * 1.7) % 6, sight: def.sight ?? null };
+    sweep: def.sweep ? (def.sweep * Math.PI) / 180 : 0, sweepT: def.sweepT || 6, base: pos.heading ?? 0, st: (idx * 1.7) % 6, sight: def.sight ?? null,
+    watch: !!def.watch, // chờ vào trận mà vẫn đứng xem (hò hét) — không ẩn
+    ph: 0, li: 0, recT: 0, spam: 0, spamT: 0, farT: 0, cl: null, second: false }; // boss nhiều giai đoạn: giai đoạn · bước trong vòng đòn · …
 }
 
 // Lệch nhịp (dữ liệu "phase" giây): người đi tuần coi như đã đi trước … giây lúc trận bắt đầu (màn lẻn: các nhịp tuần chồng lên nhau, không có khe đi thẳng)
@@ -63,22 +65,30 @@ export function meleeTargets(att, foes, reach, arc = 0.62) {
 // Đòn trúng địch. by: 'player' | 'ally' · wpn: vũ khí · att: chỗ người đánh. Trả { dmg, blocked, ko }
 export function hitFoe(foe, wpn, att, by = 'player') {
   if (foe.state === 'ko') return { dmg: 0, blocked: false, ko: false };
+  const PH = phaseOf(foe);
+  if (PH && foe.state === 'roar') return { dmg: 0, blocked: false, ko: false }; // đang gầm đổi giai đoạn: không trúng
   const back = behind(foe, att);
   // boss tự đỡ: đánh trước mặt lúc nó không sơ hở (đang vung / vừa vung hụt / choáng / bị trùm phao) → đỡ hết
-  const open = foe.state === 'windup' || foe.state === 'recover' || foe.state === 'dazed' || foe.stun > 0 || foe.trap > 0;
-  if (foe.f.guard && !back && !open && by === 'player') {
-    if (wpn.stun > 0) { foe.stun = wpn.stun; foe.state = 'recover'; foe.t = 0; } // chảo / gạch phá thế đỡ
+  // (boss nhiều giai đoạn: đỡ hay không theo từng giai đoạn; chỉ đỡ lúc đang đi / thủ — đang ra đòn, khựng là sơ hở)
+  const open = PH ? bossOpen(foe) : foe.state === 'windup' || foe.state === 'recover' || foe.state === 'dazed' || foe.stun > 0 || foe.trap > 0;
+  if ((PH ? PH.guard : foe.f.guard) && !back && !open && by === 'player') {
+    if (PH) { foe.spam += 1; foe.spamT = 0; } // đấm liền vào thế đỡ (giai đoạn có "ôm cổ": đủ số cú thì bị ôm)
+    if (wpn.stun > 0) { foe.stun = wpn.stun; foe.state = 'recover'; foe.t = 0; foe.recT = wpn.stun; } // chảo / gạch phá thế đỡ
     return { dmg: 0, blocked: true, ko: false };
   }
   let dmg = by === 'ally' ? ALLY.dmg * (foe.f.boss ? ALLY.bossMul : 1) : wpn.dmg;
   if (by === 'player' && (back || foe.engagedBy === 'ally')) dmg *= PLAYER.backMul; // đánh lén sau lưng / lúc nó đang đánh anh Đạt
   if (foe.state === 'dazed') dmg *= 1.5;
+  if (foe.state === 'parried') dmg *= 2; // vừa bị gạt superman: loạng choạng
   if (foe.trap > 0) dmg *= 1.5;
-  dmg = Math.round(dmg);
-  foe.hp = Math.max(0, foe.hp - dmg);
+  const before = foe.hp;
+  foe.hp = Math.max(0, foe.hp - Math.round(dmg));
+  if (PH) { const a = nextAt(foe); if (a != null) foe.hp = Math.max(foe.hp, a); } // dừng ở mốc giai đoạn sau — không đánh vọt qua giai đoạn
+  dmg = before - foe.hp;
   foe.alert = true;
   if (wpn.stun > 0 && by === 'player') foe.stun = Math.max(foe.stun, wpn.stun);
   if (foe.hp <= 0) { foe.state = 'ko'; foe.t = 0; return { dmg, blocked: false, ko: true }; }
+  if (PH) return { dmg, blocked: false, ko: false }; // boss nhiều giai đoạn không khựng khi trúng đòn: vòng đòn chạy đúng nhịp
   // khựng lại (không khựng khi boss đang lao tới)
   if (foe.state !== 'charge') { foe.state = 'stagger'; foe.t = 0; }
   return { dmg, blocked: false, ko: false };
@@ -112,10 +122,17 @@ export function hitPlayer(pl, dmg, opts = {}) {
 // Mỗi khung hình: AI 1 tên địch. ctx: { player, ally, dt, blocked(x,z) → đụng vật cản lúc lao, rage(foe) }
 // Trả danh sách việc cho game làm: { type: 'move', … } không có — địch tự đổi x, z; các sự kiện: strike / charge / throw / alert / rage / dazed
 export function foeTick(foe, ctx) {
+  if (foe.f.phases?.length && foe.state !== 'wait') return bossTick(foe, ctx);
   const { player: P, ally: A, dt } = ctx, ev = [];
   foe.moving = false;
   if (foe.state === 'ko' || foe.state === 'wait') return ev;
   foe.t += dt;
+  if (foe.state === 'flee') { // đàn em bỏ chạy (boss vào giai đoạn cuối, đánh tay đôi): chạy ra xa người chơi rồi biến mất
+    const a = headingTo(P, foe);
+    step(foe, foe.x + Math.sin(a) * 5, foe.z + Math.cos(a) * 5, foe.f.speed, dt);
+    if (foe.t > 3) { foe.state = 'ko'; foe.gone = true; }
+    return ev;
+  }
   foe.cd = Math.max(0, foe.cd - dt);
   foe.chargeCd = Math.max(0, foe.chargeCd - dt);
   if (foe.stun > 0) foe.stun = Math.max(0, foe.stun - dt);
@@ -190,6 +207,204 @@ export function foeTick(foe, ctx) {
     turn(foe, want, dt, 5);
     if (foe.cd <= 0) { setState(foe, 'windup'); nextMove(foe, movesOf(foe.f)); }
     else foe.state = 'guard';
+  }
+  return ev;
+}
+
+// =============================================================
+// BOSS NHIỀU GIAI ĐOẠN (Tí Đô — dữ liệu foes.<id>.phases): mỗi giai đoạn 1 VÒNG ĐÒN CỐ ĐỊNH (loop), lặp đúng thứ tự, không bốc ngẫu nhiên
+// → chơi vài lần là thuộc. Cùng dữ liệu + cùng thao tác thì ra cùng kết quả (chơi nhiều người: máy chủ chạy y hệt để kiểm tra).
+// Đòn nào lấy đà cũng bật foe.tele → game vẽ lóe đỏ (1 màu cho mọi cảnh báo); đòn nào thì nhìn DÁNG.
+// Máu chạm mốc giai đoạn sau → dừng ở mốc (không đánh vọt qua), gầm lên (không trúng đòn) rồi chạy vòng đòn mới từ bước 1.
+// Đòn theo điều kiện (không nằm trong vòng): ném gạch (đứng xa quá lâu) · ôm cổ (đấm liền vào thế đỡ) — chỉ phạt lối chơi sai.
+// =============================================================
+export const BOSS_STEPS = ['combo', 'teep', 'charge', 'charge2', 'slam', 'stompSuper', 'stompFeint'];
+// số mặc định từng đòn (dữ liệu foes.<id>.skills.<đòn> ghi đè; húc dùng foes.<id>.charge, ném gạch dùng foes.<id>.throw)
+export const SKILL_DEFAULT = {
+  combo: { wind: 0.8, hits: 2, rec: 1.5 }, // lấy đà → đấm liền "hits" cú (dáng theo moves) → khựng rec giây
+  teep: { wind: 0.6, range: 2, dmg: 8, push: 2, wallStun: 1, miss: 1 }, // đạp đẩy: chỉ khi đứng gần ≤ range m · đập lưng vật cản: choáng wallStun · né: nó khựng miss
+  charge2: { wind: 0.6 }, // húc lần 2 (ngay sau lần 1): lấy đà ngắn hơn
+  slam: { wind: 0.8, dmg: 30, reach: 2.2, rec: 1.2 }, // bổ 2 tay qua đầu: không đỡ được, phải né
+  stomp: { wind: 0.6, r: 3, dmg: 12, push: 2.5, wave: 0.4 }, // dậm đất: vòng sóng loang ra r m trong wave giây, không đỡ được
+  superman: { wind: 0.6, dist: 6, speed: 14, dmg: 20, parry: 0.35, stagger: 1.5, land: 0.8, feint: 0.5 }, // bay đấm · đỡ đúng lúc (bấm đỡ ≤ parry giây trước khi trúng) → loạng choạng
+  clinch: { hits: 4, mash: 6, time: 2, dmg: 8, knees: 3, rec: 1.5 }, // đấm liền "hits" cú vào thế đỡ → ôm cổ · bấm "mash" lần trong "time" giây để thoát
+  throw: { far: 7, after: 2, dmg: 10 }, // đứng xa > far m quá after giây → ném gạch
+  roar: { t: 1.6 }, // gầm lúc đổi giai đoạn
+};
+export const skillOf = (f, id) => ({ ...SKILL_DEFAULT[id], ...(id === 'throw' ? f.throw : f.skills?.[id]) });
+export const phaseOf = (foe) => (foe.f.phases?.length ? foe.f.phases[foe.ph] || null : null);
+export const bossStep = (foe) => { const L = phaseOf(foe)?.loop || []; return L.length ? L[foe.li % L.length] : null; };
+// boss nhiều giai đoạn: chỉ đỡ được lúc đang đi / thủ; đang ra đòn, khựng, choáng = sơ hở
+export const bossOpen = (foe) => !['chase', 'guard', 'roar'].includes(foe.state) || foe.stun > 0 || foe.trap > 0;
+// máu ở mốc giai đoạn kế (null: đang giai đoạn cuối)
+const nextAt = (foe) => { const n = foe.f.phases?.[foe.ph + 1]; return n ? Math.ceil(foe.max * n.at) : null; };
+
+// Thua giữa trận → chơi lại từ giai đoạn n: máu ở đầu giai đoạn đó, vòng đòn từ bước 1
+export function bossPhaseSet(foe, n) {
+  foe.ph = Math.max(0, Math.min(n, foe.f.phases.length - 1));
+  foe.li = 0;
+  foe.hp = Math.min(foe.max, Math.ceil(foe.max * foe.f.phases[foe.ph].at));
+  setState(foe, 'chase');
+}
+// Đang bị ôm cổ: người chơi bấm 1 lần để giãy. Trả số lần đã bấm (null: không bị ôm / đã bắt đầu lên gối)
+export function bossMash(foe) {
+  if (foe.state !== 'clinch' || foe.cl.knee > 0) return null;
+  foe.cl.n += 1;
+  return foe.cl.n;
+}
+
+export function bossTick(foe, ctx) {
+  const { player: P, dt } = ctx, ev = [], f = foe.f, C = f.charge || {};
+  foe.moving = false;
+  foe.tele = false;
+  if (foe.state === 'ko') return ev;
+  foe.t += dt;
+  foe.alert = true;
+  if (foe.stun > 0) foe.stun = Math.max(0, foe.stun - dt);
+  if (foe.trap > 0) { foe.trap = Math.max(0, foe.trap - dt); return ev; }
+  if ((foe.spamT += dt) > 3) foe.spam = 0; // 3 giây không đấm vào thế đỡ: đếm lại
+  // chạm mốc → sang giai đoạn sau
+  const at = nextAt(foe);
+  if (at != null && foe.hp <= at && foe.state !== 'roar') {
+    if (foe.state === 'clinch') ev.push({ type: 'clinch', foe, on: false });
+    foe.ph += 1;
+    foe.li = 0;
+    foe.second = false;
+    foe.spam = 0;
+    setState(foe, 'roar');
+    ev.push({ type: 'phase', foe, n: foe.ph });
+    return ev;
+  }
+  if (foe.stun > 0 && foe.state !== 'dazed') return ev; // chảo / gạch: khựng
+  const ph = phaseOf(foe), d = dist(foe, P), want = headingTo(foe, P);
+  // xong 1 bước của vòng đòn: khựng rec giây (đây là cửa đánh) rồi sang bước kế
+  const done = (rec, s = 'recover') => { setState(foe, s); foe.recT = rec; foe.li += 1; foe.second = false; };
+  const strike = (o) => ev.push({ type: 'strike', foe, who: 'player', hit: true, ...o });
+  switch (foe.state) {
+    case 'roar': if (foe.t >= skillOf(f, 'roar').t) setState(foe, 'chase'); return ev;
+    case 'recover': case 'dazed': case 'parried': if (foe.t >= (foe.recT ?? 1)) setState(foe, 'chase'); return ev;
+    case 'windup': { // combo: đấm liền hits cú
+      const S = skillOf(f, 'combo');
+      turn(foe, want, dt, 4);
+      if (foe.t >= S.wind) {
+        strike({ hit: d <= f.reach + 0.35 && angDiff(foe.heading, want) < 0.9, dmg: f.dmg, move: foe.move });
+        if ((foe.combo += 1) < S.hits) { foe.t = S.wind - 0.32; nextMove(foe, movesOf(f)); } // cú kế ngay sau
+        else { foe.combo = 0; done(S.rec); }
+      }
+      return ev;
+    }
+    case 'teep': { // nhấc gối lấy đà → đạp thẳng bụng
+      const S = skillOf(f, 'teep');
+      if (foe.t < S.wind) { foe.tele = true; turn(foe, want, dt, 6); return ev; }
+      if (!foe.kicked) {
+        foe.kicked = true;
+        foe.missed = !(d <= S.range + 0.6 && angDiff(foe.heading, want) < 0.9 && !(P.dodgeT > 0));
+        if (!foe.missed) strike({ dmg: S.dmg, move: 'teep', knock: S.push, wallStun: S.wallStun });
+      }
+      if (foe.t >= S.wind + 0.3) { const miss = foe.missed; foe.kicked = foe.missed = false; done(miss ? S.miss : 0.4); }
+      return ev;
+    }
+    case 'chargeWind': // dậm chân lấy đà (game vẽ vệt đỏ đường húc)
+      foe.tele = true;
+      turn(foe, want, dt, 6);
+      if (foe.t >= (foe.second ? skillOf(f, 'charge2').wind : C.wind ?? 1)) { setState(foe, 'charge'); foe.chargeLeft = C.dist ?? 14; foe.hitThisCharge = false; ev.push({ type: 'charge', foe }); }
+      return ev;
+    case 'charge': {
+      const sp = C.speed ?? 10, sx = Math.sin(foe.heading) * sp * dt, sz = Math.cos(foe.heading) * sp * dt;
+      foe.x += sx; foe.z += sz; foe.chargeLeft -= sp * dt; foe.moving = true;
+      if (dist(foe, P) < 1.1 && !foe.hitThisCharge) { foe.hitThisCharge = true; strike({ dmg: C.dmg ?? 25, breakGuard: true, knock: 3, move: 'charge' }); }
+      if (ctx.blocked?.(foe.x + sx * 2, foe.z + sz * 2)) { done(C.stun ?? 3, 'dazed'); ev.push({ type: 'dazed', foe }); } // đâm container: choáng
+      else if (foe.chargeLeft <= 0) {
+        if (bossStep(foe) === 'charge2' && !foe.second) { setState(foe, 'chargeWind'); foe.second = true; } // quay lại húc lần 2 ngay
+        else done(1.0);
+      }
+      return ev;
+    }
+    case 'slam': { // giơ 2 tay qua đầu → bổ xuống
+      const S = skillOf(f, 'slam');
+      if (foe.t < S.wind) { foe.tele = true; turn(foe, want, dt, 3); return ev; }
+      strike({ hit: d <= S.reach + 0.3 && angDiff(foe.heading, want) < 1.0, dmg: S.dmg, unblockable: true, move: 'slam' });
+      done(S.rec);
+      return ev;
+    }
+    case 'stomp': { // nhấc chân → dậm xuống: vòng sóng
+      if (foe.t < skillOf(f, 'stomp').wind) { foe.tele = true; turn(foe, want, dt, 4); return ev; }
+      setState(foe, 'wave');
+      foe.waveHit = false;
+      ev.push({ type: 'stomp', foe, r: skillOf(f, 'stomp').r });
+      return ev;
+    }
+    case 'wave': { // sóng loang dần ra: tới chỗ mình đứng (trong vòng) mới trúng
+      const S = skillOf(f, 'stomp'), R = S.r * Math.min(1, foe.t / S.wave);
+      if (!foe.waveHit && d < S.r && d <= R + 0.3) { foe.waveHit = true; if (!(P.dodgeT > 0)) strike({ dmg: S.dmg, unblockable: true, knock: S.push, from: { x: foe.x, z: foe.z }, move: 'stomp' }); }
+      if (foe.t >= S.wave) setState(foe, 'superWind');
+      return ev;
+    }
+    case 'superWind': { // nhún lùi kéo tay ra sau (bước "Nhử": lấy đà xong khựng thêm feint giây rồi mới bay)
+      const S = skillOf(f, 'superman'), feint = bossStep(foe) === 'stompFeint';
+      foe.tele = foe.t < S.wind;
+      foe.feint = feint && foe.t >= S.wind;
+      turn(foe, want, dt, 7);
+      if (foe.t >= S.wind + (feint ? S.feint : 0)) { setState(foe, 'fly'); foe.flyLeft = S.dist; foe.hitThisCharge = false; foe.feint = false; ev.push({ type: 'leap', foe }); }
+      return ev;
+    }
+    case 'fly': { // bay tới đấm thẳng
+      const S = skillOf(f, 'superman'), sx = Math.sin(foe.heading) * S.speed * dt, sz = Math.cos(foe.heading) * S.speed * dt;
+      foe.moving = true;
+      if (dist(foe, P) < 1.2) {
+        // đỡ đúng lúc (mới bấm đỡ ≤ parry giây) → gạt được, nó loạng choạng · đỡ sớm: đỡ được nhưng mất hết nấc đỡ · né: trượt
+        if (P.blocking && P.pips > 0 && (P.blockT ?? 99) <= S.parry && !(P.dodgeT > 0)) { done(S.stagger, 'parried'); ev.push({ type: 'parried', foe }); }
+        else { strike({ dmg: S.dmg, breakGuard: true, move: 'superman' }); done(S.land); }
+        return ev;
+      }
+      if (ctx.blocked?.(foe.x + sx * 2, foe.z + sz * 2) || (foe.flyLeft -= S.speed * dt) <= 0) { done(S.land); return ev; }
+      foe.x += sx; foe.z += sz;
+      return ev;
+    }
+    case 'clinchWind': // lóe đỏ → chụp cổ
+      foe.tele = true;
+      turn(foe, want, dt, 8);
+      if (foe.t >= 0.3) {
+        if (d < 1.8) { setState(foe, 'clinch'); foe.cl = { n: 0, knee: 0 }; ev.push({ type: 'clinch', foe, on: true }); }
+        else { setState(foe, 'recover'); foe.recT = 0.6; }
+      }
+      return ev;
+    case 'clinch': { // ôm cổ: bấm đủ số lần thì thoát (nó khựng) · hết giờ: lên gối từng cú rồi buông
+      const S = skillOf(f, 'clinch'), cl = foe.cl;
+      if (cl.n >= S.mash) { ev.push({ type: 'clinch', foe, on: false, free: true }); setState(foe, 'recover'); foe.recT = S.rec; return ev; }
+      if (foe.t >= S.time + 0.4 * S.knees) { ev.push({ type: 'clinch', foe, on: false }); setState(foe, 'recover'); foe.recT = 1; }
+      else if (foe.t >= S.time + 0.4 * cl.knee) { cl.knee += 1; strike({ dmg: S.dmg, unblockable: true, move: 'knee' }); }
+      return ev;
+    }
+    case 'throwWind': // vác gạch
+      foe.tele = true;
+      turn(foe, want, dt, 6);
+      if (foe.t >= 0.7) { ev.push({ type: 'throw', foe, to: { x: P.x, z: P.z }, dmg: skillOf(f, 'throw').dmg }); setState(foe, 'chase'); }
+      return ev;
+    default: break;
+  }
+  // ---- đòn theo điều kiện (giai đoạn có bật) ----
+  if (ph.throw) {
+    const S = skillOf(f, 'throw');
+    foe.farT = d > S.far ? foe.farT + dt : 0;
+    if (foe.farT >= S.after) { foe.farT = 0; setState(foe, 'throwWind'); return ev; }
+  }
+  if (ph.clinch && foe.spam >= skillOf(f, 'clinch').hits && d < 1.8) { foe.spam = 0; setState(foe, 'clinchWind'); return ev; }
+  // ---- bước kế trong vòng đòn ----
+  const near = (r) => { // tới gần trong r m (chưa tới: đuổi theo)
+    if (d <= r) { turn(foe, want, dt, 5); foe.state = 'guard'; return true; }
+    foe.state = 'chase';
+    const g = ctx.route ? ctx.route(foe, P) : P;
+    step(foe, g.x, g.z, f.speed, dt, g === P ? d - r * 0.8 : Infinity);
+    return false;
+  };
+  switch (bossStep(foe)) {
+    case 'combo': if (near(f.reach)) { setState(foe, 'windup'); foe.combo = 0; foe.n = -1; nextMove(foe, movesOf(f)); } break; // combo nào cũng bắt đầu từ đòn đầu danh sách
+    case 'teep': if (d > skillOf(f, 'teep').range + 0.3) foe.li += 1; else setState(foe, 'teep'); break; // đứng xa: bỏ qua bước này
+    case 'charge': case 'charge2': foe.second = false; setState(foe, 'chargeWind'); break;
+    case 'slam': if (near(skillOf(f, 'slam').reach - 0.4)) setState(foe, 'slam'); break;
+    case 'stompSuper': case 'stompFeint': if (near(2)) setState(foe, 'stomp'); break;
+    default: foe.li += 1;
   }
   return ev;
 }

@@ -17,6 +17,7 @@ export class FightHud {
         <div class="fh-row"><label>${fmt('hud.fight.me')}</label><div class="fh-track"><div class="fh-fill me"></div></div><span class="fh-num me"></span></div>
         <div class="fh-row ally"><label class="aname"></label><div class="fh-track"><div class="fh-fill ally"></div></div><span class="fh-num ally"></span></div>
       </div>
+      <div class="fh-boss fh-panel"><div class="bh"><span class="bname"></span><span class="bph"></span></div><div class="fh-track"><div class="fh-fill"></div></div></div>
       <div class="fh-target fh-panel"><span class="tname"></span><div class="fh-track"><div class="fh-fill foe"></div></div></div>
       <div class="fh-goal fh-panel"><div class="gtext"></div><b class="gleft"></b></div>
       <svg class="fh-xh" width="120" height="120" viewBox="0 0 120 120">
@@ -33,6 +34,7 @@ export class FightHud {
     root.append(this.el);
     const q = (s) => this.el.querySelector(s);
     this.$ = { meFill: q('.fh-fill.me'), meNum: q('.fh-num.me'), allyRow: q('.fh-row.ally'), allyName: q('.aname'), allyFill: q('.fh-fill.ally'), allyNum: q('.fh-num.ally'),
+      boss: q('.fh-boss'), bname: q('.bname'), bph: q('.bph'), btrack: q('.fh-boss .fh-track'), bfill: q('.fh-boss .fh-fill'),
       target: q('.fh-target'), tname: q('.tname'), tfill: q('.fh-fill.foe'), goal: q('.fh-goal'), gtext: q('.gtext'), gleft: q('.gleft'), xh: q('.fh-xh'), cd: q('.cdring'), pips: q('.pips'),
       wpn: q('.fh-wpn'), wname: q('.wname'), wpips: q('.wpips'), keys: q('.fh-keys'), tags: q('.fh-tags'), floats: q('.fh-floats'), edges: Object.fromEntries(['l', 'r', 't', 'b'].map((s) => [s, q(`.fh-edge.${s}`)])) };
     this.tagEls = new Map();
@@ -44,7 +46,7 @@ export class FightHud {
     this.on = mode !== 'off';
     if (!this.on) { for (const e of this.tagEls.values()) e.remove(); this.tagEls.clear(); }
   }
-  // d: { me: {hp, max}, ally: {name, hp, max} | null, target: {name, hp, max} | null, goal, left, cd (0..1, 1 = vung được), pips: {n, max},
+  // d: { me: {hp, max}, ally: {name, hp, max} | null, target: {name, hp, max} | null, boss: {name, phase, n, hp, max, marks: [0.65, 0.3]} | null, goal, left, cd (0..1, 1 = vung được), pips: {n, max},
   //      blocking, weapon: {icon, name, dur, max, throw}, tags: [{id, x, y, hp, max, name, lock, ally}] }
   update(d) {
     if (!this.on) return;
@@ -53,6 +55,21 @@ export class FightHud {
     $.meNum.textContent = `${Math.ceil(d.me.hp)}/${d.me.max}`;
     $.allyRow.style.display = d.ally ? '' : 'none';
     if (d.ally) { $.allyName.textContent = d.ally.name; $.allyFill.style.width = pct(d.ally.hp, d.ally.max); $.allyNum.textContent = `${Math.ceil(d.ally.hp)}/${d.ally.max}`; }
+    // boss nhiều giai đoạn: tên + giai đoạn đang đánh + máu, vạch trắng ở mốc đổi giai đoạn
+    $.boss.style.display = d.boss ? '' : 'none';
+    this.el.classList.toggle('has-boss', !!d.boss);
+    if (d.boss) {
+      $.bname.textContent = d.boss.name;
+      $.bph.textContent = d.boss.phase;
+      $.bph.className = `bph p${d.boss.n}`;
+      $.bfill.style.width = pct(d.boss.hp, d.boss.max);
+      const key = d.boss.marks.join(',');
+      if ($.btrack.dataset.marks !== key) {
+        $.btrack.dataset.marks = key;
+        $.btrack.querySelectorAll('.bmark').forEach((e) => e.remove());
+        for (const m of d.boss.marks) { const e = h('i', 'bmark'); e.style.left = `${m * 100}%`; $.btrack.append(e); }
+      }
+    }
     $.target.style.display = d.target ? '' : 'none';
     if (d.target) { $.tname.textContent = fmt('hud.fight.target', { name: d.target.name }); $.tfill.style.width = pct(d.target.hp, d.target.max); }
     $.goal.style.display = d.goal ? '' : 'none';

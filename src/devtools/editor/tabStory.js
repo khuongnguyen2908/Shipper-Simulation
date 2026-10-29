@@ -12,6 +12,7 @@ import { ID_RE } from '../../data/validate.js';
 import { ambushSolutions, roundDef, roundNb } from '../../sim/ambush.js';
 import { neighbors } from '../../sim/cityLayout.js';
 import { ZONES } from '../../sim/zones.js';
+import { BOSS_STEPS, SKILL_DEFAULT } from '../../sim/fight.js';
 import { KIND_DEFAULT } from '../../sim/race.js';
 import { el, field, textInput, numInput, button, sideList, selectInput, emojiInput, areaInput, checkInput, explain, subTabs } from './ui.js';
 
@@ -1138,6 +1139,50 @@ export function render(root, ctx) {
     }
     const wId = el('input', { placeholder: 'mã vũ khí mới (vd: ghe)' });
     wBox.append(el('div', { class: 'row' }, wId, button('＋ Thêm vũ khí', () => { const id = wId.value.trim(); if (!ID_RE.test(id) || data.weapons[id]) return ctx.notify('Mã chỉ gồm chữ không dấu, số, gạch dưới và chưa có.', 'warn'); data.weapons[id] = { icon: '🪵', name: newKey(`story.wpn.${id}`), dmg: 8, cd: 1.1, reach: 1.6, dur: 6 }; rerender(); }, 'small')));
+    // --- boss nhiều giai đoạn: mỗi giai đoạn 1 VÒNG ĐÒN CỐ ĐỊNH (lặp đúng thứ tự, không ngẫu nhiên → chơi vài lần là thuộc) ---
+    const STEP_NAMES = { combo: '👊 Combo đấm → khựng', teep: '🦵 Đạp đẩy (chỉ khi đứng gần)', charge: '🐂 Lao húc', charge2: '🐂🐂 Húc liền 2 lần', slam: '🔴 Đòn bổ 2 tay (không đỡ được)', stompSuper: '🌊 Dậm đất → 🦸 Superman', stompFeint: '🌊 Dậm đất → 🎭 Nhử → 🦸 Superman' };
+    const SKILL_NAMES = { combo: '👊 Combo', teep: '🦵 Đạp đẩy', charge2: '🐂🐂 Húc lần 2', slam: '🔴 Đòn bổ', stomp: '🌊 Dậm đất', superman: '🦸 Superman punch', clinch: '🤼 Ôm cổ + gối', throw: '🧱 Ném gạch', roar: '‼ Gầm đổi giai đoạn' };
+    const SKILL_FIELDS = { wind: 'Lấy đà (giây)', dmg: 'Mất máu', hits: 'Số cú', rec: 'Khựng sau đó (giây) = cửa đánh', range: 'Chỉ đạp khi gần ≤ (m)', push: 'Đẩy / hất văng (m)', wallStun: 'Đập lưng vật cản: mình choáng (giây)',
+      miss: 'Mình né được: nó khựng (giây)', reach: 'Tầm (m)', r: 'Vòng sóng rộng (m)', wave: 'Sóng loang trong (giây)', dist: 'Bay xa (m)', speed: 'Bay nhanh (m/giây)', parry: 'Cửa ĐỠ ĐÚNG LÚC (giây)', stagger: 'Bị gạt: loạng choạng (giây)',
+      land: 'Đáp đất: khựng (giây)', feint: 'Nhử: khựng thêm (giây)', mash: 'Bấm mấy lần để thoát', time: 'Trong (giây)', knees: 'Hết giờ: số cú gối', far: 'Đứng xa hơn (m)', after: 'Quá (giây) thì ném', t: 'Gầm bao lâu (giây)' };
+    const skillNum = (f, k, kk, ref) => { // ô số của 1 đòn: bằng số mặc định thì không ghi vào dữ liệu (chỉ ghi khi đổi — mở xem không làm bẩn dữ liệu)
+      const cur = k === 'throw' ? f.throw?.[kk] : f.skills?.[k]?.[kk];
+      return field(SKILL_FIELDS[kk] || kk, numInput(cur ?? SKILL_DEFAULT[k][kk], (v) => {
+        const src = k === 'throw' ? (f.throw ||= {}) : ((f.skills ||= {})[k] ||= {});
+        if (v === SKILL_DEFAULT[k][kk]) delete src[kk]; else src[kk] = v;
+        if (k !== 'throw' && !Object.keys(src).length) delete f.skills[k];
+        if (f.skills && !Object.keys(f.skills).length) delete f.skills;
+        changed();
+      }, { step: 0.05, min: 0 }), { ref, fieldKey: 'skills' });
+    };
+    const phaseBox = (id, f, ref) => {
+      if (!f.phases?.length) return el('div', { class: 'grid tight' }, field('', checkInput(false, () => { f.phases = [{ at: 1, name: newKey(`story.foe.${id}P1`), loop: ['combo'] }]; delete f.rage; rerender(); }, '🎚 Chia giai đoạn (mỗi giai đoạn 1 vòng đòn cố định)'), { ref, fieldKey: 'phases', hint: 'Như Tí Đô: máu chạm mốc → gầm lên, đổi sang vòng đòn mới. Đánh không vọt qua giai đoạn được; thua thì chơi lại từ đầu giai đoạn đang dở.' }));
+      const used = new Set(f.phases.flatMap((p) => p.loop || []).flatMap((x) => (x === 'stompSuper' || x === 'stompFeint' ? ['stomp', 'superman'] : [x])));
+      if (f.phases.some((p) => p.throw)) used.add('throw');
+      if (f.phases.some((p) => p.clinch)) used.add('clinch');
+      if (f.phases.length > 1) used.add('roar');
+      return el('div', {},
+        el('h4', {}, `🎚 Giai đoạn (${f.phases.length}) — vòng đòn lặp đúng thứ tự`),
+        ...f.phases.map((p, i) => el('div', { class: 'act-card' },
+          el('div', { class: 'act-head' }, el('b', {}, `Giai đoạn ${i + 1}: ${C[p.name] || ''}`), i === 0 ? null : button('🗑', () => { f.phases.splice(i, 1); rerender(); }, 'small danger')),
+          el('div', { class: 'grid tight' },
+            i === 0 ? field('Từ máu', el('span', { class: 'muted' }, 'đầy máu (1)'), { ref, fieldKey: 'phases' }) : num(p, 'at', 'Từ khi máu còn (phần, vd 0,65)', { step: 0.05, max: 1 }, ref, 'Máu chạm mốc này thì gầm lên, chậm cảnh rồi sang giai đoạn này.'),
+            textBox('Tên giai đoạn (hiện trên thanh máu)', p.name || (p.name = newKey(`story.foe.${id}P${i + 1}`)), 1, { ref, fieldKey: 'phases' }),
+            p.say ? textBox('Câu nói lúc vào giai đoạn (bong bóng)', p.say, 1, { ref, fieldKey: 'phases' }) : field('', button('＋ Câu nói lúc vào giai đoạn', () => { p.say = newKey(`story.foe.${id}Say${i + 1}`); rerender(); }, 'small'), { ref, fieldKey: 'phases' }),
+            field('', checkInput(!!p.guard, (v) => { if (v) p.guard = true; else delete p.guard; changed(); }, '🛡 Đỡ đòn trước mặt (đánh sau lưng / lúc nó ra đòn, khựng mới trúng)'), { ref, fieldKey: 'phases' }),
+            field('', checkInput(!!p.throw, (v) => { if (v) { p.throw = true; f.throw ||= { dmg: 10 }; } else delete p.throw; rerender(); }, '🧱 Đứng xa quá lâu → ném gạch'), { ref, fieldKey: 'phases' }),
+            field('', checkInput(!!p.clinch, (v) => { if (v) p.clinch = true; else delete p.clinch; rerender(); }, '🤼 Đấm liền vào thế đỡ → ôm cổ'), { ref, fieldKey: 'phases' }),
+            field('', checkInput(!!p.flee, (v) => { if (v) p.flee = true; else delete p.flee; changed(); }, '🏃 Đàn em bỏ chạy (đánh tay đôi)'), { ref, fieldKey: 'phases' }),
+            field('Vòng đòn (lặp lại)', el('div', {},
+              ...(p.loop ||= ['combo']).map((x, j) => el('div', { class: 'row' }, el('b', {}, `${j + 1}.`),
+                selectInput(x, BOSS_STEPS.map((k) => [k, STEP_NAMES[k] || k]), (v) => { p.loop[j] = v; rerender(); }),
+                p.loop.length > 1 ? button('✕', () => { p.loop.splice(j, 1); rerender(); }, 'small') : null)),
+              button('＋ Thêm bước', () => { p.loop.push(p.loop.at(-1)); rerender(); }, 'small')), { ref, fieldKey: 'phases', wide: true, hint: 'Mỗi bước xong là nó khựng (cửa đánh) rồi sang bước kế. Mọi đòn lấy đà đều lóe ĐỎ — người chơi nhìn dáng để biết né hay đỡ.' })))),
+        button('＋ Thêm giai đoạn', () => { const L = f.phases.at(-1); f.phases.push({ at: Math.round(L.at * 50) / 100, name: newKey(`story.foe.${id}P${f.phases.length + 1}`), guard: true, loop: ['combo'] }); rerender(); }, 'small'),
+        el('h4', {}, 'Số từng đòn (để như cũ = số mặc định)'),
+        ...Object.keys(SKILL_DEFAULT).filter((k) => used.has(k)).map((k) => el('div', { class: 'act-card' }, el('b', {}, SKILL_NAMES[k] || k),
+          el('div', { class: 'grid tight' }, ...Object.keys(SKILL_DEFAULT[k]).map((kk) => skillNum(f, k, kk, ref))))));
+    };
     // --- kiểu địch ---
     const fBox = el('div', {});
     for (const [id, f] of Object.entries(data.foes)) {
@@ -1148,13 +1193,14 @@ export function render(root, ctx) {
           num(f, 'hp', 'Máu', {}, ref), num(f, 'dmg', 'Mất máu / cú (đánh mình)', {}, ref), num(f, 'windup', 'Giơ tay bao lâu mới bổ (giây)', { step: 0.1 }, ref, 'Lúc nó giơ tay là lúc nên đỡ (chuột phải) / né.'),
           num(f, 'cd', 'Nghỉ giữa 2 lần đánh (giây)', { step: 0.1 }, ref), num(f, 'speed', 'Chạy nhanh (m/giây)', { step: 0.1 }, ref), num(f, 'reach', 'Tầm với (m)', { step: 0.1 }, ref),
           num(f, 'combo', 'Đánh liền mấy cú', {}, ref), num(f, 'recover', 'Sơ hở sau khi đánh (giây)', { step: 0.1 }, ref),
-          field('Đòn đánh (lần lượt)', textInput((f.moves || []).join(', '), (v) => { const L = v.split(/[s,]+/).filter(Boolean); if (L.length) f.moves = L; else delete f.moves; changed(); }, { placeholder: 'tự chọn' }), { ref, fieldKey: 'moves', hint: 'Chỉ khác dáng ra đòn (sát thương như nhau): jab = đấm thẳng tay trước · cross = đấm thẳng tay sau · hook = đấm móc ngang · upper = móc lên cằm · over = bổ từ trên xuống (cầm đồ) · side = quét ngang (cầm đồ). Bỏ trống: cầm đồ → over, side · tay không → jab, cross, hook.' }),
+          field('Đòn đánh (lần lượt)', textInput((f.moves || []).join(', '), (v) => { const L = v.split(/[\s,]+/).filter(Boolean); if (L.length) f.moves = L; else delete f.moves; changed(); }, { placeholder: 'tự chọn' }), { ref, fieldKey: 'moves', hint: 'Chỉ khác dáng ra đòn (sát thương như nhau): jab = đấm thẳng tay trước · cross = đấm thẳng tay sau · hook = đấm móc ngang · upper = móc lên cằm · over = bổ từ trên xuống (cầm đồ) · side = quét ngang (cầm đồ). Bỏ trống: cầm đồ → over, side · tay không → jab, cross, hook.' }),
           field('', checkInput(!!f.boss, (v) => { if (v) f.boss = true; else delete f.boss; rerender(); }, '👑 Boss (không đập lén được, anh Đạt đánh nhẹ)'), { ref, fieldKey: 'boss' }),
-          field('', checkInput(!!f.guard, (v) => { if (v) f.guard = true; else delete f.guard; changed(); }, '🛡 Tự đỡ đòn đánh trước mặt'), { ref, fieldKey: 'guard', hint: 'Chỉ trúng lúc nó đang giơ tay / vừa đánh xong / choáng / bị phao trùm, hoặc đánh sau lưng. Chảo, gạch phá thế đỡ.' }),
+          f.phases?.length ? null : field('', checkInput(!!f.guard, (v) => { if (v) f.guard = true; else delete f.guard; changed(); }, '🛡 Tự đỡ đòn đánh trước mặt'), { ref, fieldKey: 'guard', hint: 'Chỉ trúng lúc nó đang giơ tay / vừa đánh xong / choáng / bị phao trùm, hoặc đánh sau lưng. Chảo, gạch phá thế đỡ.' }),
           field('', checkInput(!!f.charge, (v) => { if (v) f.charge = { wind: 1, speed: 10, dmg: 25, stun: 3, dist: 14, cd: 5 }; else delete f.charge; rerender(); }, '🐂 Lao húc (như Tí Đô)'), { ref, fieldKey: 'charge' }),
           ...(f.charge ? [num(f.charge, 'wind', 'Húc: lấy đà (giây)', { step: 0.1 }, ref), num(f.charge, 'speed', 'Húc: tốc độ', { step: 0.5 }, ref), num(f.charge, 'dmg', 'Húc: mất máu', {}, ref), num(f.charge, 'stun', 'Đâm container: choáng (giây)', { step: 0.5 }, ref), num(f.charge, 'cd', 'Húc: nghỉ giữa 2 lần (giây)', { step: 0.5 }, ref)] : []),
-          num(f, 'rage', 'Nổi điên khi còn (phần máu, 0 = không)', { step: 0.1, max: 1 }, ref, 'Vd 0,5: còn nửa máu thì nổi điên — gọi đàn em (người trong trận có "vào khi boss nổi điên") + ném gạch.'),
-          ...(f.rage ? [num(f.throw ||= { every: 4, dmg: 10 }, 'every', 'Nổi điên: ném gạch mỗi (giây)', { step: 0.5 }, ref), num(f.throw, 'dmg', 'Gạch ném: mất máu', {}, ref)] : []))));
+          f.phases?.length ? null : num(f, 'rage', 'Nổi điên khi còn (phần máu, 0 = không)', { step: 0.1, max: 1 }, ref, 'Vd 0,5: còn nửa máu thì nổi điên — gọi đàn em (người trong trận có "vào khi boss nổi điên") + ném gạch.'),
+          ...(f.rage && !f.phases?.length ? [num(f.throw ||= { every: 4, dmg: 10 }, 'every', 'Nổi điên: ném gạch mỗi (giây)', { step: 0.5 }, ref), num(f.throw, 'dmg', 'Gạch ném: mất máu', {}, ref)] : [])),
+        phaseBox(id, f, ref)));
     }
     const fId = el('input', { placeholder: 'mã kiểu địch mới' });
     fBox.append(el('div', { class: 'row' }, fId, button('＋ Thêm kiểu địch', () => { const id = fId.value.trim(); if (!ID_RE.test(id) || data.foes[id]) return ctx.notify('Mã chỉ gồm chữ không dấu, số, gạch dưới và chưa có.', 'warn'); data.foes[id] = { name: newKey(`story.foe.${id}`), hp: 30, dmg: 8, windup: 0.6, cd: 1.4, speed: 3.6, reach: 1.6 }; rerender(); }, 'small')));
@@ -1171,8 +1217,9 @@ export function render(root, ctx) {
           field('Dáng', selectInput(f.look || 'jetjet', Object.entries(ACTOR_LOOKS), (v) => { f.look = v; changed(); }), { ref, fieldKey: 'foes' }),
           xz(f, 'at', 'Đứng ở [x, z]', ref),
           num(f, 'heading', 'Hướng mặt (độ)', { step: 45, min: -360, max: 360, def: 180, keep0: true }, ref),
-          field('Vào trận', selectInput(f.join == null ? '' : f.join === 'rage' ? 'rage' : 'sec', [['', 'Có mặt từ đầu'], ['sec', 'Chạy tới sau … giây'], ['rage', 'Khi boss nổi điên']], (v) => { if (!v) delete f.join; else f.join = v === 'rage' ? 'rage' : 6; rerender(); }), { ref, fieldKey: 'foes' }),
+          field('Vào trận', selectInput(f.join == null ? '' : f.join === 'rage' ? 'rage' : 'sec', [['', 'Có mặt từ đầu'], ['sec', 'Chạy tới sau … giây'], ['rage', 'Khi boss nổi điên / sang giai đoạn 2']], (v) => { if (!v) delete f.join; else f.join = v === 'rage' ? 'rage' : 6; rerender(); }), { ref, fieldKey: 'foes' }),
           typeof f.join === 'number' ? num(f, 'join', 'Sau (giây)', { step: 1 }, ref) : null,
+          f.join != null ? field('', checkInput(!!f.watch, (v) => { if (v) f.watch = true; else delete f.watch; changed(); }, '👀 Đứng xem, hò hét tới lúc vào trận'), { ref, fieldKey: 'foes', hint: 'Không bật: ẩn tới lúc chạy vào.' }) : null,
           field('', checkInput(!!f.sneak, (v) => { if (v) f.sneak = true; else delete f.sneak; changed(); }, '🤫 Chưa phát hiện (đập lén được)'), { ref, fieldKey: 'foes', hint: 'Đứng gác, chưa biết người chơi tới — lén ra sau lưng bấm E là gục.' }),
           num(f, 'sweep', 'Quét đèn ± (độ)', { step: 5, min: 0, max: 90 }, ref),
           num(f, 'sweepT', 'Chu kỳ quét (giây)', { step: 1, min: 2, max: 30 }, ref),

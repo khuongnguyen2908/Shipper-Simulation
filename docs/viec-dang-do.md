@@ -323,6 +323,18 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
     chỉ khối lớn đổ bóng, vùng sáng tính lại mỗi 5 khung (chỉ để nhìn): 852 → 168 lần vẽ, khung hình ~48 → ~23 ms (khung trình duyệt ẩn) ·
     vào màn đua không còn còi bán tải (raceTruckOn quiet).
   - Còn: cần chủ game chơi thật (độ khó đợt 3 lầu chỉ huy, góc máy cảnh phim Tí Đô).
+- **Đợt 11 — Tí Đô 3 giai đoạn (29/10, XONG, CHƯA commit)**. Phác họa duyệt: `sketches/chuong6/ti-do-phase.html`.
+  - Chủ game chốt: mỗi đòn 1 **vòng cố định, điều kiện cố định** (chơi vài lần là thuộc, không quá khó) · **chỉ 1 màu đỏ** cho mọi cảnh báo
+    (đòn nào thì nhìn dáng) · thêm **superman punch** (giai đoạn 3, sau dậm đất, đỡ đúng lúc) · giữ **húc liền 2 lần**.
+  - Vòng đòn (story.json foes.tiDo.phases): ① 100%→65% combo thẳng→móc, khựng 1,5 giây · ② 65%→30% đạp đẩy (chỉ khi gần ≤ 2 m) → lao húc → combo, đỡ trước mặt,
+    đàn em (đang đứng xem) vào · ③ 30%→0 bổ 2 tay → dậm đất + superman → húc 2 lần → dậm đất + nhử + superman, đàn em bỏ chạy (tay đôi);
+    theo điều kiện: đứng xa > 7 m quá 2 giây → ném gạch · đấm liền 4 cú vào thế đỡ → ôm cổ (bấm 6 lần trong 2 giây để thoát, không thì 3 cú gối).
+  - Luật ở sim/fight.js (bossTick, SKILL_DEFAULT — số từng đòn ghi đè ở foes.tiDo.skills): đánh không vọt qua mốc, gầm 1,6 giây không trúng đòn,
+    không khựng khi trúng (vòng chạy đúng nhịp), đỡ đúng lúc = mới bấm đỡ ≤ 0,35 giây. Thua → chơi lại từ đầu giai đoạn đang dở (F.bossCp).
+  - Hiển thị (game/fight.js): lóe đỏ quanh người · vệt đỏ đường húc · vòng sóng đỏ · dáng từng đòn · thanh máu boss chia vạch · chậm cảnh + câu nói lúc đổi giai đoạn.
+    Tiếng mới fight.roar / fight.stomp / fight.parry (chưa có file → tổng hợp, ghi ở docs/am-thanh.md). ?editor: thẻ ⚔️ Đánh nhau → kiểu địch có "🎚 Chia giai đoạn",
+    trận có "👀 Đứng xem". Sửa kèm lỗi cũ ở ô "Đòn đánh" của editor (tách theo chữ "s").
+  - Còn: chủ game chơi thật để chỉnh độ khó (máu 220, cửa đỡ 0,35 giây…) — mọi số sửa ở ?editor.
 
 ### 🔧 Chương 4–5 sửa đợt 2 (24/10 tối — XONG, CHƯA commit)
 - 🛵 Chạy đơn trong lúc chờ giờ: ô mới "Cho chạy đơn trong lúc chờ" (step.orders) — bật cho c4 sleep2 / wait8 / mingle / waitOpen, c5 waitMeet / addr / goMeet / waitNight.
