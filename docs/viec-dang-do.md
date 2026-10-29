@@ -349,7 +349,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
     Sửa: đứng trước cửa bệnh viện (78; -201,8), quay ra đường.
   - Bot chơi trọn: màn lẻn → tủ → bị bắt → cởi trói → 4 đợt đánh → cảnh phim Tí Đô → lên xe → màn đua → hết chương: không kẹt, anh Đạt luôn ≤ 8 m.
     Trận Tí Đô đủ 3 giai đoạn, không ai kẹt / bay / biến mất. Đoạn Kho 7 (núp, công an) chạy đúng. Chưa cho bot chạy: nhận đơn / gửi xe / giao đồ ăn (đã thử ở đợt 6–7).
-- **Đợt 13 — góp ý 29/10 tối (đã đẩy lên GitHub)**
+- **Đợt 13 — góp ý 29/10 tối (đã đẩy lên GitHub f79524b — gồm cả đợt 12)**
   - Cảnh phim Tí Đô bị bong bóng che mặt: bong bóng neo ở độ cao cố định (người thường) mà Tí Đô to 1,25 lần → giờ neo nhân theo vóc người (ui/bubbles headOf,
     áp cho mọi người: trẻ em thấp hơn, người to cao hơn) + góc máy thứ 2 đặt ngang mặt (cao 2,05 m, nhìn 1,85 m).
   - Tí Đô 220 → 400 máu (bot cùng cách đánh: ~36 → ~60 giây).
