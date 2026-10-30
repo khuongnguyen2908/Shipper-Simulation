@@ -383,7 +383,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
       người trong trận đi từng đoạn ≤ 15 cm. (2) Tí Đô / anh Đạt đi lệch khỏi cầu thang mạn → rơi xuống khe nước rồi bị đẩy vào trong thân tàu, đứng dưới boong đánh
       xuyên sàn (một phần do lần sửa "lơ lửng" trước của Claude) → không cho bước hụt xuống > 0,8 m (đứng lại ở mép như người chơi), tìm đường không đi đường
       phải bước hụt. (3) Tấm ván chân cầu thang mạn rộng 1,2 → 2 m (đi xiên ra / vào hay vướng góc).
-- **Đợt 14 — Màn đua thêm thử thách (30/10, XONG, CHƯA commit)**. Phác họa duyệt: `sketches/chuong6/dua-xe.html`.
+- **Đợt 14 — Màn đua thêm thử thách (30/10, XONG, commit bc2a996)**. Phác họa duyệt: `sketches/chuong6/dua-xe.html`.
   - Chủ game chốt "theo đề xuất" + **xe giang hồ không hiện nút** (người chơi tự canh), giữ nút bấm nhanh ở cửa xe / dây phơi / bốc đầu / phanh gấp.
   - **Xe giang hồ áp sát** (sự cố `brawlers`, n = 1 / 2): lên ngang hông, đứa ngồi sau lóe đỏ giơ ống tuýp 0,8 giây rồi phang (trúng: xe chao, còn 80% tốc, không tính té).
     Anh Đạt cầm gậy: **Q quật trái · E quật phải**; 2 cú văng, quật đúng lúc nó lóe đỏ = văng luôn (đòn hủy); hụt chờ 0,8 giây. Bị quật văng vào lề / xe cộ thì té;
@@ -396,7 +396,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   - Luật thuần ở sim/race.js (BRAWL, BOOST, SKID, TRAIN, brawlTarget / brawlHit / boostResult / skidDist / trainBlocks) · tiếng mới race.bat / gangHit / train / door / cargo / boost / skid.
   - Sửa kèm: vào màn đua cất thẻ "Trong túi có gì" (trước đó thẻ lớn ẩn vẫn ăn mất lần bấm E đầu tiên) · gập người ngồi trên xe không cộng dồn độ cao (bendSeated).
   - Còn: chủ game chạy thật cả màn (độ khó, nhịp các nút bấm, chỗ đặt sự cố — sửa ở ?editor 📖 → 🏍️ Màn đua).
-- **Đợt 15 — Nhận việc cốt truyện + hết chương 6 (30/10, XONG, CHƯA commit)**
+- **Đợt 15 — Nhận việc cốt truyện + hết chương 6 (30/10, XONG, commit bc2a996)**
   - Chủ game chốt: **chương 2–6 người chơi tự tới chỗ giao việc bấm E "❗ Nhận việc"** mới vào chương (không có nút trong điện thoại) — chưa nhận thì vẫn chạy đơn;
     **chương 1 giữ tự động** (hướng dẫn chơi) · **chương 5 vào chương lúc gặp Tí Sún ở gầm cầu** (trước đây tên chương hiện ở bước 27).
   - Điều kiện mới `accept` { place (địa điểm / spot:…) | who (người lạ), from, to } (sim/story.js acceptOpen) · nút E ở interactions/nearby.js
