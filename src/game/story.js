@@ -215,7 +215,9 @@ export class StoryPart {
       else if (a.do === 'offer') this.storyOffer(a);
       else if (a.do === 'fuel' && gs.power !== 'pedal') gs.fuel = gs.vehicleSpec.tank * Math.max(0, Math.min(100, a.pct ?? 20)) / 100;
       else if (a.do === 'end') {
-        this.chapterCard(fmt('story.chapterDone', { title: fmt(ch.title), name: fmt(ch.name) }), '');
+        const last = STORY.chapters.at(-1)?.id === ch.id; // hết chương cuối: báo chờ hồi tiếp theo, quay lại chạy đơn bình thường
+        if (last) { this.chapterCard(fmt('story.toBeContinued'), fmt('story.toBeContinuedSub')); this.hud.toast(fmt('story.toBeContinuedToast'), 'info', 9000); }
+        else this.chapterCard(fmt('story.chapterDone', { title: fmt(ch.title), name: fmt(ch.name) }), '');
         finishChapter(gs.story);
         this.saveGame(true); // lưu lúc kết thúc chương (= bắt đầu chương sau), kèm chỗ đứng
       }

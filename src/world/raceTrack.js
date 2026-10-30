@@ -227,14 +227,16 @@ export function buildRaceTrack(scene, T, def, origin) {
       props[id] = { kind: 'drawbridge', near, far, lights };
     }
   }));
-  // đường cụt (chỉ khi đoạn cuối là "Đường cụt"): tường container + biển "ĐƯỜNG CỤT", phía sau là sông
-  if (secs[secs.length - 1]?.kind === 'deadend') {
+  // đường cụt cuối màn (đoạn cuối là "Đường cụt" hoặc "Cầu cất" — đáp cầu xong phải phanh gấp): rào sọc + tường container + biển "ĐƯỜNG CỤT"
+  if (['deadend', 'drawbridge'].includes(secs[secs.length - 1]?.kind)) {
     const p = at(T.total - 2), grp = new THREE.Group();
     grp.position.set(p.x, 0, p.z); grp.rotation.y = p.h;
     for (let i = -2; i <= 2; i++) { const c = new THREE.Mesh(new THREE.BoxGeometry(2.44, 2.6, 6.06), mat(CC[(i + 5) % CC.length])); c.position.set(i * 2.5, 1.3, 4); c.rotation.y = Math.PI / 2; grp.add(c); }
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(4, 1), new THREE.MeshBasicMaterial({ map: makeSignTexture('ĐƯỜNG CỤT', '#b03a2e') }));
     sign.position.set(0, 3.4, 2.6); sign.rotation.y = Math.PI;
     grp.add(sign);
+    const wd = at(T.total - 2).w;
+    for (let i = 0; i < Math.ceil((wd + 1) / 1.2); i++) { const r = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.0, 0.25), mat(i % 2 ? 0xffffff : 0xe03a2a)); r.position.set(-wd / 2 - 0.5 + 0.6 + i * 1.2, 0.5, 0); grp.add(r); } // rào sọc đỏ trắng ngang đường
     g.add(grp);
   }
   scene.add(g);

@@ -4097,7 +4097,7 @@ console.log('Trạm xe buýt: chia theo tuyến');
 
 console.log('Cốt truyện (story.json) + tin nhắn');
 {
-  const { STORY, stepOf, storyTick, beginChapter, storyEvent, wearsBrandKit, actorsPresent, storyPick, leaning, inChapter, titleNext } = await import('../src/sim/story.js');
+  const { STORY, stepOf, storyTick, beginChapter, storyEvent, wearsBrandKit, actorsPresent, storyPick, leaning, inChapter, titleNext, acceptOpen, finishChapter } = await import('../src/sim/story.js');
   const { personOf: personOfS } = await import('../src/sim/people.js');
   const { finishChapter: finishChapterS, dueAt, carryAt } = await import('../src/sim/story.js');
   const AMB5 = await import('../src/sim/ambush.js'); // mini game bày trận (chương 5)
@@ -4322,7 +4322,7 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     busy = false; storyTick(gs, 1, ctx());
     assert.ok(gs.story.fired, 'giao xong đơn → cốt truyện chạy tiếp');
   });
-  test('Chương 5 "Hội nhóm shipper": Linh hỏi → gọi anh Đạt → Tích Tắc thấy xe → nhắn Tí Sún → 9h gầm cầu → đòi 100 triệu, bị nhận ra, đuổi về → Dượng Hai → chú Tư → chở thuốc (chấm thật) → vào nhóm → bày trận → đêm ngập → tiệm trà → hết chương', () => {
+  test('Chương 5 "Hội nhóm shipper": Linh hỏi → gọi anh Đạt → Tích Tắc thấy xe → nhắn Tí Sún → nhận việc ở gầm cầu (vào chương) → đòi 100 triệu, bị nhận ra, đuổi về → Dượng Hai → chú Tư → chở thuốc (chấm thật) → vào nhóm → bày trận → đêm ngập → tiệm trà → hết chương', () => {
     const A = AMB5, L = CITYLAYOUT;
     const gs = new GameState({ carry: { flags: { story: 2 } } });
     Object.assign(gs.story, { ch: 'c5', step: 0, fired: false, waited: 0, ev: {}, done: ['c1', 'c2', 'c3', 'c4'] });
@@ -4364,11 +4364,14 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     assert.equal(sid(), 'goMeet');
     assert.equal(stepOf(gs.story).target, 'spot:gamCauSat', 'bấm 📍 rồi mới chỉ đường tới gầm cầu');
     tick(5);
-    assert.equal(sid(), 'goMeet', 'tới sớm thì chờ 9h');
+    assert.equal(sid(), 'goMeet', 'chưa tới gầm cầu nhận việc thì chưa vào chương');
+    assert.equal(stepOf(gs.story).until.type, 'accept');
+    assert.ok(!inChapter(gs.story), 'chưa nhận việc: vẫn chạy đơn thường');
     assert.ok(acts.some((a) => a.do === 'remove' && a.who === 'tiSun'), 'xem tin xong Tí Sún rời chỗ chụp ảnh');
-    assert.ok(!acts.some((a) => a.do === 'actor' && a.who === 'tiSun' && !farFrom(a)), 'trước 9h Tí Sún chưa xuất hiện ở gầm cầu');
-    now = Math.floor(now / 1440) * 1440 + 21 * 60; tick(2);
+    assert.ok(!acts.some((a) => a.do === 'actor' && a.who === 'tiSun' && !farFrom(a)), 'chưa nhận việc thì Tí Sún chưa xuất hiện ở gầm cầu');
+    storyEvent(gs.story, 'accepted'); tick(2);
     assert.equal(sid(), 'meet');
+    assert.ok(acts.some((a) => a.do === 'title') && inChapter(gs.story), 'nhận việc ở gầm cầu → hiện tên chương 5, từ đây không nhận đơn thường');
     assert.ok(acts.some((a) => a.do === 'actor' && a.who === 'tiSun' && a.vehicle === 'moto'), '9h Tí Sún (có xe anh Đạt) xuất hiện');
     assert.equal(stepOf(gs.story).mark?.actor, 'tiSun', 'dấu ! trên đầu Tí Sún');
     closeTo = true;
@@ -4417,7 +4420,34 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     storyEvent(gs.story, 'cineDone'); tick(2);
     assert.equal(run('done', (st) => { auto(st); if (st?.until?.type === 'cine') storyEvent(gs.story, 'cineDone'); if (st?.until?.type === 'arrive') gs.story.ev.__ = 1; }), 'toTea');
   });
-  test('Chương 3 "Xui xẻo": Dượng Hai nhắn → ngủ qua ngày → chị Linh nhắc → 8h chị ra tiệm → quá 9h thất bại, mai 8h nhận lại → tới trường → chị Nhi, anh Hoàng → cảnh phim cướp → dí tên cướp (không phạt) → qua nửa cầu 2 → cảnh phim dí lớn (anh mô tô) → xuống xe → vật ngã (nút E) → gọi 113 → xe công an → màn đen → tháo nón, "Hi!" → làm quen anh Đạt → chạy đi → tin nhắn → hết chương', () => {
+  test('Nhận việc cốt truyện: chương 2–6 người chơi tự tới nhận (bấm E) mới vào chương · khung giờ · hết chương 6 = chờ hồi tiếp theo, quay lại chạy đơn', () => {
+    assert.ok(acceptOpen({ from: 16.5, to: 18 }, 17 * 60) && !acceptOpen({ from: 16.5, to: 18 }, 18 * 60 + 1), 'khung 16:30–18:00');
+    assert.ok(acceptOpen({ from: 20, to: 24 }, 3 * 1440 + 21 * 60), 'ngày nào cũng được');
+    assert.ok(acceptOpen({}, 123), 'không ghi giờ = lúc nào cũng được');
+    for (const ch of STORY.chapters.slice(1)) {
+      const ti = ch.steps.findIndex((x) => (x.on || []).some((a) => a.do === 'title'));
+      const ai = ch.steps.findIndex((x) => x.until?.type === 'accept');
+      assert.ok(ai >= 0 && ai < ti, `${ch.id}: có bước nhận việc trước khi vào chương`);
+      assert.ok(!ch.steps[ai].deadline, `${ch.id}: bước nhận việc không có hạn giờ`);
+      assert.ok(ch.steps[ai].goal && ch.steps[ai].target, `${ch.id}: có mục tiêu + mũi tên tới chỗ nhận việc`);
+    }
+    const t1 = STORY.chapters[0].steps.findIndex((x) => (x.on || []).some((a) => a.do === 'title'));
+    assert.equal(t1, 0, 'chương 1 (hướng dẫn chơi) vẫn tự vào');
+    const c5 = STORY.chapters.find((c) => c.id === 'c5'), t5 = c5.steps.findIndex((x) => (x.on || []).some((a) => a.do === 'title'));
+    assert.equal(c5.steps[t5].id, 'meet', 'chương 5: vào chương lúc gặp Tí Sún ở gầm cầu');
+    // hết chương cuối: không còn chương nào → quay lại chạy đơn như thường
+    const gs = new GameState({ carry: { flags: { story: 2 } } });
+    const last = STORY.chapters.at(-1);
+    Object.assign(gs.story, { ch: last.id, step: last.steps.length - 1, fired: false, waited: 0, ev: {}, done: STORY.chapters.slice(0, -1).map((c) => c.id) });
+    const acts = storyTick(gs, 1, { now: 0 });
+    assert.ok(acts.some((a) => a.do === 'end'));
+    finishChapter(gs.story);
+    assert.equal(gs.story.ch, null);
+    assert.ok(!inChapter(gs.story), 'hết cốt truyện: không còn khóa đơn');
+    const VI = readJson('src/content/vi.json');
+    assert.ok(/chờ hồi tiếp theo/i.test(VI['story.toBeContinuedSub']), 'thẻ cuối: chờ hồi tiếp theo');
+  });
+  test('Chương 3 "Xui xẻo": Dượng Hai nhắn → ngủ qua ngày → chị Linh nhắc → từ 8h chị ra tiệm → gặp chị = nhận việc (chưa nhận thì không bị hạn 9h) → tới trường → chị Nhi, anh Hoàng → cảnh phim cướp → dí tên cướp (không phạt) → qua nửa cầu 2 → cảnh phim dí lớn (anh mô tô) → xuống xe → vật ngã (nút E) → gọi 113 → xe công an → màn đen → tháo nón, "Hi!" → làm quen anh Đạt → chạy đi → tin nhắn → hết chương', () => {
     const gs = new GameState({ carry: { flags: { story: 2 } } });
     Object.assign(gs.story, { ch: 'c3', step: 0, fired: false, waited: 0, ev: {}, done: ['c1', 'c2'] });
     let near = null, boarded = false, now = 20 * 60, closeTo = false, mounted = false, chased = false, pos = { x: 0, z: 0 };
@@ -4439,17 +4469,13 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     now = 2 * 1440 + 8 * 60; tick(2);
     assert.equal(sid(), 'linhWait');
     assert.ok(acts.some((a) => a.do === 'actor' && a.who === 'linh' && a.place === 'tra'), '8h chị Linh ra trước tiệm trà');
-    // trễ quá 9h → thất bại, quay lại chờ 8h (sáng hôm sau — đồng hồ chung không quay ngược)
-    now = 2 * 1440 + 9 * 60; tick(1);
-    assert.equal(sid(), 'wait8', 'quá 9h → quay lại bước chờ 8h');
-    const fail = acts.find((a) => a.do === 'fail');
-    assert.ok(fail && fail.text && fail.from === 'linh', 'báo thất bại + chị Linh nhắn');
-    assert.equal(gs.story.due, undefined, 'xóa hạn cũ');
-    tick(30);
-    assert.equal(sid(), 'wait8', '9h30 cùng ngày: chưa nhận lại được');
-    now = 3 * 1440 + 8 * 60 + 5; tick(2);
-    assert.equal(sid(), 'linhWait', '8h hôm sau: chị Linh ra lại');
-    storyEvent(gs.story, 'actor:linh'); tick(2);
+    assert.equal(stepOf(gs.story).until.type, 'accept', 'gặp chị Linh = nhận việc');
+    assert.ok(!inChapter(gs.story), 'chưa nhận việc: vẫn chạy đơn thường');
+    // chưa nhận việc thì không bị hạn 9h — chị Linh chờ ở quán trà tới khi mình ghé (từ 8h sáng)
+    now = 2 * 1440 + 11 * 60; tick(3);
+    assert.equal(sid(), 'linhWait', '11h chưa ghé: chị vẫn chờ, không thất bại');
+    assert.ok(!acts.some((a) => a.do === 'fail'), 'không báo trễ');
+    storyEvent(gs.story, 'accepted'); tick(2);
     assert.equal(sid(), 'linhGo');
     storyEvent(gs.story, 'actor:linh'); tick(2);
     assert.ok(acts.some((a) => a.do === 'title'), 'tên chương 3');
@@ -4561,7 +4587,7 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     assert.ok(gs.story.done.includes('c3'), 'xong chương 3');
     assert.equal(dueAt(10 * 60, 9), 10 * 60 + 23 * 60, 'mốc 9h tiếp theo tính từ 10h = 9h hôm sau');
   });
-  test('Chương 4 "Bức tranh dang dở": chiều tối chị Linh nhắn → ngủ → 17h sân bay (trễ 18h quay lại) → trường → 2 tiếng sau → 3 thiệp → hẻm 4,1 bám theo lén → vấp lon bỏ chạy → nhắn anh Đạt → ngủ → triển lãm → hoa + bánh (kịp / trễ 9h50) → khai mạc → 30 phút trước: anh Đạt bị chặn → chở chị Linh về → tin nhắn không ai đọc → hết chương', () => {
+  test('Chương 4 "Bức tranh dang dở": chiều tối chị Linh nhắn → ngủ → nhận việc ở sân bay 16:30–18h → trường → 2 tiếng sau → 3 thiệp → hẻm 4,1 bám theo lén → vấp lon bỏ chạy → nhắn anh Đạt → ngủ → triển lãm → hoa + bánh (kịp / trễ 9h50) → khai mạc → 30 phút trước: anh Đạt bị chặn → chở chị Linh về → tin nhắn không ai đọc → hết chương', () => {
     const gs = new GameState({ carry: { flags: { story: 0 } } });
     Object.assign(gs.story, { ch: 'c4', step: 0, fired: false, waited: 0, ev: {}, done: ['c1', 'c2', 'c3'] });
     let now = 10 * 60, near = null, closeTo = false, boarded = false, reach = false;
@@ -4580,16 +4606,18 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     assert.equal(sid(), 'sleep1');
     gs.day = 2; now = 1440 + 9 * 60; tick(2);
     assert.equal(sid(), 'waitAirport');
+    assert.equal(stepOf(gs.story).until.type, 'accept', 'tới sân bay nhận việc');
+    assert.deepEqual([stepOf(gs.story).until.from, stepOf(gs.story).until.to], [16.5, 18]);
     now = 1440 + 16.5 * 60; tick(2);
+    assert.equal(sid(), 'waitAirport', '16:30 chưa tới sân bay: chưa vào chương');
+    assert.ok(!acts.some((a) => a.do === 'title'));
+    storyEvent(gs.story, 'accepted'); tick(2);
     assert.equal(sid(), 'airport');
-    assert.ok(acts.some((a) => a.do === 'title'), 'hiện tên chương 4 lúc lấy tranh');
+    assert.ok(acts.some((a) => a.do === 'title'), 'nhận việc ở sân bay → hiện tên chương 4');
     const air = stepOf(gs.story);
     assert.ok(air.talk.pack.length >= 1 && air.talk.pack.every((id) => STORY.parcels[id].traits.includes('fragile')), 'tranh dễ vỡ');
     assert.ok(!air.talk.guide, 'chương 4 không có khung vàng hướng dẫn xếp túi');
-    now = 1440 + 18 * 60 + 1; const fail = storyTick(gs, 1, ctx());
-    assert.ok(fail.some((a) => a.do === 'fail') && sid() === 'waitAirport', 'quá 18h chưa lấy tranh → quay lại chờ hôm sau');
-    gs.day = 3; now = 2 * 1440 + 16.6 * 60; tick(2);
-    assert.equal(sid(), 'airport');
+    assert.ok(!air.deadline, 'đã tới sân bay nhận việc thì không còn hạn 18h');
     storyEvent(gs.story, 'talk:sanbay'); tick(2);
     assert.equal(sid(), 'toSchool');
     closeTo = true; go('later2h');
@@ -4663,7 +4691,7 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     assert.ok(gs.story.done.includes('c4'), 'hết chương 4');
     assert.equal(acts.filter((a) => a.do === 'msg' && a.from === 'man').length, 1, 'tin cuối gửi anh Đạt không ai trả lời');
   });
-  test('Chương 2 "Bạn mới ở thành phố": giao thêm 10 đơn → 17h30–19h chú Hai nhắn → đọc tin mới vào chương → chú Hai (cơm chay) → tiệm trà đóng → sư cô (3 câu) → bảo vệ (mở lời 3 câu + 3 câu) → tìm trong vòng tím → chị Linh + người đàn ông → chở chị Linh về → Linh nhắn số → hết chương', () => {
+  test('Chương 2 "Bạn mới ở thành phố": giao thêm 10 đơn → 17h30 chú Hai nhắn → tới Dịch vụ 4 bấm E nhận việc mới vào chương → chú Hai (cơm chay) → tiệm trà đóng → sư cô (3 câu) → bảo vệ (mở lời 3 câu + 3 câu) → tìm trong vòng tím → chị Linh + người đàn ông → chở chị Linh về → Linh nhắn số → hết chương', () => {
     const gs = new GameState({ carry: { flags: { story: 0 } } });
     Object.assign(gs.story, { ch: 'c2', step: 0, fired: false, waited: 0, ev: {}, done: ['c1'] });
     let near = null, boarded = false, now = 9 * 60, open = null, closeTo = false;
@@ -4693,7 +4721,10 @@ console.log('Cốt truyện (story.json) + tin nhắn');
     assert.ok(acts.some((a) => a.do === 'msg' && a.from === 'chuHai' && a.loc.includes('dichvu4')), 'chú Hai nhắn kèm định vị quán');
     assert.ok(!acts.some((a) => a.do === 'title'), 'chưa đọc tin: chưa hiện tên chương');
     open = 'chuHai'; tick(3);
-    assert.ok(acts.some((a) => a.do === 'title'), 'đọc tin xong → tên chương 2');
+    assert.equal(sid(), 'accept', 'đọc tin xong → chờ người chơi tới Dịch vụ 4 nhận việc');
+    assert.ok(!acts.some((a) => a.do === 'title') && !inChapter(gs.story), 'chưa nhận việc: chưa vào chương, vẫn chạy đơn');
+    storyEvent(gs.story, 'accepted'); tick(3);
+    assert.ok(acts.some((a) => a.do === 'title'), 'nhận việc → tên chương 2');
     tick(8);
     assert.equal(sid(), 'toChuHai');
     assert.deepEqual(stepOf(gs.story).talk.pack, ['comChay'], 'chú Hai đưa hộp cơm chay');
@@ -6072,6 +6103,52 @@ console.log('Màn đua thoát thân (sim/race.js — chương 6)');
     assert.ok(!slow.ok && slow.why === 'short', JSON.stringify(slow));
     const last = def.sections[def.sections.length - 1];
     assert.equal(last.kind, 'drawbridge', 'đoạn cuối là cầu cất');
+  });
+  test('Xe giang hồ áp sát: anh Đạt quật đúng bên + trong tầm gậy mới trúng · 2 cú văng · trúng lúc nó đang giơ ống tuýp (lóe đỏ) = văng luôn', () => {
+    const me = { s: 100, lat: 0 }, R = (lat, s = 100, extra = {}) => ({ s, lat, alive: true, mode: 'side', hits: 0, windT: 0, ...extra });
+    const right = R(-1.15), left = R(1.15);
+    assert.equal(RC.brawlTarget(me, [right, left], -1), right, 'E (phải) trúng xe bên phải');
+    assert.equal(RC.brawlTarget(me, [right, left], 1), left, 'Q (trái) trúng xe bên trái');
+    assert.equal(RC.brawlTarget(me, [right], 1), null, 'quật sai bên: hụt');
+    assert.equal(RC.brawlTarget(me, [R(-3.5)], -1), null, 'xa quá tầm gậy: hụt');
+    assert.equal(RC.brawlTarget(me, [R(-1.15, 106)], -1), null, 'lệch trước / sau quá xa: hụt');
+    const m = R(-1.15);
+    assert.deepEqual(RC.brawlHit(m), { ko: false, timed: false }, 'cú 1: chỉ chao');
+    assert.equal(RC.brawlHit(m).ko, true, 'cú 2: văng');
+    const w = R(-1.15, 100, { windT: 0.3 });
+    assert.deepEqual(RC.brawlHit(w), { ko: true, timed: true }, 'đúng lúc nó giơ tay: văng luôn');
+    assert.equal(w.windT, 0, 'đòn của nó bị hủy');
+  });
+  test('Cầu cất: phải BỐC ĐẦU (Space còn ≤ 0,45 giây tới mép) — sớm quá là lỡ nhịp · đáp xuống bấm phanh kịp thì dừng trước rào đường cụt', () => {
+    assert.equal(RC.boostResult(0.3), 'ok');
+    assert.equal(RC.boostResult(0.9), 'early');
+    assert.equal(RC.boostResult(null), 'none');
+    assert.ok(RC.drawbridgeAngle(RC.RACE.bridgeOpen / 36) > RC.BOOST.free, 'hết ga tới cầu: cầu đã nâng quá mức "khỏi bốc đầu" → bắt buộc canh');
+    const last = def.sections[def.sections.length - 1], br = last.events.find((e) => e.type === 'drawbridge');
+    const room = last.len - br.at - RC.RACE.leaf - 3; // từ chỗ đáp tới rào
+    const vmax = def.bike.maxSpeed;
+    assert.ok(RC.skidDist(vmax, RC.SKID.win) + RC.SKID.stop < room, `bấm phanh trễ nhất trong cửa vẫn kịp dừng (${RC.skidDist(vmax, RC.SKID.win).toFixed(1)} m < ${room} m)`);
+    assert.ok(RC.skidDist(vmax * 0.85, RC.SKID.win + 1.5) > room, 'bấm trễ hơn ~1,5 giây là tông rào');
+  });
+  test('Tàu hỏa: chạy gần hết ga thì vượt kịp sát mũi tàu, chậm hơn ~10% là bị chắn phải phanh chờ · tàu qua hết thì đường thông', () => {
+    const w = 12, at = (v) => RC.TRAIN.speed * (RC.TRAIN.near / v); // đầu tàu đã đi được bao nhiêu lúc mình tới đường ray
+    assert.ok(!RC.trainBlocks(at(35), w), 'hết ga (~126 km/h): vượt kịp');
+    assert.ok(RC.trainBlocks(at(29), w), 'chạy ~104 km/h: tàu chắn ngang');
+    assert.ok(!RC.trainBlocks(RC.trainStart() + RC.TRAIN.len + w, w), 'tàu qua hết: thông đường');
+  });
+  test('Màn đua có đủ thử thách mới đúng chỗ đã duyệt: tàu hỏa · 5 lần xe giang hồ áp sát · cửa xe + thùng hàng (quốc lộ) · dây phơi (bờ kênh) · hàng xe chờ cầu (trước cầu cất)', () => {
+    const T = RC.buildTrack(def), ev = RC.raceEvents(def, T), kindOf = (e) => def.sections[e.si].kind;
+    const of = (t) => ev.filter((e) => e.type === t);
+    assert.equal(kindOf(of('train')[0]), 'industrial');
+    assert.equal(of('brawlers').length, 5);
+    assert.deepEqual(of('brawlers').map((e) => e.n), [1, 2, 2, 1, 1]);
+    assert.ok(['door', 'cargo'].every((t) => kindOf(of(t)[0]) === 'highway'));
+    assert.equal(kindOf(of('line')[0]), 'canal');
+    const q = of('queue')[0], br = of('drawbridge')[0];
+    assert.ok(q.s < br.s - RC.RACE.leaf - 60, 'hàng xe chờ cầu nằm trước chân cầu');
+    const bad = JSON.parse(JSON.stringify(STORYJ));
+    bad.races.escape.sections[3].events.push({ at: 10, type: 'brawlers', n: 3 });
+    assert.ok(validateStory(bad, {}).some((i) => i.ref === 'race:escape' && /1 hoặc 2 xe/.test(i.msg)), 'số xe áp sát sai → lỗi');
   });
   test('Dữ liệu màn đua hợp lệ; dữ liệu sai → bộ kiểm tra báo', () => {
     const errs = validateStory(STORYJ, {}).filter((i) => i.level === 'error' && /^race:/.test(i.ref));

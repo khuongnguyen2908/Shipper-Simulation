@@ -862,7 +862,7 @@ export function storyGifts(story) {
   }
   return out;
 }
-const STORY_UNTIL = ['none', 'wait', 'read', 'open', 'reply', 'routed', 'ack', 'use', 'arrive', 'talk', 'mount', 'brand', 'wear', 'switch', 'fuel', 'order', 'near', 'talkActor', 'chosen', 'ordersSince', 'newDay', 'clock', 'bring', 'cine', 'chased', 'reach', 'tackled', 'sneaked', 'hidden', 'escaped', 'never', 'ttSeen', 'away', 'ambushed', 'untied', 'fightWon', 'raceWon', 'useAt', 'parked', 'kitCard'];
+const STORY_UNTIL = ['none', 'wait', 'read', 'open', 'reply', 'routed', 'ack', 'use', 'arrive', 'talk', 'mount', 'brand', 'wear', 'switch', 'fuel', 'order', 'near', 'talkActor', 'chosen', 'ordersSince', 'newDay', 'clock', 'bring', 'cine', 'chased', 'reach', 'tackled', 'sneaked', 'hidden', 'escaped', 'never', 'ttSeen', 'away', 'ambushed', 'untied', 'fightWon', 'raceWon', 'useAt', 'parked', 'kitCard', 'accept'];
 const STORY_DO = ['title', 'say', 'actor', 'bubble', 'approach', 'leave', 'remove', 'choose', 'board', 'alight', 'drop', 'msg', 'replies', 'item', 'bike', 'give', 'toast', 'openPhone', 'closePhone', 'offer', 'fuel', 'end', 'goto', 'react', 'cine', 'chase', 'sound', 'prop', 'dismount', 'helmetOff', 'helmetOn', 'tackle', 'wave', 'rideOff', 'phoneCall', 'fade', 'sneak', 'traffic', 'pursue', 'pay', 'rename', 'ttPost', 'block', 'ambush', 'ambushCrew', 'ship', 'zone', 'phone', 'tie', 'untie', 'fpv', 'fight', 'race', 'borrow', 'kit'];
 const STORY_ACTOR_LOOKS = ['jetjet', 'normal', 'girl', 'student', 'gentleman', 'char']; // = ACTOR_LOOKS (sim/story.js)
 const STORY_ACTOR_SPOTS = ['xeOm', 'place', 'near', 'at']; // = ACTOR_SPOTS (sim/story.js)
@@ -1018,8 +1018,9 @@ export function validateStory(story, { places = null, goods = null, content = nu
       if (!xy(l.at)) add('error', ref, 'loot', 'Trận: chỗ đặt đồ phải là [x, z].');
     }
   }
+  const KIND_W = { port: 12, gate: 9, industrial: 12, highway: 16, work: 8, dirt: 6.5, village: 6, canal: 5.5, bridge: 5, levee: 6, drawbridge: 8, deadend: 7 }; // bề rộng mặc định từng kiểu đoạn (sim/race.js KIND_DEFAULT)
   const RACE_KINDS = ['port', 'gate', 'industrial', 'highway', 'work', 'dirt', 'village', 'canal', 'bridge', 'levee', 'drawbridge', 'deadend'];
-  const RACE_EVENTS = ['say', 'container', 'barrier', 'truck', 'bus', 'ram', 'potholes', 'ducks', 'puddle', 'stall', 'jump', 'drums', 'cones', 'brokencar', 'trunk', 'buffalo', 'forklift', 'cart', 'throwers', 'drawbridge'];
+  const RACE_EVENTS = ['say', 'container', 'barrier', 'truck', 'bus', 'ram', 'potholes', 'ducks', 'puddle', 'stall', 'jump', 'drums', 'cones', 'brokencar', 'trunk', 'buffalo', 'forklift', 'cart', 'throwers', 'drawbridge', 'brawlers', 'train', 'door', 'cargo', 'line', 'queue'];
   for (const [id, r] of Object.entries(story?.races || {})) {
     const ref = `race:${id}`;
     if (!ID_RE.test(id)) add('error', ref, 'id', 'Mã màn đua chỉ gồm chữ không dấu, số, gạch dưới.');
@@ -1037,7 +1038,11 @@ export function validateStory(story, { places = null, goods = null, content = nu
         if (!(num(e.at) && e.at >= 0 && e.at <= sec.len)) add('error', ref, 'sections', `Đoạn ${i + 1}: sự cố "${e.type}" phải nằm trong đoạn (0–${sec.len} m).`);
         if (e.line) text(ref, 'sections', e.line, 'câu hét của sự cố');
         if (e.type === 'drawbridge' && sec.kind !== 'drawbridge') add('warn', ref, 'sections', `Đoạn ${i + 1}: cầu cất nên nằm trong đoạn kiểu "Cầu cất" (có nước 2 bên).`);
-        if (e.type === 'drawbridge' && (e.at < 40 || e.at > sec.len - 120)) add('warn', ref, 'sections', `Đoạn ${i + 1}: cầu cất cần ≥ 40 m đường trước và ≥ 120 m đường sau để đáp xuống + phanh.`);
+        if (e.type === 'drawbridge' && (e.at < 40 || e.at > sec.len - 70)) add('warn', ref, 'sections', `Đoạn ${i + 1}: cầu cất cần ≥ 40 m đường trước và ≥ 70 m đường sau để đáp xuống + phanh gấp.`);
+        if (e.type === 'drawbridge' && i === r.sections.length - 1 && sec.len - e.at - 14 - 3 < 64) add('warn', ref, 'sections', `Đoạn ${i + 1}: từ chỗ đáp cầu tới rào đường cụt dưới ~64 m — bấm phanh đúng lúc cũng không kịp dừng.`);
+        if (e.type === 'brawlers' && e.n != null && ![1, 2].includes(e.n)) add('error', ref, 'sections', `Đoạn ${i + 1}: xe giang hồ áp sát: 1 hoặc 2 xe.`);
+        if (e.type === 'brawlers' && e.n === 2 && (sec.width || KIND_W[sec.kind] || 12) < 9) add('warn', ref, 'sections', `Đoạn ${i + 1}: đường hẹp mà cho 2 xe áp sát kẹp 2 bên — chật, dễ té.`);
+        if (e.type === 'queue' && sec.kind !== 'drawbridge') add('warn', ref, 'sections', `Đoạn ${i + 1}: hàng xe chờ cầu nên nằm trong đoạn "Cầu cất", trước cầu.`);
       }
     });
     if (r.sections?.length && !['deadend', 'drawbridge'].includes(r.sections[r.sections.length - 1].kind)) add('warn', ref, 'sections', 'Đoạn cuối nên là "Cầu cất" hoặc "Đường cụt" (xe tự phanh dừng ở cuối đường).');
@@ -1066,6 +1071,11 @@ export function validateStory(story, { places = null, goods = null, content = nu
     chIds.add(ch.id);
     text(ch.id, 'title', ch.title, 'tên chương');
     if (!(ch.steps || []).length) add('warn', ch.id, 'steps', 'Chương chưa có bước nào.');
+    {
+      const ti = (ch.steps || []).findIndex((x) => (x.on || []).some((a) => a.do === 'title'));
+      if (ti >= 0 && story.chapters.indexOf(ch) > 0 && !(ch.steps || []).slice(0, ti).some((x) => x.until?.type === 'accept'))
+        add('warn', ch.id, 'steps', 'Chương tự vào (khóa đơn) mà chưa có bước "❗ Nhận việc" trước bước hiện tên chương — người chơi đang chạy đơn bị kéo vào chương.');
+    }
     const stIds = new Set();
     // cả chương: đạo cụ (prop), người chạy trốn (chase), mốc lộ trình "người:mốc" — cảnh quay / đạo cụ chờ mốc
     const chActs = (ch.steps || []).flatMap((x) => x.on || []);
@@ -1134,6 +1144,14 @@ export function validateStory(story, { places = null, goods = null, content = nu
         if (!(Array.isArray(u.at) ? u.at.length === 2 && u.at.every(num) : ZONE_POINTS.includes(u.at))) add('error', ref, 'until', `Bấm E tại chỗ: chỗ lạ "${u.at}" (chỗ đứng có tên trong bản đồ riêng hoặc [x, z]).`);
         if (u.r != null && !(num(u.r) && u.r > 0.3 && u.r <= 20)) add('error', ref, 'until', 'Bấm E tại chỗ: bán kính 0,3 – 20.');
         if (u.label) text(ref, 'until', u.label, 'chữ trên nút E');
+      }
+      if (u.type === 'accept') { // nhận việc cốt truyện: ở địa điểm / chỗ hẹn hoặc người lạ đang có mặt · khung giờ (không ghi = lúc nào cũng được)
+        if (!u.place === !u.who) add('error', ref, 'until', 'Nhận việc: chọn 1 trong 2 — địa điểm / chỗ hẹn, hoặc người lạ.');
+        if (u.place) place(ref, 'until', u.place);
+        if (u.who && people[u.who] && !actorsHere(ch, i).has(u.who)) add('error', ref, 'until', `Nhận việc ở "${u.who}" mà người này chưa xuất hiện (thêm việc "Người lạ xuất hiện" ở bước này hoặc bước trước).`);
+        if (u.who && !people[u.who]) add('error', ref, 'until', `Nhận việc: người lạ "${u.who}" không có.`);
+        for (const k of ['from', 'to']) if (u[k] != null && !(num(u[k]) && u[k] >= 0 && u[k] <= 24)) add('error', ref, 'until', 'Nhận việc: giờ 0–24.');
+        if (st.deadline) add('warn', ref, 'deadline', 'Bước nhận việc có hạn giờ → người chơi chưa kịp nhận đã bị quay lại (bỏ hạn ở bước này).');
       }
       if (u.type === 'escaped' && !(st.on || []).some((a) => a.do === 'pursue')) add('error', ref, 'until', 'Chờ chạy thoát mà bước này không có việc "🏃 Bị rượt" → kẹt.');
       if (u.type === 'sneaked' && !(st.on || []).some((a) => a.do === 'sneak')) add('error', ref, 'until', 'Chờ bám theo lén xong mà bước này không có việc "🕵️ Bám theo lén" → kẹt.');

@@ -215,6 +215,13 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [ ] | `race.land` | Tiếp đất sau khi bay | Màn đua: xe đáp xuống bên kia cầu (rầm) | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `race.brake` | Phanh rít | Màn đua: xe dừng ở cuối đường · bán tải Tí Đô phanh gấp trước cầu cất | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `race.gang` | Xe giang hồ rồ máy vượt lên | Màn đua: 2 xe giang hồ từ sau lưng rồ ga vượt lên để ném gạch (nghe là biết sắp có gạch bay) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `race.bat` | Anh Đạt quật gậy trúng xe giang hồ | Màn đua: bấm Q / E, gậy gỗ quật trúng đứa ngồi sau (bốp!) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `race.gangHit` | Bị xe giang hồ phang ống tuýp | Màn đua: đứa ngồi sau xe áp sát phang trúng (keng + xe chao) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `race.train` | Tàu hỏa tới (còi + chuông gác chắn) | Màn đua khu công nghiệp: đèn đỏ nháy, chuông leng keng, còi tàu hú dài | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `race.door` | Cửa xe đậu bật mở | Màn đua quốc lộ: cửa xe đậu bên đường bật mở ngay trước mặt (cạch) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `race.cargo` | Thùng hàng rớt khỏi xe tải | Màn đua quốc lộ: dây chằng đứt, thùng hàng rơi lộn xuống đường (rầm rầm) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `race.boost` | Bốc đầu ở mép cầu | Màn đua: bấm Space đúng lúc ở mép cầu cất — rồ ga, xe bốc đầu bay lên | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `race.skid` | Phanh gấp, bánh trượt dài | Màn đua: đáp cầu xong bấm Space phanh gấp — khóa bánh trượt rít dài trước đường cụt | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `race.bridge` | Cầu cất bắt đầu nâng | Màn đua khúc cuối: chuông báo leng keng + máy kéo cầu kêu ầm ầm, 2 nửa cầu nâng dần lên | tiếng ngắn | 🔉 tổng hợp |
 
 ## Thêm chỗ phát tiếng mới

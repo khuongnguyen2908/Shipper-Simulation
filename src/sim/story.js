@@ -103,6 +103,7 @@ export const UNTIL = {
   away: 'Người chơi đã đi xa người lạ … (hoặc chỗ [x, z]) hơn … đơn vị (vd bị đuổi về)',
   ambushed: 'Đã bày chốt đúng trong mini game "🗺️ Bày trận" (việc ambush ở bước này)',
   useAt: 'Người chơi bấm E tại chỗ … (vd mở tủ, lục ngăn kéo) — chỗ đứng có tên trong bản đồ riêng / [x, z]',
+  accept: '❗ Người chơi tự tới nhận việc cốt truyện (bấm E ở địa điểm / chỗ hẹn / người lạ, trong khung giờ) — đặt ngay trước bước hiện tên chương',
   parked: 'Đã gửi xe ở bãi giữ xe … rồi xuống đi bộ (bỏ trống = bãi nào cũng được)',
   raceWon: 'Đã chạy tới đích màn đua (việc "🏍️ Màn đua" ở bước này: tới đường cụt, xe dừng)',
   kitCard: 'Đã đọc xong thẻ "Trong túi có gì" (việc 🎒 Túi đồ có bật "hiện thẻ" ở bước này — bấm E cất túi)',
@@ -284,6 +285,7 @@ export function untilMet(u, gs, ctx) {
     case 'away': return !!ctx.awayFrom?.(u, u.r || 30);
     case 'ambushed': return !!s.ev.ambushed;
     case 'useAt': return !!s.ev.used;
+    case 'accept': return !!s.ev.accepted;
     case 'parked': return !!ctx.parkedAt?.(u.place);
     case 'tackled': return !!s.ev.tackled;
     case 'untied': return !!s.ev.untied;
@@ -437,6 +439,11 @@ export function leaning(s) {
 export function dueAt(now, hour) {
   const tod = ((now % 1440) + 1440) % 1440;
   return now + ((((hour * 60 - tod) % 1440) + 1440) % 1440);
+}
+// Nhận việc cốt truyện (điều kiện "accept"): đang trong khung giờ nhận được chưa (không ghi giờ = lúc nào cũng được) · now: phút game
+export function acceptOpen(u, now) {
+  if (u?.from == null && u?.to == null) return true;
+  return inWindow((((now ?? 0) % 1440) + 1440) % 1440 / 60, u.from ?? 0, u.to ?? 24);
 }
 // Giờ h (0–24) có nằm trong khoảng [from, to) không — khoảng qua nửa đêm (vd 22 → 2) cũng được
 function inWindow(h, from, to) {

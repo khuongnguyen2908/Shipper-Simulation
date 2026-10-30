@@ -31,7 +31,7 @@ const ACTION_GROUPS = [
 const LEAVE_KINDS = [['remove', 'Biến mất ngay'], ['leave', 'Bỏ chạy ra xa rồi biến mất'], ['goto', 'Đi / chạy vào địa điểm … rồi biến mất']];
 const LEAVE_LABEL = '🚶 Người lạ rời cảnh (biến mất / bỏ chạy / đi vào địa điểm)';
 const UNTIL_GROUPS = [
-  ['🧍 Người lạ & nói chuyện', ['talkActor', 'chosen', 'near', 'bring', 'chased']],
+  ['🧍 Người lạ & nói chuyện', ['accept', 'talkActor', 'chosen', 'near', 'bring', 'chased']],
   ['💬 Tin nhắn & app', ['open', 'reply', 'routed', 'ttSeen']],
   ['🗺️ Di chuyển', ['arrive', 'reach', 'mount', 'away', 'useAt']],
   ['📦 Đơn & xe', ['ordersSince', 'order', 'switch', 'fuel', 'brand', 'wear', 'use']],
@@ -331,6 +331,7 @@ export function render(root, ctx) {
         if (v === 'reach') Object.assign(st.until, { at: [0, 0], r: 8 });
         if (v === 'ttSeen') st.until.id = ttOpts()[0]?.[0] || '';
         if (v === 'away') Object.assign(st.until, { who: Object.keys(data.people)[0] || '', r: 30 });
+        if (v === 'accept') Object.assign(st.until, { place: placeOpts[0]?.[0] || '' });
         if (v === 'useAt') Object.assign(st.until, { at: Object.keys(ZONES.ship.points)[0], r: 1.6, label: newKey(`${base}.useLabel`) });
         if (v === 'hidden') { const b = binOpts()[0]?.[0]; if (b) st.until.prop = b; }
         if (v === 'chased') st.until.who = (ch.steps || []).flatMap((x) => (x.on || []).filter((a) => a.do === 'chase').map((a) => a.who))[0] || Object.keys(data.people)[0] || '';
@@ -377,6 +378,9 @@ export function render(root, ctx) {
       u.type === 'bring' ? field('Chở tới', selectInput(u.place, placeOpts, (v) => { u.place = v; changed(); }), opt('until', { hint: 'Người lạ phải đang ngồi sau xe (việc "lên xe" ở bước này / bước trước).' })) : null,
       u.type === 'bring' ? field('Bán kính (đơn vị bản đồ)', numInput(u.r ?? 10, (v) => { u.r = v; changed(); }, { step: 0.5, min: 1 }), opt('until', { hint: 'Tới gần nơi đến bao nhiêu thì xong (người lạ xuống xe). đơn vị bản đồ: 1 ≈ 10 m trên màn hình. Cột sáng vàng rộng ≈ 1 → muốn tới đúng cột thì đặt 2–3.' })) : null,
       u.type === 'ordersSince' ? field('Số đơn phải giao thêm', numInput(u.n ?? 10, (v) => { u.n = Math.max(1, Math.round(v) || 1); changed(); }, { step: 1, min: 1, max: 200 }), opt('until', { hint: 'Đếm từ lúc vào bước, cộng dồn qua các ngày. Bảng "Mục tiêu hôm nay" hiện "Giao N đơn (n/N)".' })) : null,
+      u.type === 'accept' ? field('Nhận việc ở', selectInput(u.who ? `who:${u.who}` : u.place || '', [...placeOpts, ...spotOpts(), ...Object.keys(data.people).map((id) => [`who:${id}`, `🧍 ${C[data.people[id].name] || id} (người lạ đang có mặt)`])], (v) => { if (v.startsWith('who:')) { u.who = v.slice(4); delete u.place; } else { u.place = v; delete u.who; } changed(); }), opt('until', { hint: 'Người chơi tự tới đây bấm E "Nhận việc" mới đi tiếp (thường đặt ngay trước bước hiện tên chương). Chưa nhận thì vẫn chạy đơn bình thường. Nhớ ghi mục tiêu + mũi tên (đích) cho bước này.' })) : null,
+      u.type === 'accept' ? field('Nhận từ giờ (bỏ trống = lúc nào cũng được)', numInput(u.from ?? '', (v) => { if (v === '' || v == null || Number.isNaN(v)) delete u.from; else u.from = v; changed(); }, { step: 0.5, min: 0, max: 24 }), opt('until')) : null,
+      u.type === 'accept' ? field('Tới giờ', numInput(u.to ?? '', (v) => { if (v === '' || v == null || Number.isNaN(v)) delete u.to; else u.to = v; changed(); }, { step: 0.5, min: 0, max: 24 }), opt('until')) : null,
       u.type === 'clock' ? field('Từ giờ', numInput(u.from ?? 17.5, (v) => { u.from = v; changed(); }, { step: 0.5, min: 0, max: 24 }), opt('until', { hint: 'Giờ chung của thế giới, vd 17,5 = 17:30. Quá giờ thì chờ tới hôm sau.' })) : null,
       u.type === 'clock' ? field('Tới giờ', numInput(u.to ?? 19, (v) => { u.to = v; changed(); }, { step: 0.5, min: 0, max: 24 }), opt('until')) : null,
       u.type === 'near' ? field('Cách người chơi (đơn vị bản đồ · 1 ≈ 10 m)', numInput(u.r ?? 1.6, (v) => { u.r = v; changed(); }, { step: 0.2, min: 0.8 }), opt('until')) : null,
@@ -1291,10 +1295,12 @@ export function render(root, ctx) {
     const KINDS = { port: '🏗️ Bến cảng (container 2 bên)', gate: '🚧 Cổng cảng', industrial: '🏭 Khu công nghiệp', highway: '🛣️ Quốc lộ (4 làn, nhiều xe)', work: '🚧 Đường đang làm (hẹp, cọc)', dirt: '🟫 Đường đất ven ruộng', village: '🏘️ Xóm (đường hẹp)', canal: '🌴 Bờ kênh dừa nước', bridge: '🌉 Cầu tạm (nước 2 bên)', levee: '🌊 Bờ đê', drawbridge: '🌉 Cầu cất (cuối màn: bay qua cầu đang nâng)', deadend: '⛔ Đường cụt (cuối màn)' };
     const EVENTS = { say: '💬 Anh Đạt hét (chỉ câu thoại)', container: '📦 2 container rơi chắn làn (lạng né)', barrier: '🚧 Barie hạ dần (phải chạy đủ nhanh lọt qua)', truck: '🛻 Bán tải Tí Đô áp sát lại sau lưng (nếu đang bị bỏ xa)', bus: '🚌 Xe khách xoay ngang chắn đường (chừa khe bên trái)', ram: '💥 Bán tải lên ngang hông, nháy đèn rồi tạt vào (phanh / lách xa để né; đường ≥ 9 m, đợi đường vắng)', throwers: '🧱 2 xe giang hồ vượt lên ném gạch rồi phóng đi (đợi đường vắng)', drawbridge: '🌉 Cầu cất đang nâng (giữa cầu ở đây; tới càng sớm cầu càng thấp)', potholes: '🕳 Ổ gà rải rác (xóc, chậm)', ducks: '🦆 Đàn vịt băng qua (chậm lại)', puddle: '💧 Vũng nước (trượt)', stall: '🛒 Sạp hàng đẩy ra chắn nửa phải', jump: '🌉 Cầu gãy (≥ 80 km/h mới bay qua; bán tải bị bỏ lại)',
       drums: '🛢 3 thùng phuy lăn ra làn', cones: '🚧 Rào công trình chắn 1 làn', brokencar: '🚗 Xe hư đậu giữa làn (tam giác cảnh báo phía sau)', trunk: '🌴 Cây dừa ngã chắn hơn nửa đường',
-      buffalo: '🐃 Trâu đi băng ngang đường', forklift: '🚜 Xe nâng chạy ngang (bến cảng)', cart: '🛺 Xe ba gác đậu lấn ra đường' };
+      buffalo: '🐃 Trâu đi băng ngang đường', forklift: '🚜 Xe nâng chạy ngang (bến cảng)', cart: '🛺 Xe ba gác đậu lấn ra đường',
+      brawlers: '🥢 Xe giang hồ áp sát (anh Đạt quật gậy Q / E — không hiện nút; đợi đường vắng)', train: '🚂 Tàu hỏa băng ngang (hết ga thì vượt kịp, chậm thì phanh chờ)', door: '🚪 Cửa xe đậu bật mở (nút A / D lách)',
+      cargo: '📦 Xe tải phía trước rớt thùng hàng (lách theo khe)', line: '👕 Dây phơi ngang đường (nút Space cúi)', queue: '🚧 Hàng xe dừng chờ cầu + barie hạ (đặt trước cầu cất)' };
     const num = (obj, k, label, opts = {}, ref = '', hint = '') => field(label, numInput(obj[k] ?? opts.def ?? 0, (v) => { if (v || opts.keep0) obj[k] = v; else delete obj[k]; changed(); }, { step: opts.step ?? 1, min: opts.min ?? 0, max: opts.max }), { ref, fieldKey: k, hint });
     body.append(el('div', { class: 'body-head' }, el('h2', {}, '🏍️ Màn đua thoát thân')),
-      el('p', { class: 'muted' }, 'Đường đua tự dựng từ các đoạn nối nhau (mỗi đoạn: kiểu cảnh, dài bao nhiêu m, rẽ bao nhiêu độ). Ga W · phanh S / Space · lái A D — chướng ngại tự nhìn mà né, không có nút bấm. Té xe 3 lần trong 1 đoạn / bị bám sát 4 giây / rớt cầu / barie đóng → chơi lại từ đầu đoạn. Thử nhanh: ?cheat&race=<mã>.'));
+      el('p', { class: 'muted' }, 'Đường đua tự dựng từ các đoạn nối nhau (mỗi đoạn: kiểu cảnh, dài bao nhiêu m, rẽ bao nhiêu độ). Ga W · phanh S / Space · lái A D — chướng ngại tự nhìn mà né; vài chỗ có nút bấm nhanh (cửa xe A / D, dây phơi / bốc đầu ở mép cầu / phanh gấp sau khi đáp: Space). Xe giang hồ áp sát: anh Đạt quật gậy Q (trái) / E (phải), không hiện nút. Té xe 3 lần trong 1 đoạn / bị bám sát 4 giây / rớt cầu / barie đóng → chơi lại từ đầu đoạn. Thử nhanh: ?cheat&race=<mã>.'));
     for (const [id, r] of Object.entries(data.races)) {
       const ref = `race:${id}`, total = (r.sections || []).reduce((a, s) => a + (s.len || 0), 0);
       const secs = (r.sections ||= []).map((sec, i) => el('div', { class: 'act-card' },
@@ -1313,6 +1319,7 @@ export function render(root, ctx) {
         ...sec.events.map((e, k) => el('div', { class: 'row' },
           selectInput(e.type || 'say', Object.entries(EVENTS), (v) => { e.type = v; rerender(); }),
           el('span', { class: 'muted' }, 'ở m'), numInput(e.at ?? 0, (v) => { e.at = v; changed(); }, { step: 10, min: 0 }),
+          e.type === 'brawlers' ? selectInput(String(e.n ?? ''), [['', 'số xe: theo bề rộng đường'], ['1', '1 xe'], ['2', '2 xe kẹp 2 bên']], (v) => { if (v) e.n = +v; else delete e.n; changed(); }) : null,
           e.line ? textInput(C[e.line] ?? '', (v) => { C[e.line] = v; ctx.changed('content'); }, { placeholder: 'câu anh Đạt hét' }) : button('＋ câu hét', () => { e.line = newKey(`story.race.${id}.e${i}_${k}`); rerender(); }, 'small'),
           button('✕', () => { sec.events.splice(k, 1); rerender(); }, 'small'))),
         button('＋ Thêm sự cố', () => { sec.events.push({ at: Math.round((sec.len || 100) / 2), type: 'say' }); rerender(); }, 'small')));

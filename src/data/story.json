@@ -1163,6 +1163,24 @@
           "guide": null
         },
         {
+          "id": "accept",
+          "until": {
+            "type": "accept",
+            "place": "dichvu4",
+            "from": 17.5,
+            "to": 24
+          },
+          "on": [],
+          "goal": "story.c2.accept.goal",
+          "hint": "story.accept.hint",
+          "target": "dichvu4",
+          "mark": {
+            "place": "dichvu4",
+            "icon": "!"
+          },
+          "guide": null
+        },
+        {
           "id": "title",
           "hold": true,
           "on": [
@@ -1990,7 +2008,7 @@
           "until": {
             "type": "clock",
             "from": 8,
-            "to": 9
+            "to": 24
           },
           "on": [],
           "guide": null,
@@ -2001,8 +2019,10 @@
         {
           "id": "linhWait",
           "until": {
-            "type": "talkActor",
-            "who": "linh"
+            "type": "accept",
+            "who": "linh",
+            "from": 8,
+            "to": 24
           },
           "on": [
             {
@@ -2017,20 +2037,13 @@
           ],
           "guide": null,
           "hold": true,
-          "goal": "story.c3.meet.goal",
+          "goal": "story.c3.accept.goal",
           "target": "tra",
           "mark": {
             "actor": "linh",
             "icon": "!"
           },
-          "talkLabel": "story.c3.meet.label",
-          "deadline": {
-            "hour": 9,
-            "back": "wait8",
-            "text": "story.c3.late",
-            "from": "linh",
-            "msg": "story.c3.linh.late"
-          }
+          "hint": "story.accept.hint"
         },
         {
           "id": "linhGo",
@@ -3524,13 +3537,20 @@
         },
         {
           "id": "waitAirport",
-          "on": [],
           "until": {
-            "type": "clock",
+            "type": "accept",
+            "place": "sanbay",
             "from": 16.5,
             "to": 18
           },
-          "goal": "story.c4.airport.goal",
+          "on": [],
+          "goal": "story.c4.accept.goal",
+          "hint": "story.accept.hint",
+          "target": "sanbay",
+          "mark": {
+            "place": "sanbay",
+            "icon": "!"
+          },
           "guide": null
         },
         {
@@ -3561,14 +3581,7 @@
             "place": "sanbay",
             "icon": "!"
           },
-          "guide": null,
-          "deadline": {
-            "hour": 18,
-            "back": "waitAirport",
-            "text": "story.c4.airport.late",
-            "from": "linh",
-            "msg": "story.c4.linh.late"
-          }
+          "guide": null
         },
         {
           "id": "toSchool",
@@ -5795,15 +5808,16 @@
         {
           "id": "goMeet",
           "until": {
-            "type": "clock",
-            "from": 21,
+            "type": "accept",
+            "place": "spot:gamCauSat",
+            "from": 20,
             "to": 24
           },
           "on": [],
-          "guide": null,
-          "goal": "story.c5.wait.goal",
-          "hint": "story.c5.goMeet.hint",
+          "goal": "story.c5.accept.goal",
+          "hint": "story.accept.hint",
           "target": "spot:gamCauSat",
+          "guide": null,
           "orders": true
         },
         {
@@ -5814,6 +5828,9 @@
             "r": 3.2
           },
           "on": [
+            {
+              "do": "title"
+            },
             {
               "do": "actor",
               "who": "tiSun",
@@ -6256,9 +6273,6 @@
             "who": "hoiShipper"
           },
           "on": [
-            {
-              "do": "title"
-            },
             {
               "do": "msg",
               "from": "hoiShipper",
@@ -7360,6 +7374,22 @@
           },
           "guide": null,
           "hold": true
+        },
+        {
+          "id": "accept",
+          "until": {
+            "type": "accept",
+            "place": "congan1"
+          },
+          "on": [],
+          "goal": "story.c6.accept.goal",
+          "hint": "story.accept.hint",
+          "target": "congan1",
+          "mark": {
+            "place": "congan1",
+            "icon": "!"
+          },
+          "guide": null
         },
         {
           "id": "title",
@@ -9656,8 +9686,19 @@
           "turn": 40,
           "events": [
             {
+              "at": 140,
+              "type": "train",
+              "line": "story.race.escape.train"
+            },
+            {
               "at": 290,
               "type": "cones"
+            },
+            {
+              "at": 560,
+              "type": "brawlers",
+              "n": 1,
+              "line": "story.race.escape.brawl1"
             },
             {
               "at": 770,
@@ -9684,6 +9725,12 @@
           "turn": -25,
           "events": [
             {
+              "at": 250,
+              "type": "brawlers",
+              "n": 2,
+              "line": "story.race.escape.brawl2"
+            },
+            {
               "at": 580,
               "type": "cones"
             },
@@ -9696,8 +9743,21 @@
               "type": "brokencar"
             },
             {
+              "at": 1300,
+              "type": "brawlers",
+              "n": 2
+            },
+            {
               "at": 1540,
               "type": "drums"
+            },
+            {
+              "at": 1750,
+              "type": "door"
+            },
+            {
+              "at": 1950,
+              "type": "cargo"
             },
             {
               "at": 2210,
@@ -9773,6 +9833,11 @@
               "type": "cart"
             },
             {
+              "at": 560,
+              "type": "brawlers",
+              "n": 1
+            },
+            {
               "at": 820,
               "type": "stall"
             },
@@ -9796,6 +9861,10 @@
           "len": 1900,
           "turn": 50,
           "events": [
+            {
+              "at": 300,
+              "type": "line"
+            },
             {
               "at": 620,
               "type": "trunk"
@@ -9825,8 +9894,17 @@
               "type": "throwers"
             },
             {
+              "at": 520,
+              "type": "drums"
+            },
+            {
               "at": 770,
               "type": "buffalo"
+            },
+            {
+              "at": 950,
+              "type": "brawlers",
+              "n": 1
             },
             {
               "at": 1150,
@@ -9837,9 +9915,14 @@
         {
           "name": "story.race.s.draw",
           "kind": "drawbridge",
-          "len": 600,
+          "len": 330,
           "turn": 0,
           "events": [
+            {
+              "at": 40,
+              "type": "queue",
+              "line": "story.race.escape.queue"
+            },
             {
               "at": 240,
               "type": "drawbridge"

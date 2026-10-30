@@ -1,14 +1,17 @@
 // =============================================================
-// GAME — MÀN ĐUA THOÁT THÂN (cốt truyện chương 6): chạy xe anh Đạt (anh Đạt ngồi sau), bán tải Tí Đô rượt; sự cố: chướng ngại, xe giang hồ ném gạch, bán tải húc.
+// GAME — MÀN ĐUA THOÁT THÂN (cốt truyện chương 6): chạy xe anh Đạt (anh Đạt ngồi sau cầm gậy), bán tải Tí Đô rượt; sự cố: chướng ngại, xe giang hồ ném gạch,
+// xe giang hồ áp sát (anh Đạt quật gậy: Q trái · E phải — không hiện nút), bán tải húc, tàu hỏa băng ngang, cửa xe bật mở / dây phơi (nút bấm nhanh),
+// xe tải rớt thùng hàng, hàng xe chờ cầu + barie, cầu cất (bốc đầu đúng lúc ở mép cầu), đáp xuống phải PHANH GẤP trước đường cụt.
 // Phần của lớp Game (src/game.js): gắn vào Game.prototype (mixParts) → dùng this như trong game.js.
 // Luật / đường ở sim/race.js, hình ở world/raceTrack.js, giao diện ở ui/raceHud.js. Camera cố định sau lưng xe (không xoay / phóng).
 // Việc cốt truyện "race" (story.json → races) · điều kiện "raceWon" (bay qua cầu cất / tới đường cụt, xe dừng).
 // Thua: té xe 3 lần / bán tải bám sát quá lâu / rớt cầu / cầu dựng đứng / barie đóng → Chơi lại từ đầu đoạn đang chạy.
 // =============================================================
 import * as THREE from 'three';
-import { raceOf, buildTrack, trackAt, nearestOnTrack, sectionAt, chaseSpeed, raceEvents, OBSTACLE_EVENTS, RACE, drawbridgeJump, drawbridgeAngle } from '../sim/race.js';
+import { raceOf, buildTrack, trackAt, nearestOnTrack, sectionAt, chaseSpeed, raceEvents, OBSTACLE_EVENTS, RACE, drawbridgeJump, drawbridgeAngle, BRAWL, brawlTarget, brawlHit, BOOST, boostResult, SKID, TRAIN, trainStart, trainBlocks, QTE_EVENTS } from '../sim/race.js';
 import { buildRaceTrack } from '../world/raceTrack.js';
-import { makeCar, makeNpcMoto, makePerson, randomPersonOpts, sitY, setSitting } from '../world/models.js';
+import { makeCar, makeNpcMoto, makePerson, randomPersonOpts, sitY, setSitting, hipBend, HIP_Y } from '../world/models.js';
+import { makeWeaponMesh } from '../world/fightModels.js';
 import { makeLongTruck } from '../world/storyProps.js';
 import { makeBaGac } from '../world/npcVehicles.js';
 import { RaceHud } from '../ui/raceHud.js';
@@ -20,6 +23,14 @@ import { sound } from '../audio.js';
 import { fmt } from '../content/index.js';
 
 const tmp = new THREE.Vector3();
+// Gập / vặn thân người đang NGỒI trên xe (người lái, anh Đạt): tính từ dáng ngồi gốc (nhớ lần đầu) — không cộng dồn mỗi khung như hipBend
+// (người ngồi không có hoạt cảnh đi bộ đặt lại thân mỗi khung → hipBend cũ đẩy thân cao dần lên trời)
+function bendSeated(P, extra = 0, ry = 0) {
+  const b = P.body, B = (b.userData.seatBase ||= { x: b.position.x, y: b.position.y, z: b.position.z, a: b.rotation.x });
+  const A = B.a + extra;
+  b.rotation.set(A, ry, 0, 'YXZ');
+  b.position.set(B.x, B.y + HIP_Y * (Math.cos(B.a) - Math.cos(A)), B.z - HIP_Y * (Math.sin(A) - Math.sin(B.a)));
+}
 // Chướng ngại (sự cố trong story.json → races): dựng hình + khung chiếm chỗ. c: làn bị chắn, laneW: bề rộng làn, w: bề rộng đường
 const STATIC_OBS = {
   drums: ({ c, mat }) => { // 3 thùng phuy lăn ra đường
@@ -104,6 +115,7 @@ export class RacePart {
     this.zoneEnter('race');
     delete this.gs.story.fpv;
     this.fpvSet(false);
+    if (this.kitCard) this.kitCardShow('off'); // cất thẻ "Trong túi có gì" của màn đánh nhau — không thì phím E (anh Đạt quật phải) bị dùng để cất thẻ
     // xe anh Đạt: nhớ xe của người chơi để trả lại sau màn đua
     const b = this.bike;
     this.raceSaved ||= { spec: b.spec, pos: b.pos.clone(), heading: b.heading, fuel: this.gs.fuel };
@@ -111,7 +123,7 @@ export class RacePart {
     b.mesh.userData.bagMesh && (b.mesh.userData.bagMesh.visible = false);
     this.gs.fuel = Math.max(this.gs.fuel, 50);
     const R = this.race = { id: key, def, T, ox, oz, s: 10, lat: 0, crashes: 0, crashT: 0, caughtT: 0, lock: false, done: false, lost: false,
-      events: raceEvents(def, T), obs: [], bricks: [], lastThrow: 0, ram: null, motos: [], truck: null, traffic: [], props: this.raceBuilt[key].props, fx: [], si: 0, cp: null, t: 0, lineT: 0 };
+      events: raceEvents(def, T), obs: [], bricks: [], lastThrow: 0, ram: null, motos: [], brawl: [], vis: {}, truck: null, traffic: [], props: this.raceBuilt[key].props, fx: [], si: 0, cp: null, t: 0, lineT: 0 };
     this.racePlaceBike(10, 0, 8);
     this.mode === 'bike' || act.mountBike(this);
     // anh Đạt ngồi sau
@@ -119,6 +131,7 @@ export class RacePart {
       if (!this.storyActors?.[def.ally]) this.storyActorSpawn({ do: 'actor', who: def.ally, look: 'char', spot: 'at', at: [b.pos.x + 1, b.pos.z], heading: 0 });
       const ac = this.storyActors?.[def.ally];
       if (ac && !ac.seated) this.storyActorSeat(ac);
+      if (ac?.seated) { R.dat = ac.seated; this.raceDatBat(R.dat); }
     }
     // xe giang hồ ném gạch (mỗi xe 2 đứa): nấp sẵn, chỉ chạy ra khi gặp sự cố "throwers"
     const rng = makeRng(77);
@@ -131,6 +144,22 @@ export class RacePart {
       mesh.visible = false;
       this.scene.add(mesh);
       R.motos.push({ mesh, back, s: 0, lat: 0, alive: true, fallT: 0, mode: null, k: i });
+    }
+    // xe giang hồ áp sát (sự cố "brawlers"): đứa ngồi sau cầm ống tuýp, lóe đỏ lúc giơ tay
+    for (let i = 0; i < 2; i++) {
+      const mesh = makeNpcMoto([0x6c3483, 0x1e8449][i], rng);
+      const back = makePerson({ ...randomPersonOpts(rng, 'm', { sitting: true }), hat: null });
+      setSitting(back, true);
+      back.position.set(0, sitY(back.scale.x, 1.02), -0.6);
+      const pipe = makeWeaponMesh('pipe');
+      pipe.position.set(0, -0.27, 0.02); pipe.rotation.x = Math.PI / 2;
+      back.userData.parts?.elbowR.add(pipe);
+      const aura = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 1.3, 16, 1, true).translate(0, 0.65, 0), new THREE.MeshBasicMaterial({ color: 0xff2a1f, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+      back.add(aura);
+      mesh.add(back);
+      mesh.visible = false;
+      this.scene.add(mesh);
+      R.brawl.push({ mesh, back, aura, s: 0, lat: 0, alive: true, fallT: 0, mode: null, k: i });
     }
     // bán tải Tí Đô: kẻ rượt duy nhất, bám sau lưng từ đầu tới cuối
     this.raceTruckOn(-18, true); // quiet: vừa vào màn đua không kêu còi (đã có nhạc đua)
@@ -216,13 +245,22 @@ export class RacePart {
       const line = R.def.sections[si]?.line;
       if (line) this.raceSay(line);
     }
+    R.qte = null; // nút bấm nhanh khung này (sự cố nào cần thì đặt)
+    R.duckT = Math.max(0, (R.duckT || 0) - dt);
+    R.wobT = Math.max(0, (R.wobT || 0) - dt);
+    if (R.wobT > 0) b.mesh.rotation.z = Math.sin(R.t * 30) * 0.12 * (R.wobT / 0.5); // bị phang: xe chao
     this.raceEventsTick(dt);
     this.raceObsTick(dt);
     this.raceChaseTick(dt);
+    this.raceBrawlTick(dt);
+    this.raceBat(dt);
+    this.raceDatPose(dt);
     this.raceTrafficTick(dt);
     this.raceFxTick(dt);
-    // ---- tới đường cụt: tự phanh, dừng hẳn → xong ----
-    if (!R.done && R.s > R.T.total - RACE.endBrake) {
+    // ---- đáp cầu cất xong: PHANH GẤP trước đường cụt (Space đúng lúc) ----
+    if (R.skid) this.raceSkidTick(dt);
+    // ---- tới đường cụt (màn không có cầu cất ở cuối): tự phanh, dừng hẳn → xong ----
+    else if (!R.done && R.s > R.T.total - RACE.endBrake) {
       R.lock = true;
       b.speed = Math.max(0, b.speed - dt * 14);
       if (b.speed <= 0.2) {
@@ -234,6 +272,7 @@ export class RacePart {
         this.hud.el.classList.remove('in-race');
       }
     }
+    this.raceHud.qte(R.qte);
     this.raceHudUpdate();
   }
   raceSay(key) {
@@ -255,6 +294,13 @@ export class RacePart {
         continue;
       }
       if (e.type === 'drawbridge') { this.raceDrawbridgeTick(e, ahead, dt); continue; }
+      if (e.type === 'train') { this.raceTrainTick(e, ahead, dt); continue; }
+      // xe giang hồ áp sát: tới chỗ thì đợi đường vắng mới ra (quá xa chỗ đặt thì bỏ)
+      if (e.type === 'brawlers' && ahead < 0) {
+        if (-ahead > 700) { e.done = true; continue; }
+        if (this.raceBrawlGo(e)) { e.done = true; if (e.line) this.raceSay(e.line); }
+        continue;
+      }
       // chướng ngại hiện ra phía trước (container rơi, sạp hàng, thùng phuy…) — người chơi tự lái né
       if (OBSTACLE_EVENTS[e.type] && ahead < OBSTACLE_EVENTS[e.type].near && ahead > -5) {
         e.done = true;
@@ -313,6 +359,7 @@ export class RacePart {
     const R = this.race, b = this.bike;
     for (const f of R.fx) {
       f.t += dt;
+      if (f.kind === 'smoke') { f.mesh.scale.setScalar(1 + f.t * 2.5); f.mesh.position.y += dt * 0.6; f.mesh.material.opacity = Math.max(0, 0.55 - f.t * 0.45); continue; } // khói bánh lúc phanh gấp
       if (f.kind === 'duck' && f.lat < f.w / 2 + 2) { f.lat += f.v * dt; const p = trackAt(R.T, f.s, f.lat); f.mesh.position.set(p.x + R.ox, Math.abs(Math.sin(f.t * 9)) * 0.05, p.z + R.oz); }
       if (f.hit || R.crashT > 0 || R.jump) continue;
       const ds = Math.abs(f.s - R.s), dl = Math.abs(f.lat - R.lat);
@@ -324,7 +371,7 @@ export class RacePart {
       }
     }
     // dọn vật đã bỏ xa phía sau
-    for (const f of [...R.fx]) if (f.s < R.s - 120) { this.scene.remove(f.mesh); R.fx.splice(R.fx.indexOf(f), 1); }
+    for (const f of [...R.fx]) if (f.s < R.s - 120 || (f.kind === 'smoke' && f.t > 1.3)) { this.scene.remove(f.mesh); R.fx.splice(R.fx.indexOf(f), 1); }
   }
   // ---------- CHƯỚNG NGẠI (người chơi tự lái né, không có nút bấm) ----------
   // Mỗi chướng ngại: khung chiếm chỗ trên đường theo (quãng s ± ds, lệch lat0 … lat1); tông vào khi đang chạy nhanh = té
@@ -357,6 +404,57 @@ export class RacePart {
       m.add(cart, top);
       place(m, e.s, -w / 2 - 1.2, Math.PI / 2);
       add({ kind: 'stall', mesh: m, s: e.s, lat0: -w / 2, lat1: -w / 2 + 0.1, ds: 1, solid: true, w });
+    } else if (e.type === 'door') {
+      // xe đậu ngay sát làn mình đang chạy, cửa bật mở về phía mình lúc còn ~0,9 giây — nút A / D lách ra phía kia
+      // bên đặt xe: phía lách tới (bên kia) phải còn chỗ trong lòng đường + không có xe cộ chạy tới (khỏi bắt lách vào đầu xe tải)
+      const free = (sd) => Math.abs(R.lat - sd * 2.4) < w / 2 - 0.6 && !this.raceLaneBusy(e.s, R.lat - sd * 2.4, 30, 140, 0.8, true); // xe ngược chiều chạy tới: nhìn xa 140 m
+      const side = [R.lat < 0 ? -1 : 1, R.lat < 0 ? 1 : -1].find(free) ?? (R.lat < 0 ? -1 : 1);
+      const cl = Math.max(-w / 2 + 1.1, Math.min(w / 2 - 1.1, R.lat + side * 1.75)), m = makeCar(0xecf0f1, 'sedan');
+      place(m, e.s, cl);
+      add({ kind: 'doorCar', mesh: m, s: e.s, lat0: cl - 1.0, lat1: cl + 1.0, ds: 2.3, solid: true });
+      const pivot = new THREE.Group(), door = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.95, 1.1), mat(0xecf0f1));
+      door.position.set(0, 0.85, -0.55);
+      pivot.add(door);
+      const edge = cl - side * 0.95;
+      place(pivot, e.s + 0.9, edge);
+      add({ kind: 'door', mesh: pivot, s: e.s + 0.5, lat0: side < 0 ? edge : edge - 1.15, lat1: side < 0 ? edge + 1.15 : edge, ds: 0.5, solid: false, side, base: pivot.rotation.y, openT: null });
+    } else if (e.type === 'cargo') {
+      // xe tải chạy chậm phía trước, đứt dây chằng: 5 thùng hàng rơi ra đường (chừa khe lạng lách) rồi xe tải rồ ga chạy mất
+      const rng = makeRng(Math.floor(e.s * 3)), lanes = w >= 12 ? [-3 * w / 8, -w / 8, w / 8, 3 * w / 8] : [-w / 4, w / 4];
+      const lane = lanes.reduce((a, l) => (Math.abs(l - R.lat) < Math.abs(a - R.lat) ? l : a), lanes[0]);
+      const m = makeLongTruck({ cab: 0x1e8449 });
+      this.scene.add(m);
+      const tr = { mesh: m, s: e.s + 30, s0: e.s + 30, lat: lane, v: 13, len: 14, wid: 2.5, kind: 'truck', cargo: { rng, w, dropped: false } };
+      R.traffic.push(tr);
+    } else if (e.type === 'line') {
+      // dây phơi giăng ngang đường tầm cổ: Space cúi rạp đúng lúc, không thì vướng dây = té
+      const m = new THREE.Group();
+      for (const x of [-w / 2 - 0.4, w / 2 + 0.4]) { const pole = new THREE.Mesh(new THREE.BoxGeometry(0.14, 2.6, 0.14), mat(0x6d5a3a)); pole.position.set(x, 1.3, 0); m.add(pole); }
+      const line = new THREE.Mesh(new THREE.BoxGeometry(w + 0.8, 0.03, 0.03), mat(0xdddddd)); line.position.y = 1.62; m.add(line);
+      const rng = makeRng(Math.floor(e.s));
+      for (let x = -w / 2 + 0.6; x < w / 2 - 0.4; x += 0.9 + rng.next() * 0.6) { const cl = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.55, 0.04), mat(rng.pick([0xe74c3c, 0x3498db, 0xf1c40f, 0xffffff, 0x27ae60]))); cl.position.set(x, 1.33, 0); m.add(cl); }
+      place(m, e.s, 0);
+      add({ kind: 'line', mesh: m, s: e.s, lat0: -w / 2 - 1, lat1: w / 2 + 1, ds: 0.4, solid: true });
+    } else if (e.type === 'queue') {
+      // xe cộ dừng thành hàng chờ cầu cất (2 hàng so le) + barie hạ dần từ 2 bên, chừa đúng 1 khe — lạng qua mà không nhả ga
+      const rng = makeRng(Math.floor(e.s * 5)), q = w / 4, flip = rng.next() < 0.5 ? 1 : -1;
+      const rows = [[e.s, [-2 * q * 1.2, 2 * q * 1.2]], [e.s + 14, [-0.6 * flip, 3.2 * flip]]];
+      for (const [rs, lats] of rows) for (const l of lats) {
+        const cl = Math.max(-w / 2 + 1, Math.min(w / 2 - 1, l)), car = makeCar(rng.pick([0xc0392b, 0x2c3e50, 0xecf0f1, 0x7f8c8d, 0x2980b9]), rng.pick(['sedan', 'suv', 'taxi']));
+        place(car, rs, cl);
+        add({ kind: 'queueCar', mesh: car, s: rs, lat0: cl - 1.0, lat1: cl + 1.0, ds: 2.3, solid: true });
+      }
+      const g0 = 1.2 * -flip; // khe barie: lệch về phía ngược hàng 2 (phải lạng thêm 1 lần)
+      for (const sd of [-1, 1]) {
+        const len = sd < 0 ? g0 - 1.2 + w / 2 : w / 2 - (g0 + 1.2), pivot = new THREE.Group();
+        for (let i = 0; i < Math.ceil(len / 0.6); i++) { const st = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.15, 0.15), mat(i % 2 ? 0xffffff : 0xe03a2a)); st.position.set(-sd * (0.3 + i * 0.6), 0, 0); pivot.add(st); }
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.1, 0.3), mat(0xe8e4da)); post.position.set(0, -0.55, 0); pivot.add(post);
+        pivot.position.y = 1.05;
+        place(pivot, e.s + 32, sd * (w / 2 + 0.2));
+        pivot.userData.sd = sd;
+        add({ kind: 'barArm', mesh: pivot, s: e.s + 32, lat0: sd < 0 ? -w / 2 - 1 : g0 + 1.2, lat1: sd < 0 ? g0 - 1.2 : w / 2 + 1, ds: 0.4, solid: false, ang: 1.35 });
+      }
+      sound('race.barrier');
     } else if (STATIC_OBS[e.type]) {
       // chướng ngại đứng yên / băng ngang: chắn đúng làn mình đang chạy, luôn chừa khe ≥ 3 m để lách
       const lanes = w >= 12 ? [-3 * w / 8, -w / 8, w / 8, 3 * w / 8] : [-w / 4, w / 4], laneW = w >= 12 ? w / 4 : w / 2;
@@ -376,6 +474,7 @@ export class RacePart {
       if (o.blinks ??= (() => { const l = []; o.mesh.traverse((c) => c.userData.blink && l.push(c)); return l; })()) for (const c of o.blinks) c.visible = on; // đèn nháy
       const p = trackAt(R.T, o.s, (o.lat0 + o.lat1) / 2);
       if (o.kind === 'container' && o.mesh.position.y > 1.3) { o.mesh.position.y = Math.max(1.3, o.y - o.t * o.t * 14); if (o.mesh.position.y <= 1.3 && !o.solid) { o.solid = true; this.shake = 0.5; sound('race.land'); } }
+      if (o.kind === 'box' && !o.solid) { o.mesh.position.y = Math.max(0.5, o.y - o.t * o.t * 14); o.mesh.rotation.set(o.t * 5, o.t * 2, o.t * 3); if (o.mesh.position.y <= 0.5) { o.solid = true; o.mesh.rotation.set(0, o.s % 3, 0); } } // thùng hàng rơi xuống đường
       if (o.kind === 'bus' && !o.solid) { o.rot = Math.min(1.45, o.t * 1.3); o.mesh.rotation.y = p.h + o.rot; if (o.rot > 0.6) o.solid = true; }
       if (o.cross) { // trâu / xe nâng băng ngang đường
         o.lat += o.cross * dt;
@@ -385,8 +484,31 @@ export class RacePart {
         if (o.legs) for (const [k, leg] of o.legs.entries()) leg.rotation.x = Math.sin(o.t * 6 + k * 1.6) * 0.35;
         if (Math.abs(o.lat) > o.w / 2 + 3) o.solid = false;
       }
+      if (o.kind === 'door') { // còn ~0,9 giây tới cửa: cửa bật mở về phía mình — nút lách ra phía kia
+        const tt = (o.s - R.s) / Math.max(4, b.speed);
+        if (o.openT == null && tt < QTE_EVENTS.door.show) { o.openT = 0; sound('race.door'); }
+        if (o.openT != null) {
+          o.openT += dt;
+          o.mesh.rotation.y = o.base + o.side * -Math.min(1.2, o.openT * 8);
+          o.solid = o.openT > 0.12;
+          if (o.s - R.s > -1 && o.openT < 1.2 && !o.hit) R.qte = { key: o.side < 0 ? 'KeyA' : 'KeyD', k: 1 - o.openT / QTE_EVENTS.door.show };
+        }
+      }
+      if (o.kind === 'line' && !o.hit) { // dây phơi: Space cúi rạp (bấm khi còn ≤ win giây; sớm quá thì cúi xong ngẩng lên trước khi tới dây)
+        const tt = (o.s - R.s) / Math.max(4, b.speed);
+        if (tt < QTE_EVENTS.line.show && tt > -0.2 && !o.ducked) {
+          R.qte = { key: 'Space', txt: 'hud.race.qte.duck', k: tt / QTE_EVENTS.line.show };
+          if (this.input.was('Space')) { o.ducked = true; R.duckT = 0.9; }
+        }
+      }
+      if (o.kind === 'barArm') { // barie hạ dần (4 giây) từ lúc hiện ra · hạ quá nửa là chắn
+        o.ang = Math.max(0, 1.35 - o.t * 0.34);
+        o.mesh.rotation.z = o.mesh.userData.sd * -o.ang;
+        o.solid = o.ang < 0.7;
+      }
       if (o.kind === 'stall' && o.lat1 < -o.w / 2 + 3.2) { o.lat1 = Math.min(-o.w / 2 + 3.2, -o.w / 2 + o.t * 3.5); const q = trackAt(R.T, o.s, o.lat1 - 0.8); o.mesh.position.set(q.x + R.ox, 0, q.z + R.oz); }
       if (!o.solid || R.crashT > 0 || R.safeT > 0 || R.jump || o.hit) continue;
+      if (o.kind === 'line' && R.duckT > 0) continue; // đang cúi rạp: chui qua dây phơi
       if (Math.abs(R.s - o.s) < o.ds + 0.9 && R.lat > o.lat0 - 0.4 && R.lat < o.lat1 + 0.4) {
         o.hit = true;
         if (o.kind === 'brick') { b.speed *= 0.85; this.shake = 0.3; sound('race.bump'); } // cục gạch nằm trên đường: xóc nhẹ
@@ -406,6 +528,7 @@ export class RacePart {
     R.lock = true;
     R.safeT = RACE.crashStop + 2; // đứng dậy rồi được 2 giây không bị đụng (xe nhấp nháy)
     for (const m of R.motos) if (m.mode === 'pass' || m.mode === 'throw') m.mode = 'away'; // bọn ném gạch phóng đi mất
+    for (const m of R.brawl) if (m.mode && m.alive) { m.mode = 'away'; m.windT = 0; } // bọn áp sát cũng bỏ đi
     this.bike.speed = 0;
     this.shake = 0.8;
     sound('race.crash');
@@ -419,7 +542,7 @@ export class RacePart {
     R.lock = true;
     this.storyLose = true;
     const txt = { caught: ['story.race.caught', 'story.race.caughtHint'], crashed: ['story.race.crashed', 'story.race.crashHint'], fall: ['story.race.fall', 'story.race.crashHint'], blocked: ['story.race.blocked', 'story.race.crashHint'],
-      steep: ['story.race.steep', 'story.race.bridgeHint'], short: ['story.race.short', 'story.race.bridgeHint'] }[why] || ['story.race.caught', 'story.race.caughtHint'];
+      steep: ['story.race.steep', 'story.race.bridgeHint'], short: ['story.race.short', 'story.race.bridgeHint'], wall: ['story.race.wall', 'story.race.wallHint'] }[why] || ['story.race.caught', 'story.race.caughtHint'];
     setTimeout(() => { if (this.race === R) this.storyLoseShow({ failText: txt[0], failHint: txt[1] }); }, 800);
   }
   raceRetry() {
@@ -430,7 +553,10 @@ export class RacePart {
       this.storyLose = false;
       if (this.race !== R) return;
       const cp = R.cp;
-      Object.assign(R, { lost: false, lock: false, crashes: 0, crashT: 0, caughtT: 0, ram: null, jump: null, si: cp.si, safeT: 2 });
+      Object.assign(R, { lost: false, lock: false, crashes: 0, crashT: 0, caughtT: 0, ram: null, jump: null, si: cp.si, safeT: 2, skid: null, duckT: 0, wobT: 0, bat: null, batCd: 0, trainBlock: null });
+      R.brawl.forEach((m) => { Object.assign(m, { alive: true, fallT: 0, mode: null, windT: 0 }); m.mesh.visible = false; m.mesh.rotation.z = 0; });
+      for (const [id, v] of Object.entries(R.vis)) { this.scene.remove(v); delete R.vis[id]; }
+      R.traffic = R.traffic.filter((v) => { if (v.cargo) this.scene.remove(v.mesh); return !v.cargo; });
       for (const o of [...R.obs, ...R.bricks]) this.scene.remove(o.mesh);
       R.obs = [];
       R.bricks = [];
@@ -439,7 +565,7 @@ export class RacePart {
       this.racePlaceBike(cp.s, 0, 10);
       R.motos.forEach((m) => { Object.assign(m, { alive: true, fallT: 0, mode: null, river: false }); m.mesh.visible = false; m.mesh.rotation.z = 0; m.mesh.position.y = 0; });
       if (R.truck) { Object.assign(R.truck, { active: !!cp.truck?.active, s: cp.s - 45, stop: null }); R.truck.mesh.visible = R.truck.active; }
-      for (const e of R.events) if (e.s >= cp.s - 1 || (e.type === 'drawbridge' && !e.done)) Object.assign(e, { done: false, started: false, made: false, said: false, t: 0, hold: false, passed: false });
+      for (const e of R.events) if (e.s >= cp.s - 1 || (e.type === 'drawbridge' && !e.done)) Object.assign(e, { done: false, started: false, made: false, said: false, t: 0, hold: false, passed: false, boostT: null, head: null });
       for (const e of R.events) if (e.type === 'drawbridge' && !e.done) this.raceDrawbridgeSet(e, 0);
       for (const f of R.fx) this.scene.remove(f.mesh);
       R.fx = [];
@@ -494,9 +620,10 @@ export class RacePart {
   raceQuiet(front = 80, back = 20, obs = 120) {
     const R = this.race, kind = R.def.sections[R.si]?.kind;
     if (R.ram || R.jump || R.crashT > 0 || R.safeT > 0 || ['gate', 'work', 'bridge', 'drawbridge', 'deadend'].includes(kind)) return false;
+    if (R.brawl.some((m) => m.mode && m.alive) || R.trainBlock != null) return false; // đang bị xe giang hồ áp sát / tàu chắn: khỏi chồng thêm sự cố
     if (R.traffic.some((v) => v.mesh.visible && v.s > R.s - back && v.s < R.s + front)) return false;
     if (R.obs.some((o) => o.solid && o.kind !== 'brick' && o.s > R.s - 5 && o.s < R.s + obs)) return false;
-    return !R.events.some((x) => !x.done && (OBSTACLE_EVENTS[x.type] || x.type === 'barrier' || x.type === 'drawbridge') && x.s > R.s && x.s < R.s + obs);
+    return !R.events.some((x) => !x.done && (OBSTACLE_EVENTS[x.type] || x.type === 'barrier' || x.type === 'drawbridge' || x.type === 'train') && x.s > R.s && x.s < R.s + obs);
   }
   // Sự cố "throwers": 2 xe giang hồ (mỗi xe 2 đứa) từ sau lưng vượt lên, đứa ngồi sau quay ra ném gạch, xong thì phóng đi mất
   raceThrowersGo() {
@@ -620,6 +747,7 @@ export class RacePart {
         // bị bỏ xa thì rồ hết cỡ đuổi theo (kẻ rượt duy nhất — không để mất hút) · chướng ngại thì húc văng luôn, chỉ né xe cộ
         t.s += chaseSpeed(R.s - t.s, vP, R.s - t.s > 60 ? RACE.truck + 8 : RACE.truck, RACE.chaseGap + 6) * dt;
         t.s = Math.min(t.s, R.s - 4);
+        if (R.trainBlock != null && t.s < R.trainBlock) t.s = Math.min(t.s, R.trainBlock - 12); // tàu đang chắn: bán tải cũng phải đứng chờ
         const w = trackAt(R.T, t.s).w, l = this.raceFreeLat(t.s, Math.sin(R.t * 0.4) * 1.5, w, 7, 12, null, true);
         if (l == null) { const blk = this.raceLaneBusy(t.s, t.lat ?? 0, 0, 14, 1.3, true); if (blk) t.s = Math.min(t.s, blk.s - (blk.len || 2) / 2 - 8); }
         t.lat = (t.lat ?? 0) + ((l ?? t.lat ?? 0) - (t.lat ?? 0)) * Math.min(1, dt * 2);
@@ -674,6 +802,7 @@ export class RacePart {
       // xe cùng chiều đang ở sau lưng mình, cùng làn: không tông từ phía sau — chạy chậm lại theo mình (giữ cách ~10 m)
       let vv = v.v;
       if (vv > 0 && v.s < R.s && R.s - v.s < 30 && Math.abs(v.lat - R.lat) < v.wid / 2 + 1.2) vv = Math.min(vv, Math.max(0, b.speed - 1) + Math.max(0, R.s - v.s - v.len / 2 - 10) * 0.5);
+      if (v.cargo) vv = this.raceCargoTick(v, dt);
       v.s += vv * dt;
       const p = trackAt(R.T, v.s, v.lat);
       v.mesh.position.set(p.x + R.ox, 0, p.z + R.oz);
@@ -721,6 +850,13 @@ export class RacePart {
     if (pr?.lights) { const on = Math.floor(R.t * 3) % 2 === 0; pr.lights.forEach((l, i) => (l.visible = i % 2 ? on : !on)); } // đèn đỏ nháy xen kẽ
     if (ahead < -300) { e.done = true; return; }
     if (e.passed) return;
+    // BỐC ĐẦU: còn ~1 giây tới mép cầu thì hiện nút Space — bấm khi còn ≤ BOOST.win giây (sớm quá = lỡ nhịp, chỉ được bấm 1 lần)
+    const J = R.jump?.kind === 'draw' ? R.jump : null;
+    const tTip = J ? (J.ph === 'ramp' ? (L - J.d) / Math.max(1, J.v) : -1) : (e.s - R.s) / Math.max(4, b.speed);
+    if (e.boostT == null && tTip >= 0 && tTip < BOOST.show && !R.lost && R.crashT <= 0) {
+      R.qte = { key: 'Space', txt: 'hud.race.qte.boost', k: tTip / BOOST.show };
+      if (this.input.was('Space')) e.boostT = tTip;
+    }
     // bán tải: thấy cầu mở thì phanh rít, dừng trước chân cầu
     if (R.truck?.active && R.truck.stop == null && ahead < L + 80) { R.truck.stop = e.s - L - 22; sound('race.brake'); }
     // tới chân cầu (bản lề nửa bên này)
@@ -750,7 +886,12 @@ export class RacePart {
       J.y = J.d * Math.sin(a);
       pitch = a;
       if (J.v <= 0.5) { J.ph = 'fall'; J.vx = -1; J.vy = 0; } // không đủ đà: tuột ngược, rớt xuống
-      else if (J.d >= L) { J.ph = 'air'; J.vx = J.v * Math.cos(a); J.vy = J.v * Math.sin(a); J.y = tip; }
+      else if (J.d >= L) {
+        J.ph = 'air'; J.vx = J.v * Math.cos(a); J.vy = J.v * Math.sin(a); J.y = tip;
+        const res = boostResult(e.boostT ?? null);
+        if (res === 'ok') { J.vy += BOOST.vy; sound('race.boost'); this.raceHud.pop(fmt('hud.race.boostOk'), 'good'); }
+        else if ((a * 180) / Math.PI > BOOST.free) { J.short = true; J.vx = 2.5; J.vy = 1.5; this.raceHud.pop(fmt(res === 'early' ? 'hud.race.early' : 'hud.race.noBoost'), 'bad'); } // không bốc đầu: bánh trước cắm xuống mép, hụt
+      }
       b.speed = Math.max(0, J.v);
     } else if (J.ph === 'air') { // bay
       J.x += J.vx * dt;
@@ -759,7 +900,8 @@ export class RacePart {
       pitch = Math.atan2(J.vy, J.vx) * 0.8;
       const surf = J.x < farTip ? null : J.x < c + L ? (c + L - J.x) * Math.tan(a) : 0;
       if (surf == null && J.vy < 0 && J.y < tip - 0.3) { J.ph = 'fall'; J.vx *= 0.3; } // hụt mép nửa bên kia: rớt xuống khe
-      else if (surf != null && J.y <= surf) { J.y = surf; J.ph = J.x < c + L ? 'down' : 'land'; this.shake = 0.7; sound('race.land'); }
+      else if (surf != null && J.y <= surf && !J.short) { J.y = surf; J.ph = J.x < c + L ? 'down' : 'land'; this.shake = 0.7; sound('race.land'); }
+      else if (J.short && J.vy < 0 && J.y < tip - 0.3) { J.ph = 'fall'; J.vx *= 0.3; }
       b.speed = J.vx;
     } else if (J.ph === 'down') { // đáp xuống nửa bên kia, chạy xuống dốc
       J.x += J.vx * dt;
@@ -792,7 +934,264 @@ export class RacePart {
       b.mesh.position.y = 0;
       b.speed = J.vx * 0.85;
       this.racePlaceBike(J.x, J.lat, b.speed);
+      // cuối màn là đường cụt ngay sau cầu: bánh vừa chạm đất là phải PHANH GẤP
+      if (R.T.total - J.x < 160) R.skid = { t: 0, v: b.speed, press: null };
     }
+  }
+  // ---------- ĐÁP CẦU: PHANH GẤP trước đường cụt ----------
+  // Bánh chạm đất → hiện nút Space (cửa SKID.win giây): bấm kịp = khóa bánh trượt dài, dừng sát rào → THẮNG · trễ = tay lái khóa, tông rào → thua (chơi lại đoạn cầu)
+  raceSkidTick(dt) {
+    const R = this.race, K = R.skid, b = this.bike, wall = R.T.total - 3;
+    if (R.done || R.lost) return;
+    K.t += dt;
+    R.lock = true;
+    if (K.press == null) {
+      if (this.input.was('Space') && K.t <= SKID.win) { K.press = K.t; sound('race.skid'); }
+      else if (K.t > SKID.win) K.press = -1;
+      else R.qte = { key: 'Space', k: 1 - K.t / SKID.win };
+    }
+    if (K.press >= 0) {
+      b.speed = Math.max(0, b.speed - SKID.decel * dt);
+      b.mesh.rotation.z = Math.min(0.14, b.speed * 0.01) * (R.lat > 0 ? -1 : 1); // trượt nghiêng, khói bánh
+      if ((K.smoke = (K.smoke || 0) - dt) <= 0 && b.speed > 2) { K.smoke = 0.06; this.raceSmoke(); }
+    } else b.speed = Math.max(b.speed, K.v * 0.9); // trễ: không kịp phanh
+    if (R.s >= wall - SKID.stop + 0.6 && b.speed > 1.5) { // tông rào đường cụt
+      b.speed = 0;
+      this.shake = 1;
+      sound('race.crash');
+      this.raceHud.flash();
+      this.raceLose('wall');
+      return;
+    }
+    if (K.press >= 0 && b.speed <= 0.2) {
+      R.done = true;
+      b.speed = 0;
+      b.mesh.rotation.z = 0;
+      storyEvent(this.gs.story, 'raceWon');
+      this.raceHud.show(false);
+      this.hud.el.classList.remove('in-race');
+    }
+  }
+  raceSmoke() {
+    const R = this.race, b = this.bike;
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.35, 6, 5), new THREE.MeshStandardMaterial({ color: 0xbdbdbd, transparent: true, opacity: 0.55, depthWrite: false }));
+    m.position.set(b.pos.x - Math.sin(b.heading) * 0.9, 0.3, b.pos.z - Math.cos(b.heading) * 0.9);
+    this.scene.add(m);
+    R.fx.push({ kind: 'smoke', mesh: m, s: R.s, lat: R.lat, r: 0, hit: true, v: 0, w: 0, t: 0 });
+  }
+  // ---------- TÀU HỎA BĂNG NGANG ----------
+  // Đường ray + 2 cột đèn đỏ ở e.s; tàu chạy ngang khi mình còn cách TRAIN.near m — hết ga thì vượt kịp sát mũi tàu, chậm thì phanh chờ (bán tải cũng phải chờ)
+  raceTrainTick(e, ahead, dt) {
+    const R = this.race, b = this.bike, w = trackAt(R.T, e.s).w, side = e.side ?? (Math.floor(e.s) % 2 ? 1 : -1);
+    if (ahead < -160) { e.done = true; if (R.vis[e.id]) { this.scene.remove(R.vis[e.id]); delete R.vis[e.id]; } R.trainBlock = null; return; }
+    if (ahead > 420) return;
+    let V = R.vis[e.id];
+    if (!V) { // dựng 1 lần: đường ray, cột đèn, đoàn tàu
+      const mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, flatShading: true, ...o });
+      V = R.vis[e.id] = new THREE.Group();
+      const p = trackAt(R.T, e.s);
+      V.position.set(p.x + R.ox, 0, p.z + R.oz);
+      V.rotation.y = p.h;
+      for (const dz of [-0.75, 0.75]) { const r = new THREE.Mesh(new THREE.BoxGeometry(260, 0.12, 0.12), mat(0x9a9a9a)); r.position.set(0, 0.07, dz); V.add(r); }
+      for (let x = -130; x < 130; x += 1.2) { const sl = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.06, 2.2), mat(0x5a4632)); sl.position.set(x, 0.03, 0); V.add(sl); }
+      const lamps = [];
+      for (const sd of [-1, 1]) {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2.8, 0.16), mat(0x222222)); post.position.set(sd * (w / 2 + 0.8), 1.4, -3 * 1); V.add(post);
+        const cross = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.18, 0.06), mat(0xffffff)); cross.position.set(sd * (w / 2 + 0.8), 2.6, -3); cross.rotation.z = 0.6; V.add(cross);
+        for (const k of [-1, 1]) { const l = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), mat(0xff2a1a, { emissive: 0xff2a1a, emissiveIntensity: 2.4 })); l.position.set(sd * (w / 2 + 0.8) + k * 0.25, 2.1, -3.05); V.add(l); lamps.push(l); }
+      }
+      const train = new THREE.Group(), cols = [0x8e3b2e, 0x5d6d7e, 0x8e3b2e];
+      const loco = new THREE.Mesh(new THREE.BoxGeometry(15, 3.4, 3.0), mat(0x1e5aa8)); loco.position.set(-side * 7.5, 1.9, 0); train.add(loco);
+      const nose = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.4, 3.0), mat(0xf1c40f)); nose.position.set(-side * 0.6, 1.5, 0); train.add(nose);
+      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.5, 1.2), mat(0xfff4c0, { emissive: 0xfff0b0, emissiveIntensity: 2 })); lamp.position.set(-side * 0.1, 2.4, 0); train.add(lamp);
+      for (let i = 0; i < 3; i++) { const wg = new THREE.Mesh(new THREE.BoxGeometry(15.5, 3.2, 3.0), mat(cols[i])); wg.position.set(-side * (15.6 + 16 * i + 7.7), 1.8, 0); train.add(wg); }
+      train.position.x = side * trainStart();
+      V.add(train);
+      V.userData = { train, lamps };
+      this.scene.add(V);
+    }
+    if (e.head == null && ahead < TRAIN.near) { e.head = 0; sound('race.train'); if (e.line) this.raceSay(e.line); }
+    if (e.head == null) return;
+    e.head += TRAIN.speed * dt;
+    V.userData.train.position.x = side * (trainStart() - e.head); // đầu tàu đi từ phía side sang phía bên kia
+    const on = Math.floor(R.t * 4) % 2 === 0;
+    V.userData.lamps.forEach((l, i) => (l.visible = i % 2 ? on : !on));
+    const block = trainBlocks(e.head, w);
+    R.trainBlock = block ? e.s : R.trainBlock === e.s ? null : R.trainBlock;
+    // tông tàu: té, dội lại trước đường ray
+    if (block && Math.abs(R.s - e.s) < 2.2 && R.crashT <= 0 && !(R.safeT > 0) && !R.jump) {
+      this.racePlaceBike(e.s - 6, R.lat, 0);
+      this.raceCrash(R.lat > 0 ? 1 : -1);
+    }
+    if (trainStart() - e.head + TRAIN.len < -w / 2 - 40) V.userData.train.visible = false;
+  }
+  // ---------- XE TẢI RỚT THÙNG HÀNG ----------
+  // Chạy chậm 13 m/s; mình còn cách ~45 m thì 5 thùng rơi ra (chừa khe), xong rồ ga 30 m/s chạy mất · trả tốc độ chạy của xe tải
+  raceCargoTick(v, dt) {
+    const R = this.race, C = v.cargo, w = C.w;
+    if (!C.dropped && v.s - R.s < 45) {
+      C.dropped = true;
+      const lanes = w >= 12 ? [-3 * w / 8, -w / 8, w / 8, 3 * w / 8] : [-w / 4, w / 4], free = C.rng.int(0, lanes.length - 1);
+      const mat = (c) => new THREE.MeshStandardMaterial({ color: c, flatShading: true });
+      let k = 0;
+      lanes.forEach((l, i) => {
+        if (i === free) return;
+        for (const dz of [0, 9]) {
+          if (dz && (i + k) % 2) continue;
+          const m = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.0, 1.1), mat(C.rng.pick([0xb07d3e, 0xc8954f, 0x9c6b33])));
+          const s = v.s - 9 - dz - k * 1.5, lat = l + (C.rng.next() - 0.5) * 0.6;
+          const p = trackAt(R.T, s, lat);
+          m.position.set(p.x + R.ox, 2.4, p.z + R.oz);
+          this.scene.add(m);
+          R.obs.push({ kind: 'box', mesh: m, s, lat0: lat - 0.6, lat1: lat + 0.6, ds: 0.6, solid: false, t: 0, y: 2.4 });
+          k += 1;
+        }
+      });
+      sound('race.cargo');
+    }
+    return C.dropped ? Math.min(30, v.v + (v.s - R.s < 80 ? 6 : 0) + 17) : v.v;
+  }
+  // ---------- XE GIANG HỒ ÁP SÁT ----------
+  // 1 xe (đường hẹp) / 2 xe kẹp 2 bên (đường rộng) từ sau lưng lên ngang hông, đứa ngồi sau giơ ống tuýp (lóe đỏ) rồi phang
+  raceBrawlGo(e) {
+    const R = this.race;
+    if (!this.raceQuiet() || R.brawl.some((m) => m.mode && m.alive)) return false;
+    const w = trackAt(R.T, R.s).w, n = Math.min(R.brawl.length, e.n ?? (w >= 12 ? 2 : 1));
+    const sides = n >= 2 ? [-1, 1] : [Math.abs(R.lat - BRAWL.lat) < w / 2 - 0.9 ? -1 : 1];
+    sides.forEach((side, k) => {
+      const m = R.brawl[k];
+      Object.assign(m, { alive: true, fallT: 0, mode: 'come', side, hits: 0, windT: 0, atkT: 1.3 + k * 1.1, t: 0, push: 0, wob: 0, armT: 0, off: n >= 2 ? (k ? -0.5 : 0.4) : 0.3, s: R.s - 24 - k * 6, lat: Math.max(-w / 2 + 0.8, Math.min(w / 2 - 0.8, R.lat + side * 3.5)) });
+      m.mesh.visible = true;
+      m.mesh.rotation.z = 0;
+    });
+    sound('race.gang');
+    return true;
+  }
+  raceBrawlTick(dt) {
+    const R = this.race, b = this.bike, vP = R.crashT > 0 ? 0 : Math.max(0, b.speed);
+    for (const m of R.brawl) {
+      if (!m.mode) continue;
+      if (!m.alive) { // văng: té lăn ra đường, tụt lại phía sau
+        m.fallT += dt;
+        m.mesh.rotation.z = -m.side * Math.min(1.45, m.fallT * 3);
+        m.s += Math.max(0, (m.v0 ?? vP) - m.fallT * 25) * dt;
+        const p = trackAt(R.T, m.s, m.lat);
+        m.mesh.position.set(p.x + R.ox, 0, p.z + R.oz);
+        if (m.fallT >= 3 || m.s < R.s - 60) { m.mode = null; m.mesh.visible = false; }
+        continue;
+      }
+      m.t += dt;
+      const w = trackAt(R.T, m.s).w, want = Math.max(-w / 2 + 0.7, Math.min(w / 2 - 0.7, R.lat + m.side * BRAWL.lat)) + m.push; // mình chạy sát lề: nó ép sát trong lòng đường (không tự văng)
+      let v;
+      if (m.mode === 'come') { v = vP + 7; if (m.s > R.s - 0.8 + m.off) m.mode = 'side'; }
+      else if (m.mode === 'side') {
+        v = vP + (R.s + m.off - m.s) * 2.2;
+        if (m.windT > 0) { // đang giơ ống tuýp → hết giờ thì phang
+          m.windT -= dt;
+          if (m.windT <= 0) {
+            m.armT = 0.35;
+            m.atkT = BRAWL.every;
+            const reach = Math.abs(m.lat - R.lat) < BRAWL.reach && Math.abs(m.s - R.s) < BRAWL.along;
+            if (reach && R.crashT <= 0 && !(R.safeT > 0) && !R.jump) { b.speed *= BRAWL.slow; this.shake = 0.6; R.wobT = 0.5; sound('race.gangHit'); this.raceHud.flash(); }
+            else sound('race.whoosh');
+          }
+        } else if ((m.atkT -= dt) <= 0) m.windT = BRAWL.wind;
+        if (m.t > BRAWL.give) { m.mode = 'away'; m.windT = 0; }
+      } else { // bỏ đi: tụt lại phía sau
+        v = Math.max(0, vP - 7);
+        if (m.s < R.s - 50) { m.mode = null; m.mesh.visible = false; continue; }
+      }
+      // xe cộ / chướng ngại chắn làn nó: bị quật văng vào thì té, không thì tụt lại chờ rồi áp lên lại
+      const blk = this.raceLaneBusy(m.s, m.lat, 0, 4, 0.3);
+      if (blk && Math.abs(m.push) <= 0.5) v = Math.min(v, Math.max(0, (blk.v ?? 0) - 1), vP - 5);
+      m.push *= Math.max(0, 1 - dt * 1.4);
+      m.lat += (want - m.lat) * Math.min(1, dt * 3);
+      m.lat = Math.max(-w / 2 - 0.2, Math.min(w / 2 + 0.2, m.lat));
+      m.s += v * dt;
+      // văng vào lề / tông xe cộ, chướng ngại phía trước → té
+      if (Math.abs(m.push) > 0.5 && (Math.abs(m.lat) > w / 2 - 0.25 || this.raceLaneBusy(m.s, m.lat, 0, 2.2, 0.3))) { this.raceBrawlFall(m, vP); continue; } // bị quật văng vào lề / vào xe cộ
+      // ép sát vào xe mình: cả 2 dội ra
+      if (Math.abs(m.lat - R.lat) < 0.8 && Math.abs(m.s - R.s) < 1.4 && R.crashT <= 0 && !R.jump) { m.push += m.side * 1.2; R.wobT = 0.3; this.shake = 0.3; sound('race.bump'); }
+      const p = trackAt(R.T, m.s, m.lat);
+      m.mesh.position.set(p.x + R.ox, 0, p.z + R.oz);
+      m.mesh.rotation.y = p.h;
+      m.mesh.rotation.z = m.wob > 0 ? Math.sin(m.t * 16) * 0.13 : 0;
+      m.wob = Math.max(0, (m.wob || 0) - dt);
+      // đứa ngồi sau: giơ ống tuýp lóe đỏ (cùng 1 màu đỏ cảnh báo như trận Tí Đô) → phang sang phía mình
+      const P = m.back.userData.parts;
+      m.armT = Math.max(0, m.armT - dt);
+      const k = m.windT > 0 ? 1 - m.windT / BRAWL.wind : -1, toward = -m.side;
+      m.aura.material.opacity = m.windT > 0 ? 0.2 + 0.25 * Math.abs(Math.sin(R.t * 14)) : 0;
+      if (P) {
+        P.armL.rotation.set(-0.5, 0, 0);
+        P.armR.rotation.set(k >= 0 ? -0.7 - 2.0 * k : m.armT > 0 ? -2.7 + (0.35 - m.armT) * 6 : -0.7, 0, k >= 0 ? toward * 0.4 * k : m.armT > 0 ? toward * 1.0 : 0);
+        P.elbowR.rotation.x = -0.6;
+        hipBend(P, 0, 0, k >= 0 || m.armT > 0 ? toward * 0.4 : 0);
+      }
+    }
+  }
+  raceBrawlFall(m, v) {
+    if (!m.alive) return;
+    m.alive = false;
+    m.fallT = 0.001;
+    m.v0 = v;
+    m.windT = 0;
+    m.aura.material.opacity = 0;
+    sound('race.crash');
+  }
+  // Anh Đạt quật gậy: Q = trái (lat dương) · E = phải (lat âm). Trúng lúc nó đang giơ tay (lóe đỏ) = văng luôn · không thì cú thứ 2 mới văng · hụt: chờ lâu hơn
+  raceBat(dt) {
+    const R = this.race, inp = this.input;
+    R.batCd = Math.max(0, (R.batCd || 0) - dt);
+    if (R.bat) {
+      R.bat.t += dt;
+      if (!R.bat.done && R.bat.t >= 0.2) {
+        R.bat.done = true;
+        const m = brawlTarget({ s: R.s, lat: R.lat }, R.brawl, R.bat.side);
+        if (!m) { R.batCd = BRAWL.miss; sound('fight.swing'); }
+        else {
+          R.batCd = BRAWL.cd;
+          const r = brawlHit(m);
+          sound('race.bat');
+          this.shake = Math.max(this.shake || 0, 0.25);
+          if (r.ko) { this.raceBrawlFall(m, Math.max(0, this.bike.speed)); m.push += R.bat.side * 1.5; this.raceHud.pop(fmt(r.timed ? 'hud.race.timed' : 'hud.race.knock'), 'good'); }
+          else { m.push += R.bat.side * BRAWL.push; m.wob = 0.8; m.s -= 2; m.windT = 0; m.atkT = Math.max(m.atkT, 1.2); }
+        }
+      }
+      if (R.bat.t >= BRAWL.swing) R.bat = null;
+    }
+    const side = inp.was('KeyQ') ? 1 : inp.was('KeyE') ? -1 : 0;
+    if (side && !R.bat && R.batCd <= 0 && R.dat && !R.lost && !R.done && R.crashT <= 0 && !R.jump) { R.bat = { side, t: 0, done: false }; sound('fight.swing'); }
+  }
+  // gậy gỗ trong tay phải anh Đạt (ngồi sau)
+  raceDatBat(person) {
+    const R = this.race, el = person.userData.parts?.elbowR;
+    if (!el || R.datBat) return;
+    const g = new THREE.Group(), mat = (c) => new THREE.MeshStandardMaterial({ color: c, flatShading: true });
+    const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.028, 0.85, 8), mat(0xb5803f)); stick.position.y = -0.38; g.add(stick);
+    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.18, 8), mat(0x222222)); g.add(grip);
+    g.position.set(0, -0.27, 0.02); g.rotation.x = Math.PI / 2;
+    el.add(g);
+    R.datBat = g;
+  }
+  // Dáng anh Đạt: tay trái ôm eo người lái, tay phải cầm gậy · quật sang 1 bên · cúi rạp (dây phơi) — người lái cúi theo
+  raceDatPose() {
+    const R = this.race, P = R.dat?.userData.parts, rider = this.walker.mesh.userData.parts;
+    const duck = R.duckT > 0 ? Math.min(1, R.duckT * 6, (0.9 - R.duckT) * 8 + 0.3) : 0;
+    if (rider && (duck > 0 || R.duckWas)) { bendSeated(rider, duck * 0.75); R.duckWas = duck > 0; } // chỉ đụng tới người lái lúc cúi / vừa ngẩng lên
+    if (!P) return;
+    P.armL.rotation.set(-0.55, 0, 0); P.elbowL.rotation.x = -0.9;
+    P.armR.rotation.set(-0.9, 0, 0); P.elbowR.rotation.x = -1.2;
+    let twist = 0;
+    if (R.bat) {
+      const k = R.bat.t / BRAWL.swing, side = R.bat.side * -1; // −1: trái của người ngồi = phía x dương của xe
+      const ease = (x) => x * x * (3 - 2 * x), w = ease(Math.min(1, k / 0.4)), st = ease(Math.max(0, Math.min(1, (k - 0.4) / 0.3))), back = Math.max(0, Math.min(1, (k - 0.75) / 0.25));
+      P.armR.rotation.x = -0.9 - 1.8 * w + st * 1.3;
+      P.armR.rotation.z = -side * (w * 0.4 + st * 1.1) * (1 - back);
+      P.elbowR.rotation.x = -1.2 + 0.9 * w;
+      twist = -side * (w * 0.35 - st * 0.9) * (1 - back);
+    }
+    bendSeated(P, duck * 0.9, twist);
   }
   // ---------- CAMERA CỐ ĐỊNH SAU LƯNG XE (không xoay / phóng) ----------
   raceCamera(dt) {
@@ -810,14 +1209,16 @@ export class RacePart {
   }
   raceHudUpdate() {
     const R = this.race;
-    this.raceHud.update({ crashes: R.crashes, max: RACE.crashMax, gap: R.hudGap ?? R.gap, caught: R.caughtT / RACE.caughtTime, kmh: Math.max(0, this.bike.speed) * 3.6 });
+    this.raceHud.update({ crashes: R.crashes, max: RACE.crashMax, gap: R.hudGap ?? R.gap, caught: R.caughtT / RACE.caughtTime, kmh: Math.max(0, this.bike.speed) * 3.6, bat: R.brawl.some((m) => m.alive && (m.mode === 'come' || m.mode === 'side')) });
   }
   // ---------- XONG / BỎ ----------
   raceStop() {
     const R = this.race;
     if (!R && !this.raceSaved) return;
     if (R) {
-      for (const m of R.motos) this.scene.remove(m.mesh);
+      for (const m of [...R.motos, ...R.brawl]) this.scene.remove(m.mesh);
+      for (const v of Object.values(R.vis)) this.scene.remove(v);
+      if (R.datBat) R.datBat.parent?.remove(R.datBat);
       if (R.truck) this.scene.remove(R.truck.mesh);
       for (const v of R.traffic) this.scene.remove(v.mesh);
       for (const f of R.fx) this.scene.remove(f.mesh);

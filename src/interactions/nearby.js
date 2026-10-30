@@ -5,7 +5,7 @@
 import { VEHICLES } from '../data/balance.js';
 import { circleFree } from '../world/physics.js';
 import { GOODS } from '../data/goods.js';
-import { STORY, stepOf, storyEvent, chapterOf, carryAt } from '../sim/story.js';
+import { STORY, stepOf, storyEvent, chapterOf, carryAt, spotOf, acceptOpen } from '../sim/story.js';
 import { DeliveryItem } from '../sim/ItemPhysics.js';
 import { S } from '../sim/OrderManager.js';
 import { nearestStop } from '../sim/bus.js';
@@ -133,6 +133,22 @@ export function gatherInteractions(g) {
     if (u?.type === 'useAt' && !s6.ev.used) {
       const at = g.zoneAt(u.at), d = at ? Math.hypot(at[0] - p.x, at[1] - p.z) : Infinity;
       if (d < (u.r ?? 1.6)) E.push({ label: fmt(u.label || 'act.useHere'), dist: d - 15, run: () => { storyEvent(s6, 'used'); sound(u.sound || 'ui.interact'); } }); // u.sound: tiếng riêng (vd mở tủ)
+    }
+  }
+  // cốt truyện: NHẬN VIỆC (điều kiện "accept") — người chơi tự tới chỗ giao việc bấm E mới vào chương (vào rồi thì không nhận đơn thường tới hết chương)
+  // ngoài khung giờ / đang chạy đơn dở: nút mờ, ghi lý do
+  {
+    const s7 = g.gs.story, st = s7?.ch && s7.fired ? stepOf(s7) : null, u = st?.until;
+    if (u?.type === 'accept' && !s7.ev.accepted) {
+      const sp = u.place && spotOf(u.place), pl = !sp && u.place ? g.layout.placeById[u.place] : null, who = u.who && g.speakerOf(u.who);
+      const at = sp ? { x: sp.at[0], z: sp.at[1] } : pl ? pl.door : who?.mesh?.parent ? who.mesh.position : null;
+      const d = at ? dist(p, at) : Infinity;
+      if (d <= (sp ? 6 : who ? 3.2 : R)) {
+        const hh = (h) => `${Math.floor(h)}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
+        const ch = chapterOf(s7), busy = !!om.order && !om.order.story;
+        const label = !acceptOpen(u, g.clockMin) ? fmt('act.acceptLater', { from: hh(u.from ?? 0), to: hh(u.to ?? 24) }) : busy ? fmt('act.acceptBusy') : fmt('act.accept', { name: fmt(ch?.name || '') });
+        E.push({ label, dist: d - 12, disabled: !acceptOpen(u, g.clockMin) || busy, run: () => { storyEvent(s7, 'accepted'); sound('ui.interact'); } });
+      }
     }
   }
   // việc của đơn hàng luôn ưu tiên (dist đã trừ 10), kể cả khi đang mờ để người chơi thấy hướng dẫn

@@ -93,6 +93,53 @@ export function drawbridgeJump(v, aDeg, L = RACE.leaf, g = RACE.g) {
 // Góc nửa cầu sau t giây kể từ lúc bắt đầu mở
 export const drawbridgeAngle = (t) => Math.min(RACE.bridgeMax, Math.max(0, t) * RACE.bridgeRate);
 
+// ---------- XE GIANG HỒ ÁP SÁT (sự cố "brawlers"): anh Đạt cầm gậy ngồi sau — Q quật trái, E quật phải (không hiện nút: người chơi tự canh) ----------
+// lat: chạy cách mình bao nhiêu m bên hông · reach: gậy với tới (m, theo bề ngang) · along: lệch trước / sau tối đa (m) · cd: quật xong chờ · miss: quật hụt chờ thêm
+// wind: đứa ngồi sau giơ ống tuýp (lóe đỏ) bao lâu mới phang · every: nghỉ giữa 2 lần phang · hits: số cú thì văng · slow: bị phang trúng còn bao nhiêu phần tốc độ
+export const BRAWL = { lat: 1.15, reach: 2.3, along: 1.9, cd: 0.45, miss: 0.8, swing: 0.45, wind: 0.8, every: 2.2, hits: 2, slow: 0.8, push: 1.6, give: 25 };
+// Anh Đạt quật về phía side (+1 = trái / lat dương, −1 = phải / lat âm): trúng xe nào (gần nhất, đúng bên, trong tầm gậy) · null = hụt
+export function brawlTarget(me, motos, side) {
+  let best = null;
+  for (const m of motos) {
+    if (!m.alive || !m.mode) continue;
+    const dl = (m.lat - me.lat) * side, ds = Math.abs(m.s - me.s);
+    if (dl < 0.4 || dl > BRAWL.reach || ds > BRAWL.along) continue;
+    if (!best || dl + ds * 0.5 < best.d) best = { m, d: dl + ds * 0.5 };
+  }
+  return best?.m || null;
+}
+// Gậy trúng xe giang hồ: đang giơ ống tuýp (lóe đỏ) = ĐÚNG LÚC → văng luôn (đòn của nó bị hủy) · không thì cộng 1 cú, đủ BRAWL.hits cú thì văng
+export function brawlHit(m) {
+  const timed = m.windT > 0;
+  m.hits = (m.hits || 0) + 1;
+  m.windT = 0;
+  return { ko: timed || m.hits >= BRAWL.hits, timed };
+}
+
+// ---------- CẦU CẤT: BỐC ĐẦU ở mép cầu (bấm Space đúng lúc) ----------
+// Còn boostWin giây nữa tới mép mới bấm được (bấm sớm hơn = lỡ nhịp) · không bốc đầu mà cầu đã nâng quá boostFree độ thì bay thấp, hụt mép, rớt sông
+export const BOOST = { show: 1.1, win: 0.45, free: 6, vy: 3 };
+// t: còn bao nhiêu giây tới mép cầu lúc bấm (null = không bấm) → 'ok' | 'early' | 'none'
+export const boostResult = (t) => (t == null ? 'none' : t <= BOOST.win ? 'ok' : 'early');
+
+// ---------- ĐÁP CẦU XONG: PHANH GẤP (Space) — 70 m trước mặt là đường cụt ----------
+// win: cửa bấm tính từ lúc bánh chạm đất · decel: khóa bánh trượt (m/s²) · stop: phải dừng cách rào ít nhất bấy nhiêu m
+export const SKID = { win: 0.8, decel: 18, stop: 1.5 };
+// Quãng xe còn chạy thêm: phản xạ (bấm sau t giây kể từ chạm đất) + trượt khóa bánh
+export const skidDist = (v, t) => v * t + (v * v) / (2 * SKID.decel);
+
+// ---------- TÀU HỎA BĂNG NGANG (sự cố "train") ----------
+// Tàu bắt đầu chạy khi mình còn cách đường ray near m; tàu tới giữa đường đúng lúc người chạy ~vRef m/s (gần hết ga) tới ray + lead giây
+// → chạy hết ga thì vượt kịp sát mũi tàu; chậm hơn thì phải phanh chờ tàu qua (bán tải áp sát). speed: tàu chạy (m/s) · len: dài cả đoàn (m)
+export const TRAIN = { near: 260, vRef: 33, lead: 0.55, speed: 20, len: 70 };
+// Đầu tàu cách giữa đường bao nhiêu m lúc bắt đầu chạy
+export const trainStart = () => TRAIN.speed * (TRAIN.near / TRAIN.vRef + TRAIN.lead);
+// Tàu đang chắn đường? head: đầu tàu đã đi được bao nhiêu (m, tính từ chỗ bắt đầu) · w: bề rộng đường
+export function trainBlocks(head, w) {
+  const x = trainStart() - head; // đầu tàu còn cách giữa đường bao nhiêu (âm: đã qua giữa đường)
+  return x < w / 2 + 1 && x + TRAIN.len > -w / 2 - 1;
+}
+
 // Sự cố trên đường (story.json → sections[].events): tính quãng tuyệt đối, xếp theo thứ tự
 export function raceEvents(def, T) {
   const out = [];
@@ -100,4 +147,7 @@ export function raceEvents(def, T) {
   return out.sort((a, b) => a.s - b.s);
 }
 // Chướng ngại người chơi tự lái né (không có nút bấm): hiện ra khi còn cách near m
-export const OBSTACLE_EVENTS = { container: { near: 85 }, bus: { near: 120 }, stall: { near: 70 }, drums: { near: 110 }, cones: { near: 120 }, brokencar: { near: 130 }, trunk: { near: 110 }, buffalo: { near: 115 }, forklift: { near: 90 }, cart: { near: 110 } };
+export const OBSTACLE_EVENTS = { container: { near: 85 }, bus: { near: 120 }, stall: { near: 70 }, drums: { near: 110 }, cones: { near: 120 }, brokencar: { near: 130 }, trunk: { near: 110 }, buffalo: { near: 115 }, forklift: { near: 90 }, cart: { near: 110 },
+  door: { near: 120 }, cargo: { near: 120 }, line: { near: 140 }, queue: { near: 160 } };
+// Có nút bấm nhanh (giữa màn hình): cửa xe bật mở → lách · dây phơi → cúi (Space). Hiện khi còn show giây nữa tới chỗ
+export const QTE_EVENTS = { door: { show: 0.9 }, line: { show: 0.9, win: 0.6 } };
