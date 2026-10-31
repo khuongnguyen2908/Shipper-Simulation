@@ -186,6 +186,14 @@
     "g11": {
       "icon": "🧢",
       "name": "story.foe.thug"
+    },
+    "g19": {
+      "icon": "🧢",
+      "name": "story.foe.thug"
+    },
+    "g20": {
+      "icon": "🧢",
+      "name": "story.foe.thug"
     }
   },
   "items": {
@@ -7865,7 +7873,8 @@
           "guide": null,
           "goal": "story.c6.locker.goal",
           "hold": true,
-          "noFines": true
+          "noFines": true,
+          "music": "music.sneak"
         },
         {
           "id": "docs",
@@ -7899,7 +7908,8 @@
           },
           "guide": null,
           "hold": true,
-          "noFines": true
+          "noFines": true,
+          "music": "music.sneak"
         },
         {
           "id": "leaveBridge",
@@ -7931,7 +7941,8 @@
           "mark": {
             "prop": "markCaught",
             "icon": "!"
-          }
+          },
+          "music": "music.sneak"
         },
         {
           "id": "caught",
@@ -8183,10 +8194,10 @@
                 "cod": 1,
                 "nylon": 1,
                 "helmet": 1,
-                "horn": 1,
-                "cup": 2,
-                "ice": 2,
-                "chili": 1
+                "ice": 1,
+                "chili": 1,
+                "banhmi": 1,
+                "milk": 1
               },
               "card": true,
               "after": 7
@@ -8232,7 +8243,8 @@
             ],
             "r": 26,
             "text": "story.c6.leash.fight"
-          }
+          },
+          "music": "music.fight"
         },
         {
           "id": "toDeck",
@@ -8260,7 +8272,8 @@
           "guide": null,
           "goal": "story.c6.deck.walk",
           "hold": true,
-          "noFines": true
+          "noFines": true,
+          "music": "music.fight"
         },
         {
           "id": "deckFight",
@@ -8290,7 +8303,8 @@
             ],
             "r": 30,
             "text": "story.c6.leash.fight"
-          }
+          },
+          "music": "music.fight"
         },
         {
           "id": "toBridge",
@@ -8323,7 +8337,8 @@
           "goal": "story.c6.bridge.goal",
           "target": "prop:markBridge",
           "hold": true,
-          "noFines": true
+          "noFines": true,
+          "music": "music.fight"
         },
         {
           "id": "bridgeFight",
@@ -8353,7 +8368,8 @@
             ],
             "r": 24,
             "text": "story.c6.leash.fight"
-          }
+          },
+          "music": "music.fight"
         },
         {
           "id": "datGear",
@@ -8390,7 +8406,6 @@
             {
               "do": "kit",
               "give": {
-                "cup": 1,
                 "ice": 1,
                 "chili": 1
               },
@@ -8414,7 +8429,8 @@
           },
           "guide": null,
           "hold": true,
-          "noFines": true
+          "noFines": true,
+          "music": "music.fight"
         },
         {
           "id": "toQuay",
@@ -8440,7 +8456,8 @@
           "guide": null,
           "goal": "story.c6.quay.walk",
           "hold": true,
-          "noFines": true
+          "noFines": true,
+          "music": "music.fight"
         },
         {
           "id": "quayCine",
@@ -8480,6 +8497,28 @@
               "at": [
                 -22.5,
                 -2408.8
+              ],
+              "heading": 133
+            },
+            {
+              "do": "actor",
+              "who": "g20",
+              "look": "normal",
+              "spot": "at",
+              "at": [
+                -20,
+                -2406
+              ],
+              "heading": 133
+            },
+            {
+              "do": "actor",
+              "who": "g19",
+              "look": "jetjet",
+              "spot": "at",
+              "at": [
+                -30,
+                -2418
               ],
               "heading": 133
             },
@@ -8591,13 +8630,12 @@
             }
           ],
           "until": {
-            "type": "useAt",
+            "type": "reach",
             "at": [
               -56,
               -2452
             ],
-            "r": 2.8,
-            "label": "story.c6.exit.label"
+            "r": 8
           },
           "guide": null,
           "goal": "story.c6.exit.goal",
@@ -8607,58 +8645,72 @@
             "icon": "!"
           },
           "hold": true,
-          "noFines": true
+          "noFines": true,
+          "music": "music.fight"
         },
         {
           "id": "toBike",
           "on": [
+            {
+              "do": "fpv",
+              "on": false
+            },
+            {
+              "do": "kit",
+              "clear": true
+            },
+            {
+              "do": "board",
+              "who": "man",
+              "run": true
+            },
             {
               "do": "bubble",
               "who": "man",
               "text": "story.c6.bike.b"
             },
             {
-              "do": "fade",
-              "text": "story.c6.bike.fade",
-              "t": 2,
-              "after": 1.5,
-              "props": [
-                "datBikeQuay"
+              "do": "cine",
+              "playerRun": [
+                [
+                  -55.6,
+                  -2450.9
+                ]
+              ],
+              "runSpeed": 6.2,
+              "bikeAt": [
+                -56,
+                -2452,
+                90
+              ],
+              "raceBike": "escape",
+              "hideProp": "datBikeQuay",
+              "shots": [
+                {
+                  "pos": [
+                    -61.5,
+                    1.4,
+                    -2457.5
+                  ],
+                  "lookAt": "player",
+                  "lookY": 1,
+                  "t": 2.4,
+                  "fov": 50
+                }
               ]
-            },
-            {
-              "do": "fpv",
-              "on": false,
-              "after": 2.2
-            },
-            {
-              "do": "kit",
-              "clear": true
             }
           ],
           "until": {
-            "type": "wait",
-            "min": 4.5
+            "type": "cine"
           },
           "guide": null,
           "hold": true,
-          "noFines": true
+          "noFines": true,
+          "music": "music.race"
         },
         {
           "id": "race",
           "on": [
-            {
-              "do": "actor",
-              "who": "man",
-              "look": "char",
-              "spot": "at",
-              "at": [
-                9001,
-                8
-              ],
-              "heading": 0,
-              "outfit": "thuongNgay"
-            },
             {
               "do": "race",
               "id": "escape"
@@ -8980,22 +9032,26 @@
       "keep": true,
       "name": "story.wpn.nylon",
       "tip": "story.wpnTip.nylon",
-      "sfx": "fight.bag",
+      "sfx": "fight.nylon",
       "short": "story.wpnShort.nylon",
       "when": "story.wpnWhen.nylon"
     },
     "powerbank": {
       "icon": "🔋",
       "throw": true,
-      "dmg": 14,
-      "cd": 0.6,
-      "v": 15,
-      "stun": 0.5,
-      "keep": true,
+      "dmg": 2,
+      "cd": 0.8,
+      "v": 13,
       "name": "story.wpn.powerbank",
       "tip": "story.wpnTip.powerbank",
       "short": "story.wpnShort.powerbank",
-      "when": "story.wpnWhen.powerbank"
+      "when": "story.wpnWhen.powerbank",
+      "bomb": {
+        "t": 2.5,
+        "r": 3,
+        "dmg": 30,
+        "fall": 1
+      }
     },
     "brick": {
       "name": "story.wpn.brick",
@@ -9004,12 +9060,36 @@
       "dmg": 15,
       "stun": 1.5,
       "dur": 1
+    },
+    "banhmi": {
+      "icon": "🥖",
+      "eat": {
+        "hp": 20,
+        "t": 1.2,
+        "bites": 4
+      },
+      "name": "story.wpn.banhmi",
+      "tip": "story.wpnTip.banhmi",
+      "short": "story.wpnShort.banhmi",
+      "when": "story.wpnWhen.banhmi"
+    },
+    "milk": {
+      "icon": "🧃",
+      "eat": {
+        "hp": 8,
+        "t": 0.5,
+        "bites": 2
+      },
+      "name": "story.wpn.milk",
+      "tip": "story.wpnTip.milk",
+      "short": "story.wpnShort.milk",
+      "when": "story.wpnWhen.milk"
     }
   },
   "foes": {
     "thug": {
       "name": "story.foe.thug",
-      "hp": 30,
+      "hp": 45,
       "dmg": 8,
       "windup": 0.6,
       "cd": 1.4,
@@ -9019,7 +9099,9 @@
         "jab",
         "cross",
         "hook"
-      ]
+      ],
+      "rush": 1.5,
+      "rushAt": 6
     },
     "tiSun": {
       "name": "story.foe.tiSun",
@@ -9043,17 +9125,17 @@
     "tiDo": {
       "name": "story.foe.tiDo",
       "boss": true,
-      "hp": 400,
+      "hp": 650,
       "dmg": 18,
       "windup": 0.8,
       "cd": 1.6,
-      "speed": 3.2,
+      "speed": 3.6,
       "reach": 1.8,
       "recover": 1,
       "charge": {
         "wind": 1,
         "speed": 10,
-        "dmg": 25,
+        "dmg": 40,
         "stun": 3,
         "dist": 14,
         "cd": 5
@@ -9061,7 +9143,7 @@
       "throw": {
         "dmg": 10,
         "far": 7,
-        "after": 2
+        "after": 1
       },
       "moves": [
         "jab",
@@ -9094,7 +9176,7 @@
             "slam",
             "stompSuper",
             "charge2",
-            "stompFeint"
+            "combo"
           ],
           "say": "story.c6.boss.p3",
           "throw": true,
@@ -9102,7 +9184,40 @@
           "flee": true
         }
       ],
-      "ccMul": 0.6
+      "ccMul": 0.6,
+      "skills": {
+        "slam": {
+          "dmg": 45
+        },
+        "superman": {
+          "dmg": 35
+        },
+        "stomp": {
+          "dmg": 25
+        },
+        "clinch": {
+          "dmg": 12
+        }
+      }
+    },
+    "thugThrow": {
+      "name": "story.foe.thugThrow",
+      "hp": 45,
+      "dmg": 8,
+      "windup": 0.6,
+      "cd": 1.4,
+      "speed": 3.2,
+      "reach": 1.6,
+      "moves": [
+        "jab",
+        "cross",
+        "hook"
+      ],
+      "weapon": "brick",
+      "throw": {
+        "dmg": 10,
+        "every": 3
+      }
     }
   },
   "fights": {
@@ -9466,33 +9581,68 @@
           "foe": "thug",
           "look": "jetjet",
           "at": [
-            7.5,
-            34.5
+            7.3,
+            35.1
           ],
-          "heading": 270
+          "heading": 270,
+          "drop": "chili"
         },
         {
           "who": "g2",
           "foe": "thug",
           "look": "normal",
           "at": [
-            8.5,
-            40
+            7.3,
+            40.1
           ],
-          "heading": 270
+          "heading": 270,
+          "drop": "milk"
         },
         {
           "who": "g3",
+          "foe": "thugThrow",
+          "look": "jetjet",
+          "at": [
+            10,
+            37.6
+          ],
+          "drop": "ice",
+          "heading": 270
+        },
+        {
+          "who": "g13",
+          "foe": "thug",
+          "look": "normal",
+          "at": [
+            9.1,
+            41.1
+          ],
+          "heading": 270,
+          "join": 8,
+          "drop": "milk"
+        },
+        {
+          "who": "g14",
           "foe": "thug",
           "look": "jetjet",
           "at": [
-            9.75,
-            20
+            9.1,
+            34.1
           ],
-          "join": 6
+          "heading": 270,
+          "join": 14,
+          "drop": "chili"
         }
       ],
-      "loot": [],
+      "loot": [
+        {
+          "id": "milk",
+          "at": [
+            6,
+            38
+          ]
+        }
+      ],
       "keepPos": true
     },
     "c6Deck": {
@@ -9513,33 +9663,68 @@
           "foe": "tiSun",
           "look": "jetjet",
           "at": [
-            -9.75,
-            -8
+            -9.8,
+            6.4
           ],
-          "heading": 0
+          "heading": 0,
+          "drop": "banhmi"
         },
         {
           "who": "g5",
           "foe": "thug",
           "look": "jetjet",
           "at": [
-            -9.3,
-            -4
+            -9.8,
+            20.4
           ],
-          "heading": 0
+          "heading": 180,
+          "drop": "milk"
         },
         {
           "who": "g6",
+          "foe": "thugThrow",
+          "look": "normal",
+          "at": [
+            -2.8,
+            13.4
+          ],
+          "drop": "chili",
+          "heading": 270
+        },
+        {
+          "who": "g15",
           "foe": "thug",
           "look": "normal",
           "at": [
-            9.75,
-            -12.6
+            -9.8,
+            22.4
           ],
-          "join": 6
+          "heading": 180,
+          "join": 8,
+          "drop": "ice"
+        },
+        {
+          "who": "g16",
+          "foe": "thug",
+          "look": "jetjet",
+          "at": [
+            -9.7,
+            4.4
+          ],
+          "heading": 0,
+          "join": 14,
+          "drop": "milk"
         }
       ],
-      "loot": [],
+      "loot": [
+        {
+          "id": "banhmi",
+          "at": [
+            -9.2,
+            0
+          ]
+        }
+      ],
       "keepPos": true
     },
     "c6Quay": {
@@ -9575,7 +9760,8 @@
           ],
           "heading": 133,
           "join": "rage",
-          "watch": true
+          "watch": true,
+          "drop": "milk"
         },
         {
           "who": "g8",
@@ -9587,10 +9773,45 @@
           ],
           "heading": 133,
           "join": "rage",
-          "watch": true
+          "watch": true,
+          "drop": "banhmi"
+        },
+        {
+          "who": "g19",
+          "foe": "thug",
+          "look": "jetjet",
+          "at": [
+            -30,
+            -18
+          ],
+          "heading": 133,
+          "join": "rage",
+          "watch": true,
+          "drop": "ice"
+        },
+        {
+          "who": "g20",
+          "foe": "thug",
+          "look": "normal",
+          "at": [
+            -20,
+            -6
+          ],
+          "heading": 133,
+          "join": "rage",
+          "watch": true,
+          "drop": "milk"
         }
       ],
-      "loot": [],
+      "loot": [
+        {
+          "id": "milk",
+          "at": [
+            -20,
+            -25
+          ]
+        }
+      ],
       "keepPos": true
     },
     "c6Bridge": {
@@ -9612,33 +9833,68 @@
           "foe": "thug",
           "look": "jetjet",
           "at": [
-            -4,
-            -48
+            -7,
+            -40
           ],
-          "heading": 0
+          "heading": 90,
+          "drop": "milk"
         },
         {
           "who": "g10",
           "foe": "thug",
           "look": "normal",
           "at": [
-            4,
-            -48
+            7,
+            -40
           ],
-          "heading": 0
+          "heading": 270,
+          "drop": "ice"
         },
         {
           "who": "g11",
+          "foe": "thugThrow",
+          "look": "jetjet",
+          "at": [
+            0,
+            -47
+          ],
+          "heading": 0,
+          "drop": "chili"
+        },
+        {
+          "who": "g17",
+          "foe": "thug",
+          "look": "normal",
+          "at": [
+            -7.8,
+            -44.5
+          ],
+          "heading": 90,
+          "join": 8,
+          "drop": "chili"
+        },
+        {
+          "who": "g18",
           "foe": "thug",
           "look": "jetjet",
           "at": [
-            9.75,
-            -42
+            7.8,
+            -44.5
           ],
-          "heading": 270
+          "heading": 270,
+          "join": 14,
+          "drop": "milk"
         }
       ],
-      "loot": []
+      "loot": [
+        {
+          "id": "milk",
+          "at": [
+            -3,
+            -40
+          ]
+        }
+      ]
     }
   },
   "races": {
@@ -9754,7 +10010,9 @@
             {
               "at": 1300,
               "type": "brawlers",
-              "n": 2
+              "n": 2,
+              "squeeze": true,
+              "line": "story.race.escape.squeeze1"
             },
             {
               "at": 1540,
@@ -9913,7 +10171,9 @@
             {
               "at": 950,
               "type": "brawlers",
-              "n": 1
+              "n": 2,
+              "squeeze": true,
+              "line": "story.race.escape.squeeze2"
             },
             {
               "at": 1150,
@@ -9938,7 +10198,15 @@
             }
           ]
         }
-      ]
+      ],
+      "intro": {
+        "fpv": 1.5,
+        "out": 2.5,
+        "whip": 1.2,
+        "road": 1,
+        "zoom": 1.5,
+        "line": "story.race.escape.go"
+      }
     }
   }
 }

@@ -806,6 +806,9 @@ body:has(.in-fight) #chat { display: none; } /* đang đánh nhau: ẩn tin nhó
 .fh-tag.ally .fh-fill { background: #00b894; }
 .fh-float { position: absolute; transform: translate(-50%, -50%); font-weight: 900; font-size: 26px; color: #ffeaa7; text-shadow: 0 2px 0 #000, 0 0 10px #000; animation: fhUp 0.9s ease-out forwards; }
 .fh-float.block { color: #74b9ff; font-size: 22px; }
+.fh-float.heal { color: #55efc4; font-size: 28px; }
+.fh.fpv.has-kit .fh-bars { display: block; } /* máu giữ qua các trận: hiện cả lúc đi giữa các trận */
+.in-battle .hud-tl { display: none !important; } /* chỗ đánh nhau (trên tàu): không bảng giờ / tiền / thể lực */
 .fh-float.big { color: #ff7675; font-size: 30px; }
 .fh-float.hurt { color: #ff4d4d; font-size: 22px; }
 @keyframes fhUp { from { opacity: 1; margin-top: 0; } to { opacity: 0; margin-top: -48px; } }
@@ -850,5 +853,21 @@ body:has(.in-race) #chat { display: none; }
 @keyframes rh-pop { 0% { opacity: 0; transform: scale(0.6); } 15% { opacity: 1; transform: scale(1.1); } 70% { opacity: 1; transform: translateY(-10px); } 100% { opacity: 0; transform: translateY(-30px); } }
 .rh-bat { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); padding: 7px 16px; font-size: 15px; font-weight: 700; color: #ffe6a8; opacity: 0; transition: opacity 0.2s; white-space: nowrap; }
 .rh-bat.on { opacity: 1; }
+/* đọ gậy: thanh kéo co (xanh = mình · đỏ = nó) + chữ "ĐỌ GẬY! [E] bấm liên tục" */
+.rh-clash { position: absolute; left: 50%; top: 22%; transform: translateX(-50%) scale(0.7); width: min(440px, 80vw); opacity: 0; transition: opacity 0.12s, transform 0.12s; pointer-events: none; text-align: center; }
+.rh-clash.on { opacity: 1; transform: translateX(-50%) scale(1); animation: rhClashShake 0.12s infinite; }
+.rh-clash .bar { position: relative; height: 22px; border-radius: 11px; background: #e53935; border: 2px solid #ffd54a; overflow: hidden; box-shadow: 0 2px 12px #000a; }
+.rh-clash .me { position: absolute; left: 0; top: 0; bottom: 0; width: 50%; background: #4caf50; }
+.rh-clash .mark { position: absolute; top: -2px; bottom: -2px; width: 6px; margin-left: -3px; background: #fff; box-shadow: 0 0 8px #fff; }
+.rh-clash .lbl { margin-top: 8px; font-size: 26px; font-weight: 900; text-shadow: 0 2px 0 #000, 0 0 12px #000; }
+.rh-clash .lbl span { color: #ffd54a; font-size: 22px; }
+@keyframes rhClashShake { 0% { margin-left: -2px; } 50% { margin-left: 2px; } 100% { margin-left: 0; } }
 .rh-flash.on { animation: rhFlash 0.4s ease-out; }
 @keyframes rhFlash { from { opacity: 0.55; } to { opacity: 0; } }
+
+/* cảnh phim mở màn đua: lướt nhanh sát bánh xe — vệt sáng ngang chạy vụt qua (game/race.js raceWhip) */
+#raceWhip { position: fixed; inset: 0; pointer-events: none; z-index: 30; opacity: 0; transition: opacity 0.15s;
+  background: repeating-linear-gradient(180deg, transparent 0 22px, #ffffff2e 22px 24px, transparent 24px 61px, #ffffff1c 61px 64px, transparent 64px 97px);
+  background-size: 220% 100%; filter: blur(1.5px); }
+#raceWhip.on { opacity: 1; animation: raceWhip 0.18s linear infinite; }
+@keyframes raceWhip { from { background-position: 0 0; } to { background-position: -400px 3px; } }

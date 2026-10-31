@@ -14,6 +14,7 @@ import { makeCsgtCar, seatRider } from '../world/npcVehicles.js';
 import { makeCargoShip } from '../world/cargoShip.js';
 import { lerpAngle } from '../world/controllers.js';
 import { CITY, roadPos } from '../sim/cityLayout.js';
+import { raceOf } from '../sim/race.js';
 import * as act from '../interactions.js';
 import { sound, loopSound } from '../audio.js';
 import { fmt } from '../content/index.js';
@@ -960,9 +961,13 @@ export class ScenePart {
     w.mesh.position.set(w.pos.x, this.city.elev?.topAt(w.pos.x, w.pos.z) ?? 0, w.pos.z);
     w.mesh.rotation.set(0, w.heading, 0);
   }
+  // raceBike: xe chờ là xe của màn đua đó (xe anh Đạt — mượn luôn từ lúc leo lên) · hideProp: cất đạo cụ xe dựng sẵn (thay bằng xe thật)
   cineRunEnd(def) {
     const at = def?.bikeAt;
     if (!Array.isArray(at) || this.mode === 'bike') return;
+    const rd = def.raceBike && raceOf(def.raceBike);
+    if (rd) this.raceBorrowBike(rd);
+    if (def.hideProp) this.storyPropRemove(def.hideProp);
     const b = this.bike, h = ((at[2] ?? 0) * Math.PI) / 180;
     b.pos.set(at[0], 0, at[1]);
     b.heading = h;

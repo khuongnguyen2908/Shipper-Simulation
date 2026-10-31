@@ -34,6 +34,7 @@ export class VisualsPart {
   // ======================== HIỂN THỊ ========================
   updateCamera(dt) {
     if (this.cine) return this.cineTick(dt); // đang chiếu cảnh phim cốt truyện: camera theo cảnh quay
+    if (this.raceIntro) return this.raceIntroCamera(dt); // cảnh phim mở màn đua (phần ở bến — game/race.js)
     if (this.fpvOn) return this.fpvCamera(dt); // góc nhìn thứ 1 (trên tàu — game/fight.js)
     if (this.race && this.mode === 'bike') return this.raceCamera(dt); // màn đua: camera cố định sau lưng xe (game/race.js)
     // độ nhạy chuột + đảo trục dọc (màn hình Cài đặt)
@@ -396,13 +397,14 @@ export class VisualsPart {
     });
     // vòng tròn tím quanh địa điểm (story.json → zone): vùng tìm kiếm, không có mũi tên
     const zn = gs.story?.ch && gs.story.fired && sst?.zone && this.layout.placeById[sst.zone.place];
-    if (zn && !this.storyZone) { this.storyZone = makeZoneRing(); this.scene.add(this.storyZone); }
-    if (this.storyZone) {
-      this.storyZone.visible = !!zn;
+    // (tên storyZoneRing — "storyZone" đã là việc vào bản đồ riêng ở game/zone.js)
+    if (zn && !this.storyZoneRing) { this.storyZoneRing = makeZoneRing(); this.scene.add(this.storyZoneRing); }
+    if (this.storyZoneRing) {
+      this.storyZoneRing.visible = !!zn;
       if (zn) {
         const r = sst.zone.r || Math.hypot(zn.x1 - zn.x0, zn.z1 - zn.z0) / 2 + 8;
-        this.storyZone.position.set(zn.cx ?? zn.door.x, 0.3, zn.cz ?? zn.door.z);
-        this.storyZone.scale.setScalar(r);
+        this.storyZoneRing.position.set(zn.cx ?? zn.door.x, 0.3, zn.cz ?? zn.door.z);
+        this.storyZoneRing.scale.setScalar(r);
       }
     }
     this.bike.mesh.visible = true; // xe đạp dựng sẵn trong hầm từ đầu (leo lên được sau khi Cô Hai cho — bikeReady)

@@ -22,6 +22,7 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [x] | `music.night` | Nhạc trong game (ban đêm) | Đang chơi, trời tối | bài nhạc | 🔇 im |
 | [ ] | `music.flee` | Nhạc bị rượt | Chương 4: bị giang hồ rượt ra khỏi hẻm, từ lúc vấp lon tới lúc về tới trọ. Nên: căng thẳng, dồn dập 150–170 bpm, lặp liền, 1–2 phút, 96–128 kbps | bài nhạc | ↪ chưa gắn → tạm phát `music.chase` |
 | [ ] | `music.sneak` | Nhạc màn lẻn | Chương 6: lẻn qua bến Kho 7 lên tàu vào lầu chỉ huy (nhịp chậm, hồi hộp, nín thở). Chưa gắn file → vẫn nhạc ngày / đêm | nhạc lặp | — |
+| [ ] | `music.fight` | Nhạc đánh nhau | Chương 6 trên tàu: các trận đánh (container, boong, lầu chỉ huy) + lúc đi giữa các trận, chạy ra xe sau trận Tí Đô. Chưa gắn file → tạm phát nhạc dí cướp | nhạc lặp | — |
 | [ ] | `music.boss` | Nhạc đánh boss Tí Đô | Chương 6: từ cảnh phim Tí Đô chặn dưới bến tới lúc hạ được nó (dồn dập, nặng). Chưa gắn file → tạm phát nhạc dí cướp | nhạc lặp | — |
 | [ ] | `music.race` | Nhạc màn đua | Chương 6: màn đua thoát thân trên xe anh Đạt, từ lúc lên xe tới khi bay qua cầu cất. Nên: tốc độ cao, gay cấn 160–175 bpm, lặp liền, 2–3 phút, 96–128 kbps | bài nhạc | ↪ chưa gắn → tạm phát `music.chase` |
 | [ ] | `music.chase` | Nhạc dí cướp | Chương 3: từ cảnh cướp tới qua cầu (bước có "Nhạc riêng"). Nên: nhịp nhanh 140–160 bpm, lặp liền, 1–2 phút, 96–128 kbps | bài nhạc | 🔇 im (chưa gắn → nhạc ngày / đêm) |
@@ -188,10 +189,16 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [ ] | `fight.box` | Hộp nặng trúng người | Hộp cơm / gói hàng COD trúng người (bịch giấy cứng) · gói COD móp bung ra | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `fight.horn` | Kèn bóp "pót pót" | Bóp kèn xe trong trận — địch đang lấy đà thì giật mình (vui, to) | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `fight.slip` | Trượt ngã vũng trơn | Địch chạy / lao qua vũng đá viên, trân châu (trượt ken két + ngã bịch) | tiếng ngắn | 🔉 tổng hợp |
-| [ ] | `fight.bag` | Lục túi giao hàng / bao ni lông | Lục thùng giao hàng lấy đồ · bao ni lông trùm đầu (sột soạt ni lông) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.bag` | Lục túi giao hàng | Chương 6: bấm E lục túi giao hàng (màn đen 7 giây — tiếng kéo dây kéo) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.nylon` | Ném bao ni lông | Ném bao ni lông trùm đầu địch (sột soạt ni lông, ngắn) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.eat` | Cạp / nhai đồ ăn | Đánh nhau chương 6: giữ chuột trái ăn bánh mì / uống sữa — mỗi miếng 1 tiếng (cạp rộp / hút rột) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.eatDone` | Ăn xong, hồi máu | Ăn hết miếng cuối: nuốt ực + hồi máu (ngắn, vui) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.beep` | Bom cục pin kêu bíp | Cục pin ném xuống: kêu bíp ngày càng dồn trước khi nổ (ngắn, chói) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.boom` | Bom cục pin nổ | Cục pin nổ: đùng + mảnh văng (tên nào trong 3 m mất máu, ngã) | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `fight.block` | Đỡ được đòn | Giữ chuột phải đỡ trúng đòn · boss tự đỡ đòn của mình (cạch) | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `fight.hurt` | Mình bị đánh trúng | Người chơi trúng đòn không đỡ (hự + bịch) | tiếng ngắn | 🔉 tổng hợp |
-| [ ] | `fight.ko` | Gục ngã | Địch gục · đập lén · Tí Đô đâm container choáng · mình gục | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.ko` | Mình choáng / gục | CHỈ người chơi: bị đạp đập lưng vào vật cản (choáng váng) · mình gục (thua trận) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `fight.foeDown` | Địch gục | Địch gục · đập lén · Tí Đô đâm container choáng (tiếng ngã bịch, không phải tiếng choáng váng) | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `fight.dodge` | Né | Bấm Space né (sột soạt chân trượt) | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `fight.throw` | Ném đồ | Ném gạch / phao cứu sinh · Tí Đô ném gạch | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `fight.drop` | Đồ rơi xuống đất | Gạch / phao ném trượt rơi xuống sàn | tiếng ngắn | 🔉 tổng hợp |
@@ -219,6 +226,7 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [ ] | `race.brake` | Phanh rít | Màn đua: xe dừng ở cuối đường · bán tải Tí Đô phanh gấp trước cầu cất | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `race.gang` | Xe giang hồ rồ máy vượt lên | Màn đua: 2 xe giang hồ từ sau lưng rồ ga vượt lên để ném gạch (nghe là biết sắp có gạch bay) | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `race.bat` | Anh Đạt quật gậy trúng xe giang hồ | Màn đua: bấm Q / E, gậy gỗ quật trúng đứa ngồi sau (bốp!) | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `race.clash` | Đọ gậy (2 gậy chèn nhau) | Màn đua: anh Đạt quật trúng lúc đứa kia đang vung ống tuýp — 2 gậy chèn vào nhau (keng + ken két) | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `race.gangHit` | Bị xe giang hồ phang ống tuýp | Màn đua: đứa ngồi sau xe áp sát phang trúng (keng + xe chao) | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `race.train` | Tàu hỏa tới (còi + chuông gác chắn) | Màn đua khu công nghiệp: đèn đỏ nháy, chuông leng keng, còi tàu hú dài | tiếng ngắn | 🔉 tổng hợp |
 | [ ] | `race.door` | Cửa xe đậu bật mở | Màn đua quốc lộ: cửa xe đậu bên đường bật mở ngay trước mặt (cạch) | tiếng ngắn | 🔉 tổng hợp |

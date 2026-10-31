@@ -759,7 +759,8 @@ export function render(root, ctx) {
         })());
     }
     if (a.do === 'helmetOff') box.append(el('p', { class: 'muted' }, 'Người lạ đang đội mũ bảo hiểm (đang ngồi xe thì tự xuống trước): 2 tay giơ lên gỡ nón khỏi đầu (lộ tóc — kiểu tóc riêng của bộ đồ trong sơ đồ quan hệ), hạ xuống cầm nón tay phải.'));
-    if (a.do === 'board') box.append(el('p', { class: 'muted' }, 'Người lạ đi theo người chơi; người chơi lên xe và chạy tới sát thì leo lên ngồi sau (tự đội mũ của mình, không qua app, không tính tiền). Dùng với điều kiện "Đã chở người lạ … tới …".'));
+    if (a.do === 'board') box.append(el('p', { class: 'muted' }, 'Người lạ đi theo người chơi; người chơi lên xe và chạy tới sát thì leo lên ngồi sau (tự đội mũ của mình, không qua app, không tính tiền). Dùng với điều kiện "Đã chở người lạ … tới …".'),
+      checkInput(!!a.run, (v) => { if (v) a.run = true; else delete a.run; ctx.changed('story'); }, ' Chạy vội theo (không đi bộ)'));
     if (a.do === 'alight') box.append(el('p', { class: 'muted' }, 'Người lạ xuống xe, đứng cạnh xe.'));
     if (a.do === 'drop') box.append(field('Gói hàng', parcelChips(a, 'id'), { ...o, hint: 'Tick 1 hay nhiều gói (vd 3 bức tranh) — gói nào người chơi đang chở thì giao luôn.' }));
     if (a.do === 'bubble') box.append(
@@ -1005,7 +1006,9 @@ export function render(root, ctx) {
         if (a.playerRun) pr.append(el('div', { class: 'grid' },
           field('Tốc độ chạy', numInput(a.runSpeed ?? 5.5, (v) => { a.runSpeed = v; ctx.changed('story'); }, { step: 0.5, min: 1, max: 9 }), o),
           field('Chờ trước khi chạy (giây)', numInput(a.runDelay ?? 0, (v) => { if (v > 0) a.runDelay = v; else delete a.runDelay; ctx.changed('story'); }, { step: 0.5, min: 0, max: 20 }), o),
-          field('Hết cảnh: xe chờ ở [x, z, hướng°] rồi leo lên', el('div', { class: 'row' }, ...[0, 1, 2].map((i) => numInput((a.bikeAt || [0, 0, 0])[i] ?? 0, (v) => { a.bikeAt = [...(a.bikeAt || [0, 0, 0])]; a.bikeAt[i] = v; ctx.changed('story'); }, { step: i === 2 ? 15 : 0.5 }))), { ...o, hint: 'Xe người chơi được dời tới đây, người chơi leo lên luôn. Bỏ trống: đứng yên chỗ chạy tới.' })));
+          field('Hết cảnh: xe chờ ở [x, z, hướng°] rồi leo lên', el('div', { class: 'row' }, ...[0, 1, 2].map((i) => numInput((a.bikeAt || [0, 0, 0])[i] ?? 0, (v) => { a.bikeAt = [...(a.bikeAt || [0, 0, 0])]; a.bikeAt[i] = v; ctx.changed('story'); }, { step: i === 2 ? 15 : 0.5 }))), { ...o, hint: 'Xe người chơi được dời tới đây, người chơi leo lên luôn. Bỏ trống: đứng yên chỗ chạy tới.' }),
+          field('Xe chờ là xe của màn đua', selectInput(a.raceBike || '', [['', '— Xe của người chơi —'], ...Object.keys(data.races || {}).map((r) => [r, C[data.races[r].name] || r])], (v) => { if (v) a.raceBike = v; else delete a.raceBike; ctx.changed('story'); }), { ...o, hint: 'Leo lên là mượn luôn xe của màn đua (vd xe anh Đạt) — xe mình trả lại sau màn đua.' }),
+          field('Cất đạo cụ (mã) lúc leo lên', textInput(a.hideProp || '', (v) => { if (v.trim()) a.hideProp = v.trim(); else delete a.hideProp; ctx.changed('story'); }, { placeholder: 'vd datBikeQuay' }), { ...o, hint: 'Đạo cụ xe dựng sẵn ở đó — cất đi để thay bằng xe thật.' })));
         return pr;
       })(),
       field('Dọn xe NPC quanh người chơi (bán kính, 0 = không)', numInput(a.clear ?? 0, (v) => { if (v > 0) a.clear = v; else delete a.clear; ctx.changed('story'); }, { step: 10, min: 0, max: 200 }), { ...o, hint: 'Lúc bắt đầu chiếu: tạm giấu xe máy, ô tô, xe buýt NPC trong bán kính này (khỏi chắn ống kính, vd ngoái lại nhìn). Hết cảnh hiện lại. Chỉ máy người chơi này.' }));
@@ -1160,11 +1163,18 @@ export function render(root, ctx) {
             ...(w.keep ? [num(w, 'hits', 'Trúng mấy lần thì móp bung ra (0 = không)', {}, ref),
               w.hits ? field('Bung ra thành', selectInput(w.breakTo || '', [['', '— chọn —'], ...weaponOpts.filter(([k]) => k !== id)], (v) => { if (v) w.breakTo = v; else delete w.breakTo; changed(); }), { ref, fieldKey: 'breakTo', hint: 'Gói COD móp 3 lần → bung ra cục sạc dự phòng (ném tiếp được).' }) : null] : []),
             field('', checkInput(!!w.rapid, (v) => { if (v) w.rapid = true; else delete w.rapid; changed(); }, '🥚 Giữ chuột ném liên tiếp'), { ref, fieldKey: 'rapid' }),
+            field('', checkInput(!!w.bomb, (v) => { if (v) { w.bomb = { t: 2.5, r: 3, dmg: 30, fall: 1 }; delete w.keep; } else delete w.bomb; rerender(); }, '💣 Bom: chạm đất nháy đỏ, hẹn giờ rồi nổ'), { ref, fieldKey: 'bomb', hint: 'Mọi tên trong bán kính mất máu + ngã; anh Đạt và mình không sao. Dùng 1 lần.' }),
+            ...(w.bomb ? [num(w.bomb, 't', 'Bom: nổ sau (giây)', { step: 0.5 }, ref), num(w.bomb, 'r', 'Bom: bán kính (m)', { step: 0.5 }, ref), num(w.bomb, 'dmg', 'Bom: mất máu', {}, ref), num(w.bomb, 'fall', 'Bom: ngã (giây)', { step: 0.1 }, ref)] : []),
+          ] : w.eat ? [
+            num(w.eat, 'hp', 'Ăn: hồi bao nhiêu máu', {}, ref, 'Người chơi có 100 máu, máu giữ qua các trận (không tự đầy).'),
+            num(w.eat, 't', 'Ăn: mất bao lâu (giây)', { step: 0.1 }, ref, 'Giữ chuột trái đủ chừng này mới hồi máu; nhả ra / bị đánh trúng là bỏ dở (còn món). Đang ăn đi chậm lại.'),
+            num(w.eat, 'bites', 'Ăn: mấy miếng cạp (mỗi miếng 1 tiếng)', {}, ref),
           ] : w.horn ? [
             num(w.horn, 'r', 'Kèn: bán kính (m)', { step: 0.5 }, ref), num(w.horn, 'startle', 'Kèn: giật mình khựng (giây)', { step: 0.1 }, ref, 'Tên nào trong bán kính đang lấy đà / ra đòn thì bỏ đòn đó, khựng lại.'), num(w.horn, 'cd', 'Kèn: chờ bóp lại (giây)', { step: 0.5 }, ref),
           ] : [num(w, 'block', 'Đỡ được mấy đòn', { def: 3 }, ref, 'Có món này trong túi thì giữ chuột phải đỡ được (nón bảo hiểm: 4 nấc). Không món nào có nấc đỡ → không đỡ được.')]),
           field('Tiếng trúng', selectInput(w.sfx || '', [['', 'fight.hit (bịch)'], ...Object.keys(SOUNDS).filter((k) => k.startsWith('fight.')).map((k) => [k, `${k} — ${SOUNDS[k].label}`])], (v) => { if (v) w.sfx = v; else delete w.sfx; changed(); }), { ref, fieldKey: 'sfx' }),
-          field('', checkInput(!!w.throw, (v) => { if (v) { w.throw = true; delete w.horn; } else delete w.throw; rerender(); }, '🎯 Đồ ném (chuột trái để ném)'), { ref, fieldKey: 'throw' }),
+          field('', checkInput(!!w.throw, (v) => { if (v) { w.throw = true; delete w.horn; delete w.eat; } else delete w.throw; rerender(); }, '🎯 Đồ ném (chuột trái để ném)'), { ref, fieldKey: 'throw' }),
+          field('', checkInput(!!w.eat, (v) => { if (v) { w.eat = { hp: 20, t: 1, bites: 3 }; delete w.throw; delete w.horn; } else delete w.eat; rerender(); }, '🍞 Đồ ăn (giữ chuột trái cạp từ từ, hồi máu)'), { ref, fieldKey: 'eat' }),
           w.throw ? null : field('', checkInput(!!w.horn, (v) => { if (v) w.horn = { r: 4, startle: 1, cd: 8 }; else delete w.horn; rerender(); }, '📯 Kèn bóp (không ném, không sát thương)'), { ref, fieldKey: 'horn' }))));
     }
     const wId = el('input', { placeholder: 'mã vũ khí mới (vd: ghe)' });
@@ -1221,7 +1231,7 @@ export function render(root, ctx) {
         el('div', { class: 'grid tight' },
           textBox('Tên hiện trên đầu', f.name || (f.name = newKey(`story.foe.${id}`)), 1, { ref, fieldKey: 'name' }),
           num(f, 'hp', 'Máu', {}, ref), num(f, 'dmg', 'Mất máu / cú (đánh mình)', {}, ref), num(f, 'windup', 'Giơ tay bao lâu mới bổ (giây)', { step: 0.1 }, ref, 'Lúc nó giơ tay là lúc nên đỡ (chuột phải) / né.'),
-          num(f, 'cd', 'Nghỉ giữa 2 lần đánh (giây)', { step: 0.1 }, ref), num(f, 'speed', 'Chạy nhanh (m/giây)', { step: 0.1 }, ref), num(f, 'reach', 'Tầm với (m)', { step: 0.1 }, ref),
+          num(f, 'cd', 'Nghỉ giữa 2 lần đánh (giây)', { step: 0.1 }, ref), num(f, 'speed', 'Chạy nhanh (m/giây)', { step: 0.1 }, ref), num(f, 'rush', 'Ở xa thì lao tới: nhân tốc độ (bỏ trống = không)', { step: 0.1 }, ref), num(f, 'rushAt', 'Lao tới khi cách xa hơn (m, mặc định 6)', { step: 0.5 }, ref), num(f, 'reach', 'Tầm với (m)', { step: 0.1 }, ref),
           num(f, 'combo', 'Đánh liền mấy cú', {}, ref), num(f, 'recover', 'Sơ hở sau khi đánh (giây)', { step: 0.1 }, ref),
           num(f, 'ccMul', 'Dính đồ lâu (nhân, bỏ trống = 1)', { step: 0.1, max: 2 }, ref, 'Trùm bao / lóa mắt / cay / ngã / giật mình kèn kéo dài bằng số giây của món × số này (Tí Đô 0,6 = ngắn hơn).'),
           field('Đòn đánh (lần lượt)', textInput((f.moves || []).join(', '), (v) => { const L = v.split(/[\s,]+/).filter(Boolean); if (L.length) f.moves = L; else delete f.moves; changed(); }, { placeholder: 'tự chọn' }), { ref, fieldKey: 'moves', hint: 'Chỉ khác dáng ra đòn (sát thương như nhau): jab = đấm thẳng tay trước · cross = đấm thẳng tay sau · hook = đấm móc ngang · upper = móc lên cằm · over = bổ từ trên xuống (cầm đồ) · side = quét ngang (cầm đồ). Bỏ trống: cầm đồ → over, side · tay không → jab, cross, hook.' }),
@@ -1246,6 +1256,7 @@ export function render(root, ctx) {
           field('Mã người (diễn viên)', textInput(f.who, (v) => { f.who = v.trim(); changed(); }), { ref, fieldKey: 'foes', hint: 'Mỗi người 1 mã (vd g1). Muốn nói thoại / có tên riêng thì thêm vào "Người nói".' }),
           field('Kiểu địch', selectInput(f.foe || 'thug', foeOpts, (v) => { f.foe = v; changed(); }), { ref, fieldKey: 'foes' }),
           field('Dáng', selectInput(f.look || 'jetjet', Object.entries(ACTOR_LOOKS), (v) => { f.look = v; changed(); }), { ref, fieldKey: 'foes' }),
+          field('Gục thì rớt', selectInput(f.drop || '', [['', '— Không rớt gì —'], ...Object.entries(data.weapons).filter(([id]) => id !== 'fists').map(([id, w]) => [id, `${w.icon || ''} ${C[w.name] || id}`])], (v) => { if (v) f.drop = v; else delete f.drop; changed(); }), { ref, fieldKey: 'foes', hint: 'Bị hạ thì rớt 1 món cạnh chỗ ngã (bấm E nhặt). Bỏ chạy thì không rớt.' }),
           xz(f, 'at', 'Đứng ở [x, z]', ref),
           num(f, 'heading', 'Hướng mặt (độ)', { step: 45, min: -360, max: 360, def: 180, keep0: true }, ref),
           field('Vào trận', selectInput(f.join == null ? '' : f.join === 'rage' ? 'rage' : 'sec', [['', 'Có mặt từ đầu'], ['sec', 'Chạy tới sau … giây'], ['rage', 'Khi boss nổi điên / sang giai đoạn 2']], (v) => { if (!v) delete f.join; else f.join = v === 'rage' ? 'rage' : 6; rerender(); }), { ref, fieldKey: 'foes' }),
@@ -1296,7 +1307,7 @@ export function render(root, ctx) {
     const EVENTS = { say: '💬 Anh Đạt hét (chỉ câu thoại)', container: '📦 2 container rơi chắn làn (lạng né)', barrier: '🚧 Barie hạ dần (phải chạy đủ nhanh lọt qua)', truck: '🛻 Bán tải Tí Đô áp sát lại sau lưng (nếu đang bị bỏ xa)', bus: '🚌 Xe khách xoay ngang chắn đường (chừa khe bên trái)', ram: '💥 Bán tải lên ngang hông, nháy đèn rồi tạt vào (phanh / lách xa để né; đường ≥ 9 m, đợi đường vắng)', throwers: '🧱 2 xe giang hồ vượt lên ném gạch rồi phóng đi (đợi đường vắng)', drawbridge: '🌉 Cầu cất đang nâng (giữa cầu ở đây; tới càng sớm cầu càng thấp)', potholes: '🕳 Ổ gà rải rác (xóc, chậm)', ducks: '🦆 Đàn vịt băng qua (chậm lại)', puddle: '💧 Vũng nước (trượt)', stall: '🛒 Sạp hàng đẩy ra chắn nửa phải', jump: '🌉 Cầu gãy (≥ 80 km/h mới bay qua; bán tải bị bỏ lại)',
       drums: '🛢 3 thùng phuy lăn ra làn', cones: '🚧 Rào công trình chắn 1 làn', brokencar: '🚗 Xe hư đậu giữa làn (tam giác cảnh báo phía sau)', trunk: '🌴 Cây dừa ngã chắn hơn nửa đường',
       buffalo: '🐃 Trâu đi băng ngang đường', forklift: '🚜 Xe nâng chạy ngang (bến cảng)', cart: '🛺 Xe ba gác đậu lấn ra đường',
-      brawlers: '🥢 Xe giang hồ áp sát (anh Đạt quật gậy Q / E — không hiện nút; đợi đường vắng)', train: '🚂 Tàu hỏa băng ngang (hết ga thì vượt kịp, chậm thì phanh chờ)', door: '🚪 Cửa xe đậu bật mở (nút A / D lách)',
+      brawlers: '🥢 Xe giang hồ áp sát (anh Đạt quật gậy Q / E — không hiện nút; đợi đường vắng · quật lúc nó đang vung xuống = đọ gậy)', train: '🚂 Tàu hỏa băng ngang (hết ga thì vượt kịp, chậm thì phanh chờ)', door: '🚪 Cửa xe đậu bật mở (nút A / D lách)',
       cargo: '📦 Xe tải phía trước rớt thùng hàng (lách theo khe)', line: '👕 Dây phơi ngang đường (nút Space cúi)', queue: '🚧 Hàng xe dừng chờ cầu + barie hạ (đặt trước cầu cất)' };
     const num = (obj, k, label, opts = {}, ref = '', hint = '') => field(label, numInput(obj[k] ?? opts.def ?? 0, (v) => { if (v || opts.keep0) obj[k] = v; else delete obj[k]; changed(); }, { step: opts.step ?? 1, min: opts.min ?? 0, max: opts.max }), { ref, fieldKey: k, hint });
     body.append(el('div', { class: 'body-head' }, el('h2', {}, '🏍️ Màn đua thoát thân')),
@@ -1319,7 +1330,10 @@ export function render(root, ctx) {
         ...sec.events.map((e, k) => el('div', { class: 'row' },
           selectInput(e.type || 'say', Object.entries(EVENTS), (v) => { e.type = v; rerender(); }),
           el('span', { class: 'muted' }, 'ở m'), numInput(e.at ?? 0, (v) => { e.at = v; changed(); }, { step: 10, min: 0 }),
-          e.type === 'brawlers' ? selectInput(String(e.n ?? ''), [['', 'số xe: theo bề rộng đường'], ['1', '1 xe'], ['2', '2 xe kẹp 2 bên']], (v) => { if (v) e.n = +v; else delete e.n; changed(); }) : null,
+          e.type === 'brawlers' ? selectInput(e.squeeze ? 'sq' : String(e.n ?? ''), [['', 'số xe: theo bề rộng đường'], ['1', '1 xe'], ['2', '2 xe kẹp 2 bên'], ['sq', '2 xe KẸP SÁT (phang dồn dập, lái nặng, cú đầu = đọ gậy bấm E liên tục)']], (v) => {
+            if (v === 'sq') { e.n = 2; e.squeeze = true; } else { delete e.squeeze; if (v) e.n = +v; else delete e.n; }
+            changed();
+          }) : null,
           e.line ? textInput(C[e.line] ?? '', (v) => { C[e.line] = v; ctx.changed('content'); }, { placeholder: 'câu anh Đạt hét' }) : button('＋ câu hét', () => { e.line = newKey(`story.race.${id}.e${i}_${k}`); rerender(); }, 'small'),
           button('✕', () => { sec.events.splice(k, 1); rerender(); }, 'small'))),
         button('＋ Thêm sự cố', () => { sec.events.push({ at: Math.round((sec.len || 100) / 2), type: 'say' }); rerender(); }, 'small')));
@@ -1330,6 +1344,12 @@ export function render(root, ctx) {
           num(r, 'motos', 'Số xe giang hồ ném gạch (sự cố 🧱)', { min: 0, max: 4, keep0: true }, ref),
           field('Đồng đội ngồi sau', selectInput(r.ally || '', [['', '— Không —'], ...Object.keys(data.people).map((p) => [p, C[data.people[p].name] || p])], (v) => { if (v) r.ally = v; else delete r.ally; changed(); }), { ref, fieldKey: 'ally' }),
           field('Xe: tốc độ tối đa (km/h)', numInput(Math.round((r.bike?.maxSpeed ?? 29) * 3.6), (v) => { (r.bike ||= {}).maxSpeed = +(v / 3.6).toFixed(2); changed(); }, { step: 5, min: 60, max: 180 }), { ref, fieldKey: 'bike', hint: 'Kẻ rượt chỉ có bán tải Tí Đô (thanh khoảng cách). Qua cầu gãy cần ≥ 80 km/h.' })),
+        el('details', { class: 'adv', open: !!r.intro }, el('summary', {}, '🎬 Cảnh phim mở màn (đang ngồi trên xe ở bến thì chiếu; mở game giữa màn / thử bằng cheat thì bỏ qua)'),
+          checkInput(!!r.intro, (v) => { if (v) r.intro = { fpv: 1.5, out: 2.5, whip: 1.2, road: 1, zoom: 1.5 }; else delete r.intro; rerender(); }, ' Có cảnh phim mở màn'),
+          r.intro ? el('div', { class: 'grid tight' },
+            ...[['fpv', '1 · Góc nhìn 1 trên xe (giây)'], ['out', '2 · Camera ngoài: xe vọt đi, giang hồ lao theo'], ['whip', '3 · Lướt nhanh sát bánh (giữa khung này đổi bản đồ)'], ['road', '4 · Góc nhìn 1 trên đường đua'], ['zoom', '5 · Camera lùi ra góc nhìn 3 (cầm lái từ đầu khung này)']]
+              .map(([k, label]) => field(label, numInput(r.intro[k] ?? 1, (v) => { r.intro[k] = v; changed(); }, { step: 0.1, min: 0, max: 10 }), { ref, fieldKey: 'intro' })),
+            r.intro.line ? textBox('Anh Đạt hét lúc phóng đi (khung 2)', r.intro.line, 1, { ref, fieldKey: 'intro' }) : button('＋ Câu anh Đạt hét lúc phóng đi', () => { r.intro.line = newKey(`story.race.${id}.go`); rerender(); }, 'small')) : null),
         el('h3', {}, 'Các đoạn đường (theo thứ tự chạy)'), ...secs,
         button('＋ Thêm đoạn', () => { r.sections.splice(Math.max(0, r.sections.length - 1), 0, { kind: 'highway', len: 800, turn: 0, events: [] }); rerender(); }, 'small')));
     }

@@ -100,6 +100,7 @@ export function mountCheat(g) {
     g.storyZone({ id: def?.zone || 'ship', gate: true, door: true });
     gs.story.fpv = true;
     const kit = STORY.chapters.flatMap((c) => c.steps).flatMap((s) => s.on || []).find((a) => a.do === 'kit' && a.give); // túi đồ shipper như trong chương 6
+    delete gs.story.hp; // máu đầy
     if (kit) g.storyKit(kit);
     if (def?.keepPos && def.start) { const [ox, oz] = ZONES[def.zone]?.origin || [0, 0]; g.zoneTeleport([def.start[0] + ox, def.start[1] + oz]); } // trận đánh tại chỗ: đứng ở chỗ bắt đầu trên tàu
     if (id === null) return; // (dùng chung cho ?race)

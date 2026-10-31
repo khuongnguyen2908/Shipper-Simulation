@@ -943,7 +943,11 @@ export function validateStory(story, { places = null, goods = null, content = nu
     if (w.tip != null) text(ref, 'tip', w.tip, 'mô tả ngắn');
     if (w.short != null) text(ref, 'short', w.short, 'chữ dưới ô');
     if (w.when != null) text(ref, 'when', w.when, '"dùng khi"');
-    if (!w.throw && id !== 'fists' && !(w.cd > 0)) add('warn', ref, 'cd', 'Vũ khí cầm tay nên có thời gian chờ vung > 0.');
+    if (w.eat != null && !(nonNeg(w.eat.hp) && w.eat.hp > 0 && nonNeg(w.eat.t) && w.eat.t > 0 && (w.eat.bites == null || (nonNeg(w.eat.bites) && w.eat.bites >= 1)))) add('error', ref, 'eat', 'Đồ ăn: hồi máu > 0, thời gian ăn > 0, số miếng ≥ 1.');
+    if (w.bomb != null && !(nonNeg(w.bomb.t) && w.bomb.t > 0 && nonNeg(w.bomb.r) && w.bomb.r > 0 && nonNeg(w.bomb.dmg) && nonNeg(w.bomb.fall ?? 0))) add('error', ref, 'bomb', 'Bom: nổ sau > 0, bán kính > 0, mất máu / ngã ≥ 0.');
+    if (w.bomb && w.keep) add('warn', ref, 'bomb', 'Bom mà cũng "nhặt lại được" — bom nổ là mất, bỏ "nhặt lại".');
+    if (w.eat && w.throw) add('warn', ref, 'eat', 'Đồ ăn mà cũng là đồ ném — chuột trái sẽ ăn, không ném.');
+    if (!w.throw && !w.eat && id !== 'fists' && !(w.cd > 0)) add('warn', ref, 'cd', 'Vũ khí cầm tay nên có thời gian chờ vung > 0.');
   }
   if (Object.keys(weapons).length && !weapons.fists) add('error', 'weapon:fists', 'id', 'Thiếu "fists" (tay không) — dùng khi chưa nhặt gì / vũ khí gãy.');
   for (const [id, f] of Object.entries(foes)) {
@@ -1002,6 +1006,7 @@ export function validateStory(story, { places = null, goods = null, content = nu
       if (!foes[f.foe || 'thug']) add('error', ref, 'foes', `Trận: kiểu địch lạ "${f.foe}".`);
       if (f.look && !STORY_ACTOR_LOOKS.includes(f.look)) add('error', ref, 'foes', `Trận: dáng lạ "${f.look}".`);
       if (!xy(f.at)) add('error', ref, 'foes', `Trận: chỗ đứng của "${f.who}" phải là [x, z].`);
+      if (f.drop != null && !weapons[f.drop]) add('error', ref, 'foes', `Trận: "${f.who}" gục thì rớt món lạ "${f.drop}".`);
       if (f.join != null && f.join !== 'rage' && !(num(f.join) && f.join >= 0)) add('error', ref, 'foes', `Trận: "${f.who}" vào trận sau … giây (số ≥ 0) hoặc khi boss nổi điên.`);
       if (f.join === 'rage' && !(t.foes || []).some((x) => foes[x.foe]?.rage || foes[x.foe]?.phases?.length > 1)) add('warn', ref, 'foes', `Trận: "${f.who}" chờ boss nổi điên / sang giai đoạn 2 mà trận không có boss nào như vậy → không bao giờ vào.`);
       if (f.watch != null && typeof f.watch !== 'boolean') add('error', ref, 'foes', `Trận: "${f.who}" đứng xem phải là true / false.`);
@@ -1027,6 +1032,10 @@ export function validateStory(story, { places = null, goods = null, content = nu
     text(ref, 'name', r.name, 'tên màn đua');
     if (r.ally && !people[r.ally]) add('error', ref, 'ally', `Màn đua: đồng đội "${r.ally}" không có trong "Người nói".`);
     if (!Array.isArray(r.sections) || r.sections.length < 2) add('error', ref, 'sections', 'Màn đua cần ít nhất 2 đoạn đường.');
+    if (r.intro != null) {
+      for (const k of ['fpv', 'out', 'whip', 'road', 'zoom']) if (r.intro[k] != null && !(num(r.intro[k]) && r.intro[k] >= 0 && r.intro[k] <= 10)) add('error', ref, 'intro', `Cảnh phim mở màn: "${k}" phải là số giây 0–10.`);
+      if (r.intro.line) text(ref, 'intro', r.intro.line, 'câu anh Đạt hét lúc phóng đi');
+    }
     (r.sections || []).forEach((sec, i) => {
       if (!RACE_KINDS.includes(sec.kind)) add('error', ref, 'sections', `Đoạn ${i + 1}: kiểu lạ "${sec.kind}".`);
       if (!(num(sec.len) && sec.len >= 40)) add('error', ref, 'sections', `Đoạn ${i + 1}: dài phải ≥ 40 m.`);
@@ -1041,7 +1050,8 @@ export function validateStory(story, { places = null, goods = null, content = nu
         if (e.type === 'drawbridge' && (e.at < 40 || e.at > sec.len - 70)) add('warn', ref, 'sections', `Đoạn ${i + 1}: cầu cất cần ≥ 40 m đường trước và ≥ 70 m đường sau để đáp xuống + phanh gấp.`);
         if (e.type === 'drawbridge' && i === r.sections.length - 1 && sec.len - e.at - 14 - 3 < 64) add('warn', ref, 'sections', `Đoạn ${i + 1}: từ chỗ đáp cầu tới rào đường cụt dưới ~64 m — bấm phanh đúng lúc cũng không kịp dừng.`);
         if (e.type === 'brawlers' && e.n != null && ![1, 2].includes(e.n)) add('error', ref, 'sections', `Đoạn ${i + 1}: xe giang hồ áp sát: 1 hoặc 2 xe.`);
-        if (e.type === 'brawlers' && e.n === 2 && (sec.width || KIND_W[sec.kind] || 12) < 9) add('warn', ref, 'sections', `Đoạn ${i + 1}: đường hẹp mà cho 2 xe áp sát kẹp 2 bên — chật, dễ té.`);
+        if (e.type === 'brawlers' && e.squeeze && e.n !== 2) add('error', ref, 'sections', `Đoạn ${i + 1}: kẹp sát phải là 2 xe.`);
+        if (e.type === 'brawlers' && e.n === 2 && (sec.width || KIND_W[sec.kind] || 12) < (e.squeeze ? 5.5 : 9)) add('warn', ref, 'sections', `Đoạn ${i + 1}: đường hẹp mà cho 2 xe áp sát kẹp 2 bên — chật, dễ té.`);
         if (e.type === 'queue' && sec.kind !== 'drawbridge') add('warn', ref, 'sections', `Đoạn ${i + 1}: hàng xe chờ cầu nên nằm trong đoạn "Cầu cất", trước cầu.`);
       }
     });
@@ -1409,6 +1419,9 @@ export function validateStory(story, { places = null, goods = null, content = nu
           if (a.clear != null && !(num(a.clear) && a.clear > 0 && a.clear <= 200)) add('error', ref, 'on', 'Cảnh phim: dọn xe NPC bán kính 1–200.');
           if (a.clearAll != null && typeof a.clearAll !== 'boolean') add('error', ref, 'on', 'Cảnh phim: "tắt hết xe thường" phải là có / không.');
           if (a.playerRun != null && !(Array.isArray(a.playerRun) && a.playerRun.length && a.playerRun.every((p) => Array.isArray(p) && p.length === 2 && p.every(num)))) add('error', ref, 'on', 'Cảnh phim: người chơi chạy bộ theo các điểm [x, z].');
+          if (a.raceBike != null && !story?.races?.[a.raceBike]) add('error', ref, 'on', `Cảnh phim: màn đua "${a.raceBike}" (xe chờ = xe màn đua) không có.`);
+          if (a.raceBike != null && !a.bikeAt) add('warn', ref, 'on', 'Cảnh phim: "xe chờ = xe màn đua" chỉ có tác dụng khi có chỗ xe chờ (bikeAt).');
+          if (a.hideProp != null && typeof a.hideProp !== 'string') add('error', ref, 'on', 'Cảnh phim: mã đạo cụ cần cất phải là chữ.');
           if (a.runSpeed != null && !(num(a.runSpeed) && a.runSpeed >= 1 && a.runSpeed <= 9)) add('error', ref, 'on', 'Cảnh phim: tốc độ chạy bộ 1–9.');
           if (a.runDelay != null && !(num(a.runDelay) && a.runDelay >= 0 && a.runDelay <= 20)) add('error', ref, 'on', 'Cảnh phim: chờ trước khi chạy 0–20 giây.');
           if (a.bikeAt != null && !(Array.isArray(a.bikeAt) && a.bikeAt.length >= 2 && a.bikeAt.every(num))) add('error', ref, 'on', 'Cảnh phim: chỗ xe chờ phải là [x, z, hướng°].');

@@ -108,9 +108,25 @@ export function brawlTarget(me, motos, side) {
   }
   return best?.m || null;
 }
-// Gậy trúng xe giang hồ: đang giơ ống tuýp (lóe đỏ) = ĐÚNG LÚC → văng luôn (đòn của nó bị hủy) · không thì cộng 1 cú, đủ BRAWL.hits cú thì văng
+// KẸP XE (sự cố brawlers có squeeze): 2 xe lên 2 bên cùng lúc, chạy sát hơn (lat m) và phang dồn dập hơn (every giây), luân phiên trái / phải
+// (lệch nhau gap giây) · steer: bị kẹp 2 bên thì tay lái nặng (còn bấy nhiêu phần)
+export const SQUEEZE = { lat: 0.95, every: 1.4, gap: 0.7, steer: 0.6 };
+// ĐỌ GẬY: anh Đạt quật trúng lúc đứa kia đang vung ống tuýp xuống (vừa phang xong, không còn lóe đỏ) → 2 gậy chèn vào nhau.
+// Bấm E liên tục: mỗi lần đẩy vạch press · nó đẩy lại back mỗi giây · vạch tới 1 = nó văng · hết time giây chưa tới = thua
+// (anh Đạt bị hất gậy: xe còn slow phần tốc độ, nó tụt lại rồi áp lên phang lại sau again giây, anh Đạt chờ cd giây mới quật được)
+export const CLASH = { time: 3, press: 0.15, back: 0.2, slow: 0.8, again: 1.6, cd: 1 };
+export const clashNew = () => ({ t: 0, v: 0 });
+// mỗi khung: presses = số lần bấm E trong khung → 'win' | 'lose' | null
+export function clashTick(c, dt, presses = 0) {
+  c.t += dt;
+  c.v = Math.max(-1, Math.min(1, c.v + presses * CLASH.press - CLASH.back * dt));
+  return c.v >= 1 ? 'win' : c.t >= CLASH.time ? 'lose' : null;
+}
+// Gậy trúng xe giang hồ: đang giơ ống tuýp (lóe đỏ) = ĐÚNG LÚC → văng luôn (đòn của nó bị hủy) · đang vung xuống (armT) hoặc cú đầu của màn
+// kẹp xe (clashNext) → ĐỌ GẬY · không thì cộng 1 cú, đủ BRAWL.hits cú thì văng
 export function brawlHit(m) {
   const timed = m.windT > 0;
+  if (!timed && (m.armT > 0 || m.clashNext)) return { clash: true };
   m.hits = (m.hits || 0) + 1;
   m.windT = 0;
   return { ko: timed || m.hits >= BRAWL.hits, timed };
@@ -131,12 +147,21 @@ export const skidDist = (v, t) => v * t + (v * v) / (2 * SKID.decel);
 // ---------- TÀU HỎA BĂNG NGANG (sự cố "train") ----------
 // Tàu bắt đầu chạy khi mình còn cách đường ray near m; tàu tới giữa đường đúng lúc người chạy ~vRef m/s (gần hết ga) tới ray + lead giây
 // → chạy hết ga thì vượt kịp sát mũi tàu; chậm hơn thì phải phanh chờ tàu qua (bán tải áp sát). speed: tàu chạy (m/s) · len: dài cả đoàn (m)
-export const TRAIN = { near: 260, vRef: 33, lead: 0.55, speed: 20, len: 70 };
-// Đầu tàu cách giữa đường bao nhiêu m lúc bắt đầu chạy
-export const trainStart = () => TRAIN.speed * (TRAIN.near / TRAIN.vRef + TRAIN.lead);
-// Tàu đang chắn đường? head: đầu tàu đã đi được bao nhiêu (m, tính từ chỗ bắt đầu) · w: bề rộng đường
-export function trainBlocks(head, w) {
-  const x = trainStart() - head; // đầu tàu còn cách giữa đường bao nhiêu (âm: đã qua giữa đường)
+// Canh giờ theo tốc độ THẬT lúc đèn bắt đầu chớp: giữ hết ga từ giây đó thì tới ray trước lúc tàu chắn đường margin giây · nhả ga / phanh là phải chờ.
+// aMul: tính tăng tốc hơi thấp hơn thật (đỡ lệch do ôm cua, xóc) — người chơi giữ hết ga thì chắc chắn kịp
+export const TRAIN = { near: 260, margin: 0.6, aMul: 0.9, speed: 20, len: 70 };
+// Bao lâu (giây) mới chạy hết dist m nếu giữ hết ga từ tốc độ v0 (cùng công thức tăng tốc của xe: a = accel × (1 − v / vmax))
+export function trainEta(dist, v0, vmax, accel) {
+  let t = 0, s = 0, v = Math.max(0, v0);
+  const dt = 0.02, a0 = accel * TRAIN.aMul;
+  while (s < dist && t < 60) { v = Math.min(vmax, v + a0 * Math.max(0, 1 - v / vmax) * dt); s += v * dt; t += dt; }
+  return t;
+}
+// Đầu tàu cách giữa đường bao nhiêu m lúc bắt đầu chạy: tàu chạm mép đường đúng (eta + margin) giây sau
+export const trainStart = (eta, w) => TRAIN.speed * (eta + TRAIN.margin) + w / 2 + 1;
+// Tàu đang chắn đường? start: trainStart lúc bắt đầu · head: đầu tàu đã đi được bao nhiêu (m) · w: bề rộng đường
+export function trainBlocks(start, head, w) {
+  const x = start - head; // đầu tàu còn cách giữa đường bao nhiêu (âm: đã qua giữa đường)
   return x < w / 2 + 1 && x + TRAIN.len > -w / 2 - 1;
 }
 

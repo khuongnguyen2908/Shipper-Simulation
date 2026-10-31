@@ -179,7 +179,7 @@ export class StoryPart {
       else if (a.do === 'traffic') this.storyTraffic(a); // giữ vùng vắng xe NPC (cảnh đứng giữa đường lâu) / trả lại
       else if (a.do === 'leave') this.storyActorLeave(a.who, a);
       else if (a.do === 'remove') this.storyActorRemove(a.who);
-      else if (a.do === 'board') this.storyActorBoard(a.who);
+      else if (a.do === 'board') this.storyActorBoard(a.who, !!a.run);
       else if (a.do === 'alight') this.storyActorAlight(a.who);
       else if (a.do === 'drop') { const ids = [].concat(a.id || []); gs.story.carry = [].concat(gs.story.carry || []).filter((x) => !ids.includes(x)); }
       // tuần tự: đang có câu chờ bấm E → câu mới / bảng chọn câu xếp hàng, người chơi bấm E mới hiện (không đè nhau)
@@ -411,10 +411,10 @@ export class StoryPart {
   // Túi đồ shipper (đánh nhau chương 6): give = { mã món: số } cho thêm vào túi · clear = dọn sạch (hết đoạn đánh nhau)
   storyKit(a) {
     const s = this.gs.story;
-    if (a.clear) { delete s.kit; this.heldRefresh?.(); return; }
+    if (a.clear) { delete s.kit; delete s.hp; this.heldRefresh?.(); return; }
     s.kit = kitGive(s.kit || kitNew(), a.give || {});
     this.heldRefresh?.();
-    if (!a.card) sound('fight.bag'); // có thẻ: tiếng kéo dây kéo đã phát lúc lục túi (màn đen 7 giây)
+    if (!a.card) sound('ui.interact'); // được đưa thêm đồ: tiếng nhận đồ ngắn · có thẻ: tiếng kéo dây kéo đã phát lúc lục túi (màn đen 7 giây)
     if (a.card) this.kitCardShow('big'); // thẻ "Trong túi có gì" (bấm E cất)
   }
   storyResumeRun() {
@@ -1189,9 +1189,10 @@ export class StoryPart {
   }
   // Người lạ lên xe người chơi (ngồi sau, tự đội mũ — chuyến chở theo cốt truyện, không qua app): người chơi đang đi bộ thì đi theo,
   // người chơi ngồi trên xe, tới sát xe thì leo lên
-  storyActorBoard(who) {
+  // run: chạy vội theo (vd cùng chạy ra xe trong cảnh phim) — không thì đi bộ theo
+  storyActorBoard(who, run = false) {
     const ac = this.storyActors?.[who];
-    if (ac && !ac.seated) ac.mode = 'board';
+    if (ac && !ac.seated) { ac.mode = 'board'; ac.boardRun = run; }
   }
   // Mượn xe cốt truyện (story.json → borrow): xe dựng sẵn (đạo cụ from) thành xe mình đang chạy, đúng chỗ đó; xe của mình để trong hầm nhà trọ.
   // off: trả xe mượn → xe của mình ở trong hầm nhà trọ (người chơi đi bộ / xe buýt về lấy)
@@ -1409,7 +1410,7 @@ export class StoryPart {
       if (ac.mode === 'board') {
         const b = this.bike.mesh.position, db = Math.hypot(b.x - m.x, b.z - m.z);
         if (this.mode === 'bike' && db < 3.5 && Math.abs(this.bike.speed) < 1.5) { this.storyActorSeat(ac); continue; }
-        if (d > 2.2) [speed, amount] = [Math.min(4, 1.4 + d * 0.3), 0.6]; // đi theo người chơi
+        if (d > 2.2) [speed, amount] = ac.boardRun ? [5, 1] : [Math.min(4, 1.4 + d * 0.3), 0.6]; // đi theo người chơi (chạy vội: chạy hẳn)
       }
       const [ux, uz] = ac.mode === 'leave' ? ac.dir : ac.mode === 'goto' || (ac.mode === 'approach' && ac.stop) ? [gx, gz] : [dx / (d || 1), dz / (d || 1)];
       m.x += ux * speed * dt;

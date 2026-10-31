@@ -19,10 +19,11 @@ export class RaceHud {
       <div class="rh-qte"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="44" class="bg"/><circle cx="50" cy="50" r="44" class="ring"/></svg><b class="key"></b><span class="txt"></span></div>
       <div class="rh-pops"></div>
       <div class="rh-bat rh-panel">${fmt('hud.race.bat')}</div>
+      <div class="rh-clash"><div class="bar"><i class="me"></i><i class="mark"></i></div><div class="lbl"><b>${fmt('hud.race.clash')}</b> <span>${fmt('hud.race.clashKey')}</span></div></div>
       <div class="rh-flash"></div>`;
     root.append(el);
     const q = (s) => el.querySelector(s);
-    this.$ = { pips: q('.pips'), gtxt: q('.gtxt'), mark: q('.gauge i'), speed: q('.rh-speed b'), qte: q('.rh-qte'), ring: q('.rh-qte .ring'), key: q('.rh-qte .key'), txt: q('.rh-qte .txt'), flash: q('.rh-flash'), pops: q('.rh-pops'), bat: q('.rh-bat') };
+    this.$ = { pips: q('.pips'), gtxt: q('.gtxt'), mark: q('.gauge i'), speed: q('.rh-speed b'), qte: q('.rh-qte'), ring: q('.rh-qte .ring'), key: q('.rh-qte .key'), txt: q('.rh-qte .txt'), flash: q('.rh-flash'), pops: q('.rh-pops'), bat: q('.rh-bat'), clash: q('.rh-clash'), clashMe: q('.rh-clash .me'), clashMark: q('.rh-clash .mark') };
   }
   show(on) { this.el.className = `rh${on ? '' : ' hidden'}`; }
   // d: { crashes, max, gap (m), caught (0..1), kmh, bat (có xe giang hồ áp sát) }
@@ -47,6 +48,15 @@ export class RaceHud {
     $.key.classList.toggle('long', q.key === 'Space');
     $.txt.textContent = fmt(q.txt || `hud.race.qte.${q.key}`);
     $.ring.style.strokeDashoffset = String(276.5 * (1 - Math.max(0, Math.min(1, q.k))));
+  }
+  // Đọ gậy: thanh kéo co giữa màn hình (xanh = phần mình đẩy được · vạch trắng) — c: { v (−1 … 1), t } | null
+  clash(c) {
+    const $ = this.$;
+    $.clash.classList.toggle('on', !!c);
+    if (!c) return;
+    const k = ((c.v + 1) / 2) * 100;
+    $.clashMe.style.width = `${k}%`;
+    $.clashMark.style.left = `${k}%`;
   }
   // chữ bật lên giữa màn hình rồi bay mất: kind 'good' (xanh) | 'bad' (đỏ)
   pop(text, kind = 'good') {

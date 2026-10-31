@@ -44,7 +44,8 @@ export class ZonePart {
     if (typeof at === 'string' && at.startsWith('spot:')) return spotOf(at)?.at || null;
     return zonePoint(this.gs.story?.zone?.id, at);
   }
-  zoneEnter(id) {
+  // keepBike: vẫn ngồi trên xe (vào đường đua từ cảnh phim mở màn — xe đang chạy)
+  zoneEnter(id, keepBike = false) {
     if (!ZONES[id] || (!BUILD[id] && !this.zones?.[id])) return; // đường đua: dựng sẵn ở game/race.js
     this.zones ||= {};
     if (!this.zones[id]) {
@@ -54,15 +55,18 @@ export class ZonePart {
     this.zone = this.zones[id];
     this.zone.group.visible = true;
     this.city.grid.zones = [this.zone.bounds];
-    if (this.mode === 'bike') act.dismount(this); // xe để lại thành phố
+    if (this.mode === 'bike' && !keepBike) act.dismount(this); // xe để lại thành phố
     this.hud.el.classList.add('in-zone');
+    this.zoneBattle = !!ZONES[id].battle; // chỗ đánh nhau: ẩn bảng góc trái (giờ, tiền, thể lực…), không nhạc ngày / đêm
+    this.hud.el.classList.toggle('in-battle', this.zoneBattle);
   }
   zoneExit() {
     if (!this.zone) return;
     this.zone.group.visible = false;
     this.zone = null;
+    this.zoneBattle = false;
     this.city.grid.zones = [];
-    this.hud.el.classList.remove('in-zone');
+    this.hud.el.classList.remove('in-zone', 'in-battle');
   }
   // Dịch người chơi tới chỗ (đi bộ): đứng đúng mặt cao nhất ở đó (boong tàu…)
   zoneTeleport(p, heading) {
@@ -112,6 +116,7 @@ export class ZonePart {
     this.zone?.tick?.(dt);
     this.untieTick(dt);
     this.fightTick(dt); // đánh nhau góc nhìn thứ 1 (game/fight.js)
+    if (this.raceIntro) this.raceIntroTick(dt); // cảnh phim mở màn đua (phần ở bến)
     this.raceTick(dt); // màn đua thoát thân (game/race.js)
   }
 

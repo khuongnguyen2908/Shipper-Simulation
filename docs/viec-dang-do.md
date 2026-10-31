@@ -383,6 +383,65 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
       người trong trận đi từng đoạn ≤ 15 cm. (2) Tí Đô / anh Đạt đi lệch khỏi cầu thang mạn → rơi xuống khe nước rồi bị đẩy vào trong thân tàu, đứng dưới boong đánh
       xuyên sàn (một phần do lần sửa "lơ lửng" trước của Claude) → không cho bước hụt xuống > 0,8 m (đứng lại ở mép như người chơi), tìm đường không đi đường
       phải bước hụt. (3) Tấm ván chân cầu thang mạn rộng 1,2 → 2 m (đi xiên ra / vào hay vướng góc).
+- **Đợt 15 — góp ý chơi thử c6 (31/10, XONG, chưa commit)** — phác thảo duyệt: sketches/chuong6/noi-man/canh-phim.png
+  - Âm thanh: fight.ko (file choáng váng) CHỈ cho người chơi (đập lưng vào vật cản, gục thua) · mã mới fight.foeDown "Địch gục" (địch gục / đập lén /
+    Tí Đô choáng sau húc container) · fight.nylon "Ném bao ni lông" (trước dùng nhầm tiếng kéo dây kéo 7 giây) · anh Đạt trả điện thoại + nhét đồ: ui.interact.
+    Chờ chủ game gắn file cho fight.foeDown, fight.nylon, race.clash.
+  - Tí Đô: máu 400 → 650 · húc 25 → 40 · bổ 2 tay 30 → 45 · bay đấm 20 → 35 · dậm đất 12 → 25 · gối lúc ôm cổ 8 → 12 (đấm thường đỡ được giữ 18).
+    Bot (bất tử, ném hết đồ) mất ~4,5 phút mới hạ — CẦN CHỦ GAME CHƠI THỬ, dài quá thì hạ máu ở ?editor (foes.tiDo.hp).
+  - Tàu hỏa: hình đoàn tàu bị vẽ NGƯỢC (toa nằm trước đầu máy — có từ bc2a996) → thấy tàu chắn sớm ~3 giây rồi chạy xuyên qua được. Lật lại · canh giờ theo
+    tốc độ thật lúc đèn chớp (giữ hết ga = tới ray trước 0,6–0,9 giây; nhả ga = bị chắn) · chặn lọt khi xe nhanh / máy giật · đang được miễn va chạm cũng không qua.
+  - Kẹp xe + đọ gậy: sự cố brawlers có squeeze (quốc lộ đoạn sau + bờ đê): 2 xe ép sát 0,95 m, phang luân phiên 1,4 giây, lái nặng 60% · quật lúc nó đang vung
+    xuống (hoặc cú đầu màn kẹp) = ĐỌ GẬY: thanh kéo co, bấm E liên tục (~10 lần / 2–3 giây) → văng; thua = mất 20% tốc, nó áp lại (sim/race.js SQUEEZE, CLASH).
+  - Anh Đạt kẹt đầu cầu thang mạn (vào trận Tí Đô): đầu cầu thang có bậc hụt 0,7 m, bộ tìm đường dò mỗi 40 cm nên lúc bảo đi, lúc bảo quay lại →
+    dò 15 cm đúng như bước chân (27 điểm trên tàu: 11 → 1 chỗ kẹt — đuôi tàu, đường nối cắt qua cột). Thêm lưới an toàn: 4 giây không nhích được 1 m →
+    đặt ra sau lưng người chơi (ngoài tầm nhìn).
+  - Cảnh phim nối bến → đường đua (~12 giây): tới gần xe ~8 m là phim tự chạy (bỏ bấm E + màn đen 2 giây) · 0 chạy vội ra xe (anh Đạt chạy theo — board run)
+    · 1 góc nhìn 1 trên xe · 2 xe vọt dọc bến, bán tải + 2 xe máy bật đèn lao theo (không vượt lên) · 3 lướt sát bánh + vệt nhòe — đổi bản đồ giữa khung · 4 góc
+    nhìn 1 trên đường đua · 5 camera lùi ra góc nhìn 3, cầm lái luôn, xe không dừng. Số giây sửa ở ?editor (races.escape.intro). Mở game giữa màn / cheat: bỏ qua.
+    Hướng phóng: dọc bến về phía đông (phía tây ranh bản đồ chỉ còn 14 m). Không có câu "Đuổi theo!!" của Tí Sún (không có người đó ở bến) — chỉ tiếng rồ máy.
+- **Đợt 18 — đồ chạm trúng là dính, bom cục pin, thêm lính (01/11, XONG, chưa commit)**
+  - Món có tác dụng (trùm / lóa / cay / ngã / vũng trơn / bom — sim/fight.js hasFx) chạm trúng địch là dính đủ thời gian: không đỡ, không kháng (bỏ luật kháng 6 giây
+    của đợt 17). Ném lệch vẫn trượt (KHÔNG bay bám theo — chủ game nói rõ). Chai nước (chỉ sát thương) vẫn bị đỡ. Choáng của nón / gạch không tính là "tác dụng".
+  - Chống khóa boss mãi: bao ni lông trúng Tí Đô / Tí Sún thì trùm đủ, thoát ra là "🛍️ Xé rách bao!" — bao mất (trúng lính thường vẫn rơi lại nhặt được).
+  - Món nhặt lại được (nước, COD, ni lông): trong túi tối đa 1 cái, đã có thì không nhặt thêm; sửa lỗi nhân đôi khi chơi lại (túi trả về + món ném ra trận trước còn dưới đất).
+  - Cục pin = bom (weapons.powerbank.bomb): chạm đất nháy đỏ + bíp dồn (fight.beep), 2,5 giây sau nổ (fight.boom, cầu lửa + vòng khói): mọi tên trong 3 m mất 30 máu + ngã 1 giây.
+    Anh Đạt, mình không sao. Dùng 1 lần; COD móp 3 lần bung ra cục pin này. Ô 💣 Bom ở ?editor.
+  - Thêm lính: container / boong / lầu mỗi trận thêm 2 tên chạy tới sau 8 và 14 giây (5 tên / trận); bến thêm 2 đàn em vào lúc Tí Đô nổi điên (cũng đứng xem trong cảnh phim).
+    Tên nào gục cũng rớt 1 món.
+  - Đo: bot kém đánh Tí Đô — chết 2 lần (ở 344/650 và 65/650), thắng sau 210 giây, né 19 lần, ăn 12 lần.
+- **Đợt 17 — cân bằng đánh nhau theo bot tự chơi (31/10, XONG, chưa commit)** — bot "chơi như người" ở sketches/c6bot.js (fightSmart: phản xạ / lỡ tay / ngắm lệch)
+  - Lính gục rớt 1 món (fights.*.foes[].drop, ô "Gục thì rớt" ở ?editor): container ớt/sữa/đá · boong Tí Sún bánh mì, sữa, ớt · lầu sữa/đá/ớt · bến 2 đàn em sữa, bánh mì.
+    Đồ ăn hồi ít lại: bánh mì +20, sữa +8.
+  - Sát thương: boss đang đánh anh Đạt không còn ×2 · ĐÚNG LÚC với boss chỉ ×2 tác dụng · mọi hệ số nhân tối đa ×2 sát thương gốc (PLAYER.dmgCap) ·
+    lính 45 máu, ở xa > 6 m lao tới ×1,5 (rush) · lính bị mình ném trúng thì bỏ anh Đạt lao sang mình 4 giây (PLAYER.aggro) · Tí Đô ném gạch sau 1 giây
+    (giai đoạn cuối) · đứng xa Tí Đô > 7 m liền 10 giây → nó lao húc (skills.farCharge) · Tí Đô chạy 3,2 → 3,6 m/s · đánh nhau đi lùi còn 60% (PLAYER.backpedal).
+  - LỖI tìm ra khi bot chơi: (1) ném bao ni lông trùm Tí Đô → nhặt → ném lại = khóa nó mãi; (2) chạm mốc giai đoạn lúc đang bị trùm thì kẹt mãi ở mốc
+    (đánh không mất máu). Sửa: boss hết dính kiểu nào thì kháng kiểu đó 6 giây (ccImmune, Tí Sún 4) · đổi giai đoạn xét trước khi bị khống chế.
+  - Đo (Tí Đô, đầy máu, túi như lúc vào trận): bot thường 0 lần chết (40–59 giây) · bot kém 1 lần chết (thắng sau ~3 phút) · bot ẩu 1 lần chết.
+    Trận lính (container, boong): bot vẫn thắng 14–31 giây không mất máu — lính đi tới từng tên dọc lối hẹp nên bị ném hạ trước khi tới gần (do cách đặt lính).
+    → ĐÃ LÀM cả 2: kiểu lính mới thugThrow "Giang hồ ném gạch" (cầm gạch, 3 giây ném 1 viên 10 máu) — mỗi trận 1 tên · đặt lại chỗ đứng: container 2 tên
+    sát 2 bên cửa + tên ném gạch phía sau · boong Tí Sún chặn trước 7 m, 1 tên chặn sau 7 m, tên ném gạch bên hông · lầu chỉ huy kẹp trái phải + ném gạch phía trước.
+    Đứng yên thì 3 giây là bị đánh, nhưng bot (ném trúng gần hết — bán kính trúng 0,6 m, có vệt chấm đường bay) vẫn hạ trận lính trong 7–14 giây.
+    CẦN CHỦ GAME CHƠI THỬ bằng tay; nếu vẫn dễ: thu bán kính trúng đồ ném (0,6 → 0,45 m) hoặc bỏ vệt chấm đường bay ở trận sau.
+- **Đợt 16 — đồ ăn, máu giữ qua các trận, nhạc đánh nhau (31/10, XONG, chưa commit)**
+  - Đồ ăn (giữ chuột trái, đi chậm còn 35%, cạp từng miếng có tiếng fight.eat + vụn rơi, món nhỏ dần; nhả chuột / bị đánh trúng = bỏ dở, còn món;
+    máu đầy thì không ăn): 🥖 bánh mì +35 / 1,2 giây / 4 miếng · 🧃 hộp sữa +15 / 0,5 giây / 2 miếng (weapons.*.eat — sửa ở ?editor; luật sim/fight.js eatTick).
+  - Máu KHÔNG tự đầy mỗi trận (gs.story.hp, lưu trong bản lưu; bỏ túi lúc lên xe thì bỏ luôn). Thua → chơi lại với máu lúc vào trận, ít nhất 50 (PLAYER.retryHp).
+    Máu mình hiện cả lúc đi giữa các trận. Đồ ăn rớt sẵn: container hộp sữa · boong bánh mì · lầu chỉ huy hộp sữa · bến hộp sữa — chưa nhặt thì còn nằm đó (nhặt sau được).
+  - Túi: bỏ kèn bóp + trà sữa (định nghĩa vẫn giữ trong weapons, không cho vào túi) · lục túi: nước, COD, ni lông, nón, đá 1, ớt 1, bánh mì 1, sữa 1 ·
+    anh Đạt nhét thêm: đá 1, ớt 1 · anh Đạt KHÔNG quăng nước nữa · gợi ý "Máu thấp — lùi ra ăn" (≤ 35 máu) · gợi ý "sắp ra đòn" giờ chỉ gói ớt.
+  - Tí Đô giai đoạn cuối: bổ → dậm + bay đấm → húc 2 lần → đấm liền (dậm 1 lần / vòng 4 đòn; bỏ "dậm + giả bay đấm" khỏi vòng).
+    Bot không né / không ăn: thua sau ~1 phút ở giai đoạn cuối — CẦN CHỦ GAME CHƠI THỬ độ khó.
+  - Chỗ đánh nhau (ZONES.ship.battle): ẩn bảng góc trái, không nhạc ngày / đêm · nhạc: lẻn tới lúc rời lầu = music.sneak · bị bắt / nhốt / lục túi: im ·
+    phá container → xuống bến + chạy ra xe = music.fight (mới, chưa gắn file → tạm music.chase) · Tí Đô = music.boss · lên xe → music.race.
+  - Mã tiếng mới chờ gắn file: fight.eat, fight.eatDone, music.fight (cùng fight.foeDown, fight.nylon, race.clash của đợt 15).
+- **Sửa lỗi không vào được "Tiếp tục" (31/10, chưa commit)**
+  - Bản lưu ở đoạn đi bộ giữa các trận chương 6 (anh Đạt đi theo — toDeck … toBike): "trận rỗng" fightFollow thiếu danh sách vũng trơn → fightSlipTick
+    báo lỗi mỗi khung, game đứng hình. Lỗi do Claude thêm vũng trơn (đợt 13) mà quên trận rỗng → thêm slips: [] + chặn thiếu.
+  - Chương 2 bước search (vòng tròn tím vùng tìm kiếm) sập: thuộc tính vòng tròn tên this.storyZone trùng hàm storyZone (vào bản đồ riêng, game/zone.js)
+    → đổi tên storyZoneRing. Đã dò cả code: không còn tên thuộc tính nào trùng tên hàm.
+  - Đã thử: mọi bước của chương 1–6 → lưu → mở lại → chạy 5 khung: không còn lỗi · nút "Tiếp tục" ở màn hình chính vào game bình thường.
 - **Đợt 14 — âm thanh / nhạc chương 6 (31/10, đã đẩy lên GitHub df0cc8c)**
   - Lục túi: màn đen "Kéo khóa túi, lục từng món…" 7 giây (0,7 tối dần + giữ 6,3) khớp tiếng kéo dây kéo chủ game gắn cho fight.bag (7 giây, phát lúc bấm E),
     xong mới hiện thẻ "Trong túi có gì" (việc kit có after 7) · việc kit có thẻ không phát lại fight.bag.

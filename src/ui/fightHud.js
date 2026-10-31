@@ -53,6 +53,7 @@ export class FightHud {
   //      blocking, weapon: {icon, name, dur, max, throw}, tags: [{id, x, y, hp, max, name, lock, ally}] }
   update(d) {
     if (!this.on) return;
+    this.el.classList.toggle('has-kit', !!d.kit); // có túi đồ (đoạn đánh nhau): hiện máu mình cả lúc đi giữa các trận
     const $ = this.$, pct = (a, b) => `${Math.max(0, Math.min(100, (a / (b || 1)) * 100))}%`;
     $.meFill.style.width = pct(d.me.hp, d.me.max);
     $.meNum.textContent = `${Math.ceil(d.me.hp)}/${d.me.max}`;

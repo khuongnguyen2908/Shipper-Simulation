@@ -10,11 +10,11 @@
 // Chỉ máy người chơi này (cốt truyện riêng); đồng hồ chung vẫn chạy.
 // =============================================================
 import * as THREE from 'three';
-import { makeViewArms, makeLootMesh, makeWeaponMesh, fighterPose, makePuddle, makeStuck } from '../world/fightModels.js';
+import { makeViewArms, makeLootMesh, makeWeaponMesh, fighterPose, makePuddle, makeStuck, makeBomb, makeBlast } from '../world/fightModels.js';
 import { animatePerson, hipBend } from '../world/models.js';
 import { resolveCircle } from '../world/physics.js';
 import { FightHud } from '../ui/fightHud.js';
-import { weaponOf, fightOf, makeFoe, meleeTargets, hitFoe, hitPlayer, foeTick, allyTick, playerTick, canTakedown, navNext, dist, sightOf, prewarm, PLAYER, ALLY, kitHas, kitTake, kitNext, kitGive, applyItem, hornBlast, slipFoe, telegraphing, timedItem, phaseOf, skillOf, bossMash, bossPhaseSet } from '../sim/fight.js';
+import { weaponOf, fightOf, makeFoe, meleeTargets, hitFoe, hitPlayer, foeTick, allyTick, playerTick, canTakedown, navNext, dist, sightOf, prewarm, PLAYER, ALLY, kitHas, kitTake, kitNext, kitGive, kitFull, eatTick, applyItem, hornBlast, slipFoe, telegraphing, timedItem, phaseOf, skillOf, bossMash, bossPhaseSet } from '../sim/fight.js';
 import { ZONES } from '../sim/zones.js';
 import { storyEvent } from '../sim/story.js';
 import { sound } from '../audio.js';
@@ -55,9 +55,10 @@ export class FightPart {
     this.hud.el.classList.toggle('in-fpv', on);
     this.fightHud.show(on ? (this.fight ? 'fight' : 'fpv') : 'off');
   }
-  fpNew() {
+  // hp: máu lúc vào (giữ qua các trận — gs.story.hp; chưa có = đầy)
+  fpNew(hp = this.gs.story?.hp ?? PLAYER.hp) {
     const b = this.guardPips();
-    return { hp: PLAYER.hp, max: PLAYER.hp, cd: 0, dodgeT: 0, dodgeCd: 0, pips: b, maxPips: b, pipT: 0, blocking: false, swing: 0, throwT: 0, hurtT: 0, x: 0, z: 0, heading: 0, hornCd: 0 };
+    return { hp: Math.max(1, Math.min(PLAYER.hp, hp)), max: PLAYER.hp, cd: 0, dodgeT: 0, dodgeCd: 0, pips: b, maxPips: b, pipT: 0, blocking: false, swing: 0, throwT: 0, hurtT: 0, x: 0, z: 0, heading: 0, hornCd: 0 };
   }
   // ---------- TÚI ĐỒ SHIPPER (gs.story.kit — lưu trong bản lưu; luật ở sim/fight.js kit…) ----------
   // Món đang cầm = món đang chọn trong túi (hết thì "tay không" — không đánh được). Đỡ đòn chỉ khi có nón bảo hiểm trong túi.
@@ -74,9 +75,9 @@ export class FightPart {
     const k = this.gs.story?.kit;
     this.fightHud ||= new FightHud(document.body);
     if (!k || mode === 'off') { this.kitCard = null; this.fightHud.card('off'); return; }
-    const items = k.order.filter((id) => kitHas(k, id) || weaponOf(id).keep || !weaponOf(id).throw).map((id) => {
-      const w = weaponOf(id), n = k.n[id] || 0, re = !!w.keep || !w.throw;
-      const tag = w.horn ? fmt('hud.kit.tagHorn', { s: w.horn.cd ?? 8 }) : !w.throw ? fmt('hud.kit.tagHold') : fmt(w.keep ? 'hud.kit.tagKeep' : 'hud.kit.tagBreak', { n });
+    const items = k.order.filter((id) => kitHas(k, id) || ((weaponOf(id).keep || !weaponOf(id).throw) && !weaponOf(id).eat)).map((id) => {
+      const w = weaponOf(id), n = k.n[id] || 0, re = !!w.keep || (!w.throw && !w.eat);
+      const tag = w.horn ? fmt('hud.kit.tagHorn', { s: w.horn.cd ?? 8 }) : w.eat ? fmt('hud.kit.tagEat', { n }) : !w.throw ? fmt('hud.kit.tagHold') : fmt(w.keep ? 'hud.kit.tagKeep' : 'hud.kit.tagBreak', { n });
       return { icon: w.icon, name: fmt(w.name), tag, re, fx: fmt(w.tip || ''), when: fmt('hud.kit.when', { t: fmt(w.when || '') }) };
     });
     this.kitCard = mode;
@@ -97,9 +98,11 @@ export class FightPart {
     const pick = () => {
       for (const f of live) if ((f.state === 'chargeWind' || f.state === 'charge') && has('ice') && near(f, 16)) return ['charge', 'ice', f];
       for (const f of live) if (f.state === 'superWind' && has('ice') && near(f, 9)) return ['fly', 'ice', f];
-      for (const f of live) if ((f.state === 'windup' || f.state === 'clinchWind') && has('cup') && near(f, 6)) return ['combo', 'cup', f];
+      for (const f of live) if ((f.state === 'windup' || f.state === 'clinchWind') && has('chili') && near(f, 6)) return ['combo', 'chili', f];
       if (live.filter((f) => !f.f.boss && near(f, 7)).length >= 2 && has('chili')) return ['crowd', 'chili', live[0]];
       for (const f of live) if (telegraphing(f) && has('horn') && near(f, 4)) return ['horn', 'horn', f];
+      const food = k.order.find((id) => kitHas(k, id) && weaponOf(id).eat);
+      if (fp.hp <= 35 && food && !live.some((f) => telegraphing(f) && near(f, 6))) return ['eat', food, live[0] || { f: {} }];
       return null;
     };
     const p = pick(), s = this.gs.story;
@@ -150,7 +153,8 @@ export class FightPart {
     const fp = this.fp, A = this.viewArms?.userData;
     if (A && fp) {
       A.setItem(fp.blocking ? 'helmet' : this.heldId()); // giữ chuột phải: giơ nón bảo hiểm lên đỡ (dù đang cầm món khác)
-      if (fp.swing > 0) A.pose('swing', fp.swing / SWING_T, this.fpBob, fp.move);
+      if (fp.eat) { const E = weaponOf(fp.eat.id).eat; A.pose('eat', fp.eat.t / E.t, this.fpBob, E.bites ?? 3); }
+      else if (fp.swing > 0) A.pose('swing', fp.swing / SWING_T, this.fpBob, fp.move);
       else if (fp.throwT > 0) A.pose('throw', fp.throwT / THROW_T, this.fpBob);
       else if (fp.blocking) A.pose('block', 0, this.fpBob);
       else A.pose(fp.hurtT > 0 ? 'hurt' : 'idle', 0, this.fpBob);
@@ -163,7 +167,8 @@ export class FightPart {
     const def = typeof id === 'object' ? id : fightOf(id); // (thử: đưa thẳng dữ liệu trận)
     if (!def) return storyEvent(this.gs.story, 'fightWon');
     // đồ của mình ném ra còn nằm dưới đất ở trận trước (đánh liền mạch): giữ lại, nhặt tiếp được
-    const carry = (this.fight?.loot || []).filter((l) => l.mine).map((l) => ({ id: l.id, x: l.x, z: l.z, dent: l.dent || 0 }));
+    // … và đồ ăn rớt chưa nhặt (nhặt sau cũng được)
+    const carry = (this.fight?.loot || []).filter((l) => l.mine || weaponOf(l.id).eat).map((l) => ({ id: l.id, x: l.x, z: l.z, dent: l.dent || 0 }));
     this.fightStop();
     if (!this.fpvOn) this.fpvSet(true);
     const [ox, oz] = ZONES[def.zone]?.origin || [0, 0], W = (p) => ({ x: p[0] + ox, z: p[1] + oz });
@@ -171,7 +176,7 @@ export class FightPart {
     const here = def.keepPos ? { x: this.walker.pos.x, z: this.walker.pos.z } : null;
     const st = here || W(def.start || [0, 0]), kit0 = this.gs.story.kit ? JSON.parse(JSON.stringify(this.gs.story.kit)) : null;
     const am = def.keepPos && def.ally && this.storyActors?.[def.ally]?.mesh.position;
-    this.fight = { id, def, W, t: 0, start: { ...st, kit: kit0, loot: carry }, allyAt: am ? { x: am.x, z: am.z } : null, foes: [], ally: null, loot: [], proj: [], won: false, lost: false, cp: 0 };
+    this.fight = { id, def, W, t: 0, start: { ...st, kit: kit0, loot: carry, hp: this.fp?.hp ?? this.gs.story.hp ?? PLAYER.hp }, allyAt: am ? { x: am.x, z: am.z } : null, foes: [], ally: null, loot: [], proj: [], won: false, lost: false, cp: 0 };
     this.fightSetup(!!here);
     if (def.stealth) { // màn lẻn: không hiện thanh máu, nhắc cách chơi
       this.fightGoalMark(W(def.stealth.goal), def.stealth.r ?? 2);
@@ -191,7 +196,7 @@ export class FightPart {
     const [ox, oz] = ZONES[zid]?.origin || [0, 0], W = (p) => ({ x: p[0] + ox, z: p[1] + oz }), nav = ZONES[zid]?.nav, m = ac.mesh.position;
     if (!this.fpvOn) this.fpvSet(true);
     ac.fightAlly = true;
-    this.fight = { id: null, def: { zone: zid, ally: who }, W, t: 0, start: { x: this.walker.pos.x, z: this.walker.pos.z }, foes: [], loot: [], proj: [], won: true, lost: false, cp: 0,
+    this.fight = { id: null, def: { zone: zid, ally: who }, W, t: 0, start: { x: this.walker.pos.x, z: this.walker.pos.z }, foes: [], loot: [], proj: [], slips: [], bombs: [], won: true, lost: false, cp: 0,
       ally: { who, x: m.x, z: m.z, heading: 0, hp: ALLY.hp, max: ALLY.hp, cd: 0.5, state: 'follow', t: 0 },
       nav: nav ? { nodes: nav.nodes.map((q) => { const p = W(q); return [p.x, p.z]; }), edges: nav.edges } : null };
     this.fightHud.show('fpv');
@@ -207,13 +212,17 @@ export class FightPart {
     for (const p of F.proj) this.scene.remove(p.mesh);
     this.fightTele(F, true);
     for (const s of F.slips || []) this.scene.remove(s.mesh);
-    F.loot = []; F.proj = []; F.slips = []; F.t = 0; F.won = false; F.lost = false; F.slow = 0; F.emptyT = 0;
+    for (const b of F.bombs || []) this.scene.remove(b.mesh);
+    F.loot = []; F.proj = []; F.slips = []; F.bombs = []; F.t = 0; F.won = false; F.lost = false; F.slow = 0; F.emptyT = 0;
     const cpAt = F.cp > 0 && def.stealth?.checkpoints?.[F.cp - 1]; // màn lẻn: đã qua chốt → làm lại từ chốt đó
     if (!stay) this.zoneTeleport(cpAt ? (() => { const p = W(cpAt); return [p.x, p.z]; })() : [F.start.x, F.start.z]);
     if (F.start.kit) this.gs.story.kit = JSON.parse(JSON.stringify(F.start.kit)); // chơi lại: túi đồ như lúc bắt đầu trận
     this.heldRefresh();
-    this.fp = this.fpNew();
-    for (const l of F.start.loot || []) this.fightDrop(l.id, l.x, l.z, l.dent); // đồ của mình nằm dưới đất từ trận trước
+    this.fp = this.fpNew(F.start.hp); // máu như lúc bắt đầu trận (không tự đầy lại mỗi trận)
+    for (const l of F.start.loot || []) { // đồ của mình / đồ ăn nằm dưới đất từ trận trước
+      if (weaponOf(l.id).eat) this.fightLootPut(l.id, l.x, l.z);
+      else if (!kitFull(this.gs.story.kit, l.id)) this.fightDrop(l.id, l.x, l.z, l.dent);
+    }
     // nhìn về phía tên địch gần nhất lúc bắt đầu
     const near = (def.foes || []).filter((d) => d.join == null).map((d) => W(d.at || [0, 0])).sort((p, q) => Math.hypot(p.x - F.start.x, p.z - F.start.z) - Math.hypot(q.x - F.start.x, q.z - F.start.z))[0];
     if (near && !stay) { this.fpvYaw = Math.atan2(-(near.x - F.start.x), -(near.z - F.start.z)); this.fpvPitch = 0; }
@@ -222,6 +231,7 @@ export class FightPart {
       const p = W(d.at || [0, 0]);
       this.storyActorSpawn({ do: 'actor', who: d.who, look: d.look || 'jetjet', spot: 'at', at: [p.x, p.z], heading: d.heading ?? 180, ...(d.outfit ? { outfit: d.outfit } : {}) });
       const foe = makeFoe(d, { x: p.x, z: p.z, heading: ((d.heading ?? 180) * Math.PI) / 180 }, undefined, i);
+      foe.drop = d.drop || null; // gục thì rớt 1 món (bỏ chạy thì không)
       if (d.patrol) foe.patrol = d.patrol.map((q) => [q[0] + W([0, 0]).x, q[1] + W([0, 0]).z, ...q.slice(2)]); // [x, z, dừng, hướng]
       if (def.stealth) foe.alert = false; // màn lẻn: cả người đứng gác cũng chưa biết mình tới
       if (d.phase > 0 && !foe.alert) prewarm(foe, d.phase); // lệch nhịp đi tuần
@@ -254,13 +264,15 @@ export class FightPart {
       F.ally = { who: def.ally, x: p.x, z: p.z, heading: 0, hp: ALLY.hp, max: ALLY.hp, cd: 0.5, state: 'follow', t: 0 };
     }
     // đồ dưới đất
-    for (const l of def.loot || []) {
-      const p = W(l.at || [0, 0]), mesh = makeLootMesh(l.id);
-      mesh.position.set(p.x, this.city.elev?.topAt(p.x, p.z) ?? 0, p.z);
-      mesh.rotation.y = (p.x * 7 + p.z * 3) % 6.28;
-      this.scene.add(mesh);
-      F.loot.push({ id: l.id, x: p.x, z: p.z, mesh });
-    }
+    for (const l of def.loot || []) { const p = W(l.at || [0, 0]); this.fightLootPut(l.id, p.x, p.z); }
+  }
+  // đặt 1 món nằm dưới đất chờ nhặt (đồ dữ liệu trận / đồ ăn rớt)
+  fightLootPut(id, x, z) {
+    const F = this.fight, mesh = makeLootMesh(id);
+    mesh.position.set(x, this.city.elev?.topAt(x, z) ?? 0, z);
+    mesh.rotation.y = (x * 7 + z * 3) % 6.28;
+    this.scene.add(mesh);
+    F.loot.push({ id, x, z, mesh });
   }
   // gắn vũ khí vào tay phải người lạ (Tí Sún cầm ống tuýp)
   fightArm(ac, id) {
@@ -295,6 +307,7 @@ export class FightPart {
     for (const l of F.loot) this.scene.remove(l.mesh);
     for (const p of F.proj) this.scene.remove(p.mesh);
     for (const s of F.slips || []) this.scene.remove(s.mesh);
+    for (const b of F.bombs || []) this.scene.remove(b.mesh);
     if (this.throwArc) this.throwArc.visible = false;
     for (const f of F.foes) if (f.state !== 'ko' || !F.won) this.storyActorRemove(f.who);
     this.fight = null;
@@ -314,6 +327,17 @@ export class FightPart {
     fp.hurtT = Math.max(0, fp.hurtT - dt);
     if (fp.swing > 0) { fp.swing += dt; if (fp.swing >= SWING_T) fp.swing = 0; }
     if (fp.throwT > 0) { fp.throwT += dt; if (fp.throwT >= THROW_T) fp.throwT = 0; }
+    this.kitInput(!this.storyLose && !this.modal.open && !this.phone.open);
+    // ---- ĂN (cầm đồ ăn, giữ chuột trái): cạp từng miếng, đi chậm, đủ giờ mới hồi máu — cả lúc đi giữa các trận · máu lưu vào bản lưu ----
+    const food = weaponOf(this.heldId());
+    const eatOk = !this.storyLose && !this.cine && !this.modal.open && !this.phone.open && !fp.blocking && fp.throwT === 0 && fp.swing === 0;
+    const ate = eatTick(fp, food, dt, eatOk && !!food.eat && fp.hp < fp.max && !!this.input.mouse[0]);
+    if (ate === 'bite') { sound('fight.eat'); this.fightCrumbs(food.id); }
+    if (ate === 'done') { kitTake(this.gs.story.kit, food.id); this.heldRefresh(); sound('fight.eatDone'); this.fightFloat(`+${food.eat.hp} ❤`, null, 'heal'); }
+    if (food.eat && fp.hp >= fp.max && this.input.was('Mouse0') && !(this.noItemT > 0)) { this.noItemT = 2; this.fightFloat(fmt('story.fight.fullHp'), null, 'block'); }
+    this.crumbsTick(dt);
+    this.blastTick(dt);
+    if (this.gs.story.kit) this.gs.story.hp = fp.hp;
     const F = this.fight;
     if (!F) { this.fightHud?.update(this.fightHudData()); return; }
     F.t += dt;
@@ -328,7 +352,6 @@ export class FightPart {
       if (n != null) { this.fightFloat(`${Math.min(n, skillOf(fp.held.f, 'clinch').mash)}/${skillOf(fp.held.f, 'clinch').mash}`, null, 'block'); sound('fight.swing'); }
     }
     const free = free0 && !locked;
-    this.kitInput(!this.storyLose && !this.modal.open && !this.phone.open);
     const wpn = weaponOf(this.heldId());
     // ---- người chơi: đỡ (giữ chuột phải, cần nón bảo hiểm) · ném / bóp kèn / đập nón (chuột trái) · né (Space) ----
     const wasBlocking = fp.blocking;
@@ -339,6 +362,7 @@ export class FightPart {
     this.noItemT = Math.max(0, (this.noItemT || 0) - dt);
     if (free && fire && fp.cd <= 0 && !fp.blocking) {
       if (wpn.id === 'fists') { if (!(this.noItemT > 0)) { this.noItemT = 2; this.fightFloat(fmt('story.fight.noItem'), null, 'block'); } } // không còn tay không đánh
+      else if (wpn.eat) { /* đồ ăn: giữ chuột (xem phần ĂN ở trên) */ }
       else if (wpn.horn) this.fightHorn(wpn);
       else if (wpn.throw) { fp.throwT = 0.001; fp.cd = wpn.cd; this.fightThrowSoon = wpn.rapid ? 0.04 : THROW_T * 0.45; this.fightThrowId = wpn.id; }
       else { fp.swing = 0.001; fp.cd = wpn.cd; fp.hitDone = false; sound('fight.swing'); const L = ['over', 'side']; fp.move = L[(fp.n = (fp.n ?? -1) + 1) % L.length]; } // nón bảo hiểm: đập lần lượt bổ / quét
@@ -385,6 +409,8 @@ export class FightPart {
     for (const foe of F.foes) {
       const ac = this.storyActors?.[foe.who];
       if (!ac) continue;
+      if (foe.tearBag && !(foe.trap > 0)) { foe.tearBag = false; this.fightFloat(fmt('story.fight.fx.tear'), foe, 'big'); sound('fight.nylon'); } // thoát bao: xé rách
+      if (foe.state === 'ko' && foe.drop && !foe.dropped) { foe.dropped = true; this.fightLootPut(foe.drop, foe.x, foe.z); sound('fight.drop'); } // gục: rớt đồ cạnh chỗ ngã
       if (foe.state === 'wait' && typeof foe.join === 'number' && F.t >= foe.join) this.fightJoin(foe);
       foe.y = ac.mesh.position.y;
       const evs = foeTick(foe, { player: fp, ally: A && A.hp > 0 ? A : null, dt: fdt, blocked, route, los });
@@ -400,11 +426,12 @@ export class FightPart {
         const r = hitFoe(e.foe, { dmg: ALLY.dmg, stun: 0 }, A, 'ally');
         this.fightHitFx(e.foe, r, 'ally');
       }
-      if (ac) this.fightPlace(ac, A, fdt, true);
+      if (ac) { this.fightPlace(ac, A, fdt, true); this.fightAllyUnstick(A, ac, fdt); }
     }
     // ---- đồ bay · vũng trơn · anh Đạt quăng nước ----
     this.fightProjTick(fdt);
     this.fightSlipTick(fdt);
+    this.fightBombTick(fdt);
     // ---- thắng / thua ----
     // màn lẻn: bị thấy (có tên đã biết mình mà chưa gục) → làm lại · tới chỗ cần tới → thắng
     const S = F.def.stealth;
@@ -514,8 +541,10 @@ export class FightPart {
     const grid = this.city.grid, HOUSE = this.fightHouse ||= new Set(['house', 'post', 'water']);
     // đi thẳng được: không vướng vật cản ngang hông, và không phải bước hụt khỏi mép cao (cầu thang mạn, mép boong) — không thì theo lưới đường
     const y0 = y - 0.5, floorAt = (x, z, base) => { let t = 0; for (const s of this.city.elev?.hits(x, z, -0.15) || []) if (s.h <= base + 0.6 && s.h > t) t = s.h; return t; };
+    // dò từng đoạn 15 cm — ĐÚNG như bước chân ở fightPlace. Trước đây dò mỗi 40 cm: đầu cầu thang mạn có bậc hụt 0,7 m (chiếu nghỉ chồng lên
+    // đầu cầu thang), tùy chỗ đứng có lúc dò ra "hụt 0,89 m" → bảo quay lại, có lúc bảo đi tiếp → anh Đạt đi tới đi lui mãi trên boong
     const clear = (a, b) => {
-      const d = Math.hypot(b.x - a.x, b.z - a.z), n = Math.ceil(d / 0.4);
+      const d = Math.hypot(b.x - a.x, b.z - a.z), n = Math.ceil(d / 0.15);
       let base = a === o ? y0 : a.y ?? a.baseY ?? this.city.elev?.topAt(a.x, a.z) ?? 0; // độ cao của chính điểm xuất phát (người chơi / điểm lưới), không phải của người đang tìm đường
       for (let i = 1; i < n; i++) {
         const k = i / n, x = a.x + (b.x - a.x) * k, z = a.z + (b.z - a.z) * k;
@@ -532,6 +561,24 @@ export class FightPart {
     const g = navNext(F.nav, o, t, clear);
     o.navGoal = g === t ? null : g;
     return g;
+  }
+  // Lưới an toàn: anh Đạt muốn đi (theo mình / tới chỗ địch) mà 4 giây không nhích được 1 m (kẹt góc, mép tàu…) → đặt anh ngay SAU LƯNG
+  // người chơi (ngoài tầm nhìn — không thấy "bay"), cùng tầng với người chơi
+  fightAllyUnstick(A, ac, dt) {
+    const P = this.walker.pos, py = this.walker.mesh.position.y, S = (A.unstick ||= { t: 0, x: A.x, z: A.z });
+    const wants = (A.state === 'follow' && Math.hypot(A.x - P.x, A.z - P.z) > 4) || A.state === 'run';
+    if (!wants || Math.hypot(A.x - S.x, A.z - S.z) > 1) { Object.assign(S, { t: 0, x: A.x, z: A.z }); return; }
+    if ((S.t += dt) < 4) return;
+    const yaw = this.fpvOn ? this.fpvYaw : this.walker.heading + Math.PI, E = this.city.elev, HOUSE = this.fightHouse || new Set(['house', 'post', 'water']);
+    for (const da of [0, 0.6, -0.6, 1.2, -1.2]) { // sau lưng (camera nhìn về −z của nó), lệch dần sang 2 bên nếu chỗ đó không đứng được
+      const x = P.x + Math.sin(yaw + da) * 1.8, z = P.z + Math.cos(yaw + da) * 1.8;
+      const y = E?.heightAt?.(x, z, py, 0) ?? (Math.abs((E?.topAt?.(x, z) ?? 0) - py) < 0.4 ? py : null);
+      if (y == null || Math.abs(y - py) > 0.4 || this.city.grid.inside(x, py + 0.5, z, HOUSE)) continue;
+      ac.mesh.position.set(x, y, z);
+      A.x = x; A.z = z; A.baseY = y; A.navT = 0; A.navGoal = null;
+      break;
+    }
+    Object.assign(S, { t: 0, x: A.x, z: A.z });
   }
   // Đặt hình người theo vị trí luật (độ cao theo mặt đất / boong), dáng: đi, giơ tay, đánh, khựng, gục, bị phao trùm
   fightPlace(ac, o, dt, ally = false) {
@@ -797,7 +844,7 @@ export class FightPart {
       if (e.on) { fp.held = e.foe; fp.lock = { x: fp.x, z: fp.z }; this.hud.toast(fmt('story.fight.clinch'), 'warn', 2500); sound('fight.hurt'); }
       else { fp.held = null; if (e.free) { this.fightFloat(fmt('story.fight.free'), null, 'big'); sound('fight.block'); } }
     }
-    else if (e.type === 'dazed') { this.fightFloat(fmt('story.fight.dazed'), e.foe, 'big'); sound('fight.ko'); }
+    else if (e.type === 'dazed') { this.fightFloat(fmt('story.fight.dazed'), e.foe, 'big'); sound('fight.foeDown'); }
     else if (e.type === 'rage') {
       this.hud.toast(fmt('story.fight.rage'), 'warn', 3500);
       for (const f of F.foes) if (f.state === 'wait' && f.join === 'rage') this.fightJoin(f);
@@ -820,7 +867,7 @@ export class FightPart {
     if (r.blocked) { this.fightFloat(fmt('story.fight.blocked'), foe, 'block'); sound('fight.block'); return; }
     if (!r.dmg) return;
     this.fightFloat(`-${r.dmg}`, foe, r.ko ? 'big' : 'dmg');
-    sound(r.ko ? 'fight.ko' : wpn?.sfx || 'fight.hit');
+    sound(r.ko ? 'fight.foeDown' : wpn?.sfx || 'fight.hit'); // tiếng choáng váng (fight.ko) chỉ dành cho người chơi
   }
   // Ném (gạch / phao): bay theo hướng nhìn, vòng cung
   fightThrow(wpn) {
@@ -893,6 +940,8 @@ export class FightPart {
   fightLand(p, x, z) {
     const wpn = weaponOf(p.id);
     if (p.by === 'ally') { this.fightDrop(p.id, x, z); sound('fight.drop'); return; }
+    if (wpn.bomb) { this.fightBomb(wpn, x, z); return; }
+    if (p.torn) return; // bao bị boss xé rách: không còn để nhặt
     if (wpn.keep) {
       if (wpn.hits && p.dent >= wpn.hits && wpn.breakTo) { this.fightDrop(wpn.breakTo, x, z); this.fightFloat(fmt('story.fight.fx.dent'), null, 'big'); sound('fight.box'); }
       else { this.fightDrop(p.id, x, z, p.dent); sound('fight.drop'); }
@@ -900,6 +949,46 @@ export class FightPart {
     }
     if (wpn.slip && !p.splashed) this.fightSlip(wpn, x, z);
     sound(wpn.sfx || 'fight.drop');
+  }
+  // BOM (cục pin): nằm dưới đất nháy đỏ kêu bíp ngày càng dồn, hết giờ thì nổ — mọi tên trong r m mất dmg máu + ngã (anh Đạt, mình không sao)
+  fightBomb(wpn, x, z) {
+    const F = this.fight, y = this.city.elev?.heightAt(x, z, this.walker.mesh.position.y, 0) ?? this.city.elev?.topAt(x, z) ?? 0, mesh = makeBomb();
+    mesh.position.set(x, y, z);
+    this.scene.add(mesh);
+    F.bombs.push({ x, z, y, t: wpn.bomb.t, t0: wpn.bomb.t, B: wpn.bomb, mesh, beep: 0 });
+    sound('fight.drop');
+  }
+  fightBombTick(dt) {
+    const F = this.fight;
+    for (const b of [...(F.bombs ||= [])]) {
+      b.t -= dt;
+      const k = b.t / b.t0, gap = 0.12 + 0.5 * k; // càng gần nổ càng nháy / bíp dồn
+      if ((b.beep -= dt) <= 0) { b.beep = gap; sound('fight.beep'); }
+      b.mesh.userData.led.visible = b.beep > gap * 0.5;
+      if (b.t > 0) continue;
+      F.bombs.splice(F.bombs.indexOf(b), 1);
+      this.scene.remove(b.mesh);
+      const fx = makeBlast(b.B.r);
+      fx.position.set(b.x, b.y, b.z);
+      this.scene.add(fx);
+      (this.blasts ||= []).push(fx);
+      sound('fight.boom');
+      this.fightFloat(fmt('story.fight.fx.boom'), { x: b.x, z: b.z, y: b.y }, 'big');
+      for (const f of F.foes) {
+        if (f.state === 'ko' || f.state === 'wait' || f.gone || Math.hypot(f.x - b.x, f.z - b.z) > b.B.r) continue;
+        const w = { id: 'powerbank', dmg: b.B.dmg, base: b.B.dmg, fall: b.B.fall || 0 };
+        const r = hitFoe(f, w, { x: b.x, z: b.z, heading: Math.atan2(f.x - b.x, f.z - b.z) }, 'player');
+        this.fightHitFx(f, r, 'player', w);
+        if (w.fall) applyItem(f, w);
+      }
+    }
+  }
+  blastTick(dt) {
+    for (const fx of [...(this.blasts || [])]) {
+      if (fx.userData.tick(dt)) continue;
+      this.scene.remove(fx);
+      this.blasts.splice(this.blasts.indexOf(fx), 1);
+    }
   }
   // Vũng trơn (đá viên / trân châu) trên mặt sàn chỗ đó
   fightSlip(wpn, x, z) {
@@ -909,10 +998,10 @@ export class FightPart {
     this.scene.add(mesh);
     F.slips.push({ x, z, r: S.r, t: S.t, fall: S.fall, mesh });
   }
-  // Mỗi khung: vũng trơn mờ dần · địch chạy / lao qua thì trượt ngã · anh Đạt quăng chai nước khi mình hết đồ ném
+  // Mỗi khung: vũng trơn mờ dần · địch chạy / lao qua thì trượt ngã (anh Đạt không quăng đồ cho mình nữa — tự đi nhặt)
   fightSlipTick(dt) {
     const F = this.fight;
-    for (const s of [...F.slips]) {
+    for (const s of [...(F.slips ||= [])]) {
       s.t -= dt;
       s.mesh.userData.fade?.(Math.min(1, s.t));
       if (s.t <= 0) { this.scene.remove(s.mesh); F.slips.splice(F.slips.indexOf(s), 1); continue; }
@@ -921,22 +1010,34 @@ export class FightPart {
         if (e) { this.fightFloat(fmt(e === 'fall' ? 'story.fight.fx.fall' : 'story.fight.fx.slip'), f, 'big'); sound('fight.slip'); }
       }
     }
-    // hết sạch đồ ném (không tính nón / kèn; đồ dưới đất trong 12 m vẫn tính là còn): anh Đạt quăng cho 1 chai nước, mỗi lần cách ~8 giây
-    const k = this.gs.story.kit, A = F.ally;
-    const P0 = this.walker.pos, nearLoot = F.loot.some((l) => l.mine && weaponOf(l.id).throw && Math.hypot(l.x - P0.x, l.z - P0.z) < 12); // đồ nằm tận đằng xa (trận trước) không tính
-    const empty = k && !k.order.some((id) => kitHas(k, id) && weaponOf(id).throw) && !nearLoot && !F.proj.some((p) => p.by !== 'foe');
-    F.emptyT = empty && A && A.hp > 0 && !F.won ? (F.emptyT || 0) + dt : 0;
-    if (F.emptyT > 6) {
-      F.emptyT = -2;
-      const am = this.storyActors?.[A.who]?.mesh.position, P = this.walker.pos;
-      if (am) {
-        const a = Math.atan2(am.x - P.x, am.z - P.z);
-        this.fightProjSpawn('water', { x: am.x, y: am.y + 1.5, z: am.z }, { x: P.x + Math.sin(a) * 1.2, z: P.z + Math.cos(a) * 1.2 }, 'ally', 0);
-        this.storyBubble(A.who, 'story.c6.toss');
-        sound('fight.throw');
-      }
+  }
+  // vụn bánh mì / giọt sữa rơi trước mặt mỗi miếng cạp (chỉ để nhìn — mỗi máy tự vẽ)
+  fightCrumbs(id) {
+    const cam = this.camera, f = new THREE.Vector3();
+    cam.getWorldDirection(f);
+    this.crumbGeo ||= new THREE.BoxGeometry(0.018, 0.012, 0.018);
+    const mat = new THREE.MeshBasicMaterial({ color: id === 'milk' ? 0xf3ead2 : 0xd9a55a });
+    for (let i = 0; i < 5; i++) {
+      const m = new THREE.Mesh(this.crumbGeo, mat);
+      m.position.copy(cam.position).addScaledVector(f, 0.32);
+      m.position.y -= 0.1;
+      m.userData = { t: 0.6, v: new THREE.Vector3((Math.random() - 0.5) * 0.8, 0.3 + Math.random() * 0.5, (Math.random() - 0.5) * 0.8) };
+      this.scene.add(m);
+      (this.crumbs ||= []).push(m);
     }
   }
+  crumbsTick(dt) {
+    for (const m of [...(this.crumbs || [])]) {
+      m.userData.t -= dt;
+      m.userData.v.y -= 6 * dt;
+      m.position.addScaledVector(m.userData.v, dt);
+      if (m.userData.t <= 0) { this.scene.remove(m); this.crumbs.splice(this.crumbs.indexOf(m), 1); }
+    }
+  }
+  // đang ăn: đi chậm lại (game.js nhân vào tốc độ đi)
+  fightWalkMul() { return this.fpvOn && this.fp?.eat ? PLAYER.eatSlow : 1; }
+  // đang đánh nhau (không phải màn lẻn): đi lùi chỉ còn PLAYER.backpedal tốc độ
+  fightBackMul() { const F = this.fight; return this.fpvOn && F && !F.won && !F.def?.stealth ? PLAYER.backpedal : 1; }
   fightProjTick(dt) {
     const F = this.fight, fp = this.fp;
     for (const p of [...F.proj]) {
@@ -951,7 +1052,7 @@ export class FightPart {
           if (foe.state === 'ko' || foe.state === 'wait' || foe.gone) continue;
           const ac = this.storyActors?.[foe.who], fy = ac?.mesh.position.y ?? 0, sc = ac?.mesh.scale.y ?? 1;
           if (Math.hypot(m.x - foe.x, m.z - foe.z) < 0.6 * sc && m.y > fy + 0.2 && m.y < fy + 2.1 * sc) {
-            const timed = telegraphing(foe), wpn = timed ? timedItem(weaponOf(p.id)) : weaponOf(p.id); // trúng lúc nó lóe đỏ / lấy đà: ×2
+            const timed = telegraphing(foe), wpn = timed ? timedItem(weaponOf(p.id), !!foe.f.boss) : weaponOf(p.id); // trúng lúc nó lóe đỏ / lấy đà: ×2 (boss: chỉ tác dụng ×2)
             const r = hitFoe(foe, wpn, { x: m.x - p.v.x, z: m.z - p.v.z, heading: Math.atan2(p.v.x, p.v.z) }, 'player');
             if (!r.blocked && timed) { this.fightFloat(fmt('story.fight.timed'), null, 'big'); sound('fight.parry'); }
             if (!r.blocked) {
@@ -959,6 +1060,7 @@ export class FightPart {
               for (const c of applyItem(foe, wpn)) this.fightFloat(fmt(`story.fight.fx.${c}`), foe, 'big');
               if (wpn.slip) { this.fightSlip(wpn, foe.x, foe.z); p.splashed = true; } // trân châu văng ra dưới chân nó
               if (wpn.hits) p.dent += 1;
+              if (foe.f.boss && wpn.trap > 0 && wpn.keep) { p.torn = true; foe.tearBag = true; } // boss: thoát ra là xé rách bao — bao mất
               if (ac) this.fightMark(ac, p.id);
             } else this.fightHitFx(foe, r, 'player', wpn);
             done = true;
@@ -1008,7 +1110,7 @@ export class FightPart {
       weapon: { icon: wpn.icon, name: fmt(wpn.name || 'story.wpn.fists'), dur: 0, max: 0, throw: !!wpn.throw }, tags: [] };
     // túi đồ: 10 ô (phím 1–0) · món đang cầm + 1 dòng mô tả · kèn đang chờ thì hiện số giây
     const hint = F ? this.fightHint(F) : null;
-    if (k?.order?.length) d.kit = { slots: k.order.slice(0, 10).map((id, i) => { const w = weaponOf(id); return { id, icon: w.icon, n: k.n[id] || 0, key: i === 9 ? '0' : String(i + 1), sel: id === k.sel, re: !!w.keep || !w.throw, short: w.short ? fmt(w.short) : '', pulse: hint?.item === id, wait: id === 'horn' && fp.hornCd > 0 ? Math.ceil(fp.hornCd) : 0 }; }),
+    if (k?.order?.length) d.kit = { slots: k.order.slice(0, 10).map((id, i) => { const w = weaponOf(id); return { id, icon: w.icon, n: k.n[id] || 0, key: i === 9 ? '0' : String(i + 1), sel: id === k.sel, re: !!w.keep || (!w.throw && !w.eat), short: w.short ? fmt(w.short) : '', pulse: hint?.item === id, wait: id === 'horn' && fp.hornCd > 0 ? Math.ceil(fp.hornCd) : 0 }; }),
       tip: wpn.id !== 'fists' ? `${wpn.icon} <b>${fmt(wpn.name)}</b> — ${fmt(wpn.tip || '')}${wpn.when ? `<span class="w">${fmt('hud.kit.when', { t: fmt(wpn.when) })}</span>` : ''}` : fmt('story.fight.noItem') };
     if (hint) d.hint = hint;
     if (!F) return d;
@@ -1066,6 +1168,7 @@ export class FightPart {
     this.storyFade({ t: 0.6 });
     setTimeout(() => {
       this.storyLose = false;
+      F.start.hp = Math.max(F.start.hp ?? PLAYER.hp, PLAYER.retryHp); // chơi lại: ít nhất retryHp máu (vào trận với chút máu thì khỏi kẹt mãi)
       if (this.fight === F) this.fightSetup();
     }, 750);
   }
@@ -1076,6 +1179,7 @@ export class FightPart {
     if (!F || !fp) return null;
     let best = null;
     for (const l of F.loot) {
+      if (kitFull(this.gs.story.kit, l.id)) continue; // món nhặt lại được: có 1 cái rồi thì không nhặt thêm
       const d = Math.hypot(l.x - fp.x, l.z - fp.z);
       if (d < 2 && (!best || d < best.d)) best = { l, d };
     }
@@ -1105,7 +1209,7 @@ export class FightPart {
     this.fp.swing = 0.001;
     this.fp.hitDone = true;
     this.fightFloat('💥', foe, 'big');
-    sound('fight.ko');
+    sound('fight.foeDown');
   }
 }
 

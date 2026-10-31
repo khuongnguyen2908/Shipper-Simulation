@@ -5,6 +5,7 @@
 export const ZONES = {
   ship: {
     name: '🚢 Trên tàu HẢI LONG (đậu ở bến Kho 7, ban đêm)',
+    battle: true, // chỗ đánh nhau: ẩn bảng góc trái, không nhạc ngày / đêm (chỉ nhạc riêng của bước cốt truyện)
     origin: [0, -2400],
     // chỗ đứng có tên (toạ độ tàu: mũi về +z, mạn trái -x sát bến)
     points: {

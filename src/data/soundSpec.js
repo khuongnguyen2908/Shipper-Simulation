@@ -27,6 +27,7 @@ const LIST = [
   ['music.chase', 'music', 'Nhạc dí cướp', 'Cốt truyện: bước có ô "Nhạc riêng" = mã này (chương 3: từ cảnh cướp tới qua cầu). Chưa gắn file → vẫn nhạc ngày / đêm', '', 'music'],
   ['music.flee', 'music', 'Nhạc bị rượt', 'Cốt truyện chương 4: bị giang hồ rượt ra khỏi hẻm (từ lúc vấp lon tới lúc về tới trọ). Chưa gắn file → tạm phát nhạc dí cướp (music.chase)', '', 'music'],
   ['music.night', 'music', 'Nhạc trong game (ban đêm)', 'Đang chơi, trời tối', '', 'music'],
+  ['music.fight', 'music', 'Nhạc đánh nhau', 'Chương 6 trên tàu: các trận đánh (container, boong, lầu chỉ huy) + lúc đi giữa các trận, chạy ra xe sau trận Tí Đô. Chưa gắn file → tạm phát nhạc dí cướp (music.chase)', '', 'music'],
   ['music.sneak', 'music', 'Nhạc màn lẻn', 'Chương 6: lẻn qua bến Kho 7 lên tàu vào lầu chỉ huy (nhịp chậm, hồi hộp, nín thở). Chưa gắn file → vẫn nhạc ngày / đêm', '', 'music'],
   ['music.boss', 'music', 'Nhạc đánh boss Tí Đô', 'Chương 6: từ cảnh phim Tí Đô chặn dưới bến tới lúc hạ được nó (dồn dập, nặng). Chưa gắn file → tạm phát nhạc dí cướp (music.chase)', '', 'music'],
   ['music.race', 'music', 'Nhạc màn đua', 'Chương 6: màn đua thoát thân trên xe anh Đạt (từ lúc lên xe tới khi bay qua cầu cất). Chưa gắn file → tạm phát nhạc dí cướp (music.chase)', '', 'music'],
@@ -108,13 +109,19 @@ const LIST = [
   ['fight.box', 'fight', 'Hộp nặng trúng người', 'Hộp cơm / gói hàng COD trúng người (bịch giấy cứng) · gói COD móp bung ra', 'thud', 'sfx'],
   ['fight.horn', 'fight', 'Kèn bóp "pót pót"', 'Bóp kèn xe trong trận — địch đang lấy đà thì giật mình (vui, to)', 'horn', 'sfx'],
   ['fight.slip', 'fight', 'Trượt ngã vũng trơn', 'Địch chạy / lao qua vũng đá viên, trân châu (trượt ken két + ngã bịch)', 'crash', 'sfx'],
-  ['fight.bag', 'fight', 'Lục túi giao hàng / bao ni lông', 'Lục thùng giao hàng lấy đồ · bao ni lông trùm đầu (sột soạt ni lông)', 'swish', 'sfx'],
+  ['fight.bag', 'fight', 'Lục túi giao hàng', 'Chương 6: bấm E lục túi giao hàng (màn đen 7 giây — tiếng kéo dây kéo)', 'swish', 'sfx'],
+  ['fight.nylon', 'fight', 'Ném bao ni lông', 'Ném bao ni lông trùm đầu địch (sột soạt ni lông, ngắn)', 'swish', 'sfx'],
   ['fight.block', 'fight', 'Đỡ được đòn', 'Giữ chuột phải đỡ trúng đòn · boss tự đỡ đòn của mình (cạch)', 'clang', 'sfx'],
   ['fight.hurt', 'fight', 'Mình bị đánh trúng', 'Người chơi trúng đòn không đỡ (hự + bịch)', 'bump', 'sfx'],
-  ['fight.ko', 'fight', 'Gục ngã', 'Địch gục · đập lén · Tí Đô đâm container choáng · mình gục', 'crash', 'sfx'],
+  ['fight.ko', 'fight', 'Mình choáng / gục', 'CHỈ người chơi: bị đạp đập lưng vào vật cản (choáng váng) · mình gục (thua trận)', 'crash', 'sfx'],
+  ['fight.foeDown', 'fight', 'Địch gục', 'Địch gục · đập lén · Tí Đô đâm container choáng (tiếng ngã bịch, không phải tiếng choáng váng)', 'crash', 'sfx'],
   ['fight.dodge', 'fight', 'Né', 'Bấm Space né (sột soạt chân trượt)', 'swish', 'sfx'],
   ['fight.throw', 'fight', 'Ném đồ', 'Ném đồ trong túi giao hàng · anh Đạt quăng chai nước · Tí Đô ném gạch', 'swish', 'sfx'],
   ['fight.drop', 'fight', 'Đồ rơi xuống đất', 'Chai nước / gói COD / bao ni lông rơi xuống sàn · gạch Tí Đô ném trượt', 'bump', 'sfx'],
+  ['fight.beep', 'fight', 'Bom cục pin kêu bíp', 'Cục pin ném xuống: kêu bíp ngày càng dồn trước khi nổ (ngắn, chói)', 'click', 'sfx'],
+  ['fight.boom', 'fight', 'Bom cục pin nổ', 'Cục pin nổ: đùng + mảnh văng (tên nào trong 3 m mất máu, ngã)', 'crash', 'sfx'],
+  ['fight.eat', 'fight', 'Cạp / nhai đồ ăn', 'Đánh nhau chương 6: giữ chuột trái ăn bánh mì / uống sữa — mỗi miếng 1 tiếng (cạp rộp / hút rột)', 'bump', 'sfx'],
+  ['fight.eatDone', 'fight', 'Ăn xong, hồi máu', 'Ăn hết miếng cuối: nuốt ực + hồi máu (ngắn, vui)', 'ping', 'sfx'],
   ['fight.pick', 'fight', 'Nhặt đồ / đổi món', 'Bấm E nhặt lại đồ dưới đất · lăn chuột / phím 1–0 đổi món trong túi', 'click', 'sfx'],
   ['fight.alert', 'fight', 'Địch phát hiện / la lên', 'Tên gác thấy mình · Tí Đô nổi điên gọi đàn em ("Ê!")', 'bad', 'sfx'],
   ['fight.charge', 'fight', 'Tí Đô lao húc', 'Tí Đô lấy đà xong, lao tới (tiếng gầm + bước chân rầm rập)', 'rev', 'sfx'],
@@ -139,6 +146,7 @@ const LIST = [
   ['race.brake', 'fight', 'Phanh rít', 'Màn đua: xe dừng ở cuối đường · bán tải Tí Đô phanh gấp trước cầu cất', 'stall', 'sfx'],
   ['race.gang', 'fight', 'Xe giang hồ rồ máy vượt lên', 'Màn đua: 2 xe giang hồ từ sau lưng rồ ga vượt lên để ném gạch (nghe là biết sắp có gạch bay)', 'rev', 'sfx'],
   ['race.bat', 'fight', 'Anh Đạt quật gậy trúng xe giang hồ', 'Màn đua: bấm Q / E, gậy gỗ quật trúng đứa ngồi sau (bốp!)', 'thud', 'sfx'],
+  ['race.clash', 'fight', 'Đọ gậy (2 gậy chèn nhau)', 'Màn đua: anh Đạt quật trúng lúc đứa kia đang vung ống tuýp — 2 gậy chèn vào nhau (keng + ken két)', 'clang', 'sfx'],
   ['race.gangHit', 'fight', 'Bị xe giang hồ phang ống tuýp', 'Màn đua: đứa ngồi sau xe áp sát phang trúng (keng + xe chao)', 'clang', 'sfx'],
   ['race.train', 'fight', 'Tàu hỏa tới (còi + chuông gác chắn)', 'Màn đua khu công nghiệp: đèn đỏ nháy, chuông leng keng, còi tàu hú dài', 'horn', 'sfx'],
   ['race.door', 'fight', 'Cửa xe đậu bật mở', 'Màn đua quốc lộ: cửa xe đậu bên đường bật mở ngay trước mặt (cạch)', 'click', 'sfx'],
@@ -202,7 +210,7 @@ export const SOUND_EXT = ['ogg', 'mp3', 'wav', 'm4a'];
 export const SOUND_FILE_RE = /^[a-z0-9_\-.]+\.(ogg|mp3|wav|m4a)$/i; // tên file gọn: chữ không dấu, số, - _ .
 
 // Nhạc chưa gắn file thì tạm phát nhạc khác (mã → mã dự phòng) — vd nhạc bị rượt chưa có thì dùng nhạc dí cướp
-export const MUSIC_FALLBACK = { 'music.flee': 'music.chase', 'music.race': 'music.chase', 'music.boss': 'music.chase' };
+export const MUSIC_FALLBACK = { 'music.flee': 'music.chase', 'music.race': 'music.chase', 'music.boss': 'music.chase', 'music.fight': 'music.chase' };
 
 // Nhóm âm lượng trong Cài đặt
 export const volumeGroup = (id) => (SOUNDS[id]?.kind === 'music' ? 'music' : 'sfx');

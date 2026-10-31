@@ -8,8 +8,12 @@
 // Thua: té xe 3 lần / bán tải bám sát quá lâu / rớt cầu / cầu dựng đứng / barie đóng → Chơi lại từ đầu đoạn đang chạy.
 // =============================================================
 import * as THREE from 'three';
-import { raceOf, buildTrack, trackAt, nearestOnTrack, sectionAt, chaseSpeed, raceEvents, OBSTACLE_EVENTS, RACE, drawbridgeJump, drawbridgeAngle, BRAWL, brawlTarget, brawlHit, BOOST, boostResult, SKID, TRAIN, trainStart, trainBlocks, QTE_EVENTS } from '../sim/race.js';
+import { raceOf, buildTrack, trackAt, nearestOnTrack, sectionAt, chaseSpeed, raceEvents, OBSTACLE_EVENTS, RACE, drawbridgeJump, drawbridgeAngle, BRAWL, brawlTarget, brawlHit, SQUEEZE, CLASH, clashNew, clashTick, BOOST, boostResult, SKID, TRAIN, trainStart, trainBlocks, trainEta, QTE_EVENTS } from '../sim/race.js';
 import { buildRaceTrack } from '../world/raceTrack.js';
+
+// Thời lượng các khung cảnh phim mở màn (giây) — races.<mã>.intro ghi đè
+const INTRO_T = { fpv: 1.5, out: 2.5, whip: 1.2, road: 1, zoom: 1.5 };
+const raceIntroTimes = (def) => Object.fromEntries(Object.entries(INTRO_T).map(([k, v]) => [k, Number.isFinite(def.intro?.[k]) ? def.intro[k] : v]));
 import { makeCar, makeNpcMoto, makePerson, randomPersonOpts, sitY, setSitting, hipBend, HIP_Y } from '../world/models.js';
 import { makeWeaponMesh } from '../world/fightModels.js';
 import { makeLongTruck } from '../world/storyProps.js';
@@ -94,10 +98,14 @@ function cross(w, speed, make, half) {
 
 export class RacePart {
   // ---------- BẮT ĐẦU ----------
-  raceStart(id) {
+  // opt.intro: vào màn đua từ cảnh phim mở màn (xe đang chạy opt.v m/s, camera còn lướt nhanh → góc nhìn 1 → lùi ra góc nhìn 3)
+  raceStart(id, opt = {}) {
     const def = typeof id === 'object' ? id : raceOf(id);
     if (!def) return storyEvent(this.gs.story, 'raceWon');
-    this.raceStop();
+    // có cảnh phim mở màn (races.<mã>.intro) mà người chơi đang ngồi trên xe ở bến (vừa leo lên) → chiếu cảnh phim trước, giữa cảnh mới vào đường đua
+    // (mở game giữa màn đua / thử bằng cheat: đang đi bộ → vào thẳng như cũ)
+    if (def.intro && !opt.intro && this.mode === 'bike' && this.zone?.id !== 'race' && !this.raceIntro) return this.raceIntroStart(id, def);
+    this.raceStop(!!opt.intro); // từ cảnh phim mở màn: giữ xe anh Đạt đã mượn lúc leo lên
     this.storyLose = false; // bắt đầu lại màn: xóa trạng thái thua cũ (nếu có)
     this.loseEl?.classList.remove('on');
     const zone = ZONES[def.zone || 'race'], [ox, oz] = zone.origin;
@@ -115,19 +123,16 @@ export class RacePart {
     this.zones ||= {};
     this.zones.race = this.raceBuilt[key];
     this.gs.story.zone = { id: 'race' };
-    this.zoneEnter('race');
+    this.zoneEnter('race', !!opt.intro);
     delete this.gs.story.fpv;
     this.fpvSet(false);
     if (this.kitCard) this.kitCardShow('off'); // cất thẻ "Trong túi có gì" của màn đánh nhau — không thì phím E (anh Đạt quật phải) bị dùng để cất thẻ
-    // xe anh Đạt: nhớ xe của người chơi để trả lại sau màn đua
     const b = this.bike;
-    this.raceSaved ||= { spec: b.spec, pos: b.pos.clone(), heading: b.heading, fuel: this.gs.fuel };
-    b.setSpec({ ...b.spec, ...(def.bike || {}), name: b.spec.name });
-    b.mesh.userData.bagMesh && (b.mesh.userData.bagMesh.visible = false);
-    this.gs.fuel = Math.max(this.gs.fuel, 50);
+    this.raceBorrowBike(def);
     const R = this.race = { id: key, def, T, ox, oz, s: 10, lat: 0, crashes: 0, crashT: 0, caughtT: 0, lock: false, done: false, lost: false,
       events: raceEvents(def, T), obs: [], bricks: [], lastThrow: 0, ram: null, motos: [], brawl: [], vis: {}, truck: null, traffic: [], props: this.raceBuilt[key].props, fx: [], si: 0, cp: null, t: 0, lineT: 0 };
-    this.racePlaceBike(10, 0, 8);
+    this.racePlaceBike(10, 0, opt.intro ? Math.max(8, opt.v ?? 0) : 8);
+    if (opt.intro) R.intro = { t: 0, ...raceIntroTimes(def), auto: true }; // phần còn lại của cảnh phim mở màn (đã ở đường đua)
     this.mode === 'bike' || act.mountBike(this);
     // anh Đạt ngồi sau
     if (def.ally) {
@@ -169,11 +174,147 @@ export class RacePart {
     this.raceTraffic();
     this.raceCheckpoint(0);
     this.raceHud ||= new RaceHud(document.body);
-    this.raceHud.show(true);
+    this.raceHud.show(!opt.intro); // cảnh phim mở màn: bảng đua hiện dần lúc camera lùi ra góc nhìn 3
     this.hud.el.classList.add('in-race');
     const first = def.sections?.[0];
-    if (first?.line) this.raceSay(first.line);
-    sound('race.start');
+    if (first?.line && !opt.intro) this.raceSay(first.line);
+    if (!opt.intro) sound('race.start');
+  }
+  // Xe anh Đạt: nhớ xe của người chơi để trả lại sau màn đua (gọi lúc bắt đầu đua, hoặc sớm hơn — lúc leo lên xe ở cảnh phim mở màn)
+  raceBorrowBike(def) {
+    const b = this.bike;
+    this.raceSaved ||= { spec: b.spec, pos: b.pos.clone(), heading: b.heading, fuel: this.gs.fuel };
+    b.setSpec({ ...this.raceSaved.spec, ...(def.bike || {}), name: this.raceSaved.spec.name });
+    b.mesh.userData.bagMesh && (b.mesh.userData.bagMesh.visible = false);
+    this.gs.fuel = Math.max(this.gs.fuel, 50);
+  }
+
+  // ---------- CẢNH PHIM MỞ MÀN ĐUA (races.<mã>.intro) — phác thảo sketches/chuong6/noi-man/canh-phim.png ----------
+  // (khung 0 "chạy vội ra xe, leo lên" là cảnh phim cốt truyện thường: playerRun + bikeAt + raceBike)
+  // 1 · góc nhìn thứ 1 trên xe (fpv giây) · 2 · camera thấp ngoài: xe vọt đi, bán tải + xe máy giang hồ bật đèn lao theo (out giây)
+  // 3 · lướt nhanh sát bánh xe, nhòe (whip giây) — GIỮA khung này đổi bản đồ bến → đường đua, xe giữ nguyên tốc độ
+  // 4 · lại góc nhìn thứ 1 trên đường đua (road giây) · 5 · camera lùi dần ra sau lưng thành góc nhìn đua (zoom giây) — người chơi cầm lái từ đầu khung 5.
+  // Đồng hồ chung vẫn chạy; chỉ là hình ảnh trên máy người chơi này (chơi nhiều người: không gửi đi đâu).
+  raceIntroStart(id, def) {
+    const b = this.bike, T = raceIntroTimes(def);
+    if (def.ally) { const ac = this.storyActors?.[def.ally]; if (ac && !ac.seated) this.storyActorSeat(ac); } // anh Đạt chưa kịp phóc lên thì ngồi luôn
+    // bọn giang hồ đuổi ra từ phía bến (sau lưng xe): bán tải + 2 xe máy, đèn pha bật sáng
+    const h = b.heading, back = (d, side = 0) => ({ x: b.pos.x - Math.sin(h) * d + Math.cos(h) * side, z: b.pos.z - Math.cos(h) * d - Math.sin(h) * side });
+    const lampMat = new THREE.MeshStandardMaterial({ color: 0xfff4c0, emissive: 0xfff0b0, emissiveIntensity: 3 });
+    const lamps = (mesh, pts, y, z) => { for (const x of pts) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.2, 0.08), lampMat); l.position.set(x, y, z); mesh.add(l); } };
+    const gang = [];
+    const pk = makeCar(0x5b1f1f, 'truck');
+    pk.scale.setScalar(1.15);
+    lamps(pk, [-0.75, 0.75], 0.85, 2.2);
+    const beam = new THREE.SpotLight(0xfff0c0, 40, 40, 0.5, 0.6, 1.5);
+    beam.position.set(0, 1, 2.3); beam.target.position.set(0, 0, 14); pk.add(beam, beam.target);
+    gang.push({ mesh: pk, ...back(13, 0.8), v: 0, max: 24, delay: 0.25, gap: 11 });
+    const rng = makeRng(91);
+    for (const [i, side] of [[0, -2.2], [1, 2.4]]) {
+      const mesh = makeNpcMoto([0x6c3483, 0x1e8449][i], rng), rider = makePerson({ ...randomPersonOpts(rng, 'm', { sitting: true }), hat: null });
+      setSitting(rider, true); rider.position.set(0, sitY(rider.scale.x, 1.02), -0.6); mesh.add(rider);
+      lamps(mesh, [0], 0.95, 0.95);
+      gang.push({ mesh, ...back(10 + i * 3, side), v: 0, max: 26, delay: 0.5 + i * 0.3, gap: 7 + i * 3 });
+    }
+    for (const g of gang) { g.mesh.position.set(g.x, this.city.elev?.topAt(g.x, g.z) ?? 0, g.z); g.mesh.rotation.y = h; g.mesh.visible = false; this.scene.add(g.mesh); }
+    this.raceIntro = { id, def, T, t: 0, gang, h, said: false, cam0: null, drive: false, fov0: this.camera.fov };
+    document.body.classList.add('cine'); // 2 dải đen, ẩn bảng giao diện
+    if (this.phone.open) this.phone.toggle(false);
+    b.speed = 0;
+    sound('race.start'); // đề máy, rồ ga
+  }
+  raceIntroTick(dt) {
+    const I = this.raceIntro, b = this.bike, T = I.T;
+    if (this.mode !== 'bike') return this.raceIntroEnd(true); // (lỡ bị xuống xe) — vào đua luôn
+    I.t += dt;
+    const out = T.fpv, whip = T.fpv + T.out, mid = whip + T.whip / 2;
+    I.drive = I.t >= out; // khung 2: rồ ga chạy thẳng (game.js đưa nút ga vào xe)
+    if (I.t >= out && !I.said) {
+      I.said = true;
+      if (I.def.intro?.line && I.def.ally) this.storyBubble(I.def.ally, I.def.intro.line);
+      sound('race.gang');
+      for (const g of I.gang) g.mesh.visible = true;
+    }
+    if (I.t >= out) for (const g of I.gang) { // bọn giang hồ rồ ga lao theo — luôn ở sau đuôi xe mình ít nhất gap m (không vượt lên)
+      const k = I.t - out - g.delay;
+      if (k < 0) continue;
+      const fx = Math.sin(I.h), fz = Math.cos(I.h);
+      g.v = Math.min(g.max, 6 + k * 12);
+      g.x += fx * g.v * dt; g.z += fz * g.v * dt;
+      const al = (g.x - b.pos.x) * fx + (g.z - b.pos.z) * fz;
+      if (al > -g.gap) { g.x -= fx * (al + g.gap); g.z -= fz * (al + g.gap); }
+      g.mesh.position.set(g.x, this.city.elev?.topAt(g.x, g.z) ?? 0, g.z);
+    }
+    this.raceWhip(I.t >= whip);
+    if (I.t >= mid) this.raceIntroEnd(true);
+  }
+  // hết phần ở bến: dọn bọn giang hồ đuổi ra · go: vào đường đua (xe giữ tốc độ, phần còn lại của cảnh phim chạy ở đường đua)
+  raceIntroEnd(go) {
+    const I = this.raceIntro;
+    if (!I) return;
+    for (const g of I.gang) this.scene.remove(g.mesh);
+    this.raceIntro = null;
+    if (this.camera.fov !== I.fov0) { this.camera.fov = I.fov0; this.camera.updateProjectionMatrix(); }
+    this.walker.mesh.visible = true;
+    if (!go) { this.raceWhip(false); document.body.classList.remove('cine'); return; }
+    this.raceStart(I.id, { intro: true, v: Math.max(0, this.bike.speed) });
+  }
+  // Camera phần ở bến (khung 1 – nửa đầu khung 3)
+  raceIntroCamera(dt) {
+    const I = this.raceIntro, b = this.bike, cam = this.camera, T = I.T, h = b.heading;
+    let fov;
+    if (I.t < T.fpv) { // 1 · góc nhìn thứ 1: mắt người lái, thấy tay lái
+      const P = this.raceEyePose(-14);
+      cam.position.copy(P.pos); cam.lookAt(P.look);
+      this.walker.mesh.visible = false;
+      fov = 78;
+    } else if (I.t < T.fpv + T.out) { // 2 · camera thấp đặt cố định sau lưng chỗ xe xuất phát, lệch 1 bên — nhìn theo xe vọt đi
+      I.cam0 ||= { x: b.pos.x - Math.sin(h) * 4.2 + Math.cos(h) * 1.7, z: b.pos.z - Math.cos(h) * 4.2 - Math.sin(h) * 1.7 };
+      cam.position.set(I.cam0.x, (this.city.elev?.topAt(I.cam0.x, I.cam0.z) ?? 0) + 0.75, I.cam0.z);
+      cam.lookAt(b.pos.x, b.mesh.position.y + 0.9, b.pos.z);
+      this.walker.mesh.visible = true;
+      fov = 55;
+    } else { this.raceWhipPose(); fov = 88; } // 3 · lướt nhanh sát bánh xe
+    if (Math.abs(cam.fov - fov) > 0.1) { cam.fov = fov; cam.updateProjectionMatrix(); }
+  }
+  // mắt người lái (theo dáng ngồi trên xe) nhìn tới trước, cúi pitch độ
+  raceEyePose(pitch) {
+    const b = this.bike, h = b.heading, body = this.walker.mesh.userData.parts?.body;
+    const pos = body ? body.localToWorld(new THREE.Vector3(0, 1.6, 0.12)) : new THREE.Vector3(b.pos.x, b.mesh.position.y + 1.5, b.pos.z);
+    const p = (pitch * Math.PI) / 180;
+    return { pos, look: pos.clone().add(new THREE.Vector3(Math.sin(h) * Math.cos(p), Math.sin(p), Math.cos(h) * Math.cos(p)).multiplyScalar(10)) };
+  }
+  // camera sát bánh sau bên phải, thấp, nhìn dọc theo xe — kèm vệt nhòe
+  raceWhipPose() {
+    const b = this.bike, h = b.heading, cam = this.camera, y = b.mesh.position.y;
+    cam.position.set(b.pos.x - Math.cos(h) * 1.15 - Math.sin(h) * 0.4, y + 0.45, b.pos.z + Math.sin(h) * 1.15 - Math.cos(h) * 0.4);
+    cam.lookAt(b.pos.x + Math.sin(h) * 9, y + 0.6, b.pos.z + Math.cos(h) * 9);
+    this.walker.mesh.visible = true;
+  }
+  // lớp vệt nhòe phủ màn hình (lướt nhanh)
+  raceWhip(on) {
+    if (!this.whipEl) {
+      if (!on) return;
+      this.whipEl = document.createElement('div');
+      this.whipEl.id = 'raceWhip';
+      document.body.append(this.whipEl);
+    }
+    this.whipEl.classList.toggle('on', on);
+  }
+  // Phần cảnh phim mở màn còn lại ở đường đua: nửa sau khung 3 → khung 4 → khung 5 (người chơi cầm lái từ đầu khung 5)
+  raceIntroBTick(dt) {
+    const R = this.race, I = R.intro;
+    I.t += dt;
+    const zoom = I.whip / 2 + I.road;
+    this.raceWhip(I.t < I.whip / 2);
+    if (I.auto && I.t >= zoom) { // khung 5: trả tay lái, hiện bảng đua, bỏ dải đen
+      I.auto = false;
+      document.body.classList.remove('cine');
+      this.raceHud.show(true);
+      const first = R.def.sections?.[0];
+      if (first?.line) this.raceSay(first.line);
+    }
+    if (I.t >= zoom + I.zoom) { R.intro = null; this.walker.mesh.visible = true; }
   }
   // Đặt xe ở quãng s, lệch lat, chạy sẵn v m/s, hướng theo đường
   racePlaceBike(s, lat, v = 0) {
@@ -258,6 +399,7 @@ export class RacePart {
     this.raceBrawlTick(dt);
     this.raceBat(dt);
     this.raceDatPose(dt);
+    if (R.intro) this.raceIntroBTick(dt);
     this.raceTrafficTick(dt);
     this.raceFxTick(dt);
     // ---- đáp cầu cất xong: PHANH GẤP trước đường cụt (Space đúng lúc) ----
@@ -276,6 +418,7 @@ export class RacePart {
       }
     }
     this.raceHud.qte(R.qte);
+    this.raceHud.clash(R.clash);
     this.raceHudUpdate();
   }
   raceSay(key) {
@@ -532,6 +675,7 @@ export class RacePart {
     R.safeT = RACE.crashStop + 2; // đứng dậy rồi được 2 giây không bị đụng (xe nhấp nháy)
     for (const m of R.motos) if (m.mode === 'pass' || m.mode === 'throw') m.mode = 'away'; // bọn ném gạch phóng đi mất
     for (const m of R.brawl) if (m.mode && m.alive) { m.mode = 'away'; m.windT = 0; } // bọn áp sát cũng bỏ đi
+    R.clash = null;
     this.bike.speed = 0;
     this.shake = 0.8;
     sound('race.crash');
@@ -556,7 +700,7 @@ export class RacePart {
       this.storyLose = false;
       if (this.race !== R) return;
       const cp = R.cp;
-      Object.assign(R, { lost: false, lock: false, crashes: 0, crashT: 0, caughtT: 0, ram: null, jump: null, si: cp.si, safeT: 2, skid: null, duckT: 0, wobT: 0, bat: null, batCd: 0, trainBlock: null });
+      Object.assign(R, { lost: false, lock: false, crashes: 0, crashT: 0, caughtT: 0, ram: null, jump: null, si: cp.si, safeT: 2, skid: null, duckT: 0, wobT: 0, bat: null, batCd: 0, trainBlock: null, clash: null, squeezed: false });
       R.brawl.forEach((m) => { Object.assign(m, { alive: true, fallT: 0, mode: null, windT: 0 }); m.mesh.visible = false; m.mesh.rotation.z = 0; });
       for (const [id, v] of Object.entries(R.vis)) { this.scene.remove(v); delete R.vis[id]; }
       R.traffic = R.traffic.filter((v) => { if (v.cargo) this.scene.remove(v.mesh); return !v.cargo; });
@@ -983,7 +1127,8 @@ export class RacePart {
     R.fx.push({ kind: 'smoke', mesh: m, s: R.s, lat: R.lat, r: 0, hit: true, v: 0, w: 0, t: 0 });
   }
   // ---------- TÀU HỎA BĂNG NGANG ----------
-  // Đường ray + 2 cột đèn đỏ ở e.s; tàu chạy ngang khi mình còn cách TRAIN.near m — hết ga thì vượt kịp sát mũi tàu, chậm thì phanh chờ (bán tải cũng phải chờ)
+  // Đường ray + 2 cột đèn đỏ ở e.s; tàu chạy ngang khi mình còn cách TRAIN.near m — canh theo tốc độ lúc đó: giữ hết ga thì vượt kịp sát mũi tàu,
+  // nhả ga / phanh thì phải chờ (bán tải cũng phải chờ). Tàu là bức tường: lúc nào cũng không chạy xuyên qua được
   raceTrainTick(e, ahead, dt) {
     const R = this.race, b = this.bike, w = trackAt(R.T, e.s).w, side = e.side ?? (Math.floor(e.s) % 2 ? 1 : -1);
     if (ahead < -160) { e.done = true; if (R.vis[e.id]) { this.scene.remove(R.vis[e.id]); delete R.vis[e.id]; } R.trainBlock = null; return; }
@@ -1004,29 +1149,42 @@ export class RacePart {
         for (const k of [-1, 1]) { const l = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), mat(0xff2a1a, { emissive: 0xff2a1a, emissiveIntensity: 2.4 })); l.position.set(sd * (w / 2 + 0.8) + k * 0.25, 2.1, -3.05); V.add(l); lamps.push(l); }
       }
       const train = new THREE.Group(), cols = [0x8e3b2e, 0x5d6d7e, 0x8e3b2e];
-      const loco = new THREE.Mesh(new THREE.BoxGeometry(15, 3.4, 3.0), mat(0x1e5aa8)); loco.position.set(-side * 7.5, 1.9, 0); train.add(loco);
+      // đầu tàu (mũi vàng + đèn) đi trước, đầu máy + 3 toa nối PHÍA SAU (ngược hướng chạy) — đúng khúc thân tàu mà game tính là chắn đường
+      const loco = new THREE.Mesh(new THREE.BoxGeometry(15, 3.4, 3.0), mat(0x1e5aa8)); loco.position.set(side * 7.5, 1.9, 0); train.add(loco);
       const nose = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.4, 3.0), mat(0xf1c40f)); nose.position.set(-side * 0.6, 1.5, 0); train.add(nose);
       const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.5, 1.2), mat(0xfff4c0, { emissive: 0xfff0b0, emissiveIntensity: 2 })); lamp.position.set(-side * 0.1, 2.4, 0); train.add(lamp);
-      for (let i = 0; i < 3; i++) { const wg = new THREE.Mesh(new THREE.BoxGeometry(15.5, 3.2, 3.0), mat(cols[i])); wg.position.set(-side * (15.6 + 16 * i + 7.7), 1.8, 0); train.add(wg); }
-      train.position.x = side * trainStart();
+      for (let i = 0; i < 3; i++) { const wg = new THREE.Mesh(new THREE.BoxGeometry(15.5, 3.2, 3.0), mat(cols[i])); wg.position.set(side * (15.6 + 16 * i + 7.7), 1.8, 0); train.add(wg); }
+      train.visible = false; // chưa chạy: ẩn (đặt chỗ lúc đèn chớp)
       V.add(train);
       V.userData = { train, lamps };
       this.scene.add(V);
     }
-    if (e.head == null && ahead < TRAIN.near) { e.head = 0; sound('race.train'); if (e.line) this.raceSay(e.line); }
-    if (e.head == null) return;
+    if (e.head == null && ahead < TRAIN.near) {
+      // canh giờ: nếu giữ hết ga từ bây giờ thì mất bao lâu tới ray (máy xe yếu vì xe hỏng thì tốc độ tối đa thấp hơn — tính luôn)
+      const vmax = b.spec.maxSpeed * (0.6 + 0.4 * ((this.gs.bikeHp ?? 100) / 100));
+      e.start = trainStart(trainEta(ahead, R.crashT > 0 ? 0 : b.speed, vmax, b.spec.accel), w);
+      e.head = 0;
+      V.userData.train.visible = true;
+      sound('race.train');
+      if (e.line) this.raceSay(e.line);
+    }
+    if (e.head == null) { e.lastS = R.s; return; }
     e.head += TRAIN.speed * dt;
-    V.userData.train.position.x = side * (trainStart() - e.head); // đầu tàu đi từ phía side sang phía bên kia
+    V.userData.train.position.x = side * (e.start - e.head); // đầu tàu đi từ phía side sang phía bên kia
     const on = Math.floor(R.t * 4) % 2 === 0;
     V.userData.lamps.forEach((l, i) => (l.visible = i % 2 ? on : !on));
-    const block = trainBlocks(e.head, w);
+    const block = trainBlocks(e.start, e.head, w);
     R.trainBlock = block ? e.s : R.trainBlock === e.s ? null : R.trainBlock;
-    // tông tàu: té, dội lại trước đường ray
-    if (block && Math.abs(R.s - e.s) < 2.2 && R.crashT <= 0 && !(R.safeT > 0) && !R.jump) {
-      this.racePlaceBike(e.s - 6, R.lat, 0);
-      this.raceCrash(R.lat > 0 ? 1 : -1);
+    // tông tàu: té, dội lại trước đường ray · tính cả quãng đi được trong khung này (xe nhanh / máy giật hình không lọt qua)
+    // vừa té / đang được miễn va chạm thì vẫn không cho qua: chỉ đứng lại trước ray, không té thêm
+    const s0 = e.lastS ?? R.s;
+    e.lastS = R.s;
+    if (block && !R.jump && Math.max(s0, R.s) > e.s - 2.2 && Math.min(s0, R.s) < e.s + 2.2) {
+      if (R.crashT <= 0 && !(R.safeT > 0)) { this.racePlaceBike(e.s - 6, R.lat, 0); this.raceCrash(R.lat > 0 ? 1 : -1); }
+      else this.racePlaceBike(e.s - 4, R.lat, 0);
+      e.lastS = R.s;
     }
-    if (trainStart() - e.head + TRAIN.len < -w / 2 - 40) V.userData.train.visible = false;
+    if (e.start - e.head + TRAIN.len < -w / 2 - 40) V.userData.train.visible = false;
   }
   // ---------- XE TẢI RỚT THÙNG HÀNG ----------
   // Chạy chậm 13 m/s; mình còn cách ~45 m thì 5 thùng rơi ra (chừa khe), xong rồ ga 30 m/s chạy mất · trả tốc độ chạy của xe tải
@@ -1056,14 +1214,15 @@ export class RacePart {
   }
   // ---------- XE GIANG HỒ ÁP SÁT ----------
   // 1 xe (đường hẹp) / 2 xe kẹp 2 bên (đường rộng) từ sau lưng lên ngang hông, đứa ngồi sau giơ ống tuýp (lóe đỏ) rồi phang
+  // squeeze (kẹp xe): 2 xe kẹp sát 2 bên, phang luân phiên dồn dập · cú quật trúng đầu tiên chắc chắn thành ĐỌ GẬY
   raceBrawlGo(e) {
     const R = this.race;
     if (!this.raceQuiet() || R.brawl.some((m) => m.mode && m.alive)) return false;
-    const w = trackAt(R.T, R.s).w, n = Math.min(R.brawl.length, e.n ?? (w >= 12 ? 2 : 1));
+    const sq = !!e.squeeze, w = trackAt(R.T, R.s).w, n = sq ? 2 : Math.min(R.brawl.length, e.n ?? (w >= 12 ? 2 : 1));
     const sides = n >= 2 ? [-1, 1] : [Math.abs(R.lat - BRAWL.lat) < w / 2 - 0.9 ? -1 : 1];
     sides.forEach((side, k) => {
       const m = R.brawl[k];
-      Object.assign(m, { alive: true, fallT: 0, mode: 'come', side, hits: 0, windT: 0, atkT: 1.3 + k * 1.1, t: 0, push: 0, wob: 0, armT: 0, off: n >= 2 ? (k ? -0.5 : 0.4) : 0.3, s: R.s - 24 - k * 6, lat: Math.max(-w / 2 + 0.8, Math.min(w / 2 - 0.8, R.lat + side * 3.5)) });
+      Object.assign(m, { alive: true, fallT: 0, mode: 'come', side, hits: 0, windT: 0, atkT: sq ? 1.0 + k * SQUEEZE.gap : 1.3 + k * 1.1, t: 0, push: 0, wob: 0, armT: 0, off: n >= 2 ? (k ? -0.5 : 0.4) : 0.3, s: R.s - 24 - k * 6, lat: Math.max(-w / 2 + 0.8, Math.min(w / 2 - 0.8, R.lat + side * 3.5)), squeeze: sq, clashNext: sq });
       m.mesh.visible = true;
       m.mesh.rotation.z = 0;
     });
@@ -1072,6 +1231,8 @@ export class RacePart {
   }
   raceBrawlTick(dt) {
     const R = this.race, b = this.bike, vP = R.crashT > 0 ? 0 : Math.max(0, b.speed);
+    // bị kẹp 2 bên (2 xe kẹp sát đang chạy ngang hông): tay lái nặng (game.js đưa vào xe)
+    R.squeezed = R.brawl.filter((m) => m.alive && m.squeeze && (m.mode === 'side' || m.mode === 'clash')).length >= 2;
     for (const m of R.brawl) {
       if (!m.mode) continue;
       if (!m.alive) { // văng: té lăn ra đường, tụt lại phía sau
@@ -1084,16 +1245,17 @@ export class RacePart {
         continue;
       }
       m.t += dt;
-      const w = trackAt(R.T, m.s).w, want = Math.max(-w / 2 + 0.7, Math.min(w / 2 - 0.7, R.lat + m.side * BRAWL.lat)) + m.push; // mình chạy sát lề: nó ép sát trong lòng đường (không tự văng)
+      const w = trackAt(R.T, m.s).w, want = Math.max(-w / 2 + 0.7, Math.min(w / 2 - 0.7, R.lat + m.side * (m.squeeze || m.mode === 'clash' ? SQUEEZE.lat : BRAWL.lat))) + m.push; // mình chạy sát lề: nó ép sát trong lòng đường (không tự văng)
       let v;
       if (m.mode === 'come') { v = vP + 7; if (m.s > R.s - 0.8 + m.off) m.mode = 'side'; }
+      else if (m.mode === 'clash') { v = vP + (R.s + 0.1 - m.s) * 3; m.windT = 0; } // đọ gậy: chạy dính ngang hông, không phang
       else if (m.mode === 'side') {
         v = vP + (R.s + m.off - m.s) * 2.2;
         if (m.windT > 0) { // đang giơ ống tuýp → hết giờ thì phang
           m.windT -= dt;
           if (m.windT <= 0) {
             m.armT = 0.35;
-            m.atkT = BRAWL.every;
+            m.atkT = m.squeeze ? SQUEEZE.every : BRAWL.every;
             const reach = Math.abs(m.lat - R.lat) < BRAWL.reach && Math.abs(m.s - R.s) < BRAWL.along;
             if (reach && R.crashT <= 0 && !(R.safeT > 0) && !R.jump) { b.speed *= BRAWL.slow; this.shake = 0.6; R.wobT = 0.5; sound('race.gangHit'); this.raceHud.flash(); }
             else sound('race.whoosh');
@@ -1125,12 +1287,48 @@ export class RacePart {
       m.armT = Math.max(0, m.armT - dt);
       const k = m.windT > 0 ? 1 - m.windT / BRAWL.wind : -1, toward = -m.side;
       m.aura.material.opacity = m.windT > 0 ? 0.2 + 0.25 * Math.abs(Math.sin(R.t * 14)) : 0;
-      if (P) {
+      if (P && m.mode === 'clash') { // đọ gậy: giơ ống tuýp chèn ngang sang phía mình, run run
+        const tr = Math.sin(R.t * 40) * 0.05;
+        P.armL.rotation.set(-0.5, 0, 0);
+        P.armR.rotation.set(-1.9 + tr, 0, toward * (0.9 + tr));
+        P.elbowR.rotation.x = -0.4;
+        hipBend(P, 0, 0, toward * 0.5);
+      } else if (P) {
         P.armL.rotation.set(-0.5, 0, 0);
         P.armR.rotation.set(k >= 0 ? -0.7 - 2.0 * k : m.armT > 0 ? -2.7 + (0.35 - m.armT) * 6 : -0.7, 0, k >= 0 ? toward * 0.4 * k : m.armT > 0 ? toward * 1.0 : 0);
         P.elbowR.rotation.x = -0.6;
         hipBend(P, 0, 0, k >= 0 || m.armT > 0 ? toward * 0.4 : 0);
       }
+    }
+  }
+  // ---------- ĐỌ GẬY ----------
+  raceClashStart(m, side) {
+    const R = this.race;
+    for (const o of R.brawl) o.clashNext = false; // cú đầu của màn kẹp xe đã thành đọ gậy
+    m.mode = 'clash'; m.windT = 0; m.armT = 0; m.aura.material.opacity = 0;
+    R.clash = { ...clashNew(), m, side };
+    this.shake = Math.max(this.shake || 0, 0.4);
+    sound('race.clash');
+  }
+  raceClashTick(dt) {
+    const R = this.race, C = R.clash, m = C.m;
+    if (!m.alive || m.mode !== 'clash' || R.crashT > 0 || R.lost) { if (m.mode === 'clash') m.mode = 'side'; R.clash = null; return; }
+    const res = clashTick(C, dt, this.input.was('KeyE') ? 1 : 0);
+    this.shake = Math.max(this.shake || 0, 0.12);
+    if (res === 'win') {
+      R.clash = null;
+      this.raceBrawlFall(m, Math.max(0, this.bike.speed));
+      m.push += C.side * 1.5;
+      sound('race.bat');
+      this.raceHud.pop(fmt('hud.race.clashWin'), 'good');
+    } else if (res === 'lose') { // bị hất gậy: xe chao, chậm lại · nó tụt lại rồi áp lên phang tiếp
+      R.clash = null;
+      m.mode = 'side'; m.s -= 3; m.atkT = CLASH.again; m.wob = 0.6;
+      this.bike.speed *= CLASH.slow; R.wobT = 0.6; this.shake = 0.6;
+      R.batCd = CLASH.cd;
+      sound('race.gangHit');
+      this.raceHud.flash();
+      this.raceHud.pop(fmt('hud.race.clashLose'), 'bad');
     }
   }
   raceBrawlFall(m, v) {
@@ -1155,6 +1353,7 @@ export class RacePart {
         else {
           R.batCd = BRAWL.cd;
           const r = brawlHit(m);
+          if (r.clash) { this.raceClashStart(m, R.bat.side); R.bat = null; return; }
           sound('race.bat');
           this.shake = Math.max(this.shake || 0, 0.25);
           if (r.ko) { this.raceBrawlFall(m, Math.max(0, this.bike.speed)); m.push += R.bat.side * 1.5; this.raceHud.pop(fmt(r.timed ? 'hud.race.timed' : 'hud.race.knock'), 'good'); }
@@ -1163,6 +1362,7 @@ export class RacePart {
       }
       if (R.bat.t >= BRAWL.swing) R.bat = null;
     }
+    if (R.clash) return this.raceClashTick(dt);
     const side = inp.was('KeyQ') ? 1 : inp.was('KeyE') ? -1 : 0;
     if (side && !R.bat && R.batCd <= 0 && R.dat && !R.lost && !R.done && R.crashT <= 0 && !R.jump) { R.bat = { side, t: 0, done: false }; sound('fight.swing'); }
   }
@@ -1184,7 +1384,7 @@ export class RacePart {
     const duck = R.duckT > 0 ? Math.min(1, R.duckT * 6, (0.9 - R.duckT) * 8 + 0.3) : 0;
     if (rider && (duck > 0 || R.duckWas)) { bendSeated(rider, duck * 0.75); R.duckWas = duck > 0; } // chỉ đụng tới người lái lúc cúi / vừa ngẩng lên
     if (!P) return;
-    const left = !R.bat || R.bat.side > 0; // Q (lat dương) = bên trái → tay phía x dương (armR) · E → tay phía x âm (armL)
+    const left = R.clash ? R.clash.side > 0 : !R.bat || R.bat.side > 0; // Q (lat dương) = bên trái → tay phía x dương (armR) · E → tay phía x âm (armL)
     const [Ab, Eb, Ao, Eo, s] = left ? [P.armR, P.elbowR, P.armL, P.elbowL, 1] : [P.armL, P.elbowL, P.armR, P.elbowR, -1];
     // tay không cầm gậy: ôm eo người lái
     Ao.rotation.order = 'XYZ'; Ao.rotation.set(-0.55, 0, 0); Eo.rotation.x = -0.9;
@@ -1196,6 +1396,10 @@ export class RacePart {
       const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
       q = mix(mix(mix(DAT_POSE.idle, DAT_POSE.wind, w), DAT_POSE.hit, st), DAT_POSE.idle, back);
       twist = s * (-0.3 * w + 0.85 * st) * (1 - back); // vặn mình theo cú vung (về phía bên quật)
+    } else if (R.clash) { // đọ gậy: gậy chìa ngang chèn gậy nó, bị đẩy lùi thì gậy ngả về phía mình
+      const tr = Math.sin(R.t * 38) * 0.04, k = (1 - R.clash.v) / 2;
+      q = DAT_POSE.hit.map((v, i) => v + (DAT_POSE.wind[i] - v) * k * 0.35 + (i < 3 ? tr : 0));
+      twist = s * (0.6 - 0.3 * k);
     }
     Ab.rotation.order = 'YXZ'; Ab.rotation.set(q[0], s * q[1], s * q[2]); Eb.rotation.x = q[3];
     // gậy nằm trong tay đang quật (E: chuyền sang tay phải lúc quật, xong về lại vai trái)
@@ -1213,7 +1417,22 @@ export class RacePart {
     this.shake = Math.max(0, (this.shake || 0) - dt * 2);
     cam.position.set(b.pos.x - fx * 4.8 + sh, y + 2.55 + sh, b.pos.z - fz * 4.8);
     cam.lookAt(b.pos.x + fx * 7, y + 1.0, b.pos.z + fz * 7);
-    const fov = 64 + Math.min(9, Math.max(0, b.speed) * 0.3); // càng nhanh càng rộng chút
+    let fov = 64 + Math.min(9, Math.max(0, b.speed) * 0.3); // càng nhanh càng rộng chút
+    const I = this.race?.intro;
+    if (I) { // cảnh phim mở màn (phần ở đường đua)
+      const zoom = I.whip / 2 + I.road;
+      if (I.t < I.whip / 2) { this.raceWhipPose(); fov = 88; }
+      else {
+        const E = this.raceEyePose(-12), k = Math.max(0, Math.min(1, (I.t - zoom) / I.zoom)), e = k * k * (3 - 2 * k);
+        const look = new THREE.Vector3(b.pos.x + fx * 7, y + 1.0, b.pos.z + fz * 7);
+        cam.position.lerpVectors(E.pos, cam.position.clone(), e);
+        cam.lookAt(E.look.lerp(look, e));
+        this.walker.mesh.visible = k > 0.45; // góc nhìn 1: ẩn người lái (thấy tay lái) · lùi ra quá nửa đường mới hiện lại (sát quá thì thấy trong đầu)
+        fov = 78 + (fov - 78) * e;
+      }
+      cam.fov = fov; cam.updateProjectionMatrix();
+      return;
+    }
     if (Math.abs(cam.fov - fov) > 0.1) { cam.fov += (fov - cam.fov) * Math.min(1, dt * 3); cam.updateProjectionMatrix(); }
   }
   raceHudUpdate() {
@@ -1221,7 +1440,10 @@ export class RacePart {
     this.raceHud.update({ crashes: R.crashes, max: RACE.crashMax, gap: R.hudGap ?? R.gap, caught: R.caughtT / RACE.caughtTime, kmh: Math.max(0, this.bike.speed) * 3.6, bat: R.brawl.some((m) => m.alive && (m.mode === 'come' || m.mode === 'side')) });
   }
   // ---------- XONG / BỎ ----------
-  raceStop() {
+  // keepBike: vào đua từ cảnh phim mở màn — không trả xe (xe anh Đạt đã mượn lúc leo lên)
+  raceStop(keepBike = false) {
+    if (this.raceIntro) this.raceIntroEnd(false);
+    if (!keepBike) { this.raceWhip(false); if (this.race?.intro) document.body.classList.remove('cine'); }
     const R = this.race;
     if (!R && !this.raceSaved) return;
     if (R) {
@@ -1240,7 +1462,7 @@ export class RacePart {
     this.camera.fov = 60;
     this.camera.updateProjectionMatrix();
     // trả xe của người chơi về như cũ (đúng chỗ, đúng kiểu xe, xăng)
-    const S = this.raceSaved;
+    const S = keepBike ? null : this.raceSaved;
     if (S) {
       const b = this.bike;
       if (this.mode === 'bike') act.dismount(this);

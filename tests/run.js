@@ -5730,7 +5730,7 @@ console.log('Đánh nhau góc nhìn thứ 1 (sim/fight.js — chương 6)');
     // cảnh phim Tí Đô cùng 2 đàn em, đứng đúng chỗ trận đánh sẽ dựng
     assert.equal(st('quayCine').until.type, 'cine');
     const q = STORYJ.fights.c6Quay;
-    assert.equal(q.foes.length, 3);
+    assert.equal(q.foes.length, 5);
     for (const f of q.foes) {
       const a = st('quayCine').on.find((x) => x.do === 'actor' && x.who === f.who);
       assert.ok(a && Math.abs(a.at[0] - f.at[0]) < 0.01 && Math.abs(a.at[1] + 2400 - f.at[1]) < 0.01, `${f.who} đứng đúng chỗ`);
@@ -5738,10 +5738,15 @@ console.log('Đánh nhau góc nhìn thứ 1 (sim/fight.js — chương 6)');
     // xe chỉ hiện sau khi hạ Tí Đô · bấm E mới lên xe · màn đua có nhạc riêng
     assert.ok(st('toExit').on.some((a) => a.do === 'prop' && a.kind === 'bigbike'));
     assert.ok(!ids.slice(0, ids.indexOf('toExit')).some((id) => st(id).on.some((a) => a.do === 'prop' && a.id === 'datBikeQuay')));
-    assert.equal(st('toExit').until.type, 'useAt');
+    // tới gần xe (~8 m) là cảnh phim tự chạy: chạy vội ra xe, leo lên (xe chờ = xe màn đua, cất đạo cụ) → màn đua có cảnh phim mở màn
+    assert.equal(st('toExit').until.type, 'reach');
+    const run = st('toBike').on.find((a) => a.do === 'cine');
+    assert.ok(run?.playerRun && run.bikeAt && STORYJ.races[run.raceBike] && run.hideProp === 'datBikeQuay' && st('toBike').until.type === 'cine');
+    assert.ok(st('toBike').on.some((a) => a.do === 'board' && a.who === 'man'), 'anh Đạt chạy theo, phóc lên ngồi sau');
+    assert.ok(STORYJ.races.escape.intro, 'màn đua có cảnh phim mở màn');
     assert.equal(st('race').music, 'music.race');
   });
-  test('Đồ shipper theo dữ liệu (mã lạ = tay không, không đánh được) · đánh sau lưng gấp đôi · boss đỡ đòn trước mặt, cục sạc (choáng) phá thế đỡ', () => {
+  test('Đồ shipper theo dữ liệu (mã lạ = tay không, không đánh được) · đánh sau lưng gấp đôi · boss đỡ đòn trước mặt, gạch (choáng) phá thế đỡ', () => {
     const bat = FT.weaponOf('helmet'), fists = FT.weaponOf('khongCo');
     assert.equal(fists.id, 'fists');
     assert.ok(bat.dmg > 0 && fists.dmg === 0, 'tay không: 0 sát thương');
@@ -5753,8 +5758,8 @@ console.log('Đánh nhau góc nhìn thứ 1 (sim/fight.js — chương 6)');
     assert.ok(!FT.hitFoe(sun, bat, back).blocked, 'đánh sau lưng thì trúng');
     const sun2 = mk('tiSun');
     sun2.state = 'guard';
-    FT.hitFoe(sun2, FT.weaponOf('powerbank'), front);
-    assert.ok(sun2.stun > 0, 'cục sạc làm choáng → phá thế đỡ');
+    FT.hitFoe(sun2, FT.weaponOf('brick'), front);
+    assert.ok(sun2.stun > 0, 'gạch làm choáng → phá thế đỡ');
     assert.ok(!FT.hitFoe(sun2, bat, front).blocked);
   });
   test('Túi đồ shipper: cho đồ → cầm món đầu · ném hết món đang cầm tự đổi món kế · lăn chuột bỏ qua ô đã hết · nhặt lại được', () => {
@@ -5778,7 +5783,7 @@ console.log('Đánh nhau góc nhìn thứ 1 (sim/fight.js — chương 6)');
     // lục túi xong: thẻ "Trong túi có gì", đọc xong (E) mới tới trận container
     const ids = c6.steps.map((s) => s.id), bag = c6.steps[ids.indexOf('bagRead')];
     assert.ok(kitA.card && bag.until.type === 'kitCard' && ids.indexOf('bagRead') === ids.indexOf('breakout') - 1);
-    assert.ok(!Object.values(STORYJ.fights).some((f) => (f.loot || []).length), 'không còn đồ nhặt sẵn trên tàu');
+    assert.ok(!Object.values(STORYJ.fights).some((f) => (f.loot || []).some((l) => !FT.weaponOf(l.id).eat)), 'không còn vũ khí nhặt sẵn trên tàu (chỉ đồ ăn rớt)');
   });
   test('Tác dụng đồ: trà sữa lóa mắt · tương ớt cay chạy vòng · bao ni lông trùm đầu · gói COD ngã — không đánh được, trúng đau gấp rưỡi · boss ngắn hơn (ccMul) và bỏ đòn đang ra', () => {
     const P = { x: 0, z: 1.2, heading: Math.PI };
@@ -5798,6 +5803,76 @@ console.log('Đánh nhau góc nhìn thứ 1 (sim/fight.js — chương 6)');
     FT.applyItem(b, FT.weaponOf('nylon'));
     assert.ok(b.state === 'recover' && b.li === 1, 'boss: bỏ đòn đang ra');
     assert.ok(Math.abs(b.trap - FT.weaponOf('nylon').trap * STORYJ.foes.tiDo.ccMul) < 1e-9, 'boss: trùm ngắn hơn');
+  });
+  test('Đồ ăn: giữ chuột cạp từng miếng, đủ giờ mới hồi máu · nhả chuột / bị đánh trúng = bỏ dở (không hồi) · không vượt máu tối đa', () => {
+    const bm = FT.weaponOf('banhmi'), fp = { hp: 40, max: 100, hurtT: 0 };
+    assert.ok(bm.eat && !bm.throw);
+    let bites = 0, done = null;
+    for (let t = 0; t < 2 && !done; t += 1 / 60) { const r = FT.eatTick(fp, bm, 1 / 60, true); if (r === 'bite') bites += 1; if (r === 'done') done = t; }
+    assert.ok(done > bm.eat.t - 0.05 && fp.hp === 40 + bm.eat.hp, `ăn xong sau ${done} giây, máu ${fp.hp}`);
+    assert.equal(bites, bm.eat.bites, 'mỗi miếng 1 tiếng');
+    const fp2 = { hp: 40, max: 100, hurtT: 0 };
+    for (let t = 0; t < 0.8; t += 1 / 60) FT.eatTick(fp2, bm, 1 / 60, true);
+    FT.eatTick(fp2, bm, 1 / 60, false); // nhả chuột
+    assert.ok(!fp2.eat && fp2.hp === 40, 'nhả chuột: bỏ dở');
+    for (let t = 0; t < 0.8; t += 1 / 60) FT.eatTick(fp2, bm, 1 / 60, true);
+    fp2.hurtT = 0.3; FT.eatTick(fp2, bm, 1 / 60, true);
+    assert.ok(!fp2.eat && fp2.hp === 40, 'bị đánh trúng: bỏ dở');
+    const fp3 = { hp: 95, max: 100, hurtT: 0 }; for (let t = 0; t < 2; t += 1 / 60) FT.eatTick(fp3, bm, 1 / 60, true);
+    assert.equal(fp3.hp, 100);
+    // chương 6: túi có 1 bánh mì + 1 hộp sữa, không còn kèn / trà sữa · đồ ăn rớt ở các trận để nhặt · anh Đạt nhét thêm không có trà sữa
+    const c6 = STORYJ.chapters.find((c) => c.id === 'c6'), kits = c6.steps.flatMap((s) => s.on || []).filter((a) => a.do === 'kit' && a.give);
+    assert.deepEqual([kits[0].give.banhmi, kits[0].give.milk, kits[0].give.horn, kits[0].give.cup], [1, 1, undefined, undefined]);
+    assert.ok(!kits.some((a) => a.give.cup || a.give.horn));
+    const foodLoot = ['c6Container', 'c6Deck', 'c6Bridge', 'c6Quay'].flatMap((id) => (STORYJ.fights[id].loot || []).filter((l) => FT.weaponOf(l.id).eat));
+    assert.ok(foodLoot.length >= 3, 'đồ ăn rớt sẵn ở các trận');
+  });
+  const P0 = (z) => ({ x: 0, z, heading: Math.PI, hp: 100, pips: 0, maxPips: 0, blocking: false, dodgeT: 0 });
+  test('Cân bằng đánh nhau: boss đang đánh anh Đạt không bị ×2 · ĐÚNG LÚC với boss chỉ ×2 tác dụng · hệ số nhân tối đa ×2 · lính ở xa lao tới · đứng xa boss quá 10 giây → nó lao húc', () => {
+    const cod = FT.weaponOf('cod'), front = { x: 0, z: 1, heading: Math.PI };
+    const th = mk('thug'); th.engagedBy = 'ally'; th.alert = true;
+    assert.equal(FT.hitFoe(th, cod, front).dmg, Math.min(th.max, cod.dmg * 2), 'lính đang đánh anh Đạt: ×2');
+    const bo = mk('tiDo'); bo.engagedBy = 'ally'; bo.alert = true; bo.state = 'windup';
+    assert.equal(FT.hitFoe(bo, FT.timedItem(cod, true), front).dmg, cod.dmg, 'boss: không ×2 vì anh Đạt, ĐÚNG LÚC không ×2 sát thương');
+    const T = FT.timedItem(FT.weaponOf('chili'), true);
+    assert.ok(T.dmg === FT.weaponOf('chili').dmg && T.spicy === FT.weaponOf('chili').spicy * 2, 'boss: tác dụng vẫn ×2');
+    const th2 = mk('thug', {}); th2.f = { ...th2.f, hp: 999 }; th2.hp = th2.max = 999; th2.cc = { kind: 'blind', t: 1 }; th2.state = 'windup';
+    const back = { x: 0, z: -1, heading: 0 };
+    assert.equal(FT.hitFoe(th2, FT.timedItem(cod), back).dmg, cod.dmg * FT.PLAYER.dmgCap, 'sau lưng × ĐÚNG LÚC × đang lóa: tối đa ×2');
+    // món có tác dụng: chạm trúng là dính đủ thời gian (không kháng), không đỡ được · chạm mốc giai đoạn lúc đang bị trùm vẫn đổi giai đoạn
+    const tb = mk('tiDo'); tb.alert = true; const ny = FT.weaponOf('nylon');
+    const d1 = (FT.applyItem(tb, ny), tb.trap);
+    for (let i = 0; i < 4 * 30; i++) FT.foeTick(tb, { player: P0(5), dt: 1 / 30 });
+    assert.deepEqual(FT.applyItem(tb, ny), ['trap'], 'ném lại: vẫn dính');
+    assert.ok(Math.abs(tb.trap - d1) < 0.01, 'dính đủ thời gian như lần đầu');
+    const su = mk('tiSun'); su.alert = true; su.state = 'chase';
+    assert.ok(!FT.hitFoe(su, FT.weaponOf('chili'), { x: 0, z: 1, heading: Math.PI }).blocked, 'Tí Sún đỡ trước mặt: món có tác dụng vẫn dính');
+    assert.ok(FT.hitFoe(su, FT.weaponOf('water'), { x: 0, z: 1, heading: Math.PI }).blocked, 'chai nước (chỉ sát thương): bị đỡ');
+    // món nhặt lại được: chỉ 1 cái trong túi
+    const kk = FT.kitGive(FT.kitNew(), { water: 3, cod: 1, ice: 2 });
+    assert.deepEqual([kk.n.water, kk.n.cod, kk.n.ice], [1, 1, 2]);
+    assert.ok(FT.kitFull(kk, 'water') && !FT.kitFull(kk, 'ice'));
+    // cục pin = bom dùng 1 lần
+    const pbw = FT.weaponOf('powerbank');
+    assert.ok(pbw.bomb && pbw.bomb.t > 0 && pbw.bomb.r > 0 && !pbw.keep && FT.hasFx(pbw));
+    const tp = mk('tiDo'); tp.alert = true; FT.applyItem(tp, ny); tp.hp = Math.ceil(tp.max * 0.65);
+    FT.foeTick(tp, { player: P0(5), dt: 1 / 30 });
+    assert.ok(tp.ph === 1 && tp.state === 'roar' && !tp.trap, 'đang bị trùm vẫn đổi giai đoạn');
+    // lính ở xa lao tới
+    const far = mk('thug'); far.alert = true; far.state = 'chase';
+    const near = mk('thug'); near.alert = true; near.state = 'chase';
+    FT.foeTick(far, { player: P0(12), dt: 0.1 }); FT.foeTick(near, { player: P0(4), dt: 0.1 });
+    assert.ok(far.z > near.z * 1.3, `ở xa lao nhanh hơn (${far.z.toFixed(2)} so với ${near.z.toFixed(2)})`);
+    // đứng xa boss > 7 m liền 10 giây → lao húc
+    const b = mk('tiDo'); FT.bossPhaseSet(b, 0); b.alert = true;
+    let charged = false;
+    for (let i = 0; i < 11 * 30 && !charged; i++) { FT.foeTick(b, { player: P0(b.z + 9), dt: 1 / 30 }); if (b.state === 'chargeWind') charged = true; }
+    assert.ok(charged, 'đứng xa mãi: Tí Đô lao húc');
+    // lính chương 6 gục thì rớt đồ, Tí Đô không
+    for (const id of ['c6Container', 'c6Deck', 'c6Bridge']) assert.ok(STORYJ.fights[id].foes.length >= 5, `${id}: lính ra nhiều (≥ 5 tên)`);
+    for (const id of ['c6Container', 'c6Deck', 'c6Bridge', 'c6Quay']) for (const f of STORYJ.fights[id].foes) {
+      if (f.foe === 'tiDo') assert.ok(!f.drop); else assert.ok(f.drop && STORYJ.weapons[f.drop], `${id}/${f.who} rớt đồ`);
+    }
   });
   test('ĐÚNG LÚC: ném trúng lúc địch lóe đỏ / lấy đà → sát thương + tác dụng ×2; lúc nó đang đi thì như thường', () => {
     const cup = FT.weaponOf('cup'), T = FT.timedItem(cup);
@@ -5884,7 +5959,8 @@ console.log('Đánh nhau góc nhìn thứ 1 (sim/fight.js — chương 6)');
   test('Tí Đô 3 giai đoạn (dữ liệu): mốc 65% / 30%, vòng đòn cố định đúng thiết kế · đàn em đứng xem tới giai đoạn 2 · đàn em bỏ chạy ở giai đoạn 3', () => {
     const T = STORYJ.foes.tiDo;
     assert.deepEqual(T.phases.map((p) => p.at), [1, 0.65, 0.3]);
-    assert.deepEqual(T.phases.map((p) => p.loop), [['combo'], ['teep', 'charge', 'combo'], ['slam', 'stompSuper', 'charge2', 'stompFeint']]);
+    assert.deepEqual(T.phases.map((p) => p.loop), [['combo'], ['teep', 'charge', 'combo'], ['slam', 'stompSuper', 'charge2', 'combo']]);
+    assert.equal(T.phases[2].loop.filter((x) => x.startsWith('stomp')).length, 1, 'giai đoạn 3: dậm đất 1 lần mỗi vòng 4 đòn');
     assert.ok(!T.phases[0].guard && T.phases[1].guard && T.phases[2].guard, 'giai đoạn 1 không đỡ, 2–3 đỡ đòn trước mặt');
     assert.ok(T.phases[2].throw && T.phases[2].clinch && T.phases[2].flee, 'giai đoạn 3: ném gạch / ôm cổ theo điều kiện, đánh tay đôi');
     for (const f of STORYJ.fights.c6Quay.foes.filter((x) => x.who !== 'tiDo')) assert.ok(f.join === 'rage' && f.watch, `${f.who}: đứng xem tới giai đoạn 2`);
@@ -5896,8 +5972,8 @@ console.log('Đánh nhau góc nhìn thứ 1 (sim/fight.js — chương 6)');
     assert.deepEqual(b2.slice(0, 6), ['teep', 'chargeWind', 'windup', 'teep', 'chargeWind', 'windup'], 'giai đoạn 2: đạp đẩy → húc → combo → lặp');
     const far = bossRun(1, 8, {}, { dist: 5 }).states;
     assert.ok(!far.includes('teep') && far.includes('chargeWind'), 'đứng xa: bỏ bước đạp đẩy');
-    const c3 = bossRun(2, 30).states.filter((s) => ['slam', 'stomp', 'superWind', 'chargeWind'].includes(s));
-    assert.deepEqual(c3.slice(0, 7), ['slam', 'stomp', 'superWind', 'chargeWind', 'chargeWind', 'stomp', 'superWind'], 'giai đoạn 3: bổ → dậm+superman → húc 2 lần → dậm+nhử+superman');
+    const c3 = bossRun(2, 30).states.filter((s) => ['slam', 'stomp', 'superWind', 'chargeWind', 'windup'].includes(s));
+    assert.deepEqual(c3.slice(0, 7), ['slam', 'stomp', 'superWind', 'chargeWind', 'chargeWind', 'windup', 'slam'], 'giai đoạn 3: bổ → dậm+superman → húc 2 lần → đấm liền → lặp (dậm 1 lần / vòng)');
     const r1 = bossRun(2, 15), r2 = bossRun(2, 15);
     assert.deepEqual(r1.evs.map((e) => e.type + (e.move || '')), r2.evs.map((e) => e.type + (e.move || '')), 'cùng thao tác → cùng kết quả (máy chủ chạy lại được)');
   });
@@ -5950,7 +6026,8 @@ console.log('Đánh nhau góc nhìn thứ 1 (sim/fight.js — chương 6)');
     assert.ok(hit && hit.breakGuard && !early.evs.some((e) => e.type === 'parried'), 'đỡ sớm: không gạt được, đòn phá thế đỡ');
     // bước 4 (stompFeint): lấy đà + khựng nhử lâu hơn bước 2
     const S = FT.skillOf(STORYJ.foes.tiDo, 'superman');
-    const len = (step) => { const x = mk('tiDo'); FT.bossPhaseSet(x, 2); x.li = STORYJ.foes.tiDo.phases[2].loop.indexOf(step); x.state = 'superWind'; x.t = 0; let t = 0; while (x.state === 'superWind' && t < 5) { FT.foeTick(x, { player: { x: 0, z: 4, heading: Math.PI }, dt: 1 / 30 }); t += 1 / 30; } return t; };
+    const fd = JSON.parse(JSON.stringify(STORYJ.foes.tiDo)); fd.phases[2].loop = ['slam', 'stompSuper', 'charge2', 'stompFeint']; // (đòn nhử không còn trong dữ liệu — vẫn thử luật)
+    const len = (step) => { const x = mk('tiDo'); x.f = fd; FT.bossPhaseSet(x, 2); x.li = fd.phases[2].loop.indexOf(step); x.state = 'superWind'; x.t = 0; let t = 0; while (x.state === 'superWind' && t < 5) { FT.foeTick(x, { player: { x: 0, z: 4, heading: Math.PI }, dt: 1 / 30 }); t += 1 / 30; } return t; };
     assert.ok(Math.abs(len('stompFeint') - len('stompSuper') - S.feint) < 0.1, `nhử khựng thêm ${S.feint} giây`);
   });
   test('Tí Đô: ném gạch khi đứng xa > 7 m quá 2 giây · đấm liền 4 cú vào thế đỡ → ôm cổ, bấm 6 lần thoát (nó khựng) · không thoát → ăn gối', () => {
@@ -6130,18 +6207,25 @@ console.log('Màn đua thoát thân (sim/race.js — chương 6)');
     assert.ok(RC.skidDist(vmax, RC.SKID.win) + RC.SKID.stop < room, `bấm phanh trễ nhất trong cửa vẫn kịp dừng (${RC.skidDist(vmax, RC.SKID.win).toFixed(1)} m < ${room} m)`);
     assert.ok(RC.skidDist(vmax * 0.85, RC.SKID.win + 1.5) > room, 'bấm trễ hơn ~1,5 giây là tông rào');
   });
-  test('Tàu hỏa: chạy gần hết ga thì vượt kịp sát mũi tàu, chậm hơn ~10% là bị chắn phải phanh chờ · tàu qua hết thì đường thông', () => {
-    const w = 12, at = (v) => RC.TRAIN.speed * (RC.TRAIN.near / v); // đầu tàu đã đi được bao nhiêu lúc mình tới đường ray
-    assert.ok(!RC.trainBlocks(at(35), w), 'hết ga (~126 km/h): vượt kịp');
-    assert.ok(RC.trainBlocks(at(29), w), 'chạy ~104 km/h: tàu chắn ngang');
-    assert.ok(!RC.trainBlocks(RC.trainStart() + RC.TRAIN.len + w, w), 'tàu qua hết: thông đường');
+  test('Tàu hỏa: canh theo tốc độ lúc đèn chớp — giữ hết ga thì vượt kịp (chậm hay nhanh lúc đó cũng vậy), nhả ga là bị chắn · tàu qua hết thì thông', () => {
+    const w = 12, vmax = 36, acc = 11;
+    // chạy thật hết ga (tăng tốc đúng công thức của xe, không nhân aMul) — mỗi khung 1/60 giây
+    const ride = (v0) => { let v = v0, s = 0, t = 0; while (s < RC.TRAIN.near) { v += acc * (1 - v / vmax) / 60; s += v / 60; t += 1 / 60; } return t; };
+    for (const v0 of [8, 20, 34]) {
+      const start = RC.trainStart(RC.trainEta(RC.TRAIN.near, v0, vmax, acc), w);
+      const at = (t) => RC.TRAIN.speed * t; // đầu tàu đi được bao nhiêu lúc mình tới ray
+      assert.ok(!RC.trainBlocks(start, at(ride(v0)), w), `đang ${v0} m/s, giữ hết ga: vượt kịp`);
+      assert.ok(RC.trainBlocks(start, at(ride(v0) + 1.2), w), `đang ${v0} m/s, tới trễ hơn hết ga 1,2 giây (nhả ga / phanh): tàu chắn`);
+      assert.ok(!RC.trainBlocks(start, start + RC.TRAIN.len + w, w), 'tàu qua hết: thông đường');
+    }
   });
   test('Màn đua có đủ thử thách mới đúng chỗ đã duyệt: tàu hỏa · 5 lần xe giang hồ áp sát · cửa xe + thùng hàng (quốc lộ) · dây phơi (bờ kênh) · hàng xe chờ cầu (trước cầu cất)', () => {
     const T = RC.buildTrack(def), ev = RC.raceEvents(def, T), kindOf = (e) => def.sections[e.si].kind;
     const of = (t) => ev.filter((e) => e.type === t);
     assert.equal(kindOf(of('train')[0]), 'industrial');
     assert.equal(of('brawlers').length, 5);
-    assert.deepEqual(of('brawlers').map((e) => e.n), [1, 2, 2, 1, 1]);
+    assert.deepEqual(of('brawlers').map((e) => e.n), [1, 2, 2, 1, 2]);
+    assert.deepEqual(of('brawlers').map((e) => !!e.squeeze), [false, false, true, false, true], 'kẹp sát: quốc lộ đoạn sau + đê');
     assert.ok(['door', 'cargo'].every((t) => kindOf(of(t)[0]) === 'highway'));
     assert.equal(kindOf(of('line')[0]), 'canal');
     const q = of('queue')[0], br = of('drawbridge')[0];
@@ -6149,6 +6233,20 @@ console.log('Màn đua thoát thân (sim/race.js — chương 6)');
     const bad = JSON.parse(JSON.stringify(STORYJ));
     bad.races.escape.sections[3].events.push({ at: 10, type: 'brawlers', n: 3 });
     assert.ok(validateStory(bad, {}).some((i) => i.ref === 'race:escape' && /1 hoặc 2 xe/.test(i.msg)), 'số xe áp sát sai → lỗi');
+  });
+  test('Đọ gậy: quật lúc nó đang vung xuống / cú đầu màn kẹp sát → đọ gậy · lúc lóe đỏ vẫn văng luôn · bấm E ~10 lần / 2,5 giây thì thắng, bấm thưa thì thua', () => {
+    assert.ok(RC.brawlHit({ windT: 0, armT: 0.2 }).clash, 'đang vung xuống: đọ gậy');
+    assert.ok(RC.brawlHit({ windT: 0, armT: 0, clashNext: true }).clash, 'cú đầu màn kẹp sát: đọ gậy');
+    const t = RC.brawlHit({ windT: 0.3, armT: 0, clashNext: true });
+    assert.ok(!t.clash && t.ko && t.timed, 'lóe đỏ: ĐÚNG LÚC văng luôn');
+    assert.ok(!RC.brawlHit({ windT: 0, armT: 0 }).clash);
+    const play = (perSec) => { const c = RC.clashNew(); let r = null, acc = 0; for (let i = 0; i < 400 && !r; i++) { acc += perSec / 60; const p = Math.floor(acc); acc -= p; r = RC.clashTick(c, 1 / 60, p); } return r; };
+    assert.equal(play(4.2), 'win', 'bấm ~4 lần / giây: thắng');
+    assert.equal(play(2), 'lose', 'bấm thưa: thua');
+    assert.equal(play(0), 'lose');
+    const bad = JSON.parse(JSON.stringify(STORYJ));
+    bad.races.escape.sections[3].events.push({ at: 20, type: 'brawlers', n: 1, squeeze: true });
+    assert.ok(validateStory(bad, {}).some((i) => i.ref === 'race:escape' && /kẹp sát phải là 2 xe/.test(i.msg)));
   });
   test('Dữ liệu màn đua hợp lệ; dữ liệu sai → bộ kiểm tra báo', () => {
     const errs = validateStory(STORYJ, {}).filter((i) => i.level === 'error' && /^race:/.test(i.ref));

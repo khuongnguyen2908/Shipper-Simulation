@@ -57,6 +57,7 @@ import { ScenePart } from './game/scene.js';
 import { ZonePart } from './game/zone.js';
 import { FightPart } from './game/fight.js';
 import { RacePart } from './game/race.js';
+import { SQUEEZE } from './sim/race.js';
 
 export class Game {
   constructor(canvas, uiRoot) {
@@ -617,7 +618,7 @@ export class Game {
     // nhạc nền: màn hình chính → music.menu · đang chơi → nhạc riêng của bước cốt truyện (story.json → music, vd dí cướp)
     // hoặc music.day / music.night theo giờ trong game. Các bước liền nhau cùng nhạc thì phát liền mạch, không chạy lại từ đầu
     const storyTrack = this.state === 'play' ? this.storyMusic() : null;
-    setMusic(this.state === 'play' ? storyTrack || (isDark(this.clockMin) ? 'music.night' : 'music.day') : 'music.menu');
+    setMusic(this.state === 'play' ? storyTrack || (this.zoneBattle ? null : isDark(this.clockMin) ? 'music.night' : 'music.day') : 'music.menu'); // chỗ đánh nhau (trên tàu): chỉ nhạc của bước, không có thì im
     setLoopDuck(storyTrack ? 0.4 : 1); // nhạc riêng của cốt truyện (dí cướp, bị rượt): tiếng máy xe / phố / mưa nhỏ lại cho nhạc nổi lên
     const dt = Math.min(0.05, Math.max(0, (t - this.lastT) / 1000));
     this.fpsN++;
@@ -800,7 +801,7 @@ export class Game {
     else {
       const pedal = gs.power === 'pedal' && !this.race, ev = gs.power === 'electric'; // màn đua: chạy xe anh Đạt (mô tô)
       // cảnh phim có xe người chơi tự chạy theo (cine.ride) → xe đi theo lộ trình người bị đuổi, không theo phím
-      const moved = this.cine?.ride && mounted ? this.cineRide(dt) : bike.update(dt, mounted && !this.cine && !this.storyLose && !this.race?.lock ? inp.state : {}, { mounted, fuel: this.stalled ? 0 : pedal ? 1 : gs.fuel, hp: gs.bikeHp, wet: !!rain, speedCap: Number.isFinite(speedCap) ? speedCap : 0, grid: this.city.grid, elev: this.city.elev, potholes: this.potholes, emit });
+      const moved = this.cine?.ride && mounted ? this.cineRide(dt) : bike.update(dt, this.raceIntro ? (this.raceIntro.drive ? { forward: true } : {}) : this.race?.intro?.auto ? { forward: true } : mounted && !this.cine && !this.storyLose && !this.race?.lock ? inp.state : {}, { mounted, fuel: this.stalled ? 0 : pedal ? 1 : gs.fuel, hp: gs.bikeHp, wet: !!rain, speedCap: Number.isFinite(speedCap) ? speedCap : 0, steerMul: this.race?.squeezed ? SQUEEZE.steer : 1, grid: this.city.grid, elev: this.city.elev, potholes: this.potholes, emit });
       if (mounted) {
         const km = (moved * DIST.displayPerUnit) / 1000;
         if (pedal || this.race) gs.addKm(km); // màn đua: xe anh Đạt, không trừ xăng xe mình // xe đạp: không xăng, không bảo dưỡng — chỉ cộng đồng hồ km
@@ -821,7 +822,7 @@ export class Game {
         if (!this.cine?.ride) for (const h of this.traffic.collidePlayer(bike.pos, 0.75, bike.vel, true, bike.mesh.position.y)) this.onTrafficHit(h, env); // xe tự chạy trong cảnh phim: không va chạm
       } else {
         // đang nói chuyện với người lạ (cốt truyện): đứng yên tới khi nói xong (phím đi bị bỏ qua; đồng hồ vẫn chạy)
-        activity = this.walker.update(dt, this.storyTalkActor() || this.cine || this.tackle || (this.untie && !this.untie.go) || this.storyLose ? NO_MOVE : inp.state, this.rig.yaw, { grid: this.city.grid, elev: this.city.elev, phys: this.pursue && this.pursue.phase !== 'lost' ? 100 : gs.phys, speedMul: floodBand(water) >= 2 ? floodNum('walkMul') : 1 }); // đang bị rượt: chạy được bất kể thể lực
+        activity = this.walker.update(dt, this.storyTalkActor() || this.cine || this.tackle || (this.untie && !this.untie.go) || this.storyLose ? NO_MOVE : inp.state, this.rig.yaw, { grid: this.city.grid, elev: this.city.elev, phys: this.pursue && this.pursue.phase !== 'lost' ? 100 : gs.phys, speedMul: (floodBand(water) >= 2 ? floodNum('walkMul') : 1) * (this.fightWalkMul?.() ?? 1), backMul: this.fightBackMul?.() ?? 1 }); // lội ngập sâu / đang ăn: đi chậm // đang bị rượt: chạy được bất kể thể lực
         const talk = this.storyTalkActor(); // đang nói chuyện với người lạ, đứng yên → quay mặt về phía người đó
         if (talk && activity === 'idle' && !this.walker.seat) {
           const m = talk.mesh.position, w = this.walker.pos;

@@ -63,6 +63,14 @@ export function makeWeaponMesh(id) {
   } else if (id === 'powerbank') { // cục sạc dự phòng đen, đèn xanh
     part(g, new THREE.BoxGeometry(0.07, 0.13, 0.025), 0x2b2b2b, 0, 0.065, 0);
     part(g, new THREE.BoxGeometry(0.012, 0.012, 0.027), 0x2ecc71, 0.02, 0.11, 0, { emissive: 0x2ecc71, emissiveIntensity: 1 });
+  } else if (id === 'banhmi') { // ổ bánh mì thịt: vỏ vàng nâu, khe rạch có rau + chả đỏ
+    part(g, new THREE.CapsuleGeometry(0.035, 0.17, 4, 8), 0xd9a04f, 0, 0.12, 0);
+    part(g, new THREE.BoxGeometry(0.012, 0.15, 0.03), 0x6ab04c, 0, 0.12, 0.028);
+    part(g, new THREE.BoxGeometry(0.014, 0.12, 0.025), 0xc0392b, 0, 0.12, 0.022);
+  } else if (id === 'milk') { // hộp sữa đậu nành giấy: trắng, sọc xanh lá, ống hút
+    part(g, new THREE.BoxGeometry(0.055, 0.09, 0.035), 0xf7f3e8, 0, 0.045, 0);
+    part(g, new THREE.BoxGeometry(0.057, 0.025, 0.037), 0x2ecc71, 0, 0.05, 0);
+    cyl(0.004, 0.004, 0.06, 0xff7aa2, 0.012, 0.115, 0, null, 6).rotation.z = -0.2;
   } else if (id === 'brick') {
     part(g, new THREE.BoxGeometry(0.1, 0.2, 0.065), 0xb5532f, 0, 0.05, 0);
     for (const y of [0, 0.1]) part(g, new THREE.CylinderGeometry(0.015, 0.015, 0.067, 6), 0x7a3218, 0, y, 0).rotation.x = Math.PI / 2; // lỗ gạch
@@ -72,10 +80,55 @@ export function makeWeaponMesh(id) {
   return g; // tay không / lạ: rỗng
 }
 
+// Bom cục pin nằm dưới đất: cục pin đen + đèn đỏ nháy (userData.led) + vòng đỏ mờ = vùng nổ
+export function makeBomb() {
+  const g = new THREE.Group(), m = makeWeaponMesh('powerbank');
+  m.rotation.z = Math.PI / 2;
+  m.position.y = 0.015;
+  g.add(m);
+  const led = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff2a1a }));
+  led.position.set(0, 0.06, 0);
+  g.add(led);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.4, 0.5, 24), new THREE.MeshBasicMaterial({ color: 0xff2a1a, transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide }));
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.02;
+  g.add(ring);
+  g.userData.led = led;
+  return g;
+}
+// Vụ nổ: quả cầu lửa cam phồng ra + vòng khói loang (r = bán kính nổ) · userData.tick(dt) → false khi xong
+export function makeBlast(r = 3) {
+  const g = new THREE.Group();
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), new THREE.MeshBasicMaterial({ color: 0xffa21f, transparent: true, opacity: 0.9, depthWrite: false }));
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.6, 12, 8), new THREE.MeshBasicMaterial({ color: 0xfff1a8, transparent: true, opacity: 1, depthWrite: false }));
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 32), new THREE.MeshBasicMaterial({ color: 0x777777, transparent: true, opacity: 0.6, depthWrite: false, side: THREE.DoubleSide }));
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.05;
+  ball.position.y = core.position.y = 0.6;
+  g.add(ball, core, ring);
+  const light = new THREE.PointLight(0xffa040, 30, r * 4);
+  light.position.y = 1;
+  g.add(light);
+  let t = 0;
+  g.userData.tick = (dt) => {
+    t += dt;
+    const k = Math.min(1, t / 0.55);
+    ball.scale.setScalar(0.3 + r * 0.55 * Math.sqrt(k));
+    core.scale.setScalar(0.4 + 1.2 * k);
+    ring.scale.setScalar(0.3 + r * k);
+    ball.material.opacity = 0.9 * (1 - k);
+    core.material.opacity = 1 - k;
+    ring.material.opacity = 0.6 * (1 - k);
+    light.intensity = 30 * (1 - k);
+    return k < 1;
+  };
+  return g;
+}
+
 // Đồ nằm dưới đất chờ nhặt: nằm nghiêng + vòng sáng mờ dưới chân cho dễ thấy
 export function makeLootMesh(id) {
   const g = new THREE.Group(), m = makeWeaponMesh(id);
-  if (id === 'water' || id === 'powerbank' || id === 'cup') m.rotation.z = Math.PI / 2; // đồ dài: nằm ngang
+  if (id === 'water' || id === 'powerbank' || id === 'cup' || id === 'banhmi') m.rotation.z = Math.PI / 2; // đồ dài: nằm ngang
   m.position.y = id === 'water' ? 0.04 : 0.01;
   g.add(m);
   const glow = new THREE.Mesh(new THREE.CircleGeometry(0.55, 18), new THREE.MeshBasicMaterial({ color: 0xffd54a, transparent: true, opacity: 0.22, depthWrite: false }));
@@ -151,7 +204,7 @@ export function makeShipperBag() {
 }
 
 // 2 tay góc nhìn thứ 1 (gắn vào camera): tay phải cầm đồ, tay trái thò ra khi đỡ / ném.
-// pose(state, t, bob, move): idle · swing (0→1) · block · throw (0→1) · hurt. Trả group; group.userData.setItem(id) đổi món trên tay
+// pose(state, t, bob, move): idle · swing (0→1) · block · throw (0→1) · hurt · eat (0→1, move = số miếng cạp). Trả group; group.userData.setItem(id) đổi món trên tay
 // Tay không: 2 nắm tay thủ trước mặt; đòn move = jab (thẳng tay trái) · cross (thẳng tay phải) · hook (móc phải). Cầm đồ: over (bổ) · side (quét ngang)
 export function makeViewArms(skin = 0xd9a066, sleeve = 0x2d3436) {
   const g = new THREE.Group();
@@ -181,6 +234,7 @@ export function makeViewArms(skin = 0xd9a066, sleeve = 0x2d3436) {
       item.traverse((o) => { o.castShadow = false; o.renderOrder = 10; });
       // cầm dựng lên chếch ra trước · nón bảo hiểm: úp mặt nón ra trước (đỡ như cái khiên)
       if (id === 'helmet') { item.rotation.set(-1.4, 0, 0); item.position.set(0, 0.02, -0.04); } else { item.rotation.set(-0.55, 0, 0.15); item.position.set(0, 0, 0); }
+      item.userData.rz = item.rotation.z;
       hold.add(item);
     },
     // t: 0..1 trong cú vung / ném; bob: lắc nhẹ theo bước đi
@@ -193,6 +247,17 @@ export function makeViewArms(skin = 0xd9a066, sleeve = 0x2d3436) {
       L.position.set(-0.3, -0.4, -0.35);
       L.rotation.set(0, 0, 0);
       L.visible = false;
+      if (item) { item.scale.setScalar(1); item.rotation.z = item.userData.rz ?? item.rotation.z; }
+      if (state === 'eat' && !bare) { // ĂN: đưa món lên sát miệng, mỗi miếng chồm tới cạp 1 cái rồi lui ra nhai · món nhỏ dần
+        const up = ease(Math.min(1, t / 0.12)), bites = move || 3, ph = (t * bites) % 1, chomp = ph < 0.35 ? ease(ph / 0.35) : 1 - ease((ph - 0.35) / 0.65);
+        R.position.set(0.24 - 0.12 * up, -0.24 + 0.04 * up + 0.012 * chomp, -0.42 + 0.03 * up + 0.04 * chomp);
+        R.rotation.set(0.15 + 0.4 * up, 0.1 + 0.3 * up, 0.12 * up);
+        if (item) {
+          item.scale.setScalar(1 - 0.55 * Math.floor(t * bites) / bites); // mỗi miếng cạp: nhỏ đi
+          if (item.userData.id === 'banhmi') item.rotation.z = item.userData.rz + 1.15 * up; // ổ bánh mì: cầm ngang đưa lên miệng
+        }
+        return;
+      }
       if (bare && state !== 'throw') {
         // tay không: thủ 2 nắm tay trước mặt (hơi chụm vào giữa)
         R.position.set(0.2, -0.2 + b, -0.36);

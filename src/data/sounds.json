@@ -543,6 +543,17 @@
       "files": [
         "eaglaxle-gaming-victory-464016.mp3"
       ]
+    },
+    "music.boss": {
+      "files": [
+        "c0mp0s3r69-free-boss-fight-loop-575312.mp3"
+      ],
+      "volume": 2
+    },
+    "music.sneak": {
+      "files": [
+        "freesound_community-crooked-27811.mp3"
+      ]
     }
   }
 }

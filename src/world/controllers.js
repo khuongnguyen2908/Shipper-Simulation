@@ -115,7 +115,7 @@ export class Bike {
     }
     const steerIn = this.steerCur;
     const sf = Math.min(1, Math.abs(this.speed) / 3);
-    const rate = s.steer * (1 - 0.45 * Math.min(1, Math.abs(this.speed) / 16)) * (ctx.wet ? 0.85 : 1);
+    const rate = s.steer * (1 - 0.45 * Math.min(1, Math.abs(this.speed) / 16)) * (ctx.wet ? 0.85 : 1) * (ctx.steerMul ?? 1); // steerMul: bị kẹp 2 bên (màn đua) → lái nặng
     this.yawRate = steerIn * rate * sf * (this.speed < 0 ? -1 : 1);
     this.heading += this.yawRate * dt;
 
@@ -274,6 +274,7 @@ export class Walker {
       let v = run ? 6.2 : 3.4;
       if (ctx.phys < 15) v *= 0.7;
       v *= ctx.speedMul ?? 1; // lội nước ngập sâu: đi chậm hơn
+      if (input.back && !input.forward) v *= ctx.backMul ?? 1; // đi lùi chậm hơn (đánh nhau: không vừa lùi vừa ném mà boss đuổi không kịp)
       this.pos.x += mx * v * dt;
       this.pos.z += mz * v * dt;
       this.heading = lerpAngle(this.heading, Math.atan2(mx, mz), 1 - Math.exp(-14 * dt));
