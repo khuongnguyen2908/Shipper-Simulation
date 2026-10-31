@@ -383,7 +383,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
       người trong trận đi từng đoạn ≤ 15 cm. (2) Tí Đô / anh Đạt đi lệch khỏi cầu thang mạn → rơi xuống khe nước rồi bị đẩy vào trong thân tàu, đứng dưới boong đánh
       xuyên sàn (một phần do lần sửa "lơ lửng" trước của Claude) → không cho bước hụt xuống > 0,8 m (đứng lại ở mép như người chơi), tìm đường không đi đường
       phải bước hụt. (3) Tấm ván chân cầu thang mạn rộng 1,2 → 2 m (đi xiên ra / vào hay vướng góc).
-- **Đợt 14 — âm thanh / nhạc chương 6 (31/10, đã đẩy lên GitHub)**
+- **Đợt 14 — âm thanh / nhạc chương 6 (31/10, đã đẩy lên GitHub df0cc8c)**
   - Lục túi: màn đen "Kéo khóa túi, lục từng món…" 7 giây (0,7 tối dần + giữ 6,3) khớp tiếng kéo dây kéo chủ game gắn cho fight.bag (7 giây, phát lúc bấm E),
     xong mới hiện thẻ "Trong túi có gì" (việc kit có after 7) · việc kit có thẻ không phát lại fight.bag.
   - Mã nhạc mới: music.sneak (bước sneakIn) · music.boss (quayCine + quayFight; chưa gắn file → tạm music.chase) · tiếng mới progress.chapter (tên chương hiện lên,
