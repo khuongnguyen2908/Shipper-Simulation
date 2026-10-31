@@ -2860,5 +2860,6 @@
   "story.hint.crowd": "⚠️ Bị vây rồi!",
   "story.hint.crowdSub": "Ném {icon} {item} loại bớt 1 tên (phím {k})",
   "story.hint.horn": "⚠️ Né không kịp?",
-  "story.hint.hornSub": "Bóp {icon} {item} cho nó giật mình (phím {k})"
+  "story.hint.hornSub": "Bóp {icon} {item} cho nó giật mình (phím {k})",
+  "story.c6.bag.fade": "Kéo khóa túi, lục từng món…"
 }

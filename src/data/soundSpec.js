@@ -27,6 +27,8 @@ const LIST = [
   ['music.chase', 'music', 'Nhạc dí cướp', 'Cốt truyện: bước có ô "Nhạc riêng" = mã này (chương 3: từ cảnh cướp tới qua cầu). Chưa gắn file → vẫn nhạc ngày / đêm', '', 'music'],
   ['music.flee', 'music', 'Nhạc bị rượt', 'Cốt truyện chương 4: bị giang hồ rượt ra khỏi hẻm (từ lúc vấp lon tới lúc về tới trọ). Chưa gắn file → tạm phát nhạc dí cướp (music.chase)', '', 'music'],
   ['music.night', 'music', 'Nhạc trong game (ban đêm)', 'Đang chơi, trời tối', '', 'music'],
+  ['music.sneak', 'music', 'Nhạc màn lẻn', 'Chương 6: lẻn qua bến Kho 7 lên tàu vào lầu chỉ huy (nhịp chậm, hồi hộp, nín thở). Chưa gắn file → vẫn nhạc ngày / đêm', '', 'music'],
+  ['music.boss', 'music', 'Nhạc đánh boss Tí Đô', 'Chương 6: từ cảnh phim Tí Đô chặn dưới bến tới lúc hạ được nó (dồn dập, nặng). Chưa gắn file → tạm phát nhạc dí cướp (music.chase)', '', 'music'],
   ['music.race', 'music', 'Nhạc màn đua', 'Chương 6: màn đua thoát thân trên xe anh Đạt (từ lúc lên xe tới khi bay qua cầu cất). Chưa gắn file → tạm phát nhạc dí cướp (music.chase)', '', 'music'],
   // ---- giao diện ----
   ['ui.click', 'ui', 'Bấm nút', 'Bấm nút trong menu, hộp thoại, điện thoại', '', 'sfx'],
@@ -188,6 +190,7 @@ const LIST = [
   ['money.earn', 'money', 'Nhận tiền', 'Bán xe, được hoàn tiền', 'cash', 'sfx'],
   ['money.rentPaid', 'money', 'Trả tiền nhà', 'Trả tiền nhà cho Cô Hai', 'cash', 'sfx'],
   ['money.rentLate', 'money', 'Trễ hạn tiền nhà', 'Quá 22:00 hạn trả mà chưa trả đủ', 'bad', 'sfx'],
+  ['progress.chapter', 'money', 'Bắt đầu chương', 'Tên chương hiện lên giữa màn hình (dùng chung mọi chương)', 'ping', 'sfx'],
   ['progress.objective', 'money', 'Xong mục tiêu', 'Một mục tiêu trong danh sách vừa xong', '', 'sfx'],
   ['progress.collapse', 'money', 'Ngất / suy sụp', 'Kiệt sức phải nằm nghỉ', 'bad', 'sfx'],
   ['progress.gameOver', 'money', 'Thua', 'Bị đuổi khỏi phòng trọ / khóa tài khoản', 'lose', 'sfx'],
@@ -199,7 +202,7 @@ export const SOUND_EXT = ['ogg', 'mp3', 'wav', 'm4a'];
 export const SOUND_FILE_RE = /^[a-z0-9_\-.]+\.(ogg|mp3|wav|m4a)$/i; // tên file gọn: chữ không dấu, số, - _ .
 
 // Nhạc chưa gắn file thì tạm phát nhạc khác (mã → mã dự phòng) — vd nhạc bị rượt chưa có thì dùng nhạc dí cướp
-export const MUSIC_FALLBACK = { 'music.flee': 'music.chase', 'music.race': 'music.chase' };
+export const MUSIC_FALLBACK = { 'music.flee': 'music.chase', 'music.race': 'music.chase', 'music.boss': 'music.chase' };
 
 // Nhóm âm lượng trong Cài đặt
 export const volumeGroup = (id) => (SOUNDS[id]?.kind === 'music' ? 'music' : 'sfx');

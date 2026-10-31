@@ -25,6 +25,9 @@ import { fmt } from '../content/index.js';
 const tmp = new THREE.Vector3();
 // Gập / vặn thân người đang NGỒI trên xe (người lái, anh Đạt): tính từ dáng ngồi gốc (nhớ lần đầu) — không cộng dồn mỗi khung như hipBend
 // (người ngồi không có hoạt cảnh đi bộ đặt lại thân mỗi khung → hipBend cũ đẩy thân cao dần lên trời)
+// Dáng tay cầm gậy của anh Đạt (ngồi sau xe): vai [x, y, z] (thứ tự YXZ; y / z đổi dấu cho tay bên kia) · khuỷu · gậy xoay trong nắm tay (bẻ cổ tay theo cú vung)
+// thử trong game 31/10 (sketches/chuong6/gay/so-sanh.png): vác vai · vắt gậy ra sau giơ cao · vụt ngang ra mép xe ngang vai (đúng tầm đứa ngồi xe bên)
+const DAT_POSE = { idle: [-0.75, 0.1, 0.25, -2.35, -1.04], wind: [-2.6, 0.6, 0.9, -1.0, -2.4], hit: [-0.35, -0.25, 1.2, -0.2, 0.25] };
 function bendSeated(P, extra = 0, ry = 0) {
   const b = P.body, B = (b.userData.seatBase ||= { x: b.position.x, y: b.position.y, z: b.position.z, a: b.rotation.x });
   const A = B.a + extra;
@@ -1170,27 +1173,33 @@ export class RacePart {
     const g = new THREE.Group(), mat = (c) => new THREE.MeshStandardMaterial({ color: c, flatShading: true });
     const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.028, 0.85, 8), mat(0xb5803f)); stick.position.y = -0.38; g.add(stick);
     const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.18, 8), mat(0x222222)); g.add(grip);
-    g.position.set(0, -0.27, 0.02); g.rotation.x = Math.PI / 2;
+    g.position.set(0, -0.27, 0.02); g.rotation.x = DAT_POSE.idle[4];
     el.add(g);
     R.datBat = g;
   }
-  // Dáng anh Đạt: tay trái ôm eo người lái, tay phải cầm gậy · quật sang 1 bên · cúi rạp (dây phơi) — người lái cúi theo
+  // Dáng anh Đạt: vác gậy trên vai trái, tay kia ôm eo người lái · Q quật bằng tay TRÁI ra mép trái · E chuyền gậy sang tay PHẢI quật ra mép phải
+  // (2 bên đối xứng) · cúi rạp (dây phơi) — người lái cúi theo. Tay "armR" của hình người nằm ở phía x dương = bên trái người ngồi
   raceDatPose() {
     const R = this.race, P = R.dat?.userData.parts, rider = this.walker.mesh.userData.parts;
     const duck = R.duckT > 0 ? Math.min(1, R.duckT * 6, (0.9 - R.duckT) * 8 + 0.3) : 0;
     if (rider && (duck > 0 || R.duckWas)) { bendSeated(rider, duck * 0.75); R.duckWas = duck > 0; } // chỉ đụng tới người lái lúc cúi / vừa ngẩng lên
     if (!P) return;
-    P.armL.rotation.set(-0.55, 0, 0); P.elbowL.rotation.x = -0.9;
-    P.armR.rotation.set(-0.9, 0, 0); P.elbowR.rotation.x = -1.2;
-    let twist = 0;
+    const left = !R.bat || R.bat.side > 0; // Q (lat dương) = bên trái → tay phía x dương (armR) · E → tay phía x âm (armL)
+    const [Ab, Eb, Ao, Eo, s] = left ? [P.armR, P.elbowR, P.armL, P.elbowL, 1] : [P.armL, P.elbowL, P.armR, P.elbowR, -1];
+    // tay không cầm gậy: ôm eo người lái
+    Ao.rotation.order = 'XYZ'; Ao.rotation.set(-0.55, 0, 0); Eo.rotation.x = -0.9;
+    // tay cầm gậy: vác vai → lấy đà (vắt gậy ra sau, giơ cao) → vụt ngang ra mép xe → giữ → thu về vác vai
+    let q = DAT_POSE.idle, twist = 0;
     if (R.bat) {
-      const k = R.bat.t / BRAWL.swing, side = R.bat.side * -1; // −1: trái của người ngồi = phía x dương của xe
-      const ease = (x) => x * x * (3 - 2 * x), w = ease(Math.min(1, k / 0.4)), st = ease(Math.max(0, Math.min(1, (k - 0.4) / 0.3))), back = Math.max(0, Math.min(1, (k - 0.75) / 0.25));
-      P.armR.rotation.x = -0.9 - 1.8 * w + st * 1.3;
-      P.armR.rotation.z = -side * (w * 0.4 + st * 1.1) * (1 - back);
-      P.elbowR.rotation.x = -1.2 + 0.9 * w;
-      twist = -side * (w * 0.35 - st * 0.9) * (1 - back);
+      const k = R.bat.t / BRAWL.swing, ease = (x) => x * x * (3 - 2 * x);
+      const w = ease(Math.min(1, k / 0.4)), st = ease(Math.max(0, Math.min(1, (k - 0.4) / 0.3))), back = ease(Math.max(0, Math.min(1, (k - 0.85) / 0.15)));
+      const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+      q = mix(mix(mix(DAT_POSE.idle, DAT_POSE.wind, w), DAT_POSE.hit, st), DAT_POSE.idle, back);
+      twist = s * (-0.3 * w + 0.85 * st) * (1 - back); // vặn mình theo cú vung (về phía bên quật)
     }
+    Ab.rotation.order = 'YXZ'; Ab.rotation.set(q[0], s * q[1], s * q[2]); Eb.rotation.x = q[3];
+    // gậy nằm trong tay đang quật (E: chuyền sang tay phải lúc quật, xong về lại vai trái)
+    if (R.datBat) { if (R.datBat.parent !== Eb) Eb.add(R.datBat); R.datBat.rotation.x = q[4]; }
     bendSeated(P, duck * 0.9, twist);
   }
   // ---------- CAMERA CỐ ĐỊNH SAU LƯNG XE (không xoay / phóng) ----------

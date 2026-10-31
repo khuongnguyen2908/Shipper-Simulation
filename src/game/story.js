@@ -135,7 +135,7 @@ export class StoryPart {
     for (const a of acts) {
       // "sau … giây" cho mọi việc (tin nhắn nhóm lần lượt…) — đếm theo vòng lặp game như cảnh phim
       if (a.after > 0 && a.do !== 'bubble' && a.do !== 'sound') { this.storyAfter(a.after, () => this.runStoryActions([{ ...a, after: 0 }])); continue; }
-      if (a.do === 'title') this.chapterCard(fmt(ch.title), fmt(ch.name), true); // tự mờ dần sau ~5 giây (bước sau chờ "wait" cho mờ hết)
+      if (a.do === 'title') { this.chapterCard(fmt(ch.title), fmt(ch.name), true); sound('progress.chapter'); } // tự mờ dần sau ~5 giây (bước sau chờ "wait" cho mờ hết)
       else if (a.do === 'openPhone') {
         this.phone.toggle(true);
         this.phone.openApp(a.app || 'chat');
@@ -414,7 +414,7 @@ export class StoryPart {
     if (a.clear) { delete s.kit; this.heldRefresh?.(); return; }
     s.kit = kitGive(s.kit || kitNew(), a.give || {});
     this.heldRefresh?.();
-    sound('fight.bag');
+    if (!a.card) sound('fight.bag'); // có thẻ: tiếng kéo dây kéo đã phát lúc lục túi (màn đen 7 giây)
     if (a.card) this.kitCardShow('big'); // thẻ "Trong túi có gì" (bấm E cất)
   }
   storyResumeRun() {

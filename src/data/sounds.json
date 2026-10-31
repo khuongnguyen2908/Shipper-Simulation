@@ -318,7 +318,7 @@
       "files": [
         "soundreality-truck-horn-152541-2.mp3"
       ],
-      "volume": 1.6
+      "volume": 0.8
     },
     "city.thiefCrash": {
       "files": [
@@ -367,6 +367,182 @@
         "hieu_ung_hanh_dong-www_tiengdong_com.mp3"
       ],
       "volume": 2
+    },
+    "music.race": {
+      "files": [
+        "viacheslavstarostin-racing-speed-gaming-music-361427.mp3"
+      ]
+    },
+    "fight.splash": {
+      "files": [
+        "universfield-punch-03-352040-2.mp3"
+      ]
+    },
+    "fight.box": {
+      "files": [
+        "universfield-punch-03-352040-3.mp3"
+      ]
+    },
+    "fight.hit": {
+      "files": [
+        "am_thanh_tieng_bup-www_tiengdong_com.mp3"
+      ]
+    },
+    "fight.bonk": {
+      "files": [
+        "universfield-punch-impact-hit-567196-2.mp3"
+      ]
+    },
+    "race.quack": {
+      "files": [
+        "freesound_community-duck-quacking-37392.mp3"
+      ]
+    },
+    "race.splash": {
+      "files": [
+        "dragon-studio-big-rock-splash-5-467472.mp3"
+      ]
+    },
+    "race.whoosh": {
+      "files": [
+        "audiopapkin-hitting-big-metal-container-361821.mp3"
+      ]
+    },
+    "fight.locker": {
+      "files": [
+        "yodguard-locked-door-4-540180-2.mp3"
+      ]
+    },
+    "fight.block": {
+      "files": [
+        "freesound_community-block-6839.mp3"
+      ]
+    },
+    "fight.ko": {
+      "files": [
+        "am_thanh_choang_vang_chong_mat-www_tiengdong_com.mp3"
+      ]
+    },
+    "fight.start": {
+      "files": [
+        "voicebosch-fight-deep-voice-172194.mp3"
+      ]
+    },
+    "fight.swing": {
+      "files": [
+        "tieng_vung_dao_quo_gay_vut-www_tiengdong_com.mp3"
+      ]
+    },
+    "fight.hurt": {
+      "files": [
+        "am_thanh_cu_dam_uuu_ha_guc_ke_thu-www_tiengdong_com.mp3"
+      ]
+    },
+    "fight.dodge": {
+      "files": [
+        "mori_sound-fx-velocity-cartoon-537903.mp3"
+      ]
+    },
+    "fight.bag": {
+      "files": [
+        "tieng_keo_day_keo_keu-www_tiengdong_com.mp3"
+      ]
+    },
+    "fight.drop": {
+      "files": [
+        "am_thanh_cuon_sach_bi_roi-www_tiengdong_com.mp3"
+      ]
+    },
+    "fight.alert": {
+      "files": [
+        "hieu_ung_am_thanh_u_hu-www_tiengdong_com.mp3"
+      ]
+    },
+    "fight.roar": {
+      "files": [
+        "hu_waa_waa_gaming_sound_effect-www_tiengdong_com.mp3",
+        "am_thanh_nguoi_dan_ong_tuc_gian-www_tiengdong_com.mp3"
+      ]
+    },
+    "fight.stomp": {
+      "files": [
+        "aughh_meme_sound_effect-www_tiengdong_com.mp3"
+      ]
+    },
+    "fight.parry": {
+      "files": [
+        "freesound_community-block-6839.mp3"
+      ]
+    },
+    "fight.charge": {
+      "files": [
+        "hu_waa_waa_gaming_sound_effect-www_tiengdong_com-2.mp3"
+      ]
+    },
+    "fight.door": {
+      "files": [
+        "tieng_dap_ban-www_tiengdong_com.mp3"
+      ]
+    },
+    "race.scrape": {
+      "files": [
+        "tieng_cach_khi_va_cham-www_tiengdong_com.mp3"
+      ]
+    },
+    "race.bump": {
+      "files": [
+        "tieng_cach_khi_va_cham-www_tiengdong_com-2.mp3"
+      ]
+    },
+    "race.crash": {
+      "files": [
+        "tieng_co_the_roi_xuong_sich-www_tiengdong_com-2.mp3"
+      ]
+    },
+    "race.barrier": {
+      "files": [
+        "tieng_coi_canh_bao-www_tiengdong_com-mp3cut.net--2.mp3"
+      ]
+    },
+    "race.bat": {
+      "files": [
+        "am_thanh_tieng_bup-www_tiengdong_com-2.mp3"
+      ]
+    },
+    "race.gangHit": {
+      "files": [
+        "am_thanh_cu_dam_uuu_ha_guc_ke_thu-www_tiengdong_com-2.mp3"
+      ]
+    },
+    "race.train": {
+      "files": [
+        "tieng_coi_canh_bao-www_tiengdong_com-mp3cut.net--3.mp3"
+      ]
+    },
+    "race.cargo": {
+      "files": [
+        "tieng_dap_ban-www_tiengdong_com-2.mp3"
+      ]
+    },
+    "race.skid": {
+      "files": [
+        "hieu_ung_am_thanh_thang_xe-www_tiengdong_com.mp3"
+      ]
+    },
+    "race.bridge": {
+      "files": [
+        "tieng_coi_canh_bao-www_tiengdong_com-mp3cut.net--4.mp3"
+      ]
+    },
+    "city.hornCrowd": {
+      "files": [
+        "tieng_coi_xe_may-www_tiengdong_com.mp3"
+      ]
+    },
+    "fight.win": {
+      "files": [
+        "eaglaxle-gaming-victory-464016.mp3"
+      ]
     }
   }
 }

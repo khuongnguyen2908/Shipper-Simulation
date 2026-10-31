@@ -383,6 +383,15 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
       người trong trận đi từng đoạn ≤ 15 cm. (2) Tí Đô / anh Đạt đi lệch khỏi cầu thang mạn → rơi xuống khe nước rồi bị đẩy vào trong thân tàu, đứng dưới boong đánh
       xuyên sàn (một phần do lần sửa "lơ lửng" trước của Claude) → không cho bước hụt xuống > 0,8 m (đứng lại ở mép như người chơi), tìm đường không đi đường
       phải bước hụt. (3) Tấm ván chân cầu thang mạn rộng 1,2 → 2 m (đi xiên ra / vào hay vướng góc).
+- **Đợt 14 — âm thanh / nhạc chương 6 (31/10, đã đẩy lên GitHub)**
+  - Lục túi: màn đen "Kéo khóa túi, lục từng món…" 7 giây (0,7 tối dần + giữ 6,3) khớp tiếng kéo dây kéo chủ game gắn cho fight.bag (7 giây, phát lúc bấm E),
+    xong mới hiện thẻ "Trong túi có gì" (việc kit có after 7) · việc kit có thẻ không phát lại fight.bag.
+  - Mã nhạc mới: music.sneak (bước sneakIn) · music.boss (quayCine + quayFight; chưa gắn file → tạm music.chase) · tiếng mới progress.chapter (tên chương hiện lên,
+    dùng chung mọi chương). Đã ghi docs/am-thanh.md — chờ chủ game gắn file ở thẻ 🔊.
+  - Dáng anh Đạt cầm gậy trên xe (màn đua) — XONG theo phác thảo sketches/chuong6/gay/so-sanh.png, chủ game chốt: Q quật bằng tay TRÁI ra mép trái, E bằng tay PHẢI
+    ra mép phải (đối xứng). Chạy thường: vác gậy trên vai trái; E thì chuyền gậy sang tay phải lúc quật. Gậy nằm dọc nắm tay, bẻ cổ tay theo cú vung; vác vai → vắt gậy ra
+    sau giơ cao → vụt NGANG ra mép xe ngang vai → thu về (game/race.js DAT_POSE + raceDatPose). Trước: gậy cắm ngược, quật = rủ gậy xuống đất.
+  - ĐANG BÀN: chỗ có thể thêm nhạc riêng (Claude đề xuất, chờ chọn).
 - **Đợt 14 — Màn đua thêm thử thách (30/10, XONG, commit bc2a996)**. Phác họa duyệt: `sketches/chuong6/dua-xe.html`.
   - Chủ game chốt "theo đề xuất" + **xe giang hồ không hiện nút** (người chơi tự canh), giữ nút bấm nhanh ở cửa xe / dây phơi / bốc đầu / phanh gấp.
   - **Xe giang hồ áp sát** (sự cố `brawlers`, n = 1 / 2): lên ngang hông, đứa ngồi sau lóe đỏ giơ ống tuýp 0,8 giây rồi phang (trúng: xe chao, còn 80% tốc, không tính té).

@@ -21,6 +21,8 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [x] | `music.day` | Nhạc trong game (ban ngày) | Đang chơi, trời sáng | bài nhạc | 🔇 im |
 | [x] | `music.night` | Nhạc trong game (ban đêm) | Đang chơi, trời tối | bài nhạc | 🔇 im |
 | [ ] | `music.flee` | Nhạc bị rượt | Chương 4: bị giang hồ rượt ra khỏi hẻm, từ lúc vấp lon tới lúc về tới trọ. Nên: căng thẳng, dồn dập 150–170 bpm, lặp liền, 1–2 phút, 96–128 kbps | bài nhạc | ↪ chưa gắn → tạm phát `music.chase` |
+| [ ] | `music.sneak` | Nhạc màn lẻn | Chương 6: lẻn qua bến Kho 7 lên tàu vào lầu chỉ huy (nhịp chậm, hồi hộp, nín thở). Chưa gắn file → vẫn nhạc ngày / đêm | nhạc lặp | — |
+| [ ] | `music.boss` | Nhạc đánh boss Tí Đô | Chương 6: từ cảnh phim Tí Đô chặn dưới bến tới lúc hạ được nó (dồn dập, nặng). Chưa gắn file → tạm phát nhạc dí cướp | nhạc lặp | — |
 | [ ] | `music.race` | Nhạc màn đua | Chương 6: màn đua thoát thân trên xe anh Đạt, từ lúc lên xe tới khi bay qua cầu cất. Nên: tốc độ cao, gay cấn 160–175 bpm, lặp liền, 2–3 phút, 96–128 kbps | bài nhạc | ↪ chưa gắn → tạm phát `music.chase` |
 | [ ] | `music.chase` | Nhạc dí cướp | Chương 3: từ cảnh cướp tới qua cầu (bước có "Nhạc riêng"). Nên: nhịp nhanh 140–160 bpm, lặp liền, 1–2 phút, 96–128 kbps | bài nhạc | 🔇 im (chưa gắn → nhạc ngày / đêm) |
 
@@ -169,6 +171,7 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [x] | `money.earn` | Nhận tiền | Bán xe, được hoàn tiền | tiếng ngắn | 🎧 có file |
 | [x] | `money.rentPaid` | Trả tiền nhà | Trả tiền nhà cho Cô Hai | tiếng ngắn | 🎧 có file |
 | [x] | `money.rentLate` | Trễ hạn tiền nhà | Quá 22:00 hạn trả mà chưa trả đủ | tiếng ngắn | 🔉 tổng hợp |
+| [ ] | `progress.chapter` | Bắt đầu chương | Tên chương hiện lên giữa màn hình (dùng chung mọi chương) | tiếng ngắn | 🔉 tổng hợp |
 | [x] | `progress.objective` | Xong mục tiêu | Một mục tiêu trong danh sách vừa xong | tiếng ngắn | 🎧 có file |
 | [x] | `progress.collapse` | Ngất / suy sụp | Kiệt sức phải nằm nghỉ | tiếng ngắn | 🎧 có file |
 | [x] | `progress.gameOver` | Thua | Bị đuổi khỏi phòng trọ / khóa tài khoản | tiếng ngắn | 🔉 tổng hợp |
