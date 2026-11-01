@@ -1,5 +1,6 @@
 // Màn hình toàn cảnh: màn hình chính (menu), tạm dừng, kết thúc. Chữ lấy từ kho chữ screen.* / menu.* / intro.* / settings.*
-// Màn hình chính: menu cột trái (Tiếp tục · Chơi mới · Hướng dẫn · Cài đặt), thành phố 3D chạy phía sau.
+// Màn hình chính: chọn chế độ trước (👤 Offline · 🌐 Online — chưa mở, bấm thì hiện bảng "sắp ra mắt"),
+// Offline → menu cột trái (Tiếp tục · Chơi mới · Hướng dẫn · Cài đặt), thành phố 3D chạy phía sau.
 // Chơi mới: (có bản lưu thì hỏi lại) → đặt tên + chọn nam/nữ → giới thiệu game 5 trang → vào game.
 // Hướng dẫn dùng lại đúng 5 trang giới thiệu.
 import { sound } from '../audio.js';
@@ -50,14 +51,17 @@ export class Screens {
   // settings + onSettings(s): cài đặt hiện tại, gọi lại mỗi lần đổi · onNew(profile) · onContinue()
   // view: mở thẳng vào 'new' (vd từ màn hình thua)
   title({ save, webgl2, settings, onNew, onContinue, onSettings, view = 'menu' }) {
-    this.t = { save, webgl2, settings: normSettings(settings), onNew, onContinue, onSettings, profile: { name: '', gender: 'm', sleeves: 'short', legs: 'shorts', shoes: 'black' }, page: 0, mode: 'intro' };
+    // side: cột trái đang là màn chọn chế độ ('home') hay menu chơi một mình ('offline') — mở game luôn ở màn chọn chế độ
+    this.t = { save, webgl2, settings: normSettings(settings), onNew, onContinue, onSettings, profile: { name: '', gender: 'm', sleeves: 'short', legs: 'shorts', shoes: 'black' }, page: 0, mode: 'intro', side: view === 'menu' ? 'home' : 'offline' };
     this.open = true;
     this.el.className = 'mm-mode';
-    this.showView(view === 'new' ? 'profile' : view);
+    this.showView(view === 'new' ? 'profile' : view === 'menu' ? 'home' : view);
   }
 
   showView(view) {
     const t = this.t;
+    if (view === 'home' || view === 'online') t.side = 'home';
+    else if (view === 'menu') t.side = 'offline';
     t.view = view;
     const btn = (act, label, cls = '') => `<button class="mm-btn${cls}" data-mm="${act}">${label}</button>`;
     const s = t.save;
@@ -67,18 +71,30 @@ export class Screens {
         <small>${s.rentPaid ? fmt('menu.continueRentPaid') : fmt('menu.continueRent', { rent: s.rent, due: s.dueDay, hour: ECONOMY.rentDueHour ?? 22 })}</small>
         <small>${fmt('menu.continueBike', { bike: esc(s.bike) })}</small></button>`
       : '';
+    // thẻ chọn chế độ: icon to + tên + dòng mô tả (Online có nhãn "sắp ra mắt")
+    const card = (act, icon, key, cls = '', soon = false) => `<button class="mm-card${cls}" data-mm="${act}"><span class="mm-card-ic">${icon}</span>
+      <span><b>${fmt(`menu.${key}`)}${soon ? ` <em class="mm-soon">${fmt('menu.soon')}</em>` : ''}</b><small>${fmt(`menu.${key}Sub`)}</small></span></button>`;
+    const items = t.side === 'home'
+      ? `${card('menu', '👤', 'offline', ' primary')}${card('online', '🌐', 'online', `${view === 'online' ? ' on' : ''} soon`, true)}${btn('settings', fmt('menu.settings'))}`
+      : `${cont}${btn('new', fmt('menu.new'), s ? '' : ' primary')}${btn('help', fmt('menu.help'))}${btn('controls', fmt('menu.controls'))}${btn('settings', fmt('menu.settings'))}${btn('home', fmt('menu.changeMode'), ' mm-back')}`;
     const menu = `<nav class="mm">
       <div class="logo">${fmt('screen.logo')}</div><div class="sub">${fmt('screen.sub')}</div>
-      ${cont}
-      ${btn('new', fmt('menu.new'), s ? '' : ' primary')}${btn('help', fmt('menu.help'))}${btn('controls', fmt('menu.controls'))}${btn('settings', fmt('menu.settings'))}
+      ${items}
       ${t.webgl2 ? '' : `<div class="warn">${fmt('screen.noWebgl')}</div>`}
       <div class="credit">${fmt('screen.credit')}</div></nav>
       <button class="mm-sound" data-sound="1" title="${esc(fmt('menu.soundToggle'))}">${t.settings.muted ? '🔇' : '🔊'}</button>`;
-    const panel = view === 'confirm' ? this.confirmHtml() : view === 'profile' ? this.profileHtml() : view === 'intro' ? this.introHtml() : view === 'settings' ? settingsHtml(t.settings)
+    const panel = view === 'online' ? this.onlineHtml() : view === 'confirm' ? this.confirmHtml() : view === 'profile' ? this.profileHtml() : view === 'intro' ? this.introHtml() : view === 'settings' ? settingsHtml(t.settings)
       : view === 'controls' ? `${controlsHtml()}<div class="row"><button class="btn big" data-mm="menu">${fmt('menu.prev')}</button></div>` : '';
     this.el.innerHTML = `${menu}<div class="mm-stage">${panel ? `<div class="mm-panel${view === 'profile' ? ' wide' : ''}">${panel}</div>` : ''}</div>`;
     this.el.classList.toggle('mm-sub', !!panel); // màn hình hẹp: đang mở bảng phụ thì ẩn menu
     this.bindTitle();
+  }
+
+  // Chơi online: chưa mở — giới thiệu ngắn + nút về chơi Offline
+  onlineHtml() {
+    return `<div class="mm-ic">🌐</div><h2>${fmt('menu.onlineTitle')}</h2><p class="story">${fmt('menu.onlineText')}</p>
+      <ul class="mm-list">${list('menu.onlineList').map((x) => `<li>${x}</li>`).join('')}</ul>
+      <div class="row"><button class="btn big primary" data-mm="menu">${fmt('menu.onlineBack')}</button></div>`;
   }
 
   // Có bản lưu → hỏi lại trước khi chơi mới (bản lưu sẽ bị ghi đè)
@@ -184,7 +200,8 @@ export class Screens {
       if (act === 'next') { sound('ui.next'); t.page = Math.min(INTRO.length - 1, t.page + 1); return this.showView('intro'); }
       if (act === 'prev') { sound('ui.next'); t.page = Math.max(0, t.page - 1); return this.showView('intro'); }
       if (act === 'play') return t.onNew({ ...t.profile });
-      this.showView(act); // menu · confirm · profile · settings
+      if (act === 'back') return this.showView(t.side === 'home' ? 'home' : 'menu'); // đóng bảng phụ → về cột trái đang dùng
+      this.showView(act); // home · online · menu · confirm · profile · settings
     };
     el.querySelectorAll('[data-mm]').forEach((b) => b.addEventListener('click', () => go(b.dataset.mm)));
     // nút loa góc màn hình chính: bật / tắt âm thanh nhanh (lưu vào cài đặt)
@@ -213,13 +230,15 @@ export class Screens {
     // phím: ← → chuyển trang · Enter tiếp · Esc quay lại menu
     this.keyHandler = (e) => {
       const typing = e.target instanceof HTMLInputElement;
-      if (e.key === 'Escape') { e.preventDefault(); return t.view !== 'menu' && go(t.view === 'profile' && t.save ? 'confirm' : 'menu'); }
+      // Esc: bảng phụ → về cột trái · menu Offline → về màn chọn chế độ
+      if (e.key === 'Escape') { e.preventDefault(); return t.view === 'menu' ? go('home') : t.view !== 'home' && go(t.view === 'profile' && t.save ? 'confirm' : 'back'); }
       if (t.view === 'intro') {
         if (e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); go(t.page === INTRO.length - 1 ? (t.mode === 'intro' ? 'play' : 'menu') : 'next'); }
         else if (e.key === 'ArrowLeft') { e.preventDefault(); if (t.page > 0) go('prev'); }
       } else if (t.view === 'profile' && e.key === 'Enter') { e.preventDefault(); go('toIntro'); }
       else if (!typing && t.view === 'profile' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); this.stepHair(e.key === 'ArrowLeft' ? -1 : 1); }
       else if (!typing && t.view === 'menu' && e.key === 'Enter' && t.save) go('continue');
+      else if (t.view === 'home' && e.key === 'Enter') { e.preventDefault(); go('menu'); } // Enter ở màn chọn chế độ = Offline
     };
   }
 

@@ -2898,5 +2898,19 @@
   "toast.waitedAppt": "⏳ Đã tới {time} — đi thôi!",
   "time.hm": "{h} giờ {m} phút",
   "time.h": "{h} giờ",
-  "time.m": "{m} phút"
+  "time.m": "{m} phút",
+  "menu.offline": "Offline",
+  "menu.offlineSub": "Chơi một mình, có cốt truyện",
+  "menu.online": "Online",
+  "menu.onlineSub": "Thành phố chung với người khác",
+  "menu.soon": "SẮP RA MẮT",
+  "menu.changeMode": "↩️ Đổi chế độ chơi",
+  "menu.onlineTitle": "Chơi online — sắp ra mắt",
+  "menu.onlineText": "Cùng chạy đơn với shipper khác trong một thành phố chung.",
+  "menu.onlineList": [
+    "Chung giờ, thời tiết, đường ngập, đèn giao thông",
+    "Thấy xe người chơi khác trên đường",
+    "Tiền, túi đồ, xe, sao: của riêng mỗi người"
+  ],
+  "menu.onlineBack": "👤 Về chơi Offline"
 }

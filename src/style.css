@@ -461,6 +461,18 @@ b.plus { color: #58d68d; }
 .mm-btn.primary, .mm-cont { border-color: var(--accent); background: rgba(0, 177, 79, 0.18); }
 .mm-cont b { display: block; font-size: 18px; margin-bottom: 4px; }
 .mm-cont small { display: block; font: 400 12.5px var(--font); color: #d5dbe3; line-height: 1.5; }
+/* màn chọn chế độ: thẻ lớn 👤 Offline · 🌐 Online (sắp ra mắt) */
+.mm-card { display: flex; gap: 14px; align-items: center; text-align: left; background: rgba(27, 34, 45, 0.88); color: #fff; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 16px; padding: 14px 16px; cursor: pointer; font: inherit; transition: background 0.15s, transform 0.08s; }
+.mm-card:hover { background: #2b3546; border-color: var(--accent); transform: translateX(3px); }
+.mm-card.primary { border-color: var(--accent); background: rgba(0, 177, 79, 0.18); }
+.mm-card.soon { opacity: 0.6; }
+.mm-card.soon:hover, .mm-card.soon.on { opacity: 1; border-color: #f39c12; }
+.mm-card-ic { font-size: 32px; flex: none; }
+.mm-card b { display: block; font: 700 17px var(--font); }
+.mm-card small { display: block; font: 400 12.5px var(--font); color: #c9d1dc; margin-top: 3px; }
+.mm-soon { font: 800 10px var(--font); font-style: normal; background: #f39c12; color: #111; border-radius: 6px; padding: 1px 6px; margin-left: 4px; vertical-align: 2px; white-space: nowrap; }
+.mm-back { margin-top: 6px; font-size: 14px; font-weight: 600; color: #c9d1dc; background: transparent; }
+.mm-list { margin: 8px 0 16px; padding-left: 20px; color: #cfd6e2; font-size: 14px; line-height: 1.7; }
 .mm-stage { flex: 1; display: grid; place-items: center; padding: 24px; min-width: 0; }
 .mm-panel { width: min(560px, 100%); max-height: calc(100vh - 48px); overflow-y: auto; background: rgba(18, 23, 33, 0.94); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 20px; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6); padding: 22px 26px; animation: tin 0.2s ease-out; }
 .mm-panel h2 { margin: 0 0 10px; font-size: 22px; }

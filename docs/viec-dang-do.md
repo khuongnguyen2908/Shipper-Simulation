@@ -400,6 +400,9 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
     · 1 góc nhìn 1 trên xe · 2 xe vọt dọc bến, bán tải + 2 xe máy bật đèn lao theo (không vượt lên) · 3 lướt sát bánh + vệt nhòe — đổi bản đồ giữa khung · 4 góc
     nhìn 1 trên đường đua · 5 camera lùi ra góc nhìn 3, cầm lái luôn, xe không dừng. Số giây sửa ở ?editor (races.escape.intro). Mở game giữa màn / cheat: bỏ qua.
     Hướng phóng: dọc bến về phía đông (phía tây ranh bản đồ chỉ còn 14 m). Không có câu "Đuổi theo!!" của Tí Sún (không có người đó ở bến) — chỉ tiếng rồ máy.
+- **Màn hình chính 2 chế độ (01/11, XONG, chưa commit)** — chủ game chọn Cách B (phác thảo sketches/menu-online.png): mở game là màn chọn chế độ
+  (thẻ 👤 Offline = chơi một mình như cũ · thẻ 🌐 Online "SẮP RA MẮT" → bảng giới thiệu + nút Về chơi Offline · ⚙️ Cài đặt). Menu Offline thêm "↩️ Đổi chế độ chơi".
+  Enter ở màn chọn = Offline · Esc lùi từng bước. Code: ui/screens.js (t.side home/offline, onlineHtml), chữ menu.offline* / menu.online* / menu.soon.
 - **Theo đề xuất sau QA (01/11, XONG, commit ae4761c)**
   - (1) Tiền nhà lúc đang có chương: tới hạn mà chưa trả → Dì Hai cho khất từng ngày (rentState.ext), không phạt, không tính trễ; kỳ sau lùi theo (ít nhất 1 ngày sau hạn cũ).
     GameState.tickRent tự xét inChapter(story) (mở bản lưu quá hạn giữa chương cũng không bị đuổi). Toast toast.rentDeferred. Có bộ thử.
