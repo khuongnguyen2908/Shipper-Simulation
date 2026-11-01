@@ -8,7 +8,7 @@ import { ECONOMY, DIST, colorsToNumbers } from '../data/balance.js';
 import { GOODS } from '../data/goods.js';
 import { APP } from '../data/apps.js';
 import { APP_DEFS } from '../data/phoneApps.js';
-import { fmtClock } from '../sim/clock.js';
+import { fmtClock, minutesUntil } from '../sim/clock.js';
 import { routeDist, nodePos, navRoute, neighbors, blockAt } from '../sim/cityLayout.js';
 import { ambushPanel } from '../ui/ambush.js';
 import { roundDef, roundNb } from '../sim/ambush.js';
@@ -48,6 +48,11 @@ export class StoryPart {
     // bước đang chờ hướng dẫn / cuốc cốt truyện, hoặc đang trong chương (đã hiện tên chương): app không phát đơn thường
     const inCh = !!s?.ch && inChapter(s);
     this.om.hold = (!!st?.hold || inCh) && !st?.orders; // bước chờ tới giờ có "cho chạy đơn" → app phát đơn thường như bình thường
+    // bước bày trận mà bảng chưa mở (lúc vào bước đang có hộp thoại khác → storyAmbushOpen bỏ qua) → mở lại, không thì kẹt bước mãi
+    if (s?.fired && st?.until?.type === 'ambushed' && !s.ev?.ambushed && !this.modal.open && !this.cine) {
+      const am = (st.on || []).find((a) => a.do === 'ambush');
+      if (am) this.storyAmbushOpen(am);
+    }
     // xong chương (đã sang chương khác / hết truyện) → có đơn lại. Trễ hạn quay lùi trong cùng chương thì không báo
     if (this.inChapterOf && !inCh && this.inChapterOf !== (s?.ch || null) && this.gs.brand) this.hud.toast(fmt('toast.storyOrdersBack'), 'good', 5000);
     this.inChapterOf = inCh ? s.ch : null;
@@ -366,6 +371,9 @@ export class StoryPart {
     const s1 = this.gs.story, ch1 = s1?.ch && chapterOf(s1);
     for (const st of ch1 ? ch1.steps.slice(0, Math.max(0, s1.step + (s1.fired ? 1 : 0))) : []) {
       for (const a of st.on || []) {
+        // đạo cụ đặt ở bước đã qua (thùng rác để núp, giá vẽ, xe dựng…) → dựng lại; màn đen sau đó có dọn thì dọn tiếp như lúc chơi liền mạch
+        // (trước đây mở lại game giữa chương là mất hết đạo cụ → vd không còn thùng rác để núp, kẹt bước)
+        if (a.do === 'prop') this.storyPropSpawn(a);
         if (a.do === 'dismount' && this.storyActors?.[a.who]) this.storyActorDismount(a.who);
         if (a.do === 'helmetOff' && this.storyActors?.[a.who]) this.storyHelmetOff(a.who, true);
         if (a.do === 'helmetOn' && this.storyActors?.[a.who]) this.storyHelmetOn(a.who, true);
@@ -374,6 +382,16 @@ export class StoryPart {
         if (a.do === 'traffic') this.storyTraffic(a); // vùng vắng xe đang giữ
       }
     }
+    // người lạ đang chờ lên xe mình (việc "board" ở bước đã qua / bước đang chạy, chưa "alight") → lại đi theo, tới sát xe thì leo lên
+    // (trước đây mở lại game giữa bước "chở … tới …" thì người đó đứng yên mãi → kẹt bước)
+    const boarding = new Map();
+    for (const st of ch1 ? ch1.steps.slice(0, Math.max(0, s1.step + (s1.fired ? 1 : 0))) : []) {
+      for (const a of st.on || []) {
+        if (a.do === 'board') boarding.set(a.who, !!a.run);
+        if (['alight', 'rideOff', 'remove', 'leave', 'goto', 'actor'].includes(a.do)) boarding.delete(a.who); // xuống xe / đi mất / dựng lại người mới
+      }
+    }
+    for (const [who, run] of boarding) if (this.storyActors?.[who] && !this.storyActors[who].seated) this.storyActorBoard(who, run);
     // mở lại game giữa cảnh phim → bỏ qua cảnh phim đó
     const s0 = this.gs.story, st0 = s0?.ch ? stepOf(s0) : null;
     if (s0?.fired && (st0?.on || []).some((a) => a.do === 'cine')) storyEvent(s0, 'cineDone');
@@ -391,6 +409,12 @@ export class StoryPart {
     // … lúc đang bày trận → mở lại bản đồ bày chốt
     const am = s?.fired && !s.ev?.ambushed && (st?.on || []).find((a) => a.do === 'ambush');
     if (am) this.storyAmbushOpen(am);
+    // … lúc đang vật ngã (anh Đạt ghì tên cướp) → làm lại màn vật ngã (trước đây không chạy lại → kẹt bước)
+    const tk = s?.fired && !s.ev?.tackled && (st?.on || []).find((a) => a.do === 'tackle');
+    if (tk) this.storyTackleStart(tk);
+    // … lúc đang cởi trói (bấm E liên tục) → làm lại từ đầu (zoneApply đã trói lại đúng người)
+    const ut = s?.fired && !s.ev?.untied && (st?.on || []).find((a) => a.do === 'untie');
+    if (ut) this.storyUntie(ut);
     this.kitCardShow?.('off');
     if (s?.fired && !s.ev?.kitCard && (st?.on || []).some((a) => a.do === 'kit' && a.card)) this.kitCardShow('big'); // đang chờ đọc thẻ túi đồ
     // … lúc đang đánh nhau / lẻn (trận đã bị bỏ ở trên) → dựng lại trận từ đầu · đang đua → đua lại từ đầu (không thì bước kẹt mãi)
@@ -1202,7 +1226,9 @@ export class StoryPart {
     if (a.off) {
       if (!gs.returnVehicle()) return;
       b.setSpec(gs.vehicleSpec);
-      this.placeAtHomeBike();
+      const towLot = gs.towed && this.layout.placeById[gs.towed.placeId];
+      if (towLot) this.towBikeTo(towLot, gs.towed.fee); // xe mình bị cẩu từ trước lúc mượn: vẫn nằm ở bãi giữ xe
+      else this.placeAtHomeBike();
       sound('place.takeVehicle');
       this.hud.toast(fmt('toast.borrowBack', { name: gs.vehicleSpec.name }), 'info', 6000);
       return;
@@ -1490,6 +1516,16 @@ export class StoryPart {
     setTimeout(() => el.remove(), 5200);
   }
   // Mục tiêu trên màn hình của bước đang chạy (mũi tên tới target). Bước "bấm 📍 Chỉ đường": chưa bấm thì chưa có mũi tên
+  // Bước cốt truyện đang chờ tới giờ (until "clock") mà chưa tới → { at: giờ hẹn (phút), min: còn bao nhiêu phút } — dòng "⏳ Ngồi chờ" (phím Z)
+  // null = không chờ được lúc này (đang chở đơn / có đơn mời, đang chạy xe, đánh nhau, đua, cảnh phim, bám lén, bị rượt, trên tàu)
+  storyWaitInfo() {
+    const s = this.gs.story, st = s?.ch && s.fired ? stepOf(s) : null, u = st?.until;
+    if (u?.type !== 'clock' || this.state !== 'play') return null;
+    if (this.om.order || this.om.state === S.OFFERED || this.fight || this.race || this.cine || this.tackle || this.sneak || this.pursue || this.zone || this.storyLose) return null;
+    if (this.mode === 'bike' && Math.abs(this.bike.speed) > 0.5) return null;
+    const min = minutesUntil(this.clockMin, u.from ?? 0);
+    return min > 0 && min < 1440 ? { at: this.clockMin + min, min } : null;
+  }
   storyGoal() {
     const st = stepOf(this.gs.story);
     if (!st?.goal || !this.gs.story.fired) return null; // tin nhắn của bước chưa tới → chưa hiện mục tiêu

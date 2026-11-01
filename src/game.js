@@ -707,6 +707,7 @@ export class Game {
         if (performance.now() - (this.kitCardAt || 0) < 1000) { inp.pressed.delete('KeyE'); inp.pressed.delete('KeyI'); } else { this.kitCardClose(); inp.pressed.delete('KeyE'); inp.pressed.delete('KeyI'); } }
       else if (inp.was('KeyI') && this.fpvOn && this.gs.story?.kit) this.kitCardShow(this.kitCard ? 'off' : 'mini');
       else if (inp.was('KeyI')) this.toggleBag();
+      if (inp.was('KeyZ')) act.waitForAppointment(this); // chờ tới giờ hẹn (bước cốt truyện chờ giờ)
       if (inp.was('KeyY')) act.acceptOffer(this);
       if (inp.was('KeyN')) act.declineOffer(this);
       if (inp.was('KeyH') && this.mode === 'bike') {
@@ -976,6 +977,8 @@ export class Game {
       sound('money.rentLate');
       this.hud.toast(fmt('toast.rentLate', { fine: fmtK(e.fine), rent: fmtK(e.rent), day: e.dueDay }), 'bad', 9000);
       this.addChat(fmt('npc.home.name'), fmt('chat.rentLate', { fine: fmtK(e.fine), rent: fmtK(e.rent), day: e.dueDay }));
+    } else if (e.type === 'deferred') {
+      this.hud.toast(fmt('toast.rentDeferred', { rent: fmtK(e.rent), day: e.dueDay, hour: ECONOMY.rentDueHour ?? 22 }), 'info', 8000);
     } else if (e.type === 'newPeriod') {
       this.hud.toast(fmt('toast.rentNewPeriod', { rent: fmtK(e.rent), day: e.dueDay }), 'info', 6000);
     }

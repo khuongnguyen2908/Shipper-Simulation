@@ -12,7 +12,7 @@ import { RatingBook } from './economy.js';
 import { fmt } from '../content/index.js';
 import { hairFor, HAIR_COLORS, PLAYER_SKINS } from './people.js';
 import { PARK_SLOTS } from './garage.js';
-import { freshStory, storyEvent, storyPick, chapterNo, resumeNewChapters } from './story.js';
+import { freshStory, storyEvent, storyPick, chapterNo, resumeNewChapters, inChapter } from './story.js';
 
 const MSG_KEEP = 60; // mỗi cuộc trò chuyện giữ tối đa bấy nhiêu tin (cũ hơn thì bỏ)
 
@@ -154,7 +154,7 @@ export class GameState {
     return this.rentState.paid;
   }
   get rentDueDay() {
-    return dueDayOf(this.rentState.period);
+    return dueDayOf(this.rentState.period) + (this.rentState.ext || 0); // ext: số ngày Dì Hai cho khất (đang bận cốt truyện)
   }
   rentDueAt() {
     return atHour(this.rentDueDay, ECONOMY.rentDueHour ?? 22);
@@ -366,7 +366,9 @@ export class GameState {
   // Lưu ở story.borrow (theo bản lưu). fuelPct: xăng lúc nhận (xe mượn chưa từng có số liệu riêng)
   borrowVehicle(id, fuelPct = 60) {
     if (!VEHICLES[id] || this.story?.borrow || !this.story) return false;
-    this.story.borrow = { id, own: this.vehicle };
+    // xe mình đang bị cẩu (towed): cất theo xe mình — xe mượn không bị tính là đang ở đồn (trước đây mở lại game là xe mượn bị dời về đồn, đòi tiền chuộc)
+    this.story.borrow = { id, own: this.vehicle, ...(this.towed ? { towed: this.towed } : {}) };
+    this.towed = null;
     if (!this.owned.vehicles.includes(id)) this.owned.vehicles.push(id);
     const v = this.vs(id);
     if (!v.fuel) v.fuel = ((VEHICLES[id].tank || 0) * fuelPct) / 100;
@@ -380,6 +382,7 @@ export class GameState {
     this.owned.vehicles = this.owned.vehicles.filter((v) => v !== b.id);
     delete this.vstate[b.id];
     this.vehicle = this.owned.vehicles.includes(b.own) ? b.own : this.owned.vehicles[0] || START_VEHICLE;
+    this.towed = b.towed || null; // xe mình vẫn đang ở đồn (bị cẩu trước lúc mượn) → vẫn phải đi chuộc
     delete this.story.borrow;
     return true;
   }
@@ -866,9 +869,18 @@ export class GameState {
     const out = [];
     while (!this.outcome && now >= this.rentDueAt()) {
       const r = this.rentState;
+      // kỳ trước được khất qua quá hạn kỳ sau → hạn kỳ sau lùi theo, ít nhất 1 ngày sau hạn cũ (không bị trễ oan)
+      const carry = (p) => Math.max(0, this.rentDueDay + 1 - dueDayOf(p));
       if (r.paid) {
-        this.rentState = newRent(r.period + 1, 0, 0);
+        this.rentState = { ...newRent(r.period + 1, 0, 0), ext: carry(r.period + 1) };
         out.push({ type: 'newPeriod', rent: this.rent, dueDay: this.rentDueDay });
+        continue;
+      }
+      // đang có chương cốt truyện (không có đơn thường để kiếm tiền): Dì Hai cho khất thêm 1 ngày — không phạt, không tính trễ
+      // (trước đây chơi theo truyện liền mạch có thể bị đuổi vì không kịp chạy đơn)
+      if (this.story?.ch && inChapter(this.story)) {
+        this.rentState = { ...r, ext: (r.ext || 0) + 1 };
+        out.push({ type: 'deferred', rent: this.rent, dueDay: this.rentDueDay });
         continue;
       }
       const late = r.late + 1;
@@ -879,7 +891,7 @@ export class GameState {
       }
       const owed = r.amount + r.debt;
       const debt = Math.round(owed * (1 + (ECONOMY.lateFeePct ?? 0)));
-      this.rentState = newRent(r.period + 1, debt, late);
+      this.rentState = { ...newRent(r.period + 1, debt, late), ext: carry(r.period + 1) };
       out.push({ type: 'late', owed, fine: debt - owed, rent: this.rent, dueDay: this.rentDueDay, late });
     }
     this.events.push(...out);

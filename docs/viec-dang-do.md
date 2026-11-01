@@ -400,6 +400,31 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
     · 1 góc nhìn 1 trên xe · 2 xe vọt dọc bến, bán tải + 2 xe máy bật đèn lao theo (không vượt lên) · 3 lướt sát bánh + vệt nhòe — đổi bản đồ giữa khung · 4 góc
     nhìn 1 trên đường đua · 5 camera lùi ra góc nhìn 3, cầm lái luôn, xe không dừng. Số giây sửa ở ?editor (races.escape.intro). Mở game giữa màn / cheat: bỏ qua.
     Hướng phóng: dọc bến về phía đông (phía tây ranh bản đồ chỉ còn 14 m). Không có câu "Đuổi theo!!" của Tí Sún (không có người đó ở bến) — chỉ tiếng rồ máy.
+- **Theo đề xuất sau QA (01/11, XONG, đã build, chưa commit)**
+  - (1) Tiền nhà lúc đang có chương: tới hạn mà chưa trả → Dì Hai cho khất từng ngày (rentState.ext), không phạt, không tính trễ; kỳ sau lùi theo (ít nhất 1 ngày sau hạn cũ).
+    GameState.tickRent tự xét inChapter(story) (mở bản lưu quá hạn giữa chương cũng không bị đuổi). Toast toast.rentDeferred. Có bộ thử.
+  - (2) Chương 6: trận thật (không phải màn lẻn) vào với máu < 60 → anh Đạt dúi bánh mì, máu lên 60 (PLAYER.startHp) · thua chơi lại đầy máu (retryHp 100) · trận boong còn 4 tên (bỏ g16).
+  - Bảng đo kinh tế có thêm kiểu chơi "story" (tests/economy-sim.js): bot chơi cốt truyện c1 → c6 ngay khi được, dùng đúng bộ chạy sim/story.js
+    (giờ hẹn, qua ngày, đếm đơn, hạn giờ, tiền công, đơn cốt truyện thật), chạy xe thật tới địa điểm mỗi bước + STORY_PACE phút (ước theo bot QA).
+    Kết quả 100 lượt × 12 ngày: qua ngày 12 còn 69% (normal 46%) · 8,7 đơn/ngày · tiền cuối 1774k · KHÔNG trễ tiền nhà, không cần khất lần nào ·
+    tiền công truyện ~250k · xong c6 khoảng ngày 11,4. Thua đều do ĐIỂM ĐÁNH GIÁ < 4,0 (như các kiểu bot khác) — CẦN CHỦ GAME QUYẾT (careful/normal chỉ còn ~50%).
+  - Điểm đánh giá (chủ game: "theo đề xuất"): nguyên nhân = hạn giao tính từ trước khi có đèn giao thông → chạy đúng luật chờ đèn ~12 phút/đơn, 20–30% đơn trễ (−1 sao).
+    Sửa: thời hạn đơn cộng chờ đèn trung bình (sim/lights.js avgLightWait = 3,6 phút) × số ngã tư có đèn trên đường (lightsOnRoute, bỏ rẽ phải) × order.lightAllow (mặc định 1, ô ở ⚖️ Cân bằng).
+    Đo nhanh 30 lượt × 9 ngày: careful 53% → 97% · normal 63% → 97% · story 63% → 90% · rush giữ 93% (vượt đèn nên không được lợi).
+    Bảng đầy đủ 100 lượt × 12 ngày (qua ngày 12): careful 46 → 97% · normal 46 → 85% · picky 84 → 95% · story 69 → 95% (92% xong c6, ngày 11,5) · rush 85% giữ nguyên · greedy 10 → 40%.
+  - (3) Nút "Chờ tới giờ hẹn" (đã duyệt phác thảo sketches/cho-gio-hen.png): bước until clock chưa tới giờ → bảng mục tiêu có dòng "⏳ Ngồi chờ tới …" + dòng phím "Z chờ giờ hẹn";
+    Z → hộp hỏi lại → màn đen ngắn, tua giờ (advance idle: no/khát giảm, không hồi sức như ngủ). Ẩn khi chở đơn / có đơn mời / chạy xe / đánh nhau / đua / cảnh phim / bám lén / trên tàu.
+    Code: game/story.js storyWaitInfo · interactions/road.js waitForAppointment · hud #objWait #kWait. Bước "qua ngày mới" vẫn ngủ ở nhà.
+- **QA cả game chương 1 → 6 (01/11, chưa commit)** — bot QA sketches/qabot.js (thao tác như người chơi; đường xa thì dịch chuyển, có ghi quãng đường)
+  - Lỗi đã sửa: (1) mở bản lưu giữa bước "chở người lạ tới …" → người đó đứng yên, kẹt (dựng lại lệnh lên xe) · (2) mở bản lưu giữa lúc vật ngã
+    / cởi trói → không chạy lại, kẹt · (3) mở bản lưu giữa chương → mất hết đạo cụ (thùng rác núp, giá vẽ…), kẹt (dựng lại đạo cụ các bước đã qua) ·
+    (4) vật ngã lúc tên cướp còn trên xe → lỗi JS sập game (cho xuống xe trước, hipBend bỏ qua khi không phải người) · (5) bước bày trận vào lúc đang
+    có hộp thoại khác → bảng không mở, kẹt (mở lại khi rảnh) · (6) xe mình bị cẩu rồi mượn xe anh Đạt → mở lại game xe mượn bị dời về đồn, đòi tiền,
+    đang trong chương không có đơn → kẹt (cất trạng thái bị cẩu theo xe mình) + xe mượn không bị phạt / cẩu + đang trong chương không cẩu xe ·
+    (7) màn thua trận đánh / đua chỉ bấm chuột được → E / Enter như màn bị rượt · (8) mở điện thoại che chữ bảng mục tiêu → bảng thu gọn trên đỉnh điện thoại.
+  - CẦN CHỦ GAME QUYẾT: (a) kinh tế — chơi cốt truyện liền mạch tới ngày 6 thì tiền nhà 400k mà chỉ có ~360–390k (đang trong chương không có đơn) ·
+    (b) chương 6 khó vọt sau đợt 16–18 — máu giữ qua trận + 5 lính: bot trung bình chết 6 lần trận boong (Tí Sún), vào trận Tí Đô còn 12 máu, chết liên tục ·
+    (c) camera bị tán cây che (nhỏ).
 - **Đợt 18 — đồ chạm trúng là dính, bom cục pin, thêm lính (01/11, XONG, commit 65645b6)**
   - Món có tác dụng (trùm / lóa / cay / ngã / vũng trơn / bom — sim/fight.js hasFx) chạm trúng địch là dính đủ thời gian: không đỡ, không kháng (bỏ luật kháng 6 giây
     của đợt 17). Ném lệch vẫn trượt (KHÔNG bay bám theo — chủ game nói rõ). Chai nước (chỉ sát thương) vẫn bị đỡ. Choáng của nón / gạch không tính là "tác dụng".

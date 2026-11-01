@@ -9,7 +9,7 @@ import storyData from '../data/story.json' with { type: 'json' };
 // Số mặc định (dữ liệu thiếu ô nào thì lấy ô đó ở đây)
 export const WEAPON_DEFAULT = { dmg: 4, cd: 0.9, reach: 1.4, dur: 0, stun: 0, block: 3 };
 export const FOE_DEFAULT = { hp: 30, dmg: 8, windup: 0.6, cd: 1.4, speed: 3.6, reach: 1.6 };
-export const PLAYER = { aggro: 4, backpedal: 0.6, dmgCap: 2, retryHp: 50, eatSlow: 0.35, hp: 100, blockCut: 0.8, pipRegen: 3, dodgeCd: 0.8, dodgeTime: 0.28, dodgeDist: 3, backMul: 2, sight: 11, fov: 1.2, hear: 1.0, hearRun: 4, level: 2.2 }; // hear: đi bộ sát sau lưng mới bị nghe (đập lén được) · chạy thì nghe xa
+export const PLAYER = { aggro: 4, backpedal: 0.6, dmgCap: 2, retryHp: 100, startHp: 60, eatSlow: 0.35, hp: 100, blockCut: 0.8, pipRegen: 3, dodgeCd: 0.8, dodgeTime: 0.28, dodgeDist: 3, backMul: 2, sight: 11, fov: 1.2, hear: 1.0, hearRun: 4, level: 2.2 }; // hear: đi bộ sát sau lưng mới bị nghe (đập lén được) · chạy thì nghe xa
 // level: chênh cao quá … m thì không thấy (lính dưới bến không thấy lên boong; lính trên boong không thấy nửa dưới cầu thang mạn)
 // Tầm nhìn của 1 tên (màn lẻn: vùng sáng vẽ ra đúng bằng này): xa sight m (dữ liệu ghi đè được), nửa góc nhìn (radian)
 export const sightOf = (foe) => ({ r: foe.sight ?? PLAYER.sight, half: PLAYER.fov / 2 + 0.35 });

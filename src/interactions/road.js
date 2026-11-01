@@ -217,6 +217,37 @@ function sleepChoices(g) {
   return list;
 }
 
+// Phím Z: chờ tới giờ hẹn của cốt truyện — hỏi lại rồi tua giờ (như ngủ, nhưng không hồi sức như ngủ; no / khát vẫn giảm)
+export function waitForAppointment(g) {
+  const w = g.storyWaitInfo();
+  if (!w) return;
+  const time = fmtClock(w.at), work = !!stepOf(g.gs.story)?.orders;
+  g.modal.show({
+    title: fmt('dlg.waitAppt', { time }),
+    text: fmt('dlg.waitApptText', { left: fmtLeft(w.min) }),
+    choices: [
+      {
+        label: fmt('dlg.waitApptGo', { time }),
+        hint: fmt('dlg.waitApptGoHint'),
+        primary: true,
+        onSelect: () => {
+          const now = g.storyWaitInfo(); // tính lại lúc bấm
+          if (!now) return;
+          sound('place.sleep');
+          g.storyFade({ t: 0.6, skip: now.min }); // màn đen ngắn, tối hẳn thì tua giờ (game/scene.js storyFadeClean)
+          setTimeout(() => g.hud.toast(fmt('toast.waitedAppt', { time: fmtClock(g.clockMin) }), 'good', 5000), 900);
+        },
+      },
+      { label: fmt(work ? 'dlg.waitApptWork' : 'dlg.waitApptNo'), hint: work ? fmt('dlg.waitApptWorkHint') : '' },
+    ],
+  });
+}
+// "2 giờ 10 phút" / "45 phút"
+export function fmtLeft(min) {
+  const t = Math.max(1, Math.round(min)), h = Math.floor(t / 60), m = t % 60;
+  return h ? fmt(m ? 'time.hm' : 'time.h', { h, m }) : fmt('time.m', { m });
+}
+
 // Mở đầu: lần đầu tới nhà trọ gặp Cô Hai — khuyên đi chạy xe công nghệ, cho chiếc xe đạp cũ (xuất hiện trong hầm xe)
 function landlordIntro(g, pl) {
   const n = npc(g, pl.id);

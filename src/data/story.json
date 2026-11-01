@@ -9702,18 +9702,6 @@
           "heading": 180,
           "join": 8,
           "drop": "ice"
-        },
-        {
-          "who": "g16",
-          "foe": "thug",
-          "look": "jetjet",
-          "at": [
-            -9.7,
-            4.4
-          ],
-          "heading": 0,
-          "join": 14,
-          "drop": "milk"
         }
       ],
       "loot": [

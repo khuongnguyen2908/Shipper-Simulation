@@ -101,6 +101,7 @@ export const BALANCE_GROUPS = [
       ['order.dropDist', 'Quán → nhà khách (m trong game)', { pair: true, min: 10, max: 2000, step: 10, hint: 'Hiển thị × 10 ra mét thật. Mặc định 60 → 200.' }],
       ['order.planSpeed', 'Thời hạn: app tính tốc độ (m/phút)', { min: 1, max: 30, step: 0.5, hint: 'Lớn hơn = app tính hạn gấp hơn = dễ trễ. Mặc định 6,5.' }],
       ['order.slack', 'Thời hạn: cộng thêm (phút)', { min: 0, max: 60, step: 1, hint: 'Phút dư cho mỗi đơn. Mặc định 6.' }],
+      ['order.lightAllow', 'Thời hạn: tính chờ đèn đỏ (× trung bình)', { min: 0, max: 3, step: 0.1, hint: 'Mỗi ngã tư có đèn trên đường được cộng thêm thời gian chờ đèn trung bình × số này (≈ 3,6 phút). 0 = không tính. Mặc định 1.' }],
       ['order.prepAllowance', 'Thời hạn: tính sẵn chờ quán (phút)', { min: 0, max: 60, step: 1, hint: 'Quán làm lâu hơn số này thì phần dư được cộng vào hạn. Mặc định 8.' }],
       ['economy.refuseBelow', 'Hàng còn dưới … % thì khách từ chối', { min: 0, max: 90, step: 1, hint: 'Khách từ chối = 1★, không có tiền. Khách xe ôm dưới mức này thì hoảng sợ. Mặc định 25.' }],
       ['economy.scaredFarePct', 'Khách xe ôm hoảng sợ chỉ trả (% cước)', pct('Mặc định 50%.')],

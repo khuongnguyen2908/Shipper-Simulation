@@ -22,7 +22,8 @@ import { lookOf } from '../data/looks.js';
 import { DeliveryItem } from './ItemPhysics.js';
 import { evaluateOrder } from './OrderCondition.js';
 import { computePayout, estimatePay, addTip } from './economy.js';
-import { routeDist, rideDoor, traitAt } from './cityLayout.js';
+import { routeDist, routeNodes, rideDoor, traitAt } from './cityLayout.js';
+import { lightMap, lightsOnRoute, avgLightWait } from './lights.js';
 import { isDark } from './clock.js';
 import { fmt } from '../content/index.js';
 import { isOpen, orderWeight, unlocked } from './placeRules.js';
@@ -75,6 +76,8 @@ export function scamHotspot(day, layout) {
   if (!ids.length) return null;
   return layout.placeById[ids[(Math.imul(day + 7, 2654435761) >>> 0) % ids.length]];
 }
+
+let LMAP = null; // bảng đèn giao thông (tính 1 lần)
 
 export class OrderManager {
   // isRaining(phút): để tính phụ phí mưa lúc có đơn (game / bot truyền vào; bỏ trống = không mưa)
@@ -553,7 +556,10 @@ export class OrderManager {
     if (pos) o.d1 = routeDist(pos, o.pickup.door);
     o.acceptedAt = now;
     const prep = o.kind === 'food' ? ORDER.prepAllowance : 2;
-    o.allowedMin = Math.round(((o.d1 + o.d2) / ORDER.planSpeed + prep + ORDER.slack) * o.deadlineMult);
+    // đèn giao thông: cộng thời gian chờ đèn trung bình cho mỗi ngã tư có đèn trên đường (chạy đúng luật vẫn kịp) — × order.lightAllow
+    const lm = (LMAP ||= lightMap()), lights = (pos ? lightsOnRoute(routeNodes(pos, o.pickup.door), lm) : 0) + lightsOnRoute(routeNodes(o.pickup.door, o.dropoff.door), lm);
+    const lightMin = lights * avgLightWait() * (ORDER.lightAllow ?? 1);
+    o.allowedMin = Math.round(((o.d1 + o.d2) / ORDER.planSpeed + prep + ORDER.slack + lightMin) * o.deadlineMult);
     this.order = o;
     this.gs.recordOffer(true);
     this.go(S.TO_PICKUP);

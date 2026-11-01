@@ -13,7 +13,7 @@ import { lightColor, ticketChance, turnOf } from '../sim/lights.js';
 import { fmtDist } from '../sim/nav.js';
 import { OrderManager, S, scamHotspot } from '../sim/OrderManager.js';
 import { depthAtPoint, floodBand, floodNum, floodCancelOk } from '../sim/flood.js';
-import { stepOf } from '../sim/story.js';
+import { stepOf, inChapter } from '../sim/story.js';
 import { makePerson } from '../world/models.js';
 import * as act from '../interactions.js';
 import { sound, hasMusic } from '../audio.js';
@@ -82,12 +82,15 @@ export class RoadRulesPart {
   noFines() {
     const s = this.gs?.story, st = s?.ch && s.fired ? stepOf(s) : null;
     if (st?.noFines || this.zone) return true;
+    if (s?.borrow) return true; // xe mượn của nhân vật cốt truyện (vd mô tô anh Đạt): không phạt, không cẩu
     return (ECONOMY.pedalNoFines ?? 1) > 0 && this.gs?.power === 'pedal';
   }
 
   onParkingEvent(ev) {
     const { gs } = this;
     if ((ev === 'ticket' || ev === 'tow') && this.noFines()) return; // xe đạp: không dán phạt, không cẩu
+    // đang trong chương (không có đơn thường để kiếm tiền chuộc xe): không cẩu xe — chỉ dán phạt. Trước đây xe bị cẩu mà hết tiền → kẹt cốt truyện
+    if (ev === 'tow' && this.gs?.story?.ch && inChapter(this.gs.story)) return;
     const P = PARKING;
     let msg = '';
     if (ev === 'ticket') {

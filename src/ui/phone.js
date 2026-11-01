@@ -246,6 +246,7 @@ export class Phone {
   toggle(force) {
     this.open = force ?? !this.open;
     this.el.className = this.open ? '' : 'hidden';
+    document.body.classList.toggle('phone-open', this.open); // bảng mục tiêu thu gọn cho khỏi bị điện thoại che (style.css)
     if (this.open) {
       this.fitPhone(); // phòng khi cửa sổ đổi cỡ mà không có sự kiện resize
       if (this.app) this.unread[this.app] = 0;

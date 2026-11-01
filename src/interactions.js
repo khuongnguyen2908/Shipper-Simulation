@@ -8,4 +8,4 @@ export { gatherInteractions, mountBike, dismount } from './interactions/nearby.j
 export { acceptOffer, declineOffer, phoneAction, comfortKmh } from './interactions/phone.js';
 export { pickup, dropoff, passengerQuit, viewWallet } from './interactions/delivery.js';
 export { placeAction } from './interactions/places.js';
-export { rideEventDialog, blockTicket, policeStop, patrolStop } from './interactions/road.js';
+export { rideEventDialog, blockTicket, policeStop, patrolStop, waitForAppointment, fmtLeft } from './interactions/road.js';

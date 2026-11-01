@@ -2881,5 +2881,22 @@
   "story.foe.thugThrow": "Giang hồ ném gạch",
   "story.fight.fx.boom": "💥 NỔ!",
   "story.fight.kitFull": "Có 1 cái rồi",
-  "story.fight.fx.tear": "🛍️ Xé rách bao!"
+  "story.fight.fx.tear": "🛍️ Xé rách bao!",
+  "toast.rentDeferred": "🏠 Dì Hai: \"Thấy con đang bận chuyện gấp, tiền nhà {rent} dì cho khất tới {hour} giờ tối ngày {day} nghe.\"",
+  "story.fight.allyFood": "🥖 Anh Đạt dúi cho miếng bánh mì: \"Ăn lẹ đi, còn đánh!\" — máu lên {hp}.",
+  "story.fight.catchBreath": "😮‍💨 Thở lấy sức một chút — máu lên {hp}.",
+  "hud.waitAppt": "⏳ Ngồi chờ tới {time}",
+  "hud.waitApptLeft": "còn {left}",
+  "hud.keysWait": " · Z chờ giờ hẹn",
+  "dlg.waitAppt": "⏳ Ngồi chờ tới {time}?",
+  "dlg.waitApptText": "Còn {left}. Thời gian trôi nhanh như lúc ngủ — <small>no / khát vẫn giảm, không hồi thể lực như ngủ.</small>",
+  "dlg.waitApptGo": "⏳ Chờ tới {time}",
+  "dlg.waitApptGoHint": "Ngồi nghỉ bên đường",
+  "dlg.waitApptNo": "↩️ Thôi",
+  "dlg.waitApptWork": "↩️ Thôi, đi chạy đơn kiếm thêm tiền",
+  "dlg.waitApptWorkHint": "Bước này cho nhận đơn — app vẫn bật",
+  "toast.waitedAppt": "⏳ Đã tới {time} — đi thôi!",
+  "time.hm": "{h} giờ {m} phút",
+  "time.h": "{h} giờ",
+  "time.m": "{m} phút"
 }

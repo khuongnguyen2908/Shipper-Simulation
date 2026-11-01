@@ -10,6 +10,7 @@ import { evaluateOrder } from '../src/sim/OrderCondition.js';
 import { computePayout } from '../src/sim/economy.js';
 import { OrderManager, S, TRANSITIONS } from '../src/sim/OrderManager.js';
 import { GameState } from '../src/sim/GameState.js';
+import { STORY as STORY_T } from '../src/sim/story.js';
 import { HazardManager } from '../src/sim/hazards.js';
 import { makeRng } from '../src/sim/rng.js';
 import * as PE from '../src/sim/people.js';
@@ -307,6 +308,28 @@ test('Tiền nhà theo kỳ: trả sớm được; đúng hạn sang kỳ mới;
   gs.checkEnd(due(4));
   assert.equal(gs.outcome, null);
   assert.equal(gs.checkEnd(due(5)).type, 'lose');
+});
+test('Tiền nhà lúc đang có chương: Dì Hai cho khất từng ngày, không phạt; xong chương mới tính trễ; kỳ sau lùi theo', () => {
+  const every = ECONOMY.rentEveryDays, h = ECONOMY.rentDueHour;
+  const gs = new GameState({ carry: { money: 0 } });
+  const ch = STORY_T.chapters.find((c) => c.steps.some((x) => (x.on || []).some((a) => a.do === 'title')));
+  const tIdx = ch.steps.findIndex((x) => (x.on || []).some((a) => a.do === 'title'));
+  Object.assign(gs.story, { ch: ch.id, step: tIdx + 1, fired: true }); // đang giữa chương (đã hiện tên chương)
+  gs.checkEnd(atHour(every, h));
+  assert.equal(gs.takeEvents().filter((e) => e.type === 'deferred').length, 1);
+  assert.equal(gs.rentState.late, 0, 'không tính trễ');
+  assert.equal(gs.rentDueDay, every + 1, 'hạn lùi 1 ngày');
+  gs.checkEnd(atHour(every + 4, h)); // bận chương 4 ngày liền
+  assert.equal(gs.rentDueDay, every + 5);
+  assert.equal(gs.rent, rentFor(1), 'không phạt');
+  gs.story.ch = null; // xong chương, trả tiền
+  gs.money = 1e6;
+  assert.ok(gs.payRent().ok);
+  gs.checkEnd(atHour(every + 5, h));
+  assert.equal(gs.rentState.period, 2);
+  assert.ok(gs.rentDueDay >= every + 6, 'kỳ sau có ít nhất 1 ngày, không trễ ngay');
+  assert.equal(gs.rentState.late, 0);
+  assert.equal(gs.outcome, null);
 });
 test('Thua khi điểm dưới 4,0; kiệt sức không thua mà phải nằm nghỉ (ngất mất tiền thuốc)', () => {
   const a = new GameState();
@@ -5500,7 +5523,24 @@ console.log('App Tích Tắc (sim/feed.js)');
 console.log('Đèn giao thông & phạt nguội (sim/lights.js)');
 {
   const L = await import('../src/sim/lights.js');
-  const { LIGHTS } = await import('../src/data/balance.js');
+  const { LIGHTS, ORDER } = await import('../src/data/balance.js');
+  const { routeNodes } = await import('../src/sim/cityLayout.js');
+  test('Thời hạn đơn cộng thời gian chờ đèn: mỗi ngã tư có đèn (không rẽ phải) trên đường + chờ trung bình khớp chu kỳ đèn', () => {
+    const G = LIGHTS.greenSec ?? 8, Y = LIGHTS.yellowSec ?? 2, cycle = 2 * (G + Y);
+    let sum = 0; // chờ trung bình đo thật: tới ngã tư lúc ngẫu nhiên, chờ tới khi xanh
+    for (let t = 0; t < cycle; t += 0.01) { let w = 0; while (L.lightColor('3,4', [0, 1], t + w) !== 'g') w += 0.01; sum += w; }
+    assert.ok(Math.abs(sum / (cycle / 0.01) - L.avgLightWait()) < 0.1, `chờ trung bình ${(sum / (cycle / 0.01)).toFixed(2)} ≈ ${L.avgLightWait()}`);
+    const lm = L.lightMap();
+    const mk = () => { const { om } = mkOM(5); om.goOnline(); for (let i = 0; i < 40; i++) { const o = om.makeOffer(600, { x: 0, z: 0 }); if (o && L.lightsOnRoute(routeNodes(o.pickup.door, o.dropoff.door), lm) > 0) return { om, o }; } return null; };
+    const old = ORDER.lightAllow;
+    try {
+      const a = mk(); assert.ok(a, 'có đơn đi qua đèn');
+      const n = L.lightsOnRoute(routeNodes(a.o.pickup.door, a.o.dropoff.door), lm);
+      ORDER.lightAllow = 0; a.om.offer = a.o; a.om.go(S.OFFERED); const base = a.om.accept(600).allowedMin;
+      ORDER.lightAllow = 1; const b = mk(); b.om.offer = b.o; b.om.go(S.OFFERED); const withL = b.om.accept(600).allowedMin;
+      assert.ok(withL - base >= Math.floor(n * L.avgLightWait() * b.o.deadlineMult) - 1, `có đèn thì hạn dài hơn (${base} → ${withL} phút, ${n} đèn)`);
+    } finally { ORDER.lightAllow = old; }
+  });
   test('Hai trục đèn ngược pha: hướng này xanh / vàng thì hướng kia đỏ; đủ xanh → vàng → đỏ trong 1 chu kỳ', () => {
     const key = '3,4', cycle = 2 * ((LIGHTS.greenSec ?? 8) + (LIGHTS.yellowSec ?? 2));
     const seen = new Set();
@@ -5869,7 +5909,8 @@ console.log('Đánh nhau góc nhìn thứ 1 (sim/fight.js — chương 6)');
     for (let i = 0; i < 11 * 30 && !charged; i++) { FT.foeTick(b, { player: P0(b.z + 9), dt: 1 / 30 }); if (b.state === 'chargeWind') charged = true; }
     assert.ok(charged, 'đứng xa mãi: Tí Đô lao húc');
     // lính chương 6 gục thì rớt đồ, Tí Đô không
-    for (const id of ['c6Container', 'c6Deck', 'c6Bridge']) assert.ok(STORYJ.fights[id].foes.length >= 5, `${id}: lính ra nhiều (≥ 5 tên)`);
+    for (const id of ['c6Container', 'c6Bridge']) assert.ok(STORYJ.fights[id].foes.length >= 5, `${id}: lính ra nhiều (≥ 5 tên)`);
+    assert.equal(STORYJ.fights.c6Deck.foes.length, 4, 'trận boong (Tí Sún) bớt còn 4 tên — trước đó thua nhiều nhất');
     for (const id of ['c6Container', 'c6Deck', 'c6Bridge', 'c6Quay']) for (const f of STORYJ.fights[id].foes) {
       if (f.foe === 'tiDo') assert.ok(!f.drop); else assert.ok(f.drop && STORYJ.weapons[f.drop], `${id}/${f.who} rớt đồ`);
     }
@@ -6132,6 +6173,14 @@ console.log('Mượn xe anh Đạt (chương 6) · gửi xe ở bãi');
     assert.equal(gs.vehicle, own);
     assert.ok(!gs.owned.vehicles.includes('xeDat') && !gs.vstate.xeDat, 'trả rồi: không còn xe mượn');
     assert.ok(!gs.returnVehicle(), 'không mượn gì thì không trả');
+    // xe mình đang bị cẩu lúc mượn: xe mượn không bị tính là đang ở đồn · trả xe thì xe mình vẫn ở đồn
+    const g2 = new GameState({ carry: { money: 5 } });
+    g2.story = { ch: 'c6', ev: {} };
+    g2.towed = { placeId: 'congAn', fee: 250 };
+    assert.ok(g2.borrowVehicle('xeDat', 50));
+    assert.equal(g2.towed, null, 'đang chạy xe mượn: không bị giữ');
+    assert.ok(g2.returnVehicle());
+    assert.deepEqual(g2.towed, { placeId: 'congAn', fee: 250 }, 'trả xe mượn: xe mình vẫn ở đồn');
   });
   test('Bộ kiểm tra: mượn xe lạ / đạo cụ lạ, gửi xe ở chỗ không phải bãi giữ xe → báo lỗi; dữ liệu hiện tại không lỗi', () => {
     const PLACES = readJson('src/data/places.json');

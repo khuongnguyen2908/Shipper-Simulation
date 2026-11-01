@@ -127,7 +127,8 @@
     "stairMinPerFloor": 1.5,
     "callDownWait": 8,
     "liftMin": 3,
-    "placeDestBase": 12
+    "placeDestBase": 12,
+    "lightAllow": 1
   },
   "walletQuest": {
     "reward": 150,

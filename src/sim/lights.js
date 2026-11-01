@@ -65,6 +65,23 @@ export function turnOf(din, dout) {
   return dout[0] === -din[1] && dout[1] === din[0] ? 'right' : 'left';
 }
 
+// Số ngã tư có đèn trên đường đi (danh sách nút lưới, như cityLayout.routeNodes) mà có thể phải dừng chờ (rẽ phải thì không)
+export function lightsOnRoute(nodes, lmap) {
+  let n = 0;
+  for (let k = 1; k < (nodes?.length || 0) - 1; k++) {
+    if (!lmap.has(nodes[k].join(','))) continue;
+    const din = [Math.sign(nodes[k][0] - nodes[k - 1][0]), Math.sign(nodes[k][1] - nodes[k - 1][1])];
+    const dout = [Math.sign(nodes[k + 1][0] - nodes[k][0]), Math.sign(nodes[k + 1][1] - nodes[k][1])];
+    if (turnOf(din, dout) !== 'right') n++;
+  }
+  return n;
+}
+// Thời gian chờ đèn trung bình mỗi ngã tư (giây thật = phút game): tới lúc đèn không xanh (vàng + đỏ = xanh + 2 × vàng) thì chờ trung bình nửa đoạn đó
+export function avgLightWait(cfg = LIGHTS) {
+  const G = Math.max(1, num(cfg?.greenSec, 8)), Y = Math.max(0, num(cfg?.yellowSec, 2)), stop = G + 2 * Y;
+  return (stop * stop) / (2 * 2 * (G + Y));
+}
+
 // Có phải dừng trước vạch không (xe NPC / xe nền): đèn đỏ hoặc vàng, trừ rẽ phải
 export function mustStop(lmap, key, din, turn, t, cfg = LIGHTS) {
   if (!lmap.has(key) || turn === 'right') return false;

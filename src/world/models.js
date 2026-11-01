@@ -454,6 +454,7 @@ const HIP_H = HIP_Y; // chiều cao hông (gốc gập lưng)
 // Gập thân trên quanh hông: a = cúi tới (rad, âm = ngửa ra sau) · rz = nghiêng ngang · ry = vặn mình (quanh trục dọc, không cần bù).
 // Xoay thân rồi dời lại cho hông đứng yên — không thì thân trên trượt khỏi chân (trông như người bị cắt đôi). Cộng thêm vào position.y đang có.
 export function hipBend(p, a = 0, rz = 0, ry = 0) {
+  if (!p?.body) return; // không phải hình người (vd cả chiếc xe) → bỏ qua
   p.body.rotation.set(a, ry, rz, 'YXZ');
   p.body.position.x = HIP_H * Math.sin(rz);
   p.body.position.z = -Math.cos(rz) * Math.sin(a) * HIP_H;

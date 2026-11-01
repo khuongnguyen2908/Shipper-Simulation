@@ -20,13 +20,13 @@ export class Hud {
         <div class="bar"><label>${fmt('hud.hp')}</label><div class="track"><div id="bHp" class="fill hp"></div></div></div>
       </div>
       <div class="hud-goal"><div id="gArrow" class="g-arrow">▲</div><div><div id="gText"></div><div id="gSub"></div></div></div>
-      <div class="hud-obj panel"><div class="ttl">${fmt('hud.objectives')}</div><ul id="objList"></ul></div>
+      <div class="hud-obj panel"><div class="ttl">${fmt('hud.objectives')}</div><ul id="objList"></ul><div id="objWait"></div></div>
       <div class="hud-br"><div id="mmChip"></div><canvas id="minimap" width="210" height="210"></canvas><div id="mmStreet"></div></div>
       <button id="phoneIcon" class="pi" title="${fmt('phone.iconHint')}"><span class="pi-wave"></span><span class="pi-wave w2"></span><span class="pi-body"><span class="pi-screen" id="piScreen"></span></span><span class="pi-badge hidden" id="piBadge"></span><span class="pi-key">${fmt('phone.iconHint')}</span></button>
       <div id="phoneNote" class="hidden"></div>
       <div id="cargo" class="panel hidden"></div>
       <div class="hud-bl"><div id="prompt"></div><div id="speedo"></div></div>
-      <div class="hud-keys">${fmt('hud.keys')}</div>
+      <div class="hud-keys">${fmt('hud.keys')}<span id="kWait"></span></div>
       <div id="toasts"></div>
       <div id="vignette"></div>`;
     root.appendChild(this.el);
@@ -121,7 +121,10 @@ export class Hud {
     this.bar('bHp', d.hp);
     // góc phải: mục tiêu đang có (⭐ cốt truyện vàng, 📦 đơn, 🧭 tự chỉ đường…) rồi tới mục tiêu hôm nay
     const goals = d.goals || [];
-    $(this.el, '.hud-obj').style.display = d.objectives.length || goals.length ? '' : 'none'; // không còn mục nào → ẩn cả bảng
+    $(this.el, '.hud-obj').style.display = d.objectives.length || goals.length || d.wait ? '' : 'none';
+    // dòng "⏳ Ngồi chờ tới …" (bước cốt truyện chờ giờ, phím Z) + nhắc phím ở dòng phím dưới cùng
+    this.set('objWait', d.wait ? `<div class="obj-wait"><span class="key">Z</span><span>${d.wait.text}<small>${d.wait.sub}</small></span></div>` : '');
+    this.set('kWait', d.wait ? fmt('hud.keysWait') : ''); // không còn mục nào → ẩn cả bảng
     this.set('objList', goals.map((g) => `<li class="goal${g.story ? ' story' : ''}"><i>${g.icon}</i><span>${g.text}${g.sub ? `<small>${g.sub}</small>` : ''}</span></li>`).join('')
       + d.objectives.map((o) => `<li class="${o.done ? 'done' : ''}${o.optional ? ' opt' : ''}${o.current ? ' cur' : ''}">${o.done ? '✔' : o.optional ? '◇' : '○'} ${o.optional ? fmt('obj.optionalPrefix') : ''}${o.text}</li>`).join(''));
     this.set('gText', d.goal ? d.goal.text : '');

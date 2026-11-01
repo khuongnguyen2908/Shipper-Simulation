@@ -22,6 +22,7 @@ import { APP, ORDER_TYPES, RIDER_TYPES } from '../src/data/apps.js';
 import { inHours } from '../src/sim/hours.js';
 import { isOpen } from '../src/sim/placeRules.js';
 import { dayOf, dayStartAt, minutesUntil, isDark } from '../src/sim/clock.js';
+import { stepOf, chapterOf, storyTick, beginChapter, finishChapter, inChapter, acceptOpen, spotOf } from '../src/sim/story.js';
 
 const layout = buildLayout();
 const P = layout.placeById;
@@ -37,7 +38,15 @@ export const STRATEGIES = {
   normal: { speed: 10, eff: 0.7, bumpsPer100: 0.4, brakesPer100: 0.2, brakeMag: 0.4, buyGear: true, maxD1: 999, honest: true },
   // tham: giữ tiền trong ví
   greedy: { speed: 10, eff: 0.7, bumpsPer100: 0.4, brakesPer100: 0.2, brakeMag: 0.4, buyGear: true, maxD1: 999, honest: false },
+  // theo truyện: như 'normal' nhưng chơi cốt truyện chương 1 → 6 ngay khi được (trong chương không có đơn thường, chỉ đơn cốt truyện + tiền công)
+  story: { speed: 10, eff: 0.7, bumpsPer100: 0.4, brakesPer100: 0.2, brakeMag: 0.4, buyGear: true, maxD1: 999, honest: true, story: true },
 };
+
+// Thời gian làm 1 bước cốt truyện (phút game, chưa tính đường đi — đường đi tính thật bằng drive tới địa điểm của bước).
+// Ước theo bot QA chơi chương 1 → 6 (01/11/2026): nói chuyện 1–2 phút, cảnh phim ~15, bám lén ~60, đánh nhau ~6, đua ~12…
+const STORY_PACE = { talkActor: 1, talk: 2, chosen: 1, reply: 1, open: 1, read: 2, ack: 0, routed: 1, none: 1, mount: 0, use: 5, brand: 2, wear: 1, fuel: 2, switch: 1,
+  near: 1, arrive: 0, bring: 3, cine: 15, reach: 2, chased: 3, tackled: 3, sneaked: 60, hidden: 2, escaped: 30, ttSeen: 2, away: 2, ambushed: 0, useAt: 2, parked: 2,
+  fightWon: 6, untied: 2, kitCard: 0, raceWon: 12, never: 0 };
 
 // Bot chơi liên tục từ 06:00 ngày 1 tới 06:00 ngày (days + 1), hoặc tới khi thua.
 // Trả về { gs, log, outcome, now, lastDay } — outcome.type: 'lose' | 'alive'
@@ -51,7 +60,7 @@ export function playRun(seed, strat, days = 9, brand = null) {
   const end = dayStartAt(days + 1);
   let now = TIME.dayStart;
   let pos = { ...P.home.door };
-  const log = { idleMin: 0, orders: 0, purchases: [], byType: {}, quits: 0, faints: 0, burnouts: 0, sleeps: 0, lates: 0, rentPaid: 0, earned: 0, stars: 0, starN: 0, bom: 0, oil: 0, daily: [] };
+  const log = { idleMin: 0, orders: 0, purchases: [], byType: {}, quits: 0, faints: 0, burnouts: 0, sleeps: 0, lates: 0, deferred: 0, rentPaid: 0, earned: 0, stars: 0, starN: 0, bom: 0, oil: 0, daily: [], storyPay: 0, chapters: [] };
   let dayOrders = 0;
   om.on((e) => { if (e.type === 'cancelled') gs.applyCancel(e, now); });
   const over = () => !!gs.outcome || now >= end;
@@ -80,7 +89,7 @@ export function playRun(seed, strat, days = 9, brand = null) {
       rollDay();
       gs.drain(activity, 1, { harshSun: hz.isHarshSun(now), raining: hz.isRaining(now), outdoor: activity !== 'sleep' && activity !== 'rest', inJam: false, waiting: activity === 'idle', now });
       om.tickItems(envAt(speed), 1);
-      for (const e of (gs.checkEnd(now), gs.takeEvents())) if (e.type === 'late') log.lates++;
+      for (const e of (gs.checkEnd(now), gs.takeEvents())) { if (e.type === 'late') log.lates++; if (e.type === 'deferred') log.deferred++; }
       if (gs.collapsed && activity !== 'rest') break; // kiệt sức → dừng để xử lý (đang nằm nghỉ thì thôi)
     }
   };
@@ -255,6 +264,67 @@ export function playRun(seed, strat, days = 9, brand = null) {
   gs.flags.mounted = gs.flags.online = true;
   om.goOnline();
 
+  // ---------- CỐT TRUYỆN (kiểu chơi "story"): đi theo truyện ngay khi được ----------
+  // Dùng đúng bộ chạy sim/story.js (bước, giờ hẹn, qua ngày, đếm đơn, hạn giờ, tiền công "pay", đơn cốt truyện "offer").
+  // Bước phải "làm" (nói chuyện, chở người, cảnh phim…): chạy xe thật tới địa điểm của bước + STORY_PACE phút rồi sang bước sau.
+  // Trong chương (đã hiện tên chương) app không phát đơn thường (om.hold) — trừ bước có "cho chạy đơn" (orders).
+  const SS = st.story ? gs.story : null;
+  let storyAt = now;
+  if (SS) beginChapter(SS);
+  const placeAt = (id) => {
+    if (typeof id !== 'string') return null;
+    if (id.startsWith('spot:')) { const sp = spotOf(id); return sp ? { x: sp.at[0], z: sp.at[1] } : null; }
+    return P[id]?.door || null;
+  };
+  const storyNext = () => {
+    const was = SS.ch;
+    SS.step += 1; SS.fired = false; SS.waited = 0; SS.ev = {};
+    if (SS.step >= (chapterOf(SS)?.steps.length || 0)) finishChapter(SS);
+    if (SS.ch !== was) log.chapters.push({ ch: was, at: now });
+  };
+  // chờ min phút trong lúc truyện chưa cho làm gì (không có đơn thường): chờ lâu ≥ 3 tiếng thì về ngủ, không thì ngồi chờ (phím Z)
+  const storyWait = (min) => { if (min >= 180) sleep(Math.min(min, 10 * 60)); else pass(Math.max(1, Math.ceil(min)), 'idle'); };
+  // true = bot vừa làm việc của truyện (vòng lặp chạy lại) · false = lúc này chạy đơn bình thường được
+  const storyTurn = () => {
+    if (!SS?.ch) return false;
+    const was = SS.ch;
+    const acts = storyTick(gs, now - storyAt, { now, busy: () => !!om.order });
+    storyAt = now;
+    if (SS.ch !== was) log.chapters.push({ ch: was, at: now }); // hết chương do hết bước
+    for (const a of acts) {
+      if (a.do === 'pay' && a.amount > 0) { gs.earn(a.amount, 'story'); log.storyPay += a.amount; }
+      else if (a.do === 'fuel' && gs.power !== 'pedal') gs.fuel = gs.vehicleSpec.tank * Math.max(0, Math.min(100, a.pct ?? 20)) / 100;
+      else if (a.do === 'offer') {
+        const o = a.kind === 'food' ? om.storyFood(a.place, pos, now, { to: a.to || null })
+          : a.kind === 'parcel' ? om.storyParcel({ place: a.place, item: a.item, to: a.to || null, strict: !!a.strict }, pos, now)
+          : om.storyRide(pos, now);
+        om.forceOffer(o);
+      } else if (a.do === 'end') { const c = SS.ch; finishChapter(SS); log.chapters.push({ ch: c, at: now }); }
+    }
+    const s2 = stepOf(SS);
+    om.hold = !!s2 && (!!s2.hold || inChapter(SS)) && !s2.orders;
+    if (!SS.ch || !s2) return false;
+    if (acts.length) return true; // vừa vào bước (có thể vừa mời cuốc cốt truyện → vòng lặp đơn chạy cuốc đó)
+    if (!SS.fired) { if (!om.hold) return false; pass(1, 'idle'); return true; } // chờ "delay" của bước
+    const u = s2.until || {};
+    if (om.hold) shop(); // trong chương vẫn ăn uống, đổ xăng khi cần
+    switch (u.type) {
+      case 'clock': if (!om.hold) return false; storyWait(minutesUntil(now, u.from ?? 0)); return true;
+      case 'newDay': if (!om.hold) return false; storyWait(Math.min(minutesUntil(now, TIME.dayStart / 60), 10 * 60)); return true;
+      case 'ordersSince': if (!om.hold) return false; pass(1, 'idle'); return true;
+      case 'wait': if (!om.hold) return false; pass(Math.max(1, Math.ceil((u.min || 0) - SS.waited)), 'idle'); return true;
+      case 'accept': if (!acceptOpen(u, now)) { if (!om.hold) return false; storyWait(minutesUntil(now, u.from ?? 0)); return true; } break;
+      case 'order': storyNext(); return true; // cuốc cốt truyện đã chạy xong ở vòng lặp đơn (hoặc không mời được)
+    }
+    // việc phải làm: chạy tới chỗ của bước (địa điểm / chỗ hẹn trong thành phố), tốn thêm vài phút
+    const reachAt = u.type === 'reach' && Array.isArray(u.at) && typeof u.at[0] === 'number' && Math.abs(u.at[1]) < 1500 ? { x: u.at[0], z: u.at[1] } : null; // (tọa độ trên tàu / đường đua: bản đồ riêng, không chạy)
+    const to = placeAt(s2.target) || placeAt(u.place) || reachAt;
+    if (u.type === 'fuel' || s2.target === 'fuel') refill(); else if (to) drive(to);
+    pass(STORY_PACE[u.type] ?? 2, 'walk');
+    storyNext();
+    return true;
+  };
+
   while (!over()) {
     if (collapse()) continue;
     if (om.state === S.IDLE || om.state === S.OFFLINE) {
@@ -264,6 +334,7 @@ export function playRun(seed, strat, days = 9, brand = null) {
         if (gs.payRent().ok) log.rentPaid++;
         continue;
       }
+      if (storyTurn()) continue;
       // ngủ: app nghỉ → ngủ tới sáng; thức quá lâu → ngủ 8 tiếng
       if (!inHours(APP.hours, now)) { sleep(Math.min(9 * 60, minutesUntil(now, TIME.dayStart / 60))); continue; }
       if (gs.awakeHours(now) > ENERGY.sleep.tiredAfterH) { sleep(8 * 60); continue; }
@@ -280,7 +351,8 @@ export function playRun(seed, strat, days = 9, brand = null) {
       if (om.state !== S.OFFERED) { pass(1, 'idle'); log.idleMin++; continue; }
     }
     if (om.state === S.OFFERED) {
-      if (routeDist(pos, om.offer.pickup.door) > st.maxD1 || gs.fuel < gs.vehicleSpec.tank * 0.07) { om.decline(now); continue; }
+      if (om.offer.forced && gs.power !== 'pedal' && gs.fuel < gs.vehicleSpec.tank * 0.07) refill(); // cuốc cốt truyện: không từ chối, hết xăng thì đổ trước
+      else if (routeDist(pos, om.offer.pickup.door) > st.maxD1 || gs.fuel < gs.vehicleSpec.tank * 0.07) { om.decline(now); continue; }
       // bot cẩn thận / kén chọn để ý dấu hiệu lừa đảo trên thẻ đơn (tài khoản mới, đòi tiền mặt) → từ chối
       // người chơi cẩn thận chỉ thấy dấu hiệu trên thẻ đơn (khách thường đôi khi cũng có) → thấy đủ 2 dấu hiệu thì từ chối
       const f = om.offer.flags || {};
@@ -403,6 +475,13 @@ export function summarize(runs, days) {
     oilChanges: runs.reduce((s, r) => s + (r.log.oil || 0), 0) / n,
     lightWaitPerDay: runs.reduce((s, r) => s + (r.log.lightWait || 0), 0) / dayCount, // phút game chờ đèn đỏ mỗi ngày
     redFinesPerDay: runs.reduce((s, r) => s + (r.log.redFines || 0), 0) / dayCount, // lần bị phạt nguội vượt đèn đỏ mỗi ngày
+    // cốt truyện (kiểu chơi story): tiền công trung bình, số lần được khất tiền nhà, mỗi chương: % lượt chơi xong + xong vào ngày mấy (trung bình)
+    storyPay: runs.reduce((s, r) => s + (r.log.storyPay || 0), 0) / n,
+    deferred: runs.reduce((s, r) => s + (r.log.deferred || 0), 0) / n,
+    chapters: [...new Set(runs.flatMap((r) => r.log.chapters.map((c) => c.ch)))].map((ch) => {
+      const done = runs.map((r) => r.log.chapters.find((c) => c.ch === ch)).filter(Boolean);
+      return { ch, pct: Math.round((done.length / n) * 100), day: done.reduce((s, c) => s + c.at / 1440 + 1, 0) / (done.length || 1) };
+    }),
   };
 }
 
@@ -420,6 +499,7 @@ if (isMain) {
     for (let s = 1; s <= N; s++) runs.push(playRun(s, strat, D));
     const r = summarize(runs, D);
     const cps = r.checkpoints.map((c) => `qua ngày ${c.day}: ${String(c.pct).padStart(3)}%`).join(' · ');
+    if (STRATEGIES[strat].story) console.log(`         ↳ cốt truyện: tiền công ${Math.round(r.storyPay)}k · được khất tiền nhà ${r.deferred.toFixed(1)} lần · ${r.chapters.map((c) => `${c.ch} xong ${c.pct}% (ngày ${c.day.toFixed(1)})`).join(' · ')}`);
     console.log(`${strat.padEnd(8)} | ${cps} | ${r.ordersPerDay.toFixed(1)} đơn/ngày | sao ${r.stars.toFixed(2)} | tiền cuối ${Math.round(r.endMoney)}k | ngất/suy sụp ${r.faints.toFixed(2)} | trễ ${r.lates.toFixed(2)} | ${r.kmPerDay.toFixed(1)} km/ngày · thay nhớt ${r.oilChanges.toFixed(1)} lần | chờ đèn ${Math.round(r.lightWaitPerDay)} phút/ngày · phạt đèn đỏ ${r.redFinesPerDay.toFixed(2)}/ngày | ${r.topReason ? `${r.topReason[0]}… (${r.topReason[1]})` : 'không ai thua'}`);
   }
 }

@@ -176,7 +176,10 @@ export class FightPart {
     const here = def.keepPos ? { x: this.walker.pos.x, z: this.walker.pos.z } : null;
     const st = here || W(def.start || [0, 0]), kit0 = this.gs.story.kit ? JSON.parse(JSON.stringify(this.gs.story.kit)) : null;
     const am = def.keepPos && def.ally && this.storyActors?.[def.ally]?.mesh.position;
-    this.fight = { id, def, W, t: 0, start: { ...st, kit: kit0, loot: carry, hp: this.fp?.hp ?? this.gs.story.hp ?? PLAYER.hp }, allyAt: am ? { x: am.x, z: am.z } : null, foes: [], ally: null, loot: [], proj: [], won: false, lost: false, cp: 0 };
+    // trận thật (không phải màn lẻn): máu ít nhất startHp — đồng đội dúi đồ ăn trước khi lao vào (vào trận với chút máu thì khỏi thua liên tục)
+    let hp0 = this.fp?.hp ?? this.gs.story.hp ?? PLAYER.hp;
+    if (!def.stealth && hp0 < PLAYER.startHp) { hp0 = PLAYER.startHp; this.hud.toast(fmt(def.ally ? 'story.fight.allyFood' : 'story.fight.catchBreath', { hp: hp0 }), 'info', 5000); }
+    this.fight = { id, def, W, t: 0, start: { ...st, kit: kit0, loot: carry, hp: hp0 }, allyAt: am ? { x: am.x, z: am.z } : null, foes: [], ally: null, loot: [], proj: [], won: false, lost: false, cp: 0 };
     this.fightSetup(!!here);
     if (def.stealth) { // màn lẻn: không hiện thanh máu, nhắc cách chơi
       this.fightGoalMark(W(def.stealth.goal), def.stealth.r ?? 2);
@@ -1168,7 +1171,7 @@ export class FightPart {
     this.storyFade({ t: 0.6 });
     setTimeout(() => {
       this.storyLose = false;
-      F.start.hp = Math.max(F.start.hp ?? PLAYER.hp, PLAYER.retryHp); // chơi lại: ít nhất retryHp máu (vào trận với chút máu thì khỏi kẹt mãi)
+      F.start.hp = Math.max(F.start.hp ?? PLAYER.hp, PLAYER.retryHp); // chơi lại: đầy máu (retryHp = 100)
       if (this.fight === F) this.fightSetup();
     }, 750);
   }

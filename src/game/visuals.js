@@ -9,7 +9,8 @@ import { tierLabel } from '../sim/roads.js';
 import { outfitLook } from '../data/goods.js';
 import { lookOf } from '../data/looks.js';
 import { unlocked } from '../sim/placeRules.js';
-import { tod } from '../sim/clock.js';
+import { tod, fmtClock } from '../sim/clock.js';
+import { fmtLeft } from '../interactions.js';
 import { roadPos, districtAtPoint } from '../sim/cityLayout.js';
 import { fmtDist } from '../sim/nav.js';
 import { makeRng } from '../sim/rng.js';
@@ -466,6 +467,8 @@ export class VisualsPart {
     const goals = [];
     const sg = this.state === 'play' ? this.storyGoal() : null;
     if (sg) goals.push({ icon: '⭐', text: sg.text, sub: sg.sub, story: true });
+    const wt = this.state === 'play' ? this.storyWaitInfo() : null; // dòng "⏳ Ngồi chờ tới …" (phím Z)
+    const wait = wt ? { text: fmt('hud.waitAppt', { time: fmtClock(wt.at) }), sub: fmt('hud.waitApptLeft', { left: fmtLeft(wt.min) }) } : null;
     if (tgt && tgt.text !== sg?.text) goals.push({ icon: GOAL_ICON[tgt.color] || '•', text: tgt.text, sub: tgt.sub === sg?.text ? '' : tgt.sub });
 
     const mounted = this.mode === 'bike';
@@ -504,6 +507,7 @@ export class VisualsPart {
       objectives: objs.filter((x) => x.id !== 'story' && x.id !== 'rent').map((x) => ({ ...x, current: x === firstOpen })),
       goal,
       goals,
+      wait,
       prompts: this.prompts || [],
       speedo: mounted
         ? fmt('hud.speed', { kmh: Math.round(Math.abs(this.bike.speed) * 3.6) }) + (Math.abs(this.bike.speed) > this.speedLimit() ? fmt('hud.overSpeed', { limit: this.speedLimitKmh() }) : '') + (this.inJam ? fmt('hud.inJam') : '') + (this.floodBandNow ? fmt('hud.flood', { kmh: Math.round(floodSpeedCap(this.floodHere()) * 3.6) }) : '') + (this.stalled ? fmt('hud.stalled') : '') + (gs.power !== 'pedal' && gs.fuel <= 0 ? fmt(gs.power === 'electric' ? 'hud.noBattery' : 'hud.noFuel') : '')

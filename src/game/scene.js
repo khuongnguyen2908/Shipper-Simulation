@@ -669,6 +669,7 @@ export class ScenePart {
     if (A.vehicle && A.rider) this.storyActorDismount(a.who);
     const r = B.chase?.runner;
     if (r) B.mesh = r.mesh;
+    else if (B.vehicle && B.rider) this.storyActorDismount(a.target); // người bị vật còn ngồi trên xe (chưa té xe chạy bộ) → xuống xe trước
     Object.assign(B, { chase: null, rider: null, mode: 'tackled', phase: 0 });
     Object.assign(A, { mode: 'tackler', phase: 0 });
     const P = this.walker.mesh.position, bm = B.mesh.position;
@@ -1000,7 +1001,9 @@ export class ScenePart {
   }
   pursueTick(dt) {
     const R = this.pursue;
-    if (R?.phase === 'lost' && (this.input.was('KeyE') || this.input.was('Enter'))) return this.pursueRetry(); // màn thua: E / Enter = Chơi lại
+    // màn thua: E / Enter = Chơi lại — cả thua bị rượt, thua trận đánh, thua màn đua (trước đây 2 loại sau chỉ bấm chuột được)
+    const lostAny = R?.phase === 'lost' || this.fight?.lost || this.race?.lost;
+    if (lostAny && this.loseEl?.classList.contains('on') && (this.input.was('KeyE') || this.input.was('Enter'))) return this.pursueRetry();
     if (!R || R.phase !== 'run') return;
     const a = R.a, P = this.mode === 'bike' ? this.bike.pos : this.walker.pos;
     // ghi dấu chân người chơi (mỗi 0,3 m)
