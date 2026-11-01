@@ -4,6 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Shipper Simulation Game – bản chơi được đầu tiên (Three.js / WebGL 2)",
+  "author": "Khương (Flynt) Nguyễn",
+  "license": "SEE LICENSE IN LICENSE",
   "scripts": {
     "dev": "vite",
     "build": "npm test && vite build",

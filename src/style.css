@@ -929,3 +929,6 @@ body:has(.in-race) #chat { display: none; }
 #chat .ch-tabs b.on { background: var(--accent); color: #fff; }
 .ch-line .g { font-size: 10px; font-weight: 800; color: #111; background: #8fd3ff; border-radius: 4px; padding: 0 4px; margin-right: 4px; }
 .ch-line.k-sys { color: #9fdcff; }
+
+/* dòng bản quyền cuối màn tạm dừng */
+.sc-copy { margin-top: 14px; font-size: 11.5px; color: var(--muted); text-align: center; }

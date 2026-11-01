@@ -66,3 +66,10 @@ Chạy `npm run dev -- --port 5180` rồi mở `http://localhost:5180/?editor`.
 - `npm test` kiểm tra lại dữ liệu và mọi khóa chữ code đang dùng.
 
 Thiết kế chi tiết: [DESIGN.md](DESIGN.md).
+
+## Bản quyền
+
+© 2026 Khương (Flynt) Nguyễn. Giữ mọi quyền — xem [LICENSE](LICENSE).
+Được chơi miễn phí qua link chính thức; không sao chép, sửa, đăng lại, phát tán hay dùng lại mã nguồn, hình ảnh, nhân vật, cốt truyện khi chưa được tác giả cho phép bằng văn bản.
+
+Copyright © 2026 Khương (Flynt) Nguyễn. All rights reserved — see [LICENSE](LICENSE).

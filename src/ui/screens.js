@@ -322,7 +322,8 @@ export class Screens {
       <button class="btn big" data-a="settings">${fmt('screen.settings')}</button>
       <button class="btn big" data-a="controls">${fmt('menu.controls')}</button>
       ${onRestart ? `<button class="btn big" data-a="restart">${fmt('screen.restartDay')}</button>` : ''}
-      <button class="btn big" data-a="title">${fmt('screen.toTitle')}</button></div>`,
+      <button class="btn big" data-a="title">${fmt('screen.toTitle')}</button></div>
+      <div class="sc-copy">${fmt('screen.copyright')}</div>`,
       (el) => {
         el.querySelector('[data-a="resume"]').addEventListener('click', onResume);
         el.querySelector('[data-a="restart"]')?.addEventListener('click', onRestart);
