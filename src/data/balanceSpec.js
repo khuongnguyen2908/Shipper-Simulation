@@ -307,6 +307,21 @@ export const BALANCE_GROUPS = [
     ],
   },
   {
+    id: 'online', title: '🌐 Chơi online (thành phố chung)',
+    note: 'Chỉ dùng ở chế độ Online (máy chủ chạy bằng npm run server). Chơi Offline không đổi. Online không tua giờ: 1 phút trong game = 1 giây thật cho mọi người.',
+    fields: [
+      ['online.startMoney', 'Người mới vào Online: tiền khởi đầu (k)', { min: 0, max: 5000, step: 10, hint: 'Đi xe đạp, chưa vào hãng. Mặc định 200k.' }],
+      ['online.sleepRealSec', 'Nằm giường ngủ: mất bao nhiêu giây thật', { min: 10, max: 600, step: 5, hint: 'Ngủ xong hồi như ngủ đủ số tiếng bên dưới; đồng hồ thành phố vẫn chạy. Mặc định 60 giây.' }],
+      ['online.sleepToHours', 'Nằm giường ngủ: hồi sức bằng ngủ mấy tiếng', { min: 1, max: 12, step: 0.5, hint: 'Mặc định 8 tiếng.' }],
+      ['online.homeSleepMinGame', 'Thoát game ở phòng trọ: vắng bao lâu thì tính qua đêm (phút game)', { min: 0, max: 1440, step: 10, hint: 'Vắng lâu hơn mức này: lần sau vào là sang ngày mới của mình + đầy sức. Ngắn hơn: hồi theo số phút đã vắng. 1 phút game = 1 giây thật. Mặc định 360 (6 phút thật).' }],
+      ['online.chatNearM', 'Chat "Gần": người trong bao nhiêu mét thấy', { min: 5, max: 300, step: 5, hint: 'Hiện thành bong bóng trên đầu người nói. Mặc định 40 m.' }],
+      ['online.tagNearM', 'Tên trên đầu: hiện biển số khi gần hơn (m)', { min: 5, max: 300, step: 5, hint: 'Xa hơn chỉ còn tên nhỏ. Mặc định 60 m.' }],
+      ['online.tagFarM', 'Tên trên đầu: ẩn khi xa hơn (m)', { min: 20, max: 600, step: 10, hint: 'Mặc định 160 m.' }],
+      ['online.maxPlayers', 'Số người tối đa một thành phố', { min: 1, max: 200, step: 1, hint: 'Máy chủ đọc số này lúc khởi động. Mặc định 10.' }],
+      ['online.saveEverySec', 'Lưu tiến độ lên máy chủ mỗi (giây thật)', { min: 5, max: 300, step: 5, hint: 'Thoát game cũng lưu. Mặc định 20 giây.' }],
+    ],
+  },
+  {
     id: 'bgTraffic', title: '🏍️ Xe nền (chỉ để nhìn)',
     note: 'Xe máy chạy ở xa cho đường đông vui, không va chạm, không tính luật. Chạy vào gần người chơi thì mờ dần rồi hiện lại ở chỗ khác xa hơn. Khu nào đông / vắng chỉnh ở thẻ 🗺️ Bản đồ → Khu phố → 🏍️ Xe chạy nền. Xe NPC thật (va chạm, bóp còi) không đổi.',
     fields: [

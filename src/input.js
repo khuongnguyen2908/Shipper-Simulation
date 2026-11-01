@@ -8,11 +8,12 @@ const MAP = {
   KeyD: 'right', ArrowRight: 'right',
   ShiftLeft: 'run', ShiftRight: 'run',
   Space: 'brake',
+  KeyO: 'who', // giữ O: danh sách người online (chế độ Online)
 };
 
 export class Input {
   constructor(canvas) {
-    this.state = { forward: false, back: false, left: false, right: false, run: false, brake: false };
+    this.state = { forward: false, back: false, left: false, right: false, run: false, brake: false, who: false };
     this.pressed = new Set(); // phím vừa bấm trong khung hình này
     this.drag = { dx: 0, dy: 0 };
     this.look = { dx: 0, dy: 0 }; // chuột di khi đang khóa con trỏ

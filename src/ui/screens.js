@@ -1,5 +1,5 @@
 // Màn hình toàn cảnh: màn hình chính (menu), tạm dừng, kết thúc. Chữ lấy từ kho chữ screen.* / menu.* / intro.* / settings.*
-// Màn hình chính: chọn chế độ trước (👤 Offline · 🌐 Online — chưa mở, bấm thì hiện bảng "sắp ra mắt"),
+// Màn hình chính: chọn chế độ trước (👤 Offline · 🌐 Online — bảng vào thành phố chung: tình trạng máy chủ, tên, Vào),
 // Offline → menu cột trái (Tiếp tục · Chơi mới · Hướng dẫn · Cài đặt), thành phố 3D chạy phía sau.
 // Chơi mới: (có bản lưu thì hỏi lại) → đặt tên + chọn nam/nữ → giới thiệu game 5 trang → vào game.
 // Hướng dẫn dùng lại đúng 5 trang giới thiệu.
@@ -7,12 +7,14 @@ import { sound } from '../audio.js';
 import { fmtK } from '../sim/economy.js';
 import { APP } from '../data/apps.js';
 import { fmt, list } from '../content/index.js';
-import { ECONOMY } from '../data/balance.js';
+import { ECONOMY, ONLINE } from '../data/balance.js';
 import { NAME_MAX, normProfile } from '../sim/GameState.js';
 import { HAIR_BY_GENDER, HAIR_COLORS, PLAYER_SKINS, profileLook } from '../sim/people.js';
 import { GOODS, outfitLook, startOutfit } from '../data/goods.js';
 import { createAvatar } from './avatar.js';
 import { DEFAULTS, SENS_RANGE, normSettings } from '../settings.js';
+import { serverStatus, savedServer, rememberServer, accountName } from '../net/client.js';
+import { cleanName, NAME_MAX as ONLINE_NAME_MAX } from '../net/protocol.js';
 
 const INTRO = ['p1', 'p2', 'p3', 'p4', 'p5']; // trang giới thiệu: intro.pN.icon / .title / .body
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -50,9 +52,10 @@ export class Screens {
   // save: tóm tắt bản lưu { name, day, time, money, rating, rentPaid, rent, dueDay, bike } hoặc null
   // settings + onSettings(s): cài đặt hiện tại, gọi lại mỗi lần đổi · onNew(profile) · onContinue()
   // view: mở thẳng vào 'new' (vd từ màn hình thua)
-  title({ save, webgl2, settings, onNew, onContinue, onSettings, view = 'menu' }) {
+  // onOnline({ url, name }): vào thành phố chung (Promise; lỗi ném { code })
+  title({ save, webgl2, settings, onNew, onContinue, onSettings, onOnline, view = 'menu' }) {
     // side: cột trái đang là màn chọn chế độ ('home') hay menu chơi một mình ('offline') — mở game luôn ở màn chọn chế độ
-    this.t = { save, webgl2, settings: normSettings(settings), onNew, onContinue, onSettings, profile: { name: '', gender: 'm', sleeves: 'short', legs: 'shorts', shoes: 'black' }, page: 0, mode: 'intro', side: view === 'menu' ? 'home' : 'offline' };
+    this.t = { save, webgl2, settings: normSettings(settings), onNew, onContinue, onSettings, onOnline, server: savedServer(), profile: { name: '', gender: 'm', sleeves: 'short', legs: 'shorts', shoes: 'black' }, page: 0, mode: 'intro', side: view === 'menu' ? 'home' : 'offline' };
     this.open = true;
     this.el.className = 'mm-mode';
     this.showView(view === 'new' ? 'profile' : view === 'menu' ? 'home' : view);
@@ -71,11 +74,11 @@ export class Screens {
         <small>${s.rentPaid ? fmt('menu.continueRentPaid') : fmt('menu.continueRent', { rent: s.rent, due: s.dueDay, hour: ECONOMY.rentDueHour ?? 22 })}</small>
         <small>${fmt('menu.continueBike', { bike: esc(s.bike) })}</small></button>`
       : '';
-    // thẻ chọn chế độ: icon to + tên + dòng mô tả (Online có nhãn "sắp ra mắt")
-    const card = (act, icon, key, cls = '', soon = false) => `<button class="mm-card${cls}" data-mm="${act}"><span class="mm-card-ic">${icon}</span>
-      <span><b>${fmt(`menu.${key}`)}${soon ? ` <em class="mm-soon">${fmt('menu.soon')}</em>` : ''}</b><small>${fmt(`menu.${key}Sub`)}</small></span></button>`;
+    // thẻ chọn chế độ: icon to + tên + dòng mô tả
+    const card = (act, icon, key, cls = '') => `<button class="mm-card${cls}" data-mm="${act}"><span class="mm-card-ic">${icon}</span>
+      <span><b>${fmt(`menu.${key}`)}</b><small>${fmt(`menu.${key}Sub`)}</small></span></button>`;
     const items = t.side === 'home'
-      ? `${card('menu', '👤', 'offline', ' primary')}${card('online', '🌐', 'online', `${view === 'online' ? ' on' : ''} soon`, true)}${btn('settings', fmt('menu.settings'))}`
+      ? `${card('menu', '👤', 'offline', ' primary')}${card('online', '🌐', 'online', view === 'online' ? ' on' : '')}${btn('settings', fmt('menu.settings'))}`
       : `${cont}${btn('new', fmt('menu.new'), s ? '' : ' primary')}${btn('help', fmt('menu.help'))}${btn('controls', fmt('menu.controls'))}${btn('settings', fmt('menu.settings'))}${btn('home', fmt('menu.changeMode'), ' mm-back')}`;
     const menu = `<nav class="mm">
       <div class="logo">${fmt('screen.logo')}</div><div class="sub">${fmt('screen.sub')}</div>
@@ -90,11 +93,55 @@ export class Screens {
     this.bindTitle();
   }
 
-  // Chơi online: chưa mở — giới thiệu ngắn + nút về chơi Offline
+  // Vào thành phố chung: tình trạng máy chủ · tên shipper · Vào thành phố · (thu gọn) địa chỉ máy chủ
   onlineHtml() {
-    return `<div class="mm-ic">🌐</div><h2>${fmt('menu.onlineTitle')}</h2><p class="story">${fmt('menu.onlineText')}</p>
-      <ul class="mm-list">${list('menu.onlineList').map((x) => `<li>${x}</li>`).join('')}</ul>
-      <div class="row"><button class="btn big primary" data-mm="menu">${fmt('menu.onlineBack')}</button></div>`;
+    const t = this.t, known = accountName(t.server);
+    return `<h2>🌐 ${fmt('online.title')}</h2><p class="story">${fmt('online.text')}</p>
+      <div class="mm-srv" id="mmSrv"><i></i><span>${fmt('online.checking')}</span></div>
+      <label class="mm-field"><span>${fmt(known ? 'online.nameBack' : 'online.name')}</span><input type="text" id="mmOnName" maxlength="${ONLINE_NAME_MAX}" value="${esc(t.onName ?? known)}" autocomplete="off"></label>
+      <div class="row"><button class="btn big primary" data-mm="joinOnline" id="mmJoin" disabled>${fmt('online.join')}</button></div>
+      <div class="mm-err" id="mmErr"></div>
+      <small class="mm-note">${fmt(known ? 'online.hintBack' : 'online.hintNew', { money: ONLINE.startMoney ?? 200 })}</small>
+      <details class="mm-adv"${t.advOpen ? ' open' : ''}><summary>${fmt('online.server', { url: esc(t.server) })}</summary>
+        <div class="row"><input type="text" id="mmSrvUrl" value="${esc(t.server)}" autocomplete="off" spellcheck="false"><button class="btn" data-mm="srvCheck">${fmt('online.check')}</button></div>
+        <small class="mm-note">${fmt('online.serverNote')}</small></details>`;
+  }
+  // Hỏi tình trạng máy chủ → bật / tắt nút Vào
+  async checkServer() {
+    const t = this.t, box = this.el.querySelector('#mmSrv'), join = this.el.querySelector('#mmJoin');
+    if (!box) return;
+    const url = t.server, st = await serverStatus(url);
+    if (t.view !== 'online' || url !== t.server || !box.isConnected) return;
+    const full = st?.ok && st.players >= st.max;
+    box.className = `mm-srv ${st?.ok && !full ? 'ok' : 'down'}`;
+    const hm = st?.ok ? `${String(Math.floor(st.worldMin / 60) % 24).padStart(2, '0')}:${String(st.worldMin % 60).padStart(2, '0')}` : '';
+    box.querySelector('span').textContent = !st?.ok ? fmt('online.srvDown') : full ? fmt('online.srvFull', { max: st.max }) : fmt('online.srvOk', { n: st.players, max: st.max, time: hm });
+    if (join) join.disabled = !st?.ok || full;
+  }
+  // Bấm Vào thành phố: chờ máy chủ nhận → game tự chuyển cảnh; lỗi thì hiện chữ.
+  // Lần đầu vào máy chủ này (máy chưa có tài khoản): sang màn tạo nhân vật trước (dùng lại màn của Chơi mới), xong mới vào.
+  async joinOnline() {
+    const t = this.t, err = this.el.querySelector('#mmErr'), join = this.el.querySelector('#mmJoin');
+    const name = cleanName(this.el.querySelector('#mmOnName')?.value);
+    t.onName = name;
+    const known = accountName(t.server);
+    if (!name && !known) { err.textContent = fmt('online.err.name'); return; }
+    if (!known && !t.onProfile) { // tài khoản mới: chọn ngoại hình
+      t.mode = 'online';
+      t.profile.name = name;
+      return this.showView('profile');
+    }
+    join.disabled = true;
+    join.textContent = fmt('online.joining');
+    err.textContent = '';
+    try {
+      await t.onOnline({ url: t.server, name, profile: known ? null : t.onProfile });
+    } catch (e) {
+      if (!join.isConnected) return;
+      join.disabled = false;
+      join.textContent = fmt('online.join');
+      err.textContent = fmt(`online.err.${['proto', 'name', 'full', 'other', 'down'].includes(e?.code) ? e.code : 'down'}`);
+    }
   }
 
   // Có bản lưu → hỏi lại trước khi chơi mới (bản lưu sẽ bị ghi đè)
@@ -129,7 +176,9 @@ export class Screens {
       <div class="mm-field"><span>${fmt('menu.profileShoes')}</span><div class="mm-chips">${chip('shoes', 'black', 'menu.shoesBlack', p.shoes !== 'white')}${chip('shoes', 'white', 'menu.shoesWhite', p.shoes === 'white')}</div></div>
       <small class="mm-note">${fmt('menu.profileClothesNote')}</small>
       </div></div>
-      <div class="row mm-foot"><button class="btn big" data-mm="${this.t.save ? 'confirm' : 'menu'}">${fmt('menu.prev')}</button><button class="btn big primary" data-mm="toIntro">${fmt('menu.next')}</button></div>`;
+      ${this.t.mode === 'online' // tạo nhân vật cho Online: ‹ về bảng vào thành phố · Vào thành phố
+        ? `<div class="row mm-foot"><button class="btn big" data-mm="online">${fmt('menu.prev')}</button><button class="btn big primary" data-mm="joinOnlineGo">${fmt('online.join')}</button></div>`
+        : `<div class="row mm-foot"><button class="btn big" data-mm="${this.t.save ? 'confirm' : 'menu'}">${fmt('menu.prev')}</button><button class="btn big primary" data-mm="toIntro">${fmt('menu.next')}</button></div>`}`;
   }
   // Kiểu tóc dạng lật trang: tên kiểu + thứ tự trong danh sách của giới tính đang chọn (people.js → HAIR_BY_GENDER)
   hairLabel(n) {
@@ -194,13 +243,27 @@ export class Screens {
     const go = (act) => {
       if (name()) t.profile.name = name().value; // giữ tên đang gõ khi chuyển màn
       if (act === 'continue') return t.onContinue();
-      if (act === 'new') return this.showView(t.save ? 'confirm' : 'profile');
+      if (act === 'new') { t.mode = 'intro'; return this.showView(t.save ? 'confirm' : 'profile'); }
       if (act === 'help') { t.mode = 'help'; t.page = 0; return this.showView('intro'); }
       if (act === 'toIntro') { t.mode = 'intro'; t.page = 0; return this.showView('intro'); }
       if (act === 'next') { sound('ui.next'); t.page = Math.min(INTRO.length - 1, t.page + 1); return this.showView('intro'); }
       if (act === 'prev') { sound('ui.next'); t.page = Math.max(0, t.page - 1); return this.showView('intro'); }
       if (act === 'play') return t.onNew({ ...t.profile });
       if (act === 'back') return this.showView(t.side === 'home' ? 'home' : 'menu'); // đóng bảng phụ → về cột trái đang dùng
+      if (act === 'joinOnline') return this.joinOnline();
+      if (act === 'joinOnlineGo') { // xong tạo nhân vật → quay lại bảng Online và vào luôn
+        t.onProfile = { ...t.profile, name: cleanName(t.profile.name) || t.onName };
+        t.onName = t.onProfile.name;
+        this.showView('online');
+        return this.joinOnline();
+      }
+      if (act === 'online') t.onProfile = null; // về bảng Online: lần bấm Vào sau chọn lại ngoại hình
+      if (act === 'srvCheck') { // đổi địa chỉ máy chủ → nhớ lại, hỏi tình trạng
+        const v = el.querySelector('#mmSrvUrl')?.value.trim();
+        if (v) { t.server = v; rememberServer(v); }
+        t.advOpen = true;
+        return this.showView('online');
+      }
       this.showView(act); // home · online · menu · confirm · profile · settings
     };
     el.querySelectorAll('[data-mm]').forEach((b) => b.addEventListener('click', () => go(b.dataset.mm)));
@@ -227,36 +290,45 @@ export class Screens {
     this.showAvatar();
     if (t.view === 'settings') bindSettings(el, t.settings, (s) => { t.settings = s; t.onSettings?.(s); }, () => this.showView('settings'));
     if (t.view === 'profile') { const n = name(); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }
+    if (t.view === 'online') {
+      this.checkServer();
+      const n = el.querySelector('#mmOnName');
+      el.querySelector('details')?.addEventListener('toggle', (e) => { t.advOpen = e.target.open; });
+      if (n && !t.advOpen) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); }
+    }
     // phím: ← → chuyển trang · Enter tiếp · Esc quay lại menu
     this.keyHandler = (e) => {
       const typing = e.target instanceof HTMLInputElement;
       // Esc: bảng phụ → về cột trái · menu Offline → về màn chọn chế độ
-      if (e.key === 'Escape') { e.preventDefault(); return t.view === 'menu' ? go('home') : t.view !== 'home' && go(t.view === 'profile' && t.save ? 'confirm' : 'back'); }
+      if (e.key === 'Escape') { e.preventDefault(); return t.view === 'menu' ? go('home') : t.view !== 'home' && go(t.view === 'profile' && t.mode === 'online' ? 'online' : t.view === 'profile' && t.save ? 'confirm' : 'back'); }
       if (t.view === 'intro') {
         if (e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); go(t.page === INTRO.length - 1 ? (t.mode === 'intro' ? 'play' : 'menu') : 'next'); }
         else if (e.key === 'ArrowLeft') { e.preventDefault(); if (t.page > 0) go('prev'); }
-      } else if (t.view === 'profile' && e.key === 'Enter') { e.preventDefault(); go('toIntro'); }
+      } else if (t.view === 'profile' && e.key === 'Enter') { e.preventDefault(); go(t.mode === 'online' ? 'joinOnlineGo' : 'toIntro'); }
+      else if (t.view === 'online' && e.key === 'Enter' && e.target.id === 'mmOnName') { e.preventDefault(); if (!el.querySelector('#mmJoin')?.disabled) go('joinOnline'); }
+      else if (t.view === 'online' && e.key === 'Enter' && e.target.id === 'mmSrvUrl') { e.preventDefault(); go('srvCheck'); }
       else if (!typing && t.view === 'profile' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); this.stepHair(e.key === 'ArrowLeft' ? -1 : 1); }
       else if (!typing && t.view === 'menu' && e.key === 'Enter' && t.save) go('continue');
       else if (t.view === 'home' && e.key === 'Enter') { e.preventDefault(); go('menu'); } // Enter ở màn chọn chế độ = Offline
     };
   }
 
-  pause({ onResume, onRestart, onTitle, onMute, muted, settings, onSettings }) {
+  // onRestart null: không có nút Chơi lại (Online) · note: dòng chú thích dưới chữ Tạm dừng
+  pause({ onResume, onRestart, onTitle, onMute, muted, settings, onSettings, note = '' }) {
     this.render(
-      `<div class="logo small">${fmt('screen.paused')}</div>
+      `<div class="logo small">${fmt('screen.paused')}</div>${note ? `<p class="story">${note}</p>` : ''}
       <div class="row col"><button class="btn big primary" data-a="resume">${fmt('screen.resume')}</button>
       <button class="btn big" data-a="mute">${fmt(muted ? 'screen.soundOn' : 'screen.soundOff')}</button>
       <button class="btn big" data-a="settings">${fmt('screen.settings')}</button>
       <button class="btn big" data-a="controls">${fmt('menu.controls')}</button>
-      <button class="btn big" data-a="restart">${fmt('screen.restartDay')}</button>
+      ${onRestart ? `<button class="btn big" data-a="restart">${fmt('screen.restartDay')}</button>` : ''}
       <button class="btn big" data-a="title">${fmt('screen.toTitle')}</button></div>`,
       (el) => {
         el.querySelector('[data-a="resume"]').addEventListener('click', onResume);
-        el.querySelector('[data-a="restart"]').addEventListener('click', onRestart);
+        el.querySelector('[data-a="restart"]')?.addEventListener('click', onRestart);
         el.querySelector('[data-a="title"]').addEventListener('click', onTitle);
         el.querySelector('[data-a="mute"]').addEventListener('click', onMute);
-        const back = () => this.pause({ onResume, onRestart, onTitle, onMute, muted: normSettings(settings).muted, settings, onSettings });
+        const back = () => this.pause({ onResume, onRestart, onTitle, onMute, muted: normSettings(settings).muted, settings, onSettings, note });
         el.querySelector('[data-a="settings"]').addEventListener('click', () => this.pauseSettings({ settings, onSettings, back }));
         // bảng phím điều khiển (‹ Quay lại về màn hình tạm dừng)
         el.querySelector('[data-a="controls"]').addEventListener('click', () => this.render(`${controlsHtml()}<div class="row"><button class="btn big" data-a="back">${fmt('menu.prev')}</button></div>`, (c) => c.querySelector('[data-a="back"]').addEventListener('click', back)));

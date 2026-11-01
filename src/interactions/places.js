@@ -180,10 +180,13 @@ function placeActivities(g, pl) {
       onSelect: () => {
         const r = gs.doActivity(pl, act, g.clockMin);
         if (!r.ok) return;
-        if (r.minutes) g.advance(r.minutes, 'idle', { indoor: true, waiting: false, stopOnOffer: !!act.stopOnOrder });
-        sound('place.activity');
-        g.hud.toast(fmt('toast.activity', { label: act.label, gains: gainText(act) }), 'good');
-        if (act.stopOnOrder && g.om.state === S.OFFERED) g.hud.toast(fmt('toast.orderWake'), 'info', 4000);
+        const done = () => {
+          sound('place.activity');
+          g.hud.toast(fmt('toast.activity', { label: act.label, gains: gainText(act) }), 'good');
+          if (act.stopOnOrder && g.om.state === S.OFFERED) g.hud.toast(fmt('toast.orderWake'), 'info', 4000);
+        };
+        if (r.minutes) g.advance(r.minutes, 'idle', { indoor: true, waiting: false, stopOnOffer: !!act.stopOnOrder, text: act.label }, done);
+        else done();
       },
     };
   });
@@ -204,9 +207,10 @@ function chargeChoices(g, pl) {
       if (dist(g.bike.pos, pl.chargeSpot || pl.door) > (pl.chargeSpot ? 3.5 : 9)) return say(g, n.name, n.portrait, fmt('dlg.chargeTooFar'));
       const r = gs.charge();
       if (!r.ok) return say(g, n.name, n.portrait, r.msg);
-      g.advance(r.minutes, 'idle', { waiting: true });
-      sound('place.charge');
-      g.hud.toast(r.msg, 'good');
+      g.advance(r.minutes, 'idle', { waiting: true, label: 'online.busy.charge' }, () => {
+        sound('place.charge');
+        g.hud.toast(r.msg, 'good');
+      });
     },
   }];
 }
@@ -226,9 +230,10 @@ function swapChoices(g, pl) {
       if (dist(g.bike.pos, pl.door) > 10) return say(g, n.name, n.portrait, fmt('dlg.chargeTooFar'));
       const r = gs.swapBattery();
       if (!r.ok) return say(g, n.name, n.portrait, r.msg);
-      g.advance(r.minutes, 'idle', { indoor: true, waiting: false });
-      sound('place.swap');
-      g.hud.toast(r.msg, 'good');
+      g.advance(r.minutes, 'idle', { indoor: true, waiting: false, label: 'online.busy.swap' }, () => {
+        sound('place.swap');
+        g.hud.toast(r.msg, 'good');
+      });
     },
   }];
 }
@@ -349,9 +354,10 @@ function gasChoices(g, pl) {
       if (dist(g.bike.pos, pl.door) > 9) return say(g, n.name, n.portrait, fmt('dlg.gasTooFar', npcVoice(g, n)));
       const r = gs.refuel();
       if (r.ok) {
-        g.advance(2, 'idle', { waiting: false });
-        sound('place.fuel');
-        g.hud.toast(fmt('toast.refuel', { msg: r.msg }), 'good');
+        g.advance(2, 'idle', { waiting: false, label: 'online.busy.fuel' }, () => {
+          sound('place.fuel');
+          g.hud.toast(fmt('toast.refuel', { msg: r.msg }), 'good');
+        });
       } else say(g, n.name, n.portrait, `"${r.msg}"`);
     },
   }];
@@ -488,11 +494,11 @@ function shopDialog(g, pl) {
       onSelect: () => {
         const r = gs.changeOil();
         g.hud.toast(r.msg, r.ok ? 'good' : 'bad');
+        const back = () => { if (g.state === 'play') reopen(); };
         if (r.ok) {
           sound('place.oil');
-          g.advance(r.minutes, 'idle', { indoor: true, waiting: true });
-        }
-        if (g.state === 'play') reopen();
+          g.advance(r.minutes, 'idle', { indoor: true, waiting: true, label: 'online.busy.oil' }, back);
+        } else back();
       },
     });
   }

@@ -465,12 +465,10 @@ b.plus { color: #58d68d; }
 .mm-card { display: flex; gap: 14px; align-items: center; text-align: left; background: rgba(27, 34, 45, 0.88); color: #fff; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 16px; padding: 14px 16px; cursor: pointer; font: inherit; transition: background 0.15s, transform 0.08s; }
 .mm-card:hover { background: #2b3546; border-color: var(--accent); transform: translateX(3px); }
 .mm-card.primary { border-color: var(--accent); background: rgba(0, 177, 79, 0.18); }
-.mm-card.soon { opacity: 0.6; }
-.mm-card.soon:hover, .mm-card.soon.on { opacity: 1; border-color: #f39c12; }
+.mm-card.on { border-color: var(--accent); background: #2b3546; }
 .mm-card-ic { font-size: 32px; flex: none; }
 .mm-card b { display: block; font: 700 17px var(--font); }
 .mm-card small { display: block; font: 400 12.5px var(--font); color: #c9d1dc; margin-top: 3px; }
-.mm-soon { font: 800 10px var(--font); font-style: normal; background: #f39c12; color: #111; border-radius: 6px; padding: 1px 6px; margin-left: 4px; vertical-align: 2px; white-space: nowrap; }
 .mm-back { margin-top: 6px; font-size: 14px; font-weight: 600; color: #c9d1dc; background: transparent; }
 .mm-list { margin: 8px 0 16px; padding-left: 20px; color: #cfd6e2; font-size: 14px; line-height: 1.7; }
 .mm-stage { flex: 1; display: grid; place-items: center; padding: 24px; min-width: 0; }
@@ -888,3 +886,46 @@ body:has(.in-race) #chat { display: none; }
   background-size: 220% 100%; filter: blur(1.5px); }
 #raceWhip.on { opacity: 1; animation: raceWhip 0.18s linear infinite; }
 @keyframes raceWhip { from { background-position: 0 0; } to { background-position: -400px 3px; } }
+
+/* ===== CHƠI ONLINE (src/ui/onlineHud.js, bảng vào thành phố ở màn hình chính, thẻ chat Chung / Gần) ===== */
+.mm-srv { display: flex; align-items: center; gap: 8px; border-radius: 12px; padding: 9px 12px; margin: 12px 0 4px; font-size: 14px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.14); }
+.mm-srv i { width: 10px; height: 10px; border-radius: 50%; background: #aab3c2; flex: none; }
+.mm-srv.ok { background: rgba(0, 177, 79, 0.13); border-color: rgba(0, 177, 79, 0.5); }
+.mm-srv.ok i { background: #2ee06f; box-shadow: 0 0 8px #2ee06f; }
+.mm-srv.down { background: rgba(231, 76, 60, 0.12); border-color: rgba(231, 76, 60, 0.45); }
+.mm-srv.down i { background: #e74c3c; }
+.mm-err { color: #ff8a7a; font-size: 13px; min-height: 18px; margin-top: 6px; }
+.mm-adv { margin-top: 10px; font-size: 13px; color: #8fd3ff; }
+.mm-adv summary { cursor: pointer; }
+.mm-adv .row { margin-top: 8px; }
+.mm-adv input, .mm-field input#mmOnName { flex: 1; min-width: 0; background: #0b0f16; color: #fff; border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 10px; padding: 9px 11px; font: 15px var(--font); }
+.net-chip { position: fixed; left: 50%; top: 12px; transform: translateX(-50%); z-index: 7; background: rgba(15, 20, 28, 0.82); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 20px; padding: 5px 12px; font: 600 13px var(--font); color: #fff; pointer-events: none; white-space: nowrap; }
+.net-chip.slow { border-color: #f4d03f; }
+.net-chip.down { border-color: #e74c3c; background: rgba(60, 14, 14, 0.85); }
+.net-who { position: fixed; left: 50%; top: 84px; transform: translateX(-50%); width: min(660px, calc(100vw - 32px)); max-height: calc(100vh - 140px); overflow: auto; z-index: 9; background: rgba(15, 20, 28, 0.95); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 16px; padding: 16px 18px; color: #fff; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); pointer-events: none; }
+.net-who h3 { margin: 0 0 10px; font-size: 18px; display: flex; justify-content: space-between; gap: 10px; }
+.net-who h3 span { font-size: 13px; color: #9aa4b2; font-weight: 600; }
+.net-who table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.net-who th { text-align: left; color: #9aa4b2; font-weight: 600; font-size: 12px; padding: 4px 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+.net-who td { padding: 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); white-space: nowrap; }
+.net-who tr.me td { background: rgba(0, 177, 79, 0.12); }
+.net-who .hb { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
+.net-who .st { font-size: 11.5px; border-radius: 6px; padding: 1px 6px; font-weight: 700; }
+.net-who .st.deliver { background: #1f6feb33; color: #8fc1ff; }
+.net-who .st.idle { background: #2ee06f22; color: #7dffb2; }
+.net-who .st.busy { background: #f4d03f22; color: #f4d03f; }
+.net-who .st.sleep { background: #ffffff14; color: #aab3c2; }
+.net-who .ft { font-size: 12px; color: #9aa4b2; margin-top: 10px; }
+.net-busy { position: fixed; left: 50%; bottom: 120px; transform: translateX(-50%); width: min(430px, calc(100vw - 32px)); z-index: 9; background: rgba(15, 20, 28, 0.94); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 16px; padding: 14px 18px; color: #fff; box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55); pointer-events: none; }
+.net-busy .nb-t { font: 800 16px var(--font); display: flex; justify-content: space-between; gap: 10px; }
+.net-busy .nb-t span { color: #ffd166; white-space: nowrap; }
+.net-busy .nb-bar { height: 12px; border-radius: 7px; background: #0b0f16; margin: 10px 0 8px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.1); }
+.net-busy .nb-bar i { display: block; height: 100%; background: linear-gradient(90deg, #00b14f, #7dffb2); transition: width 0.2s linear; }
+.net-busy.sleep .nb-bar i { background: linear-gradient(90deg, #6d5bd0, #b7a8ff); }
+.net-busy .nb-s { font-size: 12.5px; color: #aab3c2; display: flex; justify-content: space-between; gap: 10px; }
+.net-busy .nb-k { font-weight: 700; color: #fff; white-space: nowrap; }
+#chat .ch-tabs { display: flex; gap: 4px; pointer-events: auto; }
+#chat .ch-tabs b { font: 700 12px var(--font); padding: 3px 10px; border-radius: 8px; background: rgba(10, 14, 22, 0.75); color: #aab3c2; cursor: pointer; }
+#chat .ch-tabs b.on { background: var(--accent); color: #fff; }
+.ch-line .g { font-size: 10px; font-weight: 800; color: #111; background: #8fd3ff; border-radius: 4px; padding: 0 4px; margin-right: 4px; }
+.ch-line.k-sys { color: #9fdcff; }

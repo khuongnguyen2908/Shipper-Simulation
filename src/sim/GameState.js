@@ -156,8 +156,9 @@ export class GameState {
   get rentDueDay() {
     return dueDayOf(this.rentState.period) + (this.rentState.ext || 0); // ext: số ngày Dì Hai cho khất (đang bận cốt truyện)
   }
+  // Online: ngày của mình lệch ngày thành phố dayShift ngày (đồng hồ là giờ thành phố) → hạn tính theo ngày thành phố tương ứng
   rentDueAt() {
-    return atHour(this.rentDueDay, ECONOMY.rentDueHour ?? 22);
+    return atHour(this.rentDueDay + (this.dayShift || 0), ECONOMY.rentDueHour ?? 22);
   }
   // (dữ liệu có thể bị xóa trong ?editor → rơi về đồ khởi đầu)
   get vehicleSpec() {
@@ -955,6 +956,7 @@ export class GameState {
 
   // Tiến độ để xét địa điểm đã mở chưa (sim/placeRules.js → unlocked): ngày + chương cốt truyện đang chơi
   get progress() {
+    if (this.online) return { day: Infinity, chap: Infinity }; // Online: thành phố chung, mọi địa điểm / món mở sẵn
     return { day: this.day, chap: chapterNo(this.story) };
   }
 

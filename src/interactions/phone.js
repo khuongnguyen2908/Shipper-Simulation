@@ -122,9 +122,12 @@ export function bagUse(g, id) {
   const r = g.gs.useConsumable(id);
   if (r.ok) storyEvent(g.gs.story, `use:${id}`); // cốt truyện: đã dùng món này
   if (!s || !r.ok) return;
-  if (r.minutes) g.advance(r.minutes, 'idle', { waiting: false });
-  sound('place.use');
-  g.hud.toast(fmt('toast.used', { name: s.name, gains: gainText(s.use || {}) }), 'good');
+  const done = () => {
+    sound('place.use');
+    g.hud.toast(fmt('toast.used', { name: s.name, gains: gainText(s.use || {}) }), 'good');
+  };
+  if (r.minutes) g.advance(r.minutes, 'idle', { waiting: false, text: fmt('online.busy.use', { name: s.name }) }, done);
+  else done();
 }
 
 // Túi đồ: gắn / tháo phụ kiện (mũ bảo hiểm, áo mưa, áo khoác, kính, khẩu trang, găng tay) — phải dừng xe.
@@ -170,13 +173,14 @@ function callCustomer(g) {
   if (om.state === S.NO_ANSWER) return noAnswer(g, true);
   const wasHidden = !o.revealed;
   const r = om.callCustomer(g.clockMin);
-  g.advance(r.waitMin || 1, 'idle');
-  const who = fmt('dlg.phoneCall', { customer: o.customer });
-  if (r.scam) say(g, who, '📱', fmt('dlg.callScam', custVoice(g, o)));
-  else if (wasHidden && r.revealed && r.foreign) say(g, who, '📱', fmt('dlg.callForeign', { address: o.dropoff.address, min: r.waitMin }));
-  else if (wasHidden && r.revealed) say(g, who, '📱', fmt('dlg.callRevealed', { ...custVoice(g, o), address: o.dropoff.address }));
-  else if (om.state === S.TO_PICKUP || om.state === S.WAITING_FOOD) say(g, who, '📱', fmt('dlg.callPickup', custVoice(g, o)));
-  else say(g, who, '📱', fmt('dlg.callDelivering', custVoice(g, o)));
+  g.advance(r.waitMin || 1, 'idle', { label: 'online.busy.call' }, () => {
+    const who = fmt('dlg.phoneCall', { customer: o.customer });
+    if (r.scam) say(g, who, '📱', fmt('dlg.callScam', custVoice(g, o)));
+    else if (wasHidden && r.revealed && r.foreign) say(g, who, '📱', fmt('dlg.callForeign', { address: o.dropoff.address, min: r.waitMin }));
+    else if (wasHidden && r.revealed) say(g, who, '📱', fmt('dlg.callRevealed', { ...custVoice(g, o), address: o.dropoff.address }));
+    else if (om.state === S.TO_PICKUP || om.state === S.WAITING_FOOD) say(g, who, '📱', fmt('dlg.callPickup', custVoice(g, o)));
+    else say(g, who, '📱', fmt('dlg.callDelivering', custVoice(g, o)));
+  });
 }
 
 // Tốc độ khách xe ôm chịu được (km/h) — theo loại khách, cộng trang bị

@@ -4,3 +4,6 @@ dist/
 *.log
 # cấu hình riêng của máy (Claude Code)
 .claude/
+
+# dữ liệu máy chủ online (tài khoản, tiến độ người chơi)
+server/data/

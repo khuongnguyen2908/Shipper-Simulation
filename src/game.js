@@ -57,11 +57,15 @@ import { ScenePart } from './game/scene.js';
 import { ZonePart } from './game/zone.js';
 import { FightPart } from './game/fight.js';
 import { RacePart } from './game/race.js';
+import { OnlinePart } from './game/online.js';
 import { SQUEEZE } from './sim/race.js';
 
 export class Game {
   constructor(canvas, uiRoot) {
     this.canvas = canvas;
+    this.uiRoot = uiRoot;
+    this.online = null; // đang chơi Online (src/game/online.js) — null = Offline, luật như cũ
+    this.busy = null; // Online: việc đang làm tốn thời gian (thanh tiến độ thay cho tua giờ)
     // Esc bấm lúc đang mở popup (hộp thoại, điện thoại, ô chat, bảng cheat) chỉ để đóng popup đó → không bật tạm dừng.
     // Ghi nhận ngay lúc bấm (pha "capture", trước mọi phần xử lý phím khác) vì popup tự đóng trước khi game đọc phím.
     window.addEventListener('keydown', (e) => { if (e.code === 'Escape') this.escPopupAt = this.popupOpen() ? performance.now() : 0; }, true);
@@ -143,7 +147,8 @@ export class Game {
     this.fpsN = 0;
     this.fpsT = 0;
     this.chatCh.on((l) => {
-      if (l.kind === 'chat') this.bubbles.show(`p:${l.from}`, () => (l.mine ? headOf(this.walker.mesh) : null), l.text, 'chat'); // người chơi khác: sau này bám theo nhân vật của họ
+      // bong bóng trên đầu người nói (Online: chỉ tin "Gần"; tin "Chung" chỉ hiện trong khung chat)
+      if (l.kind === 'chat' && l.scope !== 'all') this.bubbles.show(`p:${l.from}`, () => (l.mine ? headOf(this.walker.mesh) : this.remoteHead(l.from)), l.text, 'chat');
     });
     this.phone = new Phone(uiRoot, {
       refresh: () => this.renderPhone(),
@@ -161,6 +166,7 @@ export class Game {
     this.timeScale = 1;
     this.lastT = performance.now();
     window.addEventListener('resize', () => this.resize());
+    window.addEventListener('pagehide', () => this.onlineSave()); // Online: đóng tab / tải lại trang → lưu lên máy chủ
     this.resize();
     window.addEventListener('pointerdown', unlockAudio);
     window.addEventListener('keydown', unlockAudio);
@@ -232,7 +238,7 @@ export class Game {
     }
   }
   writeSave(data) {
-    if (this.noSave) return; // ván thử (?cheat&fight=…): không đè bản lưu thật
+    if (this.noSave || this.online) return; // ván thử (?cheat&fight=…) / đang chơi Online (lưu trên máy chủ): không đè bản lưu Offline
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify(data));
     } catch {
@@ -242,6 +248,7 @@ export class Game {
 
   // view: 'menu' (mặc định) | 'new' (mở thẳng phần Chơi mới, vd từ màn hình thua)
   showTitle(view = 'menu') {
+    this.onlineLeave(); // đang Online: lưu lên máy chủ rồi rời thành phố
     this.state = 'title';
     this.hud.show(false);
     this.phone.toggle(false);
@@ -257,6 +264,7 @@ export class Game {
       onNew: (profile) => this.newGame(profile),
       onContinue: () => this.startGame(save),
       onSettings: (s) => this.applySettings(s),
+      onOnline: (o) => this.onlineJoin(o), // 🌐 Online → Vào thành phố (lỗi: ném { code } cho màn hình hiện chữ)
     });
   }
 
@@ -338,6 +346,7 @@ export class Game {
     if (this.om.order || this.om.state === S.OFFERED) return fmt('phone.camBlockOrder');
     if (this.mode === 'bike') return fmt('phone.camBlockBike');
     if (this.ferryRide) return fmt('phone.camBlockFerry');
+    if (this.online) return fmt('online.camBlock'); // Online: tiến độ lưu trên máy chủ, không chụp lưu
     if (this.modal.open || this.storyPacking?.isConnected) return fmt('phone.camBlockTalk');
     return null;
   }
@@ -387,16 +396,20 @@ export class Game {
     return true;
   }
 
-  startGame({ clock, carry, seed, pos = null }) {
+  // pday (chỉ Online): ngày của riêng người chơi — khác ngày thành phố (dayOf(clock)); Offline = ngày theo đồng hồ
+  startGame({ clock, carry, seed, pos = null, pday = null }) {
+    this.busy = null;
     this.pendingTickets = []; // ván mới: bỏ phạt nguội vượt đèn đỏ đang chờ báo của ván cũ
     this.inLight = null;
     this.screens.hide();
     this.modal.hide();
     this.seed = seed;
-    const day = dayOf(clock);
+    const wday = dayOf(clock), day = pday ?? wday;
     this.gs = new GameState({ day, carry });
+    this.gs.dayShift = wday - day; // Online: tiền nhà tính theo ngày của mình (Offline = 0)
+    this.gs.online = !!this.online; // Online: mọi địa điểm mở sẵn, không có cốt truyện
     if (!carry || carry.awakeSince == null) this.gs.wake(clock); // bản lưu cũ chưa có giờ thức dậy
-    this.hz = new HazardManager(makeRng(seed + day * 101), day);
+    this.hz = new HazardManager(makeRng(seed + wday * 101), wday); // thời tiết, kẹt xe, CSGT theo ngày thành phố (Online: chung mọi người)
     this.om = new OrderManager({ rng: makeRng(seed * 7 + day), layout: this.layout, gs: this.gs, isRaining: (m) => this.hz.isRaining(m), isFlooded: (door, m) => floodBand(this.hz.floodDepth(nearestSegId(door), m)) >= 1 });
     this.om.on((e) => this.onOrderEvent(e));
     this.clockMin = clock;
@@ -535,7 +548,8 @@ export class Game {
   beginDay(day) {
     sound('city.morning');
     this.gs.startDay(day);
-    this.hz = new HazardManager(makeRng(this.seed + day * 101), day);
+    const wd = dayOf(this.clockMin); // ngày thành phố (Offline trùng ngày của mình)
+    this.hz = new HazardManager(makeRng(this.seed + wd * 101), wd);
     this.knownPolice = new Set();
     this.policeChecked = new Set();
     this.groupChat(fmt('chat.group'), fmt('chat.forecast', { forecast: this.hz.forecastText() }));
@@ -547,7 +561,7 @@ export class Game {
   }
   // đồng hồ vừa qua 06:00 → sang ngày mới
   rollDay() {
-    const d = dayOf(this.clockMin);
+    const d = dayOf(this.clockMin) - (this.gs.dayShift || 0); // Online: ngày của mình (lệch ngày thành phố)
     if (d !== this.gs.day) this.beginDay(d);
   }
 
@@ -565,6 +579,7 @@ export class Game {
   endGame(outcome) {
     if (this.state !== 'play') return;
     this.state = 'over';
+    this.online?.net.send('reset'); // Online: thua → xóa bản lưu trên máy chủ (vào lại là bắt đầu mới, giữ tên + biển số)
     setEngine(false, 0);
     setRain(0);
     this.modal.hide();
@@ -575,9 +590,9 @@ export class Game {
       outcome,
       gs,
       timeStr: `${fmt('hud.day', { day: gs.day })} · ${fmtTime(this.clockMin)}`,
-      save: this.lastSave && { day: dayOf(this.lastSave.clock), time: fmtTime(this.lastSave.clock) },
+      save: !this.online && this.lastSave && { day: dayOf(this.lastSave.clock), time: fmtTime(this.lastSave.clock) }, // Online: không chơi lại bản lưu, chỉ bắt đầu lại
       onRetry: () => this.startGame(this.lastSave),
-      onNew: () => this.showTitle('new'), // đặt tên / giới tính + giới thiệu như Chơi mới ở màn hình chính
+      onNew: () => (this.online ? this.onlineReset() : this.showTitle('new')), // đặt tên / giới tính + giới thiệu như Chơi mới ở màn hình chính
       onTitle: () => this.showTitle(),
     });
   }
@@ -590,7 +605,8 @@ export class Game {
       settings: this.settings,
       onSettings: (s) => this.applySettings(s),
       onResume: () => this.resume(),
-      onRestart: () => this.startGame(this.lastSave),
+      onRestart: this.online ? null : () => this.startGame(this.lastSave), // Online: không quay lại bản lưu (thành phố vẫn chạy)
+      note: this.online ? fmt('online.pauseNote') : '',
       onTitle: () => this.showTitle(),
       onMute: () => {
         this.setMute(!this.muted);
@@ -634,6 +650,7 @@ export class Game {
       this.input.setLock(false); // màn hình tiêu đề / kết thúc: hiện con trỏ
       this.titleTick(dt);
     }
+    this.onlineTick(dt); // Online: gửi vị trí, vẽ người khác, lưu định kỳ (cả lúc tạm dừng — thành phố không dừng)
     // người xa camera vẽ bản đơn giản (6 khung hình xét 1 lần là đủ — người đi chậm)
     if ((this.lodTick = (this.lodTick || 0) + 1) % 6 === 0) updatePeopleLod(this.camera.position);
     this.renderer.render(this.scene, this.camera);
@@ -690,6 +707,11 @@ export class Game {
       else if (!this.escForPopup()) this.pauseGame(); // Esc vừa đóng popup (hộp thoại, chat…) thì thôi
     }
     if (this.paused) return;
+    // Online đang làm việc tốn thời gian (thanh tiến độ): đứng yên, chỉ chat / xem danh sách / tắt tiếng / E dậy sớm
+    if (this.busy) {
+      for (const c of [...inp.pressed]) if (!['Enter', 'NumpadEnter', 'KeyM', 'KeyE'].includes(c)) inp.pressed.delete(c);
+      for (const k of Object.keys(inp.state)) if (k !== 'who') inp.state[k] = false;
+    }
     const frozen = this.modal.open || this.screens.open;
     if (!frozen) {
       if (inp.was('Tab')) this.togglePhone();
@@ -728,6 +750,7 @@ export class Game {
     for (const k of Object.keys(st)) st[k] = !!hold[k];
     for (let t = 0; t < seconds; t += dt) {
       if (this.state === 'play') this.update(dt);
+      this.onlineTick(dt); // Online: gửi / nhận như vòng lặp thật (tab ẩn vẫn thử được)
       this.input.endFrame();
     }
     for (const k of Object.keys(st)) st[k] = false;
@@ -753,7 +776,7 @@ export class Game {
   }
 
   debugKeys(inp) {
-    if (inp.was('KeyT')) this.advance(30, 'idle');
+    if (inp.was('KeyT') && !this.online) this.advance(30, 'idle'); // Online: giờ chung, không tua
     if (inp.was('KeyK')) this.gs.earn(100, 'debug');
     if (inp.was('KeyL')) this.gs.fuel = this.gs.vehicleSpec.tank;
   }
@@ -841,16 +864,22 @@ export class Game {
     }
 
     // ---- thời gian & năng lượng ----
-    const dMin = dt * TIME.gameMinPerRealSec * this.timeScale;
-    this.clockMin += dMin;
+    let dMin;
+    if (this.online) dMin = this.onlineClock(); // Online: đồng hồ theo giờ thành phố (máy chủ)
+    else {
+      dMin = dt * TIME.gameMinPerRealSec * this.timeScale;
+      this.clockMin += dMin;
+    }
+    const bz = this.busy; // Online: đang chờ / ngủ… → hao / hồi sức theo việc đó
     this.parkTick();
     this.fineTick();
     this.ticketTick();
     this.airportTick(mounted ? speed : 0);
     this.roadTick(mounted);
     if (this.pursue && this.pursue.phase !== 'lost' && activity === 'run') activity = 'walk'; // bị rượt: chạy không tốn thêm thể lực (không ngất giữa đường)
-    if (!this.zone) gs.drain(activity, dMin, // bản đồ riêng của cốt truyện (trên tàu, màn đua): thể lực / tinh thần đứng yên, không ngất giữa cảnh
-       { harshSun: hz.isHarshSun(now), raining: !!rain, outdoor: true, inJam: this.inJam, waiting: false, now: this.clockMin });
+    if (!this.zone) gs.drain(bz ? bz.activity : activity, dMin * (bz?.mul || 1), // bản đồ riêng của cốt truyện (trên tàu, màn đua): thể lực / tinh thần đứng yên, không ngất giữa cảnh
+       { harshSun: hz.isHarshSun(now), raining: !!rain, outdoor: !bz?.opts.indoor, inJam: this.inJam, waiting: bz ? bz.opts.waiting ?? true : false, now: this.clockMin });
+    this.busyTick();
     // ngồi ghế (quán, công viên, trạm xe buýt): tinh thần hồi chậm, tới mức tối đa thì thôi (thẻ ⚖️ Cân bằng → energy.seat)
     const seatK = ENERGY.seat || {};
     if (!mounted && this.walker.seat && seatK.mentalPerMin > 0 && gs.mental < (seatK.mentalMax ?? 70)) {
@@ -931,7 +960,7 @@ export class Game {
     }
 
     // ---- tương tác ----
-    this.prompts = act.gatherInteractions(this);
+    this.prompts = this.busy ? [] : act.gatherInteractions(this); // Online đang chờ / ngủ (thanh tiến độ): không làm việc khác
     if (inp.was('KeyE')) {
       const p = this.prompts.find((x) => x.key === 'E' && !x.disabled);
       if (p) {
@@ -994,51 +1023,60 @@ export class Game {
     this.placeAtHome();
     // sắp có hẹn giờ trong cốt truyện (khung giờ / hạn giờ) → chỉ nằm ít hơn (energy.collapse.storyHours) cho khỏi lỡ hẹn. Đồng hồ chung vẫn chạy.
     const hours = this.storyTimedSoon() ? ENERGY.collapse.storyHours ?? 2 : ENERGY.collapse.hours;
-    this.advance(hours * 60, 'rest', { indoor: true, waiting: false, quiet: true });
-    if (this.state !== 'play') return;
-    const r = gs.recoverCollapse(kind);
-    gs.wake(this.clockMin);
-    this.collapsing = false;
-    sound('progress.collapse');
-    this.modal.show({
-      speaker: fmt('npc.home.name'),
-      portrait: '🏥',
-      text: fmt(kind === 'faint' ? 'dlg.faint' : 'dlg.burnout', { hours, fee: fmtK(r.fee), time: fmtTime(this.clockMin) }),
-      choices: [{ label: fmt('dlg.ok'), primary: true }],
+    this.advance(hours * 60, 'rest', { indoor: true, waiting: false, quiet: true }, () => {
+      if (this.state !== 'play') return;
+      const r = gs.recoverCollapse(kind);
+      gs.wake(this.clockMin);
+      this.collapsing = false;
+      sound('progress.collapse');
+      this.modal.show({
+        speaker: fmt('npc.home.name'),
+        portrait: '🏥',
+        text: fmt(kind === 'faint' ? 'dlg.faint' : 'dlg.burnout', { hours, fee: fmtK(r.fee), time: fmtTime(this.clockMin) }),
+        choices: [{ label: fmt('dlg.ok'), primary: true }],
+      });
     });
   }
 
-  // Ngủ ở phòng trọ: tắt app, tua nhanh, hồi thể lực / tinh thần
-  sleep(minutes) {
+  // Ngủ ở phòng trọ: tắt app, tua nhanh, hồi thể lực / tinh thần. done(): khi đã dậy (Online: sau thanh tiến độ)
+  sleep(minutes, done) {
     this.om.goOffline();
-    this.advance(minutes, 'sleep', { indoor: true, waiting: false, quiet: true });
-    if (this.state !== 'play') return null;
-    this.gs.wake(this.clockMin);
-    return this.clockMin;
+    this.advance(minutes, 'sleep', { indoor: true, waiting: false, quiet: true }, () => {
+      if (this.state !== 'play') return;
+      this.gs.wake(this.clockMin);
+      done?.();
+    });
   }
 
-  // Chợp mắt ở địa điểm (không tắt app): có đơn mời thì dậy ngay. Trả về số phút đã ngủ và có bị đơn đánh thức không.
-  nap(minutes) {
-    if (this.om.order || this.om.state === S.OFFERED) return null;
+  // Chợp mắt ở địa điểm (không tắt app): có đơn mời thì dậy ngay. done({ slept, byOrder }): số phút đã ngủ, có bị đơn đánh thức không.
+  nap(minutes, done) {
+    if (this.om.order || this.om.state === S.OFFERED) return false;
     const start = this.clockMin;
-    this.advance(minutes, 'nap', { indoor: true, waiting: false, quiet: true, stopOnOffer: true });
-    if (this.state !== 'play') return null;
-    const slept = Math.round(this.clockMin - start);
-    this.gs.napWake(this.clockMin, slept);
-    return { slept, byOrder: this.om.state === S.OFFERED };
+    this.advance(minutes, 'nap', { indoor: true, waiting: false, quiet: true, stopOnOffer: true }, () => {
+      if (this.state !== 'play') return;
+      const slept = Math.round(this.clockMin - start);
+      this.gs.napWake(this.clockMin, slept);
+      done?.({ slept, byOrder: this.om.state === S.OFFERED });
+    });
+    return true;
   }
 
   // Cho thời gian trôi nhanh (chờ quán, leo cầu thang, ngủ…), tính đủ hao mòn & món hàng
   // stopOnOffer: có đơn mời thì dừng ngay (ngồi chờ đơn, chợp mắt)
   // ---- PHÀ (interactions.js → Đi phà): chờ phà cập bến này, gắn người (+ xe) lên boong, tới bờ bên kia thì cho xuống ----
-  startFerry(pair, side, withBike) {
+  // Online (không tua được): chờ phà bằng thanh tiến độ rồi gọi lại hàm này (tries: số lần chờ thêm chút vì lệch giờ)
+  startFerry(pair, side, withBike, tries = 0) {
     const nb = nextBoat(side, this.clockMin);
-    if (nb.wait > 0) this.advance(nb.wait, 'idle', { waiting: true, quiet: true });
+    const wait = { waiting: true, quiet: true, label: 'online.busy.ferry' };
+    if (nb.wait > 0 && this.online) return this.advance(nb.wait, 'idle', wait, () => this.startFerry(pair, side, withBike, tries)), true;
+    if (nb.wait > 0) this.advance(nb.wait, 'idle', wait);
     // chiếc đang đậu ở bến này (lệch vài giây do làm tròn thì chờ thêm chút)
     let i = -1;
     for (let k = 0; k < 20 && i < 0; k++) {
       i = this.ferries.boats.findIndex((b) => b.pair === pair && this.ferries.pose(pair, b.i, this.clockMin).at === side);
-      if (i < 0) this.advance(0.1, 'idle', { waiting: true, quiet: true });
+      if (i >= 0) break;
+      if (this.online) return tries < 20 && (this.advance(0.2, 'idle', wait, () => this.startFerry(pair, side, withBike, tries + 1)), true);
+      this.advance(0.1, 'idle', wait);
     }
     if (i < 0) return false;
     const boat = this.ferries.boats[i];
@@ -1093,7 +1131,11 @@ export class Game {
     this.hud.toast(fmt('toast.ferryArrive', { other: pier.name, time: fmtTime(this.clockMin) }), 'good', 5000);
   }
 
-  advance(min, activity = 'idle', { indoor = false, waiting = true, quiet = false, stopOnOffer = false } = {}) {
+  // then(): chạy khi xong. Offline: tua ngay rồi gọi then. Online: không tua — thanh tiến độ (online.js → onlineBusy), xong mới gọi then.
+  // opts.label / opts.text: chữ trên thanh tiến độ Online (khóa vi.json / chữ sẵn)
+  advance(min, activity = 'idle', opts = {}, then = null) {
+    if (this.online) return this.onlineBusy(min, activity, opts, then);
+    const { indoor = false, waiting = true, quiet = false, stopOnOffer = false } = opts;
     const n = Math.max(1, Math.round(min));
     const start = this.clockMin;
     this.skipping = true; // đang tua giờ (ngủ, chợp mắt, phím T…): không phát tiếng sấm (cơn mưa có thể bắt đầu rồi tạnh ngay trong lúc tua)
@@ -1116,8 +1158,9 @@ export class Game {
     this.skipping = false;
     if (!quiet) this.hud.toast(fmt('toast.timeSkip', { min: Math.round(this.clockMin - start), time: fmtTime(this.clockMin) }), 'info', 2200);
     this.checkEnd();
+    then?.();
   }
 
 }
 
-mixParts(Game, [EventsPart, RoadRulesPart, NavigationPart, StoryPart, VisualsPart, PhoneDataPart, ScenePart, ZonePart, FightPart, RacePart]);
+mixParts(Game, [EventsPart, RoadRulesPart, NavigationPart, StoryPart, VisualsPart, PhoneDataPart, ScenePart, ZonePart, FightPart, RacePart, OnlinePart]);

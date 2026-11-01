@@ -8,6 +8,7 @@ import { S } from './sim/OrderManager.js';
 import { ICON } from './ui/minimap.js';
 import { fmt } from './content/index.js';
 import { fmtK } from './sim/economy.js';
+import { BRANDS } from './data/apps.js';
 
 const d2 = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const NAV = '#1e90ff'; // màu đường chỉ đường
@@ -57,6 +58,8 @@ export function roundMapData(game, tgt, dt) {
   if (home) markers.push({ ...home.door, icon: base.quest ? '❗' : '🏠', ring: base.quest ? '#f4d03f' : '#7f8c8d', r: base.quest ? 12 : 10 }); // mở đầu: ❗ chỗ Cô Hai
   for (const p of base.police) markers.push({ ...p, icon: '👮', ring: '#2c3e50', r: 11 });
   if (base.bike) markers.push({ ...base.bike, icon: '🛵', ring: '#5dade2', r: 11 });
+  // Online: người chơi khác = chấm trắng viền màu hãng (chưa vào hãng: viền xám)
+  for (const r of game.online?.remotes.list || []) markers.push({ x: r.x, z: r.z, icon: '', ring: BRANDS[r.brand]?.color || '#7f8c8d', r: 5 });
 
   // bến phà ở gần: 2 bến + tuyến nét đứt qua sông; đứng gần bến thì báo chuyến sau
   const ferryLines = [];

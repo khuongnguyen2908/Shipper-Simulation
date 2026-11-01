@@ -13,13 +13,26 @@ export class ChatBox {
     this.onSend = onSend;
     this.el = document.createElement('div');
     this.el.id = 'chat';
-    this.el.innerHTML = `<div class="ch-log"></div><input class="ch-in hidden" type="text" maxlength="${CHAT_MAX}" placeholder="${fmt('chat.placeholder')}" autocomplete="off">`;
+    // ch-tabs: thẻ Chung / Gần (chỉ khi chơi Online — setScope)
+    this.el.innerHTML = `<div class="ch-log"></div><div class="ch-tabs hidden"><b data-s="all">${fmt('online.chatAll')}</b><b data-s="near">${fmt('online.chatNear')}</b></div><input class="ch-in hidden" type="text" maxlength="${CHAT_MAX}" placeholder="${fmt('chat.placeholder')}" autocomplete="off">`;
     root.appendChild(this.el);
     this.log = this.el.querySelector('.ch-log');
     this.input = this.el.querySelector('.ch-in');
+    this.tabs = this.el.querySelector('.ch-tabs');
+    this.scopeCtl = null; // Online: { get(), set(scope) } — 'all' cả thành phố · 'near' người ở gần
+    this.tabs.addEventListener('mousedown', (e) => {
+      const s = e.target.closest('[data-s]')?.dataset.s;
+      if (s && this.scopeCtl) { e.preventDefault(); this.scopeCtl.set(s); this.drawTabs(); }
+    });
     this.typing = false;
     this.input.addEventListener('keydown', (e) => {
       e.stopPropagation(); // phím khi đang gõ không lọt vào game / điện thoại
+      if (e.key === 'Tab' && this.scopeCtl) { // Tab khi đang gõ: đổi Chung ↔ Gần
+        e.preventDefault();
+        this.scopeCtl.set(this.scopeCtl.get() === 'near' ? 'all' : 'near');
+        this.drawTabs();
+        return;
+      }
       if (e.key === 'Enter') {
         e.preventDefault();
         const t = this.input.value;
@@ -43,6 +56,12 @@ export class ChatBox {
       t.textContent = line.time;
       row.appendChild(t);
     }
+    if (line.scope === 'near') { // tin chat "Gần" (Online)
+      const g = document.createElement('span');
+      g.className = 'g';
+      g.textContent = fmt('online.nearTag');
+      row.appendChild(g);
+    }
     if (line.name) {
       const b = document.createElement('b');
       b.textContent = line.name;
@@ -59,6 +78,7 @@ export class ChatBox {
     this.typing = true;
     this.el.classList.add('open');
     this.input.classList.remove('hidden');
+    this.drawTabs();
     this.input.value = '';
     this.input.focus();
     this.log.scrollTop = this.log.scrollHeight;
@@ -69,7 +89,21 @@ export class ChatBox {
     this.typing = false;
     this.el.classList.remove('open');
     this.input.classList.add('hidden');
+    this.tabs.classList.add('hidden');
     this.input.blur();
+  }
+  // Online: bật thẻ Chung / Gần (ctl = null: chơi Offline, không có thẻ)
+  setScope(ctl) {
+    this.scopeCtl = ctl;
+    this.drawTabs();
+  }
+  drawTabs() {
+    const on = !!this.scopeCtl && this.typing;
+    this.tabs.classList.toggle('hidden', !on);
+    if (!on) return;
+    const s = this.scopeCtl.get();
+    for (const b of this.tabs.children) b.classList.toggle('on', b.dataset.s === s);
+    this.input.placeholder = fmt(s === 'near' ? 'online.phNear' : 'online.phAll');
   }
 
   // mỗi khung hình: dòng cũ mờ đi, chỉ hiện vài dòng cuối (đang gõ thì hiện hết, cuộn xem lại được)

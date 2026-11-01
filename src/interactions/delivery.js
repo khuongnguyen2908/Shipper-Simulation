@@ -41,7 +41,7 @@ function waitFood(g, text) {
   const n = npc(g, o.pickup.placeId);
   const left = Math.ceil(om.minutesUntilReady(g.clockMin));
   say(g, n.name, n.portrait, text, [
-    { label: fmt('dlg.waitChoice', { min: left }), hint: fmt('dlg.waitHint'), primary: true, onSelect: () => { g.advance(left, 'idle'); if (g.state === 'play') startPacking(g); } },
+    { label: fmt('dlg.waitChoice', { min: left }), hint: fmt('dlg.waitHint'), primary: true, onSelect: () => g.advance(left, 'idle', { label: 'online.busy.food' }, () => { if (g.state === 'play') startPacking(g); }) },
     { label: fmt('dlg.waitLater'), hint: fmt('dlg.waitLaterHint') },
   ]);
 }
@@ -56,10 +56,11 @@ function outOfStock(g, item) {
       label: fmt('dlg.oosCall'),
       onSelect: () => {
         sound('phone.call');
-        g.advance(2, 'idle');
-        const r = om.resolveOutOfStock('call', g.clockMin);
-        if (r.accepted) say(g, who, '📱', fmt('dlg.oosSubOk', { ...custVoice(g, o), item: r.sub.name }), [{ label: fmt('dlg.oosSubOrder'), onSelect: () => waitFood(g, fmt('dlg.oosSubReady', { ...npcVoice(g, n), item: r.sub.name })) }]);
-        else say(g, who, '📱', fmt('dlg.oosCancelled', { ...custVoice(g, o), k: APP.cancelComp }));
+        g.advance(2, 'idle', { label: 'online.busy.call' }, () => {
+          const r = om.resolveOutOfStock('call', g.clockMin);
+          if (r.accepted) say(g, who, '📱', fmt('dlg.oosSubOk', { ...custVoice(g, o), item: r.sub.name }), [{ label: fmt('dlg.oosSubOrder'), onSelect: () => waitFood(g, fmt('dlg.oosSubReady', { ...npcVoice(g, n), item: r.sub.name })) }]);
+          else say(g, who, '📱', fmt('dlg.oosCancelled', { ...custVoice(g, o), k: APP.cancelComp }));
+        });
       },
     },
     { label: fmt('dlg.oosCook'), hint: fmt('dlg.oosCookHint'), onSelect: () => { om.resolveOutOfStock('cook', g.clockMin); waitFood(g, fmt('dlg.oosCookReply', npcVoice(g, n))); } },
@@ -156,7 +157,7 @@ export function dropoff(g) {
     gs.spend(ECONOMY.parkingFee, 'parking', true);
     g.markParkedSafe(); // đã gửi xe cho bảo vệ
     const n = npc(g, 'apartment');
-    say(g, n.name, n.portrait, fmt('dlg.liftGuard', { fee: ECONOMY.parkingFee, floor: o.dropoff.floor }), [{ label: fmt('dlg.liftGo'), onSelect: () => { g.advance(ORDER.liftMin, 'walk', { indoor: true }); handOver(g); } }], { dismissible: false });
+    say(g, n.name, n.portrait, fmt('dlg.liftGuard', { fee: ECONOMY.parkingFee, floor: o.dropoff.floor }), [{ label: fmt('dlg.liftGo'), onSelect: () => g.advance(ORDER.liftMin, 'walk', { indoor: true, label: 'online.busy.lift' }, () => handOver(g)) }], { dismissible: false });
     return;
   }
   handOver(g);
@@ -172,12 +173,13 @@ export function noAnswer(g, fromPhone = false) {
       onSelect: () => {
         sound('phone.call');
         const r = om.callCustomer(g.clockMin);
-        g.advance(r.waitMin, 'idle');
-        if (r.answered) say(g, fmt('dlg.phoneCall', { customer: o.customer }), '📱', fmt('dlg.answered', custVoice(g, o)), [{ label: fmt('dlg.handOver'), primary: true, onSelect: () => handOver(g) }], { dismissible: false });
-        else {
-          gs.addEnergy(0, -ENERGY.mental.noAnswer);
-          noAnswer(g);
-        }
+        g.advance(r.waitMin, 'idle', { label: 'online.busy.call' }, () => {
+          if (r.answered) say(g, fmt('dlg.phoneCall', { customer: o.customer }), '📱', fmt('dlg.answered', custVoice(g, o)), [{ label: fmt('dlg.handOver'), primary: true, onSelect: () => handOver(g) }], { dismissible: false });
+          else {
+            gs.addEnergy(0, -ENERGY.mental.noAnswer);
+            noAnswer(g);
+          }
+        });
       },
     },
     {
@@ -192,10 +194,11 @@ export function noAnswer(g, fromPhone = false) {
       label: fmt('dlg.wait10'),
       onSelect: () => {
         const r = om.waitForCustomer(g.clockMin);
-        g.advance(10, 'idle');
-        if (g.state !== 'play') return;
-        if (r.came) say(g, o.customer, '🙋', fmt('dlg.customerCame', custVoice(g, o)), [{ label: fmt('dlg.handOver'), primary: true, onSelect: () => handOver(g) }], { dismissible: false });
-        else noAnswer(g);
+        g.advance(10, 'idle', { label: 'online.busy.customer' }, () => {
+          if (g.state !== 'play') return;
+          if (r.came) say(g, o.customer, '🙋', fmt('dlg.customerCame', custVoice(g, o)), [{ label: fmt('dlg.handOver'), primary: true, onSelect: () => handOver(g) }], { dismissible: false });
+          else noAnswer(g);
+        });
       },
     },
     {
@@ -219,10 +222,11 @@ export function bom(g) {
       hint: fmt('dlg.bomPersuadeHint'),
       onSelect: () => {
         const r = om.persuadeBom(g.clockMin);
-        g.advance(3, 'idle');
-        if (g.state !== 'play') return;
-        if (r && r.accepted) say(g, o.customer, '🙋', fmt('dlg.bomPersuadeOk', custVoice(g, o)), [{ label: fmt('dlg.handOver'), primary: true, onSelect: () => handOver(g) }], { dismissible: false });
-        else say(g, o.customer, '😤', fmt('dlg.bomPersuadeFail'), [{ label: fmt('dlg.ellipsis'), onSelect: () => bom(g) }], { dismissible: false });
+        g.advance(3, 'idle', { label: 'online.busy.talk' }, () => {
+          if (g.state !== 'play') return;
+          if (r && r.accepted) say(g, o.customer, '🙋', fmt('dlg.bomPersuadeOk', custVoice(g, o)), [{ label: fmt('dlg.handOver'), primary: true, onSelect: () => handOver(g) }], { dismissible: false });
+          else say(g, o.customer, '😤', fmt('dlg.bomPersuadeFail'), [{ label: fmt('dlg.ellipsis'), onSelect: () => bom(g) }], { dismissible: false });
+        });
       },
     });
   }
@@ -277,8 +281,7 @@ function stairs(g) {
         gs.addEnergy(-cost, -2);
         const env = g.itemEnv(0, true);
         for (let i = 0; i < r.floors; i++) om.itemEvent('bump', 0.1, env);
-        g.advance(r.minutes, 'walk', { indoor: true });
-        if (g.state === 'play') handOver(g);
+        g.advance(r.minutes, 'walk', { indoor: true, label: 'online.busy.stairs' }, () => { if (g.state === 'play') handOver(g); });
       },
     },
     {
@@ -289,8 +292,7 @@ function stairs(g) {
         g.markParkedSafe(); // đã gửi xe cho bảo vệ
         const r = om.resolveStairs('callDown');
         sound('phone.call');
-        g.advance(r.minutes, 'idle');
-        if (g.state === 'play') handOver(g);
+        g.advance(r.minutes, 'idle', { label: 'online.busy.customer' }, () => { if (g.state === 'play') handOver(g); });
       },
     },
   ], { dismissible: false });

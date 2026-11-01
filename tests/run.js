@@ -6307,5 +6307,145 @@ console.log('Màn đua thoát thân (sim/race.js — chương 6)');
   });
 }
 
+// ======================== CHƠI ONLINE (thành phố chung) ========================
+{
+  const P = await import('../src/net/protocol.js');
+  const { Room } = await import('../server/room.js');
+  // máy giả: ghi lại tin máy chủ gửi, không cần mạng thật
+  const mkConn = () => { const c = { out: [], closed: false, buf: 0 }; c.send = (o) => c.out.push(o); c.close = () => { c.closed = true; }; c.buffered = () => c.buf; return c; };
+  const mkRoom = (max = 3) => {
+    let t = 1_000_000, seq = 0;
+    const store = { data: {}, dirty: () => {} };
+    const room = new Room({ store, now: () => t, rnd: () => ((seq = (seq * 9301 + 49297) % 233280) / 233280), max });
+    return { room, store, adv: (ms) => { t += ms; } };
+  };
+  const join = (room, name, token) => { const c = mkConn(); room.connect(c); room.message(c, { t: 'hello', proto: P.PROTO, name, token }); return c; };
+  const last = (c, t) => [...c.out].reverse().find((m) => m.t === t);
+
+  test('Online: biển số đúng dạng 59-X1 234.56 · tên bị làm sạch (bỏ < >, cắt 16 ký tự) · gói vị trí bị kẹp hợp lệ', () => {
+    for (let i = 0; i < 50; i++) assert.match(P.makePlate(), P.PLATE_RE);
+    assert.equal(P.cleanName('  <b>Tuấn</b>   Mập  '), 'b Tuấn /b Mập');
+    assert.equal(P.cleanName('x'.repeat(40)).length, P.NAME_MAX);
+    const s = P.cleanState({ x: 1e9, z: NaN, a: 'hack', m: 'yes' });
+    assert.equal(s.x, 2000);
+    assert.equal(s.z, 0);
+    assert.equal(s.a, 'idle');
+    assert.equal(s.m, 1);
+  });
+  test('Online: giờ thành phố tính từ giờ máy chủ — 1 giây thật = 1 phút game, mọi máy ra cùng giờ', () => {
+    const w = { epoch: 5000, startMin: 360 };
+    assert.equal(P.worldMinAt(5000, w), 360);
+    assert.equal(P.worldMinAt(5000 + 90_000, w), 360 + 90 * TIME.gameMinPerRealSec);
+  });
+  test('Online máy chủ: vào lần đầu tạo tài khoản + biển số riêng · vào lại bằng mã bí mật giữ tài khoản · tên trống bị từ chối', () => {
+    const { room } = mkRoom();
+    const a = join(room, 'Tuấn'), b = join(room, 'Na');
+    const wa = last(a, 'welcome'), wb = last(b, 'welcome');
+    assert.ok(wa && wb);
+    assert.notEqual(wa.plate, wb.plate);
+    assert.equal(wb.players.length, 1, 'Na thấy Tuấn đang ở trong');
+    assert.ok(last(a, 'join'), 'Tuấn được báo có người mới');
+    room.disconnect(a);
+    const a2 = join(room, '', wa.token);
+    assert.equal(last(a2, 'welcome').plate, wa.plate, 'vào lại: cùng biển số');
+    const c = join(room, '   ');
+    assert.equal(last(c, 'err').code, 'name');
+    assert.ok(c.closed);
+    const d = mkConn();
+    room.connect(d);
+    room.message(d, { t: 'hello', proto: 999, name: 'Cũ' });
+    assert.equal(last(d, 'err').code, 'proto', 'bản game cũ bị báo cập nhật');
+  });
+  test('Online máy chủ: cùng tài khoản vào ở tab khác → phiên cũ bị đá ra · đủ người thì từ chối', () => {
+    const { room } = mkRoom(2);
+    const a = join(room, 'A');
+    const tok = last(a, 'welcome').token;
+    const a2 = join(room, '', tok);
+    assert.equal(last(a, 'err').code, 'other');
+    assert.ok(a.closed && last(a2, 'welcome'));
+    join(room, 'B');
+    const c = join(room, 'C');
+    assert.equal(last(c, 'err').code, 'full');
+  });
+  test('Online máy chủ: chat Chung tới mọi người · chat Gần chỉ người trong bán kính · gửi dồn dập bị chặn', () => {
+    const { room, adv } = mkRoom();
+    const a = join(room, 'A'), b = join(room, 'B'), c = join(room, 'C');
+    room.message(a, { t: 'st', x: 0, z: 0 });
+    room.message(b, { t: 'st', x: 10, z: 0 });
+    room.message(c, { t: 'st', x: 500, z: 0 });
+    room.message(a, { t: 'chat', text: 'chào cả nhà', scope: 'all' });
+    assert.ok(last(c, 'chat')?.text === 'chào cả nhà');
+    adv(1000);
+    room.message(a, { t: 'chat', text: 'ê ông', scope: 'near' });
+    assert.equal(last(b, 'chat').text, 'ê ông');
+    assert.equal(last(c, 'chat').text, 'chào cả nhà', 'người ở xa không nghe chat Gần');
+    assert.equal(last(a, 'chat').text, 'ê ông', 'người nói thấy tin của mình');
+    room.message(a, { t: 'chat', text: 'spam', scope: 'all' });
+    assert.notEqual(last(b, 'chat').text, 'spam');
+  });
+  test('Online máy chủ: gửi vị trí người khác 10 lần/giây — người ở xa gửi thưa · mạng nghẽn thì bỏ lượt', () => {
+    const { room } = mkRoom();
+    const a = join(room, 'A'), b = join(room, 'B'), c = join(room, 'C');
+    room.message(a, { t: 'st', x: 0, z: 0 });
+    room.message(b, { t: 'st', x: 20, z: 0, m: 1, s: 8 });
+    room.message(c, { t: 'st', x: 900, z: 0 });
+    a.out.length = 0;
+    for (let i = 0; i < 9; i++) room.tick();
+    const ids = new Set(a.out.filter((m) => m.t === 'pos').flatMap((m) => m.p.map((r) => r[0])));
+    assert.ok(ids.has(last(b, 'welcome').id));
+    assert.ok(!ids.has(last(c, 'welcome').id), 'người xa 900 m chưa tới lượt');
+    room.tick();
+    assert.ok(last(a, 'pos').p.some((r) => r[0] === last(c, 'welcome').id), 'lượt thứ 10: có cả người ở xa');
+    a.buf = 1e6;
+    a.out.length = 0;
+    room.tick();
+    assert.equal(a.out.length, 0, 'mạng nghẽn: không dồn thêm');
+  });
+  test('Online máy chủ: lưu tiến độ + vào lại nhận đúng bản lưu · thua thì xóa bản lưu (bắt đầu lại, giữ biển số) · im lặng quá lâu bị cắt', () => {
+    const { room, adv } = mkRoom();
+    const a = join(room, 'A');
+    const w = last(a, 'welcome');
+    room.message(a, { t: 'save', carry: { money: 999 }, pday: 3, pos: { x: 1, z: 2 }, home: true });
+    room.disconnect(a);
+    const a2 = join(room, '', w.token);
+    const sv = last(a2, 'welcome').save;
+    assert.equal(sv.carry.money, 999);
+    assert.equal(sv.pday, 3);
+    assert.equal(sv.home, true);
+    room.message(a2, { t: 'reset' });
+    room.disconnect(a2);
+    const a3 = join(room, '', w.token);
+    assert.equal(last(a3, 'welcome').save, null);
+    assert.equal(last(a3, 'welcome').plate, w.plate);
+    adv(60_000);
+    room.tick();
+    assert.ok(a3.closed, 'không gửi gì 60 giây → bị cắt');
+  });
+  test('Online máy chủ: ngoại hình chọn lúc tạo nhân vật được giữ theo tài khoản (vào lại / chơi lại vẫn đúng) · dữ liệu lạ bị làm sạch', () => {
+    const { room } = mkRoom();
+    const c = mkConn();
+    room.connect(c);
+    room.message(c, { t: 'hello', proto: P.PROTO, name: 'Na', profile: { gender: 'f', hairStyle: 'bob', hair: 0x553311, skin: 'x', sleeves: 'long', legs: 'hack', shoes: 'white', evil: '<script>' } });
+    const w = last(c, 'welcome');
+    assert.deepEqual(w.profile, { gender: 'f', hairStyle: 'bob', hair: 0x553311, sleeves: 'long', legs: 'shorts', shoes: 'white' });
+    room.disconnect(c);
+    const c2 = join(room, '', w.token);
+    assert.equal(last(c2, 'welcome').profile.gender, 'f', 'vào lại không gửi ngoại hình: máy chủ vẫn nhớ');
+  });
+  test('Online: tiền nhà theo NGÀY CỦA MÌNH — vắng mặt nhiều ngày thành phố không bị tính trễ · Offline (dayShift 0) như cũ', () => {
+    const gs = new GameState({ day: 1 });
+    gs.dayShift = 40; // thành phố đã ở ngày 41, mình mới chơi ngày 1
+    const due = gs.rentDueDay;
+    assert.equal(gs.rentDueAt(), atHour(due + 40, ECONOMY.rentDueHour ?? 22));
+    gs.checkEnd(atHour(41, 12));
+    assert.equal(gs.rentState.late, 0, 'chưa tới hạn theo ngày của mình');
+    const off = new GameState({ day: 1 });
+    assert.equal(off.rentDueAt(), atHour(off.rentDueDay, ECONOMY.rentDueHour ?? 22));
+    gs.online = true;
+    assert.equal(gs.progress.chap, Infinity, 'Online: mọi địa điểm mở sẵn');
+    assert.notEqual(off.progress.chap, Infinity);
+  });
+}
+
 console.log(`\n${pass} đạt, ${fail} lỗi`);
 if (fail) process.exit(1);

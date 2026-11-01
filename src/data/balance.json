@@ -316,5 +316,16 @@
     "warnFirst": 1,
     "minSpeed": 2.777778,
     "autoCameraPct": 0.34
+  },
+  "online": {
+    "startMoney": 200,
+    "sleepRealSec": 60,
+    "sleepToHours": 8,
+    "homeSleepMinGame": 360,
+    "chatNearM": 40,
+    "tagNearM": 60,
+    "tagFarM": 160,
+    "maxPlayers": 10,
+    "saveEverySec": 20
   }
 }

@@ -126,14 +126,15 @@ export function busDialog(g, stop, openId = null, reopen = false) {
 function rideBus(g, d, fare) {
   g.gs.spend(fare, 'bus');
   sound('money.pay');
-  g.advance(d.trip.total, 'idle', { indoor: true, waiting: true, quiet: true });
-  const w = d.stop.wait, wk = g.walker;
-  wk.pos.set(w.x, 0, w.z);
-  wk._ex = w.x;
-  wk._ez = w.z;
-  wk.deckY = null;
-  sound('city.busArrive');
-  g.hud.toast(fmt('toast.busArrive', { stop: d.stop.name, time: fmtClock(g.clockMin), min: Math.round(d.trip.total) }), 'good', 5000);
+  g.advance(d.trip.total, 'idle', { indoor: true, waiting: true, quiet: true, text: fmt('online.busy.bus', { stop: d.stop.name }) }, () => {
+    const w = d.stop.wait, wk = g.walker;
+    wk.pos.set(w.x, 0, w.z);
+    wk._ex = w.x;
+    wk._ez = w.z;
+    wk.deckY = null;
+    sound('city.busArrive');
+    g.hud.toast(fmt('toast.busArrive', { stop: d.stop.name, time: fmtClock(g.clockMin), min: Math.round(d.trip.total) }), 'good', 5000);
+  });
 }
 
 export function landlord(g, pl) {
@@ -182,13 +183,11 @@ export function napChoices(g, pl) {
     hint: busy ? fmt('dlg.sleepBusy')
       : fmt(online ? 'dlg.napHint' : 'dlg.napHintOff', { phys: Math.round((S2.physPerHour * k * min) / 60), mental: Math.round((S2.mentalPerHour * k * min) / 60) }),
     disabled: busy,
-    onSelect: () => {
-      const r = g.nap(min);
-      if (!r) return;
+    onSelect: () => g.nap(min, (r) => {
       sound('place.nap');
       const p = { min: r.slept, time: fmtClock(g.clockMin), phys: Math.round(g.gs.phys), mental: Math.round(g.gs.mental) };
       g.hud.toast(fmt(r.byOrder ? 'toast.napOrder' : 'toast.napDone', p), r.byOrder ? 'info' : 'good', 6000);
-    },
+    }),
   }));
 }
 
@@ -204,11 +203,10 @@ function sleepChoices(g) {
     label: fmt(key, { h: +(min / 60).toFixed(1), time: fmtClock(g.clockMin + min) }),
     hint: why || fmt('dlg.sleepHint', { phys: Math.round((S.physPerHour * min) / 60), mental: Math.round((S.mentalPerHour * min) / 60) }),
     disabled: !!why,
-    onSelect: () => {
-      if (g.sleep(min) == null) return;
+    onSelect: () => g.sleep(min, () => {
       sound('place.sleep');
       g.hud.toast(fmt('toast.woke', { time: fmtClock(g.clockMin), phys: Math.round(gs.phys), mental: Math.round(gs.mental) }), 'good', 7000);
-    },
+    }),
   });
   const untilMorning = minutesUntil(g.clockMin, TIME.dayStart / 60);
   const list = [2, 4, 6, 8].map((h) => opt(h * 60, 'dlg.sleep'));
@@ -374,7 +372,7 @@ export function policeStop(g, p, speed) {
         g.towBikeTo(station, PARKING.towFee ?? 150);
         gs.addEnergy(0, -ENERGY.mental.fine);
         sound('law.towed');
-        g.advance(10, 'idle');
+        g.advance(10, 'idle', { label: 'online.busy.police' });
       },
     }], { dismissible: false });
     return;
@@ -393,7 +391,7 @@ export function policeStop(g, p, speed) {
           gs.addEnergy(0, -ENERGY.mental.fine);
           sound('law.fine');
         } else gs.addEnergy(0, -ENERGY.mental.police / 2);
-        g.advance(fined ? 15 : 6, 'idle');
+        g.advance(fined ? 15 : 6, 'idle', { label: 'online.busy.police' });
       },
     },
   ], { dismissible: false });
@@ -423,7 +421,7 @@ export function patrolStop(g, reason, speed, place = '') {
       gs.stats.fines += 1;
       gs.addEnergy(0, -ENERGY.mental.fine);
       sound('law.fine');
-      g.advance(15, 'idle');
+      g.advance(15, 'idle', { label: 'online.busy.police' });
     },
   }], { dismissible: false });
 }

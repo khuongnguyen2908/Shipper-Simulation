@@ -8,7 +8,7 @@ import { parseAst } from 'rolldown/parseAst';
 
 const GLOBALS = new Set(('window document globalThis self Math JSON Object Array String Number Boolean Date Symbol RegExp Error TypeError Promise Set Map WeakMap WeakSet ' +
   'Infinity NaN undefined parseInt parseFloat isFinite isNaN console performance requestAnimationFrame cancelAnimationFrame setTimeout clearTimeout setInterval clearInterval ' +
-  'localStorage sessionStorage location navigator history fetch URL URLSearchParams Blob File FileReader Image Audio AudioContext OfflineAudioContext Event KeyboardEvent MouseEvent PointerEvent CustomEvent ' +
+  'localStorage sessionStorage location navigator history fetch URL URLSearchParams Blob WebSocket Worker AbortController File FileReader Image Audio AudioContext OfflineAudioContext Event KeyboardEvent MouseEvent PointerEvent CustomEvent ' +
   'addEventListener removeEventListener dispatchEvent innerWidth innerHeight devicePixelRatio getComputedStyle matchMedia confirm alert prompt structuredClone queueMicrotask ' +
   'encodeURIComponent decodeURIComponent btoa atob Uint8Array Uint16Array Uint32Array Int32Array Float32Array Float64Array ArrayBuffer DataView TextEncoder TextDecoder ' +
   'getSelection HTMLInputElement HTMLTextAreaElement HTMLSelectElement HTMLElement HTMLCanvasElement Node NodeList DOMParser ResizeObserver IntersectionObserver MutationObserver Intl BigInt Reflect Proxy arguments process import').split(/\s+/));

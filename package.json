@@ -11,10 +11,12 @@
     "test": "node scripts/kiem-ten.js && node tests/run.js",
     "sim": "node tests/economy-sim.js",
     "dang": "node scripts/dang.js",
-    "nen-am-thanh": "node scripts/nen-am-thanh.js"
+    "nen-am-thanh": "node scripts/nen-am-thanh.js",
+    "server": "node server/index.js"
   },
   "dependencies": {
-    "three": "^0.186.1"
+    "three": "^0.186.1",
+    "ws": "^8.22.1"
   },
   "devDependencies": {
     "vite": "^8.3.3",

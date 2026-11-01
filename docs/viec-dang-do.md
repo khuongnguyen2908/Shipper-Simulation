@@ -404,6 +404,36 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   xe GoShip trên đại lộ lúc 16:20, thẻ đơn mời trên điện thoại, chữ SHIPPER SIMULATION. Chụp bằng Chrome ẩn qua cổng gỡ lỗi (không cần Playwright).
   LinkedIn chỉ đọc trang < 3 MB (trang game 24 MB → "cannot display a preview") → chủ game chọn cách B: trang chia sẻ riêng public/share.html (~2 KB, thẻ meta + tự chuyển vào game).
   Dán link LinkedIn: https://khuongnguyen2908.github.io/Shipper-Simulation/share.html (link gốc vẫn chơi bình thường nhưng không có ảnh xem trước trên LinkedIn).
+- **🌐 CHƠI ONLINE — đã chốt hướng (01/11); M1 LÀM XONG (01/11) — phác thảo đã duyệt: sketches/online-m1.png**
+  - Một thành phố chung chạy liên tục, có máy chủ riêng ngay từ đầu (KHÔNG làm kiểu phòng P2P). Máy chủ Node.js (thư mục server/ mới, dùng lại src/sim + src/data),
+    nối bằng WebSocket. Thử trước ~10 người MIỄN PHÍ: máy chủ chạy trên máy chủ game + Tailscale Funnel (địa chỉ cố định *.ts.net, không cần thẻ).
+    Muốn 24/24 sau này: Oracle miễn phí hoặc thuê ~2–5 USD/tháng — code máy chủ giữ nguyên.
+  - Mượn kỹ thuật từ tài liệu "Company Not Home: kỹ thuật chơi online" (game kia): khung truyền tin chung + mạng giả để thử, một cửa lệnh, vị trí 10–20 lần/giây + làm mượt,
+    gói đầy đủ / gói thay đổi có số thứ tự, chống dồn hàng đợi, nhịp tim, vào lại đúng nhân vật, danh sách lệnh cho phép. Code game kia là TypeScript → viết lại bằng JS.
+  - Luật CHỈ cho Online (Offline giữ nguyên, npm test / npm run sim phải ra như cũ): không tua giờ (≈28 chỗ g.advance → thanh tiến độ, 1 phút game = 1 giây thật);
+    ngủ = thoát game ở phòng trọ hoặc nằm giường ~1 phút thật; tiền nhà / đói / mệt chỉ tính khi đang online, kỳ tiền nhà theo số ngày đã chơi; không có cốt truyện;
+    tiến độ online tách riêng, lưu trên máy chủ (M1: file JSON server/data/city.json); đăng nhập kiểu khách (tên + mã bí mật lưu trên máy).
+  - Đợt: M1 thành phố chung (giờ chung, thấy nhau tên + biển số, chat Chung/Gần, danh sách người — giữ O, chip mạng, bỏ tua giờ; tiền tạm tính ở máy, XÓA TRẮNG trước khi mở
+    chính thức) → M2 kinh tế trên máy chủ (đơn chung ai nhận trước được, máy chủ tính tiền/sao, xếp hạng) → M3 tương tác (chở nhau, tặng đồ, nhóm, sự kiện) → M4 đăng nhập Google, nhiều thành phố, quản trị.
+  - **M1 đã làm (01/11)** — hướng dẫn chạy + Tailscale: docs/online.md. Biển số: máy chủ cấp ngẫu nhiên lúc vào lần đầu, không trùng, gắn theo người
+    (chủ game: sau này dùng biển số để kết bạn). Đi xe đạp / đi bộ chỉ hiện tên.
+    - Máy chủ: server/index.js (http /status + WebSocket, npm run server, cổng 8787) · server/room.js (logic thuần: vào/ra, mã bí mật, biển số, vị trí 10 lần/giây —
+      người xa > 250 m 1 lần/giây, chat Chung/Gần 40 m, lưu / reset, cắt người im lặng 8 giây, đủ người thì từ chối, cùng tài khoản vào tab khác → đá phiên cũ) · server/store.js.
+    - Dùng chung: src/net/protocol.js (giờ thành phố worldMinAt từ giờ máy chủ, biển số, làm sạch tên / gói vị trí). Trình duyệt: src/net/client.js (nối lại khi rớt mạng,
+      đo độ trễ + lệch giờ, nhịp ping bằng Web Worker cho tab ẩn, nhớ máy chủ + tài khoản trong localStorage, ?server=… trên link mời).
+    - Game: src/game/online.js (OnlinePart), world/remotePlayers.js (người + xe + bảng tên/biển số, làm mượt), ui/onlineHud.js (ô mạng, danh sách giữ O, thanh tiến độ),
+      chat thẻ Chung/Gần (Tab khi gõ), chấm người khác trên bản đồ tròn, bảng 🌐 ở màn hình chính (tình trạng máy chủ, tên, địa chỉ máy chủ thu gọn).
+    - advance(min, act, opts, then): Offline tua ngay rồi gọi then (như cũ); Online = thanh tiến độ, xong mới gọi then. Mọi chỗ g.advance trong interactions/ đã chuyển sang then;
+      sleep(min, done) · nap(min, done) đổi sang gọi lại. Ngủ / nằm nghỉ Online rút ngắn (online.sleepRealSec cho 1 giấc online.sleepToHours).
+    - Ngày riêng: startGame({ …, pday }) · gs.dayShift = ngày thành phố − ngày mình · rentDueAt cộng dayShift · rollDay theo ngày mình · thời tiết theo ngày thành phố.
+      Thoát ở phòng trọ ≥ online.homeSleepMinGame → ngày mới của mình + hồi sức; thoát ngoài đường → thời gian vắng không tính là thức.
+    - Online: writeSave bị chặn (không đè bản lưu Offline), app Máy ảnh không chụp lưu, tạm dừng không có nút Chơi lại, thua → máy chủ xóa bản lưu (bắt đầu lại giữ tên + biển số).
+    - Thẻ ⚖️ Cân bằng có mục 🌐 Chơi online (online.* trong balance.json). Bộ thử: 8 bài Online (máy giả, không cần mạng).
+    - CÒN THIẾU / để đợt sau: đơn hàng vẫn sinh ở máy từng người (cùng seed → 2 người có thể thấy cùng đơn) — M2 máy chủ sinh đơn + tính tiền/sao;
+      mọi người chung 1 nhà trọ / hầm xe; chưa thử Tailscale thật + bạn bè máy khác.
+    - Tạo nhân vật cho Online (01/11): lần đầu vào máy chủ (máy chưa có tài khoản) → màn tạo nhân vật của Chơi mới (nút cuối = Vào thành phố) → hello gửi profile,
+      máy chủ giữ acc.profile (cleanProfile) → newCarry dùng ngoại hình đó (cả khi thua chơi lại). Lần sau vào thẳng.
+    - Ảnh giới thiệu LinkedIn (6 ảnh 1600×900, chụp từ game): sketches/linkedin/ (không commit). Ảnh Online là cảnh dựng sẵn, nhãn IN DEVELOPMENT.
 - **Màn hình chính 2 chế độ (01/11, XONG, commit 4f7333d)** — chủ game chọn Cách B (phác thảo sketches/menu-online.png): mở game là màn chọn chế độ
   (thẻ 👤 Offline = chơi một mình như cũ · thẻ 🌐 Online "SẮP RA MẮT" → bảng giới thiệu + nút Về chơi Offline · ⚙️ Cài đặt). Menu Offline thêm "↩️ Đổi chế độ chơi".
   Enter ở màn chọn = Offline · Esc lùi từng bước. Code: ui/screens.js (t.side home/offline, onlineHtml), chữ menu.offline* / menu.online* / menu.soon.

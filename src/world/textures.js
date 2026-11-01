@@ -255,6 +255,49 @@ export function makeLabelTexture(text, bg = 'rgba(20,24,32,0.8)') {
   return toTexture(c);
 }
 
+// Bảng tên trên đầu người chơi khác (Online): chấm màu hãng + tên, dưới là biển số (plate rỗng → chỉ có tên)
+export function makePlayerTagTexture(name, plate = '', dot = null) {
+  const [c, g] = canvas(512, 160);
+  let size = 46;
+  g.font = `700 ${size}px "Segoe UI", Arial, sans-serif`;
+  const dw = dot ? 34 : 0;
+  const tw = g.measureText(name).width;
+  if (tw + dw > 440) {
+    size = Math.max(24, Math.floor((size * (440 - dw)) / tw));
+    g.font = `700 ${size}px "Segoe UI", Arial, sans-serif`;
+  }
+  const w = Math.min(500, g.measureText(name).width + dw + 40), x = (512 - w) / 2;
+  g.fillStyle = 'rgba(10,14,22,0.75)';
+  g.beginPath();
+  g.roundRect(x, 6, w, 70, 20);
+  g.fill();
+  if (dot) {
+    g.fillStyle = dot;
+    g.beginPath();
+    g.arc(x + 32, 41, 11, 0, Math.PI * 2);
+    g.fill();
+  }
+  g.fillStyle = '#fff';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(name, 256 + dw / 2, 43);
+  if (plate) {
+    // biển số trắng viền đen, chữ đen kiểu biển xe máy
+    g.font = '800 34px Consolas, "Courier New", monospace';
+    const pw = g.measureText(plate).width + 24, px = (512 - pw) / 2;
+    g.fillStyle = '#f4f4f0';
+    g.strokeStyle = '#222';
+    g.lineWidth = 3;
+    g.beginPath();
+    g.roundRect(px, 88, pw, 50, 6);
+    g.fill();
+    g.stroke();
+    g.fillStyle = '#111';
+    g.fillText(plate, 256, 114);
+  }
+  return toTexture(c);
+}
+
 // Vòng sáng mềm (đèn đường chiếu xuống, điểm đến)
 export function makeGlowTexture() {
   const [c, g] = canvas(128, 128);
