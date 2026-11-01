@@ -402,6 +402,8 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
     Hướng phóng: dọc bến về phía đông (phía tây ranh bản đồ chỉ còn 14 m). Không có câu "Đuổi theo!!" của Tí Sún (không có người đó ở bến) — chỉ tiếng rồ máy.
 - **Ảnh xem trước link (Open Graph) (01/11, XONG)** — index.html có description + og:* + twitter:card; ảnh public/og.png 1200×627 (~490 KB, Vite chép ra dist/og.png):
   xe GoShip trên đại lộ lúc 16:20, thẻ đơn mời trên điện thoại, chữ SHIPPER SIMULATION. Chụp bằng Chrome ẩn qua cổng gỡ lỗi (không cần Playwright).
+  LinkedIn chỉ đọc trang < 3 MB (trang game 24 MB → "cannot display a preview") → chủ game chọn cách B: trang chia sẻ riêng public/share.html (~2 KB, thẻ meta + tự chuyển vào game).
+  Dán link LinkedIn: https://khuongnguyen2908.github.io/Shipper-Simulation/share.html (link gốc vẫn chơi bình thường nhưng không có ảnh xem trước trên LinkedIn).
 - **Màn hình chính 2 chế độ (01/11, XONG, commit 4f7333d)** — chủ game chọn Cách B (phác thảo sketches/menu-online.png): mở game là màn chọn chế độ
   (thẻ 👤 Offline = chơi một mình như cũ · thẻ 🌐 Online "SẮP RA MẮT" → bảng giới thiệu + nút Về chơi Offline · ⚙️ Cài đặt). Menu Offline thêm "↩️ Đổi chế độ chơi".
   Enter ở màn chọn = Offline · Esc lùi từng bước. Code: ui/screens.js (t.side home/offline, onlineHtml), chữ menu.offline* / menu.online* / menu.soon.
