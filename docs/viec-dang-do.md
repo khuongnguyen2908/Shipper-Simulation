@@ -415,6 +415,19 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
     tiến độ online tách riêng, lưu trên máy chủ (M1: file JSON server/data/city.json); đăng nhập kiểu khách (tên + mã bí mật lưu trên máy).
   - Đợt: M1 thành phố chung (giờ chung, thấy nhau tên + biển số, chat Chung/Gần, danh sách người — giữ O, chip mạng, bỏ tua giờ; tiền tạm tính ở máy, XÓA TRẮNG trước khi mở
     chính thức) → M2 kinh tế trên máy chủ (đơn chung ai nhận trước được, máy chủ tính tiền/sao, xếp hạng) → M3 tương tác (chở nhau, tặng đồ, nhóm, sự kiện) → M4 đăng nhập Google, nhiều thành phố, quản trị.
+  - **M2 — LÀM XONG M2a + M2b + M2c (02/11, chưa commit)** — phác thảo đã duyệt: sketches/m2/m2.png: cách B = máy chủ giữ kho đơn chung + sổ tiền, máy người chơi vẫn chạy cảnh giao hàng,
+    máy chủ chạy song song bộ luật đơn (src/sim) để tự tính tiền / sao. Chia M2a (đơn chung, ai nhận trước được — đơn mang hãng của khách, ai chạy hãng nào thấy đơn hãng đó;
+    số đơn tăng ~80% theo số người online) · M2b (máy chủ kiểm vị trí lúc lấy / giao, tính tiền + sao, app 🏆 Xếp hạng theo thu nhập ngày + tuần, thanh hãng nào nhiều đơn)
+    · M2c (chi tiêu qua máy chủ theo bảng giá, xong thì XÓA TRẮNG tiền thử nghiệm M1). Chưa vào hãng = không có đơn (như Offline) — chủ game nhắc.
+    - Đã làm: server/jobs.js (JobBoard: sinh đơn bằng OrderManager theo GameState dựng từ bản lưu người chơi, mời chung đơn ở gần — online.orderShare / orderShareM /
+      orderTtlMin, khóa ai nhận trước, bản sao đơn trên máy chủ từ lúc nhận → picked (đứng ≤ 30 m cửa quán) → settle chạy OrderManager.handOver / quitRide
+      với độ nguyên vẹn máy người chơi báo (kẹp) → tiền, sao, boa) · server/wallet.js (ví máy chủ: chi luôn trừ, thu chỉ lý do trong EARN_CAP kẹp trần, tiền đơn
+      máy chủ tự cộng) · room.js: jobReq/jobTake/jobPass/jobStep/jobDone/jobCancel/tx/board, sổ thu nhập theo ngày thành phố (acc.days, giữ 14 ngày), ECON = 2 xóa
+      trắng tiền M1 (sao lưu city.truoc-kinh-te-2.json) · OrderManager.source / receiveOffer (Online xin đơn máy chủ) · g.settleReceipt thay gs.applyReceipt ở 3 chỗ ·
+      gs.onTx (GameState báo mỗi khoản thu / chi) · app 🏆 Xếp hạng (phoneApps onlineOnly, thay chỗ Máy ảnh khi Online).
+    - Sửa luật: thoát game ở phòng trọ KHÔNG còn cộng ngày (vào ra nhiều lần làm tiền nhà tới quá nhanh).
+    - CÒN: mua đồ / xe vẫn trừ ở máy người chơi rồi báo (không báo = gian lận được) → muốn chặn hẳn phải để máy chủ giữ túi đồ / xe; chưa thử 2 máy thật.
+    Nguyên tắc: logic máy chủ không dính chỗ chạy (room.js thuần; lưu trữ + nối mạng ở file riêng) để sau chuyển Cloudflare Durable Objects (chuasen.com làm kiểu đó).
   - **M1 đã làm (01/11)** — hướng dẫn chạy + Tailscale: docs/online.md. Biển số: máy chủ cấp ngẫu nhiên lúc vào lần đầu, không trùng, gắn theo người
     (chủ game: sau này dùng biển số để kết bạn). Đi xe đạp / đi bộ chỉ hiện tên.
     - Máy chủ: server/index.js (http /status + WebSocket, npm run server, cổng 8787) · server/room.js (logic thuần: vào/ra, mã bí mật, biển số, vị trí 10 lần/giây —
@@ -426,7 +439,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
     - advance(min, act, opts, then): Offline tua ngay rồi gọi then (như cũ); Online = thanh tiến độ, xong mới gọi then. Mọi chỗ g.advance trong interactions/ đã chuyển sang then;
       sleep(min, done) · nap(min, done) đổi sang gọi lại. Ngủ / nằm nghỉ Online rút ngắn (online.sleepRealSec cho 1 giấc online.sleepToHours).
     - Ngày riêng: startGame({ …, pday }) · gs.dayShift = ngày thành phố − ngày mình · rentDueAt cộng dayShift · rollDay theo ngày mình · thời tiết theo ngày thành phố.
-      Thoát ở phòng trọ ≥ online.homeSleepMinGame → ngày mới của mình + hồi sức; thoát ngoài đường → thời gian vắng không tính là thức.
+      Thoát ở phòng trọ → hồi sức theo thời gian vắng (KHÔNG cộng ngày — 02/11 bỏ luật cũ vì vào ra nhiều lần làm tiền nhà tới quá nhanh); thoát ngoài đường → thời gian vắng không tính là thức.
     - Online: writeSave bị chặn (không đè bản lưu Offline), app Máy ảnh không chụp lưu, tạm dừng không có nút Chơi lại, thua → máy chủ xóa bản lưu (bắt đầu lại giữ tên + biển số).
     - Thẻ ⚖️ Cân bằng có mục 🌐 Chơi online (online.* trong balance.json). Bộ thử: 8 bài Online (máy giả, không cần mạng).
     - CÒN THIẾU / để đợt sau: đơn hàng vẫn sinh ở máy từng người (cùng seed → 2 người có thể thấy cùng đơn) — M2 máy chủ sinh đơn + tính tiền/sao;

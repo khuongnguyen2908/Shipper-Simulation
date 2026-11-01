@@ -23,6 +23,10 @@ export function fileStore(file) {
     dirty() {
       if (!timer) timer = setTimeout(flush, 2000);
     },
+    // sao lưu file hiện tại (trước khi xóa trắng dữ liệu): city.json → city.<tag>.json
+    backup(tag) {
+      try { fs.copyFileSync(file, file.replace(/\.json$/, `.${tag}.json`)); } catch { /* chưa có file */ }
+    },
     flushNow() {
       if (timer) clearTimeout(timer);
       flush();

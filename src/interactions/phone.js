@@ -14,8 +14,10 @@ import { noAnswer, viewWallet } from './delivery.js';
 import { gainText } from './places.js';
 
 // ======================== ĐIỆN THOẠI ========================
-export function acceptOffer(g) {
+// confirmed: Online — máy chủ đã khóa đơn chung cho mình (online.js gọi lại); chưa thì gửi xin nhận trước, ai bấm trước được
+export function acceptOffer(g, confirmed = false) {
   if (g.om.state !== S.OFFERED) return;
+  if (g.online && g.om.offer?.jobId && !confirmed) return g.onlineTake();
   const o = g.om.accept(g.clockMin, g.playerPos);
   if (!o) return;
   sound('phone.accept');
@@ -65,6 +67,10 @@ function camLoad(g, i) {
 
 export function phoneAction(g, a, ds) {
   const { om, gs } = g;
+  if (a === 'rankTab') { // app Xếp hạng: Hôm nay / Tuần này
+    g.phone.rankWeek = ds.tab === 'week';
+    return g.phone.redraw();
+  }
   // bật app nhận đơn: phải vào hãng + đang đi đúng loại xe hãng yêu cầu
   const turningOn = om.state === S.OFFLINE && (a === 'online' || a === 'wantFood' || a === 'wantRide');
   // đang trong chương (đã hiện tên chương): chưa nhận đơn được — trừ bước cốt truyện bắt bật công tắc (hướng dẫn chương 1)

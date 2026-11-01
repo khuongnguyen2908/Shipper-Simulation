@@ -6311,6 +6311,8 @@ console.log('Màn đua thoát thân (sim/race.js — chương 6)');
 {
   const P = await import('../src/net/protocol.js');
   const { Room } = await import('../server/room.js');
+  const { ONLINE: ONLINE_T, RIDE_EVENTS: RIDE_EVENTS_T } = await import('../src/data/balance.js');
+  const WALLET_T = await import('../server/wallet.js');
   // máy giả: ghi lại tin máy chủ gửi, không cần mạng thật
   const mkConn = () => { const c = { out: [], closed: false, buf: 0 }; c.send = (o) => c.out.push(o); c.close = () => { c.closed = true; }; c.buffered = () => c.buf; return c; };
   const mkRoom = (max = 3) => {
@@ -6409,7 +6411,7 @@ console.log('Màn đua thoát thân (sim/race.js — chương 6)');
     room.disconnect(a);
     const a2 = join(room, '', w.token);
     const sv = last(a2, 'welcome').save;
-    assert.equal(sv.carry.money, 999);
+    assert.equal(sv.carry.money, 200, 'tiền trong bản lưu máy người chơi gửi lên bị bỏ qua — ví do máy chủ giữ (M2c)');
     assert.equal(sv.pday, 3);
     assert.equal(sv.home, true);
     room.message(a2, { t: 'reset' });
@@ -6431,6 +6433,123 @@ console.log('Màn đua thoát thân (sim/race.js — chương 6)');
     room.disconnect(c);
     const c2 = join(room, '', w.token);
     assert.equal(last(c2, 'welcome').profile.gender, 'f', 'vào lại không gửi ngoại hình: máy chủ vẫn nhớ');
+  });
+  test('Online đơn chung (M2a): 2 người cùng hãng cùng thấy 1 đơn → người bấm trước được, người kia nhận "đã có người nhận" · chưa vào hãng thì không có đơn', () => {
+    const B = ONLINE_T;
+    const keep = B.orderShare;
+    B.orderShare = 1; // luôn mời chung đơn đang có (cho bài thử cố định)
+    try {
+      const { room, adv } = mkRoom();
+      adv(6 * 3600 * 1000); // 06:00 + 6 tiếng thật = 12:00 trưa trong game: quán mở
+      const a = join(room, 'A'), b = join(room, 'B'), c = join(room, 'C');
+      for (const x of [a, b]) room.message(x, { t: 'info', brand: 'goship' });
+      room.message(a, { t: 'st', x: 0, z: 0 });
+      room.message(b, { t: 'st', x: 5, z: 0 });
+      room.message(a, { t: 'jobReq', pos: { x: 0, z: 0 }, food: true, ride: false, money: 500 });
+      const ja = last(a, 'job');
+      assert.ok(ja?.o?.jobId, 'A được mời 1 đơn từ bảng chung');
+      room.message(b, { t: 'jobReq', pos: { x: 5, z: 0 }, food: true, ride: false, money: 500 });
+      const jb = last(b, 'job');
+      assert.equal(jb.o.jobId, ja.o.jobId, 'B ở gần, cùng hãng → được mời chung đơn đó');
+      assert.equal(jb.seen, 1, 'B thấy "1 shipper khác cũng thấy"');
+      assert.equal(last(a, 'jobSeen').n, 1, 'A được báo có thêm người thấy');
+      room.message(b, { t: 'jobTake', id: jb.o.jobId });
+      assert.equal(last(b, 'jobOk').id, jb.o.jobId, 'B bấm trước → được');
+      assert.equal(last(a, 'jobGone').by, 'B', 'A được báo B đã nhận');
+      room.message(a, { t: 'jobTake', id: ja.o.jobId });
+      assert.equal(last(a, 'jobGone').id, ja.o.jobId, 'A bấm sau → không được');
+      room.message(c, { t: 'jobReq', pos: { x: 0, z: 0 }, food: true, money: 500 });
+      assert.equal(last(c, 'job').o, null, 'C chưa vào hãng → không có đơn');
+      room.message(c, { t: 'info', brand: 'hongsm' });
+      room.message(c, { t: 'jobReq', pos: { x: 0, z: 0 }, food: true, money: 500 });
+      const jc = last(c, 'job');
+      assert.ok(jc.o && jc.o.jobId !== ja.o.jobId, 'hãng khác → đơn khác (không giành đơn hãng kia)');
+    } finally {
+      B.orderShare = keep;
+    }
+  });
+  test('Online máy chủ tính tiền (M2b): lấy / giao phải đứng gần cửa · máy chủ tự tính tiền + sao, hàng hư thì ít sao · báo 2 lần không cộng 2 lần · bảng xếp hạng', () => {
+    const { room, adv } = mkRoom();
+    adv(6 * 3600 * 1000);
+    const a = join(room, 'A');
+    room.message(a, { t: 'info', brand: 'goship' });
+    room.message(a, { t: 'st', x: 0, z: 0 });
+    room.message(a, { t: 'jobReq', pos: { x: 0, z: 0 }, food: true, money: 500 });
+    const o = last(a, 'job').o;
+    room.message(a, { t: 'jobTake', id: o.jobId });
+    assert.ok(last(a, 'jobOk'));
+    room.message(a, { t: 'jobStep', id: o.jobId, step: 'picked' }); // còn đứng ở (0,0), xa quán
+    assert.equal(last(a, 'jobDeny')?.why, 'far', 'chưa tới quán mà báo lấy hàng → bị từ chối');
+    const go = (door) => room.message(a, { t: 'st', x: door.x + 1, z: door.z });
+    go(o.pickup.door);
+    a.out.length = 0;
+    room.message(a, { t: 'jobStep', id: o.jobId, step: 'picked' });
+    assert.ok(!last(a, 'jobDeny'), 'đứng ở quán → lấy hàng được');
+    adv(8 * 1000); // 8 phút game
+    room.message(a, { t: 'jobDone', id: o.jobId, outcome: 'done', items: o.itemIds.map(() => 100) });
+    assert.equal(last(a, 'jobPaid').why, 'far', 'giao khi chưa tới cửa khách → không tính tiền');
+    go(o.dropoff.door);
+    room.message(a, { t: 'jobDone', id: o.jobId, outcome: 'done', items: o.itemIds.map(() => 100), liters: 0.02 });
+    const paid = last(a, 'jobPaid');
+    assert.ok(paid.ok && paid.pay.walletCredit > 0 && paid.ev.stars >= 4, `máy chủ tính tiền: ${paid.pay?.walletCredit}k, ${paid.ev?.stars}★`);
+    room.message(a, { t: 'jobDone', id: o.jobId, outcome: 'done', items: [100] });
+    assert.equal(last(a, 'jobPaid').why, 'nojob', 'báo lại lần 2 → không cộng tiền nữa');
+    room.message(a, { t: 'board' });
+    const bd = last(a, 'board');
+    assert.equal(bd.today[0].name, 'A');
+    assert.equal(bd.today[0].orders, 1);
+    assert.equal(bd.today[0].income, paid.pay.walletCredit);
+    assert.equal(bd.brands.goship, 1);
+    // đơn thứ 2 giao hàng nát (độ nguyên vẹn 5%) → khách từ chối, 1 sao
+    room.message(a, { t: 'jobReq', pos: { x: 0, z: 0 }, food: true, money: 500 });
+    const o2 = last(a, 'job').o;
+    room.message(a, { t: 'jobTake', id: o2.jobId });
+    go(o2.pickup.door);
+    room.message(a, { t: 'jobStep', id: o2.jobId, step: 'picked' });
+    go(o2.dropoff.door);
+    room.message(a, { t: 'jobDone', id: o2.jobId, outcome: 'done', items: o2.itemIds.map(() => 5) });
+    assert.equal(last(a, 'jobPaid').ev.stars, 1, 'hàng nát → 1 sao');
+  });
+  test('Online ví máy chủ (M2c): chi luôn trừ · thu lạ (phím thử, thưởng cốt truyện) không nhận · thu hợp lệ kẹp trần · tiền đơn máy chủ tự cộng, báo lại không cộng 2 lần', () => {
+    const { applyTx } = WALLET_T;
+    const acc = { money: 200 };
+    applyTx(acc, { kind: 'spend', k: 50, reason: 'rent' });
+    assert.equal(acc.money, 150);
+    applyTx(acc, { kind: 'earn', k: 100, reason: 'debug' });
+    assert.equal(acc.money, 150, 'phím thử +100k: máy chủ không nhận');
+    applyTx(acc, { kind: 'earn', k: 999, reason: 'policeReward' });
+    assert.equal(acc.money, 150 + (RIDE_EVENTS_T.policeReward ?? 30), 'thưởng công an kẹp đúng mức trong dữ liệu');
+    const m = acc.money;
+    applyTx(acc, { kind: 'earn', k: 40, reason: 'food' });
+    assert.equal(acc.money, m, 'tiền đơn máy chủ đã cộng lúc giao → máy người chơi báo lại bị bỏ qua');
+    applyTx(acc, { kind: 'spend', k: -5, reason: 'x' });
+    applyTx(acc, { kind: 'spend', k: NaN, reason: 'x' });
+    assert.equal(acc.money, m, 'số lạ (âm, NaN) bị bỏ');
+  });
+  test('Online ví máy chủ (M2c): máy chủ bản cũ khởi động → xóa trắng tiền thử nghiệm (giữ tên, biển số), có sao lưu · giao xong máy chủ tự cộng tiền vào ví', () => {
+    let backed = null;
+    const store = { data: { world: { epoch: 0, startMin: 360, seed: 1 }, accounts: { tk: { id: 'a1', token: 'tk', name: 'Cũ', plate: '59-A1 111.11', save: { carry: { money: 99999 } }, days: { 1: { income: 5 } } } } }, dirty: () => {}, backup: (t) => { backed = t; } };
+    const room = new Room({ store, now: () => 6 * 3600 * 1000, rnd: () => 0.5 });
+    const a = store.data.accounts.tk;
+    assert.ok(backed, 'có sao lưu trước khi xóa');
+    assert.equal(a.save, null);
+    assert.equal(a.money, ONLINE_T.startMoney ?? 200);
+    assert.equal(a.name, 'Cũ');
+    assert.equal(a.plate, '59-A1 111.11');
+    const c = mkConn();
+    room.connect(c);
+    room.message(c, { t: 'hello', proto: P.PROTO, token: 'tk' });
+    assert.equal(last(c, 'welcome').money, ONLINE_T.startMoney ?? 200);
+    room.message(c, { t: 'info', brand: 'goship' });
+    room.message(c, { t: 'jobReq', pos: { x: 0, z: 0 }, food: true, money: 200 });
+    const o = last(c, 'job').o;
+    room.message(c, { t: 'jobTake', id: o.jobId });
+    room.message(c, { t: 'st', x: o.pickup.door.x, z: o.pickup.door.z });
+    room.message(c, { t: 'jobStep', id: o.jobId, step: 'picked' });
+    room.message(c, { t: 'st', x: o.dropoff.door.x, z: o.dropoff.door.z });
+    room.message(c, { t: 'jobDone', id: o.jobId, outcome: 'done', items: o.itemIds.map(() => 100) });
+    const pd = last(c, 'jobPaid');
+    assert.equal(a.money, Math.round(((ONLINE_T.startMoney ?? 200) + pd.pay.walletCredit + (pd.pay.cod || 0)) * 10) / 10, 'ví máy chủ = tiền đầu + tiền đơn');
   });
   test('Online: tiền nhà theo NGÀY CỦA MÌNH — vắng mặt nhiều ngày thành phố không bị tính trễ · Offline (dayShift 0) như cũ', () => {
     const gs = new GameState({ day: 1 });

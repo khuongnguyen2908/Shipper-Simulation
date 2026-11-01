@@ -275,8 +275,10 @@ export class Phone {
   }
 
   // App hiện trên màn hình chính (= phím 1–9): chưa vào hãng thì chưa có app nhận đơn của hãng và Hồ sơ tài xế
+  // Online: app Xếp hạng thay chỗ app Máy ảnh (Online không chụp lưu được)
   visibleApps(gs) {
-    return APPS.filter(([id]) => !BRAND_ONLY.has(id) || !!gs?.brand);
+    const base = gs?.online ? [...APPS.filter(([id]) => id !== 'camera'), ...PHONE.online] : APPS;
+    return base.filter(([id]) => !BRAND_ONLY.has(id) || !!gs?.brand);
   }
 
   goHome() {
@@ -334,7 +336,7 @@ export class Phone {
     if (!this.app) html = this.homeScreen(d);
     else {
       const [id, ic, color, name] = appLook(APP_BY_ID[this.app], d.gs);
-      const body = id === 'goship' ? (this.profile && d.gs.brand ? this.profileTab(d) : this.orderTab(d)) : id === 'chat' ? this.chatTab(d) : id === 'wallet' ? this.walletTab(d) : id === 'account' ? this.accountTab(d) : id === 'bag' ? this.bagTab(d) : id === 'bike' ? this.bikeTab(d) : id === 'police' ? this.policeTab(d) : id === 'camera' ? this.cameraTab(d) : '';
+      const body = id === 'goship' ? (this.profile && d.gs.brand ? this.profileTab(d) : this.orderTab(d)) : id === 'chat' ? this.chatTab(d) : id === 'wallet' ? this.walletTab(d) : id === 'account' ? this.accountTab(d) : id === 'bag' ? this.bagTab(d) : id === 'bike' ? this.bikeTab(d) : id === 'police' ? this.policeTab(d) : id === 'camera' ? this.cameraTab(d) : id === 'rank' ? this.rankTab(d) : '';
       html = `<div class="ph-appbar" style="background:${color}"><button data-home="1" title="${fmt('phone.home')}">‹</button><b>${ic} ${name}</b><span></span></div>
         <div class="ph-body${id === 'map' ? ' ph-mapbody' : id === 'tictac' ? ' ph-ttbody' : ''}"${id === 'map' || id === 'tictac' ? ' data-keep' : ''}>${body}</div>${id === 'bag' ? this.bagMenuHtml(d) : ''}`;
     }
@@ -401,6 +403,7 @@ export class Phone {
     if (d.state === S.OFFERED && d.offer) h += this.offerCard(d.offer, d.offerTimeLeft, d);
     else if (d.order) h += this.orderCard(d.order, d);
     else if (online && gs.lockedUntil > d.now) h += `<div class="ph-lock">${fmt('phone.lockedNote', { time: hhmm(gs.lockedUntil) })}</div>`;
+    else if (d.jobLost) h += `<div class="card job-lost"><div class="jl-ic">😕</div><b>${fmt('online.jobLost')}</b><small>${d.jobLost.by ? fmt('online.jobLostBy', { name: esc(d.jobLost.by), plate: esc(d.jobLost.plate || '') }) : fmt('online.jobLostGone')}</small><div class="jl-next">${fmt('online.jobNext')}</div></div>`;
     else if (online) {
       h += `<div class="ph-wait"><div class="spinner"></div>${fmt('phone.searching')}</div>`;
       if (d.appClosed) h += `<div class="ph-note">${fmt('phone.noMoreOrders')}</div>`;
@@ -408,6 +411,24 @@ export class Phone {
     for (const t of d.lockedHints) h += `<div class="ph-lock">🔒 ${t}</div>`;
     if (!d.order && d.state !== S.OFFERED) h += this.todayCard(gs);
     return h;
+  }
+
+  // App 🏆 Xếp hạng (Online): thẻ Hôm nay / Tuần này · thanh hãng nào nhiều đơn hôm nay · danh sách (dòng của mình tô sáng)
+  rankTab(d) {
+    const b = d.board;
+    const tab = this.rankWeek ? 'week' : 'today';
+    let h = `<div class="rk-tabs"><button class="${tab === 'today' ? 'on' : ''}" data-act="rankTab" data-tab="today">${fmt('online.rankToday')}</button><button class="${tab === 'week' ? 'on' : ''}" data-act="rankTab" data-tab="week">${fmt('online.rankWeek')}</button></div>`;
+    if (!b) return h + `<div class="ph-wait"><div class="spinner"></div>${fmt('online.rankLoading')}</div>`;
+    const tot = Object.values(b.brands || {}).reduce((a, x) => a + x, 0);
+    if (tot) h += `<div class="rk-war">${Object.entries(b.brands).map(([id, n]) => `<i style="width:${(n / tot) * 100}%;background:${d.brands[id]?.color || '#7f8c8d'}" title="${esc(d.brands[id]?.name || id)}"></i>`).join('')}</div>
+      <div class="rk-warl">${Object.entries(b.brands).map(([id, n]) => `<span><i style="background:${d.brands[id]?.color || '#7f8c8d'}"></i>${esc(d.brands[id]?.name || fmt('online.noBrand'))} ${Math.round((n / tot) * 100)}%</span>`).join('')}</div>`;
+    const rows = b[tab] || [];
+    if (!rows.length) h += `<div class="ph-note">${fmt('online.rankEmpty')}</div>`;
+    rows.forEach((r, i) => {
+      const medal = ['🥇', '🥈', '🥉'][i] || String(i + 1);
+      h += `<div class="rk-row${r.id === b.me ? ' me' : ''}"><span class="rk-n">${medal}</span><span class="rk-who"><b><i style="background:${d.brands[r.brand]?.color || '#7f8c8d'}"></i>${esc(r.name)}${r.id === b.me ? ` ${fmt('online.you')}` : ''}</b><small>${esc(r.plate)} · ${fmt('online.rankOrders', { n: r.orders })}${r.rating != null ? ` · ★${r.rating.toFixed(2).replace('.', ',')}` : ''}</small></span><span class="rk-k">${fmtK(r.income)}</span></div>`;
+    });
+    return h + `<div class="ph-note small">${fmt('online.rankNote')}</div>`;
   }
 
   // Hôm nay: thu, chi, số đơn
@@ -431,12 +452,12 @@ export class Phone {
     return `<div class="card offer">
       <div class="offer-top"><b>${offerTitle(o)}</b><small>${forced ? fmt(o.kind === 'ride' ? 'phone.forcedOffer' : 'phone.forcedOfferFood') : fmt('phone.offerSec', { sec: Math.ceil(left) })}</small></div>
       ${forced ? `<div class="ph-note small">${fmt('phone.forcedNoSkip')}</div>` : `<div class="timer"><div style="width:${(left / ORDER.offerTimeoutSec) * 100}%"></div></div>`}
-      <div class="pay-big">~${fmtK(o.estPay)}</div>
+      <div class="pay-big">~${fmtK(o.estPay)}${o.seen > 0 ? `<span class="seen">${fmt('online.seen', { n: o.seen })}</span>` : ''}</div>
       <div class="route"><div>📍 <b>${o.pickup.name}</b><small>${ride ? fmt('phone.pickupRide', { customer: o.customer }) : o.pickup.address}</small></div>
       <div>🏁 <b>${o.revealed ? o.dropoff.address : fmt('phone.vague')}</b><small>${o.customer}${floor}</small></div></div>
       <div class="items">${items.map((i) => `${i.icon} ${i.name}`).join(' · ')}</div>
       <div class="tags">${orderTags(o)}${traits}<span class="tag">📏 ${o.distanceKm.toFixed(1)} km</span>${o.flags.picky ? `<span class="tag warn">${fmt('phone.picky')}</span>` : ''}</div>
-      <div class="row"><button class="btn" data-act="decline"${forced ? ' disabled' : ''}>${forced ? '🔒 ' : ''}${fmt('phone.decline')}</button><button class="btn primary" data-act="accept">${forced ? fmt('phone.acceptNow') : fmt('phone.accept', { sec: Math.ceil(left) })}</button></div>
+      <div class="row"><button class="btn" data-act="decline"${forced ? ' disabled' : ''}>${forced ? '🔒 ' : ''}${fmt('phone.decline')}</button><button class="btn primary" data-act="accept"${o.taking ? ' disabled' : ''}>${o.taking ? fmt('online.taking') : forced ? fmt('phone.acceptNow') : fmt('phone.accept', { sec: Math.ceil(left) })}</button></div>
     </div>`;
   }
 

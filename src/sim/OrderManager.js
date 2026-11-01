@@ -98,6 +98,10 @@ export class OrderManager {
     this.uid = 0; // mã món hàng
     this.orderSeq = 0; // số thứ tự đơn trong ngày
     this.history = [];
+    // Online (đơn chung): source = { request(now, pos) } — app tới lượt phát đơn thì xin máy chủ, trả lời bằng receiveOffer(o) (o = null: chưa có đơn).
+    // null = chơi một mình, tự sinh đơn như cũ.
+    this.source = null;
+    this.asking = false;
   }
 
   on(fn) {
@@ -165,6 +169,13 @@ export class OrderManager {
       if (this.gs.workBlock()) return; // chưa vào hãng / đang đi xe không đúng loại hãng yêu cầu (xe đạp, xe xăng ↔ xe điện)
       this.nextPingIn -= dtMin;
       if (this.nextPingIn <= 0) {
+        if (this.source) { // Online: xin đơn từ bảng đơn chung của máy chủ (trả lời → receiveOffer)
+          if (!this.asking) {
+            this.asking = true;
+            this.source.request(now, pos);
+          }
+          return;
+        }
         this.offer = this.makeOffer(now, pos);
         if (this.offer) {
           this.go(S.OFFERED);
@@ -172,7 +183,7 @@ export class OrderManager {
           this.emit('offer', { offer: this.offer });
         } else this.nextPingIn = 3;
       }
-    } else if (this.state === S.OFFERED && !this.offer?.forced) { // cuốc cốt truyện (forced) không hết hạn
+    } else if (this.state === S.OFFERED && !this.offer?.forced && !this.offer?.taking) { // cuốc cốt truyện (forced) không hết hạn · Online đang chờ máy chủ xác nhận nhận đơn
       this.offerTimeLeft -= dtSec;
       if (this.offerTimeLeft <= 0) {
         const offer = this.offer;
@@ -184,6 +195,20 @@ export class OrderManager {
         this.emit('offerExpired', { offer });
       }
     }
+  }
+
+  // Online: máy chủ trả đơn (o) hoặc chưa có (null → chờ chút xin lại). App đã tắt / đang bận thì bỏ (trả về false để báo máy chủ bỏ qua)
+  receiveOffer(o, now = this.now ?? 0) {
+    this.asking = false;
+    if (!o || this.state !== S.IDLE) {
+      this.nextPingIn = 3;
+      return false;
+    }
+    this.offer = o;
+    this.go(S.OFFERED);
+    this.offerTimeLeft = ORDER.offerTimeoutSec;
+    this.emit('offer', { offer: o });
+    return true;
   }
 
   // ---------- đơn cốt truyện (story.json → việc "offer") ----------

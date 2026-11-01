@@ -45,9 +45,8 @@ export function rideEventDialog(g, ev) {
         onSelect: () => {
           const receipt = om.resolveChangeDest(false, g.clockMin, g.playerPos);
           if (!receipt) return;
-          gs.applyReceipt(receipt);
           g.bike.speed = 0;
-          showReceipt(g, receipt);
+          g.settleReceipt(receipt, () => showReceipt(g, receipt));
         },
       },
     ], { dismissible: false });

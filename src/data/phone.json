@@ -59,6 +59,12 @@
       "icon": "📷",
       "color": "#16a085",
       "hidden": false
+    },
+    {
+      "id": "rank",
+      "icon": "🏆",
+      "color": "#d4a017",
+      "hidden": false
     }
   ]
 }

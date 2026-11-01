@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { TIME, RIDE_EVENTS } from '../data/balance.js';
 import { recentThieves } from '../sim/dogThief.js';
-import { APP } from '../data/apps.js';
+import { APP, BRANDS } from '../data/apps.js';
 import { ITEMS } from '../data/items.js';
 import { openDayOf } from '../sim/placeRules.js';
 import { tod } from '../sim/clock.js';
@@ -135,6 +135,9 @@ export class PhoneDataPart {
       floodCancel: this.floodCancelOk(), // hiện nút "Hủy vì ngập"
       offer: this.om.offer,
       offerTimeLeft: this.om.offerTimeLeft,
+      board: this.online?.board || null, // app Xếp hạng (Online)
+      brands: BRANDS,
+      jobLost: this.online?.lost && performance.now() < this.online.lost.until ? this.online.lost : null, // Online: đơn vừa bị người khác nhận mất
       order: this.om.order,
       gs,
       receipts: this.om.history,

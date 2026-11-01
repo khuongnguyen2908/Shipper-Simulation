@@ -258,10 +258,9 @@ export function passengerQuit(g) {
   const { om, gs } = g;
   const receipt = om.quitRide(g.clockMin, g.playerPos);
   if (!receipt) return;
-  gs.applyReceipt(receipt);
   g.bike.speed *= 0.3;
   sound('order.quit');
-  showReceipt(g, receipt);
+  g.settleReceipt(receipt, () => showReceipt(g, receipt));
 }
 
 function stairs(g) {
@@ -304,8 +303,7 @@ function handOver(g) {
   if (om.state === S.AT_DROPOFF && om.arriveAtDropoff(g.clockMin) === 'bom') return bom(g);
   const receipt = om.handOver(g.clockMin);
   if (!receipt) return;
-  gs.applyReceipt(receipt);
-  showReceipt(g, receipt);
+  g.settleReceipt(receipt, () => showReceipt(g, receipt)); // Online: tiền + sao do máy chủ tính
 }
 
 // Hóa đơn sau mỗi đơn (giao xong, hoặc khách xe ôm bỏ xuống giữa đường)
@@ -348,6 +346,7 @@ export function showReceipt(g, receipt) {
     ${row(fmt('receipt.wallet'), '+' + fmtK(pay.walletCredit), 'total')}
     ${pay.cod ? row(fmt('receipt.cod'), '+' + fmtK(pay.cod), 'total') : ''}
     ${o.viaApp === false ? row(fmt('receipt.notRated'), '') : row(fmt('receipt.rating'), '⭐ ' + gs.rating.toFixed(2))}
+    ${receipt.server ? `<div class="srv-ok">${fmt('online.paidBadge')}</div>` : receipt.serverDenied ? `<div class="srv-no">${fmt(`online.denied.${receipt.serverDenied}`, { dist: receipt.deniedDist ?? '' })}</div>` : ''}
   </div>`;
   g.modal.show({
     title: fmt(receipt.quit ? 'receipt.titleQuit' : ride ? 'receipt.titleRide' : 'receipt.title', { id: o.id }),

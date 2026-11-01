@@ -6,6 +6,12 @@
 import { PROTO, NET, ONLINE_CFG, worldMinAt, cleanName, makePlate, cleanState, cleanInfo, cleanProfile, dist2d } from '../src/net/protocol.js';
 import { cleanChat } from '../src/sim/chat.js';
 import { TIME } from '../src/data/balance.js';
+import { JobBoard } from './jobs.js';
+import { applyTx } from './wallet.js';
+
+// Phiên bản kinh tế Online. Đổi số này = xóa trắng tiền / tiến độ mọi tài khoản lúc máy chủ khởi động (giữ tên, biển số, ngoại hình)
+const ECON = 2; // 2 = M2c: ví do máy chủ giữ (tiền thử nghiệm của M1 bị xóa)
+import { dayOf } from '../src/sim/clock.js';
 
 const SAVE_MAX = 400 * 1024; // bản lưu quá nặng (bất thường) thì không nhận
 const hex = (n, rnd) => Array.from({ length: n }, () => Math.floor(rnd() * 16).toString(16)).join('');
@@ -25,7 +31,15 @@ export class Room {
       d.world = { epoch: now(), startMin: TIME.dayStart, seed: Math.floor(rnd() * 1e6) };
       store.dirty();
     }
+    if (d.econ !== ECON) { // xóa trắng tiền thử nghiệm (đã sao lưu file cũ)
+      if (Object.keys(d.accounts).length) store.backup?.(`truoc-kinh-te-${ECON}`);
+      for (const a of Object.values(d.accounts)) Object.assign(a, { save: null, money: ONLINE_CFG.startMoney ?? 200, days: {} });
+      d.econ = ECON;
+      store.dirty();
+      log(`Kinh tế Online bản ${ECON}: đã xóa trắng tiền / tiến độ thử nghiệm của mọi tài khoản`);
+    }
     this.world = d.world;
+    this.jobs = new JobBoard({ world: this.world, rnd }); // đơn chung của thành phố (M2a)
     this.players = new Map(); // conn → người đang online
     this.ticks = 0;
   }
@@ -62,15 +76,30 @@ export class Room {
       case 'st': p.st = cleanState(msg); break;
       case 'info':
         p.info = cleanInfo(msg);
+        if (p.info.brand !== (p.acc.brand ?? null)) { p.acc.brand = p.info.brand; this.store.dirty(); } // hãng (bảng xếp hạng)
         this.broadcast({ t: 'info', p: this.pub(p) }, p);
         break;
       case 'chat': this.chat(p, msg); break;
       case 'save': this.save(p, msg); break;
       case 'reset': // thua (bị đuổi / khóa tài khoản) → bắt đầu lại từ đầu, giữ tên + biển số
         p.acc.save = null;
+        p.acc.money = ONLINE_CFG.startMoney ?? 200;
+        p.conn.send({ t: 'money', money: p.acc.money, seq: msg.seq ?? null });
         this.store.dirty();
         break;
       case 'ping': conn.send({ t: 'pong', c: msg.c, now: this.now() }); break;
+      case 'jobReq': this.jobReq(p, msg); break;
+      case 'jobTake': this.jobTake(p, msg); break;
+      case 'jobPass': this.jobPass(p, msg); break;
+      case 'jobStep': this.jobStep(p, msg); break;
+      case 'tx': // cộng / trừ tiền ở máy người chơi → máy chủ áp theo luật ví rồi báo lại số dư
+        applyTx(p.acc, msg);
+        this.store.dirty();
+        p.conn.send({ t: 'money', money: p.acc.money, seq: msg.seq ?? null });
+        break;
+      case 'jobDone': this.jobDone(p, msg); break;
+      case 'jobCancel': this.jobs.finish(p, String(msg.id || '')); break;
+      case 'board': p.conn.send({ t: 'board', ...this.board(p) }); break;
     }
   }
 
@@ -87,7 +116,7 @@ export class Room {
       let plate = makePlate(this.rnd);
       for (let i = 0; i < 50 && plates.has(plate); i++) plate = makePlate(this.rnd);
       const token = hex(32, this.rnd);
-      acc = accs[token] = { id: hex(8, this.rnd), token, name, plate, created: this.now(), save: null };
+      acc = accs[token] = { id: hex(8, this.rnd), token, name, plate, created: this.now(), save: null, money: ONLINE_CFG.startMoney ?? 200 };
       this.log(`+ tài khoản mới: ${name} ${plate}`);
     } else if (name && name !== acc.name) acc.name = name;
     if (msg.profile) acc.profile = cleanProfile(msg.profile); // ngoại hình chọn lúc tạo nhân vật
@@ -102,7 +131,9 @@ export class Room {
     p.acc = acc;
     p.ready = true;
     if (msg.info) p.info = cleanInfo(msg.info);
-    p.conn.send({ t: 'welcome', id: acc.id, token: acc.token, name: acc.name, plate: acc.plate, profile: acc.profile || null, save: acc.save, world: this.world, now: this.now(), players: this.others(p).map((q) => this.pub(q)) });
+    acc.money ??= acc.save?.carry?.money ?? ONLINE_CFG.startMoney ?? 200;
+    const save = acc.save ? { ...acc.save, carry: { ...acc.save.carry, money: acc.money } } : null; // tiền trong bản lưu = ví máy chủ
+    p.conn.send({ t: 'welcome', id: acc.id, token: acc.token, name: acc.name, plate: acc.plate, profile: acc.profile || null, money: acc.money, save, world: this.world, now: this.now(), players: this.others(p).map((q) => this.pub(q)) });
     this.broadcast({ t: 'join', p: this.pub(p) }, p);
     this.sys('online.sys.join', { name: acc.name }, p);
     this.log(`→ ${acc.name} vào (${this.others(p).length + 1}/${this.max})`);
@@ -128,8 +159,79 @@ export class Room {
     if (!msg.carry || typeof msg.carry !== 'object') return;
     if (JSON.stringify(msg.carry).length > SAVE_MAX) return;
     const pos = msg.pos && Number.isFinite(msg.pos.x) && Number.isFinite(msg.pos.z) ? msg.pos : null;
-    p.acc.save = { carry: msg.carry, pday: Number.isInteger(msg.pday) && msg.pday > 0 ? msg.pday : 1, pos, home: !!msg.home, worldMin: Math.floor(this.worldMin()), at: this.now() };
+    p.acc.save = { carry: { ...msg.carry, money: p.acc.money ?? msg.carry.money }, pday: Number.isInteger(msg.pday) && msg.pday > 0 ? msg.pday : 1, pos, home: !!msg.home, worldMin: Math.floor(this.worldMin()), at: this.now() };
     this.store.dirty();
+  }
+
+  // ---------- ĐƠN CHUNG (M2a) ----------
+  byId(id) {
+    for (const q of this.players.values()) if (q.ready && q.acc.id === id) return q;
+    return null;
+  }
+  // báo lại "👥 N shipper gần đây cũng thấy đơn này" cho mọi người đang được mời đơn j
+  jobSeen(j) {
+    for (const id of j.holders) this.byId(id)?.conn.send({ t: 'jobSeen', id: j.id, n: this.jobs.seen(j, id) });
+  }
+  // App tới lượt phát đơn: xin 1 đơn từ bảng chung (không có thì o = null, app chờ rồi xin lại)
+  jobReq(p, msg) {
+    const now = this.worldMin();
+    const prev = this.jobs.release(p);
+    if (prev) this.jobSeen(prev);
+    const j = this.jobs.request(p, { pos: msg.pos, food: msg.food !== false, ride: !!msg.ride, money: msg.money }, now);
+    p.conn.send({ t: 'job', o: j ? j.o : null, seen: j ? this.jobs.seen(j, p.acc.id) : 0 });
+    if (j) this.jobSeen(j);
+  }
+  // Bấm nhận: ai tới trước được; người khác đang được mời đơn đó nhận tin "đã có người nhận"
+  jobTake(p, msg) {
+    const r = this.jobs.take(p, String(msg.id || ''), this.worldMin());
+    if (!r.ok) return p.conn.send({ t: 'jobGone', id: msg.id, by: r.by, plate: r.plate });
+    p.conn.send({ t: 'jobOk', id: r.job.id });
+    for (const id of r.others) this.byId(id)?.conn.send({ t: 'jobGone', id: r.job.id, by: p.acc.name, plate: p.acc.plate });
+  }
+  // Đã lấy hàng / đón khách: máy chủ kiểm tra đứng gần cửa quán
+  jobStep(p, msg) {
+    if (msg.step !== 'picked') return;
+    const r = this.jobs.picked(p, String(msg.id || ''), this.worldMin());
+    if (!r.ok) p.conn.send({ t: 'jobDeny', id: msg.id, why: r.why, dist: r.dist ?? null });
+  }
+  // Giao xong: máy chủ tính tiền + sao, ghi sổ ngày, trả kết quả cho người chơi
+  jobDone(p, msg) {
+    const id = String(msg.id || '');
+    const r = this.jobs.settle(p, id, msg, this.worldMin());
+    if (r.ok) { // tiền đơn + tiền thu hộ khách trả: máy chủ tự cộng vào ví
+      p.acc.money = Math.round(((p.acc.money ?? 0) + (r.pay.walletCredit || 0) + (r.pay.cod || 0)) * 10) / 10;
+      r.money = p.acc.money;
+    }
+    p.conn.send({ t: 'jobPaid', id, ...r });
+    if (r.ok) this.ledger(p.acc, r);
+  }
+  // Sổ thu nhập theo ngày thành phố (giữ 14 ngày): tiền đơn vào ví, số đơn, tổng sao — làm bảng xếp hạng
+  ledger(acc, r) {
+    const d = dayOf(this.worldMin());
+    acc.days ||= {};
+    const rec = (acc.days[d] ||= { income: 0, orders: 0, stars: 0, n: 0 });
+    rec.income = Math.round((rec.income + (r.pay?.walletCredit || 0)) * 10) / 10;
+    if (!r.ev.refused && !r.ev.quit) rec.orders += 1;
+    if (r.viaApp) { rec.stars += r.ev.stars; rec.n += 1; }
+    rec.brand = r.brand;
+    for (const k of Object.keys(acc.days)) if (+k < d - 13) delete acc.days[k];
+    this.store.dirty();
+  }
+  // Bảng xếp hạng: hôm nay + 7 ngày thành phố gần nhất (mọi tài khoản, kể cả đang offline) · số đơn mỗi hãng hôm nay
+  board(p) {
+    const d = dayOf(this.worldMin());
+    const rows = (from) => Object.values(this.store.data.accounts).map((a) => {
+      let income = 0, orders = 0, stars = 0, n = 0;
+      for (let k = from; k <= d; k++) { const r = a.days?.[k]; if (r) { income += r.income; orders += r.orders; stars += r.stars; n += r.n; } }
+      return { id: a.id, name: a.name, plate: a.plate, brand: a.brand || null, income: Math.round(income * 10) / 10, orders, rating: n ? Math.round((stars / n) * 100) / 100 : null };
+    }).filter((x) => x.orders > 0 || x.id === p.acc.id).sort((x, y) => y.income - x.income || y.orders - x.orders);
+    const brands = {};
+    for (const a of Object.values(this.store.data.accounts)) { const r = a.days?.[d]; if (r?.orders) brands[r.brand || '—'] = (brands[r.brand || '—'] || 0) + r.orders; }
+    return { day: d, today: rows(d).slice(0, 30), week: rows(d - 6).slice(0, 30), brands, me: p.acc.id };
+  }
+  jobPass(p, msg) {
+    const j = this.jobs.pass(p, String(msg.id || ''));
+    if (j) this.jobSeen(j);
   }
 
   disconnect(conn) {
@@ -137,6 +239,8 @@ export class Room {
     if (!p) return;
     this.players.delete(conn);
     if (!p.ready) return;
+    const held = this.jobs.release(p);
+    if (held) this.jobSeen(held);
     this.broadcast({ t: 'leave', id: p.acc.id });
     this.sys('online.sys.leave', { name: p.acc.name });
     this.log(`← ${p.acc.name} ra`);

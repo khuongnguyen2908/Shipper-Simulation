@@ -436,6 +436,7 @@ export class Game {
     this.hz = new HazardManager(makeRng(seed + wday * 101), wday); // thời tiết, kẹt xe, CSGT theo ngày thành phố (Online: chung mọi người)
     this.om = new OrderManager({ rng: makeRng(seed * 7 + day), layout: this.layout, gs: this.gs, isRaining: (m) => this.hz.isRaining(m), isFlooded: (door, m) => floodBand(this.hz.floodDepth(nearestSegId(door), m)) >= 1 });
     this.om.on((e) => this.onOrderEvent(e));
+    if (this.online) this.onlineOrders(); // Online: đơn lấy từ bảng đơn chung của máy chủ
     this.clockMin = clock;
     this.waypoint = null; // mã địa điểm người chơi bấm "Chỉ đường" trên bản đồ điện thoại
     this.findBike = false; // đang chỉ đường tới xe (app Xe → Định vị xe)

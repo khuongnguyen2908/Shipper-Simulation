@@ -15,6 +15,7 @@ export const APP_DEFS = {
   police: { icon: '🚓', color: '#34495e', key: 'phone.appPolice' },
   tictac: { icon: '⏱️', color: '#ff7a00', key: 'phone.appTictac' }, // Tích Tắc: lướt tin cho vui (ui/tictac.js)
   camera: { icon: '📷', color: '#16a085', key: 'phone.appCamera', locked: true }, // Máy ảnh: chụp = lưu game (3 ô) — không ẩn được (chỗ lưu game duy nhất ngoài chương)
+  rank: { icon: '🏆', color: '#d4a017', key: 'phone.appRank', onlineOnly: true }, // Xếp hạng (chỉ khi chơi Online): thu nhập hôm nay / tuần — hiện thay chỗ Máy ảnh
 };
 export const MAX_VISIBLE = 9; // bàn phím chỉ có phím 1–9
 
@@ -33,7 +34,9 @@ export function phoneApps(data = raw) {
   }
   for (const [id, def] of Object.entries(APP_DEFS)) if (!seen.has(id)) rows.push({ id, icon: def.icon, color: def.color, hidden: false });
   const tuple = (r) => [r.id, r.icon, r.color, APP_DEFS[r.id].key];
-  return { all: rows.map(tuple), visible: rows.filter((r) => !r.hidden).slice(0, MAX_VISIBLE).map(tuple) };
+  // app chỉ có khi chơi Online (Xếp hạng) không chiếm chỗ trong 9 phím: lúc Online mới hiện, thay chỗ app Máy ảnh (ui/phone.js)
+  const normal = rows.filter((r) => !r.hidden && !APP_DEFS[r.id].onlineOnly);
+  return { all: rows.map(tuple), visible: normal.slice(0, MAX_VISIBLE).map(tuple), online: rows.filter((r) => !r.hidden && APP_DEFS[r.id].onlineOnly).map(tuple) };
 }
 
 // Kiểm tra phone.json (dùng trong validate.js)
@@ -52,7 +55,7 @@ export function validatePhone(data) {
     if (a.hidden && APP_DEFS[id].locked) add('error', id, 'hidden', 'App này không ẩn được (game cần nó).');
   }
   for (const id of Object.keys(APP_DEFS)) if (!seen.has(id)) add('warn', id, 'id', 'Thiếu app này trong danh sách → game tự thêm vào cuối.');
-  const shown = data.apps.filter((a) => APP_DEFS[a?.id] && !(a.hidden && !APP_DEFS[a.id].locked)).length;
+  const shown = data.apps.filter((a) => APP_DEFS[a?.id] && !APP_DEFS[a.id].onlineOnly && !(a.hidden && !APP_DEFS[a.id].locked)).length;
   if (shown > MAX_VISIBLE) add('error', '', 'apps', `Đang hiện ${shown} app — tối đa ${MAX_VISIBLE} (phím 1–9). Ẩn bớt app.`);
   return out;
 }

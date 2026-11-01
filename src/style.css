@@ -932,3 +932,27 @@ body:has(.in-race) #chat { display: none; }
 
 /* dòng bản quyền cuối màn tạm dừng */
 .sc-copy { margin-top: 14px; font-size: 11.5px; color: var(--muted); text-align: center; }
+
+/* Online — đơn chung (M2a): nhãn "👥 N shipper cũng thấy" cạnh số tiền · thẻ "Đơn đã có người nhận" */
+.offer .pay-big .seen { display: inline-block; vertical-align: middle; margin-left: 8px; font: 600 11px/1.3 var(--font); color: #9ff0bf; background: #1f2d24; border: 1px solid #2e6a45; border-radius: 7px; padding: 2px 7px; max-width: 150px; white-space: normal; }
+.card.job-lost { text-align: center; padding: 18px 14px; }
+.card.job-lost .jl-ic { font-size: 36px; }
+.card.job-lost b { display: block; font-size: 16px; margin-top: 4px; }
+.card.job-lost small { display: block; color: #aab3c2; margin-top: 6px; }
+.card.job-lost .jl-next { margin-top: 10px; font-size: 12.5px; color: #7dffb2; }
+
+/* Online — máy chủ ghi sổ (hóa đơn) · app 🏆 Xếp hạng */
+.receipt .srv-ok { margin-top: 8px; text-align: center; font-size: 12.5px; color: #7dffb2; }
+.receipt .srv-no { margin-top: 8px; text-align: center; font-size: 12.5px; color: #ffb36b; }
+.rk-tabs { display: flex; gap: 6px; margin: 4px 0 10px; }
+.rk-tabs button { flex: 1; padding: 6px 0; border-radius: 8px; border: 0; background: #232a35; color: #aab3c2; font: 700 12.5px var(--font); cursor: pointer; }
+.rk-tabs button.on { background: var(--accent); color: #fff; }
+.rk-war { display: flex; height: 10px; border-radius: 6px; overflow: hidden; margin: 2px 0 4px; }
+.rk-warl { display: flex; justify-content: space-between; font-size: 11.5px; color: #cfd6e2; margin-bottom: 8px; }
+.rk-warl i, .rk-who i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+.rk-row { display: grid; grid-template-columns: 26px 1fr auto; gap: 6px; align-items: center; padding: 6px; border-bottom: 1px solid #222935; }
+.rk-row.me { background: #1f3326; border: 1px solid #2e6a45; border-radius: 8px; }
+.rk-n { font: 800 14px var(--font); text-align: center; }
+.rk-who b { display: block; font-size: 13px; }
+.rk-who small { display: block; color: #8d97a6; font-size: 11px; }
+.rk-k { font-weight: 800; color: #7dffb2; }

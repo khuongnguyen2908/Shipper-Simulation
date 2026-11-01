@@ -515,12 +515,14 @@ export class GameState {
     if (!k) return;
     this.money += k;
     this.stats.income[source] = (this.stats.income[source] || 0) + k;
+    this.onTx?.('earn', k, source); // Online: báo máy chủ (máy chủ giữ ví)
   }
   // force = true cho tiền phạt (có thể âm tiền)
   spend(k, reason, force = false) {
     if (!force && this.money < k) return false;
     this.money -= k;
     this.stats.expense[reason] = (this.stats.expense[reason] || 0) + k;
+    if (k) this.onTx?.('spend', k, reason);
     return true;
   }
 

@@ -321,11 +321,13 @@
     "startMoney": 200,
     "sleepRealSec": 60,
     "sleepToHours": 8,
-    "homeSleepMinGame": 360,
     "chatNearM": 40,
     "tagNearM": 60,
     "tagFarM": 160,
     "maxPlayers": 10,
-    "saveEverySec": 20
+    "saveEverySec": 20,
+    "orderShare": 0.35,
+    "orderShareM": 150,
+    "orderTtlMin": 20
   }
 }
