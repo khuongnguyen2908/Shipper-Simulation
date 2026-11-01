@@ -251,6 +251,7 @@ export class Game {
     this.onlineLeave(); // đang Online: lưu lên máy chủ rồi rời thành phố
     this.state = 'title';
     this.hud.show(false);
+    this.titleHide(true); // màn hình chính chỉ là cảnh phố chạy nền: không còn gì của ván đang chơi
     this.phone.toggle(false);
     this.modal.hide();
     setEngine(false, 0);
@@ -266,6 +267,28 @@ export class Game {
       onSettings: (s) => this.applySettings(s),
       onOnline: (o) => this.onlineJoin(o), // 🌐 Online → Vào thành phố (lỗi: ném { code } cho màn hình hiện chữ)
     });
+  }
+
+  // Màn hình chính tách hẳn khỏi ván chơi (on = true): ẩn khung chat, bong bóng, FPS; giấu người chơi, xe, vòng chỉ đường,
+  // dấu trên đầu NPC, khách / người lạ của cốt truyện. on = false (vào game): hiện lại khung chat, log chat của lần trước xóa sạch.
+  titleHide(on) {
+    this.chatBox.close();
+    this.chatBox.el.classList.toggle('hidden', on);
+    this.bubbles.el.classList.toggle('hidden', on);
+    this.fpsEl.classList.toggle('hidden', on);
+    if (on) {
+      for (const id of [...this.bubbles.map.keys()]) this.bubbles.remove(id);
+      this.clearTempNpcs();
+      for (const who of Object.keys(this.storyActors || {})) this.storyActorRemove(who);
+      this.storyPropsClear?.();
+      this.titleHidden ??= [this.walker.mesh, this.bike.mesh, this.beacon, this.zoneRing, this.questMark].map((m) => [m, m.visible]); // đã ẩn rồi (về màn hình chính 2 lần) thì giữ trạng thái cũ
+      for (const [m] of this.titleHidden) m.visible = false;
+    } else {
+      for (const [m, v] of this.titleHidden || []) m.visible = v; // trả lại như cũ, ván mới tự đặt lại sau đó
+      this.titleHidden = null;
+      this.chatCh.lines.length = 0;
+      this.chatBox.log.textContent = '';
+    }
   }
 
   // Thẻ "Tiếp tục": tên, ngày giờ, tiền, điểm, tiền nhà kỳ này, xe (đọc từ bản lưu bằng GameState)
@@ -398,6 +421,7 @@ export class Game {
 
   // pday (chỉ Online): ngày của riêng người chơi — khác ngày thành phố (dayOf(clock)); Offline = ngày theo đồng hồ
   startGame({ clock, carry, seed, pos = null, pday = null }) {
+    this.titleHide(false);
     this.busy = null;
     this.pendingTickets = []; // ván mới: bỏ phạt nguội vượt đèn đỏ đang chờ báo của ván cũ
     this.inLight = null;

@@ -434,6 +434,10 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
     - Tạo nhân vật cho Online (01/11): lần đầu vào máy chủ (máy chưa có tài khoản) → màn tạo nhân vật của Chơi mới (nút cuối = Vào thành phố) → hello gửi profile,
       máy chủ giữ acc.profile (cleanProfile) → newCarry dùng ngoại hình đó (cả khi thua chơi lại). Lần sau vào thẳng.
     - Ảnh giới thiệu LinkedIn (6 ảnh 1600×900, chụp từ game): sketches/linkedin/ (không commit). Ảnh Online là cảnh dựng sẵn, nhãn IN DEVELOPMENT.
+- **Màn hình chính tách khỏi ván chơi (01/11)** — chủ game: "menu chỉ là video nền, không dính gì bên trong game". game.js titleHide(on): về màn hình chính thì
+  ẩn khung chat + bong bóng + FPS, giấu người chơi / xe / vòng chỉ đường / dấu trên đầu NPC, gỡ khách + người lạ cốt truyện; vào game lại thì hiện lại, log chat lần trước xóa sạch.
+- **Bản quyền (01/11, XONG, commit 2b72de8)** — chủ game chọn: tên "Khương (Flynt) Nguyễn", GIỮ MỌI QUYỀN. LICENSE song ngữ (chỉ chơi qua link chính thức),
+  screen.credit (màn hình chính) + screen.copyright (cuối màn tạm dừng), meta author/copyright ở index.html + public/share.html, README mục Bản quyền, package.json author/license.
 - **Màn hình chính 2 chế độ (01/11, XONG, commit 4f7333d)** — chủ game chọn Cách B (phác thảo sketches/menu-online.png): mở game là màn chọn chế độ
   (thẻ 👤 Offline = chơi một mình như cũ · thẻ 🌐 Online "SẮP RA MẮT" → bảng giới thiệu + nút Về chơi Offline · ⚙️ Cài đặt). Menu Offline thêm "↩️ Đổi chế độ chơi".
   Enter ở màn chọn = Offline · Esc lùi từng bước. Code: ui/screens.js (t.side home/offline, onlineHtml), chữ menu.offline* / menu.online* / menu.soon.
