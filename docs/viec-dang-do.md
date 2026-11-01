@@ -400,7 +400,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
     · 1 góc nhìn 1 trên xe · 2 xe vọt dọc bến, bán tải + 2 xe máy bật đèn lao theo (không vượt lên) · 3 lướt sát bánh + vệt nhòe — đổi bản đồ giữa khung · 4 góc
     nhìn 1 trên đường đua · 5 camera lùi ra góc nhìn 3, cầm lái luôn, xe không dừng. Số giây sửa ở ?editor (races.escape.intro). Mở game giữa màn / cheat: bỏ qua.
     Hướng phóng: dọc bến về phía đông (phía tây ranh bản đồ chỉ còn 14 m). Không có câu "Đuổi theo!!" của Tí Sún (không có người đó ở bến) — chỉ tiếng rồ máy.
-- **Theo đề xuất sau QA (01/11, XONG, đã build, chưa commit)**
+- **Theo đề xuất sau QA (01/11, XONG, commit ae4761c)**
   - (1) Tiền nhà lúc đang có chương: tới hạn mà chưa trả → Dì Hai cho khất từng ngày (rentState.ext), không phạt, không tính trễ; kỳ sau lùi theo (ít nhất 1 ngày sau hạn cũ).
     GameState.tickRent tự xét inChapter(story) (mở bản lưu quá hạn giữa chương cũng không bị đuổi). Toast toast.rentDeferred. Có bộ thử.
   - (2) Chương 6: trận thật (không phải màn lẻn) vào với máu < 60 → anh Đạt dúi bánh mì, máu lên 60 (PLAYER.startHp) · thua chơi lại đầy máu (retryHp 100) · trận boong còn 4 tên (bỏ g16).
@@ -415,7 +415,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   - (3) Nút "Chờ tới giờ hẹn" (đã duyệt phác thảo sketches/cho-gio-hen.png): bước until clock chưa tới giờ → bảng mục tiêu có dòng "⏳ Ngồi chờ tới …" + dòng phím "Z chờ giờ hẹn";
     Z → hộp hỏi lại → màn đen ngắn, tua giờ (advance idle: no/khát giảm, không hồi sức như ngủ). Ẩn khi chở đơn / có đơn mời / chạy xe / đánh nhau / đua / cảnh phim / bám lén / trên tàu.
     Code: game/story.js storyWaitInfo · interactions/road.js waitForAppointment · hud #objWait #kWait. Bước "qua ngày mới" vẫn ngủ ở nhà.
-- **QA cả game chương 1 → 6 (01/11, chưa commit)** — bot QA sketches/qabot.js (thao tác như người chơi; đường xa thì dịch chuyển, có ghi quãng đường)
+- **QA cả game chương 1 → 6 (01/11, XONG, commit ae4761c)** — bot QA sketches/qabot.js (thao tác như người chơi; đường xa thì dịch chuyển, có ghi quãng đường)
   - Lỗi đã sửa: (1) mở bản lưu giữa bước "chở người lạ tới …" → người đó đứng yên, kẹt (dựng lại lệnh lên xe) · (2) mở bản lưu giữa lúc vật ngã
     / cởi trói → không chạy lại, kẹt · (3) mở bản lưu giữa chương → mất hết đạo cụ (thùng rác núp, giá vẽ…), kẹt (dựng lại đạo cụ các bước đã qua) ·
     (4) vật ngã lúc tên cướp còn trên xe → lỗi JS sập game (cho xuống xe trước, hipBend bỏ qua khi không phải người) · (5) bước bày trận vào lúc đang
