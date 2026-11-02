@@ -1,13 +1,15 @@
 import { defineConfig } from 'vite';
-import { viteSingleFile } from 'vite-plugin-singlefile';
 import fs from 'node:fs';
 import path from 'node:path';
 
 // Chỉ những file dữ liệu này được công cụ ?editor ghi đè
-const EDITABLE = ['src/data/items.json', 'src/data/gear.json', 'src/data/goods.json', 'src/data/places.json', 'src/content/vi.json', 'src/data/apps.json', 'src/data/map.json', 'src/data/balance.json', 'src/data/editor.json', 'src/data/phone.json', 'src/data/sounds.json', 'src/data/story.json', 'src/data/relations.json'];
+const EDITABLE = ['src/data/items.json', 'src/data/gear.json', 'src/data/goods.json', 'src/data/places.json', 'src/content/vi.json', 'src/data/apps.json', 'src/data/map.json', 'src/data/balance.json', 'src/data/editor.json', 'src/data/phone.json', 'src/data/sounds.json', 'src/data/story.json', 'src/data/relations.json', 'src/data/loading.json'];
 // File âm thanh: editor tải lên vào thư mục này (thẻ 🔊 Âm thanh)
 const SOUND_DIR = 'src/sounds';
 const SOUND_NAME = /^[a-z0-9_\-.]+\.(ogg|mp3|wav|m4a)$/i;
+// Ảnh màn loading (logo nhà phát hành, ảnh đi kèm mẹo): public/loading/ → bản build chép nguyên sang dist/loading/
+const LOADING_DIR = 'public/loading';
+const IMG_NAME = /^[a-z0-9_\-.]+\.(png|jpe?g|webp|svg)$/i;
 // Kho tiếng để nghe thử (không gói vào game): editor chép file chọn được sang SOUND_DIR
 const LIB_DIR = 'sound-library';
 const LIB_PATH = /^[a-z0-9_\-./]+\.(ogg|mp3|wav|m4a)$/i;
@@ -42,6 +44,13 @@ function editorSavePlugin() {
       server.middlewares.use('/__editor/sounds', (req, res) => {
         const dir = path.resolve(server.config.root, SOUND_DIR);
         const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => SOUND_NAME.test(f)).sort() : [];
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ ok: true, files }));
+      });
+      // danh sách ảnh màn loading đang có (thẻ ⏳ Loading của editor)
+      server.middlewares.use('/__editor/loading-images', (req, res) => {
+        const dir = path.resolve(server.config.root, LOADING_DIR);
+        const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => IMG_NAME.test(f)).sort() : [];
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify({ ok: true, files }));
       });
@@ -153,9 +162,66 @@ function editorSavePlugin() {
   };
 }
 
-// Build ra MỘT file dist/index.html (gộp cả JS, CSS) → bấm đúp là chạy, không cần máy chủ
+// Màn loading (src/boot/): chép thẳng vào chỗ <!--boot--> của index.html để hiện NGAY khi mở trang, trước khi tải code game.
+// Chữ lấy từ vi.json (khóa loading.*), danh sách logo / mẹo + số giây từ src/data/loading.json, hình xe từ src/boot/moto.svg.
+// Bản build: bỏ thẻ <script> nạp code game, thay bằng window.__BOOT_ENTRY = { src, size } → loader tự tải để đo % thật rồi mới chạy.
+function bootLoaderPlugin() {
+  const read = (f) => fs.readFileSync(path.resolve(f), 'utf8');
+  const BOOT_FILES = ['src/boot/loader.js', 'src/boot/loader.css', 'src/boot/moto.svg'];
+  const inject = (html) => {
+    const vi = JSON.parse(read('src/content/vi.json'));
+    const cfg = JSON.parse(read('src/data/loading.json'));
+    const t = Object.fromEntries(Object.entries(vi).filter(([k]) => k.startsWith('loading.')));
+    const data = {
+      t,
+      logos: cfg.logos || [],
+      tips: (cfg.tips || []).map((x) => t[x.text]).filter(Boolean),
+      logoSec: cfg.logoSec,
+      bootMinSec: cfg.bootMinSec,
+      pano: cfg.pano || null,
+      rider: cfg.rider || null,
+      base: './loading/',
+      moto: read('src/boot/moto.svg').trim(),
+    };
+    const json = JSON.stringify(data).replace(/</g, '\\u003c'); // không để lọt "</script>" trong chữ
+    const block = `<style>${read('src/boot/loader.css')}</style><div id="boot"></div><script>window.__LOADER = ${json};</script><script>${read('src/boot/loader.js')}</script>`;
+    return html.replace('<!--boot-->', () => block);
+  };
+  return [
+    {
+      name: 'shipper-boot',
+      transformIndexHtml: { order: 'pre', handler: inject },
+      // sửa file màn loading khi chạy dev → tải lại trang
+      configureServer(server) {
+        server.watcher.add(BOOT_FILES.map((f) => path.resolve(server.config.root, f)));
+        server.watcher.on('change', (f) => {
+          if (BOOT_FILES.some((b) => norm(path.resolve(server.config.root, b)) === norm(f))) server.ws.send({ type: 'full-reload' });
+        });
+      },
+    },
+    {
+      name: 'shipper-boot-entry',
+      apply: 'build',
+      transformIndexHtml: {
+        order: 'post',
+        handler(html, ctx) {
+          const chunk = ctx.chunk;
+          if (!chunk) return html;
+          // thẻ <script type="module" … src="…/assets/index-xxx.js"> Vite vừa chèn
+          const m = [...html.matchAll(/<script type="module"[^>]*\ssrc="([^"]+)"[^>]*><\/script>/g)].find((x) => x[1].endsWith(chunk.fileName));
+          if (!m) throw new Error('Không thấy thẻ <script> nạp code game trong index.html');
+          const size = Buffer.byteLength(ctx.bundle?.[chunk.fileName]?.code || chunk.code || '');
+          return html.replace(m[0], () => `<script>window.__BOOT_ENTRY = ${JSON.stringify({ src: m[1], size })};</script>`);
+        },
+      },
+    },
+  ];
+}
+
+// Build ra dist/: index.html nhẹ (có sẵn màn loading) + assets/ (code game, có cả âm thanh) + loading/ (ảnh logo, ảnh mẹo).
+// Cần mở qua máy chủ web (GitHub Pages / npm run preview) — bấm đúp file index.html không chạy được.
 export default defineConfig({
   base: './',
-  plugins: [editorSavePlugin(), viteSingleFile()],
-  build: { chunkSizeWarningLimit: 2000 },
+  plugins: [editorSavePlugin(), bootLoaderPlugin()],
+  build: { chunkSizeWarningLimit: 30000 }, // code game gồm cả âm thanh (~23 MB) — loader đo % khi tải
 });

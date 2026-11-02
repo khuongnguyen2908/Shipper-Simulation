@@ -13,10 +13,15 @@ if (new URLSearchParams(location.search).has('editor')) {
 } else {
   // dữ liệu JSON vừa được lưu (từ ?editor hoặc sửa tay) → tải lại game để dùng dữ liệu mới
   if (import.meta.hot) import.meta.hot.on('shipper:data-changed', () => location.reload());
-  try {
-    new Game(canvas, ui);
-  } catch (e) {
-    console.error(e);
-    ui.innerHTML = `<div id="screen"><div class="sc-box"><div class="logo lose">${fmt('screen.startError')}</div><p class="story">${fmt('screen.startErrorText', { error: e.message })}</p></div></div>`;
-  }
+  const start = () => {
+    try {
+      new Game(canvas, ui);
+    } catch (e) {
+      console.error(e);
+      ui.innerHTML = `<div id="screen"><div class="sc-box"><div class="logo lose">${fmt('screen.startError')}</div><p class="story">${fmt('screen.startErrorText', { error: e.message })}</p></div></div>`;
+    }
+  };
+  // màn loading (src/boot/loader.js) chọn lúc dựng game: sau logo nhà phát hành, khi đang hiện thanh tải
+  if (window.__boot) window.__boot.start(start);
+  else start();
 }

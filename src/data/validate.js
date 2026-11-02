@@ -815,8 +815,9 @@ export function validateBalance(b) {
   return out;
 }
 
-export function validateAll({ items, gear, goods, places, content, baseContent, apps = null, map = undefined, balance = null, phone = null, sounds = null, story = null, relations = null }) {
+export function validateAll({ items, gear, goods, places, content, baseContent, apps = null, map = undefined, balance = null, phone = null, sounds = null, story = null, relations = null, loading = null, loadingImages = null }) {
   return [
+    ...(loading ? validateLoading(loading, content, loadingImages) : []),
     ...(story ? validateStory(story, { places, goods, content, apps, relations, orderItems: items, gear }) : []),
     ...(relations ? validateRelations(relations, { story, places, goods, content }).filter((i) => i.level === 'error') : []), // chỉ lỗi; cảnh báo xem ở /?relationship
     ...(sounds ? validateSounds(sounds) : []),
@@ -832,6 +833,50 @@ export function validateAll({ items, gear, goods, places, content, baseContent, 
     ...validateContent(content, baseContent || content),
     ...validateFeedLines(content, places),
   ];
+}
+
+// ======================== MÀN LOADING (loading.json — thẻ ⏳ Loading) ========================
+// images: danh sách file trong public/loading/ (null = không kiểm tra file có thật không)
+export const LOADING_IMG = /^[a-z0-9_\-.]+\.(png|jpe?g|webp|svg)$/i;
+export const LOADING_SECS = { logoSec: [1, 8], bootMinSec: [0, 10], tipSec: [2, 20], miniMinSec: [0, 5] };
+export function validateLoading(data, content, images = null) {
+  const out = [];
+  const add = (level, ref, field, msg) => out.push({ level, tab: 'loading', ref, field, msg });
+  if (!data || typeof data !== 'object') return [{ level: 'error', tab: 'loading', ref: '', field: 'tips', msg: 'Thiếu dữ liệu màn loading.' }];
+  for (const [k, [lo, hi]] of Object.entries(LOADING_SECS)) {
+    const v = data[k];
+    if (!Number.isFinite(v) || v < lo || v > hi) add('error', '', k, `Phải là số giây từ ${lo} tới ${hi}.`);
+  }
+  const img = (ref, name, need) => {
+    if (!name) { if (need) add('warn', ref, 'img', 'Chưa có ảnh.'); return; }
+    if (!LOADING_IMG.test(name)) add('error', ref, 'img', `Tên ảnh "${name}" không hợp lệ (chữ thường không dấu, đuôi .png .jpg .webp .svg).`);
+    else if (images && !images.includes(name)) add('error', ref, 'img', `Không thấy ảnh "${name}" trong public/loading/.`);
+  };
+  const text = (ref, key) => {
+    if (!key) add('error', ref, 'text', 'Chưa chọn khóa chữ.');
+    else if (content && !(key in content)) add('error', ref, 'text', `Thiếu khóa chữ "${key}" trong vi.json.`);
+  };
+  // dải phố thật cho loading lớn (chụp bằng panorama() ở ?debug — src/devtools/panorama.js)
+  const pano = data.pano;
+  if (!pano) add('warn', 'pano', 'img', 'Chưa có ảnh phố cho loading lớn — chỉ còn trời chiều.');
+  else {
+    img('pano', pano.img, true);
+    for (const k of ['width', 'height', 'roadTop', 'pxPerM', 'speed']) if (!(Number.isFinite(pano[k]) && pano[k] > 0)) add('error', 'pano', k, 'Phải là số dương (lấy từ panorama() in ra).');
+    if (pano.roadTop >= pano.height) add('error', 'pano', 'roadTop', 'Mép đường phải nằm trong ảnh (nhỏ hơn chiều cao).');
+    if ((pano.people || []).some((p) => !(p?.x >= 0 && p.x <= pano.width && p?.y >= 0 && p.y <= pano.height))) add('error', 'pano', 'people', 'Có khách nằm ngoài ảnh.');
+  }
+  // ảnh xe + người lái chụp từ game (nhiều khung nằm ngang, bánh quay dần) — chụp bằng captureRider() ở src/devtools/panorama.js
+  if (data.rider) {
+    img('rider', data.rider.img, true);
+    for (const k of ['frames', 'width', 'height']) if (!(Number.isInteger(data.rider[k]) && data.rider[k] > 0)) add('error', 'rider', k, 'Phải là số nguyên dương (lấy từ lúc chụp).');
+  }
+  const logos = Array.isArray(data.logos) ? data.logos : [];
+  if (logos.length > 4) add('warn', '', 'logos', `${logos.length} logo — hơi nhiều, người chơi phải chờ ${logos.length * (data.logoSec || 0)} giây (bấm để bỏ qua được).`);
+  logos.forEach((l, i) => { text(`logo${i}`, l?.text); img(`logo${i}`, l?.img, true); });
+  const tips = Array.isArray(data.tips) ? data.tips : [];
+  if (!tips.length) add('warn', '', 'tips', 'Chưa có mẹo nào — loading nhỏ chỉ còn xe chạy.');
+  tips.forEach((t, i) => { text(`tip${i}`, t?.text); img(`tip${i}`, t?.img, true); });
+  return out;
 }
 
 // App Tích Tắc (sim/feed.js): mỗi mẫu tin "[photo:here|food|place hoặc clip:dog|dance|food|rain|text|meme] @tác_giả | chú thích | nhạc | chữ trên ảnh"

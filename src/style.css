@@ -433,6 +433,39 @@ b.plus { color: #58d68d; }
 
 /* ---- màn hình tiêu đề / kết thúc ---- */
 #screen { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at center, rgba(10, 16, 30, 0.55), rgba(5, 8, 16, 0.9)); z-index: 30; }
+/* Loading nhỏ khi vào game từ màn hình chính (src/ui/miniLoader.js): ảnh + mẹo, xe máy chạy tại chỗ */
+#miniLoad { position: fixed; inset: 0; z-index: 60; background: radial-gradient(ellipse at center, #141a2a, #05070d); transition: opacity 0.4s; }
+#miniLoad.out { opacity: 0; pointer-events: none; }
+#miniLoad .ml-card { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); width: min(720px, 88vw); }
+#miniLoad .ml-img { aspect-ratio: 2 / 1; border-radius: 16px; background: #1b2236 center / cover no-repeat; box-shadow: 0 20px 60px #000a; border: 1px solid #ffffff1c; transition: opacity 0.35s; }
+#miniLoad .ml-tip { margin-top: 12px; text-align: center; color: #d9d3c7; font-size: 15px; min-height: 22px; transition: opacity 0.35s; }
+#miniLoad .ml-tip b { color: #4ade80; }
+#miniLoad .ml-card.swap .ml-img, #miniLoad .ml-card.swap .ml-tip { opacity: 0; }
+#miniLoad .ml-pips { display: flex; justify-content: center; gap: 6px; margin-top: 8px; }
+#miniLoad .ml-pips i { width: 7px; height: 7px; border-radius: 50%; background: #ffffff30; }
+#miniLoad .ml-pips i.on { background: #4ade80; }
+#miniLoad .ml-run { position: absolute; left: 50%; bottom: 6%; transform: translateX(-50%); display: flex; align-items: flex-end; gap: 14px; color: #eef2f7; }
+#miniLoad .ml-road { position: relative; width: 160px; height: 72px; overflow: hidden; }
+#miniLoad .ml-road::after { content: ''; position: absolute; left: 0; right: -60px; bottom: 2px; height: 3px; background: repeating-linear-gradient(90deg, #ffffff88 0 22px, transparent 22px 40px); animation: ml-dash 0.35s linear infinite; }
+#miniLoad .ml-moto { position: absolute; left: calc(50% - 45px); bottom: 0; width: 90px; animation: ml-bob 0.3s ease-in-out infinite alternate; }
+#miniLoad .ml-moto > svg { display: block; width: 100%; height: auto; }
+#miniLoad .ml-real { overflow: hidden; }
+#miniLoad .ml-real img { display: block; height: 100%; animation: ml-frames 0.25s infinite; }
+@keyframes ml-frames { to { transform: translateX(-100%); } }
+#miniLoad .ml-wheel { position: absolute; top: 61.25%; width: 21.67%; aspect-ratio: 1; animation: ml-spin 0.3s linear infinite; }
+#miniLoad .ml-wheel svg { display: block; width: 100%; height: 100%; }
+#miniLoad .ml-road i { position: absolute; bottom: 12px; left: 32px; width: 8px; height: 8px; border-radius: 50%; background: #ffffff55; opacity: 0; animation: ml-puff 0.7s linear infinite; }
+#miniLoad .ml-road i:nth-of-type(2) { animation-delay: 0.23s; }
+#miniLoad .ml-road i:nth-of-type(3) { animation-delay: 0.46s; }
+#miniLoad .ml-word { font: 800 17px var(--font); letter-spacing: 1px; padding-bottom: 4px; }
+#miniLoad .ml-dots { display: inline-block; width: 3.2em; }
+#miniLoad .ml-dots::after { content: ''; animation: ml-dots 1.4s steps(6) infinite; }
+#miniLoad .ml-sub { color: #9aa4b5; font-size: 12px; font-weight: 400; letter-spacing: 0; margin-top: 2px; min-height: 16px; }
+@keyframes ml-dash { to { transform: translateX(-40px); } }
+@keyframes ml-bob { to { transform: translateY(-1.5px); } }
+@keyframes ml-spin { to { transform: rotate(360deg); } }
+@keyframes ml-puff { 0% { opacity: 0.9; transform: none; } 100% { opacity: 0; transform: translate(-30px, -8px) scale(2.2); } }
+@keyframes ml-dots { 0% { content: ''; } 16% { content: '.'; } 33% { content: '..'; } 50% { content: '...'; } 66% { content: '....'; } 83% { content: '.....'; } }
 .sc-box { width: min(760px, 94vw); max-height: 94vh; overflow-y: auto; text-align: center; padding: 26px 30px; background: rgba(18, 23, 33, 0.92); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 22px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6); }
 .logo { font-size: 40px; font-weight: 900; letter-spacing: 1px; background: linear-gradient(90deg, #00d65f, #f4d03f); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .logo.small { font-size: 30px; margin-bottom: 14px; }

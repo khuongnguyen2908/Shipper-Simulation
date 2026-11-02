@@ -192,7 +192,7 @@ export function render(root, ctx) {
     avail.length ? selectInput('', [['', '— chọn file có sẵn —'], ...avail.map((f) => [f, f])], (v) => v && add(v)) : el('span', { class: 'muted' }, lib.files ? 'Chưa có file nào khác trong src/sounds.' : 'Đang tải danh sách…'),
     input,
     button('⬆️ Tải file lên', () => input.click(), 'small'),
-  ), { ref: id, fieldKey: 'add', hint: `Đuôi ${SOUND_EXT.join(', ')}. File được chép vào thư mục src/sounds/ (tên tự đổi thành chữ không dấu). Nhạc nên dùng .ogg / .mp3 cho nhẹ — mọi file được gói chung vào dist/index.html.` }));
+  ), { ref: id, fieldKey: 'add', hint: `Đuôi ${SOUND_EXT.join(', ')}. File được chép vào thư mục src/sounds/ (tên tự đổi thành chữ không dấu). Nhạc nên dùng .ogg / .mp3 cho nhẹ — mọi file được gói chung vào code game (dist/assets/).` }));
 
   body.append(el('div', { class: 'grid' },
     field('Âm lượng riêng (%)', numInput(data.sounds[id]?.volume ?? 1, (v) => { entry().volume = Number.isFinite(v) ? v : 1; cleanup(); changed(); }, { step: 5, min: 0, max: 2, scale: 100 }), { ...opt('volume'), hint: '100% = như file gốc. Chỉnh để các tiếng to nhỏ đều nhau (0–200%).' }),

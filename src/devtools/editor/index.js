@@ -18,6 +18,7 @@ import editorJson from '../../data/editor.json' with { type: 'json' };
 import phoneJson from '../../data/phone.json' with { type: 'json' };
 import soundsJson from '../../data/sounds.json' with { type: 'json' };
 import storyJson from '../../data/story.json' with { type: 'json' };
+import loadingJson from '../../data/loading.json' with { type: 'json' };
 import relationsJson from '../../data/relations.json' with { type: 'json' }; // sơ đồ quan hệ (sửa ở /?relationship) — chỉ đọc để kiểm tra
 import { validateAll } from '../../data/validate.js';
 import { setContentTable } from '../../content/index.js';
@@ -33,6 +34,7 @@ import * as tabBuild from './tabBuild.js';
 import * as tabPhone from './tabPhone.js';
 import * as tabSound from './tabSound.js';
 import * as tabStory from './tabStory.js';
+import * as tabLoading from './tabLoading.js';
 import { selKey, planScroll, selToSave } from './viewState.js';
 import { createHistory, syncMirror, record, breakStep, undo, redo } from './history.js';
 import { currentEntry, parseClip } from './ops.js';
@@ -52,6 +54,7 @@ const FILES = {
   phone: { path: 'src/data/phone.json', label: 'Giao diện app', src: phoneJson },
   sounds: { path: 'src/data/sounds.json', label: 'Âm thanh', src: soundsJson },
   story: { path: 'src/data/story.json', label: 'Cốt truyện', src: storyJson },
+  loading: { path: 'src/data/loading.json', label: 'Loading', src: loadingJson },
 };
 const TABS = [
   { id: 'items', icon: '🍜', label: 'Vật phẩm', mod: tabItems },
@@ -64,6 +67,7 @@ const TABS = [
   { id: 'balance', icon: '⚖️', label: 'Cân bằng', mod: tabBalance },
   { id: 'sound', icon: '🔊', label: 'Âm thanh', mod: tabSound },
   { id: 'story', icon: '📖', label: 'Cốt truyện', mod: tabStory },
+  { id: 'loading', icon: '⏳', label: 'Loading', mod: tabLoading },
   { id: 'text', icon: '💬', label: 'Chữ & hội thoại', mod: tabText },
 ];
 const DRAFT_KEY = 'shipper-editor-draft-v1';
@@ -181,7 +185,7 @@ export async function startEditor(root) {
   ctx.issuesFor = (tab, ref, extra = {}) => ctx.issues.filter((i) => i.tab === tab && i.ref === ref && (!extra.cat || i.cat === extra.cat));
 
   function validate() {
-    const all = validateAll({ items: ctx.data.items, gear: ctx.data.gear, goods: ctx.data.goods, places: ctx.data.places, content: ctx.data.content, baseContent: ctx.base.content, apps: ctx.data.apps, map: ctx.data.map, balance: ctx.data.balance, phone: ctx.data.phone, sounds: ctx.data.sounds, story: ctx.data.story, relations: relationsJson });
+    const all = validateAll({ items: ctx.data.items, gear: ctx.data.gear, goods: ctx.data.goods, places: ctx.data.places, content: ctx.data.content, baseContent: ctx.base.content, apps: ctx.data.apps, map: ctx.data.map, balance: ctx.data.balance, phone: ctx.data.phone, sounds: ctx.data.sounds, story: ctx.data.story, relations: relationsJson, loading: ctx.data.loading, loadingImages: ctx.loadingImages || null });
     const { shown, ignored } = splitIgnored(all, ctx.data.editor?.ignoredWarnings);
     ctx.issues = shown; // cảnh báo đã bỏ qua không tính, không hiện ở ô
     ctx.ignored = ignored;

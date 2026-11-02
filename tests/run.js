@@ -2521,11 +2521,24 @@ console.log('Dữ liệu & kho chữ (sửa bằng công cụ ?editor)');
   const fs = await import('node:fs');
   const path = await import('node:path');
   const read = (p) => JSON.parse(fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8'));
-  const data = { items: read('src/data/items.json'), gear: read('src/data/gear.json'), goods: read('src/data/goods.json'), places: read('src/data/places.json'), content: read('src/content/vi.json'), apps: read('src/data/apps.json'), map: read('src/data/map.json'), story: read('src/data/story.json'), relations: read('src/data/relations.json') };
-  const { validateAll, validateItems, validatePlaces, validateContent, validateGoods, validateGear } = await import('../src/data/validate.js');
+  const data = { items: read('src/data/items.json'), gear: read('src/data/gear.json'), goods: read('src/data/goods.json'), places: read('src/data/places.json'), content: read('src/content/vi.json'), apps: read('src/data/apps.json'), map: read('src/data/map.json'), story: read('src/data/story.json'), relations: read('src/data/relations.json'), loading: read('src/data/loading.json'), loadingImages: fs.readdirSync(new URL('../public/loading', import.meta.url)) };
+  const { validateAll, validateItems, validatePlaces, validateContent, validateGoods, validateGear, validateLoading } = await import('../src/data/validate.js');
   test('Dữ liệu hiện tại không có lỗi', () => {
     const errs = validateAll({ ...data, baseContent: data.content }).filter((i) => i.level === 'error');
     assert.equal(errs.length, 0, errs.map((e) => `${e.tab}/${e.ref}/${e.field}: ${e.msg}`).join('\n'));
+  });
+  test('Màn loading: logo + mẹo có chữ và ảnh thật · bộ kiểm tra bắt dữ liệu hỏng · code loader không làm vỡ thẻ <script>', () => {
+    const L = data.loading;
+    assert.ok(L.tips.length >= 1 && L.tips.every((t) => t.img && data.loadingImages.includes(t.img)), 'mẹo nào cũng có ảnh trong public/loading/');
+    const bad = JSON.parse(JSON.stringify(L));
+    bad.tipSec = 0;
+    bad.tips.push({ img: 'khong-co.jpg', text: 'loading.tip.khongco' }, { img: 'Ảnh lỗi.png', text: 'loading.tip.rain' });
+    const errs = validateLoading(bad, data.content, data.loadingImages).filter((i) => i.level === 'error');
+    assert.ok(errs.some((e) => e.field === 'tipSec'), 'số giây sai');
+    assert.ok(errs.some((e) => e.field === 'text' && /khongco/.test(e.msg)), 'thiếu khóa chữ');
+    assert.ok(errs.some((e) => e.field === 'img' && /khong-co/.test(e.msg)), 'thiếu file ảnh');
+    assert.ok(errs.some((e) => e.field === 'img' && /không hợp lệ/.test(e.msg)), 'tên ảnh có dấu / chữ hoa');
+    for (const f of ['src/boot/loader.js', 'src/boot/loader.css']) assert.ok(!/<\/script/i.test(fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8')), `${f} không được có "</script"`);
   });
   test('Mọi khóa chữ dùng trong code đều có trong vi.json', () => {
     const files = [];
@@ -2556,6 +2569,9 @@ console.log('Dữ liệu & kho chữ (sửa bằng công cụ ?editor)');
     const physics = fs.readFileSync(new URL('../src/sim/ItemPhysics.js', import.meta.url), 'utf8');
     for (const m of physics.matchAll(/\.damage\([^'\n]*'(\w+)'\)/g)) dyn.push(`dmg.${m[1]}`);
     for (const f of files) for (const m of fs.readFileSync(f, 'utf8').matchAll(/\b(?:spend|earn)\([^)]*?,\s*'(\w+)'/g)) dyn.push(`money.${m[1]}`);
+    // màn loading lúc mở game (chạy trước code game, gọi chữ bằng T('…') / L('…')) + loading nhỏ (loading.mini.<kind>)
+    for (const m of fs.readFileSync(new URL('../src/boot/loader.js', import.meta.url), 'utf8').matchAll(/\b[TL]\('(loading\.[\w.]+)'/g)) dyn.push(m[1]);
+    dyn.push(...['offline', 'new', 'online'].map((k) => `loading.mini.${k}`));
     for (const k of dyn) if (!(k in data.content)) missing.add(k);
     assert.equal(missing.size, 0, `Thiếu khóa: ${[...missing].join(', ')}`);
   });

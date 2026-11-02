@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Màn loading</title>
+<style>
+  :root { --green: #22c55e; --green2: #4ade80; --text: #eef2f7; --muted: #9aa4b5; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #05070d; color: var(--text); font: 15px/1.4 system-ui, 'Segoe UI', sans-serif; }
+  .stage { position: fixed; inset: 0; display: none; }
+  .stage.on { display: block; animation: fadeIn 0.5s ease both; }
+  @keyframes fadeIn { from { opacity: 0; } }
+
+  /* ---------- 1. Loading lớn: phố trôi ngang + thanh tải ---------- */
+  #boot canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .hero { position: absolute; left: 50%; bottom: 19%; width: min(220px, 30vw, 24vh); transform: translateX(-50%); }
+  .hero svg { display: block; width: 100%; animation: bob 0.3s ease-in-out infinite alternate; }
+  .title { position: absolute; left: 0; right: 0; top: 7%; text-align: center; font-weight: 900; letter-spacing: 1px; line-height: 0.92; text-shadow: 0 6px 30px #000a; pointer-events: none; }
+  .title .a, .title .b { font-size: clamp(40px, 8.5vw, 104px); display: block; }
+  .title .a { color: #fff; } .title .b { color: var(--green2); }
+  .title small { display: block; margin-top: 12px; font: 600 clamp(14px, 2vw, 20px) system-ui; letter-spacing: 0; color: #ffe9c9; }
+  .bar-wrap { position: absolute; left: 50%; bottom: 4.5%; width: min(560px, 84vw); transform: translateX(-50%); }
+  .bar { height: 14px; border-radius: 8px; background: #000a; border: 1px solid #ffffff30; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; border-radius: 8px; background: linear-gradient(90deg, #16a34a, var(--green2)); box-shadow: 0 0 14px #4ade8088; }
+  .bar-txt { display: flex; justify-content: space-between; margin-top: 7px; font-size: 13px; color: #e8e2d6; text-shadow: 0 1px 4px #000; }
+  .tip { text-align: center; margin-top: 8px; font-size: 13px; color: #cfc8ba; text-shadow: 0 1px 4px #000; min-height: 18px; }
+
+  /* ---------- 2. Logo nhà phát hành ---------- */
+  #logos { background: #000; }
+  .logo { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 14px; opacity: 0; text-align: center; }
+  .logo.show { animation: logo 2.2s ease both; }
+  @keyframes logo { 0% { opacity: 0; transform: scale(0.96); } 20%, 75% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+  .logo .mark { width: 150px; height: 150px; border-radius: 34px; display: grid; place-items: center; font: 900 64px system-ui; border: 2px dashed #ffffff55; color: #fff; }
+  .logo .name { font: 800 22px system-ui; letter-spacing: 3px; }
+  .logo .ph { font-size: 12px; color: #ff9f43; }
+  .skip { position: absolute; right: 18px; bottom: 16px; font-size: 12px; color: #ffffff66; }
+
+  /* ---------- 3. Menu (giả lập màn hình chính hiện có) ---------- */
+  #menu { background: linear-gradient(90deg, #05081ee0 0, #05081088 360px, #0510 70%), linear-gradient(#5b2a58, #e98a52 55%, #23202b 55.3%, #15151d); }
+  .mm { position: absolute; left: 6vw; top: 50%; transform: translateY(-50%); width: min(300px, 88vw); }
+  .mm h1 { margin: 0 0 22px; font-weight: 900; font-size: 44px; line-height: 0.95; }
+  .mm h1 span { color: var(--green2); }
+  .mm button { display: block; width: 100%; margin: 10px 0; padding: 14px 16px; border: 1px solid #ffffff26; border-radius: 14px; background: #121721e6; color: #fff; font: 700 16px system-ui; text-align: left; cursor: pointer; }
+  .mm button:hover { border-color: var(--green2); background: #16351fe6; }
+  .mm .note { font-size: 12px; color: var(--muted); }
+
+  /* ---------- 4. Loading nhỏ: ảnh + xe máy chạy trái → phải ---------- */
+  #mini { background: radial-gradient(ellipse at center, #141a2a, #05070d); }
+  .card { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); width: min(620px, 88vw); }
+  .card canvas { display: block; width: 100%; aspect-ratio: 16 / 8; border-radius: 16px; box-shadow: 0 20px 60px #000a; border: 1px solid #ffffff1c; }
+  .card .cap { margin-top: 12px; text-align: center; color: #d9d3c7; font-size: 14px; }
+  .card .cap b { color: var(--green2); }
+  .card .cap { transition: opacity 0.35s; min-height: 20px; }
+  .card canvas { transition: opacity 0.35s; }
+  .card.swap canvas, .card.swap .cap { opacity: 0; }
+  .card .pips { display: flex; justify-content: center; gap: 6px; margin-top: 8px; }
+  .card .pips i { width: 7px; height: 7px; border-radius: 50%; background: #ffffff30; }
+  .card .pips i.on { background: var(--green2); }
+  .ld { position: absolute; left: 50%; bottom: 6%; transform: translateX(-50%); display: flex; align-items: flex-end; gap: 14px; }
+  .ld .road { position: relative; width: 150px; height: 58px; overflow: hidden; }
+  .ld .road::after { content: ''; position: absolute; left: 0; right: -60px; bottom: 2px; height: 3px; background: repeating-linear-gradient(90deg, #ffffff88 0 22px, transparent 22px 40px); animation: dash2 0.35s linear infinite; }
+  @keyframes dash2 { to { transform: translateX(-40px); } }
+  .ld .moto { position: absolute; left: 50%; bottom: 4px; width: 78px; transform: translateX(-50%); }
+  .ld .moto svg { display: block; width: 100%; animation: bob 0.3s ease-in-out infinite alternate; }
+  .ld .puff { position: absolute; bottom: 12px; left: 28px; width: 8px; height: 8px; border-radius: 50%; background: #ffffff55; animation: puff 0.7s linear forwards; }
+  @keyframes puff { to { transform: translate(-30px, -8px) scale(2.2); opacity: 0; } }
+  @keyframes bob { to { transform: translateY(-1.5px); } }
+  .ld .word { font: 800 17px system-ui; letter-spacing: 1px; padding-bottom: 4px; }
+  .ld .word .dots { display: inline-block; width: 3.2em; text-align: left; }
+  .ld .word .dots::after { content: ''; animation: dots 1.4s steps(6) infinite; }
+  @keyframes dots { 0% { content: ''; } 16% { content: '.'; } 33% { content: '..'; } 50% { content: '...'; } 66% { content: '....'; } 83% { content: '.....'; } }
+  .ld .sub { color: var(--muted); font: 400 12px system-ui; letter-spacing: 0; margin-top: 2px; }
+  .wheel { transform-box: fill-box; transform-origin: center; animation: spin 0.3s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---------- bảng điều khiển phác họa ---------- */
+  .dev { position: fixed; left: 10px; top: 10px; z-index: 50; display: flex; gap: 6px; flex-wrap: wrap; max-width: calc(100vw - 20px); }
+  .dev button { padding: 6px 10px; border-radius: 8px; border: 1px solid #ffffff33; background: #000a; color: #fff; font: 600 12px system-ui; cursor: pointer; }
+  .dev button.cur { background: var(--green); color: #052; border-color: var(--green); }
+  .dev .lbl { font-size: 12px; align-self: center; color: #ffcf7a; background: #000a; padding: 6px 8px; border-radius: 8px; }
+</style>
+</head>
+<body>
+
+<div class="dev">
+  <span class="lbl">Phác họa — bấm để xem từng bước:</span>
+  <button data-go="all">▶ Chạy cả luồng</button>
+  <button data-go="logos">1. Logo nhà phát hành</button>
+  <button data-go="boot">2. Loading lớn</button>
+  <button data-go="menu">3. Menu</button>
+  <button data-go="mini">4. Loading nhỏ (nhanh)</button>
+  <button data-go="miniSlow">4. Loading nhỏ (mạng chậm ~16s)</button>
+</div>
+
+<section class="stage" id="boot">
+  <canvas id="bootCv"></canvas>
+  <div class="hero" id="heroMoto"></div>
+  <div class="title"><span class="a">SHIPPER</span><span class="b">SIMULATION</span><small>Một ngày làm shipper ở Sài Gòn</small></div>
+  <div class="bar-wrap">
+    <div class="bar"><i id="bootBar"></i></div>
+    <div class="bar-txt"><span id="bootStep">Đang tải game…</span><span id="bootPct">0%</span></div>
+    <div class="tip" id="bootTip"></div>
+  </div>
+</section>
+
+<section class="stage" id="logos">
+  <div class="logo" id="logo1"><div class="mark" style="background:#111">1</div><div class="name">LOGO NHÀ PHÁT HÀNH 1</div><div class="ph">(chờ ảnh thật)</div></div>
+  <div class="logo" id="logo2"><div class="mark" style="background:#0d1f14;color:var(--green2)">2</div><div class="name">LOGO NHÀ PHÁT HÀNH 2</div><div class="ph">(chờ ảnh thật)</div></div>
+  <div class="skip">Bấm chuột / phím bất kỳ để bỏ qua</div>
+</section>
+
+<section class="stage" id="menu">
+  <div class="mm">
+    <h1>SHIPPER<br><span>SIMULATION</span></h1>
+    <button data-mini="offline">👤 Offline — Chơi tiếp</button>
+    <button data-mini="new">👤 Offline — Chơi mới</button>
+    <button data-mini="online">🌐 Online — Vào thành phố</button>
+    <div class="note">(giả lập màn hình chính — Offline vào nhanh ~2s, Online giả lập mạng chậm ~16s để thấy mẹo + hình đổi mỗi 5s)</div>
+  </div>
+</section>
+
+<section class="stage" id="mini">
+  <div class="card" id="miniCard"><canvas id="miniCv"></canvas><div class="cap" id="miniTip"></div><div class="pips" id="miniPips"></div></div>
+  <div class="ld">
+    <div class="road" id="miniRoad"><div class="moto" id="miniMoto"></div></div>
+    <div class="word"><span id="miniWord">Đang vào thành phố</span><span class="dots"></span><div class="sub" id="miniSub"></div></div>
+  </div>
+</section>
+
+<script>
+// ===== Xe máy nhìn ngang, đầu xe bên PHẢI (chạy trái → phải): shipper áo xanh + thùng giao hàng =====
+const moto = () => `<svg viewBox="0 0 120 80">
+  <rect x="6" y="20" width="30" height="26" rx="3" fill="#16a34a"/><rect x="6" y="20" width="30" height="6" fill="#4ade80"/>
+  <path d="M30 52 L48 40 L82 40 L96 30 L100 34 L90 50 L40 56 Z" fill="#e8e4dc"/>
+  <path d="M44 40 L62 30 L76 30 L80 40 Z" fill="#20242c"/>
+  <path d="M96 30 L104 22" stroke="#20242c" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="103" cy="34" r="3.5" fill="#ffe08a"/>
+  <rect x="50" y="10" width="14" height="22" rx="5" fill="#16a34a"/>
+  <path d="M62 16 L82 26" stroke="#16a34a" stroke-width="6" stroke-linecap="round"/>
+  <path d="M56 32 L68 44 L66 54" stroke="#2b3240" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <circle cx="58" cy="6" r="7" fill="#16a34a"/><rect x="59" y="4" width="8" height="5" fill="#0c1a12" opacity="0.7"/>
+  <g class="wheel"><circle cx="34" cy="62" r="13" fill="#15171c"/><circle cx="34" cy="62" r="6" fill="#9aa4b5"/><rect x="33" y="50" width="2" height="24" fill="#15171c"/></g>
+  <g class="wheel"><circle cx="94" cy="62" r="13" fill="#15171c"/><circle cx="94" cy="62" r="6" fill="#9aa4b5"/><rect x="93" y="50" width="2" height="24" fill="#15171c"/></g>
+</svg>`;
+document.getElementById('heroMoto').innerHTML = moto();
+document.getElementById('miniMoto').innerHTML = moto();
+
+// ===== Phố Sài Gòn vẽ bằng canvas, nhiều lớp trôi ngang khác tốc độ (xa chậm, gần nhanh) =====
+const hash = (i, k = 0) => { let x = Math.imul(i ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(k + 7, 0xc2b2ae35); x ^= x >>> 15; x = Math.imul(x, 0x2c1b3c6d); x ^= x >>> 12; return (x >>> 0) / 4294967296; };
+const HOUSE = ['#e9c46a', '#f4a261', '#8ecae6', '#c8b6ff', '#ffafcc', '#a8dadc', '#e5e1d8', '#b5e48c', '#f6bd60'];
+const SIGN = [['PHỞ', '#d62828'], ['CƠM TẤM', '#f77f00'], ['TẠP HÓA', '#1d4ed8'], ['BÚN BÒ', '#b91c1c'], ['TRÀ SỮA', '#7c3aed'], ['SỬA XE', '#0f766e'], ['BÁNH MÌ', '#ca8a04'], ['CÀ PHÊ', '#78350f']];
+const LINES = ['Anh shipper ơi!', 'Ship em ly trà sữa nha!', 'Anh ơi ghé đây nè!', 'Đơn của em đâu rồi anh?', 'Anh shipper ơi, ship em…', 'Có đơn nè anh ơi!', 'Giao lẹ giùm em nha!', 'Anh ơi, bánh mì của em!'];
+const SHIRT = ['#ef4444', '#3b82f6', '#f59e0b', '#ec4899', '#14b8a6', '#a855f7', '#f8fafc'];
+
+function rr(c, x, y, w, h, r) { c.beginPath(); c.roundRect(x, y, w, h, r); }
+
+// Vẽ 1 khung hình phố ở thời điểm t (giây). bikeX = chỗ xe (để khách gọi khi xe sắp tới)
+function drawCity(c, W, H, t, bikeX) {
+  const u = H / 600, ground = H * 0.72, road = H * 0.78;
+  // trời chiều
+  const sky = c.createLinearGradient(0, 0, 0, ground);
+  sky.addColorStop(0, '#1b1440'); sky.addColorStop(0.45, '#6b2c5c'); sky.addColorStop(0.8, '#f08a4b'); sky.addColorStop(1, '#ffc56b');
+  c.fillStyle = sky; c.fillRect(0, 0, W, ground);
+  // mặt trời trôi rất chậm (lặp lại vòng)
+  const sunSpan = W + 400 * u, sx = ((((W * 0.85 + 200 * u - t * 6 * u) % sunSpan) + sunSpan) % sunSpan) - 200 * u, sy = ground - 150 * u;
+  const sg = c.createRadialGradient(sx, sy, 0, sx, sy, 130 * u);
+  sg.addColorStop(0, '#fff0b8'); sg.addColorStop(0.45, '#ffb35c'); sg.addColorStop(1, '#ff8a3d00');
+  c.fillStyle = sg; c.beginPath(); c.arc(sx, sy, 130 * u, 0, 7); c.fill();
+  // mây
+  c.fillStyle = '#ffd9c255';
+  for (let i = -1; i < 6; i++) {
+    const span = 420 * u, off = (t * 14 * u) % span, x = i * span - off, y = (120 + hash(i + Math.floor(t * 14 * u / span), 9) * 140) * u;
+    c.beginPath(); c.ellipse(x, y, 90 * u, 14 * u, 0, 0, 7); c.ellipse(x + 50 * u, y - 8 * u, 60 * u, 12 * u, 0, 0, 7); c.fill();
+  }
+  // lớp xa: bóng tòa nhà
+  layer(c, W, t * 40 * u, 70 * u, (i, x, w) => {
+    const h = (90 + hash(i, 1) * 170 + (hash(i, 2) > 0.92 ? 140 : 0)) * u;
+    c.fillStyle = '#2a2140'; c.fillRect(x, ground - h, w - 4 * u, h);
+    c.fillStyle = '#ffcf6b88';
+    for (let k = 0; k < 6; k++) if (hash(i, 10 + k) > 0.6) c.fillRect(x + (6 + (k % 3) * 18) * u, ground - h + (14 + Math.floor(k / 3) * 26) * u, 6 * u, 8 * u);
+  });
+  // lớp giữa: nhà ống nhiều màu, bảng hiệu, bồn nước inox trên mái
+  layer(c, W, t * 120 * u, 96 * u, (i, x, w) => {
+    const ww = w - 6 * u, h = (150 + hash(i, 3) * 110) * u, top = ground - h;
+    c.fillStyle = HOUSE[Math.floor(hash(i, 4) * HOUSE.length)]; c.fillRect(x, top, ww, h);
+    c.fillStyle = '#2a1a3a55'; c.fillRect(x, top, ww, h); // ám màu chiều tà
+    // cửa sổ + ban công từng tầng
+    for (let f = 0; f < Math.floor((h - 60 * u) / (44 * u)); f++) {
+      const fy = top + (14 + f * 44) * u;
+      c.fillStyle = hash(i, 20 + f) > 0.45 ? '#ffd27a' : '#3b3350'; c.fillRect(x + 14 * u, fy, ww - 28 * u, 20 * u);
+      c.fillStyle = '#1f1a2b'; c.fillRect(x + 8 * u, fy + 24 * u, ww - 16 * u, 4 * u);
+    }
+    // bảng hiệu tầng trệt
+    const [txt, col] = SIGN[Math.floor(hash(i, 5) * SIGN.length)];
+    c.fillStyle = col; c.fillRect(x + 4 * u, ground - 58 * u, ww - 8 * u, 18 * u);
+    c.fillStyle = '#fff'; c.font = `800 ${11 * u}px system-ui`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(txt, x + ww / 2, ground - 49 * u);
+    c.fillStyle = '#1a1424'; c.fillRect(x + 10 * u, ground - 38 * u, ww - 20 * u, 38 * u); // cửa cuốn mở
+    c.fillStyle = '#ffcf7a55'; c.fillRect(x + 10 * u, ground - 38 * u, ww - 20 * u, 38 * u);
+    if (hash(i, 6) > 0.55) { c.fillStyle = '#cfd6de'; rr(c, x + ww * 0.55, top - 16 * u, 26 * u, 16 * u, 6 * u); c.fill(); }
+  });
+  // vỉa hè + lòng đường
+  c.fillStyle = '#8f8577'; c.fillRect(0, ground, W, road - ground);
+  c.fillStyle = '#6c6458'; c.fillRect(0, road - 4 * u, W, 4 * u);
+  const rg = c.createLinearGradient(0, road, 0, H); rg.addColorStop(0, '#34343e'); rg.addColorStop(1, '#17171e');
+  c.fillStyle = rg; c.fillRect(0, road, W, H - road);
+  c.fillStyle = '#f5f1e3cc';
+  const dash = 140 * u, doff = (t * 300 * u) % dash;
+  for (let x = -doff; x < W; x += dash) c.fillRect(x, H * 0.87, 70 * u, 5 * u);
+  // lớp gần: cột điện + dây, cây, khách vẫy tay (cùng tốc độ vỉa hè)
+  const speed = 260 * u, slot = 300 * u, off = t * speed;
+  const first = Math.floor(off / slot) - 1, last = first + Math.ceil(W / slot) + 2;
+  const poleX = (i) => i * slot - off + 30 * u;
+  c.strokeStyle = '#0d0b14'; c.lineWidth = 1.6 * u;
+  for (let i = first; i < last; i++) for (let k = 0; k < 4; k++) { // dây điện võng giữa 2 cột
+    const a = poleX(i), b = poleX(i + 1), y = ground - (190 - k * 7) * u;
+    c.beginPath(); c.moveTo(a, y); c.quadraticCurveTo((a + b) / 2, y + (26 + k * 6) * u, b, y); c.stroke();
+  }
+  for (let i = first; i < last; i++) {
+    const px = poleX(i);
+    c.fillStyle = '#3a3640'; c.fillRect(px - 4 * u, ground - 200 * u, 8 * u, 200 * u);
+    if (hash(i, 7) > 0.4) { // cây
+      const tx = px + 150 * u;
+      c.fillStyle = '#4a3324'; c.fillRect(tx - 5 * u, ground - 90 * u, 10 * u, 90 * u);
+      c.fillStyle = '#1f4d2b'; c.beginPath(); c.arc(tx, ground - 110 * u, 44 * u, 0, 7); c.arc(tx - 34 * u, ground - 92 * u, 30 * u, 0, 7); c.arc(tx + 34 * u, ground - 94 * u, 30 * u, 0, 7); c.fill();
+    }
+    if (hash(i, 8) > 0.35) customer(c, i, px + 230 * u, ground + 22 * u, u, t, bikeX);
+  }
+}
+// lặp các ô cố định trên 1 lớp đang trôi
+function layer(c, W, off, slot, draw) {
+  const first = Math.floor(off / slot) - 1;
+  for (let i = first; i < first + Math.ceil(W / slot) + 3; i++) draw(i, i * slot - off, slot);
+}
+// khách đứng lề vẫy tay; còn ở phía trước xe thì gọi (bong bóng thoại)
+function customer(c, i, x, foot, u, t, bikeX) {
+  const s = u * 1.1, shirt = SHIRT[Math.floor(hash(i, 11) * SHIRT.length)];
+  c.fillStyle = '#26303f'; c.fillRect(x - 7 * s, foot - 30 * s, 6 * s, 30 * s); c.fillRect(x + 1 * s, foot - 30 * s, 6 * s, 30 * s);
+  c.fillStyle = shirt; rr(c, x - 10 * s, foot - 64 * s, 20 * s, 36 * s, 5 * s); c.fill();
+  c.fillStyle = '#e8b98f'; c.beginPath(); c.arc(x, foot - 74 * s, 10 * s, 0, 7); c.fill();
+  c.fillStyle = '#1b1b1b'; c.beginPath(); c.arc(x, foot - 77 * s, 10 * s, Math.PI, 0); c.fill();
+  c.fillStyle = '#e8b98f'; c.fillRect(x - 15 * s, foot - 60 * s, 5 * s, 22 * s); // tay trái buông
+  // tay phải vẫy
+  const ang = -2.3 + Math.sin(t * 9 + i) * 0.45;
+  c.save(); c.translate(x + 10 * s, foot - 60 * s); c.rotate(ang);
+  c.fillStyle = shirt; c.fillRect(0, -3 * s, 12 * s, 6 * s); c.fillStyle = '#e8b98f'; c.fillRect(12 * s, -2.5 * s, 12 * s, 5 * s);
+  c.beginPath(); c.arc(25 * s, 0, 4 * s, 0, 7); c.fill(); c.restore();
+  // bong bóng thoại khi khách ở phía trước xe
+  if (x > bikeX - 20 * u && x < bikeX + 560 * u) {
+    const txt = LINES[Math.floor(hash(i, 12) * LINES.length)];
+    c.font = `700 ${13 * u}px system-ui`;
+    const tw = c.measureText(txt).width + 18 * u, bx = x - tw / 2 + 20 * u, by = foot - 122 * s;
+    c.fillStyle = '#ffffffee'; rr(c, bx, by, tw, 26 * u, 10 * u); c.fill();
+    c.beginPath(); c.moveTo(x + 2 * u, by + 26 * u); c.lineTo(x + 12 * u, by + 26 * u); c.lineTo(x + 2 * u, by + 36 * u); c.fill();
+    c.fillStyle = '#111'; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(txt, bx + 9 * u, by + 13 * u);
+  }
+}
+
+// xe máy trên canvas (cùng nét với SVG ở trên). x = giữa xe, y = mặt đường, s = tỉ lệ (1 = 120×80 px)
+const P = (d) => new Path2D(d);
+const MOTO_BODY = P('M30 52 L48 40 L82 40 L96 30 L100 34 L90 50 L40 56 Z'), MOTO_SEAT = P('M44 40 L62 30 L76 30 L80 40 Z');
+function drawMoto(c, x, y, s, o = {}) {
+  c.save(); c.translate(x - 60 * s, y - 75 * s); c.scale(s, s);
+  if (o.box !== false) { c.fillStyle = '#16a34a'; c.fillRect(6, 20, 30, 26); c.fillStyle = '#4ade80'; c.fillRect(6, 20, 30, 6); }
+  c.fillStyle = o.body || '#e8e4dc'; c.fill(MOTO_BODY); c.fillStyle = '#20242c'; c.fill(MOTO_SEAT);
+  c.strokeStyle = '#20242c'; c.lineWidth = 4; c.lineCap = 'round'; c.beginPath(); c.moveTo(96, 30); c.lineTo(104, 22); c.stroke();
+  c.fillStyle = '#ffe08a'; c.beginPath(); c.arc(103, 34, 3.5, 0, 7); c.fill();
+  if (o.rider !== false) {
+    const shirt = o.coat || o.shirt || '#16a34a';
+    c.strokeStyle = '#2b3240'; c.lineWidth = 7; c.beginPath(); c.moveTo(56, 32); c.lineTo(68, 44); c.lineTo(66, 54); c.stroke();
+    c.fillStyle = shirt; c.beginPath(); c.roundRect(50, 10, 14, 22, 5); c.fill();
+    c.strokeStyle = shirt; c.lineWidth = 6; c.beginPath(); c.moveTo(62, 16); c.lineTo(82, 26); c.stroke();
+    if (o.coat) { c.fillStyle = o.coat; c.beginPath(); c.moveTo(46, 12); c.lineTo(30, 46); c.lineTo(80, 44); c.lineTo(66, 12); c.fill(); } // áo mưa trùm cả thùng
+    c.fillStyle = o.helmet || '#16a34a'; c.beginPath(); c.arc(58, 6, 7, 0, 7); c.fill();
+  }
+  for (const wx of [34, 94]) { c.fillStyle = '#15171c'; c.beginPath(); c.arc(wx, 62, 13, 0, 7); c.fill(); c.fillStyle = '#9aa4b5'; c.beginPath(); c.arc(wx, 62, 6, 0, 7); c.fill(); }
+  c.restore();
+}
+const NO_BUBBLE = -1e9;
+// Cảnh minh họa đi theo từng mẹo (trong game thật: thay bằng ảnh chụp game đúng tình huống)
+const SCENES = {
+  rain(c, W, H) {
+    drawCity(c, W, H, 21, NO_BUBBLE);
+    c.fillStyle = '#0b1530aa'; c.fillRect(0, 0, W, H);
+    const u = H / 600;
+    drawMoto(c, W * 0.5, H * 0.92, 2.3 * u, { coat: '#facc15', helmet: '#facc15' });
+    c.strokeStyle = '#cfe3ff88'; c.lineWidth = 1.5 * u;
+    for (let i = 0; i < 260; i++) { const x = hash(i, 40) * W, y = hash(i, 41) * H; c.beginPath(); c.moveTo(x, y); c.lineTo(x - 6 * u, y + 22 * u); c.stroke(); }
+  },
+  jam(c, W, H) {
+    drawCity(c, W, H, 33, NO_BUBBLE);
+    const u = H / 600, cols = ['#e8e4dc', '#ef4444', '#3b82f6', '#111827', '#f59e0b', '#a855f7'];
+    for (let r = 0; r < 2; r++) for (let i = -1; i < 9; i++) {
+      const x = (i + 0.5 + r * 0.45) * W / 8, y = H * (0.86 + r * 0.1);
+      if (r === 1 && i === 3) continue;
+      drawMoto(c, x, y, 1.6 * u, { box: false, body: cols[(i + r * 3 + 6) % 6], shirt: SHIRT[(i + r + 7) % SHIRT.length], helmet: SHIRT[(i + 10) % SHIRT.length] });
+    }
+    drawMoto(c, (3.5 + 0.45) * W / 8, H * 0.96, 1.6 * u);
+  },
+  bag(c, W, H) {
+    drawCity(c, W, H, 47, NO_BUBBLE);
+    const u = H / 600, x = W * 0.42, y = H * 0.9;
+    drawMoto(c, x, y, 2.4 * u);
+    c.strokeStyle = '#ffffffaa'; c.lineWidth = 3 * u; c.lineCap = 'round'; // hơi nóng bốc lên từ thùng
+    for (let k = 0; k < 3; k++) { const sx = x - 120 * u + k * 22 * u; c.beginPath(); c.moveTo(sx, y - 140 * u); c.bezierCurveTo(sx - 10 * u, y - 160 * u, sx + 10 * u, y - 175 * u, sx, y - 195 * u); c.stroke(); }
+    customer(c, 3, W * 0.68, H * 0.74, u * 1.5, 0.3, W * 0.6);
+  },
+  ticket(c, W, H) {
+    drawCity(c, W, H, 12, NO_BUBBLE);
+    const u = H / 600, x = W * 0.5, y = H * 0.77;
+    drawMoto(c, x, y, 2.2 * u, { rider: false });
+    c.save(); c.translate(x + 30 * u, y - 120 * u); c.rotate(-0.12);
+    c.fillStyle = '#fff'; c.fillRect(0, 0, 70 * u, 46 * u); c.fillStyle = '#dc2626'; c.fillRect(0, 0, 70 * u, 14 * u);
+    c.fillStyle = '#fff'; c.font = `900 ${10 * u}px system-ui`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('PHẠT', 35 * u, 7 * u);
+    c.fillStyle = '#999'; for (let k = 0; k < 3; k++) c.fillRect(8 * u, (20 + k * 8) * u, 54 * u, 3 * u);
+    c.restore();
+  },
+};
+
+// ===== Điều khiển từng bước =====
+const $ = (id) => document.getElementById(id);
+let timers = [], raf = 0;
+const later = (ms, f) => timers.push(setTimeout(f, ms));
+const clear = () => { timers.forEach(clearTimeout); timers = []; cancelAnimationFrame(raf); };
+function show(id) {
+  document.querySelectorAll('.stage').forEach((s) => s.classList.toggle('on', s.id === id));
+  document.querySelectorAll('.dev button').forEach((b) => b.classList.toggle('cur', b.dataset.go === id));
+}
+// khớp cỡ canvas với khung đang hiện (gọi mỗi khung hình → đổi cỡ cửa sổ vẫn nét)
+function fit(cv) { const d = devicePixelRatio || 1, w = Math.round(cv.clientWidth * d), h = Math.round(cv.clientHeight * d); if (w && (cv.width !== w || cv.height !== h)) { cv.width = w; cv.height = h; } return cv.getContext('2d'); }
+
+const BOOT = [[0.5, 'Đang tải dữ liệu game…'], [0.68, 'Đang dựng thành phố…'], [0.82, 'Đang vẽ nhà cửa, cây, dây điện…'], [0.93, 'Đang nạp âm thanh…'], [1, 'Sắp xong…']];
+// mẹo + hình đi kèm (đổi mỗi 5 giây nếu chờ lâu)
+const TIPS = [
+  ['rain', 'Trời mưa nhớ mặc áo mưa — đồ trong túi ướt là khách chấm sao thấp.'],
+  ['jam', 'Giờ tan tầm đường lớn kẹt cứng — đi hẻm cho nhanh.'],
+  ['bag', 'Túi giữ nhiệt giữ đồ nóng lâu hơn — khách nhận đồ còn nóng là vui.'],
+  ['ticket', 'Đậu xe chỗ cấm lâu là bị dán phạt — giao xong nhớ quay ra xe.'],
+];
+const tip = () => '💡 ' + TIPS[Math.floor(Math.random() * TIPS.length)][1];
+
+function boot(next) {
+  show('boot');
+  const cv = $('bootCv'), c = fit(cv);
+  $('bootTip').textContent = tip();
+  const t0 = performance.now(), dur = 7000;
+  const tick = (now) => {
+    fit(cv);
+    const W = cv.width, H = cv.height, t = (now - t0) / 1000;
+    if (H) drawCity(c, W, H, t, W / 2);
+    const k = Math.min(1, t * 1000 / dur), p = 1 - (1 - k) ** 1.6;
+    $('bootBar').style.width = (p * 100).toFixed(1) + '%';
+    $('bootPct').textContent = Math.floor(p * 100) + '%';
+    $('bootStep').textContent = BOOT.find(([v]) => p <= v)[1];
+    raf = requestAnimationFrame(tick);
+    if (k >= 1 && !boot.done) { boot.done = true; later(500, next); }
+  };
+  boot.done = false;
+  raf = requestAnimationFrame(tick);
+}
+
+function logos(next) {
+  show('logos');
+  const l1 = $('logo1'), l2 = $('logo2');
+  [l1, l2].forEach((l) => l.classList.remove('show')); void l1.offsetWidth;
+  l1.classList.add('show');
+  later(2300, () => l2.classList.add('show'));
+  later(4600, next);
+  const skip = () => { clear(); next(); };
+  later(300, () => { addEventListener('keydown', skip, { once: true }); addEventListener('pointerdown', skip, { once: true }); });
+}
+
+function menu() { show('menu'); }
+
+// Loading nhỏ: không thanh %, xe chạy tại chỗ. Đóng khi game báo "xong" (ở đây giả lập bằng thời gian).
+// Chờ lâu → mẹo + hình đổi mỗi 5 giây.
+const MINI = {
+  offline: ['Đang vào thành phố', 2000, ['Đọc bản lưu…', 'Dắt xe ra khỏi phòng trọ…']],
+  new: ['Đang chuẩn bị ngày đầu tiên', 2500, ['Tạo nhân vật…', 'Dọn phòng trọ…']],
+  online: ['Đang kết nối máy chủ', 16000, ['Kết nối máy chủ…', 'Mạng hơi chậm, chờ chút…', 'Tải người chơi xung quanh…', 'Đồng bộ giờ, thời tiết…']],
+};
+const TIP_EVERY = 5000;
+function mini(kind = 'offline', next = menu) {
+  show('mini');
+  const [word, dur, subs] = MINI[kind];
+  $('miniWord').textContent = word;
+  const cv = $('miniCv'), card = $('miniCard');
+  let ti = Math.floor(Math.random() * TIPS.length);
+  $('miniPips').innerHTML = TIPS.map(() => '<i></i>').join('');
+  const paint = () => {
+    const c = fit(cv);
+    if (cv.height) SCENES[TIPS[ti][0]](c, cv.width, cv.height);
+    $('miniTip').innerHTML = '<b>💡 Mẹo:</b> ' + TIPS[ti][1];
+    [...$('miniPips').children].forEach((p, k) => p.classList.toggle('on', k === ti));
+  };
+  paint();
+  const t0 = performance.now(), road = $('miniRoad');
+  let lastPuff = 0, lastTip = t0, painted = cv.width;
+  const tick = (now) => {
+    if (now - lastTip >= TIP_EVERY) { // đổi mẹo + hình (mờ ra rồi hiện lại)
+      lastTip = now; card.classList.add('swap');
+      later(350, () => { ti = (ti + 1) % TIPS.length; paint(); card.classList.remove('swap'); });
+    }
+    if (cv.width !== painted || !cv.height) { paint(); painted = cv.width; }
+    $('miniSub').textContent = subs[Math.min(subs.length - 1, Math.floor((now - t0) / dur * subs.length))];
+    if (now - lastPuff > 140) { // khói ống bô bay ra sau
+      lastPuff = now;
+      const d = document.createElement('i'); d.className = 'puff';
+      road.appendChild(d); setTimeout(() => d.remove(), 700);
+    }
+    if (now - t0 < dur) raf = requestAnimationFrame(tick); else later(300, next);
+  };
+  raf = requestAnimationFrame(tick);
+}
+
+document.querySelectorAll('[data-mini]').forEach((b) => b.onclick = () => { clear(); mini(b.dataset.mini, menu); });
+document.querySelectorAll('[data-go]').forEach((b) => b.onclick = (e) => {
+  e.stopPropagation(); clear();
+  const g = b.dataset.go;
+  if (g === 'all') logos(() => boot(menu));
+  else if (g === 'boot') boot(() => {});
+  else if (g === 'logos') logos(() => {});
+  else if (g === 'menu') menu();
+  else if (g === 'miniSlow') mini('online', () => {});
+  else mini('offline', () => {});
+});
+// luồng: logo nhà phát hành → loading lớn → menu → (bấm vào game) loading nhỏ
+logos(() => boot(menu));
+</script>
+</body>
+</html>

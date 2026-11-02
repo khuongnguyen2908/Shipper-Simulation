@@ -4,7 +4,7 @@ Mỗi chỗ trong game phát tiếng có **một mã riêng**. Gắn file cho m�
 (tải file lên ngay trong đó khi chạy `npm run dev`; file được chép vào `src/sounds/`). Bấm **Lưu** là game dùng file mới.
 Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sound-library/` — bấm ▶ Nghe / ■ Dừng để nghe thử, **+ Gắn** để dùng (chỉ file đã gắn mới vào game).
 
-- Đuôi file: `.ogg` (nên dùng), `.mp3`, `.wav`, `.m4a`. **Mọi file trong `src/sounds/` (kể cả file chưa gắn) được gói vào `dist/index.html`**
+- Đuôi file: `.ogg` (nên dùng), `.mp3`, `.wav`, `.m4a`. **Mọi file trong `src/sounds/` (kể cả file chưa gắn) được gói vào code game (`dist/assets/index-….js`)**
   → thêm file xong chạy **`npm run nen-am-thanh`** (tự nén file nặng: nhạc dài 80–112 kbps, tiếng ngắn 64–96 kbps; cần ffmpeg).
   16/10: đã nén hết, âm thanh 8,9 MB → 3,9 MB, bản đăng 14,8 MB → 7,9 MB.
 - Một mã gắn **nhiều file** → mỗi lần phát chọn ngẫu nhiên 1 file (vd 3–4 tiếng bước chân khác nhau). Nhạc nhiều bài → phát lần lượt.

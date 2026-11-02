@@ -310,3 +310,16 @@ details.story-fold > summary::before { content: '▸'; color: #8b97a8; }
 details.story-fold[open] > summary::before { content: '▾'; }
 details.story-fold:not([open]) { opacity: 0.8; }
 .story-auto { background: #1f3550; color: #a9d4ff; border-radius: 8px; padding: 7px 10px; font-size: 12.5px; }
+
+/* thẻ ⏳ Loading */
+.ld-body h3 { margin: 18px 0 6px; }
+.ld-secs { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.ld-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.ld-row { display: grid; grid-template-columns: 22px 24px 200px minmax(240px, 1fr) 44px; gap: 10px; align-items: center; background: #121821; border: 1px solid #2d3644; border-radius: 10px; padding: 8px 10px; }
+.ld-row.dragging { outline: 2px dashed #58d68d; }
+.ld-no { text-align: center; color: #9aa4b5; }
+.ld-thumb { aspect-ratio: 2 / 1; border-radius: 8px; background: #0b0f16 center / cover no-repeat; display: grid; place-items: center; font-size: 12px; color: #6b7280; border: 1px solid #2d3644; }
+.ld-thumb.logo { background-size: contain; }
+.ld-fields { display: grid; gap: 6px; }
+.ld-pano { height: 90px; border-radius: 8px; background-color: #6b2c5c; background-repeat: repeat-x; background-size: auto 100%; border: 1px solid #2d3644; margin: 6px 0 10px; }
+.ld-rider { height: 70px; background-repeat: no-repeat; background-position: 0 0; }

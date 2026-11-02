@@ -2,10 +2,10 @@ Bạn là lập trình viên game web cho dự án **Shipper Simulation**: game 
 
 ## 1. Công nghệ
 - JavaScript ES module thuần (không TypeScript), HTML, CSS thuần; Vite 8; Node.js (bộ thử chạy bằng `node`).
-- Three.js cho thế giới 3D; đồ họa low-poly dựng bằng khối cơ bản + texture vẽ bằng canvas (không file ảnh ngoài).
+- Three.js cho thế giới 3D; đồ họa low-poly dựng bằng khối cơ bản + texture vẽ bằng canvas (không file ảnh ngoài — trừ ảnh màn loading: logo nhà phát hành, ảnh chụp game đi kèm mẹo, đặt trong `public/loading/`).
 - Âm thanh: Web Audio API (`src/audio.js`). Mỗi chỗ phát tiếng gọi `sound('mã')` (danh mục mã ở `src/data/soundSpec.js`, danh sách cho người làm sound ở `docs/am-thanh.md`); file âm thanh trong `src/sounds/`, gắn cho mã ở `src/data/sounds.json` (thẻ 🔊 Âm thanh của ?editor). Mã chưa gắn file → tiếng tổng hợp bằng máy (nếu có). 2 nhóm âm lượng: Nhạc (mã music.*) · Hiệu ứng (còn lại).
 - Giao diện bằng DOM + CSS thuần, không framework.
-- Build ra MỘT file `dist/index.html` (vite-plugin-singlefile).
+- Build ra `dist/`: `index.html` nhẹ (~25 KB, có sẵn màn loading `src/boot/`) + `assets/` (code game, âm thanh gói trong code) + `loading/` (ảnh). Phải mở qua máy chủ web (GitHub Pages / `npm run preview`), bấm đúp file không chạy.
 
 ## 2. Kiến trúc
 ```
@@ -17,6 +17,7 @@ src/
              editor.json (cảnh báo đã "Bỏ qua" trong ?editor) · itemGroups.js (nhóm món — chỉ để xếp trong editor)
              phone.json + phoneApps.js (thứ tự / biểu tượng / màu / ẩn app trên điện thoại = phím 1–9; app có thật ở APP_DEFS)
              sounds.json + soundSpec.js (gắn file âm thanh cho từng mã; thêm chỗ phát tiếng mới = thêm mã vào soundSpec + gọi sound() + ghi vào docs/am-thanh.md)
+             loading.json (màn loading: logo nhà phát hành, mẹo + ảnh, số giây — thẻ ⏳ Loading của ?editor; chữ ở vi.json khóa loading.*)
              story.json (cốt truyện chơi một mình: chương → bước; bộ chạy sim/story.js, thẻ 📖 Cốt truyện của ?editor, chữ ở vi.json khóa story.*)
              relations.json + relations.js (sơ đồ quan hệ nhân vật — công cụ /?relationship: hồ sơ, tính cách, xưng hô 2 chiều, chương, bí mật, ngoại hình riêng;
              game dùng cho {toi}/{ban}/{khach}/{minh} và người lạ dáng "char"; ĐỌC file này trước khi viết truyện / lời thoại; ghi chú cho người dùng → mảng notes)
@@ -25,7 +26,9 @@ src/
   sim/       mô phỏng thuần (không Three.js, không DOM): clock (đồng hồ 24h liên tục), OrderManager (máy trạng thái), ItemPhysics,
              OrderCondition, economy, hazards, GameState, objectives, cityLayout, rng
   world/     Three.js: city, controllers (xe, đi bộ, camera), traffic, sky, models, textures, physics · storyProps (đạo cụ cảnh phim: xe tải dài, tấm ván)
-  ui/        hud, phone (app GoShip, Túi đồ chia ô + bảng "Đang mặc", Xe), avatar (avatar 3D), modal, packing (xếp túi), minimap, screens
+  boot/      màn loading lúc mở game (logo → ảnh phố thật trôi ngang + thanh tải; chỉ dùng hoạt ảnh CSS cho khỏi giật): loader.js / loader.css chép thẳng vào index.html lúc build (vite.config.js),
+             chạy TRƯỚC code game; bản build tự tải code game để đo % thật rồi gọi window.__boot.start (main.js) · moto.svg hình xe dùng chung
+  ui/        hud, phone (app GoShip, Túi đồ chia ô + bảng "Đang mặc", Xe), avatar (avatar 3D), modal, packing (xếp túi), minimap, screens, miniLoader (loading nhỏ lúc vào game)
   devtools/  autopilot (?debug), editor/ (công cụ nội dung ?editor), relationship/ (sơ đồ quan hệ ?relationship)
   game.js    lớp Game: khởi tạo, vòng đời ngày, vòng lặp; các nhóm hàm khác ở game/ (events · roadRules · navigation · story · visuals · phoneData · scene = cảnh phim nâng cao: đạo cụ, té xe, chặn đầu, tháo nón,
              mỗi file là lớp "phần" gắn vào Game.prototype bằng mixParts ở game/shared.js — trong đó vẫn dùng this như game.js; hằng số chung ở shared.js)

@@ -27,6 +27,24 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   - Chủ game tự tạo dự án Firebase (Claude hướng dẫn từng bước), dán cấu hình vào code.
 
 ## 💬 Đang bàn
+### ⏳ Màn loading (02/11 — XONG, CHƯA commit; phác họa duyệt: `sketches/loading/loading.html`)
+- Chủ game chốt: tách file cho giống game thật (bỏ build 1 file) · luồng **logo nhà phát hành → loading lớn → menu → loading nhỏ** · vào game lần nào
+  cũng chạy đủ (bấm để bỏ qua logo) · loading nhỏ: không thanh %, xe chạy tại chỗ, ảnh + mẹo đổi mỗi 5 giây, ảnh = **ảnh chụp game thật** (cách b).
+- Sửa 02/11 (chủ game: "giật quá", "loading lớn không dùng game thật à"): loading lớn giờ là **ảnh phố thật** (dải 416 m chụp thẳng góc đường số 3,
+  nền trời trong suốt, 8 khách giơ tay vẫy — `public/loading/pano.webp`) + **xe + người lái chụp từ game** (6 khung bánh quay — `rider.webp`, dùng cả
+  loading nhỏ). Mọi chuyển động là hoạt ảnh CSS transform / opacity → chạy trên luồng vẽ riêng, game dựng thành phố (bận ~3 s) phố vẫn trôi, chỉ thanh
+  tải đứng. Bong bóng khách gọi canh giờ bằng hoạt ảnh (tính 1 lần theo cỡ màn hình). Game không vẽ phía sau khi màn loading còn che
+  (`window.__bootCover`: vẽ 1 khung chuẩn bị đồ họa rồi thôi). Chụp lại khi bản đồ đổi: `?debug` → F12 `panorama()` / `captureRider()` (src/devtools/panorama.js).
+- Code: `src/boot/loader.js` + `loader.css` + `moto.svg` (vite.config.js `bootLoaderPlugin` chép vào chỗ `<!--boot-->` của index.html; bản build
+  thay thẻ `<script>` code game bằng `window.__BOOT_ENTRY` → loader tự fetch, đếm byte = % thật, rồi `import()` — lần 2 trình duyệt chỉ hỏi lại 300 byte)
+  · `main.js` gọi `window.__boot.start(dựngGame)` · `src/ui/miniLoader.js` + `game.enterWorld(kind, go)` (Offline chờ đủ `miniMinSec` rồi mới vào ván;
+  Online vào ngay, lỗi kết nối thì tắt loading và trả lỗi cho màn hình chính) · `src/data/loading.json` (logo, mẹo + ảnh, số giây) · thẻ ⏳ Loading
+  trong ?editor · validate.js `validateLoading` · ảnh trong `public/loading/` (5 ảnh mẹo chụp bằng Chrome ẩn: mưa, kẹt xe, ngập, đậu xe đêm, xem đơn).
+- **CHỜ chủ game gửi 2 logo nhà phát hành** → bỏ vào `public/loading/`, chọn ở thẻ ⏳ Loading. Giờ đang hiện chữ "Logo nhà phát hành 1/2".
+  ⚠️ Đẩy lên GitHub là tự đăng game → nên gắn logo thật trước khi đẩy.
+- Ghi chú: code game ~23 MB (nén ~14,5 MB) vì âm thanh gói trong code (tránh IDM bắt link .mp3). Muốn vào nhanh hơn: tách âm thanh ra tải sau (việc riêng, chưa bàn).
+  Chạy `?editor` / `?relationship` không có màn loading. Khung trình duyệt trong app Claude bị ẩn thì không có khung hình → thanh tải đứng (không phải lỗi game).
+
 ### 🙂 Mặt anime pixel cho người (21–26/10 — XONG, đã đẩy lên GitHub 8c5db8f)
 - Chủ game chốt 26/10: **KHÔNG làm bộ lọc PS1, KHÔNG texture bẩn** (quần áo / tường / nhà / xe giữ nguyên) — **chỉ đổi mặt người**.
   Cách A: bộ kiểu mặt có sẵn · **giữ nguyên mũi** của mô hình · **người chơi không chọn mặt** (nam chinhNam / nữ chinhNu).

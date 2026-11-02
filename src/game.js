@@ -38,6 +38,8 @@ import { Phone } from './ui/phone.js';
 import { Modal } from './ui/modal.js';
 import { Spotlight } from './ui/spotlight.js';
 import { Screens } from './ui/screens.js';
+import { MiniLoader } from './ui/miniLoader.js';
+import LOADING from './data/loading.json' with { type: 'json' };
 import * as act from './interactions.js';
 import { sound, setEngine, setRain, unlockAudio, setMuted, setVolumes, setMusic, setLoopDuck, cityAmbience } from './audio.js';
 import { loadSettings, saveSettings, normSettings } from './settings.js';
@@ -157,6 +159,7 @@ export class Game {
       ttSeen: (post) => this.storyTtSeen(post), // lướt tới tin Tích Tắc của cốt truyện
     });
     this.screens = new Screens(uiRoot);
+    this.miniLoad = new MiniLoader(uiRoot); // loading nhỏ lúc từ màn hình chính vào game
 
     this.state = 'title';
     this.applySettings(loadSettings(), false); // âm lượng, độ nhạy chuột, đồ họa (lưu trên trình duyệt)
@@ -180,6 +183,8 @@ export class Game {
     if (this.debug) {
       window.game = this;
       import('./devtools/autopilot.js').then((m) => (window.autopilot = m));
+      // chụp dải phố cho màn loading lớn: F12 gõ panorama() hoặc panorama({ line: 3, from: 0, to: 8 }) (src/devtools/panorama.js)
+      window.panorama = (o) => import('./devtools/panorama.js').then((m) => m.savePanorama(this, o));
     }
     // Bảng cheat để test (src/devtools/cheat.js): chỉ khi chạy npm run dev + ?cheat — bản build không có đoạn này
     this.cheat = {}; // cờ cheat đang bật: noPolice, noCrash… (bảng cheat ghi vào)
@@ -262,11 +267,34 @@ export class Game {
       webgl2: this.webgl2,
       settings: this.settings,
       view,
-      onNew: (profile) => this.newGame(profile),
-      onContinue: () => this.startGame(save),
+      onNew: (profile) => this.enterWorld('new', () => this.newGame(profile)),
+      onContinue: () => this.enterWorld('offline', () => this.startGame(save)),
       onSettings: (s) => this.applySettings(s),
-      onOnline: (o) => this.onlineJoin(o), // 🌐 Online → Vào thành phố (lỗi: ném { code } cho màn hình hiện chữ)
+      onOnline: (o) => this.enterWorld('online', () => this.onlineJoin(o)), // 🌐 Online → Vào thành phố (lỗi: ném { code } cho màn hình hiện chữ)
     });
+  }
+
+  // Từ màn hình chính vào game: hiện loading nhỏ (ít nhất miniMinSec giây), vào xong thật mới tắt.
+  // Offline: chờ đủ giờ rồi mới bắt đầu ván (giờ trong game chưa chạy lúc chờ). Online: vào thành phố ngay (giờ chung của máy chủ
+  // vẫn chạy, không dừng cho riêng ai) — lỗi kết nối thì tắt loading, ném lỗi lại cho màn hình chính hiện chữ.
+  async enterWorld(kind, go) {
+    if (this.entering) return;
+    this.entering = true;
+    const t0 = performance.now(), minMs = (LOADING.miniMinSec ?? 1.5) * 1000;
+    // chờ n khung hình (tab bị ẩn thì không có khung hình → tự đi tiếp sau ít lâu)
+    const frames = (n) => new Promise((r) => { const f = () => (--n <= 0 ? r() : requestAnimationFrame(f)); requestAnimationFrame(f); setTimeout(r, 150 * n); });
+    const waitMin = () => new Promise((r) => setTimeout(r, Math.max(0, minMs - (performance.now() - t0))));
+    this.miniLoad.show(kind);
+    try {
+      await frames(2); // vẽ màn loading trước khi làm việc nặng
+      if (kind !== 'online') await waitMin();
+      await go();
+      await frames(3); // khung hình đầu của thế giới (dựng bóng, shader) nằm dưới màn loading
+      if (kind === 'online') await waitMin();
+    } finally {
+      this.miniLoad.hide();
+      this.entering = false;
+    }
   }
 
   // Màn hình chính tách hẳn khỏi ván chơi (on = true): ẩn khung chat, bong bóng, FPS; giấu người chơi, xe, vòng chỉ đường,
@@ -678,7 +706,9 @@ export class Game {
     this.onlineTick(dt); // Online: gửi vị trí, vẽ người khác, lưu định kỳ (cả lúc tạm dừng — thành phố không dừng)
     // người xa camera vẽ bản đơn giản (6 khung hình xét 1 lần là đủ — người đi chậm)
     if ((this.lodTick = (this.lodTick || 0) + 1) % 6 === 0) updatePeopleLod(this.camera.position);
-    this.renderer.render(this.scene, this.camera);
+    // màn loading lúc mở game còn che (src/boot/loader.js): chỉ vẽ 1 khung để chuẩn bị đồ họa, sau đó khỏi vẽ phí phía sau
+    if (!window.__bootCover || !this.bootDrawn) this.renderer.render(this.scene, this.camera);
+    this.bootDrawn = true;
     this.input.endFrame();
   }
 

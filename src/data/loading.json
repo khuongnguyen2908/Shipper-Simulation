@@ -1,0 +1,36 @@
+{
+  "logoSec": 2.4,
+  "bootMinSec": 2,
+  "tipSec": 5,
+  "miniMinSec": 1.5,
+  "pano": {
+    "img": "pano.webp",
+    "width": 9984,
+    "height": 667,
+    "roadTop": 576,
+    "pxPerM": 24,
+    "speed": 12,
+    "people": [
+      { "x": 357, "y": 520 },
+      { "x": 1869, "y": 520 },
+      { "x": 3132, "y": 520 },
+      { "x": 4618, "y": 520 },
+      { "x": 5420, "y": 520 },
+      { "x": 6801, "y": 520 },
+      { "x": 8107, "y": 520 },
+      { "x": 9686, "y": 520 }
+    ]
+  },
+  "rider": { "img": "rider.webp", "frames": 6, "width": 308, "height": 231 },
+  "logos": [
+    { "img": "", "text": "loading.logo.1" },
+    { "img": "", "text": "loading.logo.2" }
+  ],
+  "tips": [
+    { "img": "tip-rain.jpg", "text": "loading.tip.rain" },
+    { "img": "tip-jam.jpg", "text": "loading.tip.jam" },
+    { "img": "tip-flood.jpg", "text": "loading.tip.flood" },
+    { "img": "tip-park.jpg", "text": "loading.tip.park" },
+    { "img": "tip-order.jpg", "text": "loading.tip.order" }
+  ]
+}

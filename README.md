@@ -10,7 +10,8 @@ npm run dev        # chơi thử ở http://localhost:5173
 npm test           # bộ thử luật
 npm run sim        # bot chơi liên tục 9 ngày (100 lượt, ~2 phút): % còn trụ qua từng hạn tiền nhà
 npm run sim -- 50 --days 12   # tự chọn số lượt / số ngày
-npm run build      # thử + build ra MỘT file dist/index.html (bấm đúp là chơi)
+npm run build      # thử + build ra dist/ (index.html nhẹ có màn loading + assets/ + loading/)
+npm run preview    # chơi thử bản build ở http://localhost:4173 (bấm đúp dist/index.html không chạy)
 ```
 
 ## Điều khiển
