@@ -27,7 +27,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   - Chủ game tự tạo dự án Firebase (Claude hướng dẫn từng bước), dán cấu hình vào code.
 
 ## 💬 Đang bàn
-### ⏳ Màn loading (02/11 — XONG, CHƯA commit; phác họa duyệt: `sketches/loading/loading.html`)
+### ⏳ Màn loading (02/11 — XONG, commit 3cad8f0; phác họa duyệt: `sketches/loading/loading.html`)
 - Chủ game chốt: tách file cho giống game thật (bỏ build 1 file) · luồng **logo nhà phát hành → loading lớn → menu → loading nhỏ** · vào game lần nào
   cũng chạy đủ (bấm để bỏ qua logo) · loading nhỏ: không thanh %, xe chạy tại chỗ, ảnh + mẹo đổi mỗi 5 giây, ảnh = **ảnh chụp game thật** (cách b).
 - Sửa 02/11 (chủ game: "giật quá", "loading lớn không dùng game thật à"): loading lớn giờ là **ảnh phố thật** (dải 416 m chụp thẳng góc đường số 3,
