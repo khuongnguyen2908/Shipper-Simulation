@@ -10,7 +10,7 @@
 #boot .bt-logo { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 14px; opacity: 0; text-align: center; padding: 16px; }
 #boot .bt-logo.show { animation: bt-logo var(--d, 2.4s) ease both; }
 @keyframes bt-logo { 0% { opacity: 0; transform: scale(0.96); } 20%, 75% { opacity: 1; transform: none; } 100% { opacity: 0; } }
-#boot .bt-logo img { max-width: min(420px, 80vw); max-height: 50vh; }
+#boot .bt-logo img { max-width: min(600px, 82vw); max-height: 60vh; }
 #boot .bt-logo b { font: 800 clamp(20px, 4vw, 34px) system-ui; letter-spacing: 3px; }
 #boot .bt-skip { position: absolute; right: 18px; bottom: 16px; font-size: 12px; color: #ffffff66; }
 
