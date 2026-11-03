@@ -27,7 +27,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   - Chủ game tự tạo dự án Firebase (Claude hướng dẫn từng bước), dán cấu hình vào code.
 
 ## 💬 Đang bàn
-### 🚀 Tăng FPS (03/11 — XONG, CHƯA commit)
+### 🚀 Tăng FPS (03/11 — XONG, commit ca95f81)
 - Chủ game: "FPS tụt lắm". Đo (Chrome ẩn dùng GTX 1660, 1600×900): đang chơi 35–43 FPS — có từ trước (bản trước màn loading y vậy), nghẽn ở CPU
   (tắt bóng / giảm nửa độ phân giải không đổi): 15.133 vật thể tính lại vị trí mỗi khung (~5 ms) + ~1.450 lần vẽ (~19 ms).
 - Đã làm (chủ game duyệt cả 4): ① đóng băng đồ đứng yên (`world/freeze.js`, có bộ canh tự mở băng vật bị dời) · ② gộp mảnh đứng yên cùng chất liệu
