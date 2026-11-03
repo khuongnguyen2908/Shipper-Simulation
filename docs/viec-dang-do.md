@@ -27,7 +27,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   - Chủ game tự tạo dự án Firebase (Claude hướng dẫn từng bước), dán cấu hình vào code.
 
 ## 💬 Đang bàn
-### 🎮 Giảm độ khó + lái dễ hơn + mã cheat (03/11 — XONG, chưa commit)
+### 🎮 Giảm độ khó + lái dễ hơn + mã cheat (03/11 — XONG, commit e501ab1)
 - Chủ game: người chơi kêu giao hàng / chở khách quá khó (giảm 70%), lái khó, phanh khó, dùng phím mũi tên không xoay được camera, CSGT phạt nhiều.
 - Đã làm:
   - **Hư hàng / khách sợ × 0,3** (`driving.damageMul`, nhân trong `DeliveryItem.tick/event` — xếp túi sai không nhân) · **thời hạn đơn × 1,3** (`order.deadlineMul`).
