@@ -23,7 +23,8 @@
   },
   "rider": { "img": "rider.webp", "frames": 6, "width": 308, "height": 231 },
   "logos": [
-    { "img": "logo-flynt-khuong.webp", "text": "loading.logo.1" }
+    { "img": "logo-flynt-khuong.webp", "text": "loading.logo.1" },
+    { "img": "logo-shipper-simulation.webp", "text": "loading.logo.2" }
   ],
   "tips": [
     { "img": "tip-rain.jpg", "text": "loading.tip.rain" },

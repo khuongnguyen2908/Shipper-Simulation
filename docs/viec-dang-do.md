@@ -50,7 +50,8 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   Online vào ngay, lỗi kết nối thì tắt loading và trả lỗi cho màn hình chính) · `src/data/loading.json` (logo, mẹo + ảnh, số giây) · thẻ ⏳ Loading
   trong ?editor · validate.js `validateLoading` · ảnh trong `public/loading/` (5 ảnh mẹo chụp bằng Chrome ẩn: mưa, kẹt xe, ngập, đậu xe đêm, xem đơn).
 - 03/11 (commit 2d036ac): gắn logo **Flynt Khuong Games** (`public/loading/logo-flynt-khuong.webp`, ảnh gốc chủ game làm bằng ChatGPT, đã bỏ chấm lấm tấm + cắt sát).
-  Hiện chỉ 1 logo; có logo thứ 2 thì thêm ở thẻ ⏳ Loading.
+  Logo 2 = logo game Shipper Simulation (`logo-shipper-simulation.webp`, linh vật thằn lằn đội nón shipper — mẫu số 4 chủ game chọn,
+  ChatGPT vẽ theo lời nhắn "linh vật tự nghĩ, không giống nhân vật có sẵn"; không dùng hình Pokémon vì vướng bản quyền).
 - Ghi chú: code game ~23 MB (nén ~14,5 MB) vì âm thanh gói trong code (tránh IDM bắt link .mp3). Muốn vào nhanh hơn: tách âm thanh ra tải sau (việc riêng, chưa bàn).
   Chạy `?editor` / `?relationship` không có màn loading. Khung trình duyệt trong app Claude bị ẩn thì không có khung hình → thanh tải đứng (không phải lỗi game).
 
