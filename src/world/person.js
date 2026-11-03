@@ -1054,16 +1054,61 @@ export function setPeopleMode(mode) {
   PEOPLE_MODE = mode === 'simple' ? 'simple' : 'auto';
 }
 // lo = true: bản đơn giản · false: chi tiết (bản đơn giản dựng lần đầu cần tới, cất lại dùng chung)
+// Ở xa: gộp các khối dùng chung PERSON_MAT thành 1 khối theo dáng lúc đó (farBody) → 1 lần vẽ thay vì ~10.
+// Tay chân ở xa không cử động nữa (nhìn không ra); dáng đổi nhiều (đứng ↔ ngồi, bước chân khác) thì gộp lại lúc chuyển sang xa.
 export function setPersonDetail(g, lo) {
   if (!!g.userData.lo === lo) return;
   g.userData.lo = lo;
+  const fb = lo ? farBody(g) : g.userData.farBody;
   g.traverse((m) => {
     const make = m.userData?.lodMake;
     if (!make) return;
     m.userData.hiGeo ??= m.geometry;
     if (lo) m.geometry = m.userData.loGeo ??= make();
     else m.geometry = m.userData.hiGeo;
+    if (lo && fb && m.userData.inFar) { m.visible = false; m.userData.farHid = true; } // đã có trong khối gộp
+    else if (!lo && m.userData.farHid) { m.visible = true; m.userData.farHid = false; }
   });
+  if (fb) fb.visible = lo;
+}
+// dấu dáng người (gập chân / tay, ngồi): dáng khác → gộp lại
+function poseSig(g) {
+  const p = g.userData.parts;
+  if (!p) return '';
+  const r = (o) => (o ? `${Math.round(o.rotation.x * 4)},${Math.round(o.rotation.z * 4)}` : '');
+  return [p.legL, p.legR, p.kneeL, p.kneeR, p.armL, p.armR, p.elbowL, p.elbowR].map(r).join(';') + `;${Math.round((p.body?.position.y || 0) * 20)}`;
+}
+const _inv = new THREE.Matrix4(), _rel = new THREE.Matrix4();
+function farBody(g) {
+  const sig = poseSig(g);
+  let fb = g.userData.farBody;
+  if (fb && fb.userData.sig === sig) return fb;
+  if (fb) { fb.parent?.remove(fb); fb.geometry.dispose(); g.userData.farBody = null; }
+  g.updateMatrixWorld(true);
+  _inv.copy(g.matrixWorld).invert();
+  const geos = [], parts = [];
+  g.traverse((m) => {
+    if (!m.userData?.lodMake || m.material !== PERSON_MAT) return;
+    for (let o = m; o && o !== g; o = o.parent) if (!o.visible && !o.userData.farHid) return; // đang ẩn (vd túi) → không gộp
+    const lo = (m.userData.loGeo ??= m.userData.lodMake());
+    const geo = lo.clone();
+    geo.applyMatrix4(_rel.multiplyMatrices(_inv, m.matrixWorld));
+    geos.push(geo);
+    parts.push(m);
+  });
+  const merged = geos.length > 1 ? mergeGeometries(geos, false) : null;
+  geos.forEach((x) => x.dispose());
+  g.traverse((m) => { if (m.userData?.lodMake) m.userData.inFar = false; });
+  if (!merged) return null; // không gộp được (hình khác loại) → như cũ: từng khối bản đơn giản
+  for (const m of parts) m.userData.inFar = true;
+  fb = new THREE.Mesh(merged, PERSON_MAT);
+  fb.castShadow = true;
+  fb.receiveShadow = true;
+  fb.userData.sig = sig;
+  fb.visible = false;
+  g.add(fb);
+  g.userData.farBody = fb;
+  return fb;
 }
 const _v = new THREE.Vector3();
 export function updatePeopleLod(cam) {

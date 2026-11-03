@@ -1993,13 +1993,17 @@ console.log('Ngoại hình nam/nữ');
   const tris = (o) => o.userData.parts.torso.geometry.attributes.position.count;
   test('Người ở xa vẽ đơn giản (LOD): ít tam giác hơn nhiều, vẫn đủ khớp + mặt; đổi qua lại không hỏng; người chơi luôn chi tiết', () => {
     const { setPersonDetail, updatePeopleLod, setPeopleMode } = MODELS;
-    const count = (g) => { let n = 0; g.traverse((o) => { if (o.isMesh) n += o.geometry.attributes.position.count / 3; }); return n; };
+    // chỉ đếm khối đang hiện (ở xa: các khối gộp thành 1 khối, khối gốc ẩn đi)
+    const count = (g) => { let n = 0; g.traverseVisible((o) => { if (o.isMesh) n += o.geometry.attributes.position.count / 3; }); return n; };
+    const draws = (g) => { let n = 0; g.traverseVisible((o) => { if (o.isMesh) n++; }); return n; };
     for (const o of [{}, { gender: 'f', hairStyle: 'braids', shirtStyle: 'hoodie' }, { hat: 'helmet', overlay: 'raincoat' }]) {
-      const p = makePerson(o), hi = count(p);
+      const p = makePerson(o), hi = count(p), hiDraws = draws(p);
       setPersonDetail(p, true);
       assert.ok(count(p) < hi * 0.65, 'đơn giản: ' + count(p) + ' / ' + hi);
+      assert.ok(draws(p) <= 3 && draws(p) < hiDraws, `ở xa gộp thành ít khối (1 lần vẽ): ${draws(p)} / ${hiDraws}`);
       setPersonDetail(p, false);
       assert.equal(count(p), hi, 'trở lại chi tiết');
+      assert.equal(draws(p), hiDraws, 'trở lại đủ khối (tay chân cử động lại)');
     }
     // theo khoảng cách tới camera; nhân vật người chơi (keepDetail) không đổi
     const scene = new THREE.Scene(), near = makePerson({}), far = makePerson({}), me = makePerson({});

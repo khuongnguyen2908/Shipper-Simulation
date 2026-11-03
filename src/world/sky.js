@@ -129,6 +129,14 @@ export class Sky {
     const op = this.openAt && focus ? this.openAt(focus.x, focus.z) : 0;
     this.scene.fog.near = (wet ? 30 : 70) + op * (wet ? 20 : 60);
     this.scene.fog.far = (wet ? 150 : 260) + op * (wet ? 110 : 300);
+    // không vẽ thứ đã chìm hẳn trong sương (mọi vật liệu đều bị sương che, trừ vòm trời luôn vẽ ở tận cùng) → bớt việc cho CPU
+    if (camera.isPerspectiveCamera) {
+      const far = this.scene.fog.far + 15;
+      if (Math.abs(camera.far - far) > 1) {
+        camera.far = far;
+        camera.updateProjectionMatrix();
+      }
+    }
     // ánh sáng trời: trên mát hơi xanh, dưới đất hắt lên ấm
     this.hemi.intensity = 0.62 + 0.75 * day + this.flash * 2;
     this.hemi.color.copy(top).lerp(C(0xffffff), 0.55 + 0.2 * (1 - day));

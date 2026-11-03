@@ -24,6 +24,7 @@ export function makeStallPeople(scene, seats) {
   const hasGuest = list.map((_, k) => ((Math.imul(k + 7, 2654435761) >>> 0) % 1000) / 1000 < OCCUPIED);
   let wait = 0;
   return {
+    meshes: people.map((p) => p.m), // người đổi chỗ ngồi → không đóng băng (world/freeze.js)
     // px, pz: người chơi · mySeat: ghế người chơi đang ngồi (bỏ qua)
     update(dt, px, pz, mySeat = null) {
       if ((wait -= dt) > 0) return;

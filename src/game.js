@@ -26,6 +26,8 @@ import { Traffic } from './world/traffic.js';
 import { buildFerries } from './world/ferry.js';
 import { makeStallPeople } from './world/stallPeople.js';
 import { BgTraffic } from './world/bgTraffic.js';
+import { StaticFreezer } from './world/freeze.js';
+import { mergeStatic } from './world/mergeStatic.js';
 import { pushCircle } from './world/physics.js';
 import { nextBoat, BOAT_DECK } from './sim/ferry.js';
 import { Sky } from './world/sky.js';
@@ -189,8 +191,29 @@ export class Game {
     // Bảng cheat để test (src/devtools/cheat.js): chỉ khi chạy npm run dev + ?cheat — bản build không có đoạn này
     this.cheat = {}; // cờ cheat đang bật: noPolice, noCrash… (bảng cheat ghi vào)
     if (import.meta.env?.DEV && new URLSearchParams(location.search).has('cheat')) import('./devtools/cheat.js').then((m) => m.mountCheat(this));
+    this.freezeStatic();
     this.showTitle();
     requestAnimationFrame((t) => this.frame(t));
+  }
+
+  // Đồ đứng yên (nhà, cây, cột, bảng hiệu, xe đậu, NPC đứng cửa tiệm…): gộp mảnh cùng chất liệu (world/mergeStatic.js) rồi
+  // khỏi tính lại vị trí mỗi khung (world/freeze.js).
+  // Liệt kê mọi thứ CÓ cử động; sót cái nào thì bộ canh tự mở băng cho cái đó. Đồ thêm vào cảnh sau lúc này không bị đóng băng.
+  freezeStatic() {
+    const T = this.traffic;
+    const moving = [
+      ...this.city.floods, ...this.city.barriers.map((b) => b.arm),
+      this.sky.sun, this.sky.sun.target, this.sky.dome,
+      ...T.agents.map((a) => a.mesh), ...T.buses.map((b) => b.mesh), ...T.loopCars.map((a) => a.mesh), ...T.peds.map((p) => p.mesh), ...T.dogs.map((d) => d.mesh),
+      ...this.ferries.boats.map((b) => b.mesh), ...this.stallPeople.meshes,
+      this.bike.mesh, this.walker.mesh, this.beacon, this.zoneRing, this.questMark,
+    ];
+    const skip = new Set();
+    for (const m of moving) m?.traverse?.((o) => skip.add(o));
+    for (const n of Object.values(this.npcs || {})) n?.traverse?.((o) => skip.add(o)); // NPC đứng cửa tiệm: ẩn / hiện từng người → không gộp (vẫn đóng băng được)
+    this.mergeInfo = mergeStatic(this.scene, skip); // gộp mảnh cùng chất liệu → ít lần vẽ (world/mergeStatic.js)
+    this.freezer = new StaticFreezer(this.scene);
+    this.freezer.freeze(moving);
   }
 
   resize() {
@@ -706,6 +729,7 @@ export class Game {
     this.onlineTick(dt); // Online: gửi vị trí, vẽ người khác, lưu định kỳ (cả lúc tạm dừng — thành phố không dừng)
     // người xa camera vẽ bản đơn giản (6 khung hình xét 1 lần là đủ — người đi chậm)
     if ((this.lodTick = (this.lodTick || 0) + 1) % 6 === 0) updatePeopleLod(this.camera.position);
+    this.freezer.tick(); // đồ đã đóng băng mà bị dời chỗ → tự mở băng
     // màn loading lúc mở game còn che (src/boot/loader.js): chỉ vẽ 1 khung để chuẩn bị đồ họa, sau đó khỏi vẽ phí phía sau
     if (!window.__bootCover || !this.bootDrawn) this.renderer.render(this.scene, this.camera);
     this.bootDrawn = true;

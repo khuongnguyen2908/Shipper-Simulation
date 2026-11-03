@@ -27,6 +27,15 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   - Chủ game tự tạo dự án Firebase (Claude hướng dẫn từng bước), dán cấu hình vào code.
 
 ## 💬 Đang bàn
+### 🚀 Tăng FPS (03/11 — XONG, CHƯA commit)
+- Chủ game: "FPS tụt lắm". Đo (Chrome ẩn dùng GTX 1660, 1600×900): đang chơi 35–43 FPS — có từ trước (bản trước màn loading y vậy), nghẽn ở CPU
+  (tắt bóng / giảm nửa độ phân giải không đổi): 15.133 vật thể tính lại vị trí mỗi khung (~5 ms) + ~1.450 lần vẽ (~19 ms).
+- Đã làm (chủ game duyệt cả 4): ① đóng băng đồ đứng yên (`world/freeze.js`, có bộ canh tự mở băng vật bị dời) · ② gộp mảnh đứng yên cùng chất liệu
+  theo ô 104 m (`world/mergeStatic.js`, 1.530 → 763 mảnh) · ③ người ở xa > 30 m gộp 10 khối thành 1 (`person.js` farBody, tay chân ở xa đứng yên) ·
+  ④ không vẽ thứ đã chìm trong sương (`sky.js`: camera.far = fog.far + 15; vòm trời luôn vẽ ở tận cùng nên không bị cắt).
+- Kết quả: lần vẽ khung chính 1.460 → 741, đang chơi ~54 FPS (menu 60). Còn lại: bảng hiệu có hình riêng (không gộp được), người gần, xe NPC.
+  Muốn hơn nữa: gộp bảng hiệu vào 1 tấm hình lớn (atlas), xe NPC dùng InstancedMesh.
+
 ### ⏳ Màn loading (02/11 — XONG, commit 3cad8f0; phác họa duyệt: `sketches/loading/loading.html`)
 - Chủ game chốt: tách file cho giống game thật (bỏ build 1 file) · luồng **logo nhà phát hành → loading lớn → menu → loading nhỏ** · vào game lần nào
   cũng chạy đủ (bấm để bỏ qua logo) · loading nhỏ: không thanh %, xe chạy tại chỗ, ảnh + mẹo đổi mỗi 5 giây, ảnh = **ảnh chụp game thật** (cách b).

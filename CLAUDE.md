@@ -26,6 +26,8 @@ src/
   sim/       mô phỏng thuần (không Three.js, không DOM): clock (đồng hồ 24h liên tục), OrderManager (máy trạng thái), ItemPhysics,
              OrderCondition, economy, hazards, GameState, objectives, cityLayout, rng
   world/     Three.js: city, controllers (xe, đi bộ, camera), traffic, sky, models, textures, physics · storyProps (đạo cụ cảnh phim: xe tải dài, tấm ván)
+             mergeStatic (gộp mảnh đứng yên cùng chất liệu) + freeze (đồ đứng yên khỏi tính lại vị trí mỗi khung) — game.js freezeStatic();
+             vật mới có cử động thì thêm vào danh sách `moving` ở đó (sót thì bộ canh tự mở băng; chạy npm run dev thì báo trong console)
   boot/      màn loading lúc mở game (logo → ảnh phố thật trôi ngang + thanh tải; chỉ dùng hoạt ảnh CSS cho khỏi giật): loader.js / loader.css chép thẳng vào index.html lúc build (vite.config.js),
              chạy TRƯỚC code game; bản build tự tải code game để đo % thật rồi gọi window.__boot.start (main.js) · moto.svg hình xe dùng chung
   ui/        hud, phone (app GoShip, Túi đồ chia ô + bảng "Đang mặc", Xe), avatar (avatar 3D), modal, packing (xếp túi), minimap, screens, miniLoader (loading nhỏ lúc vào game)

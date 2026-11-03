@@ -960,6 +960,7 @@ export function buildCity(scene, layout, potholes, seed = 7, opts = {}) {
     vendorCarts, // xe hàng rong trên vỉa hè [{ x, z, along }] — núp sau được (cốt truyện)
     trees, // gốc cây trên vỉa hè / dải phân cách: [[x, z], …] (cốt truyện: người lạ đứng cạnh gốc cây)
     parked, // xe máy đậu (lề đường, bãi giữ xe…): parked.update(x, z) hiện các ô gần
+    floods: [...floods.values()], // tấm nước ngập (dâng / hạ theo mực nước) — không đóng băng (world/freeze.js)
     // mỗi khung hình: nâng / hạ cần barie theo xe bot gần đó
     update(dt, cars = []) {
       for (const b of barriers) {
