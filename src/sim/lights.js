@@ -52,10 +52,14 @@ export function lightMap(map = MAP, cfg = LIGHTS) {
 
 // Màu đèn cho xe đang đi hướng din ([dx, dz] theo lưới) tại ngã tư key, lúc t giây: 'g' xanh · 'y' vàng · 'r' đỏ
 export function lightColor(key, din, t, cfg = LIGHTS) {
+  return lightPhase(key, din, t, cfg).c;
+}
+// Như lightColor, kèm số giây (thật) còn lại tới lúc đổi màu: { c, left } — để hiện đếm ngược trên HUD
+export function lightPhase(key, din, t, cfg = LIGHTS) {
   const G = Math.max(1, num(cfg?.greenSec, 8)), Y = Math.max(0, num(cfg?.yellowSec, 2)), cycle = 2 * (G + Y);
   let u = (((t + (hashKey(key) % 1000) / 1000 * cycle) % cycle) + cycle) % cycle;
   if (din[0] !== 0) u = (u + G + Y) % cycle; // trục x lệch nửa chu kỳ so với trục z
-  return u < G ? 'g' : u < G + Y ? 'y' : 'r';
+  return u < G ? { c: 'g', left: G - u } : u < G + Y ? { c: 'y', left: G + Y - u } : { c: 'r', left: cycle - u };
 }
 
 // Kiểu rẽ (giống traffic.js): bên phải của hướng (x, z) là (−z, x)

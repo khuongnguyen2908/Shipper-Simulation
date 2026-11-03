@@ -9,7 +9,7 @@ import { roadSegAt, tierOf, tierLabel, speedLimitOf, curbSpot } from '../sim/roa
 import { unlocked } from '../sim/placeRules.js';
 import { tod } from '../sim/clock.js';
 import { CITY, roadPos, districtAtPoint, traitAt, routeDist, streetAt, intersectionName } from '../sim/cityLayout.js';
-import { lightColor, ticketChance, turnOf } from '../sim/lights.js';
+import { lightColor, lightPhase, ticketChance, turnOf } from '../sim/lights.js';
 import { fmtDist } from '../sim/nav.js';
 import { OrderManager, S, scamHotspot } from '../sim/OrderManager.js';
 import { depthAtPoint, floodBand, floodNum, floodCancelOk } from '../sim/flood.js';
@@ -243,6 +243,10 @@ export class RoadRulesPart {
   speedLimitKmh() {
     return Math.round(this.speedLimit() * 3.6);
   }
+  // CSGT có bắt lỗi quá tốc độ không: quá giới hạn từ economy.policeGraceKmh trở lên (dưới mức đó cho qua)
+  overLimit(speed) {
+    return speed > this.speedLimit() + (ECONOMY.policeGraceKmh ?? 0) / 3.6;
+  }
 
   // ======================== SÂN BAY (src/sim/airport.js) ========================
   // Gọi mỗi bước: phí vào cổng khi chạy xe vào khuôn viên (1 lần mỗi lượt), nhắc khi chạy tới barie chân dốc,
@@ -396,6 +400,23 @@ export class RoadRulesPart {
       const dout = Math.abs(ez) > Math.abs(ex) ? [0, Math.sign(ez) || 1] : [Math.sign(ex) || 1, 0];
       if (turnOf(cur.din, dout) !== 'right') this.redLightViolation(cur.key, ci, cj);
     }
+  }
+  // Đèn ở ngã tư phía trước (HUD hiện to cho dễ thấy): đang chạy xe dọc theo một con đường, ngã tư kế tiếp có đèn,
+  // còn ≤ 45 m tới vạch → { c: màu 'r'|'y'|'g', left: giây còn lại, dist: m tới vạch, cam: có camera }. Không có thì null.
+  lightAhead() {
+    if (this.mode !== 'bike' || !this.lmap?.size) return null;
+    const p = this.bike.pos, f = this.bike.forward(), H = CITY.ROAD / 2;
+    if (Math.max(Math.abs(f.x), Math.abs(f.z)) < 0.8) return null; // đang quẹo / chạy chéo
+    const ax = Math.abs(f.x) > Math.abs(f.z), s = Math.sign(ax ? f.x : f.z); // chạy theo trục x hay z, chiều nào
+    const across = ax ? p.z : p.x, line = Math.round((across - CITY.ORIGIN) / CITY.PITCH);
+    if (Math.abs(across - roadPos(line)) > H + 0.5) return null; // không nằm trên đường (trong hẻm, vỉa hè…)
+    const along = ax ? p.x : p.z;
+    let k = Math.round((along - CITY.ORIGIN) / CITY.PITCH);
+    if ((roadPos(k) - along) * s < H) k += s; // đã tới / qua ngã tư này → xét ngã tư kế tiếp
+    const dist = (roadPos(k) - along) * s - H;
+    const key = ax ? `${k},${line}` : `${line},${k}`;
+    if (dist > 45 || !this.lmap.has(key)) return null;
+    return { ...lightPhase(key, ax ? [s, 0] : [0, s], this.lightT), dist, cam: !!this.lmap.get(key).cam };
   }
   // Vượt đèn đỏ: tài xế quanh đó bóp còi; lần đầu mỗi ngày chỉ nhắc (lights.warnFirst); đã bị phạt đủ maxPerDay thì thôi;
   // còn lại tung xúc xắc theo % (chốt CSGT > camera > thường) → bị ghi hình thì sau delayMin–delayMax phút app CSGT báo phạt nguội.

@@ -40,6 +40,7 @@ Mục **Kho tiếng** trong thẻ đó: ~530 tiếng mẫu Kenney (CC0) ở `sou
 | [x] | `ui.sign` | Ký tên | Bắt đầu một nét ký trong popup hợp đồng | tiếng ngắn | 🎧 có file |
 | [x] | `ui.tutorial` | Bước hướng dẫn | Hướng dẫn sang bước mới (chỗ sáng đổi vị trí) | tiếng ngắn | 🎧 có file |
 | [x] | `ui.interact` | Tương tác (E) | Bấm E: vào quán, nói chuyện, lấy hàng… | tiếng ngắn | 🎧 có file |
+| [ ] | `ui.cheat` | Nhập đúng mã cheat | Gõ đúng mã cheat trong ô nhập mã (phím `) — kiểu GTA | tiếng ngắn | 🔉 tổng hợp |
 
 ## 📱 Điện thoại & chat
 

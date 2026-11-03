@@ -396,6 +396,7 @@ function settingsHtml(s) {
     <div class="mm-sec">${fmt('settings.other')}</div>
     <label class="mm-field"><span>${fmt('settings.sens')} <b data-out="sens">×${s.sens.toFixed(1)}</b></span><input type="range" data-set="sens" min="${SENS_RANGE[0]}" max="${SENS_RANGE[1]}" step="0.1" value="${s.sens}"></label>
     <label class="mm-check"><input type="checkbox" data-set="invertY"${s.invertY ? ' checked' : ''}> ${fmt('settings.invert')}</label>
+    <label class="mm-check"><input type="checkbox" data-set="autoCam"${s.autoCam ? ' checked' : ''}> ${fmt('settings.autoCam')}</label>
     <div class="mm-field"><span>${fmt('settings.quality')}</span><div class="mm-genders">
       <button class="mm-gender${s.quality === 'high' ? ' on' : ''}" data-quality="high">${fmt('settings.high')}</button>
       <button class="mm-gender${s.quality === 'low' ? ' on' : ''}" data-quality="low">${fmt('settings.low')}</button></div></div>

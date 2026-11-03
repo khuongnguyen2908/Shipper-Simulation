@@ -58,6 +58,10 @@ const ITEMS_DATA_BASE = (id) => DATA_ITEMS[id].base;
 const VALIDATE = await import('../src/data/validate.js');
 
 console.log('Vật lý món hàng');
+// các bài dưới thử luật từng loại hàng ở mức hư gốc (×1); hệ số chung driving.damageMul thử riêng ở bài "Mức hư hàng"
+const DRIVING_T = (await import('../src/data/balance.js')).DRIVING;
+const DMG_MUL = DRIVING_T.damageMul;
+DRIVING_T.damageMul = 1;
 test('Phở nguội dần, túi giữ nhiệt nguội chậm hơn', () => {
   const a = new DeliveryItem(ITEMS.pho), b = new DeliveryItem(ITEMS.pho);
   for (let i = 0; i < 30; i++) { a.tick(env(), 1); b.tick(env({ bag: THERMAL }), 1); }
@@ -99,6 +103,43 @@ test('Khách xe ôm hoảng khi chạy quá nhanh', () => {
   const a = new DeliveryItem(ITEMS.passenger), b = new DeliveryItem(ITEMS.passenger);
   for (let i = 0; i < 10; i++) { a.tick(env({ speed: 15 }), 1); b.tick(env({ speed: 9 }), 1); }
   assert.ok(a.condition < 90 && b.condition === 100); // 4 m/s quá mức × 0,36%/phút × 10 phút ≈ −14
+});
+
+test('Mức hư hàng / khách sợ (driving.damageMul) nhân mọi hư do đường đi + thời gian, không nhân xếp túi sai', () => {
+  const hit = (mul) => {
+    DRIVING_T.damageMul = mul;
+    const cake = new DeliveryItem(ITEMS.banhKem), rider = new DeliveryItem(ITEMS.passenger);
+    cake.event('collision', 2, env());
+    for (let i = 0; i < 10; i++) rider.tick(env({ speed: 15 }), 1);
+    const packed = new DeliveryItem(ITEMS.banhKem);
+    packed.applyPacking({ crushed: true });
+    return { cake: 100 - cake.condition, rider: 100 - rider.condition, packed: 100 - packed.condition };
+  };
+  const full = hit(1), low = hit(0.3);
+  DRIVING_T.damageMul = 1;
+  assert.ok(Math.abs(low.cake - full.cake * 0.3) < 0.01 && Math.abs(low.rider - full.rider * 0.3) < 0.01, JSON.stringify({ full, low }));
+  assert.equal(low.packed, 30);
+});
+DRIVING_T.damageMul = DMG_MUL;
+
+const { Bike: BIKE_T } = await import('../src/world/controllers.js');
+const THREE_T = await import('three');
+test('Phanh: 1 phím (Space hoặc S) = phanh êm không đổ hàng · Space + S = phanh gấp, dừng nhanh hơn nhưng đổ hàng', () => {
+  const grid = { inside: () => false, add() {}, query: () => [] };
+  const run = (id, input) => {
+    const b = new BIKE_T(new THREE_T.Scene(), VEHICLES_T[id]);
+    b.speed = VEHICLES_T[id].maxSpeed;
+    let t = 0, spill = 0;
+    while (b.speed > 0.3 && t < 10) { b.update(1 / 60, input, { fuel: 1, hp: 100, wet: false, grid, potholes: [], mounted: true, emit: (ty, m) => { if (ty === 'brake') spill += m; } }); t += 1 / 60; }
+    return { t, spill };
+  };
+  for (const id of ['cub', 'wave']) {
+    const space = run(id, { brake: true }), back = run(id, { back: true }), hard = run(id, { brake: true, back: true });
+    assert.equal(space.spill, 0, `${id}: Space không được đổ hàng`);
+    assert.equal(back.spill, 0, `${id}: S / ↓ không được đổ hàng`);
+    assert.ok(hard.spill > 0 && hard.t < space.t, `${id}: phanh gấp phải dừng nhanh hơn và có đổ hàng`);
+    assert.ok(space.t < 3, `${id}: phanh êm từ tốc độ tối đa dừng trong 3 giây (${space.t.toFixed(2)})`);
+  }
 });
 
 console.log('Chấm sao & tiền');
@@ -5545,6 +5586,15 @@ console.log('Đèn giao thông & phạt nguội (sim/lights.js)');
   const L = await import('../src/sim/lights.js');
   const { LIGHTS, ORDER } = await import('../src/data/balance.js');
   const { routeNodes } = await import('../src/sim/cityLayout.js');
+  test('Đèn trên HUD (lightPhase): cùng màu với lightColor, số giây còn lại đúng lúc đổi màu', () => {
+    for (let t = 0; t < 60; t += 0.37) for (const din of [[0, 1], [1, 0]]) {
+      const ph = L.lightPhase('3,4', din, t);
+      assert.equal(ph.c, L.lightColor('3,4', din, t));
+      assert.ok(ph.left > 0 && ph.left <= Math.max(LIGHTS.greenSec ?? 8, 2 * (LIGHTS.yellowSec ?? 2) + (LIGHTS.greenSec ?? 8)) + 1e-9);
+      assert.equal(L.lightColor('3,4', din, t + ph.left - 0.01), ph.c, 'trước lúc hết giờ vẫn màu cũ');
+      assert.notEqual(L.lightColor('3,4', din, t + ph.left + 0.01), ph.c, 'hết giờ thì đổi màu');
+    }
+  });
   test('Thời hạn đơn cộng thời gian chờ đèn: mỗi ngã tư có đèn (không rẽ phải) trên đường + chờ trung bình khớp chu kỳ đèn', () => {
     const G = LIGHTS.greenSec ?? 8, Y = LIGHTS.yellowSec ?? 2, cycle = 2 * (G + Y);
     let sum = 0; // chờ trung bình đo thật: tới ngã tư lúc ngẫu nhiên, chờ tới khi xanh
@@ -6583,6 +6633,40 @@ console.log('Màn đua thoát thân (sim/race.js — chương 6)');
     gs.online = true;
     assert.equal(gs.progress.chap, Infinity, 'Online: mọi địa điểm mở sẵn');
     assert.notEqual(off.progress.chap, Infinity);
+  });
+}
+
+console.log('Mã cheat kiểu GTA (interactions/cheatCodes.js)');
+{
+  const { applyCheatCode, CHEAT_CODES } = await import('../src/interactions/cheatCodes.js');
+  const mkG = (o = {}) => {
+    const gs = new GameState({ day: 1, carry: { money: 100 } });
+    return { gs, online: null, state: 'play', clockMin: 600, cheat: {}, stalled: true, hud: { toast() {} }, bike: { setSpec() {}, setBag() {} }, ...o };
+  };
+  test('Gõ đúng mã thì có tác dụng (không phân biệt hoa thường, bỏ dấu cách) + ghi dấu đã cheat; mã sai / Online / chưa vào ván thì không', () => {
+    const g = mkG();
+    assert.ok(applyCheatCode(g, ' giau to ').ok);
+    assert.equal(g.gs.money, 1100);
+    assert.equal(g.gs.flags.cheated, true);
+    Object.assign(g.gs, { phys: 10, mental: 10 });
+    applyCheatCode(g, 'HOISUC');
+    assert.ok(g.gs.phys === 100 && g.gs.mental === 100);
+    g.gs.addFine(40, 'redLight', 600);
+    applyCheatCode(g, 'xoano');
+    assert.equal(g.gs.finesTotal, 0);
+    applyCheatCode(g, 'HANGBEN');
+    assert.equal(g.cheat.goods, true);
+    applyCheatCode(g, 'HANGBEN');
+    assert.equal(g.cheat.goods, false, 'gõ lại để tắt');
+    applyCheatCode(g, 'XEXIN');
+    assert.notEqual(g.gs.vehicleSpec.power, 'pedal');
+    assert.ok(g.gs.owned.vehicles.includes(g.gs.vehicle));
+    assert.ok(!applyCheatCode(g, 'TIENTIEN').ok);
+    const on = mkG({ online: {} });
+    assert.ok(!applyCheatCode(on, 'GIAUTO').ok);
+    assert.equal(on.gs.money, 100, 'Online: không cộng tiền');
+    assert.ok(!applyCheatCode(mkG({ state: 'title' }), 'GIAUTO').ok);
+    assert.ok(CHEAT_CODES.length >= 8 && CHEAT_CODES.every((c) => /^[A-Z]+$/.test(c)));
   });
 }
 

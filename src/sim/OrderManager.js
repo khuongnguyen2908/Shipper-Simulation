@@ -584,7 +584,7 @@ export class OrderManager {
     // đèn giao thông: cộng thời gian chờ đèn trung bình cho mỗi ngã tư có đèn trên đường (chạy đúng luật vẫn kịp) — × order.lightAllow
     const lm = (LMAP ||= lightMap()), lights = (pos ? lightsOnRoute(routeNodes(pos, o.pickup.door), lm) : 0) + lightsOnRoute(routeNodes(o.pickup.door, o.dropoff.door), lm);
     const lightMin = lights * avgLightWait() * (ORDER.lightAllow ?? 1);
-    o.allowedMin = Math.round(((o.d1 + o.d2) / ORDER.planSpeed + prep + ORDER.slack + lightMin) * o.deadlineMult);
+    o.allowedMin = Math.round(((o.d1 + o.d2) / ORDER.planSpeed + prep + ORDER.slack + lightMin) * o.deadlineMult * (ORDER.deadlineMul ?? 1)); // deadlineMul: nới hạn chung (thẻ Cân bằng)
     this.order = o;
     this.gs.recordOffer(true);
     this.go(S.TO_PICKUP);

@@ -48,6 +48,7 @@ import { loadSettings, saveSettings, normSettings } from './settings.js';
 import { fmt } from './content/index.js';
 import { ChatChannel } from './sim/chat.js';
 import { ChatBox } from './ui/chatBox.js';
+import { CheatBox } from './ui/cheatBox.js';
 import { Bubbles, headOf } from './ui/bubbles.js';
 import { fmtK } from './sim/economy.js';
 import { SAVE_KEY, PHOTO_KEY, PHOTO_SLOTS, SW_H, NO_MOVE, fmtTime, NORMAL, inRect, mixParts } from './game/shared.js';
@@ -191,6 +192,17 @@ export class Game {
     // Bảng cheat để test (src/devtools/cheat.js): chỉ khi chạy npm run dev + ?cheat — bản build không có đoạn này
     this.cheat = {}; // cờ cheat đang bật: noPolice, noCrash… (bảng cheat ghi vào)
     if (import.meta.env?.DEV && new URLSearchParams(location.search).has('cheat')) import('./devtools/cheat.js').then((m) => m.mountCheat(this));
+    // Ô nhập mã cheat kiểu GTA (phím `, có cả trong bản build — src/ui/cheatBox.js, mã ở interactions/cheatCodes.js; chỉ Offline).
+    // Đang mở bảng cheat để test (?cheat) thì phím ` thuộc bảng đó.
+    else {
+      this.cheatBox = new CheatBox(uiRoot, (t) => act.applyCheatCode(this, t), (open) => (this.cheatOpen = open));
+      window.addEventListener('keydown', (e) => {
+        if (e.code !== 'Backquote' || e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+        if (this.state !== 'play' || this.paused || this.modal.open || this.phone.open || this.cheatBox.open) return;
+        e.preventDefault();
+        this.cheatBox.toggle(true);
+      });
+    }
     this.freezeStatic();
     this.showTitle();
     requestAnimationFrame((t) => this.frame(t));
@@ -883,6 +895,7 @@ export class Game {
     const { gs, om, hz, bike } = this;
     const inp = this.input;
     const now = this.clockMin;
+    if (this.cheat.god) Object.assign(gs, { phys: 100, mental: 100, awakeSince: now }); // mã BATTU: không mệt, không buồn ngủ
     const rain = hz.rainAt(now);
     const jams = hz.activeJams(now);
     this.traffic.setJams(jams);
@@ -1030,7 +1043,7 @@ export class Game {
     const { gs, om } = this, inp = this.input;
     this.floodTick(dt, water, mounted ? speed : 0, mounted);
     om.update(dMin, dt, this.clockMin, pp);
-    om.tickItems({ ...env, speed: mounted ? speed : 0 }, dMin);
+    if (!this.cheat.goods) om.tickItems({ ...env, speed: mounted ? speed : 0 }, dMin); // mã HANGBEN: hàng không hư
     // khách xe ôm sợ quá (dưới ngưỡng của loại khách) → đòi xuống giữa đường
     const ro = om.order;
     if (ro && ro.kind === 'ride' && om.state === S.DELIVERING && ro.items[0]) {
@@ -1223,7 +1236,7 @@ export class Game {
       const now = this.clockMin;
       this.rollDay();
       this.gs.drain(activity, 1, { harshSun: this.hz.isHarshSun(now), raining: this.hz.isRaining(now), outdoor: !indoor, inJam: false, waiting, now });
-      this.om.tickItems(this.itemEnv(0, indoor), 1);
+      if (!this.cheat.goods) this.om.tickItems(this.itemEnv(0, indoor), 1);
       this.om.update(1, 0, now, this.playerPos);
       for (const e of this.hz.poll(now)) this.onHazard(e);
       this.parkTick();

@@ -10,9 +10,9 @@
     "rentDueHour": 22,
     "lateFeePct": 0.2,
     "maxLate": 2,
-    "policeFine": 100,
-    "noHelmetFine": 60,
-    "blockFine": 50,
+    "policeFine": 40,
+    "noHelmetFine": 25,
+    "blockFine": 20,
     "blockWarnMin": 10,
     "blockFineMin": 30,
     "repairCost": 40,
@@ -32,7 +32,8 @@
     "rentByPeriod": [],
     "faintFee": 100,
     "resalePct": 0.3,
-    "pedalNoFines": 1
+    "pedalNoFines": 1,
+    "policeGraceKmh": 5
   },
   "energy": {
     "phys": {
@@ -53,8 +54,8 @@
       "jam": 0.3,
       "rain": 0.08,
       "wait": 0.05,
-      "police": 8,
-      "fine": 10,
+      "police": 4,
+      "fine": 5,
       "carCrash": 8,
       "dogHit": 10,
       "pedHit": 6,
@@ -128,7 +129,8 @@
     "callDownWait": 8,
     "liftMin": 3,
     "placeDestBase": 12,
-    "lightAllow": 1
+    "lightAllow": 1,
+    "deadlineMul": 1.3
   },
   "walletQuest": {
     "reward": 150,
@@ -151,17 +153,17 @@
   "parking": {
     "graceMin": 60,
     "fee": 5,
-    "ticketPerHour": 0.3,
-    "ticketFine": 50,
-    "towPerHour": 0.15,
+    "ticketPerHour": 0.15,
+    "ticketFine": 20,
+    "towPerHour": 0.08,
     "towFrom": 7,
     "towTo": 18,
-    "towFee": 150,
+    "towFee": 60,
     "theftPerHour": 0.25,
     "theftFuelPct": 0.6,
     "theftHp": 15,
     "fineDays": 3,
-    "overduePct": 0.5,
+    "overduePct": 0.3,
     "helmetStreetPerHour": 0.06,
     "helmetLotPerHour": 0.02
   },
@@ -169,7 +171,7 @@
     "gateFee": 5,
     "noStopWarnMin": 3,
     "noStopFineMin": 8,
-    "noStopFine": 50
+    "noStopFine": 20
   },
   "roads": {
     "big": {
@@ -245,7 +247,10 @@
     "fragileBrake": 2.4,
     "riderSpeed": 0.29,
     "riderBump": 2.4,
-    "riderCrash": 14.4
+    "riderCrash": 14.4,
+    "damageMul": 0.3,
+    "softBrake": 6,
+    "runSpeed": 4.45
   },
   "flood": {
     "tideChance": 0.2,
@@ -306,13 +311,13 @@
   "lights": {
     "greenSec": 8,
     "yellowSec": 2,
-    "basePct": 0.15,
-    "cameraPct": 0.7,
+    "basePct": 0.08,
+    "cameraPct": 0.4,
     "policePct": 1,
-    "fine": 100,
+    "fine": 40,
     "delayMin": 30,
     "delayMax": 60,
-    "maxPerDay": 2,
+    "maxPerDay": 1,
     "warnFirst": 1,
     "minSpeed": 2.777778,
     "autoCameraPct": 0.34

@@ -33,6 +33,15 @@ import { GARAGE_CAM, SW_H, TALK_CAM_GROUP, TALK_CAM, WATCH_CAM, fmtTime, dist2 }
 const GOAL_ICON = { '#f39c12': '📦', '#2ecc71': '📦', '#9b59b6': '📦', '#e67e22': '📦', '#1e90ff': '🧭', '#5dade2': '🛵', '#e74c3c': '⚠️', '#8e7cc3': '😴', '#16a085': '🚌', '#f4d03f': '⭐' };
 export class VisualsPart {
   // ======================== HIỂN THỊ ========================
+  // Đèn ở ngã tư phía trước cho HUD; warn = đèn đỏ (hoặc vàng mà tới nơi đã đỏ) trong khi còn chạy nhanh sát vạch → nháy "DỪNG LẠI"
+  hudLight() {
+    const L = this.lightAhead();
+    if (!L) return null;
+    const v = Math.max(0, this.bike.speed);
+    L.warn = v > 2.8 && L.dist < 22 && (L.c === 'r' || (L.c === 'y' && L.left < L.dist / v));
+    return L;
+  }
+
   updateCamera(dt) {
     if (this.cine) return this.cineTick(dt); // đang chiếu cảnh phim cốt truyện: camera theo cảnh quay
     if (this.raceIntro) return this.raceIntroCamera(dt); // cảnh phim mở màn đua (phần ở bến — game/race.js)
@@ -43,7 +52,10 @@ export class VisualsPart {
     const locked = !!this.storyTalkActor(); // đang nói chuyện (cốt truyện): khóa camera ở góc nhìn 2 người, không xoay / phóng
     if (!locked && (this.input.drag.dx || this.input.drag.dy)) this.rig.drag(this.input.drag.dx * k, this.input.drag.dy * ky);
     // chuột (khi khóa con trỏ): xoay tự do; ngưng di chuột ~2 giây thì camera tự quay về sau xe
-    if (!locked && (this.input.look.dx || this.input.look.dy)) this.rig.drag(this.input.look.dx * 0.6 * k, this.input.look.dy * 0.6 * ky);
+    // Tự xoay camera (Cài đặt): thả chuột ~0,8 giây là về sau lưng; chuột chỉ rung nhẹ (≤ 2 điểm ảnh) không tính là đang cầm camera
+    const auto = this.settings.autoCam, look = this.input.look;
+    this.rig.holdSec = auto ? 0.8 : 2;
+    if (!locked && (look.dx || look.dy)) this.rig.drag(look.dx * 0.6 * k, look.dy * 0.6 * ky, !auto || Math.abs(look.dx) + Math.abs(look.dy) > 2);
     if (!locked && this.input.wheel) this.rig.zoom(this.input.wheel);
     if (locked) this.rig.manualTimer = 0; // vừa xoay trước lúc bắt chuyện → camera về ngay góc nói chuyện
     const mounted = this.mode === 'bike';
@@ -75,6 +87,12 @@ export class VisualsPart {
     const moving = mounted ? Math.abs(this.bike.speed) > 0.5 : this.walker.mesh.position.distanceTo(this.lastFocus || focus) > 0.01;
     this.lastFocus = (this.lastFocus || new THREE.Vector3()).copy(focus);
     this.stillT = moving ? 0 : (this.stillT || 0) + dt;
+    // Tự xoay camera khi đi bộ (kiểu GTA, không cần chuột): đi tới / sang ngang thì camera từ từ quay ra sau lưng;
+    // đi lùi về phía camera thì để yên (không thì camera quay vòng vòng)
+    if (auto && !mounted && !talk && !wt && moving && this.rig.manualTimer <= 0) {
+      const h = this.walker.heading;
+      if (-Math.cos(h - this.rig.yaw) > -0.2) this.rig.yaw = lerpAngle(this.rig.yaw, h + Math.PI, 1 - Math.exp(-0.9 * dt)); // quay chậm: giữ ← đi 1 vòng mất ~4,5 giây
+    }
     // đang nói chuyện: chỉ né nhà (né cây / cột lúc này kéo camera sát quá, mất khung cả nhóm) · nhóm 3 người → lùi xa hơn
     this.rig.update(dt, talk ? this.talkFocus : focus, mounted && Math.abs(this.bike.speed) > 1 ? this.bike.heading : null, this.city.grid, inG ? GARAGE_CAM : this.zone?.camLimit?.(focus) || (talk ? (this.talkGroup > 1 ? TALK_CAM_GROUP : TALK_CAM) : wt ? WATCH_CAM : null), !talk && this.stillT > 0.6);
     if (this.shake > 0) {
@@ -512,6 +530,7 @@ export class VisualsPart {
       speedo: mounted
         ? fmt('hud.speed', { kmh: Math.round(Math.abs(this.bike.speed) * 3.6) }) + (Math.abs(this.bike.speed) > this.speedLimit() ? fmt('hud.overSpeed', { limit: this.speedLimitKmh() }) : '') + (this.inJam ? fmt('hud.inJam') : '') + (this.floodBandNow ? fmt('hud.flood', { kmh: Math.round(floodSpeedCap(this.floodHere()) * 3.6) }) : '') + (this.stalled ? fmt('hud.stalled') : '') + (gs.power !== 'pedal' && gs.fuel <= 0 ? fmt(gs.power === 'electric' ? 'hud.noBattery' : 'hud.noFuel') : '')
         : fmt('hud.walking'),
+      light: this.zone || this.race ? null : this.hudLight(),
       cargo,
       timeLeft: o?.forced ? fmt('hud.noLimit') : left >= 0 ? fmt('hud.minutes', { min: left }) : fmt('hud.late', { min: -left }), // đơn cốt truyện: không hạn
       vignette: Math.max(0, (25 - Math.min(gs.phys, gs.mental)) / 25) * 0.8,

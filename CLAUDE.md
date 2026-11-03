@@ -47,6 +47,7 @@ Nguyên tắc:
 
 ## 3. Công cụ qua tham số địa chỉ
 - `?debug`: `window.game` (step, press, snapshot), `window.autopilot`; phím T tua 30 phút, K +100k, L đầy xăng.
+- Mã cheat kiểu GTA (có cả bản build, chỉ Offline): phím ` mở ô nhập mã (`src/ui/cheatBox.js`), mã ở `src/interactions/cheatCodes.js` (GIAUTO, HOISUC, DAYXANG, NAMSAO, XOANO, HANGBEN, BATTU, XEXIN); dùng rồi ghi `gs.flags.cheated`.
 - `?cheat` (chỉ khi `npm run dev`, bản build không có): bảng cheat để test (`src/devtools/cheat.js`), bấm phím ` để mở — tiền/chỉ số, tua giờ, thời tiết/ngập, gọi đơn theo loại / quán / loại khách, lấy hàng ngay, ép sự cố, xe/túi/đồ, vào hãng, dịch chuyển, bất tử, cốt truyện, bảng soi.
 - `?relationship`: sơ đồ quan hệ nhân vật (thẻ nhân vật + dây quan hệ, ✅ Kiểm tra = validateRelations trong validate.js). Lưu ghi src/data/relations.json ("Đưa vào cốt truyện" ghi thêm story.json + vi.json, gộp vào bản mới nhất).
 - `?editor`: công cụ nội dung (Vật phẩm · Xe/Túi/Đồ nghề · Địa điểm & NPC · Bản đồ · 🏗️ Xây dựng (bản đồ 3D: kéo địa điểm từ danh sách thả vào lô, dời, xoay, đổi kiểu hẻm) · App & Đơn · 📱 Giao diện app · Cân bằng · Chữ & hội thoại). Địa điểm mới tạo nằm "chưa đặt" (không có block/lot) → game bỏ qua tới khi kéo vào bản đồ (`isPlaced` trong data/places.js); khi chạy `npm run dev`, Lưu ghi thẳng vào file JSON. Người dùng hay tự sửa dữ liệu bằng công cụ này — tôn trọng các thay đổi đó, không ghi đè.

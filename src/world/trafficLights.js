@@ -52,7 +52,7 @@ export function buildTrafficLights(scene, lmap, grid = null) {
   const group = new THREE.Group();
   if (heads.length) mergeKits([{ kit, matrix: new THREE.Matrix4() }], group);
   // bóng đèn: đĩa tròn phát sáng (không bị bóng tối làm tối), màu đổi theo pha
-  const geo = new THREE.CircleGeometry(0.1, 12);
+  const geo = new THREE.CircleGeometry(0.13, 14); // to hơn chút cho dễ thấy từ xa (vỏ đèn rộng 0,34)
   const lamps = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({ color: 0xffffff }), Math.max(1, lampPos.length));
   lamps.count = lampPos.length;
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1), v = new THREE.Vector3();

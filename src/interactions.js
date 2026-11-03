@@ -9,3 +9,4 @@ export { acceptOffer, declineOffer, phoneAction, comfortKmh } from './interactio
 export { pickup, dropoff, passengerQuit, viewWallet } from './interactions/delivery.js';
 export { placeAction } from './interactions/places.js';
 export { rideEventDialog, blockTicket, policeStop, patrolStop, waitForAppointment, fmtLeft } from './interactions/road.js';
+export { applyCheatCode, CHEAT_CODES } from './interactions/cheatCodes.js';

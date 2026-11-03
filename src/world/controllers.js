@@ -95,8 +95,12 @@ export class Bike {
     const wetK = ctx.wet ? 0.6 : 1;
     let a = 0;
     if (ctx.mounted && input.forward) a = (noFuel ? 1.5 : s.accel) * Math.max(0, 1 - Math.max(0, this.speed) / Math.max(0.1, maxSpeed));
-    if (ctx.mounted && input.back) a = this.speed > 0.3 ? -s.brake * wetK : -2;
-    if (ctx.mounted && input.brake && this.speed > 0) a = -s.brake * 1.15 * wetK;
+    // phanh: 1 phím (Space hoặc S / ↓) = phanh êm, giảm tốc dưới ngưỡng phanh gấp → không đổ hàng / khách không hoảng.
+    // Giữ cả Space + S cùng lúc = phanh gấp (mạnh hết cỡ của xe, như trước).
+    const hard = input.brake && input.back;
+    const brakeA = (hard ? s.brake * 1.15 : Math.min(s.brake, D('softBrake', 6))) * wetK;
+    if (ctx.mounted && input.back) a = this.speed > 0.3 ? -brakeA : -2;
+    if (ctx.mounted && input.brake && this.speed > 0) a = -brakeA;
     if (!input.forward && !input.back && !input.brake) a = -1.3 * Math.sign(this.speed);
     if (!ctx.mounted) a = -6 * Math.sign(this.speed);
     this.speed += a * dt;
@@ -271,7 +275,7 @@ export class Walker {
       mx /= len;
       mz /= len;
       const run = input.run && ctx.phys > 8;
-      let v = run ? 6.2 : 3.4;
+      let v = run ? D('runSpeed', 6.2) : 3.4; // chạy bộ: balance.json → driving.runSpeed
       if (ctx.phys < 15) v *= 0.7;
       v *= ctx.speedMul ?? 1; // lội nước ngập sâu: đi chậm hơn
       if (input.back && !input.forward) v *= ctx.backMul ?? 1; // đi lùi chậm hơn (đánh nhau: không vừa lùi vừa ném mà boss đuổi không kịp)
@@ -391,10 +395,11 @@ export class CameraRig {
     this.manualTimer = 0;
     this.init = false;
   }
-  drag(dx, dy) {
+  // manual = false: chuột chỉ rung nhẹ → vẫn xoay theo nhưng không tính là "đang tự cầm camera"
+  drag(dx, dy, manual = true) {
     this.yaw -= dx * 0.005;
     this.pitch = Math.max(0.1, Math.min(1.25, this.pitch + dy * 0.004));
-    this.manualTimer = 2;
+    if (manual) this.manualTimer = this.holdSec ?? 2; // thả chuột bấy nhiêu giây thì camera tự quay về sau lưng
   }
   zoom(d) {
     this.dist = Math.max(4, Math.min(24, this.dist + d * 0.01));

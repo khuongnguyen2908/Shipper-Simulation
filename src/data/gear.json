@@ -3,8 +3,8 @@
     "xeDap": {
       "id": "xeDap",
       "name": "Xe đạp cũ",
-      "maxSpeed": 5,
-      "accel": 2.2,
+      "maxSpeed": 7.5,
+      "accel": 3.1,
       "brake": 6,
       "steer": 2.4,
       "suspension": 0.15,

@@ -41,6 +41,7 @@ const LIST = [
   ['ui.sign', 'ui', 'Ký tên', 'Bắt đầu một nét ký trong popup hợp đồng', '', 'sfx'],
   ['ui.tutorial', 'ui', 'Bước hướng dẫn', 'Hướng dẫn sang bước mới (chỗ sáng đổi vị trí)', '', 'sfx'],
   ['ui.interact', 'ui', 'Tương tác (E)', 'Bấm E: vào quán, nói chuyện, lấy hàng…', 'click', 'sfx'],
+  ['ui.cheat', 'ui', 'Nhập đúng mã cheat', 'Gõ đúng mã cheat trong ô nhập mã (phím `) — kiểu GTA', 'cash', 'sfx'],
   // ---- điện thoại & chat ----
   ['phone.open', 'phone', 'Mở điện thoại', 'Bấm Tab mở điện thoại', '', 'sfx'],
   ['phone.close', 'phone', 'Cất điện thoại', 'Bấm Tab cất điện thoại', '', 'sfx'],

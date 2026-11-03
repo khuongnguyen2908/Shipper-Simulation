@@ -25,6 +25,7 @@ export class Hud {
       <button id="phoneIcon" class="pi" title="${fmt('phone.iconHint')}"><span class="pi-wave"></span><span class="pi-wave w2"></span><span class="pi-body"><span class="pi-screen" id="piScreen"></span></span><span class="pi-badge hidden" id="piBadge"></span><span class="pi-key">${fmt('phone.iconHint')}</span></button>
       <div id="phoneNote" class="hidden"></div>
       <div id="cargo" class="panel hidden"></div>
+      <div id="lightAhead" class="hidden"></div>
       <div class="hud-bl"><div id="prompt"></div><div id="speedo"></div></div>
       <div class="hud-keys">${fmt('hud.keys')}<span id="kWait"></span></div>
       <div id="toasts"></div>
@@ -137,6 +138,7 @@ export class Hud {
     } else arrow.style.display = 'none';
     this.set('prompt', d.prompts.map((p) => `<div class="pr${p.disabled ? ' dis' : ''}"><kbd>${p.key}</kbd> ${p.label}</div>`).join(''));
     this.set('speedo', d.speedo);
+    this.light(d.light);
     const cargo = $(this.el, '#cargo');
     if (d.cargo && d.cargo.length) {
       cargo.classList.remove('hidden');
@@ -149,6 +151,17 @@ export class Hud {
       this.set('mmStreet', d.round.street);
       this.mini.drawRound(d.round.draw);
     }
+  }
+
+  // Đèn giao thông ở ngã tư phía trước (game/roadRules.js lightAhead): trụ đèn to giữa màn hình + số giây còn lại.
+  // Đỏ / vàng mà còn chạy nhanh sát vạch → nháy "DỪNG LẠI".
+  light(L) {
+    const box = $(this.el, '#lightAhead');
+    box.classList.toggle('hidden', !L);
+    if (!L) return;
+    const lamp = (c) => `<i class="la-${c}${L.c === c ? ' on' : ''}"></i>`;
+    this.set('lightAhead', `<div class="la-head">${lamp('r')}${lamp('y')}${lamp('g')}</div><div class="la-txt"><b>${Math.ceil(L.left)}</b><span>${fmt(`hud.light.${L.c}`)}</span>${L.cam ? `<small>${fmt('hud.light.cam')}</small>` : ''}</div>`);
+    box.classList.toggle('warn', !!L.warn);
   }
 
   // Thông báo nhỏ: mỗi lúc hiện tối đa 2 cái, cái mới hơn xếp hàng chờ (khỏi dồn 3–4 thông báo một lượt).

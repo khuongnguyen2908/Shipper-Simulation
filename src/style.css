@@ -114,6 +114,18 @@ body.phone-open .hud-obj { box-sizing: border-box; max-height: max(72px, calc(10
 .cg .track { grid-column: 1 / 3; }
 .cg-s { color: var(--muted); font-size: 11.5px; }
 .hud-bl { position: absolute; left: 14px; bottom: 40px; }
+/* đèn giao thông ở ngã tư phía trước (hud.js light): giữa dưới màn hình, ngay dưới xe — đèn sáng to + số giây còn lại */
+#lightAhead { position: absolute; left: 50%; bottom: 46px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 6px 14px 6px 8px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); pointer-events: none; }
+#lightAhead .la-head { display: flex; gap: 5px; padding: 5px 7px; border-radius: 10px; background: #111; }
+#lightAhead .la-head i { width: 22px; height: 22px; border-radius: 50%; opacity: 0.18; }
+#lightAhead .la-r { background: #ff3b30; } #lightAhead .la-y { background: #ffc107; } #lightAhead .la-g { background: #2ecc71; }
+#lightAhead .la-head i.on { opacity: 1; box-shadow: 0 0 12px 3px currentColor; }
+#lightAhead .la-r.on { color: #ff3b30; } #lightAhead .la-y.on { color: #ffc107; } #lightAhead .la-g.on { color: #2ecc71; }
+#lightAhead .la-txt { display: flex; align-items: baseline; gap: 7px; font-weight: 700; white-space: nowrap; }
+#lightAhead .la-txt b { font-size: 24px; min-width: 1.3em; text-align: right; }
+#lightAhead .la-txt small { font-weight: 500; color: var(--muted); }
+#lightAhead.warn { border-color: #ff3b30; background: #7f1212e6; animation: laWarn 0.5s ease-in-out infinite alternate; }
+@keyframes laWarn { to { transform: translateX(-50%) scale(1.08); } }
 #prompt .pr { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin-top: 6px; font-size: 15px; font-weight: 600; }
 #prompt .pr.dis { opacity: 0.65; font-weight: 400; }
 #speedo { margin-top: 8px; font-size: 14px; background: var(--bg); display: inline-block; padding: 6px 12px; border-radius: 10px; }
@@ -726,7 +738,7 @@ body.cine #cine { display: block; }
 #storyLose button { font: inherit; font-weight: 800; font-size: 17px; padding: 11px 30px; border-radius: 12px; border: 0; background: #f4d03f; color: #111; cursor: pointer; }
 #storyLose button:hover { filter: brightness(1.08); }
 @keyframes loseIn { from { opacity: 0; } to { opacity: 1; } }
-body.cine #hud, body.cine #minimap, body.cine #phoneIcon, body.cine #phoneNote, body.cine #prompt, body.cine #speedo, body.cine #cargo, body.cine #toasts, body.cine #spotlight { visibility: hidden; }
+body.cine #hud, body.cine #minimap, body.cine #phoneIcon, body.cine #phoneNote, body.cine #prompt, body.cine #speedo, body.cine #lightAhead, body.cine #cargo, body.cine #toasts, body.cine #spotlight { visibility: hidden; }
 
 /* Nhóm chat (cốt truyện): dòng hệ thống giữa khung · tên người gửi trên bong bóng · bị chặn (đỏ nhạt) */
 .msg-sys { align-self: center; max-width: 92%; margin: 2px 0; padding: 3px 10px; border-radius: 10px; background: rgba(255,255,255,0.06); color: var(--muted); font-size: 11px; text-align: center; }
@@ -774,6 +786,12 @@ body.cine #hud, body.cine #minimap, body.cine #phoneIcon, body.cine #phoneNote, 
 
 /* ===== ĐÁNH NHAU góc nhìn thứ 1 (chương 6 — ui/fightHud.js) ===== */
 .in-fight .hud-tl, .in-fight .hud-obj, .in-fight .hud-goal, .in-fpv .hud-keys, .in-fight #prompt:empty { display: none !important; }
+/* ô nhập mã cheat (phím ` — src/ui/cheatBox.js) */
+#cheatBox { position: fixed; left: 50%; top: 22%; transform: translateX(-50%); z-index: 30; width: min(360px, calc(100vw - 32px)); padding: 12px 14px; border-radius: 12px; background: var(--bg2); border: 1px solid var(--line); box-shadow: 0 10px 34px #000a; display: grid; gap: 8px; }
+#cheatBox input { font: 700 18px/1.2 ui-monospace, Consolas, monospace; letter-spacing: 2px; text-transform: uppercase; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: #0008; color: #fff; outline: none; }
+#cheatBox input::placeholder { letter-spacing: 0; text-transform: none; font: 13px system-ui; color: var(--muted); }
+#cheatBox .cb-msg { font-size: 13px; min-height: 17px; }
+#cheatBox .cb-msg.ok { color: #4ade80; } #cheatBox .cb-msg.bad { color: #fca5a5; }
 body:has(.in-fight) #chat { display: none; } /* đang đánh nhau: ẩn tin nhóm chat cho khỏi rối */
 .fh { position: fixed; inset: 0; pointer-events: none; z-index: 20; font-family: inherit; color: #fff; }
 .fh.hidden { display: none; }
@@ -869,7 +887,7 @@ body:has(.in-fight) #chat { display: none; } /* đang đánh nhau: ẩn tin nhó
 @keyframes fhEdge { from { opacity: 1; } to { opacity: 0; } }
 
 /* ===== MÀN ĐUA (chương 6 — ui/raceHud.js) ===== */
-.in-race .hud-tl, .in-race .hud-obj, .in-race .hud-goal, .in-race #speedo, .in-race .hud-keys, .in-race #phoneIcon, .in-race #phoneNote { display: none !important; }
+.in-race .hud-tl, .in-race .hud-obj, .in-race .hud-goal, .in-race #speedo, .in-race #lightAhead, .in-race .hud-keys, .in-race #phoneIcon, .in-race #phoneNote { display: none !important; }
 body:has(.in-race) #chat { display: none; }
 .rh { position: fixed; inset: 0; pointer-events: none; z-index: 20; color: #fff; }
 .rh.hidden { display: none; }

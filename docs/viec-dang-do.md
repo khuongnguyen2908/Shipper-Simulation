@@ -27,6 +27,24 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   - Chủ game tự tạo dự án Firebase (Claude hướng dẫn từng bước), dán cấu hình vào code.
 
 ## 💬 Đang bàn
+### 🎮 Giảm độ khó + lái dễ hơn + mã cheat (03/11 — XONG, chưa commit)
+- Chủ game: người chơi kêu giao hàng / chở khách quá khó (giảm 70%), lái khó, phanh khó, dùng phím mũi tên không xoay được camera, CSGT phạt nhiều.
+- Đã làm:
+  - **Hư hàng / khách sợ × 0,3** (`driving.damageMul`, nhân trong `DeliveryItem.tick/event` — xếp túi sai không nhân) · **thời hạn đơn × 1,3** (`order.deadlineMul`).
+  - Xe đạp 18 → **27 km/h** (gear.json xeDap maxSpeed 7,5, accel 3,1) · chạy bộ Shift 22 → **16 km/h** (`driving.runSpeed`).
+  - **Phanh êm**: Space hoặc S / ↓ (1 phím) giảm tốc `driving.softBrake` = 6 m/s² (dưới ngưỡng 6,5 → không đổ hàng); giữ Space + S = phanh gấp như cũ.
+    Thêm phím phanh Ctrl phải / số 0 bàn phím số. (Trước đây xe máy phanh lần nào cũng vượt ngưỡng → lần nào cũng đổ hàng.)
+  - **Camera tự xoay** (Cài đặt → ô "Camera tự xoay", mặc định bật): lái xe thả chuột 0,8 giây là về sau xe (trước 2 giây; chuột rung nhẹ không tính);
+    đi bộ đi tới / sang ngang thì camera từ từ quay ra sau lưng (đi lùi thì không).
+  - **Đèn giao thông trên HUD**: giữa dưới màn hình hiện đèn ngã tư phía trước (≤ 45 m) + số giây còn lại + "📷 có camera"; đỏ mà còn chạy nhanh sát vạch → nháy đỏ.
+    Bóng đèn 3D to hơn (0,1 → 0,13). Code: `lightPhase` (sim/lights.js), `lightAhead` (game/roadRules.js), `hudLight` (visuals.js), `Hud.light`.
+  - **CSGT dễ hơn**: chạy đúng luật + có mũ → chốt vẫy cho qua (không dừng xe); quá tốc độ dưới `economy.policeGraceKmh` = 5 km/h cho qua.
+    Tiền phạt giảm hết: CSGT 100 → 40k · không mũ 60 → 25k · đèn đỏ 100 → 40k (ghi hình 15% → 8%, camera 70% → 40%, tối đa 1 lần/ngày) ·
+    cản đường 50 → 20k · dán phạt đậu xe 50 → 20k (xác suất /2) · cẩu xe 150 → 60k (xác suất /2) · sân bay 50 → 20k · quá hạn +50% → +30% · trừ tinh thần /2.
+  - **Mã cheat kiểu GTA** (cả bản build, chỉ Offline): phím ` → ô nhập mã. GIAUTO · HOISUC · DAYXANG · NAMSAO · XOANO · HANGBEN · BATTU · XEXIN
+    (`interactions/cheatCodes.js`, `ui/cheatBox.js`; dùng rồi ghi `gs.flags.cheated`). Online gõ mã → báo không dùng được.
+- Chơi nhiều người: số cân bằng nằm ở balance.json / gear.json (máy chủ dùng chung); phanh, camera, HUD đèn chỉ là cảm giác điều khiển trên từng máy;
+  mã cheat khóa khi Online. Lưu ý: đồng hồ đèn (`lightT`) đang tính riêng từng máy từ lúc mở game — khi làm đèn chung cho Online cần lấy theo giờ máy chủ.
 ### 🚀 Tăng FPS (03/11 — XONG, commit ca95f81)
 - Chủ game: "FPS tụt lắm". Đo (Chrome ẩn dùng GTX 1660, 1600×900): đang chơi 35–43 FPS — có từ trước (bản trước màn loading y vậy), nghẽn ở CPU
   (tắt bóng / giảm nửa độ phân giải không đổi): 15.133 vật thể tính lại vị trí mỗi khung (~5 ms) + ~1.450 lần vẽ (~19 ms).

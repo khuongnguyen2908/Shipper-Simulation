@@ -7,7 +7,7 @@ const MAP = {
   KeyA: 'left', ArrowLeft: 'left',
   KeyD: 'right', ArrowRight: 'right',
   ShiftLeft: 'run', ShiftRight: 'run',
-  Space: 'brake',
+  Space: 'brake', ControlRight: 'brake', Numpad0: 'brake', // phanh: thêm Ctrl phải / số 0 bàn phím số cho người dùng phím mũi tên
   KeyO: 'who', // giữ O: danh sách người online (chế độ Online)
 };
 

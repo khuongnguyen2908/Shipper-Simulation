@@ -18,7 +18,7 @@ export class EventsPart {
   // ======================== SỰ KIỆN ========================
   onBikeEvent(type, mag, info, env) {
     if (type === 'bump' && info?.what === 'pothole' && isDark(this.clockMin)) mag *= NIGHT.potholeMul || 1; // đêm tối khó thấy ổ gà
-    this.om.itemEvent(type, mag, { ...env, speed: Math.abs(this.bike.speed) });
+    if (!this.cheat.goods) this.om.itemEvent(type, mag, { ...env, speed: Math.abs(this.bike.speed) }); // mã HANGBEN: hàng không hư
     const liquid = this.om.hasCargo && this.om.order.items.some((i) => i.has('liquid') || i.has('passenger'));
     if (type === 'bump') {
       if (mag > 0.25) {
@@ -47,7 +47,7 @@ export class EventsPart {
   // Đầu trần trên xe máy / xe điện (đang chạy) gần xe tuần tra cũng bị dừng (reason 'helmet').
   patrolCheck(mounted, speed) {
     if (!mounted || this.cheat.noPolice || this.modal.open) return;
-    const speeding = speed > this.speedLimit(), bare = this.gs.noHelmet && speed > 1;
+    const speeding = this.overLimit(speed), bare = this.gs.noHelmet && speed > 1;
     if (!speeding && !bare) return;
     const p = this.patrolNear();
     if (!p) return;

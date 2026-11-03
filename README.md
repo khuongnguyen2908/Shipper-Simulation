@@ -18,9 +18,10 @@ npm run preview    # chơi thử bản build ở http://localhost:4173 (bấm đ
 
 | Phím | Việc |
 |---|---|
-| W A S D / mũi tên | lái xe / đi bộ |
+| W A S D / mũi tên | lái xe / đi bộ (camera tự quay ra sau lưng — tắt trong Cài đặt) |
 | Shift | chạy (đi bộ) |
-| Space | phanh |
+| Space (hoặc S / ↓, Ctrl phải, số 0) | phanh êm — không đổ hàng |
+| Space + S | phanh gấp — dừng nhanh, đổ hàng |
 | F | lên / xuống xe |
 | E | tương tác (lấy hàng, giao hàng, nói chuyện, đổ xăng…) |
 | Tab | điện thoại GoShip |
@@ -30,6 +31,10 @@ npm run preview    # chơi thử bản build ở http://localhost:4173 (bấm đ
 | Kéo chuột / cuộn | xoay / zoom camera |
 
 `?debug` trên địa chỉ: `T` tua 30 phút, `K` +100k, `L` đầy xăng; `window.game.step()` và `window.autopilot` dùng để kiểm thử.
+
+**Mã cheat** (kiểu GTA, chỉ khi chơi Offline): bấm phím `` ` `` (dưới Esc) → gõ mã → Enter.
+`GIAUTO` +1.000k · `HOISUC` đầy thể lực + tinh thần · `DAYXANG` đầy xăng / pin, xe như mới · `NAMSAO` 5 sao ·
+`XOANO` xóa phạt + nợ tiền nhà · `HANGBEN` hàng không hư (bật / tắt) · `BATTU` không mệt (bật / tắt) · `XEXIN` xe mạnh nhất.
 
 ## Đăng game cho bạn bè chơi (GitHub Pages)
 

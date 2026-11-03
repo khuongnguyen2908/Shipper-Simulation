@@ -165,19 +165,26 @@ export class DeliveryItem {
 
   damage(amount, reason) {
     if (!(amount > 0) || this.condition <= 0) return;
+    amount *= this.dmgK ?? 1; // đang tính hư do đường đi / thời gian → nhân "mức hư hàng" (xem tick / event)
     const v = Math.min(this.condition, amount);
     this.condition -= v;
     this.reasons[reason] = (this.reasons[reason] || 0) + v;
   }
 
+  // Hư do đường đi (xóc, phanh, cua, đâm) và theo thời gian (nguội, tan, ướt, khách sợ) nhân driving.damageMul
+  // (thẻ Cân bằng: 0,3 = chỉ còn 30%). Xếp túi sai (applyPacking) không nhân.
   tick(env, dt) {
+    this.dmgK = DV('damageMul', 1);
     for (const t of this.traits) t.tick(env, dt);
+    this.dmgK = 1;
   }
 
   event(type, mag, env) {
     const fn = EVENT_FN[type];
     if (!fn || !(mag > 0)) return;
+    this.dmgK = DV('damageMul', 1);
     for (const t of this.traits) t[fn](mag, env);
+    this.dmgK = 1;
   }
 
   // Áp kết quả mini-game xếp túi

@@ -355,8 +355,10 @@ export function talkPed(g, ped) {
 export function policeStop(g, p, speed) {
   if (g.noFines()) return; // xe đạp: CSGT cho qua
   const { gs, bike } = g;
-  const speeding = speed > g.speedLimit(); // giới hạn theo cấp đường đang chạy (src/sim/roads.js)
+  const speeding = g.overLimit(speed); // giới hạn theo cấp đường đang chạy (src/sim/roads.js) + mức cho qua policeGraceKmh
   const noHelmet = gs.noHelmet, helmetFine = noHelmet ? ECONOMY.noHelmetFine ?? 60 : 0; // đầu trần: phạt thêm (cộng dồn)
+  // không lỗi gì (đúng tốc độ, có mũ, không nợ phạt quá hạn) → CSGT vẫy cho qua, khỏi dừng xe trình giấy
+  if (!speeding && !noHelmet && !gs.hasOverdueFines) return g.hud.toast(fmt('toast.policeWave', { place: intersectionName(...p.node) }), 'info', 3500);
   bike.speed = 0;
   bike.vel.set(0, 0);
   sound('law.whistle');
