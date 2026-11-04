@@ -155,12 +155,34 @@ export class Hud {
 
   // Đèn giao thông ở ngã tư phía trước (game/roadRules.js lightAhead): trụ đèn to giữa màn hình + số giây còn lại.
   // Đỏ / vàng mà còn chạy nhanh sát vạch → nháy "DỪNG LẠI".
+  // Bong bóng bám theo trụ đèn ngoài đường (L.sx, L.sy: chỗ trụ đèn trên màn hình 0..1); trụ đèn ra ngoài khung → dính mép màn hình, có mũi tên
   light(L) {
     const box = $(this.el, '#lightAhead');
     box.classList.toggle('hidden', !L);
-    if (!L) return;
+    if (!L) return void (box.dataset.was = '0'); // ẩn rồi hiện lại (ngã tư khác) → đặt lại chỗ mới ngay
+    const W = window.innerWidth, Hh = window.innerHeight, m = 16;
+    const out = L.behind || L.sx < 0.02 || L.sx > 0.98 || L.sy < 0.08 || L.sy > 0.92;
+    let x = L.sx * W, y = L.sy * Hh;
+    if (L.behind) { x = W - x; y = Hh * 0.3; }
+    const bw = box.offsetWidth || 220, bh = box.offsetHeight || 60;
+    x = Math.max(m + bw / 2, Math.min(W - m - bw / 2, x));
+    y = Math.max(m + bh + 70, Math.min(Hh * 0.7, y)); // không đè bảng giờ / mục tiêu phía trên
+    // cho đứng yên: vừa hiện thì đặt ngay chỗ trụ đèn; sau đó chỉ trượt chậm theo (~0,6 giây), lệch < 12 điểm ảnh (xe xóc, camera lắc) thì bỏ qua
+    const now = performance.now(), dt = Math.min(0.1, (now - (this.laT || now)) / 1000);
+    this.laT = now;
+    if (!this.laPos || box.dataset.was !== '1') this.laPos = { x, y };
+    else if (Math.hypot(x - this.laPos.x, y - this.laPos.y) > 12) {
+      const k = 1 - Math.exp(-dt / 0.6);
+      this.laPos.x += (x - this.laPos.x) * k;
+      this.laPos.y += (y - this.laPos.y) * k;
+    }
+    box.dataset.was = '1';
+    box.style.left = `${Math.round(this.laPos.x)}px`;
+    box.style.top = `${Math.round(this.laPos.y)}px`;
+    box.classList.toggle('edge', out);
+    box.dataset.side = L.sx > 0.5 ? 'r' : 'l';
     const lamp = (c) => `<i class="la-${c}${L.c === c ? ' on' : ''}"></i>`;
-    this.set('lightAhead', `<div class="la-head">${lamp('r')}${lamp('y')}${lamp('g')}</div><div class="la-txt"><b>${Math.ceil(L.left)}</b><span>${fmt(`hud.light.${L.c}`)}</span>${L.cam ? `<small>${fmt('hud.light.cam')}</small>` : ''}</div>`);
+    this.set('lightAhead', `<i class="la-tail"></i><div class="la-head">${lamp('r')}${lamp('y')}${lamp('g')}</div><div class="la-txt"><b>${Math.ceil(L.left)}</b><span>${fmt(`hud.light.${L.c}`)}</span>${out ? `<em class="la-arr">${L.sx > 0.5 ? '➜' : '⬅'}</em>` : ''}${L.cam ? `<small>${fmt('hud.light.cam')}</small>` : ''}</div>`);
     box.classList.toggle('warn', !!L.warn);
   }
 

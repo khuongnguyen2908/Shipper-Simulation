@@ -493,6 +493,11 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
     - Tạo nhân vật cho Online (01/11): lần đầu vào máy chủ (máy chưa có tài khoản) → màn tạo nhân vật của Chơi mới (nút cuối = Vào thành phố) → hello gửi profile,
       máy chủ giữ acc.profile (cleanProfile) → newCarry dùng ngoại hình đó (cả khi thua chơi lại). Lần sau vào thẳng.
     - Ảnh giới thiệu LinkedIn (6 ảnh 1600×900, chụp từ game): sketches/linkedin/ (không commit). Ảnh Online là cảnh dựng sẵn, nhãn IN DEVELOPMENT.
+- **Sửa theo góp ý (04/11, chưa commit)** — (1) đèn giao thông: bảng đáy màn hình → bong bóng bám trụ đèn ngã tư phía trước (roadRules lightAhead trả pole, visuals chiếu ra màn hình, hud.light đặt chỗ + đuôi la-tail, ra ngoài khung thì dính mép + mũi tên) · (2) phím mũi tên vốn lái được; thêm nhãn "A ← / D →" ở nút lách màn đua + chữ hướng dẫn ghi ↑←↓→ · (3) mục tiêu đơn/ngày 10 → 5, sửa ở ⚖️ Cân bằng → objectives.ordersGoal · (4) camera (chủ game chọn cách 1 kéo camera sát): né thêm xe buýt (rig.blockers hộp theo hướng xe), dò 3 tia (góc nhà), giữ chỗ kéo vào 0,7 giây rồi mới lùi ra.
+  - Biểu tượng nổi trên cửa chỗ quan trọng (phác thảo sketches/fix4/shop-sketch.png, chủ game duyệt + dặn ĐỪNG ĐỂ RỐI MÀN HÌNH): ui/placePins.js (shouldPin: loại
+    gas/garage/charger/swap/office/shop/taphoa/market/police/home + chỗ bán túi / xe / mũ cho khách; places.json pin true/false ở ?editor) · game/pins.js luật chống rối:
+    tối đa 3 biểu tượng trong 60 m · chưa ghé = nhún + nhãn MỚI, đã ghé (tới sát cửa 5 m, gs.flags.seen lưu cùng bản lưu) = nhỏ, chỉ hiện < 25 m ·
+    chỉ 1 bong bóng (gần nhất < 15 m, đi bộ / xe < 3 m/s, không khi đang có bong bóng đèn đỏ) · ẩn lúc hộp thoại / cảnh phim / đánh nhau / đua / trên tàu / chờ / chỗ đang lấy-giao đơn.
 - **Màn hình chính tách khỏi ván chơi (01/11)** — chủ game: "menu chỉ là video nền, không dính gì bên trong game". game.js titleHide(on): về màn hình chính thì
   ẩn khung chat + bong bóng + FPS, giấu người chơi / xe / vòng chỉ đường / dấu trên đầu NPC, gỡ khách + người lạ cốt truyện; vào game lại thì hiện lại, log chat lần trước xóa sạch.
 - **Bản quyền (01/11, XONG, commit 2b72de8)** — chủ game chọn: tên "Khương (Flynt) Nguyễn", GIỮ MỌI QUYỀN. LICENSE song ngữ (chỉ chơi qua link chính thức),

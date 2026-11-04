@@ -18,7 +18,7 @@ import { makePerson } from '../world/models.js';
 import * as act from '../interactions.js';
 import { sound, hasMusic } from '../audio.js';
 import { fmt } from '../content/index.js';
-import { dist2 } from './shared.js';
+import { dist2, SW_H } from './shared.js';
 import { MUSIC_FALLBACK } from '../data/soundSpec.js';
 
 export class RoadRulesPart {
@@ -416,7 +416,10 @@ export class RoadRulesPart {
     const dist = (roadPos(k) - along) * s - H;
     const key = ax ? `${k},${line}` : `${line},${k}`;
     if (dist > 45 || !this.lmap.has(key)) return null;
-    return { ...lightPhase(key, ax ? [s, 0] : [0, s], this.lightT), dist, cam: !!this.lmap.get(key).cam };
+    // trụ đèn của hướng mình đang chạy (world/trafficLights.js: góc vỉa hè bên phải, phía trước vạch) → bong bóng HUD bám theo
+    const din = ax ? [s, 0] : [0, s], n = this.lmap.get(key), C = H + 0.7;
+    const pole = { x: roadPos(n.i) - din[0] * C - din[1] * C, y: SW_H + 3.35, z: roadPos(n.j) - din[1] * C + din[0] * C };
+    return { ...lightPhase(key, din, this.lightT), dist, cam: !!n.cam, pole };
   }
   // Vượt đèn đỏ: tài xế quanh đó bóp còi; lần đầu mỗi ngày chỉ nhắc (lights.warnFirst); đã bị phạt đủ maxPerDay thì thôi;
   // còn lại tung xúc xắc theo % (chốt CSGT > camera > thường) → bị ghi hình thì sau delayMin–delayMax phút app CSGT báo phạt nguội.

@@ -312,6 +312,13 @@ export const BALANCE_GROUPS = [
     ],
   },
   {
+    id: 'objectives', title: '🎯 Mục tiêu trong ngày',
+    note: 'Bảng mục tiêu góc phải màn hình (cả Offline lẫn Online).',
+    fields: [
+      ['objectives.ordersGoal', 'Số đơn cần giao trong ngày', { min: 1, max: 50, step: 1, hint: 'Mục "Giao N đơn trong hôm nay". Mặc định 5.' }],
+    ],
+  },
+  {
     id: 'online', title: '🌐 Chơi online (thành phố chung)',
     note: 'Chỉ dùng ở chế độ Online (máy chủ chạy bằng npm run server). Chơi Offline không đổi. Online không tua giờ: 1 phút trong game = 1 giây thật cho mọi người.',
     fields: [

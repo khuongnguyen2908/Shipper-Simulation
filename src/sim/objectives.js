@@ -1,9 +1,11 @@
 // Danh sách mục tiêu trong ngày (tính lại từ GameState mỗi khung hình).
 // optional = nhiệm vụ phụ; target = id địa điểm để chỉ đường. Chữ lấy từ kho chữ obj.*
+import { OBJECTIVES } from '../data/balance.js';
 import { fmt } from '../content/index.js';
 import { stepOf, ordersProgress } from './story.js';
 
-export const ORDERS_GOAL = 10; // số đơn cần giao trong ngày
+// số đơn cần giao trong ngày (thẻ ⚖️ Cân bằng → objectives.ordersGoal)
+export const ORDERS_GOAL = Math.max(1, Math.round(OBJECTIVES.ordersGoal ?? 5));
 
 export function objectives(gs) {
   // "Luôn có": trả tiền nhà cho Cô Hai (hiện từ lúc đã gặp Cô Hai)

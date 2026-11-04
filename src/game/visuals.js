@@ -37,6 +37,11 @@ export class VisualsPart {
   hudLight() {
     const L = this.lightAhead();
     if (!L) return null;
+    // chỗ trụ đèn trên màn hình (bong bóng mọc từ trụ đèn) · sau lưng camera thì coi như ra ngoài khung
+    const sp = new THREE.Vector3(L.pole.x, L.pole.y, L.pole.z).project(this.camera);
+    L.sx = (sp.x + 1) / 2;
+    L.sy = (1 - sp.y) / 2;
+    L.behind = sp.z > 1;
     const v = Math.max(0, this.bike.speed);
     L.warn = v > 2.8 && L.dist < 22 && (L.c === 'r' || (L.c === 'y' && L.left < L.dist / v));
     return L;
@@ -94,6 +99,8 @@ export class VisualsPart {
       if (-Math.cos(h - this.rig.yaw) > -0.2) this.rig.yaw = lerpAngle(this.rig.yaw, h + Math.PI, 1 - Math.exp(-0.9 * dt)); // quay chậm: giữ ← đi 1 vòng mất ~4,5 giây
     }
     // đang nói chuyện: chỉ né nhà (né cây / cột lúc này kéo camera sát quá, mất khung cả nhóm) · nhóm 3 người → lùi xa hơn
+    // xe buýt quanh người chơi chắn camera → camera kéo sát lại (như gặp tường nhà)
+    this.rig.blockers = (this.traffic.vehicles || []).filter((b) => b.bus && b.kind === 'bus' && Math.hypot(b.x - focus.x, b.z - focus.z) < 30).map((b) => ({ x: b.x, z: b.z, hx: b.hx, hz: b.hz, w: b.w, l: b.l, h: (b.y || 0) + 3.4 }));
     this.rig.update(dt, talk ? this.talkFocus : focus, mounted && Math.abs(this.bike.speed) > 1 ? this.bike.heading : null, this.city.grid, inG ? GARAGE_CAM : this.zone?.camLimit?.(focus) || (talk ? (this.talkGroup > 1 ? TALK_CAM_GROUP : TALK_CAM) : wt ? WATCH_CAM : null), !talk && this.stillT > 0.6);
     if (this.shake > 0) {
       this.camera.position.x += (Math.random() - 0.5) * this.shake;
@@ -340,6 +347,8 @@ export class VisualsPart {
   }
 
   updateVisuals(dt) {
+    this.lightShown = !!this.lightNow; // bong bóng đèn đỏ đang hiện → không mở thêm bong bóng cửa hàng (đỡ rối)
+    this.pinsTick(); // biểu tượng nổi trên cửa chỗ quan trọng (game/pins.js)
     const { gs, om, hz } = this;
     const now = this.clockMin;
     this.syncGarage();
@@ -530,7 +539,7 @@ export class VisualsPart {
       speedo: mounted
         ? fmt('hud.speed', { kmh: Math.round(Math.abs(this.bike.speed) * 3.6) }) + (Math.abs(this.bike.speed) > this.speedLimit() ? fmt('hud.overSpeed', { limit: this.speedLimitKmh() }) : '') + (this.inJam ? fmt('hud.inJam') : '') + (this.floodBandNow ? fmt('hud.flood', { kmh: Math.round(floodSpeedCap(this.floodHere()) * 3.6) }) : '') + (this.stalled ? fmt('hud.stalled') : '') + (gs.power !== 'pedal' && gs.fuel <= 0 ? fmt(gs.power === 'electric' ? 'hud.noBattery' : 'hud.noFuel') : '')
         : fmt('hud.walking'),
-      light: this.zone || this.race ? null : this.hudLight(),
+      light: (this.lightNow = this.zone || this.race ? null : this.hudLight()),
       cargo,
       timeLeft: o?.forced ? fmt('hud.noLimit') : left >= 0 ? fmt('hud.minutes', { min: left }) : fmt('hud.late', { min: -left }), // đơn cốt truyện: không hạn
       vignette: Math.max(0, (25 - Math.min(gs.phys, gs.mental)) / 25) * 0.8,

@@ -384,6 +384,7 @@ export function validatePlaces(pd, items, goodsTable = null, gearTable = null, m
     if (p.signBg && !COLOR_RE.test(p.signBg)) add('error', p.id, 'signBg', 'Màu biển phải dạng #rrggbb.');
     if (p.signV != null && typeof p.signV !== 'boolean') add('error', p.id, 'signV', 'Biển dọc phải là có / không.');
     if (p.xeOm != null && typeof p.xeOm !== 'boolean') add('error', p.id, 'xeOm', 'Chú xe ôm phải là có / không.');
+    if (p.pin != null && typeof p.pin !== 'boolean') add('error', p.id, 'pin', 'Biểu tượng nổi phải là luôn hiện / không hiện (hoặc để trống = tự động).');
     if (p.signVText != null && (typeof p.signVText !== 'string' || [...p.signVText.replace(/\s+/g, '')].length > 8)) add('warn', p.id, 'signVText', 'Chữ biển dọc nên ngắn (tối đa 8 chữ cái) — viết dọc từng chữ.');
     if (p.floors != null && (!Number.isInteger(p.floors) || p.floors < 1 || p.floors > 15)) add('error', p.id, 'floors', 'Số tầng 1–15.');
     // kiểu nhà (hình dáng) + số tầng cho phép theo kiểu

@@ -394,6 +394,17 @@ export class CameraRig {
     this.target = new THREE.Vector3();
     this.manualTimer = 0;
     this.init = false;
+    this.blockers = []; // vật chắn đang chạy (xe buýt…): { x, z, hx, hz (hướng), w, l (nửa rộng / nửa dài), h (cao) } — game đặt mỗi khung hình
+    this.holdT = 0; // vừa bị chắn: giữ camera ở gần thêm chút rồi mới lùi ra (xe buýt chạy ngang không làm camera giật vào giật ra)
+  }
+  // điểm p nằm trong thân xe buýt…? (hộp theo hướng xe, nới 0,3 m)
+  inBlocker(p) {
+    for (const b of this.blockers) {
+      if (p.y > b.h + 0.3) continue;
+      const dx = p.x - b.x, dz = p.z - b.z;
+      if (Math.abs(dx * b.hx + dz * b.hz) < b.l + 0.3 && Math.abs(dx * b.hz - dz * b.hx) < b.w + 0.3) return true;
+    }
+    return false;
   }
   // manual = false: chuột chỉ rung nhẹ → vẫn xoay theo nhưng không tính là "đang tự cầm camera"
   drag(dx, dy, manual = true) {
@@ -429,17 +440,25 @@ export class CameraRig {
     const dir = new THREE.Vector3(Math.sin(this.yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(this.yaw) * Math.cos(pitch));
     // không cho camera chui vào trong nhà — chỉ né nhà / công trình, bỏ qua cây, cột đèn, cột điện, xe đậu…
     // (né cả vật nhỏ thì chạy ngang qua là camera bị kéo vào rồi bật ra liên tục)
+    // dò 3 tia: giữa + 2 bên lệch 0,35 m (góc nhà / thân xe buýt lọt vào mép khung hình cũng tính là chắn)
     let d = dist;
-    for (let s = 1; s <= dist; s += 0.25) {
-      const p = this.target.clone().addScaledVector(dir, s);
-      if (grid.inside(p.x, p.y, p.z, still ? CAM_BLOCK_STILL : CAM_BLOCK)) {
-        d = Math.max(limit?.min ?? 2, s - 0.8); // chỗ hẹp (trong tàu…) cho camera sát người hơn
-        break;
+    const side = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw)).multiplyScalar(0.35);
+    const kinds = still ? CAM_BLOCK_STILL : CAM_BLOCK, p = new THREE.Vector3();
+    const hit = () => grid.inside(p.x, p.y, p.z, kinds) || (this.blockers.length && this.inBlocker(p));
+    outer: for (let s = 1; s <= dist; s += 0.25) {
+      for (const o of [0, 1, -1]) {
+        p.copy(this.target).addScaledVector(dir, s).addScaledVector(side, o * Math.min(1, s / 3)); // sát người thì tia bên hẹp lại (không vướng tường mình đang đứng cạnh)
+        if (hit()) {
+          d = Math.max(limit?.min ?? 2, s - 0.8); // chỗ hẹp (trong tàu…) cho camera sát người hơn
+          break outer;
+        }
       }
     }
-    // bị che thì kéo vào nhanh (không thấy xuyên tường), hết che thì lùi ra từ từ (không giật)
+    // bị che thì kéo vào nhanh (không thấy xuyên tường); hết che thì đợi ~0,7 giây rồi lùi ra từ từ (không giật)
+    if (d < dist - 0.01) this.holdT = 0.7;
+    else this.holdT -= dt;
     if (this.camD == null || d < this.camD) this.camD = this.camD == null ? d : this.camD + (d - this.camD) * (1 - Math.exp(-25 * dt));
-    else this.camD += (d - this.camD) * (1 - Math.exp(-3 * dt));
+    else if (this.holdT <= 0) this.camD += (d - this.camD) * (1 - Math.exp(-3 * dt));
     if (this.camD > d + 0.6) this.camD = d + 0.6; // không để tụt lại quá xa sau tường
     this.camera.position.copy(this.target).addScaledVector(dir, this.camD);
     this.camera.lookAt(this.target);

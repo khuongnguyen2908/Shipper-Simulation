@@ -115,7 +115,7 @@ body.phone-open .hud-obj { box-sizing: border-box; max-height: max(72px, calc(10
 .cg-s { color: var(--muted); font-size: 11.5px; }
 .hud-bl { position: absolute; left: 14px; bottom: 40px; }
 /* đèn giao thông ở ngã tư phía trước (hud.js light): giữa dưới màn hình, ngay dưới xe — đèn sáng to + số giây còn lại */
-#lightAhead { position: absolute; left: 50%; bottom: 46px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 6px 14px 6px 8px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); pointer-events: none; }
+#lightAhead { position: fixed; left: 50%; top: 30%; transform: translate(-50%, calc(-100% - 20px)); display: flex; align-items: center; gap: 10px; padding: 6px 14px 6px 8px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); pointer-events: none; }
 #lightAhead .la-head { display: flex; gap: 5px; padding: 5px 7px; border-radius: 10px; background: #111; }
 #lightAhead .la-head i { width: 22px; height: 22px; border-radius: 50%; opacity: 0.18; }
 #lightAhead .la-r { background: #ff3b30; } #lightAhead .la-y { background: #ffc107; } #lightAhead .la-g { background: #2ecc71; }
@@ -124,8 +124,7 @@ body.phone-open .hud-obj { box-sizing: border-box; max-height: max(72px, calc(10
 #lightAhead .la-txt { display: flex; align-items: baseline; gap: 7px; font-weight: 700; white-space: nowrap; }
 #lightAhead .la-txt b { font-size: 24px; min-width: 1.3em; text-align: right; }
 #lightAhead .la-txt small { font-weight: 500; color: var(--muted); }
-#lightAhead.warn { border-color: #ff3b30; background: #7f1212e6; animation: laWarn 0.5s ease-in-out infinite alternate; }
-@keyframes laWarn { to { transform: translateX(-50%) scale(1.08); } }
+#lightAhead.warn { border-color: #ff3b30; background: #7f1212e6; }
 #prompt .pr { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin-top: 6px; font-size: 15px; font-weight: 600; }
 #prompt .pr.dis { opacity: 0.65; font-weight: 400; }
 #speedo { margin-top: 8px; font-size: 14px; background: var(--bg); display: inline-block; padding: 6px 12px; border-radius: 10px; }
@@ -1007,3 +1006,29 @@ body:has(.in-race) #chat { display: none; }
 .rk-who b { display: block; font-size: 13px; }
 .rk-who small { display: block; color: #8d97a6; font-size: 11px; }
 .rk-k { font-weight: 800; color: #7dffb2; }
+
+/* Đèn giao thông: bong bóng lời thoại mọc từ trụ đèn phía trước (ui/hud.js light) — đuôi chỉ xuống trụ đèn; ra ngoài khung thì dính mép, có mũi tên */
+#lightAhead { z-index: 6; pointer-events: none; transition: none; }
+#lightAhead .la-tail { position: absolute; left: 50%; bottom: -16px; margin-left: -14px; width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-top: 16px solid rgba(18, 22, 30, 0.92); }
+#lightAhead.warn .la-tail { border-top-color: #7f1212e6; }
+#lightAhead.edge .la-tail { display: none; }
+#lightAhead .la-arr { font-style: normal; font-size: 22px; color: #ff6b5e; margin-left: 2px; }
+
+/* Biểu tượng nổi trên cửa chỗ quan trọng + bong bóng "làm được gì" (ui/placePins.js) */
+#placePins { position: fixed; inset: 0; pointer-events: none; z-index: 4; }
+body.cine #placePins, .in-race #placePins, .in-fight #placePins { display: none; }
+.pp { position: absolute; transform: translate(-50%, -100%); text-align: center; }
+.pp-ic { position: relative; width: 40px; height: 40px; margin: 0 auto; border-radius: 50%; display: grid; place-items: center; font-size: 22px; background: #fff; border: 3px solid var(--c); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45); }
+.pp-ic::after { content: ''; position: absolute; left: 50%; bottom: -9px; margin-left: -7px; border: 7px solid transparent; border-bottom: 0; border-top-color: var(--c); }
+.pp.new .pp-ic { animation: ppBob 1.1s ease-in-out infinite; }
+@keyframes ppBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+.pp.small .pp-ic { width: 28px; height: 28px; font-size: 15px; border-width: 2px; opacity: 0.85; }
+.pp-nm { margin-top: 11px; display: inline-block; background: rgba(10, 14, 22, 0.78); color: #fff; font: 700 12px var(--font); padding: 1px 7px; border-radius: 7px; white-space: nowrap; }
+.pp-new { position: absolute; right: -14px; top: -8px; background: #ff3b30; color: #fff; font: 900 10px var(--font); padding: 0 5px; border-radius: 6px; border: 2px solid #fff; }
+.pp-pop { position: relative; width: max-content; max-width: 290px; text-align: left; background: rgba(15, 20, 28, 0.94); border: 2px solid var(--c); border-radius: 14px; padding: 9px 12px; color: #fff; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.55); animation: ppIn 0.18s ease-out; }
+.pp-pop::after { content: ''; position: absolute; left: 50%; bottom: -13px; margin-left: -11px; border: 11px solid transparent; border-bottom: 0; border-top-color: var(--c); }
+@keyframes ppIn { from { opacity: 0; transform: translateY(6px) scale(0.96); } to { opacity: 1; transform: none; } }
+.pp-t { display: flex; align-items: center; gap: 6px; font: 800 15px var(--font); }
+.pp-t .pp-new { position: static; }
+.pp-pop ul { margin: 5px 0 0; padding: 0; list-style: none; font-size: 13px; line-height: 1.5; color: #dfe5ee; }
+.pp-how { display: block; margin-top: 5px; font-size: 12px; color: #9aa4b2; }

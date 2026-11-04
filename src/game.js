@@ -63,6 +63,7 @@ import { ZonePart } from './game/zone.js';
 import { FightPart } from './game/fight.js';
 import { RacePart } from './game/race.js';
 import { OnlinePart } from './game/online.js';
+import { PinsPart } from './game/pins.js';
 import { SQUEEZE } from './sim/race.js';
 
 export class Game {
@@ -338,6 +339,7 @@ export class Game {
     this.chatBox.close();
     this.chatBox.el.classList.toggle('hidden', on);
     this.bubbles.el.classList.toggle('hidden', on);
+    this.pins?.clear(); // biểu tượng nổi trên cửa hàng
     this.fpsEl.classList.toggle('hidden', on);
     if (on) {
       for (const id of [...this.bubbles.map.keys()]) this.bubbles.remove(id);
@@ -1255,4 +1257,4 @@ export class Game {
 
 }
 
-mixParts(Game, [EventsPart, RoadRulesPart, NavigationPart, StoryPart, VisualsPart, PhoneDataPart, ScenePart, ZonePart, FightPart, RacePart, OnlinePart]);
+mixParts(Game, [EventsPart, RoadRulesPart, NavigationPart, StoryPart, VisualsPart, PhoneDataPart, ScenePart, ZonePart, FightPart, RacePart, OnlinePart, PinsPart]);

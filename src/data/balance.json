@@ -334,5 +334,8 @@
     "orderShare": 0.35,
     "orderShareM": 150,
     "orderTtlMin": 20
+  },
+  "objectives": {
+    "ordersGoal": 5
   }
 }

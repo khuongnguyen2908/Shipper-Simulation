@@ -474,7 +474,7 @@ test('Mục tiêu: mở đầu từng bước; ngày 1 đổ xăng → đơn đ�
   assert.ok(objectives(w1)[0].done && !objectives(w1)[1].done);
   w1.stats.completed = ORDERS_GOAL;
   assert.ok(objectives(w1)[1].done, `đủ ${ORDERS_GOAL} đơn`);
-  assert.equal(ORDERS_GOAL, 10);
+  assert.equal(ORDERS_GOAL, 5, 'mục tiêu mặc định 5 đơn (thẻ Cân bằng → objectives.ordersGoal)');
   // không còn túi giữ nhiệt / mũ khách / ví anh Minh trong danh sách
   assert.ok(!objectives(w1).some((o) => ['thermal', 'helmet', 'wallet', 'online'].includes(o.id)));
   assert.deepEqual(objectives(workerState({ day: 2 })).map((o) => o.id), ['orders', 'rent'], 'ngày 2: tạm chỉ giao 10 đơn + tiền nhà');
@@ -6667,6 +6667,26 @@ console.log('Mã cheat kiểu GTA (interactions/cheatCodes.js)');
     assert.equal(on.gs.money, 100, 'Online: không cộng tiền');
     assert.ok(!applyCheatCode(mkG({ state: 'title' }), 'GIAUTO').ok);
     assert.ok(CHEAT_CODES.length >= 8 && CHEAT_CODES.every((c) => /^[A-Z]+$/.test(c)));
+  });
+}
+
+// ======================== BIỂU TƯỢNG NỔI TRÊN CỬA CHỖ QUAN TRỌNG ========================
+{
+  const PP = await import('../src/ui/placePins.js');
+  const PL = buildLayout().places;
+  test('Biểu tượng nổi: tự hiện ở chỗ quan trọng (cây xăng, đồ nghề…), không hiện ở quán ăn / chỗ ngồi nghỉ · ô trong ?editor bật / tắt được · bong bóng ghi món mở thêm loại đơn lên đầu', () => {
+    const gas = PL.find((x) => x.kind === 'gas'), eat = PL.find((x) => x.kind === 'restaurant' && !x.sells), gear = PL.find((x) => x.id === 'gear');
+    assert.ok(PP.shouldPin(gas));
+    assert.ok(!PP.shouldPin(eat), 'quán ăn chỉ để lấy đơn: không hiện');
+    assert.ok(!PP.shouldPin({ ...gas, pin: false }), 'chủ game tắt trong ?editor');
+    assert.ok(PP.shouldPin({ ...eat, pin: true }), 'chủ game bật trong ?editor');
+    const n = PL.filter(PP.shouldPin).length;
+    assert.ok(n > 5 && n < 40, `số chỗ có biểu tượng vừa phải (${n})`);
+    if (gear) {
+      const inf = PP.placeInfo(gear);
+      assert.ok(inf.lines.length <= 4, 'bong bóng tối đa 4 dòng');
+      assert.ok(/chở khách|đồ lạnh/.test(inf.lines[0]), 'món mở thêm loại đơn lên đầu');
+    }
   });
 }
 

@@ -985,7 +985,7 @@ export class GameState {
       consumables: this.consumables,
       outfit: this.outfit,
       account: this.account,
-      flags: { wallet: this.flags.wallet, walletDay: this.flags.walletDay, walletRetryAt: this.flags.walletRetryAt, story: this.flags.story, tutSkip: this.flags.tutSkip, groupDay: this.flags.groupDay },
+      flags: { wallet: this.flags.wallet, walletDay: this.flags.walletDay, walletRetryAt: this.flags.walletRetryAt, story: this.flags.story, tutSkip: this.flags.tutSkip, groupDay: this.flags.groupDay, seen: this.flags.seen },
       towed: this.towed,
       impound: this.impound.map((x) => ({ ...x })),
       fines: this.fines.map((f) => ({ ...f })),

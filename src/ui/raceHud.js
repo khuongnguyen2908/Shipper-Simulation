@@ -44,7 +44,7 @@ export class RaceHud {
     const $ = this.$;
     $.qte.classList.toggle('on', !!q);
     if (!q) return;
-    $.key.textContent = q.key === 'Space' ? fmt('hud.race.key.Space') : q.key.slice(3);
+    $.key.textContent = q.key === 'Space' ? fmt('hud.race.key.Space') : q.key === 'KeyA' ? 'A ←' : q.key === 'KeyD' ? 'D →' : q.key.slice(3); // lách bằng A / D hoặc mũi tên
     $.key.classList.toggle('long', q.key === 'Space');
     $.txt.textContent = fmt(q.txt || `hud.race.qte.${q.key}`);
     $.ring.style.strokeDashoffset = String(276.5 * (1 - Math.max(0, Math.min(1, q.k))));
