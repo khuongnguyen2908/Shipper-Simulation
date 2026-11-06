@@ -787,6 +787,19 @@ export class StoryPart {
     this.rig.manualTimer = 0;
     Object.assign(c, { s: st.s, v: 0, done: false, warnAt: performance.now(), heading: null });
     this.chasePlace(ac, 0);
+    this.storyChaseFixBike(); // chơi lại: xe cũng về như lúc bắt đầu dí (đã sửa)
+  }
+  // Màn dí (tên cướp…): tên cướp chạy bằng pct% tốc độ tối đa của LOẠI xe người chơi, mà xe hư thì chạy chậm hơn (60–100%) → không bao giờ đuổi kịp.
+  // Nên lúc bắt đầu dí / chơi lại: tự sửa xe 100%, hết chết máy, xăng/pin ít nhất nửa bình. Chơi nhiều người: chỉ đụng xe của chính người chơi này (cốt truyện chơi riêng).
+  storyChaseFixBike() {
+    const gs = this.gs, tank = gs.vehicleSpec?.tank || 0;
+    const need = gs.bikeHp < 99 || this.stalled || (tank && gs.fuel < tank * 0.5);
+    gs.bikeHp = 100;
+    this.stalled = false;
+    if (tank) gs.fuel = Math.max(gs.fuel, tank * 0.5);
+    if (!need) return;
+    if (this.cine) this.chaseFixNote = true; // đang chiếu cảnh phim (bảng thông báo bị ẩn) → báo lúc hết cảnh phim (cineTick)
+    else this.hud.toast(fmt('story.chase.fixed'), 'info', 3500);
   }
   // Điểm trên lộ trình ở quãng s: { x, z, h (hướng đi) }
   chaseAt(c, s) {
@@ -917,6 +930,7 @@ export class StoryPart {
         this.storyCineStop();
         storyEvent(this.gs.story, 'cineDone');
         if (c.def?.endRide) this.storyRideAfterCine(c.def.endRide);
+        if (this.chaseFixNote) { this.chaseFixNote = false; this.hud.toast(fmt('story.chase.fixed'), 'info', 3500); } // xe vừa được sửa giữa cảnh phim (màn dí)
         if (c.run) this.cineRunEnd(c.def); // chạy tới chỗ xe → leo lên
         if (c.ride) { this.bike.speed = 0; this.bike.vel?.set(0, 0); this.rig.yaw = this.bike.heading + Math.PI; } // xe tự chạy theo: dừng lại, camera ra sau xe
         this.rig.manualTimer = 0;
@@ -988,6 +1002,7 @@ export class StoryPart {
       while (c.mi < path.length && len[c.mi] <= c.s) c.mi++; // mốc đã qua: không chạy lại
     } else if (revAt === 'start') sound('city.rev'); // nẹt pô lúc xuất phát (mặc định mới: lúc chạy ngang người chơi)
     this.storyActors[a.who] = { mesh: bike, vehicle: bike, rider, look, def: a, mode: 'chase', phase: 0, t: 0, callT: 0, chase: c };
+    if (!a.follow && !(resume && c.done)) this.storyChaseFixBike(); // người chơi phải dí theo → sửa xe cho kịp
     if (resume && c.done && path.some((p) => p.act === 'crash')) {
       // đã té xe + bị chặn ở cuối cảnh: xe nằm đổ, người đứng ở cuối lộ trình
       const ac = this.storyActors[a.who], end = this.chaseAt(c, c.total);

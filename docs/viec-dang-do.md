@@ -27,6 +27,13 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   - Chủ game tự tạo dự án Firebase (Claude hướng dẫn từng bước), dán cấu hình vào code.
 
 ## 💬 Đang bàn
+### 🔧 Màn dí cướp: tự sửa xe (06/11 — XONG, chưa commit)
+- Lỗi: tên cướp chạy = 85% tốc độ tối đa của LOẠI xe, xe hư chỉ chạy 60–100% → hư dưới ~60% là không bao giờ đuổi kịp.
+- Sửa: bắt đầu dí (việc "chase" người chơi phải đuổi, không tính "follow") và mỗi lần mất dấu chơi lại → xe 100%, hết chết máy,
+  xăng/pin ≥ nửa bình (`storyChaseFixBike` trong game/story.js; báo bằng thông báo `story.chase.fixed`, đang chiếu cảnh phim thì báo lúc hết cảnh phim).
+- Thêm: màn đua chương 6 (xe anh Đạt mượn) không còn bị chậm theo độ hư xe của người chơi (game.js bike.update hp, race.js canh tàu hỏa).
+- Chơi nhiều người: chỉ đụng xe của chính người chơi (cốt truyện chơi riêng).
+
 ### 🎮 Giảm độ khó + lái dễ hơn + mã cheat (03/11 — XONG, commit e501ab1)
 - Chủ game: người chơi kêu giao hàng / chở khách quá khó (giảm 70%), lái khó, phanh khó, dùng phím mũi tên không xoay được camera, CSGT phạt nhiều.
 - Đã làm:

@@ -1160,8 +1160,8 @@ export class RacePart {
       this.scene.add(V);
     }
     if (e.head == null && ahead < TRAIN.near) {
-      // canh giờ: nếu giữ hết ga từ bây giờ thì mất bao lâu tới ray (máy xe yếu vì xe hỏng thì tốc độ tối đa thấp hơn — tính luôn)
-      const vmax = b.spec.maxSpeed * (0.6 + 0.4 * ((this.gs.bikeHp ?? 100) / 100));
+      // canh giờ: nếu giữ hết ga từ bây giờ thì mất bao lâu tới ray (xe anh Đạt mượn luôn 100% — không tính độ hư xe của người chơi, xem game.js bike.update hp)
+      const vmax = b.spec.maxSpeed;
       e.start = trainStart(trainEta(ahead, R.crashT > 0 ? 0 : b.speed, vmax, b.spec.accel), w);
       e.head = 0;
       V.userData.train.visible = true;

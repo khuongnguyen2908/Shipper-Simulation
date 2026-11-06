@@ -919,7 +919,7 @@ export class Game {
     else {
       const pedal = gs.power === 'pedal' && !this.race, ev = gs.power === 'electric'; // màn đua: chạy xe anh Đạt (mô tô)
       // cảnh phim có xe người chơi tự chạy theo (cine.ride) → xe đi theo lộ trình người bị đuổi, không theo phím
-      const moved = this.cine?.ride && mounted ? this.cineRide(dt) : bike.update(dt, this.raceIntro ? (this.raceIntro.drive ? { forward: true } : {}) : this.race?.intro?.auto ? { forward: true } : mounted && !this.cine && !this.storyLose && !this.race?.lock ? inp.state : {}, { mounted, fuel: this.stalled ? 0 : pedal ? 1 : gs.fuel, hp: gs.bikeHp, wet: !!rain, speedCap: Number.isFinite(speedCap) ? speedCap : 0, steerMul: this.race?.squeezed ? SQUEEZE.steer : 1, grid: this.city.grid, elev: this.city.elev, potholes: this.potholes, emit });
+      const moved = this.cine?.ride && mounted ? this.cineRide(dt) : bike.update(dt, this.raceIntro ? (this.raceIntro.drive ? { forward: true } : {}) : this.race?.intro?.auto ? { forward: true } : mounted && !this.cine && !this.storyLose && !this.race?.lock ? inp.state : {}, { mounted, fuel: this.stalled ? 0 : pedal ? 1 : gs.fuel, hp: this.race || this.raceIntro ? 100 : gs.bikeHp, wet: !!rain, speedCap: Number.isFinite(speedCap) ? speedCap : 0, steerMul: this.race?.squeezed ? SQUEEZE.steer : 1, grid: this.city.grid, elev: this.city.elev, potholes: this.potholes, emit });
       if (mounted) {
         const km = (moved * DIST.displayPerUnit) / 1000;
         if (pedal || this.race) gs.addKm(km); // màn đua: xe anh Đạt, không trừ xăng xe mình // xe đạp: không xăng, không bảo dưỡng — chỉ cộng đồng hồ km
