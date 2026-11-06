@@ -62,6 +62,11 @@ console.log('Vật lý món hàng');
 const DRIVING_T = (await import('../src/data/balance.js')).DRIVING;
 const DMG_MUL = DRIVING_T.damageMul;
 DRIVING_T.damageMul = 1;
+// các bài công thức tiền đơn tính ở hệ số gốc (×1); hệ số chung order.fareMul thử riêng ở bài "Hệ số tiền đơn"
+const ORDER_T = (await import('../src/data/balance.js')).ORDER;
+const FARE_MUL = ORDER_T.fareMul;
+ORDER_T.fareMul = 1;
+const ESTIMATE = (await import('../src/sim/economy.js')).estimatePay;
 test('Phở nguội dần, túi giữ nhiệt nguội chậm hơn', () => {
   const a = new DeliveryItem(ITEMS.pho), b = new DeliveryItem(ITEMS.pho);
   for (let i = 0; i < 30; i++) { a.tick(env(), 1); b.tick(env({ bag: THERMAL }), 1); }
@@ -187,6 +192,17 @@ test('Công thức: (cước + quãng đường) − 20% − thuế − xăng', 
   assert.equal(p.final, 29.1);
   assert.equal(p.tip, 8);
   assert.equal(p.walletCredit, 39.4);
+});
+test('Hệ số tiền đơn (order.fareMul) nhân tiền theo km; phụ phí, xăng giữ nguyên · số trong balance.json hợp lệ', () => {
+  assert.ok(FARE_MUL >= 0.3 && FARE_MUL <= 3, `fareMul ${FARE_MUL}`);
+  try {
+    ORDER_T.fareMul = 1.5;
+    const p = computePayout({ baseFare: 30, distanceKm: 2.5, litersUsed: 0.1, surcharge: 4, stars: 5, app: TEST_APP });
+    assert.equal(p.distBonus, 15); // 2,5 km × 4k × 1,5
+    assert.equal(p.surcharge, 4);
+    assert.equal(p.fuelCost, 2.3);
+    assert.ok(Math.abs(ESTIMATE(30, 2.5, { app: TEST_APP }) - (30 + 15) * (1 - TEST_APP.platformFee - TEST_APP.taxRate)) < 0.11);
+  } finally { ORDER_T.fareMul = 1; }
 });
 
 console.log('Máy trạng thái đơn hàng');

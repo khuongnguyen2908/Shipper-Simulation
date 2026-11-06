@@ -4,8 +4,8 @@
     "fuelPrice": 23,
     "refuseBelow": 25,
     "scaredFarePct": 0.5,
-    "rentBase": 200,
-    "rentStep": 200,
+    "rentBase": 150,
+    "rentStep": 0,
     "rentEveryDays": 3,
     "rentDueHour": 22,
     "lateFeePct": 0.2,
@@ -50,22 +50,22 @@
       "crashPerMag": 6
     },
     "mental": {
-      "base": 0.015,
-      "jam": 0.3,
-      "rain": 0.08,
-      "wait": 0.05,
-      "police": 4,
-      "fine": 5,
-      "carCrash": 8,
-      "dogHit": 10,
-      "pedHit": 6,
-      "noAnswer": 3,
-      "cancel": 6,
+      "base": 0.01,
+      "jam": 0.12,
+      "rain": 0.05,
+      "wait": 0.03,
+      "police": 2,
+      "fine": 3,
+      "carCrash": 4,
+      "dogHit": 5,
+      "pedHit": 3,
+      "noAnswer": 1,
+      "cancel": 3,
       "stars": [
         0,
-        -12,
-        -8,
-        -3,
+        -6,
+        -4,
+        -1,
         2,
         5
       ]
@@ -75,7 +75,7 @@
       "mentalPerHour": 10,
       "tiredAfterH": 16,
       "veryTiredAfterH": 22,
-      "tiredMul": 2,
+      "tiredMul": 1.5,
       "veryTiredMul": 3,
       "napShortMin": 30,
       "napLongMin": 120,
@@ -83,8 +83,8 @@
       "napAwakeCut": 4
     },
     "seat": {
-      "mentalPerMin": 0.1,
-      "mentalMax": 70
+      "mentalPerMin": 0.2,
+      "mentalMax": 80
     },
     "collapse": {
       "hours": 6,
@@ -130,7 +130,8 @@
     "liftMin": 3,
     "placeDestBase": 12,
     "lightAllow": 1,
-    "deadlineMul": 1.3
+    "deadlineMul": 1.3,
+    "fareMul": 1.3
   },
   "walletQuest": {
     "reward": 150,
@@ -147,7 +148,7 @@
   "night": {
     "start": 21,
     "end": 5,
-    "mentalPerMin": 0.02,
+    "mentalPerMin": 0.01,
     "potholeMul": 1.5
   },
   "parking": {

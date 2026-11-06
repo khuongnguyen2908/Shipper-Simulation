@@ -27,6 +27,13 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   - Chủ game tự tạo dự án Firebase (Claude hướng dẫn từng bước), dán cấu hình vào code.
 
 ## 💬 Đang bàn
+### 💰 Tiền nhà 150k · tinh thần hao ½ · tiền đơn ×1,3 (06/11 — XONG, chưa commit)
+- Tiền nhà: rentBase 150, rentStep 0 → kỳ nào cũng 150k.
+- Tinh thần: mọi khoản trừ ≈ ½ (kẹt xe 0,3 → 0,12/phút, sao 1★ −12 → −6…), thức quá 16 tiếng ×2 → ×1,5, ngồi ghế hồi 0,2/phút tới 80.
+- Tiền đơn: ô mới `order.fareMul` = 1,3 (⚖️ Cân bằng) nhân giá món + tiền theo km (OrderManager.buildOrder + economy.js); phụ phí giữ nguyên.
+  Máy chủ Online dùng chung OrderManager → tiền đơn Online cũng ×1,3.
+- Game dễ hơn nhiều; nếu sau này thấy quá dễ: kéo order.fareMul xuống 1,15 hoặc cho tiền nhà tăng lại nhẹ (rentStep 50).
+
 ### 🔧 Màn dí cướp: tự sửa xe (06/11 — XONG, commit 0999df1)
 - Lỗi: tên cướp chạy = 85% tốc độ tối đa của LOẠI xe, xe hư chỉ chạy 60–100% → hư dưới ~60% là không bao giờ đuổi kịp.
 - Sửa: bắt đầu dí (việc "chase" người chơi phải đuổi, không tính "follow") và mỗi lần mất dấu chơi lại → xe 100%, hết chết máy,

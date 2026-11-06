@@ -512,7 +512,8 @@ export class OrderManager {
     const d2 = routeDist(pickup.door, dropoff.door);
     const distanceKm = Math.round((d2 * DIST.displayPerUnit) / 100) / 10;
     const fareMult = (type.fareMult ?? 1) * (rider ? rider.fareMult ?? 1 : 1);
-    const baseFare = r1((Math.max(...defs.map((d) => d.base)) + (defs.length - 1) * APP.extraItemFare) * fareMult);
+    // × ORDER.fareMul: hệ số tiền đơn chung (⚖️ Cân bằng) — nhân cả giá món lẫn tiền theo km (economy.js), phụ phí giữ nguyên
+    const baseFare = r1((Math.max(...defs.map((d) => d.base)) + (defs.length - 1) * APP.extraItemFare) * fareMult * (ORDER.fareMul ?? 1));
     const viaApp = rider ? rider.viaApp !== false : true;
     // khách quen gọi thẳng: không có phụ phí app · chỗ lấy hoặc chỗ giao đang ngập → thêm phụ phí ngập (apps.json → floodSurcharge)
     const flooded = viaApp && (this.isFlooded(pickup.door, now) || this.isFlooded(dropoff.door, now));

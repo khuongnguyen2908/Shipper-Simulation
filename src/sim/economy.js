@@ -4,10 +4,12 @@
 // Tiền xăng đã trả ở cây xăng nên ví chỉ được cộng: cước − phí − thuế + tiền boa.
 // Phí, thuế, thưởng km, boa… lấy từ app đang chạy (apps.json, sửa bằng ?editor).
 // =============================================================
-import { ECONOMY } from '../data/balance.js';
+import { ECONOMY, ORDER } from '../data/balance.js';
 import { APP } from '../data/apps.js';
 
 const r1 = (v) => Math.round(v * 10) / 10;
+// tiền theo km × hệ số tiền đơn chung (ORDER.fareMul — giá món đã nhân sẵn lúc tạo đơn ở OrderManager)
+const perKm = (app) => app.distBonusPerKm * (ORDER.fareMul ?? 1);
 
 // farePct: phần cước khách chịu trả (1 = đủ; khách hoảng sợ → ECONOMY.scaredFarePct; xuống giữa đường → quãng đã đi)
 // surcharge: phụ phí mưa / giờ cao điểm (k) · viaApp = false: khách quen gọi thẳng, không mất phí app, không thuế
@@ -20,7 +22,7 @@ export function computePayout({ baseFare, distanceKm, litersUsed = 0, stars = 5,
   baseFare = r1(baseFare * farePct);
   surcharge = r1(surcharge * farePct);
   airportFee = r1(airportFee * farePct);
-  const distBonus = r1(distanceKm * app.distBonusPerKm * farePct);
+  const distBonus = r1(distanceKm * perKm(app) * farePct);
   const fare = r1(baseFare + distBonus + surcharge);
   const gross = r1(fare + airportFee);
   const fee = viaApp ? r1(fare * app.platformFee) : 0;
@@ -42,7 +44,7 @@ export function addTip(pay, k) {
 
 // Ước tính thu nhập hiện trên thẻ đơn (chưa trừ xăng, chưa có boa)
 export function estimatePay(baseFare, distanceKm, { surcharge = 0, airportFee = 0, viaApp = true, app = APP } = {}) {
-  const fare = baseFare + distanceKm * app.distBonusPerKm + surcharge;
+  const fare = baseFare + distanceKm * perKm(app) + surcharge;
   return r1((viaApp ? fare * (1 - app.platformFee - app.taxRate) : fare) + airportFee);
 }
 
