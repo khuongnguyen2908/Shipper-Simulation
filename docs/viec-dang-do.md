@@ -27,7 +27,7 @@ Làm xong mục nào thì xóa (hoặc chuyển xuống "Đã xong gần đây")
   - Chủ game tự tạo dự án Firebase (Claude hướng dẫn từng bước), dán cấu hình vào code.
 
 ## 💬 Đang bàn
-### 💰 Tiền nhà 150k · tinh thần hao ½ · tiền đơn ×1,3 (06/11 — XONG, chưa commit)
+### 💰 Tiền nhà 150k · tinh thần hao ½ · tiền đơn ×1,3 (06/11 — XONG, commit bed105f)
 - Tiền nhà: rentBase 150, rentStep 0 → kỳ nào cũng 150k.
 - Tinh thần: mọi khoản trừ ≈ ½ (kẹt xe 0,3 → 0,12/phút, sao 1★ −12 → −6…), thức quá 16 tiếng ×2 → ×1,5, ngồi ghế hồi 0,2/phút tới 80.
 - Tiền đơn: ô mới `order.fareMul` = 1,3 (⚖️ Cân bằng) nhân giá món + tiền theo km (OrderManager.buildOrder + economy.js); phụ phí giữ nguyên.
